@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">isputnik app icon</title>
+  <desc id="desc">A rounded square icon with a home-shaped core and an orbital ring.</desc>
+  <defs>
+    <linearGradient id="bg" x1="76" y1="62" x2="438" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#16324f"/>
+      <stop offset="0.52" stop-color="#24536a"/>
+      <stop offset="1" stop-color="#102238"/>
+    </linearGradient>
+    <linearGradient id="home" x1="182" y1="174" x2="330" y2="352" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8e8b0"/>
+      <stop offset="1" stop-color="#f59f5a"/>
+    </linearGradient>
+    <linearGradient id="orbit" x1="98" y1="186" x2="430" y2="326" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#86e4d8"/>
+      <stop offset="0.56" stop-color="#f8e8b0"/>
+      <stop offset="1" stop-color="#f59f5a"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#06111f" flood-opacity="0.38"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+
+  <g opacity="0.28" fill="none" stroke="#ffffff" stroke-width="1.5">
+    <path d="M83 146c74-44 157-61 248-51"/>
+    <path d="M121 407c88 28 181 22 276-17"/>
+  </g>
+
+  <ellipse
+    cx="256"
+    cy="258"
+    rx="185"
+    ry="76"
+    fill="none"
+    stroke="url(#orbit)"
+    stroke-width="22"
+    stroke-linecap="round"
+    transform="rotate(-18 256 258)"
+  />
+
+  <circle cx="407" cy="189" r="28" fill="#f8e8b0" filter="url(#shadow)"/>
+  <circle cx="407" cy="189" r="11" fill="#16324f" opacity="0.22"/>
+
+  <g filter="url(#shadow)">
+    <path
+      d="M151 255 256 166l105 89v122c0 11-9 20-20 20H171c-11 0-20-9-20-20V255Z"
+      fill="url(#home)"
+    />
+    <path
+      d="M219 397v-80c0-9 7-16 16-16h42c9 0 16 7 16 16v80"
+      fill="#16324f"
+      opacity="0.88"
+    />
+    <path
+      d="M132 262 256 157l124 105"
+      fill="none"
+      stroke="#fff3c8"
+      stroke-width="34"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M132 262 256 157l124 105"
+      fill="none"
+      stroke="#f59f5a"
+      stroke-width="20"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+
+  <path
+    d="M113 322c36 47 89 75 157 85"
+    fill="none"
+    stroke="#86e4d8"
+    stroke-width="14"
+    stroke-linecap="round"
+    opacity="0.74"
+  />
+</svg>

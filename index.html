@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>isputnik</title>
+    <meta
+      name="description"
+      content="isputnik is a private, self-hosted family web app platform. isputnik.home is the first app: notes, media, sharing, and backups for a trusted household circle."
+    >
+    <link rel="icon" href="Assets/brand/isputnik-brand-icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#" aria-label="isputnik home">
+        <img src="Assets/brand/isputnik-brand-icon.svg" alt="" width="36" height="36">
+        <span>isputnik</span>
+      </a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="#apps">Apps</a>
+        <a href="#principles">Principles</a>
+        <a href="#roadmap">Roadmap</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-scene" aria-hidden="true">
+          <span class="track track-a"></span>
+          <span class="track track-b"></span>
+          <span class="track track-c"></span>
+          <span class="node node-a"></span>
+          <span class="node node-b"></span>
+          <span class="node node-c"></span>
+        </div>
+        <div class="hero-content">
+          <img class="hero-mark" src="Assets/brand/isputnik-brand-icon.svg" alt="" width="96" height="96">
+          <p class="eyebrow">Private software for a small trusted orbit</p>
+          <h1 id="hero-title">isputnik</h1>
+          <p class="lede">
+            A self-hosted family platform for keeping notes, media, memories, and shared tools close to home.
+          </p>
+          <div class="hero-actions" aria-label="Project actions">
+            <a class="button primary" href="Documents/architecture.md">Read architecture</a>
+            <a class="button secondary" href="#apps">View first app</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section app-band" id="apps" aria-labelledby="apps-title">
+        <div class="section-inner app-layout">
+          <div>
+            <p class="eyebrow">First application</p>
+            <h2 id="apps-title">isputnik.home</h2>
+            <p>
+              A browser-based home server app for friends and family, designed around invite-only access,
+              simple sharing, personal notes, and a digital media library.
+            </p>
+          </div>
+          <div class="app-tile">
+            <img src="Assets/brand/isputnik-app-icon.svg" alt="" width="88" height="88">
+            <div>
+              <h3>Our world revolves around you.</h3>
+              <p>Private by default, shared when it matters, and small enough to maintain at home.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="principles" aria-labelledby="principles-title">
+        <div class="section-inner">
+          <div class="section-heading">
+            <p class="eyebrow">Design principles</p>
+            <h2 id="principles-title">Built for trust, not scale theatre</h2>
+          </div>
+          <div class="principle-grid">
+            <article>
+              <h3>Self-hosted</h3>
+              <p>Runs on a home server with SQLite and filesystem storage. No required cloud dependency.</p>
+            </article>
+            <article>
+              <h3>Family-friendly</h3>
+              <p>Invite-only accounts, clear roles, familiar sharing, and simple account recovery patterns.</p>
+            </article>
+            <article>
+              <h3>Modular</h3>
+              <p>Notes, library, jobs, and future tools can grow independently without reshaping the core.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section roadmap-band" id="roadmap" aria-labelledby="roadmap-title">
+        <div class="section-inner roadmap-layout">
+          <div>
+            <p class="eyebrow">Build path</p>
+            <h2 id="roadmap-title">Start small, then widen the orbit</h2>
+          </div>
+          <ol class="roadmap-list">
+            <li><span>01</span> Auth, invites, roles, sessions</li>
+            <li><span>02</span> App shell, profiles, themes</li>
+            <li><span>03</span> Notes with private and family sharing</li>
+            <li><span>04</span> Library uploads, thumbnails, background jobs</li>
+            <li><span>05</span> Backups, admin tools, search, optional AI services</li>
+          </ol>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
