@@ -1,0 +1,15 @@
+import path from "node:path";
+
+const rootDir = process.cwd().includes(path.join("apps", "server"))
+  ? path.resolve(process.cwd(), "..", "..")
+  : process.cwd();
+
+export const config = {
+  host: process.env.HOST ?? "127.0.0.1",
+  port: Number(process.env.PORT ?? 4000),
+  appUrl: process.env.APP_URL ?? "http://127.0.0.1:5173",
+  dbPath: process.env.DB_PATH ?? path.join(rootDir, "data", "db", "isputnik.sqlite"),
+  cookieSecure: process.env.NODE_ENV === "production",
+  sessionDays: Number(process.env.SESSION_DAYS ?? 14),
+  inviteDays: Number(process.env.INVITE_DAYS ?? 7)
+};
