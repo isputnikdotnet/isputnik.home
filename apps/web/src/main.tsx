@@ -1,6 +1,21 @@
 import React, { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AlertTriangle, CheckCircle2, Copy, Info, LogOut, ShieldCheck, UserPlus, Users, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Copy,
+  Home,
+  Info,
+  LogOut,
+  Monitor,
+  Moon,
+  Settings,
+  Sun,
+  UserPlus,
+  UserRound,
+  Users,
+  XCircle
+} from "lucide-react";
 import { api, type PublicUser } from "./api";
 import "./styles.css";
 
@@ -9,6 +24,7 @@ type Route =
   | { name: "login" }
   | { name: "home" }
   | { name: "admin" }
+  | { name: "profile" }
   | { name: "invite"; token: string };
 
 interface SessionState {
@@ -35,6 +51,10 @@ function getRoute(): Route {
 
   if (path === "/admin") {
     return { name: "admin" };
+  }
+
+  if (path === "/profile") {
+    return { name: "profile" };
   }
 
   return { name: "home" };
@@ -81,6 +101,19 @@ function App() {
   }, [refreshSession]);
 
   useEffect(() => {
+    const preferred = session.user?.theme ?? "dark";
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyTheme = () => {
+      const theme = preferred === "system" ? (mediaQuery.matches ? "dark" : "light") : preferred;
+      document.documentElement.dataset.theme = theme;
+    };
+
+    applyTheme();
+    mediaQuery.addEventListener("change", applyTheme);
+    return () => mediaQuery.removeEventListener("change", applyTheme);
+  }, [session.user?.theme]);
+
+  useEffect(() => {
     if (session.loading) {
       return;
     }
@@ -97,6 +130,11 @@ function App() {
 
     if (!session.requiresSetup && !session.user && !["login", "invite"].includes(route.name)) {
       navigate("/login");
+      return;
+    }
+
+    if (session.user && route.name === "admin" && session.user.role !== "admin") {
+      navigate("/");
     }
   }, [route.name, session]);
 
@@ -127,7 +165,19 @@ function App() {
   }
 
   if (route.name === "admin") {
-    return <AdminPage user={session.user} logout={logout} />;
+    return session.user.role === "admin"
+      ? <AdminPage user={session.user} logout={logout} />
+      : <HomePage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "profile") {
+    return (
+      <ProfilePage
+        user={session.user}
+        logout={logout}
+        onUpdated={(user) => setSession((current) => ({ ...current, user }))}
+      />
+    );
   }
 
   return <HomePage user={session.user} logout={logout} />;
@@ -136,6 +186,18 @@ function App() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="app-shell">
+      <div className="auth-scene" aria-hidden="true">
+        <span className="auth-orbit auth-orbit-a"></span>
+        <span className="auth-orbit auth-orbit-b"></span>
+        <span className="auth-orbit auth-orbit-c"></span>
+        <span className="auth-node auth-node-a"></span>
+        <span className="auth-node auth-node-b"></span>
+        <span className="auth-node auth-node-c"></span>
+      </div>
+      <div className="auth-hero">
+        <p className="eyebrow">Open source software for a small trusted orbit</p>
+        <h1>isputnik</h1>
+      </div>
       <section className="auth-panel">
         <div className="brand-row">
           <img src="/Assets/brand/isputnik-app-icon.svg" alt="" />
@@ -305,15 +367,100 @@ function AccountForm({
 
 function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
   return (
-    <DashboardShell user={user} logout={logout}>
+    <DashboardShell active="home" user={user} logout={logout}>
       <section className="work-area">
-        <p className="eyebrow">Signed in</p>
-        <h1>Home is ready</h1>
-        <p className="muted">
-          Auth, sessions, invite-only registration, and role-aware admin access are now the first working slice.
-        </p>
+        <p className="eyebrow">Home</p>
+        <h1>Welcome, {user.displayName}</h1>
+        <div className="empty-state">
+          <img src="/Assets/brand/isputnik-app-icon.svg" alt="" />
+          <h2>isputnik.home</h2>
+          <p className="muted">Your private family space is ready.</p>
+        </div>
       </section>
     </DashboardShell>
+  );
+}
+
+function ProfilePage({
+  user,
+  logout,
+  onUpdated
+}: {
+  user: PublicUser;
+  logout: () => Promise<void>;
+  onUpdated: (user: PublicUser) => void;
+}) {
+  const [displayName, setDisplayName] = useState(user.displayName);
+  const [theme, setTheme] = useState(user.theme);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [error, setError] = useState("");
+
+  const saveProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    setStatus("saving");
+    setError("");
+    try {
+      const payload = await api<{ user: PublicUser }>("/api/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ displayName, theme })
+      });
+      onUpdated(payload.user);
+      setStatus("saved");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save profile");
+      setStatus("idle");
+    }
+  };
+
+  return (
+    <DashboardShell active="profile" user={user} logout={logout}>
+      <section className="work-area profile-area">
+        <p className="eyebrow">Profile</p>
+        <h1>Your account</h1>
+        <form className="profile-form" onSubmit={saveProfile}>
+          <div className="profile-heading">
+            <span className="avatar large" aria-hidden="true"><UserRound size={28} /></span>
+            <div>
+              <strong>{user.displayName}</strong>
+              <span>{user.email}</span>
+            </div>
+          </div>
+          <Field label="Display name" value={displayName} onChange={setDisplayName} autoComplete="name" />
+          <label className="field">
+            <span>Appearance</span>
+            <span className="theme-switcher" role="radiogroup" aria-label="Theme preference">
+              <ThemeOption icon={<Monitor size={17} />} label="System" selected={theme === "system"} onClick={() => setTheme("system")} />
+              <ThemeOption icon={<Sun size={17} />} label="Light" selected={theme === "light"} onClick={() => setTheme("light")} />
+              <ThemeOption icon={<Moon size={17} />} label="Dark" selected={theme === "dark"} onClick={() => setTheme("dark")} />
+            </span>
+          </label>
+          {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+          {status === "saved" && <MessageBox tone="success" title="Profile updated">Your settings have been saved.</MessageBox>}
+          <button className="primary-button" disabled={status === "saving"}>
+            {status === "saving" ? "Saving..." : "Save changes"}
+          </button>
+        </form>
+      </section>
+    </DashboardShell>
+  );
+}
+
+function ThemeOption({
+  icon,
+  label,
+  selected,
+  onClick
+}: {
+  icon: React.ReactNode;
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button className={selected ? "selected" : ""} type="button" role="radio" aria-checked={selected} onClick={onClick}>
+      {icon}
+      <span>{label}</span>
+    </button>
   );
 }
 
@@ -351,7 +498,7 @@ function AdminPage({ user, logout }: { user: PublicUser; logout: () => Promise<v
   };
 
   return (
-    <DashboardShell user={user} logout={logout}>
+    <DashboardShell active="admin" user={user} logout={logout}>
       <section className="work-area">
         <div className="section-head">
           <div>
@@ -402,10 +549,12 @@ function AdminPage({ user, logout }: { user: PublicUser; logout: () => Promise<v
 }
 
 function DashboardShell({
+  active,
   user,
   logout,
   children
 }: {
+  active: "home" | "profile" | "admin";
   user: PublicUser;
   logout: () => Promise<void>;
   children: React.ReactNode;
@@ -415,31 +564,55 @@ function DashboardShell({
   return (
     <main className="dashboard">
       <aside className="sidebar">
-        <div className="brand-row">
+        <button className="rail-brand" onClick={() => navigate("/")} title="isputnik.home">
           <img src="/Assets/brand/isputnik-app-icon.svg" alt="" />
-          <div>
-            <strong>isputnik.home</strong>
-            <span>{user.displayName}</span>
-          </div>
-        </div>
-        <nav className="side-nav">
-          <button onClick={() => navigate("/")}>
-            <ShieldCheck size={18} />
-            <span>Home</span>
-          </button>
-          {isAdmin && (
-            <button onClick={() => navigate("/admin")}>
-              <Users size={18} />
-              <span>Users</span>
-            </button>
-          )}
-        </nav>
-        <button className="logout-button" onClick={logout}>
-          <LogOut size={18} />
-          <span>Sign out</span>
         </button>
+        <nav className="side-nav">
+          <button className={active === "home" ? "active" : ""} onClick={() => navigate("/")} title="Home">
+            <Home size={22} />
+            <span className="sr-only">Home</span>
+          </button>
+        </nav>
+        <div className="rail-foot">
+          <button className="logout-button" onClick={logout} title="Sign out">
+            <LogOut size={21} />
+            <span className="sr-only">Sign out</span>
+          </button>
+          <span className="version">v0.1.0</span>
+        </div>
       </aside>
-      {children}
+      <div className="dashboard-main">
+        <header className="app-header">
+          <div className="header-brand">
+            <strong>isputnik.home</strong>
+          </div>
+          <div className="header-actions">
+            <details className="settings-menu">
+              <summary className="header-button" title="Configuration">
+                <Settings size={20} />
+                <span className="sr-only">Configuration</span>
+              </summary>
+              <div className="menu-panel">
+                <button onClick={() => navigate("/profile")}>
+                  <Settings size={17} />
+                  Appearance
+                </button>
+                {isAdmin && (
+                  <button onClick={() => navigate("/admin")}>
+                    <Users size={17} />
+                    Users
+                  </button>
+                )}
+              </div>
+            </details>
+            <button className={`user-button ${active === "profile" ? "active" : ""}`} onClick={() => navigate("/profile")} title="Your profile">
+              <span>{user.displayName}</span>
+              <span className="avatar" aria-hidden="true"><UserRound size={19} /></span>
+            </button>
+          </div>
+        </header>
+        {children}
+      </div>
     </main>
   );
 }

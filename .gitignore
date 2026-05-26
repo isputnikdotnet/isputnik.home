@@ -5,3 +5,4 @@ dist/
 data/db/*.sqlite
 data/db/*.sqlite-shm
 data/db/*.sqlite-wal
+Documents/notes/*.md

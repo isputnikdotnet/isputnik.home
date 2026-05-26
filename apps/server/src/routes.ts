@@ -20,6 +20,11 @@ const inviteSchema = z.object({
   expiresInDays: z.number().int().min(1).max(30).default(config.inviteDays)
 });
 
+const profileSchema = z.object({
+  displayName: z.string().trim().min(2).max(80),
+  theme: z.enum(["system", "light", "dark"])
+});
+
 function parseBody<T>(schema: z.ZodSchema<T>, body: unknown) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -91,6 +96,23 @@ export async function registerRoutes(app: FastifyInstance) {
   app.get("/api/auth/me", { preHandler: app.authenticate }, async (request) => ({
     user: currentUserPayload(request)
   }));
+
+  app.patch("/api/profile", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(profileSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid profile details", details: parsed.error });
+      return;
+    }
+
+    db.prepare(`
+      UPDATE users
+      SET display_name = ?, theme = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(parsed.data.displayName, parsed.data.theme, request.user!.id);
+
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(request.user!.id) as User;
+    reply.send({ user: publicUser(user) });
+  });
 
   app.post("/api/invites", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(inviteSchema, request.body);
