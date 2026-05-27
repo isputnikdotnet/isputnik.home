@@ -49,7 +49,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
       JOIN users ON users.id = sessions.user_id
       WHERE sessions.token_hash = ?
         AND sessions.revoked_at IS NULL
-        AND sessions.expires_at > CURRENT_TIMESTAMP
+        AND datetime(sessions.expires_at) > CURRENT_TIMESTAMP
         AND users.deleted_at IS NULL
         AND users.is_active = 1
     `).get(sha256(token)) as User | undefined;
@@ -85,4 +85,9 @@ export function revokeCurrentSession(request: FastifyRequest) {
   if (token) {
     db.prepare("UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE token_hash = ?").run(sha256(token));
   }
+}
+
+export function currentSessionHash(request: FastifyRequest) {
+  const token = request.cookies[cookieName];
+  return token ? sha256(token) : null;
 }

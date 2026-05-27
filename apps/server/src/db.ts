@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { nanoid } from "nanoid";
 import { config } from "./config.js";
 
 export type Role = "admin" | "member";
@@ -17,6 +18,15 @@ export interface User {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+export interface ActivityInput {
+  event: string;
+  actorUserId?: string | null;
+  targetType?: string | null;
+  targetId?: string | null;
+  detail: string;
+  ipAddress?: string | null;
 }
 
 fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
@@ -56,6 +66,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS invites (
     id TEXT PRIMARY KEY,
     token_hash TEXT NOT NULL UNIQUE,
+    token TEXT,
     role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
     created_by TEXT NOT NULL REFERENCES users(id),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -65,14 +76,46 @@ db.exec(`
     revoked_at TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS activity_logs (
+    id TEXT PRIMARY KEY,
+    event TEXT NOT NULL,
+    actor_user_id TEXT REFERENCES users(id),
+    target_type TEXT,
+    target_id TEXT,
+    detail TEXT NOT NULL,
+    ip_address TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
   CREATE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash);
+  CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
 `);
+
+const inviteColumns = db.prepare("PRAGMA table_info(invites)").all() as { name: string }[];
+if (!inviteColumns.some((column) => column.name === "token")) {
+  db.exec("ALTER TABLE invites ADD COLUMN token TEXT");
+}
 
 export function hasUsers() {
   const row = db.prepare("SELECT COUNT(*) AS count FROM users WHERE deleted_at IS NULL").get() as { count: number };
   return row.count > 0;
+}
+
+export function logActivity(input: ActivityInput) {
+  db.prepare(`
+    INSERT INTO activity_logs (id, event, actor_user_id, target_type, target_id, detail, ip_address)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    nanoid(16),
+    input.event,
+    input.actorUserId ?? null,
+    input.targetType ?? null,
+    input.targetId ?? null,
+    input.detail,
+    input.ipAddress ?? null
+  );
 }
 
 export function publicUser(user: User) {

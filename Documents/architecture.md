@@ -4,7 +4,7 @@
 
 ## Overview
 
-isputnik.home is a self-hosted web application designed for private use by friends and family. It provides a shared digital space with personal and collaborative features including a media library and notes. The application runs on a home server and is accessible via web browser, with a mobile app as a potential future extension.
+isputnik.home is a self-hosted web application designed for private use by friends and family. It provides a shared digital space with planned personal and collaborative modules including a media library and notes. The application runs on a home server and is accessible via web browser, with a mobile app as a potential future extension.
 
 ---
 
@@ -30,6 +30,39 @@ isputnik.home is a self-hosted web application designed for private use by frien
 
 ---
 
+## Implementation Status
+
+**Status snapshot: May 26, 2026**
+
+### Completed Foundation
+
+- React and TypeScript frontend with a Node.js, Fastify, TypeScript, and SQLite backend
+- Initial admin setup, email/password sign-in, logout, cookie-backed sessions, and protected routes
+- Invite-only registration with invitation creation, link copying, active/expired/used status, and revocation
+- App shell with consistent top navigation, control-panel navigation, profile access, and role-protected admin pages
+- User profile editing and light, dark, and system theme preferences
+- Admin panel: account roles/deactivation, invite management, active session revocation, logs, system status, and About page
+
+### Completed Admin Panel Foundation
+
+- The existing control panel groups Application pages (Status, Logs, About) and User administration pages (Users, Invite links, Sessions); Status is the default entry point
+- Administrators can assign roles, deactivate non-protected accounts, and revoke other active sessions
+- Logs record authentication and administrative events in SQLite, with search, pagination, and manual retention cleanup
+- Status reports application health, database size, counts, and server uptime
+- About is available from both the main app and control panel and shows application identity, version, runtime/stack information, and version update notes
+
+### Next Core Milestone
+
+- Build the Library upload foundation and background job processing
+- Extend system status with storage, asset, and job information as those services exist
+
+### Future Updates
+
+- MFA with TOTP setup, verification, and backup recovery codes
+- Notes with visibility, sharing, tagging, and search
+
+---
+
 ## Users and Roles
 
 | Role | Capabilities |
@@ -39,7 +72,7 @@ isputnik.home is a self-hosted web application designed for private use by frien
 
 Registration is invite-only. The admin generates an invite link (e.g. `https://yourapp/invite/abc123`) which is shared directly — via message, email, or in person. No SMTP or external email service required.
 
-Invite links are single-use by default and expire after a configurable period. The raw invite token is shown only when the invite is created; the database stores only a hash of the token. Admins can revoke pending invites at any time.
+Invite links are single-use by default and expire after a configurable period. The token hash is used for validation, while the token is retained so admins can copy existing invitation links from the control panel. Admins can revoke pending invites at any time.
 
 ---
 
@@ -49,12 +82,42 @@ Invite links are single-use by default and expire after a configurable period. T
 
 Session-based authentication using secure httpOnly cookies. Simpler than JWT for a single-server home app, with straightforward session revocation.
 
-- Email and password login with bcrypt hashing
-- Session stored in SQLite, identified by a secure cookie
-- Instant logout and session revocation
-- Admin can view and revoke active sessions per user
-- Optional MFA per user (TOTP — Google Authenticator, Authy, Apple Passwords)
-- MFA backup recovery codes are generated during setup, shown once to the user, and can be used if the authenticator app is unavailable
+**Implemented:**
+
+- Initial setup creates the protected administrator account
+- Email and password login with Node.js `scrypt` password hashing
+- Sessions stored in SQLite and identified by a hashed secure cookie token
+- Logout revokes the current session; deactivating a user revokes that user's sessions
+- Authentication and administrator route guards
+- Single-use invitation acceptance for creating member accounts
+
+Session cookies are configured with:
+
+- `HttpOnly` so client-side JavaScript cannot read them
+- `Secure` in production so cookies are only sent over HTTPS
+- `SameSite=Lax`
+- Configurable expiration backed by the SQLite session record
+
+**Planned hardening and administration:**
+
+- Admin view and revocation of active sessions per user
+- CSRF protection for mutating authenticated routes
+- Rate limiting for login, invitation acceptance, and future recovery flows
+- Session ID rotation for any future multi-step authentication flow
+
+Session table:
+
+```sql
+sessions
+--------
+id, user_id, created_at, expires_at, last_seen,
+device_name, ip_address, revoked_at
+```
+
+#### MFA (Future Update)
+
+- Optional MFA per user (TOTP - Google Authenticator, Authy, Apple Passwords)
+- Backup recovery codes generated during setup, shown once, and available if the authenticator app is unavailable
 
 **Login flow with MFA enabled:**
 
@@ -71,25 +134,6 @@ POST /auth/mfa/verify
   → if invalid: increment attempt counter (lock after 5 failures)
 ```
 
-Session cookies are configured with:
-- `HttpOnly` so client-side JavaScript cannot read them
-- `Secure` in production so cookies are only sent over HTTPS
-- `SameSite=Lax` by default, or `Strict` if cross-device invite/login flows do not need relaxed behavior
-- Session ID rotation after login and MFA verification
-
-All mutating routes require CSRF protection. The frontend sends a CSRF token with POST, PUT, PATCH, and DELETE requests, and the backend validates it against the authenticated session.
-
-Login, MFA verification, invite acceptance, and password reset-style flows are rate-limited by account and IP address.
-
-Session table:
-
-```sql
-sessions
---------
-id, user_id, created_at, expires_at, last_seen,
-device_name, ip_address, revoked_at
-```
-
 MFA fields on the users table:
 
 ```sql
@@ -104,34 +148,47 @@ Recovery codes are single-use. When a recovery code is used successfully, it is 
 
 ### User Profiles
 
-- Display name, avatar, email
-- Personal theme preference (light, dark, system)
-- MFA setup and management — enable/disable, view backup codes, regenerate codes
+- Implemented: display-name editing, email display, account icon, and personal theme preference
+- Future update: MFA setup and management - enable/disable, view backup codes, regenerate codes
 
-### Themes
+### Themes (Implemented)
 
 - Light, dark, and system-default modes
 - Preference stored per user and applied on login
 
-### User Management (Admin)
+### User Management (Admin) - Implemented Foundation
 
-- Generate invite links — no email infrastructure needed
-- Edit or deactivate accounts
+**Implemented:**
+
+- Generate, list, copy, and revoke invite links - no email infrastructure needed
+- Display active, expired, and already-used invitation status
+- List and deactivate accounts with delete confirmation and protected setup-admin handling
+- Assign member or administrator roles
 - View and revoke active sessions
-- Assign roles
+
+**Future MFA work:**
+
 - Optionally enforce MFA for specific accounts or all admins
 
-### Activity Logs (Admin)
+### Logs (Admin) - Implemented Foundation
 
-- Login events, uploads, sharing actions
+- Login, invite, profile, role, session, and account-administration events
 - Stored in the main SQLite database
+- Compact searchable and paged viewer
+- Manual deletion of entries older than a selected retention period, defaulting to 365 days
+- Future content modules can add uploads and sharing actions
 
-### System Status (Admin)
+### System Status (Admin) - Implemented Foundation
 
-- Disk usage
-- Total asset count
-- Background job queue status
-- Last backup date
+- Current health, database size, user/session/invitation counts, log entry count, and server uptime
+- Future Library and backup work adds total asset count, media disk usage, background job queue status, and last backup date
+
+### About Page - Implemented
+
+- Application name and version
+- Build/runtime details useful for administration and support
+- Version update notes describing completed product changes
+- Project and license information where appropriate
 
 ---
 
@@ -264,17 +321,7 @@ visibility, status, created_at, updated_at, deleted_at
 
 **Organisation:** Collections rather than traditional folders. One asset can belong to multiple collections simultaneously (e.g. a photo in both "Summer 2024" and "Kids"). More flexible and easier for non-technical users than a rigid folder hierarchy.
 
-**Sharing:** uses the shared `shares` table, same as Notes.
-
-### Notes
-
-A flexible note-taking module suitable for multiple purposes — work notes, recipes, personal journal, and so on.
-
-- Rich text content with tags
-- Notes grouped by category (e.g. "Kitchen", "Work", "Personal")
-- Same visibility and permission model as the Library
-- Full-text search via SQLite FTS5
-- CRUD with search and filtering
+**Sharing:** uses the shared `shares` table, also intended for the future Notes module.
 
 ---
 
@@ -362,11 +409,11 @@ Optional Python AI services (face recognition)
 
 ### Backend — Node.js + Fastify + TypeScript
 
-- Plugin-based structure — each module registers its own routes and middleware
-- `@fastify/session` + `@fastify/cookie` for session management
-- `@fastify/multipart` for file uploads
-- JSON Schema validation on all routes
-- Auth guard implemented as a Fastify decorator, applied per route
+- Implemented: SQLite-backed hashed session tokens with `@fastify/cookie`
+- Implemented: Zod validation on current routes
+- Implemented: auth guard as a Fastify decorator, applied per protected route
+- Planned: plugin-based module route registration as content modules are added
+- Planned: `@fastify/multipart` for file uploads
 
 ### Database — SQLite
 
@@ -378,7 +425,7 @@ PRAGMA synchronous=NORMAL;    -- safe and fast
 PRAGMA foreign_keys=ON;       -- enforce referential integrity
 ```
 
-WAL mode allows background workers to write while users are browsing without locking. FTS5 full-text search powers notes, document text, and OCR results.
+WAL mode is active now. As content modules are added, it will allow background workers to write while users are browsing without locking. FTS5 is planned for future Notes, document text, and OCR search.
 
 ### File storage
 
@@ -400,11 +447,11 @@ Files are stored on disk — never in SQLite. Only metadata lives in the databas
 |---|---|---|
 | Frontend | React + TypeScript | Component reuse, potential mobile app later |
 | Backend | Node.js + Fastify | Fast, TypeScript-native, plugin architecture |
-| Database | SQLite + WAL + FTS5 | Simple, file-based, no separate DB server, full-text search |
-| File handling | @fastify/multipart + Sharp | Upload handling and image thumbnail generation |
-| Auth | Session cookies + bcrypt | Simple, secure, easy revocation |
-| MFA | otplib + qrcode | TOTP-based two-factor auth, no external service needed |
-| Background jobs | SQLite job queue | No external infrastructure needed |
+| Database | SQLite + WAL; FTS5 planned | Simple, file-based, no separate DB server, future full-text search |
+| File handling (planned) | @fastify/multipart + Sharp | Upload handling and image thumbnail generation |
+| Auth | Session cookies + Node.js `scrypt` | Simple, secure, easy revocation |
+| MFA (future update) | otplib + qrcode | TOTP-based two-factor auth, no external service needed |
+| Background jobs (planned) | SQLite job queue | No external infrastructure needed |
 | Face recognition | Python sidecar (optional) | Keeps main stack clean; easy to omit initially |
 
 ---
@@ -432,34 +479,49 @@ Files are stored on disk — never in SQLite. Only metadata lives in the databas
 
 The first production-ready version should focus on a small reliable core:
 
-- Invite-only accounts, sessions, roles, and optional MFA
-- App shell with profile and theme settings
-- Notes with private/family/shared visibility
+- Invite-only accounts, cookie sessions, and roles
+- App shell with profile and theme settings (implemented)
+- Admin panel with user/invite/session management, logs, system status, and an About page available across the app (implemented foundation)
 - Library uploads with basic image thumbnails and metadata
 - Background job queue for thumbnail and metadata work
-- Admin user/session management
 - Manual backup/export and restore validation
 
-Advanced processors such as OCR, video previews, document previews, face recognition, and mobile app support are deferred until the core app is stable.
+MFA and Notes are future updates rather than part of this first scope. Advanced processors such as OCR, video previews, document previews, face recognition, and mobile app support are also deferred until the core app is stable.
 
 ---
 
 ## Suggested Build Order
 
-1. Auth and user management — session login, invite links, roles
-2. App shell — navigation, theme switching, protected routes
-3. MFA — TOTP setup, verification flow, backup codes
-4. Notes module — simpler, no file handling, validates the sharing model
-5. Library module — file upload pipeline, background jobs, thumbnails
-6. Admin panel — user management, logs, system status page
-7. Collections and advanced sharing
-8. Full-text search across notes and documents
-9. Backup and restore tooling
-10. Face recognition sidecar (optional, last)
+1. Done: Auth and user-management foundation — setup admin, session login/logout, invitation links, account listing and deactivation
+2. Done: App shell — navigation, profile and theme settings, protected routes, control-panel navigation
+3. Done: Admin panel and About page — user/session administration, logs, base system status, application/version information
+4. Next: Library module — file upload pipeline, background jobs, thumbnails
+5. Planned: Collections and advanced sharing
+6. Planned: Backup and restore tooling
+7. Future update: MFA — TOTP setup, verification flow, backup codes
+8. Future update: Notes module — CRUD, visibility/sharing, tags, and full-text search
+9. Future update: Full-text search across notes and documents
+10. Optional: Face recognition sidecar, last
 
 ---
 
-## Future Considerations
+## Future Updates
+
+### MFA
+
+TOTP-based multi-factor authentication and recovery codes are documented in the Authentication section, but implementation is deferred until the current administration and core-content milestones are stable.
+
+### Notes
+
+A flexible note-taking module suitable for multiple purposes - work notes, recipes, personal journal, and so on.
+
+- Rich text content with tags
+- Notes grouped by category (e.g. "Kitchen", "Work", "Personal")
+- Same visibility and permission model as the Library
+- Full-text search via SQLite FTS5
+- CRUD with search and filtering
+
+### Longer-Term Considerations
 
 - Monorepo extraction — auth and UI components can be moved to shared packages if a second app is built
 - Mobile app — React Native can reuse the same API client and session logic
