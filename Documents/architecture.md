@@ -53,7 +53,7 @@ isputnik.home is a self-hosted web application designed for private use by frien
 
 ### Next Core Milestone
 
-- Build the Library upload foundation and background job processing
+- Build Digital Library Phase 1: add existing on-disk libraries, scan and index their content, and generate thumbnails through background jobs
 - Extend system status with storage, asset, and job information as those services exist
 
 ### Future Updates
@@ -254,7 +254,26 @@ Indexes are required on:
 
 ### Digital Library
 
-A flexible media store that accepts any supported file type. The application automatically detects the file type on upload and processes it accordingly. Supported file types and extensions are configurable.
+A flexible media catalogue for photos, video, and other supported files. The first milestone indexes files that already exist on the home server rather than requiring users to upload or reorganise their media.
+
+#### Delivery Phases
+
+**Phase 1 - Add Existing Libraries**
+
+- An administrator creates a library by choosing a display name and a server-accessible source path, for example an existing photos or videos folder.
+- The administrator must configure a writable thumbnail/preview storage path before scanning a library. Generated files from every library use this shared application-managed location.
+- The application scans the library path recursively, identifies supported files, and adds references and metadata to SQLite. Original files remain in their current location.
+- The first implementation treats source folders as read-only: deleting an item from the catalogue must not delete the original file.
+- A rescan discovers new and changed files and marks missing files unavailable without losing historical metadata immediately.
+- Thumbnail and metadata jobs run asynchronously after discovery so a large existing collection can be added without blocking the UI.
+
+**Phase 2 - Users and Sharing**
+
+- Make libraries available to selected existing users or all family members.
+- Support private, family, and user-specific access using the common sharing and permission model.
+- Add collections and asset-level sharing after library-level access is reliable.
+
+Managed uploads can be added later as a second ingestion source, without changing how indexed assets, previews, collections, or sharing are presented.
 
 **Supported formats (configurable):**
 
@@ -267,21 +286,32 @@ A flexible media store that accepts any supported file type. The application aut
 | Archives | zip |
 | Unknown | stored safely, basic metadata only |
 
-**Upload processing pipeline:**
+**Existing-library scan pipeline (Phase 1):**
 
 ```
-User uploads file
-→ detect MIME type
+Admin adds a library source path
+→ validate the path and create a library record
+→ scan files beneath the configured root
+→ detect MIME type and file identity
 → classify content
-→ save file to disk
+→ store a database reference to the original file
 → enqueue background processing jobs
-→ immediate response to user
+→ show discovered content as scanning continues
 → (background) generate thumbnail / preview
 → (background) extract metadata
 → (background) index for search
 ```
 
-**Upload safety rules:**
+**Existing-library safety rules:**
+
+- Permit only validated server-side paths configured by an administrator
+- Store the library root and relative asset path; do not expose arbitrary filesystem paths to regular users
+- Resolve paths during scans and do not follow links outside the approved library root
+- Read originals for scanning and display only; do not rename, move, or delete source files in Phase 1
+- Detect additions, changes, and missing files during rescans using path, size, modified time, and later an optional content hash
+- Keep generated thumbnails outside source folders so the application does not alter existing photo and video organisation
+
+**Managed upload safety rules (later ingestion source):**
 
 - Enforce configurable max file size and per-user storage quotas
 - Store files using generated storage names, never user-provided paths
@@ -309,27 +339,86 @@ Some processors are optional and can be enabled only when their dependencies are
 - Audio metadata and cover art: media metadata parser
 - Face recognition: optional Python sidecar
 
-**Assets table:**
+**Library and asset tables:**
 
 ```sql
+libraries
+---------
+id, name, source_path, source_type,
+scan_status, last_scanned_at,
+created_by, created_at, updated_at
+
 assets
 ------
-id, owner_id, file_name_original, file_name_storage,
+id, library_id, owner_id,
+relative_path, file_name_original,
 mime_type, extension, category, size,
-visibility, status, created_at, updated_at, deleted_at
+modified_at, content_hash,
+visibility, status, discovered_at, updated_at, deleted_at
+
+asset_previews
+--------------
+id, asset_id, kind, format,
+storage_key, width, height, size,
+created_at, updated_at
 ```
+
+Assets require a unique constraint on `(library_id, relative_path)` so rescans update an existing record instead of duplicating content.
+
+`owner_id` and per-asset `visibility` become important in Phase 2. Phase 1 can restrict library administration to administrators while the access model is completed.
+
+**Thumbnail and preview storage:**
+
+Thumbnails are derived files and should be kept in one application-managed location, separate from every original library source. A sharded directory layout prevents one directory from accumulating an impractical number of files:
+
+```
+/data/cache/thumbnails/
+  /ab/cd/<asset-id>-thumbnail.webp
+  /ab/cd/<asset-id>-preview.webp
+```
+
+The shard path is derived from a stable asset identifier or hash, for example the first four hexadecimal characters split across two directory levels. `asset_previews.storage_key` records the generated location. Generated previews can be deleted and rebuilt, so they do not need the same backup priority as original files and the database.
+
+The thumbnail root must be configurable at deployment time:
+
+```env
+THUMBNAIL_PATH=/data/cache/thumbnails
+```
+
+The default should be `/data/cache/thumbnails`, with startup validation that the directory exists or can be created and is writable. SQLite stores only each preview's relative `storage_key`, not the absolute thumbnail root, so an administrator can move the mounted preview storage later without rewriting database records.
+
+**Docker storage model:**
+
+When deployed in Docker, paths entered in the application refer to locations inside the container. The operator maps persistent host directories or named volumes to those container locations:
+
+```yaml
+services:
+  isputnik:
+    environment:
+      THUMBNAIL_PATH: /data/cache/thumbnails
+    volumes:
+      - ./data/cache/thumbnails:/data/cache/thumbnails
+      - /host/photos:/libraries/photos:ro
+      - /host/videos:/libraries/videos:ro
+```
+
+- Mount `THUMBNAIL_PATH` read/write and keep it on persistent storage; otherwise container replacement removes all generated previews and forces a rebuild.
+- Mount existing source libraries read-only in Phase 1, then register container paths such as `/libraries/photos` in the application.
+- Do not store host filesystem paths in the application when running in Docker; store the mounted container-visible library path.
+- A named Docker volume is acceptable for thumbnails, while a bind mount makes inspection, migration, and optional cache backup easier for a home server.
 
 **Organisation:** Collections rather than traditional folders. One asset can belong to multiple collections simultaneously (e.g. a photo in both "Summer 2024" and "Kids"). More flexible and easier for non-technical users than a rigid folder hierarchy.
 
-**Sharing:** uses the shared `shares` table, also intended for the future Notes module.
+**Sharing (Phase 2):** uses the shared `shares` table, also intended for the future Notes module.
 
 ---
 
 ## Background Job System
 
-A lightweight SQLite-backed job queue handles all slow processing tasks asynchronously. Files are saved and the user gets an immediate response — processing happens in the background.
+A lightweight SQLite-backed job queue handles all slow processing tasks asynchronously. A library can be registered immediately while scanning and preview generation continue in the background.
 
 Jobs used for:
+- Existing-library initial scans and rescans
 - Thumbnail generation
 - Metadata extraction
 - OCR
@@ -369,18 +458,21 @@ Applies to: assets, notes, collections, and optionally user accounts (deactivati
 
 ## Backup and Restore
 
-Because the application state is primarily the SQLite database, media folder, and app configuration, a full backup is straightforward, but live backups must be created consistently.
+Because the application state is primarily the SQLite database, configured media sources, generated preview cache, and app configuration, backups must clearly distinguish managed application data from externally stored originals.
 
 **A complete backup includes:**
 - SQLite database file
-- `/data/media/` folder
+- Any future application-managed upload folder
 - App configuration/settings
+- Original library source folders, when they are not already protected by the user's existing backup solution
 
-**Goal:** one-click export and import. If the server fails, restoring a backup brings the application back immediately with all data intact.
+The configured `THUMBNAIL_PATH` cache can be included for faster restoration or regenerated from restored originals. It is not the authoritative copy of library content. In Docker deployments, it must be mounted outside the disposable container if the operator wants to retain generated previews across upgrades.
 
-Backups should use SQLite's backup API or an application-controlled maintenance window so the database snapshot is consistent. Media files should be copied from a stable point in time, and uploads should either complete before the backup starts or be excluded and retried later.
+**Goal:** one-click export and import for application-managed data, together with a clear warning when externally indexed library sources are outside that backup. If the server fails, restoring the database and accessible original sources lets the application rebuild previews and resume normally.
 
-A restore validates that the database, media folder, and configuration belong to the same backup set before replacing the active application state.
+Backups should use SQLite's backup API or an application-controlled maintenance window so the database snapshot is consistent. Future managed uploads should either complete before the backup starts or be excluded and retried later. External library originals remain the responsibility of their configured backup location.
+
+A restore validates that the database, managed media folder, and configuration belong to the same backup set before replacing active application state, then checks that configured external library roots are reachable before rescanning.
 
 ---
 
@@ -431,12 +523,24 @@ WAL mode is active now. As content modules are added, it will allow background w
 
 Files are stored on disk — never in SQLite. Only metadata lives in the database.
 
+Configurable storage paths:
+
+| Setting | Default container path | Access | Purpose |
+|---|---|---|---|
+| `DB_PATH` | `/data/db/isputnik.sqlite` | Read/write | Application SQLite database |
+| `THUMBNAIL_PATH` | `/data/cache/thumbnails` | Read/write | Shared sharded thumbnail and preview cache |
+| Library source paths | `/libraries/<name>` | Read-only in Phase 1 | Existing original photos and videos |
+
 ```
 /data
   /db         ← SQLite database files
-  /media
-    /library  ← original files + thumbnails, per user
-    /notes    ← any attachments
+  /media      ← future application-managed uploads and note attachments
+  /cache
+    /thumbnails  ← sharded, generated previews for all Digital Libraries
+
+Configured external library roots
+  /photos     ← existing originals; indexed in place and not modified by Phase 1
+  /videos     ← existing originals; indexed in place and not modified by Phase 1
 ```
 
 ---
@@ -448,7 +552,7 @@ Files are stored on disk — never in SQLite. Only metadata lives in the databas
 | Frontend | React + TypeScript | Component reuse, potential mobile app later |
 | Backend | Node.js + Fastify | Fast, TypeScript-native, plugin architecture |
 | Database | SQLite + WAL; FTS5 planned | Simple, file-based, no separate DB server, future full-text search |
-| File handling (planned) | @fastify/multipart + Sharp | Upload handling and image thumbnail generation |
+| File handling (planned) | Filesystem scanner + Sharp; @fastify/multipart later | Index existing libraries and generate thumbnails before optional uploads |
 | Auth | Session cookies + Node.js `scrypt` | Simple, secure, easy revocation |
 | MFA (future update) | otplib + qrcode | TOTP-based two-factor auth, no external service needed |
 | Background jobs (planned) | SQLite job queue | No external infrastructure needed |
@@ -470,7 +574,8 @@ Files are stored on disk — never in SQLite. Only metadata lives in the databas
   /face-service       ← optional Python microservice
 /data
   /db                 ← SQLite database files
-  /media              ← uploaded files and thumbnails
+  /media              ← future managed uploads and attachments
+  /cache/thumbnails   ← sharded generated Digital Library previews
 ```
 
 ---
@@ -482,8 +587,8 @@ The first production-ready version should focus on a small reliable core:
 - Invite-only accounts, cookie sessions, and roles
 - App shell with profile and theme settings (implemented)
 - Admin panel with user/invite/session management, logs, system status, and an About page available across the app (implemented foundation)
-- Library uploads with basic image thumbnails and metadata
-- Background job queue for thumbnail and metadata work
+- Digital Library Phase 1 with existing-folder registration, scans, basic image thumbnails, and metadata
+- Background job queue for scanning, thumbnail, and metadata work
 - Manual backup/export and restore validation
 
 MFA and Notes are future updates rather than part of this first scope. Advanced processors such as OCR, video previews, document previews, face recognition, and mobile app support are also deferred until the core app is stable.
@@ -495,8 +600,8 @@ MFA and Notes are future updates rather than part of this first scope. Advanced 
 1. Done: Auth and user-management foundation — setup admin, session login/logout, invitation links, account listing and deactivation
 2. Done: App shell — navigation, profile and theme settings, protected routes, control-panel navigation
 3. Done: Admin panel and About page — user/session administration, logs, base system status, application/version information
-4. Next: Library module — file upload pipeline, background jobs, thumbnails
-5. Planned: Collections and advanced sharing
+4. Next: Digital Library Phase 1 — existing-folder registration, indexed references, background scans, and sharded thumbnail storage
+5. Planned: Digital Library Phase 2 — existing-user access, library sharing, collections, and asset sharing
 6. Planned: Backup and restore tooling
 7. Future update: MFA — TOTP setup, verification flow, backup codes
 8. Future update: Notes module — CRUD, visibility/sharing, tags, and full-text search
