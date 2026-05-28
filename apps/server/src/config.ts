@@ -15,6 +15,7 @@ export const config = {
   appUrl: process.env.APP_URL ?? "http://127.0.0.1:5173",
   dbPath: process.env.DB_PATH ?? path.join(rootDir, "data", "db", "isputnik.sqlite"),
   thumbnailPath: process.env.THUMBNAIL_PATH ?? "",
+  metadataPath: process.env.METADATA_PATH ?? "",
   cookieSecure: process.env.NODE_ENV === "production",
   sessionDays: Number(process.env.SESSION_DAYS ?? 14),
   inviteDays: Number(process.env.INVITE_DAYS ?? 7),

@@ -1,7 +1,7 @@
 {
   "name": "@isputnik/server",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -12,6 +12,7 @@
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.0.1",
+    "archiver": "^7.0.1",
     "better-sqlite3": "^11.9.1",
     "fastify": "^5.2.1",
     "music-metadata": "^11.12.3",
@@ -20,6 +21,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/archiver": "^6.0.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.13.10",
     "tsx": "^4.19.3",

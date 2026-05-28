@@ -241,6 +241,58 @@ function preparedFilesFromExisting(files: AudioFileEntry[], existingFiles: Exist
     .sort((left, right) => left.trackNumber - right.trackNumber || left.relativePath.localeCompare(right.relativePath, undefined, { numeric: true }));
 }
 
+function normaliseSidecar(raw: Record<string, unknown>): SidecarMetadata {
+  const isAbs = typeof raw.authorName === "string" || typeof raw.narratorName === "string";
+  if (!isAbs) {
+    return raw as SidecarMetadata;
+  }
+
+  const result: SidecarMetadata = {};
+  if (typeof raw.title === "string") result.title = raw.title;
+  if (typeof raw.subtitle === "string") result.subtitle = raw.subtitle;
+  if (typeof raw.description === "string") result.description = raw.description;
+  if (typeof raw.language === "string") result.language = raw.language;
+  if (typeof raw.isbn === "string") result.isbn = raw.isbn;
+  if (typeof raw.asin === "string") result.asin = raw.asin;
+
+  if (typeof raw.authorName === "string" && raw.authorName.trim()) {
+    result.authors = splitTagValues([raw.authorName]);
+  }
+  if (typeof raw.narratorName === "string" && raw.narratorName.trim()) {
+    result.narrators = splitTagValues([raw.narratorName]);
+  }
+
+  if (raw.publishedYear != null) {
+    const y = Math.trunc(Number(raw.publishedYear));
+    if (y > 0) result.year = y;
+  } else if (typeof raw.publishedDate === "string") {
+    const m = raw.publishedDate.match(/\d{4}/);
+    if (m) result.year = Number(m[0]);
+  }
+
+  if (Array.isArray(raw.genres)) {
+    result.genres = raw.genres.filter((g): g is string => typeof g === "string" && g.trim().length > 0);
+  }
+
+  if (typeof raw.series === "string" && raw.series.trim()) {
+    result.series = raw.series;
+  } else if (Array.isArray(raw.series) && raw.series.length > 0) {
+    const first = raw.series[0] as Record<string, unknown>;
+    if (first && typeof first.name === "string") {
+      result.series = first.name;
+      const pos = parseFloat(String(first.sequence ?? ""));
+      if (!isNaN(pos)) result.seriesPosition = pos;
+    }
+  }
+
+  if (result.seriesPosition === undefined && raw.sequence != null) {
+    const pos = parseFloat(String(raw.sequence));
+    if (!isNaN(pos)) result.seriesPosition = pos;
+  }
+
+  return result;
+}
+
 function readSidecarMetadata(folderPath: string) {
   const filePath = path.join(folderPath, "metadata.json");
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
@@ -248,7 +300,7 @@ function readSidecarMetadata(folderPath: string) {
   }
 
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8")) as SidecarMetadata;
+    return normaliseSidecar(JSON.parse(fs.readFileSync(filePath, "utf8")) as Record<string, unknown>);
   } catch {
     return null;
   }
@@ -438,6 +490,32 @@ export function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings
   return filesByBookFolder;
 }
 
+function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, settings: AudiobookSettings): AudioFileEntry[] {
+  const extensions = supportedAudioExtensions(settings);
+  const files: AudioFileEntry[] = [];
+
+  const scanDir = (dir: string, discHint: number | null) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const absolutePath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        const hint = discNumberFromFolderName(entry.name);
+        if (hint !== null) {
+          scanDir(absolutePath, hint);
+        }
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const extension = path.extname(entry.name).toLowerCase();
+      if (!extensions.has(extension)) continue;
+      const relativePath = normaliseRelativePath(path.relative(rootPath, absolutePath));
+      files.push({ absolutePath, fileName: entry.name, relativePath, stat: fs.statSync(absolutePath), discHint });
+    }
+  };
+
+  scanDir(folderAbsolutePath, null);
+  return files;
+}
+
 async function prepareBookScan(
   libraryId: string,
   rootPath: string,
@@ -613,6 +691,126 @@ function upsertSeries(libraryId: string, name: string) {
     .get(libraryId, name) as { id: string };
 }
 
+function writeBookScan(libraryId: string, book: PreparedBookScan) {
+  const existingBook = db.prepare("SELECT id FROM books WHERE id = ?").get(book.bookId);
+
+  if (existingBook) {
+    db.prepare(`
+      UPDATE books
+      SET status = 'ready', updated_at = CURRENT_TIMESTAMP, deleted_at = NULL
+      WHERE id = ?
+    `).run(book.bookId);
+  } else {
+    db.prepare(`
+      INSERT INTO books (id, library_id, folder_path, status)
+      VALUES (?, ?, ?, 'ready')
+    `).run(book.bookId, libraryId, book.folderPath);
+  }
+
+  if (!book.skipMetadataUpdate) {
+    db.prepare(`
+      INSERT INTO book_metadata (
+        id, book_id, source, title, sort_title, description, year_published, language,
+        duration_seconds, cover_storage_key, isbn, asin, publisher
+      )
+      VALUES (?, ?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(book_id) DO UPDATE SET
+        title = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.title ELSE excluded.title END,
+        sort_title = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.sort_title ELSE excluded.sort_title END,
+        description = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.description ELSE excluded.description END,
+        year_published = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.year_published ELSE excluded.year_published END,
+        language = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.language ELSE excluded.language END,
+        duration_seconds = excluded.duration_seconds,
+        cover_storage_key = CASE
+          WHEN book_metadata.source = 'manual' THEN book_metadata.cover_storage_key
+          ELSE COALESCE(excluded.cover_storage_key, book_metadata.cover_storage_key)
+        END,
+        isbn = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.isbn ELSE excluded.isbn END,
+        asin = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.asin ELSE excluded.asin END,
+        publisher = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.publisher ELSE excluded.publisher END,
+        updated_at = CURRENT_TIMESTAMP
+    `).run(
+      nanoid(16),
+      book.bookId,
+      book.title,
+      book.sortTitle,
+      book.description,
+      book.yearPublished,
+      book.language,
+      book.durationSeconds,
+      book.coverStorageKey,
+      book.isbn,
+      book.asin,
+      book.publisher
+    );
+  }
+
+  if (!book.manualMetadata && !book.skipMetadataUpdate) {
+    if (book.seriesName) {
+      const series = upsertSeries(libraryId, book.seriesName);
+      db.prepare("UPDATE books SET series_id = ?, series_position = ? WHERE id = ?")
+        .run(series.id, book.seriesPosition, book.bookId);
+    } else {
+      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE id = ?").run(book.bookId);
+    }
+
+    db.prepare("DELETE FROM book_authors WHERE book_id = ? AND role IN ('author', 'narrator')").run(book.bookId);
+    book.authors.forEach((authorName, index) => {
+      const author = upsertAuthor(libraryId, authorName);
+      db.prepare(`
+        INSERT INTO book_authors (book_id, author_id, role, sort_order)
+        VALUES (?, ?, 'author', ?)
+      `).run(book.bookId, author.id, index);
+    });
+    book.narrators.forEach((narratorName, index) => {
+      const narrator = upsertAuthor(libraryId, narratorName);
+      db.prepare(`
+        INSERT INTO book_authors (book_id, author_id, role, sort_order)
+        VALUES (?, ?, 'narrator', ?)
+      `).run(book.bookId, narrator.id, index);
+    });
+
+    db.prepare("DELETE FROM book_genres WHERE book_id = ?").run(book.bookId);
+    book.genres.forEach((genreName) => {
+      const genre = upsertGenre(libraryId, genreName);
+      db.prepare("INSERT INTO book_genres (book_id, genre_id) VALUES (?, ?)").run(book.bookId, genre.id);
+    });
+  }
+
+  db.prepare("UPDATE book_files SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(book.bookId);
+  for (const file of book.files) {
+    db.prepare(`
+      INSERT INTO book_files (
+        id, book_id, relative_path, mime_type, track_number, chapter_title, duration_seconds,
+        size, modified_at, content_hash, status, deleted_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL)
+      ON CONFLICT(book_id, relative_path) DO UPDATE SET
+        mime_type = excluded.mime_type,
+        track_number = excluded.track_number,
+        chapter_title = excluded.chapter_title,
+        duration_seconds = excluded.duration_seconds,
+        size = excluded.size,
+        modified_at = excluded.modified_at,
+        content_hash = excluded.content_hash,
+        status = 'available',
+        deleted_at = NULL,
+        updated_at = CURRENT_TIMESTAMP
+    `).run(
+      nanoid(16),
+      book.bookId,
+      file.relativePath,
+      file.mimeType,
+      file.trackNumber,
+      file.chapterTitle,
+      file.durationSeconds,
+      file.size,
+      file.modifiedAt,
+      file.contentHash
+    );
+  }
+}
+
 export async function scanAudiobookLibrary(libraryId: string) {
   const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
     .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
@@ -641,126 +839,9 @@ export async function scanAudiobookLibrary(libraryId: string) {
   db.transaction(() => {
     for (const book of preparedBooks) {
       foundFolders.add(book.folderPath);
-      const existingBook = db.prepare("SELECT id FROM books WHERE id = ?").get(book.bookId);
-
-      if (existingBook) {
-        db.prepare(`
-          UPDATE books
-          SET status = 'ready', updated_at = CURRENT_TIMESTAMP, deleted_at = NULL
-          WHERE id = ?
-        `).run(book.bookId);
-      } else {
-        db.prepare(`
-          INSERT INTO books (id, library_id, folder_path, status)
-          VALUES (?, ?, ?, 'ready')
-        `).run(book.bookId, libraryId, book.folderPath);
-      }
-
-      if (!book.skipMetadataUpdate) {
-        db.prepare(`
-          INSERT INTO book_metadata (
-            id, book_id, source, title, sort_title, description, year_published, language,
-            duration_seconds, cover_storage_key, isbn, asin, publisher
-          )
-          VALUES (?, ?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(book_id) DO UPDATE SET
-            title = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.title ELSE excluded.title END,
-            sort_title = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.sort_title ELSE excluded.sort_title END,
-            description = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.description ELSE excluded.description END,
-            year_published = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.year_published ELSE excluded.year_published END,
-            language = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.language ELSE excluded.language END,
-            duration_seconds = excluded.duration_seconds,
-            cover_storage_key = CASE
-              WHEN book_metadata.source = 'manual' THEN book_metadata.cover_storage_key
-              ELSE COALESCE(excluded.cover_storage_key, book_metadata.cover_storage_key)
-            END,
-            isbn = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.isbn ELSE excluded.isbn END,
-            asin = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.asin ELSE excluded.asin END,
-            publisher = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.publisher ELSE excluded.publisher END,
-            updated_at = CURRENT_TIMESTAMP
-        `).run(
-          nanoid(16),
-          book.bookId,
-          book.title,
-          book.sortTitle,
-          book.description,
-          book.yearPublished,
-          book.language,
-          book.durationSeconds,
-          book.coverStorageKey,
-          book.isbn,
-          book.asin,
-          book.publisher
-        );
-      }
-
-      if (!book.manualMetadata && !book.skipMetadataUpdate) {
-        if (book.seriesName) {
-          const series = upsertSeries(libraryId, book.seriesName);
-          db.prepare("UPDATE books SET series_id = ?, series_position = ? WHERE id = ?")
-            .run(series.id, book.seriesPosition, book.bookId);
-        } else {
-          db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE id = ?").run(book.bookId);
-        }
-
-        db.prepare("DELETE FROM book_authors WHERE book_id = ? AND role IN ('author', 'narrator')").run(book.bookId);
-        book.authors.forEach((authorName, index) => {
-          const author = upsertAuthor(libraryId, authorName);
-          db.prepare(`
-            INSERT INTO book_authors (book_id, author_id, role, sort_order)
-            VALUES (?, ?, 'author', ?)
-          `).run(book.bookId, author.id, index);
-        });
-        book.narrators.forEach((narratorName, index) => {
-          const narrator = upsertAuthor(libraryId, narratorName);
-          db.prepare(`
-            INSERT INTO book_authors (book_id, author_id, role, sort_order)
-            VALUES (?, ?, 'narrator', ?)
-          `).run(book.bookId, narrator.id, index);
-        });
-
-        db.prepare("DELETE FROM book_genres WHERE book_id = ?").run(book.bookId);
-        book.genres.forEach((genreName) => {
-          const genre = upsertGenre(libraryId, genreName);
-          db.prepare("INSERT INTO book_genres (book_id, genre_id) VALUES (?, ?)").run(book.bookId, genre.id);
-        });
-      }
-
-      db.prepare("UPDATE book_files SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(book.bookId);
-      for (const file of book.files) {
-        db.prepare(`
-          INSERT INTO book_files (
-            id, book_id, relative_path, mime_type, track_number, chapter_title, duration_seconds,
-            size, modified_at, content_hash, status, deleted_at
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL)
-          ON CONFLICT(book_id, relative_path) DO UPDATE SET
-            mime_type = excluded.mime_type,
-            track_number = excluded.track_number,
-            chapter_title = excluded.chapter_title,
-            duration_seconds = excluded.duration_seconds,
-            size = excluded.size,
-            modified_at = excluded.modified_at,
-            content_hash = excluded.content_hash,
-            status = 'available',
-            deleted_at = NULL,
-            updated_at = CURRENT_TIMESTAMP
-        `).run(
-          nanoid(16),
-          book.bookId,
-          file.relativePath,
-          file.mimeType,
-          file.trackNumber,
-          file.chapterTitle,
-          file.durationSeconds,
-          file.size,
-          file.modifiedAt,
-          file.contentHash
-        );
-        discoveredFiles += 1;
-      }
-
+      writeBookScan(libraryId, book);
       discoveredBooks += 1;
+      discoveredFiles += book.files.length;
     }
 
     const knownBooks = db.prepare("SELECT id, folder_path FROM books WHERE library_id = ? AND deleted_at IS NULL")
@@ -780,6 +861,36 @@ export async function scanAudiobookLibrary(libraryId: string) {
   })();
 
   return { discoveredBooks, discoveredFiles };
+}
+
+export async function rescanSingleBook(bookId: string) {
+  const row = db.prepare(`
+    SELECT books.id, books.folder_path, libraries.id AS library_id, libraries.source_path, libraries.settings_json
+    FROM books
+    JOIN libraries ON libraries.id = books.library_id
+    WHERE books.id = ? AND books.deleted_at IS NULL
+  `).get(bookId) as { id: string; folder_path: string; library_id: string; source_path: string; settings_json: string } | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  const rootPath = validateLibrarySource(row.source_path);
+  const settings = normaliseSettings(row.settings_json);
+  const folderAbsolutePath = path.join(rootPath, row.folder_path);
+
+  if (!fs.existsSync(folderAbsolutePath)) {
+    return null;
+  }
+
+  const files = readBookFolderFiles(rootPath, folderAbsolutePath, settings);
+  if (files.length === 0) {
+    return null;
+  }
+
+  const book = await prepareBookScan(row.library_id, rootPath, settings, folderAbsolutePath, files);
+  db.transaction(() => writeBookScan(row.library_id, book))();
+  return book.bookId;
 }
 
 export function enqueueAudiobookScan(libraryId: string) {

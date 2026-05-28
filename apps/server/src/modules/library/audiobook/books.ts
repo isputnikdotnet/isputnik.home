@@ -5,7 +5,8 @@ import { z } from "zod";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { searchAllMetadataProviders, searchMetadataProvider, type MetadataCandidate, type MetadataProvider } from "./providers/index.js";
-import { sortTitle, writeCoverImages } from "./scanner.js";
+import { rescanSingleBook, sortTitle, writeCoverImages } from "./scanner.js";
+import { writeMetadataExport } from "../shared/metadata.js";
 import type { AudiobookBookRow, BookFileRow } from "./types.js";
 
 function largeCoverUrl(storageKey: string | null) {
@@ -15,6 +16,11 @@ function largeCoverUrl(storageKey: string | null) {
 
   return `/api/library/covers/${storageKey.replace(/-cover\.webp$/i, "-cover-large.webp")}`;
 }
+
+const progressUpdateSchema = z.object({
+  fileId: z.string().min(1),
+  positionSeconds: z.number().int().min(0)
+});
 
 const metadataCandidateSchema = z.object({
   title: z.string().trim().min(1),
@@ -167,6 +173,30 @@ function getBookForMetadata(bookId: string) {
   } | undefined;
 }
 
+function exportBookMetadata(bookId: string) {
+  const book = getBookForMetadata(bookId);
+  if (!book) {
+    return;
+  }
+
+  try {
+    writeMetadataExport(bookId, {
+      title: book.title,
+      authors: splitGroupConcat(book.author_names),
+      narrators: splitGroupConcat(book.narrator_names),
+      genres: splitGroupConcat(book.genre_names),
+      publisher: book.publisher,
+      year: book.year_published,
+      description: book.description,
+      language: book.language,
+      isbn: book.isbn,
+      asin: book.asin
+    });
+  } catch {
+    // export is best-effort; never fail a save because of it
+  }
+}
+
 async function applyMetadataCandidate(bookId: string, candidate: MetadataCandidate, updateDetails: boolean, updateCover: boolean) {
   const current = getBookForMetadata(bookId);
   if (!current) {
@@ -235,6 +265,7 @@ async function applyMetadataCandidate(bookId: string, candidate: MetadataCandida
     }
   })();
 
+  exportBookMetadata(bookId);
   return getAudiobookBookDetail(bookId);
 }
 
@@ -282,6 +313,7 @@ function updateManualMetadata(bookId: string, metadata: z.infer<typeof manualMet
     replaceBookGenres(bookId, current.library_id, metadata.genres);
   })();
 
+  exportBookMetadata(bookId);
   return getAudiobookBookDetail(bookId);
 }
 
@@ -303,6 +335,7 @@ function getAudiobookBookDetail(id: string) {
       book_metadata.language,
       book_metadata.duration_seconds,
       book_metadata.cover_storage_key,
+      book_metadata.source AS metadata_source,
       book_metadata.isbn,
       book_metadata.asin,
       book_metadata.publisher,
@@ -338,6 +371,7 @@ function getAudiobookBookDetail(id: string) {
     openlibrary_id: string | null;
     narrator_names: string | null;
     genre_names: string | null;
+    metadata_source: "scan" | "manual";
   }) | undefined;
 
   if (!book) {
@@ -373,6 +407,7 @@ function getAudiobookBookDetail(id: string) {
     asin: book.asin,
     publisher: book.publisher,
     openLibraryId: book.openlibrary_id,
+    metadataSource: book.metadata_source ?? "scan",
     discoveredAt: book.discovered_at,
     updatedAt: book.updated_at,
     files: files.map((file) => ({
@@ -557,5 +592,101 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
     }
 
     reply.send({ updated: true, book });
+  });
+
+  app.get("/api/library/books/:id/progress", { preHandler: app.authenticate }, async (request, reply) => {
+    const bookId = (request.params as { id: string }).id;
+    const userId = request.user!.id;
+
+    const row = db.prepare(`
+      SELECT current_file_id, position_seconds, percent_complete, completed_at
+      FROM playback_progress
+      WHERE book_id = ? AND user_id = ?
+    `).get(bookId, userId) as {
+      current_file_id: string | null;
+      position_seconds: number;
+      percent_complete: number | null;
+      completed_at: string | null;
+    } | undefined;
+
+    reply.send({
+      progress: row
+        ? {
+            fileId: row.current_file_id,
+            positionSeconds: row.position_seconds,
+            percentComplete: row.percent_complete,
+            completedAt: row.completed_at
+          }
+        : null
+    });
+  });
+
+  app.patch("/api/library/books/:id/progress", { preHandler: app.authenticate }, async (request, reply) => {
+    const bookId = (request.params as { id: string }).id;
+    const userId = request.user!.id;
+    const parsed = parseBody(progressUpdateSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid progress update", details: parsed.error });
+      return;
+    }
+
+    const { fileId, positionSeconds } = parsed.data;
+
+    const cumulative = db.prepare(`
+      SELECT COALESCE(SUM(bf.duration_seconds), 0) AS before_seconds
+      FROM book_files bf
+      JOIN book_files current_file ON current_file.id = ? AND current_file.book_id = bf.book_id
+      WHERE bf.track_number < current_file.track_number
+        AND bf.status = 'available'
+    `).get(fileId, fileId) as { before_seconds: number } | undefined;
+
+    const totalDuration = (db.prepare("SELECT duration_seconds FROM book_metadata WHERE book_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
+
+    const absoluteSeconds = (cumulative?.before_seconds ?? 0) + positionSeconds;
+    const percentComplete = totalDuration ? Math.min(absoluteSeconds / totalDuration, 1) : null;
+    const isComplete = percentComplete !== null && percentComplete >= 0.98;
+
+    db.prepare(`
+      INSERT INTO playback_progress (id, user_id, book_id, current_file_id, position_seconds, duration_seconds, percent_complete, updated_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+      ON CONFLICT(user_id, book_id) DO UPDATE SET
+        current_file_id = excluded.current_file_id,
+        position_seconds = excluded.position_seconds,
+        duration_seconds = excluded.duration_seconds,
+        percent_complete = excluded.percent_complete,
+        updated_at = CURRENT_TIMESTAMP,
+        completed_at = CASE WHEN excluded.completed_at IS NOT NULL THEN excluded.completed_at ELSE completed_at END
+    `).run(
+      nanoid(16),
+      userId,
+      bookId,
+      fileId,
+      positionSeconds,
+      totalDuration,
+      percentComplete,
+      isComplete ? new Date().toISOString() : null
+    );
+
+    reply.send({ updated: true });
+  });
+
+  app.post("/api/library/books/:id/metadata-reset", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const existing = db.prepare("SELECT id FROM books WHERE id = ? AND deleted_at IS NULL").get(id);
+    if (!existing) {
+      reply.code(404).send({ error: "Audiobook not found" });
+      return;
+    }
+
+    db.prepare("UPDATE book_metadata SET source = 'scan', updated_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(id);
+
+    try {
+      await rescanSingleBook(id);
+    } catch {
+      // rescan best-effort; metadata source is already reset
+    }
+
+    const book = getAudiobookBookDetail(id);
+    reply.send({ reset: true, book });
   });
 }

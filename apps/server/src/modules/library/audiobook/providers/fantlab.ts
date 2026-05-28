@@ -71,12 +71,19 @@ async function fetchFantlabHtml(url: string) {
 async function enrichFromWorkPage(relativeUrl: string) {
   try {
     const html = await fetchFantlabHtml(normaliseFantlabUrl(relativeUrl)!);
-    return {
-      description: decodeHtml(matchFirst(html, /<meta\s+property="og:description"\s+content="([^"]*)"/i) ?? ""),
-      coverUrl: normaliseFantlabUrl(matchFirst(html, /<meta\s+property="og:image"\s+content="([^"]*)"/i))
-    };
+    const description = decodeHtml(matchFirst(html, /<meta\s+property="og:description"\s+content="([^"]*)"/i) ?? "");
+    const coverUrl = normaliseFantlabUrl(matchFirst(html, /<meta\s+property="og:image"\s+content="([^"]*)"/i));
+
+    // Original (non-Russian) title — shown on translated work pages
+    const rawOriginal =
+      matchFirst(html, /class="[^"]*altname[^"]*"[^>]*>([\s\S]*?)<\//i) ??
+      matchFirst(html, /class="[^"]*original-name[^"]*"[^>]*>([\s\S]*?)<\//i) ??
+      matchFirst(html, /Другие\s+названия[\s\S]*?<[^>]+>([\s\S]*?)<\//i);
+    const originalTitle = rawOriginal ? stripTags(rawOriginal).trim() || undefined : undefined;
+
+    return { description: description || undefined, coverUrl, originalTitle };
   } catch {
-    return { description: undefined, coverUrl: undefined };
+    return { description: undefined, coverUrl: undefined, originalTitle: undefined };
   }
 }
 
@@ -97,6 +104,7 @@ export async function searchFantlab(input: MetadataSearchInput): Promise<Metadat
 
     return {
       title: stripTags(rawTitle ?? ""),
+      subtitle: detail.originalTitle,
       authors: author ? [stripTags(author)] : [],
       year: yearFromPlus(plus),
       description: detail.description || undefined,

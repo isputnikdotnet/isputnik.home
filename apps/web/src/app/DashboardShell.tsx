@@ -64,7 +64,7 @@ export function DashboardShell({
                 <LogOut size={21} />
                 <span className="sr-only">Sign out</span>
               </button>
-              <span className="version">v0.1.0</span>
+              <span className="version">v0.2.0</span>
             </div>
           </aside>
         )}

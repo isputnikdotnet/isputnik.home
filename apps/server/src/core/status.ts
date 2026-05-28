@@ -51,8 +51,21 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
-          version: config.version,
-          label: "Current development version",
+          version: "0.2.0",
+          label: "Audiobook player UX",
+          changes: [
+            "Added skip ±30 s buttons with automatic cross-chapter wrap-around.",
+            "Added overall book progress bar showing position across all chapters.",
+            "Added toggleable chapter list panel with click-to-jump navigation.",
+            "Progress is now saved on browser/tab close via fetch keepalive.",
+            "Added audiobook library with folder scanning, metadata editing, and cover art.",
+            "Added metadata lookup via iTunes, OpenLibrary, and FantLab providers.",
+            "Added byte-range streaming endpoint with seek support."
+          ]
+        },
+        {
+          version: "0.1.0",
+          label: "Initial release",
           changes: [
             "Added the application shell with protected routes, profile settings, and light, dark, and system themes.",
             "Added invite-only account creation with copyable invitation links, link status, and revocation.",

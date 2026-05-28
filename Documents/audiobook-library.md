@@ -42,8 +42,9 @@ The scanner treats each leaf folder containing audio files as one book. The pare
 |---|---|---|
 | **1 — Foundation** | Complete | Library registration, folder walk, DB upsert (folder names), rescan, admin UI |
 | **2 — Audio metadata** | Complete | `music-metadata` tag reading, disc folder collapse, cover art detection, async scan |
-| **3 — Enrichment** | In progress | Sidecar file import, per-book metadata lookup (iTunes, OpenLibrary, FantLab), manual metadata editing/pinning |
-| **4 — Polish** | Future | Metadata export, file system watcher, inode tracking, streaming endpoint |
+| **3 — Enrichment** | Complete | Sidecar import (native + Audiobookshelf format), metadata lookup, iTunes/OpenLibrary/FantLab providers, preview/diff before apply, apply result + cover, manual edit + pinning, metadata reset/unpin, FantLab original title as subtitle |
+| **4 — Playback & Export** | Complete | Streaming endpoint (byte-range HTTP, seek support), metadata export (write `<book-id>.json` on manual save) |
+| **5 — Player UX** | Complete | Skip ±30 s with cross-chapter wrap, overall book progress bar, toggleable chapter list with click-to-jump, save-on-close via `fetch keepalive` |
 
 ---
 
@@ -424,7 +425,7 @@ We never write to source folders. If a user's library already has `metadata.json
 
 ## Metadata Lookup
 
-**Phase 3 — in progress.**
+**Phase 3 — complete.**
 
 A per-book feature that lets a user search external providers for metadata and apply selected results. Distinct from the automatic scan pipeline — entirely user-triggered.
 
@@ -434,7 +435,7 @@ A per-book feature that lets a user search external providers for metadata and a
 |---|---|---|---|---|
 | **iTunes / Apple Books** | ✓ | No | ✓ | Title, author, narrator, year, description, genres, series |
 | **OpenLibrary** | ✓ | No | ✓ | Title, authors, year, description, ISBN |
-| **FantLab** | ✓ | No | ✓ | Russian title, author, year, description, genre hints |
+| **FantLab** | ✓ | No | ✓ | Russian title, original title, author, year, description, genre hints |
 
 Audible is a future addition — it requires either an unofficial API or scraping and adds deployment complexity.
 
@@ -467,11 +468,36 @@ POST /api/library/books/:id/metadata-match
 PATCH /api/library/books/:id/metadata
      { title, authors, narrators, genres, publisher, yearPublished, description, language, isbn, asin }
      → { updated: bool, book: BookDetail }
+
+POST /api/library/books/:id/metadata-reset
+     → { reset: bool, book: BookDetail }
 ```
 
 Implemented provider values: `itunes`, `openlibrary`, `fantlab`, and `all`.
 
 When a result is applied, `book_metadata.source` is set to `manual`; future rescans preserve the selected metadata.
+
+#### FantLab title handling
+
+FantLab work pages carry two titles: the Russian title (the canonical title in the FantLab catalogue) and the original-language title (for translated works). Both are useful, and the right choice depends on the user's library.
+
+**Fields returned:**
+
+| FantLab field | `MetadataCandidate` mapping |
+|---|---|
+| Russian title | `title` |
+| Original title | `subtitle` |
+
+By surfacing the original title as `subtitle`, the diff preview can show both. When the user applies the result with `updateDetails = true`:
+
+- `title` ← Russian title (default, matches FantLab's canonical record)
+- `subtitle` / `sort_title` ← original title preserved if present
+
+**Limitation:** if the work is originally Russian, there is no "original title" distinction — `subtitle` is left empty.
+
+**Future option:** a per-library setting `fantlab_title_mode = 'russian' | 'original' | 'both'` could swap the mapping. Not implemented in Phase 3.
+
+---
 
 ### Normalised candidate shape
 
@@ -512,6 +538,52 @@ When the user clicks Apply, the server updates `book_metadata` and related table
 
 After apply, `book_metadata.source` is set to `'manual'`. The scanner will never overwrite these fields on future rescans.
 
+### Metadata preview / diff before apply
+
+Before writing any changes, the UI should show a side-by-side comparison of the current book record and what the selected candidate would change.
+
+**Trigger:** clicking a result card expands an inline diff panel instead of immediately applying.
+
+**Diff display:**
+
+| Field | Current value | Candidate value |
+|---|---|---|
+| Title | The Martian | The Martian |
+| Author | Andy Weir | Andy Weir |
+| Year | — | 2011 |
+| Description | — | *excerpt…* |
+| Cover | *(thumbnail)* | *(candidate thumbnail)* |
+
+Unchanged fields are shown greyed out or hidden. Changed fields are highlighted. The **Apply** button is inside the diff panel, not on the card. The existing `updateDetails` and `updateCover` checkboxes remain here.
+
+**Implementation note:** the diff is computed client-side from the `BookDetail` already in state and the `MetadataCandidate` returned by the search — no extra API call needed before the user confirms.
+
+---
+
+### Metadata reset / unpin
+
+A book with `source = 'manual'` is permanently locked from automatic updates. Users need a way to undo this.
+
+**UI:** a **"Reset to auto"** button on the book detail page, visible only when `source = 'manual'`. Shown near the Edit metadata panel, not inline with individual fields.
+
+**Behaviour:**
+1. Sets `book_metadata.source = 'scan'`
+2. Enqueues a single-book rescan (`RESCAN_BOOK` job type or inline call to `prepareBookScan`)
+3. The book refreshes with whatever the scanner derives from disk — tags, sidecar, folder names
+
+**API endpoint:**
+
+```
+POST /api/library/books/:id/metadata-reset
+     → { reset: true, book: BookDetail }
+```
+
+No request body. The endpoint sets source and triggers the rescan. Returns the re-scanned book state.
+
+**Confirmation:** a brief inline confirmation ("This will replace all manually edited fields. Continue?") before the request is sent.
+
+---
+
 ### Provider modules
 
 Each provider lives in its own file and exposes a single `search(query)` function:
@@ -545,6 +617,31 @@ During scan, if a book folder contains `metadata.json`, the scanner reads it aft
 ```
 
 Manual metadata still wins: if `book_metadata.source = 'manual'`, sidecar import is skipped for that book.
+
+#### Audiobookshelf sidecar compatibility
+
+Audiobookshelf writes its own `metadata.json` (and `metadata.abs`) with different field names. The scanner should accept both formats without requiring the user to rewrite their existing files.
+
+**Audiobookshelf field mapping:**
+
+| Audiobookshelf field | Our field | Notes |
+|---|---|---|
+| `authorName` | `authors` | String → split on `, ` |
+| `authorNameLF` | — | Last-first variant, ignored if `authorName` present |
+| `narratorName` | `narrators` | String → split on `, ` |
+| `publishedYear` | `year` | String or number |
+| `publishedDate` | `year` | Extract year component |
+| `subtitle` | `subtitle` | Direct map |
+| `series` | `series` | May be a string or `[{ name, sequence }]` |
+| `sequence` | `seriesPosition` | String → parseFloat |
+| `genres` | `genres` | Array of strings |
+| `tags` | — | Not imported |
+| `coverPath` | — | Ignored; we detect cover image separately |
+| `explicit` | — | Not imported |
+
+**Detection:** if the file contains `authorName` or `narratorName` (string fields), treat it as Audiobookshelf format and apply the mapping above. Otherwise treat as our native format. Both formats can coexist in the same library since detection is per-file.
+
+**`metadata.abs` format:** Audiobookshelf also writes a binary `.abs` file in some versions. This is not imported — only `metadata.json` is read.
 
 ---
 
@@ -597,7 +694,7 @@ A book is marked complete when `percent_complete >= 0.98` (allows for credits). 
         <book-id>-cover-large.webp       ← Phase 2
     /metadata
       /ab/cd/
-        <book-id>.json                   ← Phase 4 (export)
+        <book-id>.json                   ← Phase 4 ✓
 
 Configured library source (read-only):
   /libraries/audiobooks/
@@ -623,11 +720,65 @@ Configured library source (read-only):
 
 ---
 
+## Phase 4 — Playback & Export
+
+### Streaming endpoint
+
+```
+GET /api/library/books/:id/stream/:fileId
+```
+
+Streams the audio file directly from the source folder with HTTP byte-range support, which browsers require for seeking.
+
+**Behaviour:**
+- Verifies the file belongs to the requested book and is `status = 'available'`
+- Resolves the absolute path from `libraries.source_path + book_files.relative_path` and checks it is inside `source_path`
+- Responds with `Accept-Ranges: bytes` on all responses
+- Without `Range` header → `200 OK`, full file stream
+- With `Range: bytes=start-end` → `206 Partial Content`, `Content-Range` header, partial stream
+- Invalid or unsatisfiable range → `416 Range Not Satisfiable`
+- `Cache-Control: private, no-cache` (files change on rescan)
+
+**Configuration:** no additional config needed — uses the library's `source_path` already in the DB.
+
+### Metadata export
+
+When a user saves manual metadata (via direct edit or applying a provider result), the server writes a JSON file to the configured metadata cache:
+
+```
+$METADATA_PATH/<ab>/<cd>/<book-id>.json
+```
+
+Same sharding pattern as thumbnails. Configured via `METADATA_PATH` environment variable. If `METADATA_PATH` is not set, export is silently skipped — it is best-effort and never blocks a save.
+
+**Exported fields:** title, authors, narrators, genres, publisher, year, description, language, isbn, asin.
+
+The format matches our native sidecar schema, so the exported file can be copied back into a source folder as `metadata.json` if a user wants to migrate libraries.
+
+---
+
+## Phase 5 — Player UX
+
+### Skip ±30 s with cross-chapter wrap
+
+Two skip buttons flank the chapter prev/next controls: rewind 30 s and fast-forward 30 s. If the skip would move before the start of the current chapter, playback jumps to the previous chapter at the correct offset. If it would overshoot the end, it jumps to the next chapter carrying the overflow as the initial seek position. State (`shouldAutoPlayRef`, `pendingSeekRef`) is set identically to chapter navigation so play/pause state is preserved across the boundary.
+
+### Overall book progress bar
+
+A second, read-only progress bar sits between the chapter seek slider and the aux row. It shows position across all chapters: `completedDuration` (sum of durations of fully played chapters) plus `currentTime` within the active chapter, over the total book duration. The bar is styled deliberately more subdued than the interactive seek bar to avoid visual confusion.
+
+### Chapter list panel
+
+A **Chapters** toggle button (same style as the speed menu button) sits in the aux row. Expanding the panel shows all `available` files as a scrollable list with chapter number, title, and duration. Clicking any entry saves current progress, preserves the current playing state, and jumps to that chapter at position 0. The active chapter is highlighted. The panel closes automatically on jump.
+
+### Save on browser close
+
+A `beforeunload` handler calls `fetch` with `keepalive: true`, which browsers keep alive even after the tab is closed or navigated away. The handler is re-registered whenever `currentFile` changes so the closure always captures the correct file ID. Combined with the existing 10 s periodic save and save-on-pause, progress loss on unexpected close is reduced to at most the current playback interval.
+
+---
+
 ## Future Considerations
 
-- **Streaming endpoint** — `GET /api/library/books/:id/stream/:fileId` with byte-range support for seeking
-- **File system watcher** — auto-scan on file changes, no manual rescan needed (Phase 4)
-- **Inode tracking** — detect renamed/moved folders without losing playback progress (Phase 4)
 - **Managed uploads** — users upload their own audiobooks into `/data/media/library/`; same book/file/metadata model
 - **Podcast library type** — reuses `libraries`, `book_files`, and `playback_progress` with its own `episodes` table and RSS scanner
 - **Mobile playback** — same API endpoints; `playback_progress` syncs on resume

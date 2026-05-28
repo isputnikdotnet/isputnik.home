@@ -50,7 +50,15 @@ export interface AudiobookBookDetail extends AudiobookBook {
   yearPublished: number | null;
   isbn: string | null;
   openLibraryId: string | null;
+  metadataSource: "scan" | "manual";
   files: AudiobookFile[];
+}
+
+export interface PlaybackProgress {
+  fileId: string | null;
+  positionSeconds: number;
+  percentComplete: number | null;
+  completedAt: string | null;
 }
 
 export interface MetadataCandidate {
