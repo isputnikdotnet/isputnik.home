@@ -3,7 +3,8 @@ import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
-import { registerRoutes } from "./routes.js";
+import { corePlugin } from "./core/index.js";
+import { libraryPlugin } from "./modules/library/index.js";
 
 const app = fastify({
   logger: true,
@@ -16,7 +17,8 @@ await app.register(cors, {
 });
 await app.register(cookie);
 await registerAuthDecorators(app);
-await registerRoutes(app);
+await app.register(corePlugin);
+await app.register(libraryPlugin);
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);

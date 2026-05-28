@@ -109,7 +109,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS libraries (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('audiobook')),
+    type TEXT NOT NULL,
     source_path TEXT NOT NULL,
     settings_json TEXT NOT NULL DEFAULT '{}',
     scan_status TEXT NOT NULL DEFAULT 'idle' CHECK (scan_status IN ('idle', 'scanning', 'error')),
@@ -135,7 +135,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS book_metadata (
     id TEXT PRIMARY KEY,
     book_id TEXT NOT NULL UNIQUE REFERENCES books(id) ON DELETE CASCADE,
-    source TEXT NOT NULL DEFAULT 'scan' CHECK (source IN ('scan', 'manual', 'openlibrary')),
+    source TEXT NOT NULL DEFAULT 'scan' CHECK (source IN ('scan', 'manual')),
     title TEXT,
     sort_title TEXT,
     description TEXT,
@@ -144,6 +144,8 @@ db.exec(`
     duration_seconds INTEGER,
     cover_storage_key TEXT,
     isbn TEXT,
+    asin TEXT,
+    publisher TEXT,
     openlibrary_id TEXT,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
@@ -260,6 +262,14 @@ db.exec(`
 const inviteColumns = db.prepare("PRAGMA table_info(invites)").all() as { name: string }[];
 if (!inviteColumns.some((column) => column.name === "token")) {
   db.exec("ALTER TABLE invites ADD COLUMN token TEXT");
+}
+
+const bookMetaColumns = db.prepare("PRAGMA table_info(book_metadata)").all() as { name: string }[];
+if (!bookMetaColumns.some((column) => column.name === "asin")) {
+  db.exec("ALTER TABLE book_metadata ADD COLUMN asin TEXT");
+}
+if (!bookMetaColumns.some((column) => column.name === "publisher")) {
+  db.exec("ALTER TABLE book_metadata ADD COLUMN publisher TEXT");
 }
 
 export function hasUsers() {

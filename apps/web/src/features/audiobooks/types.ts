@@ -18,11 +18,16 @@ export interface AudiobookBook {
   status: "pending" | "ready" | "error";
   title: string;
   authors: string[];
+  narrators: string[];
+  genres: string[];
   language: string | null;
   fileCount: number;
   totalSize: number;
   durationSeconds: number | null;
   coverUrl: string | null;
+  coverLargeUrl: string | null;
+  publisher: string | null;
+  asin: string | null;
   discoveredAt: string;
   updatedAt: string;
 }
@@ -46,4 +51,20 @@ export interface AudiobookBookDetail extends AudiobookBook {
   isbn: string | null;
   openLibraryId: string | null;
   files: AudiobookFile[];
+}
+
+export interface MetadataCandidate {
+  title: string;
+  subtitle?: string;
+  authors: string[];
+  narrators?: string[];
+  publisher?: string;
+  year?: number;
+  description?: string;
+  coverUrl?: string;
+  isbn?: string;
+  asin?: string;
+  genres?: string[];
+  language?: string;
+  source: "itunes" | "openlibrary" | "fantlab";
 }

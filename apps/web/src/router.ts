@@ -1,0 +1,106 @@
+import { useState, useEffect } from "react";
+
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "storage";
+
+export type Route =
+  | { name: "install" }
+  | { name: "login" }
+  | { name: "home" }
+  | { name: "audiobooks" }
+  | { name: "control"; section: ControlSection }
+  | { name: "about" }
+  | { name: "profile" }
+  | { name: "invite"; token: string };
+
+export function getRoute(): Route {
+  const path = window.location.pathname;
+  const inviteMatch = path.match(/^\/invite\/([^/]+)$/);
+
+  if (inviteMatch) {
+    return { name: "invite", token: inviteMatch[1] };
+  }
+
+  if (path === "/install") {
+    return { name: "install" };
+  }
+
+  if (path === "/login") {
+    return { name: "login" };
+  }
+
+  if (["/admin", "/control"].includes(path)) {
+    return { name: "control", section: "status" };
+  }
+
+  if (path === "/audiobooks") {
+    return { name: "audiobooks" };
+  }
+
+  if (path === "/control/users") {
+    return { name: "control", section: "users" };
+  }
+
+  if (path === "/control/invites") {
+    return { name: "control", section: "invites" };
+  }
+
+  if (path === "/control/sessions") {
+    return { name: "control", section: "sessions" };
+  }
+
+  if (["/control/activity", "/control/logs"].includes(path)) {
+    return { name: "control", section: "logs" };
+  }
+
+  if (path === "/control/status") {
+    return { name: "control", section: "status" };
+  }
+
+  if (path === "/control/storage") {
+    return { name: "control", section: "storage" };
+  }
+
+  if (["/control/library", "/control/libraries"].includes(path)) {
+    return { name: "control", section: "libraries" };
+  }
+
+  if (path === "/control/about") {
+    return { name: "control", section: "about" };
+  }
+
+  if (path === "/profile") {
+    return { name: "profile" };
+  }
+
+  if (path === "/about") {
+    return { name: "about" };
+  }
+
+  return { name: "home" };
+}
+
+export function navigate(path: string) {
+  window.history.pushState({}, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+export function followRoute(event: React.MouseEvent<HTMLAnchorElement>, path: string) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return;
+  }
+
+  event.preventDefault();
+  navigate(path);
+}
+
+export function useRoute() {
+  const [route, setRoute] = useState(getRoute);
+
+  useEffect(() => {
+    const onPop = () => setRoute(getRoute());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  return route;
+}

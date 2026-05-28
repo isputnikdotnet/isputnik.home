@@ -2,19 +2,19 @@
 
 ## Overview
 
-The Digital Library module supports multiple library types. Each type has its own metadata schema, scan behaviour, processing jobs, and display logic. This document covers the audiobook library type in full.
+An audiobook library indexes an existing folder of audiobook files on the home server. Original files are never moved or modified. The application scans the folder, builds a structured catalogue of books, authors, series, and chapters, and generates cover art thumbnails for browsing.
 
-An audiobook library indexes an existing folder of audiobook files on the home server. Original files are never moved or modified. The application scans the folder, builds a structured catalogue of books, authors, series, and chapters, enriches metadata from embedded tags and optionally from OpenLibrary, and generates cover art thumbnails for browsing.
+See [`audiobook-db.md`](audiobook-db.md) for the full entity-relationship diagram.
 
 ---
 
-## Core Concept — Book as the Unit, Not File
+## Core Concept — Folder = Book
 
-A file is not the primary unit in an audiobook library. A **book** is.
+A file is not the primary unit. A **book** is.
 
-A book maps to a folder on disk. All audio files inside that folder are the book's files — whether it is a single `.m4b` or thirty numbered `.mp3` chapters. This model handles both formats identically and is how Audiobookshelf and similar tools work.
+A book maps to a folder on disk. All audio files inside that folder are the book's files — whether it is a single `.m4b` or thirty numbered `.mp3` chapters. This model handles both formats identically.
 
-The recommended folder structure is:
+Recommended folder structure:
 
 ```
 /audiobooks
@@ -30,27 +30,34 @@ The recommended folder structure is:
       cover.jpg
       01 - The Colour of Magic.mp3
       02 - The Colour of Magic.mp3
-    /Discworld 02 - The Light Fantastic
-      cover.jpg
-      The Light Fantastic.mp3
 ```
 
-The scanner treats each leaf folder (a folder containing audio files) as one book candidate. The parent folder is treated as the author name hint if no embedded metadata is present.
+The scanner treats each leaf folder containing audio files as one book. The parent folder is the author name hint when no embedded metadata is present.
+
+---
+
+## Implementation Phases
+
+| Phase | Status | Scope |
+|---|---|---|
+| **1 — Foundation** | Complete | Library registration, folder walk, DB upsert (folder names), rescan, admin UI |
+| **2 — Audio metadata** | Complete | `music-metadata` tag reading, disc folder collapse, cover art detection, async scan |
+| **3 — Enrichment** | In progress | Sidecar file import, per-book metadata lookup (iTunes, OpenLibrary, FantLab), manual metadata editing/pinning |
+| **4 — Polish** | Future | Metadata export, file system watcher, inode tracking, streaming endpoint |
 
 ---
 
 ## Library Settings
 
-When an administrator creates an audiobook library, the following settings are configured and stored in `libraries.settings_json`:
+Stored in `libraries.settings_json` when a library is created:
 
 | Setting | Default | Description |
 |---|---|---|
-| `folder_structure` | `author_book` | Expected layout: `author_book`, `flat`, or `series_author_book` |
-| `enrich_from_openlibrary` | `true` | Attempt OpenLibrary metadata lookup after scan |
-| `default_language` | `en` | Used when no language is detected from file tags |
+| `folder_structure` | `author_book` | Expected layout hint: `author_book`, `flat`, or `series_author_book` |
+| `default_language` | `en` | Fallback when no language tag is found |
 | `show_narrator` | `true` | Display narrator prominently in the UI |
 | `supported_extensions` | see below | Audio formats to include during scan |
-| `cover_filenames` | `cover,folder,artwork` | Filenames to look for as folder cover images |
+| `cover_filenames` | `cover,folder,artwork` | Image filenames to recognise as folder cover art |
 
 Default supported extensions:
 
@@ -62,6 +69,8 @@ Default supported extensions:
 
 ## Database Schema
 
+See [`audiobook-db.md`](audiobook-db.md) for the full ER diagram.
+
 ### Core tables
 
 ```sql
@@ -69,14 +78,14 @@ libraries
 ---------
 id            TEXT PRIMARY KEY
 name          TEXT NOT NULL
-type          TEXT NOT NULL DEFAULT 'audiobook'   -- 'audiobook' | 'photo' | 'video' etc.
+type          TEXT NOT NULL                        -- 'audiobook' | 'photo' | 'video' etc.
 source_path   TEXT NOT NULL                        -- container-visible path
 settings_json TEXT NOT NULL DEFAULT '{}'
 scan_status   TEXT NOT NULL DEFAULT 'idle'         -- 'idle' | 'scanning' | 'error'
-last_scanned_at INTEGER
+last_scanned_at TEXT
 created_by    TEXT NOT NULL REFERENCES users(id)
-created_at    INTEGER NOT NULL
-updated_at    INTEGER NOT NULL
+created_at    TEXT NOT NULL
+updated_at    TEXT NOT NULL
 
 
 books
@@ -85,30 +94,32 @@ id                TEXT PRIMARY KEY
 library_id        TEXT NOT NULL REFERENCES libraries(id)
 folder_path       TEXT NOT NULL                    -- relative to library source_path
 series_id         TEXT REFERENCES series(id)
-series_position   REAL                             -- supports '2.5' for novellas between books
+series_position   REAL                             -- supports '2.5' for novellas
 status            TEXT NOT NULL DEFAULT 'pending'  -- 'pending' | 'ready' | 'error'
-discovered_at     INTEGER NOT NULL
-updated_at        INTEGER NOT NULL
-deleted_at        INTEGER
+discovered_at     TEXT NOT NULL
+updated_at        TEXT NOT NULL
+deleted_at        TEXT
 
 UNIQUE (library_id, folder_path)
 
 
 book_metadata
 -------------
-id              TEXT PRIMARY KEY
-book_id         TEXT NOT NULL UNIQUE REFERENCES books(id)
-source          TEXT NOT NULL DEFAULT 'scan'  -- 'scan' | 'manual' | 'openlibrary'
-title           TEXT
-sort_title      TEXT                           -- 'Martian, The' for correct sorting
-description     TEXT
-year_published  INTEGER
-language        TEXT
-duration_seconds INTEGER
-cover_storage_key TEXT                         -- relative path in thumbnail cache
-isbn            TEXT
-openlibrary_id  TEXT
-updated_at      INTEGER NOT NULL
+id               TEXT PRIMARY KEY
+book_id          TEXT NOT NULL UNIQUE REFERENCES books(id)
+source           TEXT NOT NULL DEFAULT 'scan'  -- 'scan' | 'manual'
+title            TEXT
+sort_title       TEXT                          -- 'Martian, The' for correct sorting
+description      TEXT
+year_published   INTEGER
+language         TEXT
+duration_seconds INTEGER                      -- summed from book_files (Phase 2)
+cover_storage_key TEXT                        -- relative path in thumbnail cache (Phase 2)
+isbn             TEXT
+asin             TEXT                         -- Audible Standard Identification Number
+publisher        TEXT
+openlibrary_id   TEXT                         -- reserved for future enrichment
+updated_at       TEXT NOT NULL
 
 
 authors
@@ -116,7 +127,7 @@ authors
 id              TEXT PRIMARY KEY
 library_id      TEXT NOT NULL REFERENCES libraries(id)
 name            TEXT NOT NULL
-sort_name       TEXT                           -- 'Pratchett, Terry'
+sort_name       TEXT                          -- 'Pratchett, Terry'
 bio             TEXT
 cover_storage_key TEXT
 openlibrary_id  TEXT
@@ -131,6 +142,9 @@ library_id  TEXT NOT NULL REFERENCES libraries(id)
 name        TEXT NOT NULL
 
 UNIQUE (library_id, name)
+
+Note: narrators are currently stored in the authors table with book_authors.role = 'narrator'.
+The narrators table is reserved for Phase 3 when narrators get their own entity.
 
 
 series
@@ -152,7 +166,7 @@ name        TEXT NOT NULL
 UNIQUE (library_id, name)
 ```
 
-Genres are structured and sourced from metadata (embedded tags or OpenLibrary). They are library-scoped because "Fantasy" in an audiobook library and "Fantasy" in a future video library are independent controlled vocabularies.
+Genres are library-scoped controlled vocabulary — "Fantasy" in an audiobook library and "Fantasy" in a future video library are independent.
 
 ### Join tables
 
@@ -175,75 +189,21 @@ genre_id  TEXT NOT NULL REFERENCES genres(id)
 PRIMARY KEY (book_id, genre_id)
 ```
 
-### Shared tags system
-
-Tags are separate from genres. Genres are structured metadata sourced from file tags or OpenLibrary. Tags are freeform, user-defined labels — things like "family favourite", "long drive", "re-listen", "kids".
-
-The tags system is designed to work across all modules — audiobooks, photos, notes, and any future module. It uses the same `module` + `resource_id` pattern as the `shares` table so no schema changes are needed when new modules are added.
-
-```sql
-tags
-----
-id          TEXT PRIMARY KEY
-name        TEXT NOT NULL
-created_by  TEXT NOT NULL REFERENCES users(id)
-created_at  INTEGER NOT NULL
-
-UNIQUE (name)
-
-
-resource_tags
--------------
-id          TEXT PRIMARY KEY
-module      TEXT NOT NULL        -- 'library', 'notes', etc.
-resource_id TEXT NOT NULL        -- book_id, asset_id, note_id, etc.
-tag_id      TEXT NOT NULL REFERENCES tags(id)
-created_by  TEXT NOT NULL REFERENCES users(id)
-created_at  INTEGER NOT NULL
-
-UNIQUE (module, resource_id, tag_id)
-```
-
-Tags are global — the same tag "family favourite" can be applied to an audiobook, a photo, and a note. The `module` column on `resource_tags` scopes queries per module without isolating the tags themselves.
-
-A view provides tag usage counts for the UI, so popular tags surface and orphaned ones can be hidden:
-
-```sql
-CREATE VIEW tag_usage AS
-SELECT
-  t.id,
-  t.name,
-  COUNT(rt.id)                                    AS usage_count,
-  COUNT(CASE WHEN rt.module = 'library' THEN 1 END) AS library_count,
-  COUNT(CASE WHEN rt.module = 'notes'   THEN 1 END) AS notes_count
-FROM tags t
-LEFT JOIN resource_tags rt ON rt.tag_id = t.id
-GROUP BY t.id, t.name;
-```
-
-Required indexes for tags:
-
-```sql
-CREATE INDEX idx_resource_tags_lookup  ON resource_tags(module, resource_id);
-CREATE INDEX idx_resource_tags_tag     ON resource_tags(tag_id);
-CREATE INDEX idx_resource_tags_creator ON resource_tags(created_by);
-```
-
 ### File tracking
 
 ```sql
 book_files
 ----------
-id              TEXT PRIMARY KEY
-book_id         TEXT NOT NULL REFERENCES books(id)
-relative_path   TEXT NOT NULL               -- relative to library source_path
-mime_type       TEXT
-track_number    INTEGER                     -- sort order within the book
-chapter_title   TEXT
-duration_seconds INTEGER
-size            INTEGER
-modified_at     INTEGER
-content_hash    TEXT                        -- sha256, computed at scan time
+id               TEXT PRIMARY KEY
+book_id          TEXT NOT NULL REFERENCES books(id)
+relative_path    TEXT NOT NULL               -- relative to library source_path
+mime_type        TEXT
+track_number     INTEGER                     -- sort order within the book
+chapter_title    TEXT
+duration_seconds INTEGER                    -- per-file duration (Phase 2, from music-metadata)
+size             INTEGER
+modified_at      TEXT
+content_hash     TEXT                        -- sha256 (Phase 2)
 
 UNIQUE (book_id, relative_path)
 ```
@@ -259,9 +219,9 @@ book_id          TEXT NOT NULL REFERENCES books(id)
 current_file_id  TEXT REFERENCES book_files(id)
 position_seconds INTEGER NOT NULL DEFAULT 0
 duration_seconds INTEGER                    -- cached total, avoids joining book_files
-percent_complete REAL                       -- stored for fast sorting by progress
-updated_at       INTEGER NOT NULL
-completed_at     INTEGER                    -- set when percent_complete >= 0.98
+percent_complete REAL                       -- stored for fast sorting
+updated_at       TEXT NOT NULL
+completed_at     TEXT                       -- set when percent_complete >= 0.98
 
 UNIQUE (user_id, book_id)
 ```
@@ -278,165 +238,351 @@ CREATE INDEX idx_progress_user        ON playback_progress(user_id, updated_at D
 CREATE INDEX idx_progress_book        ON playback_progress(book_id);
 ```
 
-Tag indexes are defined in the shared tags system section above.
-
 ---
 
 ## Scan Pipeline
 
-The scan runs as a background job triggered when a library is created or when an admin requests a rescan.
+### Current implementation (Phase 2)
+
+The scan runs asynchronously through the SQLite job queue. Create and rescan requests enqueue `SCAN_AUDIOBOOK_LIBRARY`, set `scan_status = 'scanning'`, and return immediately. The worker processes scan jobs in the server process; the UI polls `scan_status` until it returns to `idle`.
 
 ```
-Admin registers library (name, source_path, type = audiobook)
-  → validate path is accessible
-  → create library record (scan_status = scanning)
-  → enqueue SCAN_LIBRARY job
-  → return immediately — UI shows scanning state
+Admin registers library (name, source_path, defaultLanguage)
+  → validateLibrarySource:
+      - path must be absolute
+      - directory must exist
+      - must fall inside a registered storage root
+      - must not overlap with THUMBNAIL_PATH
+  → INSERT libraries record
+  → scanAudiobookLibrary(libraryId) — runs inline, returns when done
 
-SCAN_LIBRARY job:
-  → walk source_path recursively
-  → identify book folders (folders containing supported audio files)
+scanAudiobookLibrary:
+  → SET scan_status = 'scanning'
+  → walkAudiobookFiles(rootPath):
+      recursive walk, skip symlinks outside root
+      collect audio files grouped by parent folder
+      return Map<folderAbsPath, files[]>
+
+  → BEGIN TRANSACTION
   → for each book folder:
-      → compute folder_path (relative)
-      → upsert book record (status = pending)
-      → upsert book_files for each audio file found
-      → mark files missing if previously known but not found
-      → enqueue per-book background jobs
-  → update library scan_status = idle, last_scanned_at = now
+      sort files by filename (alpha-numeric)
+      folderPath = relative path from library root
+
+      upsert book (library_id, folder_path)
+        new  → INSERT status='ready'
+        seen → UPDATE status='ready', deleted_at=NULL
+
+      upsert book_metadata
+        title       = first file's album/title tag, falling back to folder name
+        sort_title  = strip leading "the/a/an"
+        language    = tag language, falling back to settings.default_language
+        description, year, publisher, isbn, asin from tags when available
+        duration_seconds = sum(book_files.duration_seconds)
+        cover_storage_key = generated WebP thumbnail key when cover art is found
+
+      upsert author from artist/albumartist tag, falling back to parent folder name
+      upsert narrators from composer tag as book_authors.role='narrator'
+      upsert genres from genre tags
+      INSERT book_authors (role='author') ON CONFLICT DO NOTHING
+
+      mark all existing book_files as status='missing'
+      for each audio file (sorted):
+        upsert book_files
+          track_number  = parse from filename prefix or sort index
+          chapter_title = tag title or filename without extension
+          mime_type     = mapped from extension
+          duration_seconds = music-metadata duration
+          size          = fs.statSync
+          modified_at   = fs.statSync
+          content_hash  = sha256
+
+  → soft-delete books not found in this walk (deleted_at = now)
+  → mark their files missing
+  → mark job completed with discovered book/file counts
+  → SET scan_status='idle', last_scanned_at=now
+  → COMMIT
 ```
 
-Per-book background jobs (run concurrently after discovery):
+### Phase 2 additions implemented
 
-| Job type | What it does | Dependency |
-|---|---|---|
-| `EXTRACT_AUDIO_METADATA` | Reads embedded ID3/MP4 tags — title, author, narrator, year, duration, chapter markers | None |
-| `EXTRACT_COVER_ART` | Finds embedded cover image or `cover.jpg` in folder | None |
-| `GENERATE_THUMBNAIL` | Runs Sharp to produce WebP thumbnail from cover art | `EXTRACT_COVER_ART` |
-| `MATCH_SERIES_AUTHOR` | Finds or creates series, author, and narrator records | `EXTRACT_AUDIO_METADATA` |
-| `ENRICH_OPENLIBRARY` | Searches OpenLibrary by title and author, fills in description, ISBN, genres | `EXTRACT_AUDIO_METADATA` |
-| `FINALISE_BOOK` | Sets book status = ready once required jobs complete | All above |
+The following steps are added to the per-book loop when `music-metadata` is integrated:
 
-A book is visible in the library browser as soon as `status = ready`. A large existing collection becomes browsable progressively — books appear as their jobs complete rather than all at once.
+```
+Phase 2 additions per book folder:
+  → disc folder detection:
+      if sub-folders match /^(cd|disc|disk)\s*\d+$/i
+      collect files from all disc sub-folders as part of this book
+      do not create separate book records for disc folders
+
+  → read first file with music-metadata (tags for book-level metadata):
+      title         ← tag: title / album
+      author(s)     ← tag: artist / albumartist (comma-split for multiple)
+      narrator(s)   ← tag: composer
+      year          ← tag: date / year
+      description   ← tag: description / comment
+      language      ← tag: language
+      genres        ← tag: genre (comma-split)
+
+  → read all files with music-metadata (physical properties):
+      duration_seconds per file → sum for book total
+      track_number → tag: track (overrides filename parse if present)
+      disc_number  → tag: disc (for multi-disc sort ordering)
+
+  → look for cover image in folder:
+      check filenames: cover.jpg, cover.png, folder.jpg, artwork.jpg, etc.
+      if found: copy to /data/cache/thumbnails/<shard>/<book-id>-cover.webp
+               generate 300×300 WebP with sharp
+
+  → upsert book_metadata with tag values (skip fields where source='manual')
+  → upsert authors, narrators, genres from tags
+```
+
+### Phase 2 architecture change — async scan
+
+`scanAudiobookLibrary` now runs from the job queue. The HTTP request creates the library record and enqueues `SCAN_AUDIOBOOK_LIBRARY`, then returns immediately. The UI polls `scan_status` and shows a scanning indicator until `idle`. Failed jobs retry up to `max_attempts`, and stale running jobs can be reclaimed by the worker.
 
 ---
 
 ## Metadata Sources and Priority
 
-Metadata is resolved in this order, with each level overriding the previous:
+Metadata is resolved in this order. Each level overrides the previous except `source = 'manual'` which is never overwritten.
 
-```
-1. Embedded file tags (ID3 for MP3, MP4 tags for M4B)   — lowest priority
-2. Folder and filename patterns                           — used as fallback hints
-3. OpenLibrary API lookup                                 — fills gaps automatically
-4. Manual user edits                                      — highest priority, never overwritten
-```
+| Priority | Source | Phase | What it provides |
+|---|---|---|---|
+| 1 (lowest) | Folder and filename patterns | Phase 1 ✓ | Title (folder name), author (parent folder) |
+| 2 | Embedded audio tags — first file | Phase 2 | Title, authors, narrators, year, genre, description |
+| 3 | Sidecar `metadata.json` in source folder | Phase 3 ✓ | Any field — import from Audiobookshelf or hand-written |
+| 4 | Metadata lookup — user-triggered | Phase 3 ✓ | Any field from iTunes, OpenLibrary, or FantLab |
+| 5 (highest) | Manual user edits in app | Phase 3 UI ✓ | Any field — permanent, survives rescans |
 
-When `book_metadata.source = 'manual'`, the enrichment jobs skip that book on rescans. Manual edits are permanent unless explicitly reset.
+Sources 1–3 run automatically during scan. Source 4 is user-triggered per book. Source 5 is set when a user edits a field directly.
+
+When `book_metadata.source = 'manual'`, all automatic sources (1–4) skip that book entirely on rescans.
 
 ---
 
 ## Metadata Fields
 
-| Field | Source | Notes |
-|---|---|---|
-| Title | Tags → folder name → OpenLibrary | `sort_title` strips leading articles |
-| Author(s) | Tags → parent folder → OpenLibrary | Multiple authors supported |
-| Narrator(s) | Tags → OpenLibrary | Stored separately from authors |
-| Series name | Tags → folder name pattern → OpenLibrary | e.g. "Discworld" |
-| Series position | Tags → folder name pattern | Supports decimal (2.5 for novellas) |
-| Description | Tags → OpenLibrary | Plain text, no HTML |
-| Year published | Tags → OpenLibrary | |
-| Language | Tags → library default | ISO 639-1 code |
-| Genre(s) | OpenLibrary → manual | Structured, library-scoped, multiple supported |
-| User tags | User-defined | Freeform, global, via shared tags system |
-| Duration | Summed from `book_files.duration_seconds` | Displayed as h:mm |
-| Cover art | Embedded → `cover.jpg` → OpenLibrary | Stored as thumbnail |
-| ISBN | OpenLibrary | Stored for future reference |
+| Field | Phase 1 source | Phase 2 source | Phase 3 lookup |
+|---|---|---|---|
+| Title | Folder name | Tag: `title` / `album` | ✓ all providers |
+| Author(s) | Parent folder name | Tag: `artist` / `albumartist` | ✓ all providers |
+| Narrator(s) | — | Tag: `composer` | ✓ iTunes, OpenLibrary |
+| Series name | — | Tag: `series` / `grouping` | ✓ iTunes |
+| Series position | — | Tag: `series-part` | ✓ iTunes |
+| Description | — | Tag: `description` / `comment` | ✓ all providers |
+| Year published | — | Tag: `date` / `year` | ✓ all providers |
+| Language | Library default | Tag: `language` | ✓ OpenLibrary |
+| Genre(s) | — | Tag: `genre` | ✓ all providers |
+| Duration | — | Summed from all files via `music-metadata` | — (physical, not from providers) |
+| Cover art | — | `cover.jpg` in folder | ✓ all providers — downloaded to thumbnail cache |
+| ISBN | — | Tag: `isbn` | ✓ OpenLibrary |
+| ASIN | — | Tag: `asin` / `audible_asin` | — (future: Audible provider) |
+| Publisher | — | Tag: `publisher` / `tpub` | ✓ iTunes, OpenLibrary |
 
 ---
 
 ## Cover Art and Thumbnail Storage
 
-Cover art follows the same sharded storage pattern as the rest of the library:
+Cover images are stored in the managed thumbnail cache — never in the source folder.
 
 ```
 /data/cache/thumbnails/
   /ab/cd/<book-id>-cover.webp          ← 300×300 browse thumbnail
   /ab/cd/<book-id>-cover-large.webp    ← 600×600 detail view
-  /ab/cd/<author-id>-photo.webp        ← author photo if available
 ```
 
-Sharp generates both sizes in a single job. The `cover_storage_key` in `book_metadata` stores the relative path. The thumbnail root is configurable via `THUMBNAIL_PATH`.
+Shard key: first 4 characters of the book ID, split into two path components (`ab/cd/`). The `cover_storage_key` field in `book_metadata` stores the relative path within the thumbnail root.
 
-If no cover art is found, the UI renders a generated placeholder using the book's title initials and a colour derived from the book ID — no missing image icons.
+`sharp` generates both sizes from the source image in a single pass and converts to WebP.
+
+If no cover art is found, the UI generates a placeholder from the book's title initials — no broken image icons.
 
 ---
 
-## OpenLibrary Integration
+## Metadata File Storage
 
-OpenLibrary is a free public API with no key required. It is queried after audio metadata extraction when `enrich_from_openlibrary = true`.
-
-Search strategy:
+Our app-managed metadata files (manual edit exports) are stored **separately from source folders** to preserve the read-only source rule.
 
 ```
-1. Search by title + author name
-   GET https://openlibrary.org/search.json?title=<title>&author=<author>&limit=3
-
-2. Pick the best match (title similarity + author match score)
-
-3. Fetch the work record for description, subjects (genres), and cover ID
-   GET https://openlibrary.org/works/<work_id>.json
-
-4. Fetch cover image if available
-   https://covers.openlibrary.org/b/id/<cover_id>-L.jpg
+/data/cache/metadata/
+  /ab/cd/<book-id>.json
 ```
 
-Results are stored in `book_metadata` with `source = 'openlibrary'`. If a book already has `source = 'manual'`, the enrichment job is skipped entirely.
+Same sharding pattern as thumbnails. Configurable via `METADATA_PATH`.
 
-Failed or low-confidence lookups are logged and the book proceeds with whatever metadata was extracted from tags. OpenLibrary enrichment is best-effort and never blocks a book from becoming ready.
+**Reading vs. writing:**
+
+| Direction | Location | When |
+|---|---|---|
+| Read — import from existing libraries | `cover.jpg`, `metadata.json` in source folder | Phase 2 (cover), Phase 3 (metadata) |
+| Write — export manual edits | `/data/cache/metadata/<book-id>.json` | Phase 4 |
+
+We never write to source folders. If a user's library already has `metadata.json` files from Audiobookshelf, we read them as an import source without touching them.
+
+---
+
+## Metadata Lookup
+
+**Phase 3 — in progress.**
+
+A per-book feature that lets a user search external providers for metadata and apply selected results. Distinct from the automatic scan pipeline — entirely user-triggered.
+
+### Providers
+
+| Provider | Free | Key required | Covers | What it returns |
+|---|---|---|---|---|
+| **iTunes / Apple Books** | ✓ | No | ✓ | Title, author, narrator, year, description, genres, series |
+| **OpenLibrary** | ✓ | No | ✓ | Title, authors, year, description, ISBN |
+| **FantLab** | ✓ | No | ✓ | Russian title, author, year, description, genre hints |
+
+Audible is a future addition — it requires either an unofficial API or scraping and adds deployment complexity.
+
+iTunes, Open Library, and FantLab do not require API keys.
+
+### User flow
+
+1. Open a book's detail page
+2. Click **"Look up metadata"**
+3. An inline search panel opens, pre-filled with current title + author
+4. User adjusts the query and selects a provider
+5. Results appear as cards showing: cover thumbnail, title, author(s), year, publisher
+6. User clicks a result to preview what would change on their book
+7. Checkboxes: **Update details** (on by default) and **Update cover** (on by default)
+8. Click **Apply** — metadata saved, `source = 'manual'` set, cover downloaded
+
+Manual edits are also available from the book detail page. Users can directly edit title, authors, narrators, genres, publisher, year, description, language, ISBN, and ASIN. Saving direct edits sets `book_metadata.source = 'manual'`.
+
+### API endpoints
+
+```
+GET  /api/library/books/:id/metadata-search
+     ?q=The+Martian&provider=openlibrary
+     → MetadataCandidate[]
+
+POST /api/library/books/:id/metadata-match
+     { candidate: MetadataCandidate, updateDetails: bool, updateCover: bool }
+     → { updated: bool, book: BookDetail }
+
+PATCH /api/library/books/:id/metadata
+     { title, authors, narrators, genres, publisher, yearPublished, description, language, isbn, asin }
+     → { updated: bool, book: BookDetail }
+```
+
+Implemented provider values: `itunes`, `openlibrary`, `fantlab`, and `all`.
+
+When a result is applied, `book_metadata.source` is set to `manual`; future rescans preserve the selected metadata.
+
+### Normalised candidate shape
+
+All providers map their raw API response to a single common type before returning to the client:
+
+```typescript
+interface MetadataCandidate {
+  title: string
+  subtitle?:    string
+  authors:      string[]
+  narrators?:   string[]
+  publisher?:   string
+  year?:        number
+  description?: string
+  coverUrl?:    string
+  isbn?:        string
+  asin?:        string
+  genres?:      string[]
+  language?:    string
+  source: "itunes" | "openlibrary" | "fantlab"
+}
+```
+
+### Apply logic
+
+When the user clicks Apply, the server updates `book_metadata` and related tables:
+
+| Field | Applied if empty | Applied with `updateDetails = true` |
+|---|---|---|
+| title, subtitle | ✓ | ✓ |
+| authors, narrators | ✓ | ✓ — replaces existing |
+| publisher, year | ✓ | ✓ |
+| description | ✓ | ✓ |
+| isbn, asin | ✓ | ✓ |
+| genres | ✓ | ✓ — merges, deduplicates |
+| language | ✓ | ✓ |
+| cover | only if no cover exists | ✓ — only when `updateCover = true` |
+
+After apply, `book_metadata.source` is set to `'manual'`. The scanner will never overwrite these fields on future rescans.
+
+### Provider modules
+
+Each provider lives in its own file and exposes a single `search(query)` function:
+
+```
+modules/library/audiobook/providers/
+  itunes.ts
+  open-library.ts
+  fantlab.ts
+```
+
+### Sidecar metadata import
+
+During scan, if a book folder contains `metadata.json`, the scanner reads it after embedded tags and before writing scanned metadata. Supported fields:
+
+```json
+{
+  "title": "The Martian",
+  "authors": ["Andy Weir"],
+  "narrators": ["R. C. Bray"],
+  "publisher": "Audible Studios",
+  "year": 2014,
+  "description": "...",
+  "isbn": "978...",
+  "asin": "B00...",
+  "genres": ["Science Fiction"],
+  "language": "en",
+  "series": "Example Series",
+  "seriesPosition": 1
+}
+```
+
+Manual metadata still wins: if `book_metadata.source = 'manual'`, sidecar import is skipped for that book.
 
 ---
 
 ## Rescan Behaviour
 
-A rescan discovers new books, detects changed files, and marks missing files without destroying existing metadata or playback progress.
-
 | Condition | Action |
 |---|---|
-| New folder found | Create new book record, enqueue all jobs |
-| Existing folder, files unchanged (path + size + modified_at match) | No action |
-| Existing folder, file changed (size or modified_at differs) | Update `book_files` record, recompute `content_hash`, re-enqueue metadata jobs |
-| Previously known folder not found | Set `book.deleted_at = now` (soft delete, 30-day retention) |
-| Previously missing folder reappears | Clear `deleted_at`, re-enqueue jobs |
+| New folder found | Insert book record, run full metadata pipeline |
+| Existing folder, files unchanged | Mark book/files available without re-reading tags or re-hashing files |
+| Existing folder, file changed (size or `modified_at` differs) | Update `book_files`, re-run metadata pipeline |
+| Previously known folder not found | `book.deleted_at = now`, files marked missing (30-day retention) |
+| Previously missing folder reappears | Clear `deleted_at`, re-run metadata pipeline |
 
-Playback progress is never touched during a rescan.
+Playback progress is never modified during a rescan. Manual metadata (`source = 'manual'`) is never overwritten.
 
 ---
 
 ## Playback Progress
 
-Progress is tracked per user per book. When a user plays a book:
+Progress is tracked per user per book:
 
-- `current_file_id` — which file they are currently in
-- `position_seconds` — their position within that file
-- `percent_complete` — calculated and stored for fast sorting
+- `current_file_id` — which file the user is currently in
+- `position_seconds` — position within that file
+- `percent_complete` — stored for fast sorting (no join needed)
 
-A book is marked complete when `percent_complete >= 0.98` (allowing for credits at the end). Completed books are still accessible and progress can be reset manually.
-
-The progress record is upserted on each position update. Updates should be debounced on the client — write no more than once every 10–15 seconds during active playback.
+A book is marked complete when `percent_complete >= 0.98` (allows for credits). Progress can be reset manually. Updates should be debounced on the client — write no more than once every 10–15 seconds during playback.
 
 ---
 
 ## Safety Rules
 
-These rules apply to all audiobook library operations:
-
-- Original audio files are read-only — never renamed, moved, or deleted by the application
+- Original audio files are never renamed, moved, or deleted
 - Only paths beneath the registered `source_path` are accessed during scanning
 - Symbolic links that resolve outside `source_path` are not followed
-- Cover art extracted from files is copied to the thumbnail cache — original files are not modified
+- Cover art is copied to the thumbnail cache — source files are not modified
+- Metadata files are written to `/data/cache/metadata/` — never to source folders
 - All `source_path` values are validated server-side; users never supply raw filesystem paths
-- Relative paths are stored in the database; the `source_path` root is joined at runtime
+- Relative paths are stored in the database; `source_path` root is joined at runtime
 
 ---
 
@@ -447,37 +593,41 @@ These rules apply to all audiobook library operations:
   /cache
     /thumbnails
       /ab/cd/
-        <book-id>-cover.webp
-        <book-id>-cover-large.webp
-        <author-id>-photo.webp
+        <book-id>-cover.webp             ← Phase 2
+        <book-id>-cover-large.webp       ← Phase 2
+    /metadata
+      /ab/cd/
+        <book-id>.json                   ← Phase 4 (export)
 
 Configured library source (read-only):
   /libraries/audiobooks/
     /Andy Weir/
       /The Martian/
+        cover.jpg                        ← Phase 2: read during scan
+        The Martian.m4b
       /Project Hail Mary/
-    /Terry Pratchett/
-      /Discworld 01 - The Colour of Magic/
 ```
 
 ---
 
 ## Technology Dependencies
 
-| Purpose | Library | Notes |
-|---|---|---|
-| Audio metadata extraction | `music-metadata` (npm) | Reads ID3, MP4, FLAC, OGG tags |
-| Cover art processing | `sharp` | Resize and convert to WebP |
-| OpenLibrary API | Native `fetch` | No SDK needed, simple REST |
-| Chapter detection | `music-metadata` | Returns chapter array if present in file |
-| File hashing | Node.js `crypto` | SHA-256, computed incrementally for large files |
+| Purpose | Library | Phase | Notes |
+|---|---|---|---|
+| Folder walking | Node.js `fs` | 1 ✓ | Built-in, no dependency |
+| Track number from filename | Regex | 1 ✓ | Built-in |
+| Audio tag reading (metadata) | `music-metadata` (npm) | 2 | First file: title/author/etc. |
+| Audio duration + track order | `music-metadata` (npm) | 2 | All files: sum duration, sort order |
+| Cover art processing | `sharp` (npm) | 2 | WebP generation, two sizes |
+| File hashing | Node.js `crypto` | 2 | SHA-256, incremental for large files |
 
 ---
 
 ## Future Considerations
 
-- **Managed uploads** — users upload their own audiobooks; stored in `/data/media/library/` rather than indexed in place. Same book/file/metadata model applies.
-- **Streaming endpoint** — `GET /api/library/books/:id/stream/:fileId` with byte-range support for seeking without full download.
-- **Multiple authors per book** — already supported via `book_authors` join table.
-- **Podcast support** — a different library type (`type = 'podcast'`) would reuse `libraries`, `book_files`, and `playback_progress` but with its own `episodes` table and RSS feed scanner instead of a folder scanner.
-- **Mobile playback** — the React Native app would consume the same API endpoints and sync `playback_progress` on resume.
+- **Streaming endpoint** — `GET /api/library/books/:id/stream/:fileId` with byte-range support for seeking
+- **File system watcher** — auto-scan on file changes, no manual rescan needed (Phase 4)
+- **Inode tracking** — detect renamed/moved folders without losing playback progress (Phase 4)
+- **Managed uploads** — users upload their own audiobooks into `/data/media/library/`; same book/file/metadata model
+- **Podcast library type** — reuses `libraries`, `book_files`, and `playback_progress` with its own `episodes` table and RSS scanner
+- **Mobile playback** — same API endpoints; `playback_progress` syncs on resume
