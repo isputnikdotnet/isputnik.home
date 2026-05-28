@@ -53,7 +53,7 @@ isputnik.home is a self-hosted web application designed for private use by frien
 
 ### Next Core Milestone
 
-- Build Digital Library Phase 1: add existing on-disk libraries, scan and index their content, and generate thumbnails through background jobs
+- Build Digital Library Phase 1: audiobook library type — existing-folder registration, scan and index, background metadata extraction, cover art thumbnails, and OpenLibrary enrichment
 - Extend system status with storage, asset, and job information as those services exist
 
 ### Future Updates
@@ -250,166 +250,108 @@ Indexes are required on:
 
 ---
 
+## Tags
+
+User-defined tags are a shared system used across all modules — the Digital Library, Notes, and any future module. Tags are freeform labels created by users, separate from structured metadata such as genres.
+
+Tags are global. The same tag (e.g. "family favourite") can be applied to an audiobook, a photo, and a note. The `module` column on `resource_tags` scopes queries per module without isolating the tags themselves.
+
+```sql
+tags
+----
+id, name, created_by, created_at
+
+UNIQUE (name)
+
+
+resource_tags
+-------------
+id, module, resource_id, tag_id, created_by, created_at
+
+UNIQUE (module, resource_id, tag_id)
+```
+
+A `tag_usage` view provides per-module counts for the UI so popular tags surface and orphaned ones can be hidden.
+
+Full schema, indexes, and usage view are defined in each module's detail document.
+
+---
+
 ## Modules
 
 ### Digital Library
 
-A flexible media catalogue for photos, video, and other supported files. The first milestone indexes files that already exist on the home server rather than requiring users to upload or reorganise their media.
+The Digital Library supports multiple library types. Each type has its own metadata schema, scan behaviour, background processing jobs, display logic, and settings. The library type is set when an administrator creates a library and determines how the folder is scanned, what metadata is extracted, and how content is presented.
 
-#### Delivery Phases
+#### Library types
 
-**Phase 1 - Add Existing Libraries**
+| Type | Status | Detail document |
+|---|---|---|
+| Audiobook | Phase 1 — next milestone | `Documents/digital-library-audiobook.md` |
+| Photo | Planned | — |
+| Video | Planned | — |
+| Podcast | Future consideration | — |
 
-- An administrator creates a library by choosing a display name and a server-accessible source path, for example an existing photos or videos folder.
-- The administrator must configure a writable thumbnail/preview storage path before scanning a library. Generated files from every library use this shared application-managed location.
-- The application scans the library path recursively, identifies supported files, and adds references and metadata to SQLite. Original files remain in their current location.
-- The first implementation treats source folders as read-only: deleting an item from the catalogue must not delete the original file.
-- A rescan discovers new and changed files and marks missing files unavailable without losing historical metadata immediately.
-- Thumbnail and metadata jobs run asynchronously after discovery so a large existing collection can be added without blocking the UI.
+#### Shared infrastructure across all library types
 
-**Phase 2 - Users and Sharing**
+All library types share the following:
 
-- Make libraries available to selected existing users or all family members.
-- Support private, family, and user-specific access using the common sharing and permission model.
-- Add collections and asset-level sharing after library-level access is reliable.
+- The `libraries` table — name, type, source path, type-specific settings stored as JSON, scan status
+- A background job queue for all slow work — scans, metadata extraction, thumbnail generation
+- Sharded thumbnail cache at `THUMBNAIL_PATH` — generated previews for every library type stored in one application-managed location
+- The `shares` and `share_links` tables for library and item-level access control
+- The global `tags` and `resource_tags` tables for user-defined labels
+- Soft delete — `deleted_at` on all content records, 30-day retention before purge
+- Safety rules — original source files are never renamed, moved, or deleted; only paths beneath a registered `source_path` are accessed
 
-Managed uploads can be added later as a second ingestion source, without changing how indexed assets, previews, collections, or sharing are presented.
+#### Delivery phases (all library types follow this pattern)
 
-**Supported formats (configurable):**
+**Phase 1 — Index existing libraries**
 
-| Category | Formats |
-|---|---|
-| Images | jpg, png, heic, webp |
-| Video | mp4, mov, mkv |
-| Documents | pdf, docx, xlsx |
-| Audio | mp3, m4a, flac |
-| Archives | zip |
-| Unknown | stored safely, basic metadata only |
+An administrator registers a source path on the server. The application scans the path, creates database records referencing the original files in place, and runs background jobs to extract metadata and generate thumbnails. Original files are read-only throughout Phase 1.
 
-**Existing-library scan pipeline (Phase 1):**
+**Phase 2 — Users and sharing**
 
-```
-Admin adds a library source path
-→ validate the path and create a library record
-→ scan files beneath the configured root
-→ detect MIME type and file identity
-→ classify content
-→ store a database reference to the original file
-→ enqueue background processing jobs
-→ show discovered content as scanning continues
-→ (background) generate thumbnail / preview
-→ (background) extract metadata
-→ (background) index for search
-```
+Libraries and individual items are made available to selected users or all family members using the common sharing and permission model.
 
-**Existing-library safety rules:**
+**Later — Managed uploads**
+
+Users upload their own content directly into the application. Stored under `/data/media/` rather than indexed in place. The same metadata, preview, and sharing model applies.
+
+#### Existing-library safety rules (all types)
 
 - Permit only validated server-side paths configured by an administrator
-- Store the library root and relative asset path; do not expose arbitrary filesystem paths to regular users
-- Resolve paths during scans and do not follow links outside the approved library root
-- Read originals for scanning and display only; do not rename, move, or delete source files in Phase 1
-- Detect additions, changes, and missing files during rescans using path, size, modified time, and later an optional content hash
-- Keep generated thumbnails outside source folders so the application does not alter existing photo and video organisation
+- Store the library root and relative item path; do not expose arbitrary filesystem paths to regular users
+- Resolve paths during scans and do not follow symbolic links outside the approved library root
+- Read originals for scanning and display only — do not rename, move, or delete source files in Phase 1
+- Detect additions, changes, and missing files during rescans using path, size, modified time, and content hash
+- Keep generated thumbnails outside source folders
 
-**Managed upload safety rules (later ingestion source):**
+#### Managed upload safety rules (all types, later)
 
 - Enforce configurable max file size and per-user storage quotas
 - Store files using generated storage names, never user-provided paths
-- Detect file type from content where possible, not only from extension
+- Detect file type from content, not only from extension
 - Keep original filenames only as display metadata
 - Reject or quarantine files that fail validation
 - Clean up partial files if upload or database insert fails
-- Treat archives as stored files only; do not automatically extract them
 
-**Processing per type:**
+#### Audiobook library — summary
 
-- Photos — thumbnail, EXIF metadata, dimensions, optional face recognition
-- Video — preview image, duration, resolution
-- Documents — preview, metadata extraction, optional OCR, text indexed for search
-- Audio / Audiobooks — metadata, chapters, cover art
-- Unknown — stored safely, no preview
+The audiobook library type treats a **folder** as the primary unit, not a file. Each subfolder containing audio files becomes one book. The scanner indexes book folders, extracts embedded audio metadata (ID3, MP4 tags), finds or generates cover art, groups books into series and author records, and optionally enriches metadata from the OpenLibrary API.
 
-Some processors are optional and can be enabled only when their dependencies are installed:
+Key characteristics:
 
-- Image thumbnails: Sharp
-- Video previews and metadata: FFmpeg / ffprobe
-- HEIC support: platform image codec or Sharp/libvips support
-- Document text/preview extraction: PDF and Office document tooling
-- OCR: Tesseract or a later AI/OCR service
-- Audio metadata and cover art: media metadata parser
-- Face recognition: optional Python sidecar
+- Book = folder; files within the folder are the book's chapters or parts
+- First-class support for series, authors, narrators, and genres
+- Playback progress tracked per user per book — position in seconds, percent complete, completed flag
+- OpenLibrary enrichment for description, ISBN, genres, and cover art (free API, no key required)
+- User-defined tags via the shared tags system
+- Recommended folder structure: `Author / Book title / audio files`
 
-**Library and asset tables:**
+For full schema, scan pipeline, metadata priority rules, OpenLibrary integration, rescan behaviour, thumbnail storage, and technology dependencies, see:
 
-```sql
-libraries
----------
-id, name, source_path, source_type,
-scan_status, last_scanned_at,
-created_by, created_at, updated_at
-
-assets
-------
-id, library_id, owner_id,
-relative_path, file_name_original,
-mime_type, extension, category, size,
-modified_at, content_hash,
-visibility, status, discovered_at, updated_at, deleted_at
-
-asset_previews
---------------
-id, asset_id, kind, format,
-storage_key, width, height, size,
-created_at, updated_at
-```
-
-Assets require a unique constraint on `(library_id, relative_path)` so rescans update an existing record instead of duplicating content.
-
-`owner_id` and per-asset `visibility` become important in Phase 2. Phase 1 can restrict library administration to administrators while the access model is completed.
-
-**Thumbnail and preview storage:**
-
-Thumbnails are derived files and should be kept in one application-managed location, separate from every original library source. A sharded directory layout prevents one directory from accumulating an impractical number of files:
-
-```
-/data/cache/thumbnails/
-  /ab/cd/<asset-id>-thumbnail.webp
-  /ab/cd/<asset-id>-preview.webp
-```
-
-The shard path is derived from a stable asset identifier or hash, for example the first four hexadecimal characters split across two directory levels. `asset_previews.storage_key` records the generated location. Generated previews can be deleted and rebuilt, so they do not need the same backup priority as original files and the database.
-
-The thumbnail root must be configurable at deployment time:
-
-```env
-THUMBNAIL_PATH=/data/cache/thumbnails
-```
-
-The default should be `/data/cache/thumbnails`, with startup validation that the directory exists or can be created and is writable. SQLite stores only each preview's relative `storage_key`, not the absolute thumbnail root, so an administrator can move the mounted preview storage later without rewriting database records.
-
-**Docker storage model:**
-
-When deployed in Docker, paths entered in the application refer to locations inside the container. The operator maps persistent host directories or named volumes to those container locations:
-
-```yaml
-services:
-  isputnik:
-    environment:
-      THUMBNAIL_PATH: /data/cache/thumbnails
-    volumes:
-      - ./data/cache/thumbnails:/data/cache/thumbnails
-      - /host/photos:/libraries/photos:ro
-      - /host/videos:/libraries/videos:ro
-```
-
-- Mount `THUMBNAIL_PATH` read/write and keep it on persistent storage; otherwise container replacement removes all generated previews and forces a rebuild.
-- Mount existing source libraries read-only in Phase 1, then register container paths such as `/libraries/photos` in the application.
-- Do not store host filesystem paths in the application when running in Docker; store the mounted container-visible library path.
-- A named Docker volume is acceptable for thumbnails, while a bind mount makes inspection, migration, and optional cache backup easier for a home server.
-
-**Organisation:** Collections rather than traditional folders. One asset can belong to multiple collections simultaneously (e.g. a photo in both "Summer 2024" and "Kids"). More flexible and easier for non-technical users than a rigid folder hierarchy.
-
-**Sharing (Phase 2):** uses the shared `shares` table, also intended for the future Notes module.
+> **`Documents/digital-library-audiobook.md`**
 
 ---
 
@@ -418,12 +360,14 @@ services:
 A lightweight SQLite-backed job queue handles all slow processing tasks asynchronously. A library can be registered immediately while scanning and preview generation continue in the background.
 
 Jobs used for:
-- Existing-library initial scans and rescans
-- Thumbnail generation
-- Metadata extraction
-- OCR
-- Video preview generation
-- Face recognition scans
+- Library initial scans and rescans (all types)
+- Thumbnail and preview generation
+- Audio metadata extraction
+- Cover art extraction
+- OpenLibrary enrichment
+- Video preview generation (future)
+- OCR (future)
+- Face recognition scans (optional, future)
 - Cleanup and maintenance tasks
 
 ```sql
@@ -442,7 +386,7 @@ failed_at,
 error
 ```
 
-Workers claim jobs by setting `locked_at` and `locked_by` inside a transaction. If a worker crashes, stale locks can be released after a timeout and the job can be retried. Job handlers should be idempotent where possible because a job may be attempted more than once.
+Workers claim jobs by setting `locked_at` and `locked_by` inside a transaction. If a worker crashes, stale locks can be released after a timeout and the job retried. Job handlers should be idempotent where possible because a job may be attempted more than once.
 
 No external queue infrastructure (Redis, etc.) is needed at this scale.
 
@@ -452,7 +396,7 @@ No external queue infrastructure (Redis, etc.) is needed at this scale.
 
 Content is never permanently deleted immediately. A `deleted_at` timestamp is set instead. Items are automatically purged after 30 days.
 
-Applies to: assets, notes, collections, and optionally user accounts (deactivation).
+Applies to: books, assets, notes, and optionally user accounts (deactivation).
 
 ---
 
@@ -470,7 +414,7 @@ The configured `THUMBNAIL_PATH` cache can be included for faster restoration or 
 
 **Goal:** one-click export and import for application-managed data, together with a clear warning when externally indexed library sources are outside that backup. If the server fails, restoring the database and accessible original sources lets the application rebuild previews and resume normally.
 
-Backups should use SQLite's backup API or an application-controlled maintenance window so the database snapshot is consistent. Future managed uploads should either complete before the backup starts or be excluded and retried later. External library originals remain the responsibility of their configured backup location.
+Backups should use SQLite's backup API or an application-controlled maintenance window so the database snapshot is consistent. External library originals remain the responsibility of their configured backup location.
 
 A restore validates that the database, managed media folder, and configuration belong to the same backup set before replacing active application state, then checks that configured external library roots are reachable before rescanning.
 
@@ -528,20 +472,38 @@ Configurable storage paths:
 | Setting | Default container path | Access | Purpose |
 |---|---|---|---|
 | `DB_PATH` | `/data/db/isputnik.sqlite` | Read/write | Application SQLite database |
-| `THUMBNAIL_PATH` | `/data/cache/thumbnails` | Read/write | Shared sharded thumbnail and preview cache |
-| Library source paths | `/libraries/<name>` | Read-only in Phase 1 | Existing original photos and videos |
+| `THUMBNAIL_PATH` | `/data/cache/thumbnails` | Read/write | Shared sharded thumbnail and preview cache for all library types |
+| Library source paths | `/libraries/<name>` | Read-only in Phase 1 | Existing original media files |
 
 ```
 /data
-  /db         ← SQLite database files
-  /media      ← future application-managed uploads and note attachments
+  /db                  ← SQLite database files
+  /media               ← future application-managed uploads and note attachments
   /cache
-    /thumbnails  ← sharded, generated previews for all Digital Libraries
+    /thumbnails        ← sharded generated previews for all Digital Libraries
 
-Configured external library roots
-  /photos     ← existing originals; indexed in place and not modified by Phase 1
-  /videos     ← existing originals; indexed in place and not modified by Phase 1
+Configured external library roots (read-only, indexed in place)
+  /libraries/audiobooks  ← existing audiobook folders
+  /libraries/photos      ← future photo library
+  /libraries/videos      ← future video library
 ```
+
+**Docker storage model:**
+
+```yaml
+services:
+  isputnik:
+    environment:
+      THUMBNAIL_PATH: /data/cache/thumbnails
+    volumes:
+      - ./data/cache/thumbnails:/data/cache/thumbnails
+      - /host/audiobooks:/libraries/audiobooks:ro
+      - /host/photos:/libraries/photos:ro
+```
+
+- Mount `THUMBNAIL_PATH` read/write on persistent storage — container replacement removes all generated previews otherwise
+- Mount existing source libraries read-only, then register the container-visible path in the application
+- Store container-visible paths in the database, not host paths
 
 ---
 
@@ -552,10 +514,12 @@ Configured external library roots
 | Frontend | React + TypeScript | Component reuse, potential mobile app later |
 | Backend | Node.js + Fastify | Fast, TypeScript-native, plugin architecture |
 | Database | SQLite + WAL; FTS5 planned | Simple, file-based, no separate DB server, future full-text search |
-| File handling (planned) | Filesystem scanner + Sharp; @fastify/multipart later | Index existing libraries and generate thumbnails before optional uploads |
+| Audio metadata | `music-metadata` (npm) | Reads ID3, MP4, FLAC, OGG tags for audiobook library |
+| File handling (planned) | Filesystem scanner + Sharp; `@fastify/multipart` later | Index existing libraries and generate thumbnails before optional uploads |
 | Auth | Session cookies + Node.js `scrypt` | Simple, secure, easy revocation |
-| MFA (future update) | otplib + qrcode | TOTP-based two-factor auth, no external service needed |
+| MFA (future update) | `otplib` + `qrcode` | TOTP-based two-factor auth, no external service needed |
 | Background jobs (planned) | SQLite job queue | No external infrastructure needed |
+| OpenLibrary API | Native `fetch` | Free audiobook metadata enrichment, no key required |
 | Face recognition | Python sidecar (optional) | Keeps main stack clean; easy to omit initially |
 
 ---
@@ -564,18 +528,25 @@ Configured external library roots
 
 ```
 /apps
-  /web                ← React frontend
-  /server             ← Node.js Fastify backend
-    /core             ← auth, users, themes, logs, sessions
+  /web                   ← React frontend
+  /server                ← Node.js Fastify backend
+    /core                ← auth, users, themes, logs, sessions
     /modules
-      /library        ← Library routes, processing pipeline, DB tables
-      /notes          ← Notes routes, search, DB tables
-    /workers          ← background job processors
-  /face-service       ← optional Python microservice
+      /library           ← Library routes, type registry, shared infrastructure
+        /types
+          /audiobook     ← audiobook scanner, metadata jobs, OpenLibrary
+          /photo         ← future
+          /video         ← future
+      /notes             ← Notes routes, search, DB tables
+    /workers             ← background job processors
+  /face-service          ← optional Python microservice
 /data
-  /db                 ← SQLite database files
-  /media              ← future managed uploads and attachments
-  /cache/thumbnails   ← sharded generated Digital Library previews
+  /db                    ← SQLite database files
+  /media                 ← future managed uploads and attachments
+  /cache/thumbnails      ← sharded generated previews for all libraries
+/Documents
+  /architecture.md                     ← this file
+  /digital-library-audiobook.md        ← audiobook library type detail
 ```
 
 ---
@@ -584,14 +555,14 @@ Configured external library roots
 
 The first production-ready version should focus on a small reliable core:
 
-- Invite-only accounts, cookie sessions, and roles
+- Invite-only accounts, cookie sessions, and roles (implemented)
 - App shell with profile and theme settings (implemented)
-- Admin panel with user/invite/session management, logs, system status, and an About page available across the app (implemented foundation)
-- Digital Library Phase 1 with existing-folder registration, scans, basic image thumbnails, and metadata
-- Background job queue for scanning, thumbnail, and metadata work
+- Admin panel with user/invite/session management, logs, system status, and About page (implemented)
+- Digital Library Phase 1 — audiobook library type with existing-folder registration, background scans, metadata extraction, OpenLibrary enrichment, and cover art thumbnails
+- Background job queue for scanning, metadata, and thumbnail work
 - Manual backup/export and restore validation
 
-MFA and Notes are future updates rather than part of this first scope. Advanced processors such as OCR, video previews, document previews, face recognition, and mobile app support are also deferred until the core app is stable.
+MFA and Notes are future updates. Advanced processors such as OCR, video previews, document previews, face recognition, and mobile app support are deferred until the core app is stable.
 
 ---
 
@@ -600,12 +571,12 @@ MFA and Notes are future updates rather than part of this first scope. Advanced 
 1. Done: Auth and user-management foundation — setup admin, session login/logout, invitation links, account listing and deactivation
 2. Done: App shell — navigation, profile and theme settings, protected routes, control-panel navigation
 3. Done: Admin panel and About page — user/session administration, logs, base system status, application/version information
-4. Next: Digital Library Phase 1 — existing-folder registration, indexed references, background scans, and sharded thumbnail storage
-5. Planned: Digital Library Phase 2 — existing-user access, library sharing, collections, and asset sharing
+4. Next: Digital Library Phase 1 — audiobook library type; existing-folder registration, background scans, metadata extraction, OpenLibrary enrichment, cover art thumbnails, playback progress
+5. Planned: Digital Library Phase 2 — library and book sharing, user access control
 6. Planned: Backup and restore tooling
 7. Future update: MFA — TOTP setup, verification flow, backup codes
 8. Future update: Notes module — CRUD, visibility/sharing, tags, and full-text search
-9. Future update: Full-text search across notes and documents
+9. Future update: Photo and video library types
 10. Optional: Face recognition sidecar, last
 
 ---
@@ -618,13 +589,22 @@ TOTP-based multi-factor authentication and recovery codes are documented in the 
 
 ### Notes
 
-A flexible note-taking module suitable for multiple purposes - work notes, recipes, personal journal, and so on.
+A flexible note-taking module suitable for multiple purposes — work notes, recipes, personal journal, and so on.
 
 - Rich text content with tags
 - Notes grouped by category (e.g. "Kitchen", "Work", "Personal")
 - Same visibility and permission model as the Library
 - Full-text search via SQLite FTS5
 - CRUD with search and filtering
+- User-defined tags via the shared tags system
+
+### Future Library Types
+
+- **Photo library** — folder-based, EXIF metadata, GPS data, HEIC support, optional face recognition
+- **Video library** — folder-based, FFmpeg for previews and duration, resolution metadata
+- **Podcast library** — RSS feed subscription, episode tracking, download management, per-episode playback progress
+
+Each new library type registers itself in the library type registry and provides its own scanner, metadata jobs, and display configuration. No changes to shared infrastructure are required.
 
 ### Longer-Term Considerations
 

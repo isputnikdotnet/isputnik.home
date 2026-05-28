@@ -2,6 +2,7 @@ import React, { FormEvent, useCallback, useEffect, useMemo, useState } from "rea
 import { createRoot } from "react-dom/client";
 import {
   AlertTriangle,
+  Headphones,
   CheckCircle2,
   Copy,
   Home,
@@ -9,6 +10,8 @@ import {
   LogOut,
   Monitor,
   Moon,
+  Plus,
+  RefreshCw,
   Settings,
   Sun,
   UserPlus,
@@ -16,18 +19,21 @@ import {
   XCircle
 } from "lucide-react";
 import { api, type PublicUser } from "./api";
+import { AudiobooksPage } from "./features/audiobooks/AudiobooksPage";
+import type { AudiobookLibrary } from "./features/audiobooks/types";
 import "./styles.css";
 
 type Route =
   | { name: "install" }
   | { name: "login" }
   | { name: "home" }
+  | { name: "audiobooks" }
   | { name: "control"; section: ControlSection }
   | { name: "about" }
   | { name: "profile" }
   | { name: "invite"; token: string };
 
-type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about";
+type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "storage";
 
 interface SessionState {
   loading: boolean;
@@ -80,8 +86,39 @@ interface SystemStatus {
   activeSessions: number;
   activeInvites: number;
   logEntries: number;
+  audiobookLibraries: number;
+  audiobookBooks: number;
   uptimeSeconds: number;
   generatedAt: string;
+}
+
+interface LibrarySettings {
+  thumbnailPath: string;
+  thumbnailPathReady: boolean;
+  thumbnailPathError: string;
+  fromEnvironment: boolean;
+}
+
+interface StorageRoot {
+  id: string;
+  name: string;
+  path: string;
+  createdAt?: string;
+  updatedAt?: string;
+  libraryCount: number;
+}
+
+interface StorageBrowseEntry {
+  name: string;
+  relativePath: string;
+}
+
+interface StorageBrowse {
+  root: StorageRoot;
+  currentPath: string;
+  selectedPath: string;
+  parentPath: string | null;
+  entries: StorageBrowseEntry[];
 }
 
 interface AboutInfo {
@@ -119,6 +156,10 @@ function getRoute(): Route {
     return { name: "control", section: "status" };
   }
 
+  if (path === "/audiobooks") {
+    return { name: "audiobooks" };
+  }
+
   if (path === "/control/users") {
     return { name: "control", section: "users" };
   }
@@ -137,6 +178,14 @@ function getRoute(): Route {
 
   if (path === "/control/status") {
     return { name: "control", section: "status" };
+  }
+
+  if (path === "/control/storage") {
+    return { name: "control", section: "storage" };
+  }
+
+  if (["/control/library", "/control/libraries"].includes(path)) {
+    return { name: "control", section: "libraries" };
   }
 
   if (path === "/control/about") {
@@ -285,6 +334,10 @@ function App() {
 
   if (route.name === "about") {
     return <AboutPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobooks") {
+    return <AudiobooksPage user={session.user} logout={logout} DashboardShell={DashboardShell} MessageBox={MessageBox} />;
   }
 
   return <HomePage user={session.user} logout={logout} />;
@@ -639,6 +692,14 @@ function ControlPanelPage({
   const [invites, setInvites] = useState<ManagedInvite[]>([]);
   const [sessions, setSessions] = useState<ManagedSession[]>([]);
   const [logs, setLogs] = useState<LogEvent[]>([]);
+  const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
+  const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
+  const [storageRoots, setStorageRoots] = useState<StorageRoot[]>([]);
+  const [thumbnailPathInput, setThumbnailPathInput] = useState("");
+  const [rootNameInput, setRootNameInput] = useState("");
+  const [rootPathInput, setRootPathInput] = useState("");
+  const [selectedRootId, setSelectedRootId] = useState("");
+  const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
   const [logSearchInput, setLogSearchInput] = useState("");
   const [logSearch, setLogSearch] = useState("");
   const [logPage, setLogPage] = useState(1);
@@ -650,6 +711,15 @@ function ControlPanelPage({
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [about, setAbout] = useState<AboutInfo | null>(null);
   const [createInviteOpen, setCreateInviteOpen] = useState(false);
+  const [createLibraryOpen, setCreateLibraryOpen] = useState(false);
+  const [editThumbnailPathOpen, setEditThumbnailPathOpen] = useState(false);
+  const [createStorageRootOpen, setCreateStorageRootOpen] = useState(false);
+  const [libraryName, setLibraryName] = useState("");
+  const [rescanningLibraryId, setRescanningLibraryId] = useState("");
+  const [enrichingLibraryId, setEnrichingLibraryId] = useState("");
+  const [savingLibrarySettings, setSavingLibrarySettings] = useState(false);
+  const [savingStorageRoot, setSavingStorageRoot] = useState(false);
+  const [deletingRootId, setDeletingRootId] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
   const [error, setError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<ManagedUser | null>(null);
@@ -700,6 +770,83 @@ function ControlPanelPage({
     setAbout(payload.about);
   }, []);
 
+  const loadStorage = useCallback(async () => {
+    const settingsPayload = await api<{ settings: LibrarySettings }>("/api/library/settings");
+    setLibrarySettings(settingsPayload.settings);
+    setThumbnailPathInput(settingsPayload.settings.thumbnailPath);
+
+    const rootsPayload = await api<{ roots: StorageRoot[] }>("/api/storage/roots");
+    setStorageRoots(rootsPayload.roots);
+    setSelectedRootId((current) => current || rootsPayload.roots[0]?.id || "");
+    return { settings: settingsPayload.settings, roots: rootsPayload.roots };
+  }, []);
+
+  const loadLibraries = useCallback(async () => {
+    await loadStorage();
+
+    const payload = await api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries");
+    setLibraries(payload.libraries);
+  }, [loadStorage]);
+
+  const saveLibrarySettings = async (event: FormEvent) => {
+    event.preventDefault();
+    setSavingLibrarySettings(true);
+    setError("");
+    try {
+      const payload = await api<{ settings: LibrarySettings }>("/api/library/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ thumbnailPath: thumbnailPathInput })
+      });
+      setLibrarySettings(payload.settings);
+      setThumbnailPathInput(payload.settings.thumbnailPath);
+      setEditThumbnailPathOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save Digital Library settings");
+    } finally {
+      setSavingLibrarySettings(false);
+    }
+  };
+
+  const createStorageRoot = async (event: FormEvent) => {
+    event.preventDefault();
+    setSavingStorageRoot(true);
+    setError("");
+    try {
+      await api("/api/storage/roots", {
+        method: "POST",
+        body: JSON.stringify({ name: rootNameInput, path: rootPathInput })
+      });
+      setRootNameInput("");
+      setRootPathInput("");
+      setCreateStorageRootOpen(false);
+      await loadStorage();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save storage container");
+    } finally {
+      setSavingStorageRoot(false);
+    }
+  };
+
+  const deleteStorageRoot = async (root: StorageRoot) => {
+    setDeletingRootId(root.id);
+    setError("");
+    try {
+      await api(`/api/storage/roots/${root.id}`, { method: "DELETE" });
+      await loadStorage();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete storage container");
+    } finally {
+      setDeletingRootId("");
+    }
+  };
+
+  const browseStorageRoot = async (rootId: string, relativePath = "") => {
+    const query = new URLSearchParams({ path: relativePath });
+    const payload = await api<StorageBrowse>(`/api/storage/roots/${rootId}/browse?${query}`);
+    setSelectedRootId(rootId);
+    setStorageBrowse(payload);
+  };
+
   useEffect(() => {
     setError("");
     const loadSection = {
@@ -708,10 +855,12 @@ function ControlPanelPage({
       sessions: loadSessions,
       logs: loadLogs,
       status: loadStatus,
-      about: loadAbout
+      about: loadAbout,
+      libraries: loadLibraries,
+      storage: loadStorage
     }[section];
     loadSection().catch((err) => setError(err instanceof Error ? err.message : "Unable to load management records"));
-  }, [loadAbout, loadInvites, loadLogs, loadSessions, loadStatus, loadUsers, section]);
+  }, [loadAbout, loadInvites, loadLibraries, loadLogs, loadSessions, loadStatus, loadStorage, loadUsers, section]);
 
   const createInvite = async () => {
     setCreating(true);
@@ -730,8 +879,73 @@ function ControlPanelPage({
     }
   };
 
+  const createLibrary = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!storageBrowse?.selectedPath) {
+      setError("Choose a storage container folder for this library.");
+      return;
+    }
+
+    setCreating(true);
+    setError("");
+    try {
+      const payload = await api<{ library: { id: string } }>("/api/library/audiobook-libraries", {
+        method: "POST",
+        body: JSON.stringify({
+          name: libraryName,
+          sourcePath: storageBrowse.selectedPath,
+          defaultLanguage: "en",
+          enrichFromOpenLibrary: false
+        })
+      });
+      setCreateLibraryOpen(false);
+      setLibraryName("");
+      setStorageBrowse(null);
+      await loadLibraries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create audiobook library");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const rescanLibrary = async (libraryId: string) => {
+    setRescanningLibraryId(libraryId);
+    setError("");
+    try {
+      await api(`/api/library/audiobook-libraries/${libraryId}/rescan`, { method: "POST", body: "{}" });
+      await loadLibraries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to scan audiobook library");
+    } finally {
+      setRescanningLibraryId("");
+    }
+  };
+
+  const enrichLibrary = async (libraryId: string) => {
+    setEnrichingLibraryId(libraryId);
+    setError("");
+    try {
+      await api(`/api/library/audiobook-libraries/${libraryId}/enrich`, { method: "POST", body: "{}" });
+      await loadLibraries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to enrich audiobook metadata");
+    } finally {
+      setEnrichingLibraryId("");
+    }
+  };
+
   useEffect(() => {
-    if (!pendingDelete && !pendingInviteDelete && !pendingSessionRevoke && !pendingLogCleanup && !createInviteOpen) {
+    if (
+      !pendingDelete &&
+      !pendingInviteDelete &&
+      !pendingSessionRevoke &&
+      !pendingLogCleanup &&
+      !createInviteOpen &&
+      !createLibraryOpen &&
+      !editThumbnailPathOpen &&
+      !createStorageRootOpen
+    ) {
       return;
     }
 
@@ -742,12 +956,16 @@ function ControlPanelPage({
         setPendingSessionRevoke(null);
         setPendingLogCleanup(false);
         setCreateInviteOpen(false);
+        setCreateLibraryOpen(false);
+        setEditThumbnailPathOpen(false);
+        setCreateStorageRootOpen(false);
+        setStorageBrowse(null);
       }
     };
 
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [pendingDelete, pendingInviteDelete, pendingSessionRevoke, pendingLogCleanup, createInviteOpen, deleting, creating]);
+  }, [pendingDelete, pendingInviteDelete, pendingSessionRevoke, pendingLogCleanup, createInviteOpen, createLibraryOpen, editThumbnailPathOpen, createStorageRootOpen, deleting, creating]);
 
   const changeRole = async (account: ManagedUser, role: "admin" | "member") => {
     setSavingRoleId(account.id);
@@ -866,6 +1084,8 @@ function ControlPanelPage({
             <div className="control-group">
               <p>Application</p>
               <a className={section === "status" ? "active" : ""} href="/control/status" onClick={(event) => followRoute(event, "/control/status")}>Status</a>
+              <a className={section === "storage" ? "active" : ""} href="/control/storage" onClick={(event) => followRoute(event, "/control/storage")}>Storage</a>
+              <a className={section === "libraries" ? "active" : ""} href="/control/libraries" onClick={(event) => followRoute(event, "/control/libraries")}>Digital Library</a>
               <a className={section === "logs" ? "active" : ""} href="/control/logs" onClick={(event) => followRoute(event, "/control/logs")}>Logs</a>
               <a className={section === "about" ? "active" : ""} href="/control/about" onClick={(event) => followRoute(event, "/control/about")}>About</a>
             </div>
@@ -1011,6 +1231,152 @@ function ControlPanelPage({
                 {sessions.length === 0 && <p className="management-empty">No active sessions found.</p>}
               </div>
             </>
+          ) : section === "storage" ? (
+            <>
+              <div className="section-head">
+                <div>
+                  <p className="eyebrow">Application</p>
+                  <h1>Storage</h1>
+                </div>
+              </div>
+
+              {error && <MessageBox tone="error" title="Storage error">{error}</MessageBox>}
+
+              <section className="library-settings-panel storage-settings-panel">
+                <div>
+                  <h2>Thumbnail storage</h2>
+                  <p>Generated covers and previews are written here, separate from original library files.</p>
+                </div>
+                <div className="storage-path-summary">
+                  <strong>{librarySettings?.thumbnailPath || "Not configured"}</strong>
+                </div>
+                <div className="library-settings-actions">
+                  {librarySettings?.thumbnailPathReady ? (
+                    <span className="setting-status ready">Ready</span>
+                  ) : (
+                    <span className="setting-status needs-attention">
+                      {librarySettings?.thumbnailPathError || "Required before adding a library"}
+                    </span>
+                  )}
+                  <button
+                    className="secondary-button compact-button"
+                    onClick={() => {
+                      setError("");
+                      setThumbnailPathInput(librarySettings?.thumbnailPath ?? "");
+                      setEditThumbnailPathOpen(true);
+                    }}
+                  >
+                    Edit path
+                  </button>
+                </div>
+              </section>
+
+              <section className="storage-section">
+                <div className="storage-section-head">
+                  <div>
+                    <h2>Digital Library containers</h2>
+                    <p>Containers are approved root folders. Libraries can use the whole container or any folder inside it.</p>
+                  </div>
+                  <button
+                    className="icon-button with-label"
+                    onClick={() => {
+                      setError("");
+                      setRootNameInput("");
+                      setRootPathInput("");
+                      setCreateStorageRootOpen(true);
+                    }}
+                    title="Add storage container"
+                  >
+                    <Plus size={18} />
+                    <span>Add container</span>
+                  </button>
+                </div>
+
+                <div className="storage-root-list">
+                  {storageRoots.map((root) => (
+                    <article className="storage-root-row" key={root.id}>
+                      <div>
+                        <strong>{root.name}</strong>
+                        <span>{root.path}</span>
+                        <small>{root.libraryCount} {root.libraryCount === 1 ? "library" : "libraries"}</small>
+                      </div>
+                      <button
+                        className="text-button"
+                        disabled={root.libraryCount > 0 || deletingRootId === root.id}
+                        onClick={() => deleteStorageRoot(root)}
+                      >
+                        {deletingRootId === root.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </article>
+                  ))}
+                  {storageRoots.length === 0 && <p className="management-empty">No Digital Library containers configured.</p>}
+                </div>
+              </section>
+            </>
+          ) : section === "libraries" ? (
+            <>
+              <div className="section-head">
+                <div>
+                  <p className="eyebrow">Digital Library</p>
+                  <h1>Audiobooks</h1>
+                </div>
+                <button
+                  className="icon-button with-label"
+                  disabled={!librarySettings?.thumbnailPathReady || storageRoots.length === 0}
+                  onClick={() => {
+                    setError("");
+                    setCreateLibraryOpen(true);
+                    const rootId = selectedRootId || storageRoots[0]?.id || "";
+                    if (rootId) {
+                      browseStorageRoot(rootId).catch((err) => setError(err instanceof Error ? err.message : "Unable to browse storage container"));
+                    }
+                  }}
+                  title="Add audiobook library"
+                >
+                  <Plus size={18} />
+                  <span>Add library</span>
+                </button>
+              </div>
+
+              {error && <MessageBox tone="error" title="Audiobook library error">{error}</MessageBox>}
+              {(!librarySettings?.thumbnailPathReady || storageRoots.length === 0) && (
+                <MessageBox tone="warning" title="Storage setup required">
+                  Configure thumbnail storage and at least one Digital Library container before adding libraries.
+                </MessageBox>
+              )}
+
+              <div className="admin-library-list">
+                {libraries.map((library) => (
+                  <article className="admin-library-row" key={library.id}>
+                    <div>
+                      <strong>{library.name}</strong>
+                      <span>{library.sourcePath ?? "Source path hidden"}</span>
+                      <small>
+                        {library.bookCount} {library.bookCount === 1 ? "book" : "books"} - {library.fileCount} files
+                        {library.lastScannedAt ? ` - Last scan ${formatManagedDate(library.lastScannedAt)}` : " - Not scanned yet"}
+                      </small>
+                    </div>
+                    <span className={`book-status ${library.scanStatus}`}>{library.scanStatus}</span>
+                    <button
+                      className="secondary-button compact-button"
+                      disabled={enrichingLibraryId === library.id}
+                      onClick={() => enrichLibrary(library.id)}
+                    >
+                      {enrichingLibraryId === library.id ? "Enriching..." : "Enrich"}
+                    </button>
+                    <button
+                      className="secondary-button compact-button"
+                      disabled={rescanningLibraryId === library.id}
+                      onClick={() => rescanLibrary(library.id)}
+                    >
+                      <RefreshCw size={16} />
+                      {rescanningLibraryId === library.id ? "Scanning..." : "Rescan"}
+                    </button>
+                  </article>
+                ))}
+                {libraries.length === 0 && <p className="management-empty">No audiobook libraries configured.</p>}
+              </div>
+            </>
           ) : section === "logs" ? (
             <>
               <div className="section-head">
@@ -1136,6 +1502,8 @@ function ControlPanelPage({
                     <StatusMetric label="Active sessions" value={String(systemStatus.activeSessions)} />
                     <StatusMetric label="Active invites" value={String(systemStatus.activeInvites)} />
                     <StatusMetric label="Log entries" value={String(systemStatus.logEntries)} />
+                    <StatusMetric label="Audiobook libraries" value={String(systemStatus.audiobookLibraries)} />
+                    <StatusMetric label="Audiobook books" value={String(systemStatus.audiobookBooks)} />
                     <StatusMetric label="Database size" value={formatBytes(systemStatus.databaseBytes)} />
                     <StatusMetric label="Server uptime" value={formatUptime(systemStatus.uptimeSeconds)} />
                   </div>
@@ -1199,6 +1567,152 @@ function ControlPanelPage({
               )}
             </div>
           </section>
+        </div>
+      )}
+      {createLibraryOpen && (
+        <div className="modal-backdrop" onMouseDown={() => !creating && setCreateLibraryOpen(false)}>
+          <form
+            className="confirm-modal create-library-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-library-title"
+            onSubmit={createLibrary}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="create-library-title">Add audiobook library</h2>
+            <p>Choose a configured storage container, then select the whole container or a folder inside it.</p>
+            {(!librarySettings?.thumbnailPathReady || storageRoots.length === 0) && (
+              <MessageBox tone="warning" title="Thumbnail storage required">
+                Configure thumbnail storage and at least one Digital Library container first.
+              </MessageBox>
+            )}
+            <Field label="Library name" value={libraryName} onChange={setLibraryName} />
+            <label className="field">
+              <span>Container</span>
+              <select
+                value={selectedRootId}
+                onChange={(event) => browseStorageRoot(event.target.value).catch((err) => setError(err instanceof Error ? err.message : "Unable to browse storage container"))}
+                required
+              >
+                {storageRoots.map((root) => (
+                  <option value={root.id} key={root.id}>{root.name}</option>
+                ))}
+              </select>
+            </label>
+            {storageBrowse && (
+              <section className="folder-browser" aria-label="Library folder browser">
+                <div className="folder-browser-head">
+                  <div>
+                    <strong>{storageBrowse.currentPath || storageBrowse.root.name}</strong>
+                    <span>{storageBrowse.selectedPath}</span>
+                  </div>
+                  {storageBrowse.parentPath !== null && (
+                    <button
+                      className="secondary-button compact-button"
+                      type="button"
+                      onClick={() => browseStorageRoot(storageBrowse.root.id, storageBrowse.parentPath ?? "")}
+                    >
+                      Up
+                    </button>
+                  )}
+                </div>
+                <div className="folder-list">
+                  {storageBrowse.entries.map((entry) => (
+                    <button
+                      className="folder-row"
+                      type="button"
+                      key={entry.relativePath}
+                      onClick={() => browseStorageRoot(storageBrowse.root.id, entry.relativePath)}
+                    >
+                      {entry.name}
+                    </button>
+                  ))}
+                  {storageBrowse.entries.length === 0 && <p className="management-empty">No child folders found. The current folder can still be used.</p>}
+                </div>
+              </section>
+            )}
+            {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => {
+                  setCreateLibraryOpen(false);
+                  setStorageBrowse(null);
+                }}
+                disabled={creating}
+                autoFocus
+              >
+                Cancel
+              </button>
+              <button className="primary-button" disabled={creating || !librarySettings?.thumbnailPathReady || storageRoots.length === 0 || !storageBrowse}>
+                {creating ? "Scanning..." : "Add and scan"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {editThumbnailPathOpen && (
+        <div className="modal-backdrop" onMouseDown={() => !savingLibrarySettings && setEditThumbnailPathOpen(false)}>
+          <form
+            className="confirm-modal edit-thumbnail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-thumbnail-title"
+            onSubmit={saveLibrarySettings}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="edit-thumbnail-title">Edit thumbnail storage</h2>
+            <p>Choose a writable folder for generated covers and previews. In Docker, use the container path.</p>
+            <Field label="Thumbnail path" value={thumbnailPathInput} onChange={setThumbnailPathInput} />
+            {error && <MessageBox tone="error" title="Unable to save path">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => setEditThumbnailPathOpen(false)}
+                disabled={savingLibrarySettings}
+                autoFocus
+              >
+                Cancel
+              </button>
+              <button className="primary-button" disabled={savingLibrarySettings}>
+                {savingLibrarySettings ? "Saving..." : "Save path"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {createStorageRootOpen && (
+        <div className="modal-backdrop" onMouseDown={() => !savingStorageRoot && setCreateStorageRootOpen(false)}>
+          <form
+            className="confirm-modal create-storage-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-storage-title"
+            onSubmit={createStorageRoot}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="create-storage-title">Add storage container</h2>
+            <p>Choose an existing server folder that libraries are allowed to scan. In Docker, use the container path.</p>
+            <Field label="Container name" value={rootNameInput} onChange={setRootNameInput} />
+            <Field label="Container path" value={rootPathInput} onChange={setRootPathInput} />
+            {error && <MessageBox tone="error" title="Unable to add container">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => setCreateStorageRootOpen(false)}
+                disabled={savingStorageRoot}
+                autoFocus
+              >
+                Cancel
+              </button>
+              <button className="primary-button" disabled={savingStorageRoot}>
+                {savingStorageRoot ? "Saving..." : "Save container"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
       {pendingDelete && (
@@ -1343,7 +1857,7 @@ function DashboardShell({
   logout,
   children
 }: {
-  active: "home" | "about" | "profile" | "control";
+  active: "home" | "audiobooks" | "about" | "profile" | "control";
   user: PublicUser;
   logout: () => Promise<void>;
   children: React.ReactNode;
@@ -1383,6 +1897,10 @@ function DashboardShell({
               <button className={active === "home" ? "active" : ""} onClick={() => navigate("/")} title="Home">
                 <Home size={22} />
                 <span className="sr-only">Home</span>
+              </button>
+              <button className={active === "audiobooks" ? "active" : ""} onClick={() => navigate("/audiobooks")} title="Audiobooks">
+                <Headphones size={22} />
+                <span className="sr-only">Audiobooks</span>
               </button>
               <button className={active === "about" ? "active" : ""} onClick={() => navigate("/about")} title="About">
                 <Info size={22} />
