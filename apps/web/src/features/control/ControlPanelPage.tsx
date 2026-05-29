@@ -30,6 +30,7 @@ export function ControlPanelPage({
     invites: "scene-page cosmonaut-scene user-admin-scene",
     sessions: "scene-page cosmonaut-scene user-admin-scene",
     logs: "scene-page control-center-scene logs-scene",
+    jobs: "scene-page job-queue-scene logs-scene",
     libraries: "scene-page sputnik-storage-scene library-storage-scene",
     storage: "scene-page sputnik-storage-scene library-storage-scene"
   };

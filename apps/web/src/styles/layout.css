@@ -256,6 +256,10 @@
   background-image: url("../assets/backgrounds/retro-space-control-center-logs-v1.png");
 }
 
+.job-queue-scene::before {
+  background-image: url("../assets/backgrounds/retro-space-job-queue-control-v1.png");
+}
+
 .sputnik-storage-scene::before {
   background-image: url("../assets/backgrounds/retro-space-sputnik-storage-v1.png");
 }

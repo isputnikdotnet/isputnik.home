@@ -90,8 +90,8 @@ interface SidecarMetadata {
   seriesPosition?: number;
 }
 
-export function sortTitle(value: string) {
-  return value.replace(/^(the|a|an)\s+/i, "").trim();
+export function sortTitle(value: unknown): string {
+  return String(value ?? "").replace(/^(the|a|an)\s+/i, "").trim();
 }
 
 export function mimeFromExtension(extension: string) {
@@ -244,7 +244,11 @@ function preparedFilesFromExisting(files: AudioFileEntry[], existingFiles: Exist
 function normaliseSidecar(raw: Record<string, unknown>): SidecarMetadata {
   const isAbs = typeof raw.authorName === "string" || typeof raw.narratorName === "string";
   if (!isAbs) {
-    return raw as SidecarMetadata;
+    const safe: SidecarMetadata = { ...raw } as SidecarMetadata;
+    if (raw.title != null && typeof raw.title !== "string") safe.title = stringValue(raw.title) ?? undefined;
+    if (raw.description != null && typeof raw.description !== "string") safe.description = stringValue(raw.description) ?? undefined;
+    if (raw.series != null && typeof raw.series !== "string" && !Array.isArray(raw.series)) safe.series = stringValue(raw.series) ?? undefined;
+    return safe;
   }
 
   const result: SidecarMetadata = {};
@@ -581,8 +585,8 @@ async function prepareBookScan(
 
   const firstMetadata = parsedMetadata[0] ?? null;
   const common = firstMetadata?.common;
-  const title = common?.album?.trim()
-    || common?.title?.trim()
+  const title = stringValue(common?.album)
+    || stringValue(common?.title)
     || firstNativeString(firstMetadata, ["album", "title"])
     || titleHint;
   const authors = splitNames([
@@ -593,7 +597,7 @@ async function prepareBookScan(
   ]);
   const narrators = splitNames(common?.composer ?? []);
   const genres = splitTagValues(common?.genre ?? []);
-  const seriesName = common?.grouping?.trim() || firstNativeString(firstMetadata, ["series", "SERIES"]) || null;
+  const seriesName = stringValue(common?.grouping) || firstNativeString(firstMetadata, ["series", "SERIES"]) || null;
   const seriesPosition = numberFromTag(firstNativeString(firstMetadata, ["series-part", "series_part", "PART"]));
   const isbn = firstNativeString(firstMetadata, ["isbn", "ISBN"]);
   const asin = common?.asin ?? firstNativeString(firstMetadata, ["asin", "audible_asin", "AUDIBLE_ASIN"]);
@@ -827,13 +831,28 @@ export async function scanAudiobookLibrary(libraryId: string) {
   let discoveredFiles = 0;
   const preparedBooks: PreparedBookScan[] = [];
 
-  try {
-    for (const [folderAbsolutePath, files] of filesByFolder.entries()) {
-      preparedBooks.push(await prepareBookScan(libraryId, rootPath, settings, folderAbsolutePath, files));
+  const bookErrors: string[] = [];
+
+  for (const [folderAbsolutePath, files] of filesByFolder.entries()) {
+    const jobCancelled = db.prepare("SELECT status FROM jobs WHERE type = ? AND status IN ('failed', 'pending') AND payload LIKE ?")
+      .get(scanJobType, `%${libraryId}%`) as { status: string } | undefined;
+    if (jobCancelled?.status === "failed") {
+      db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
+      throw new Error("Job cancelled");
     }
-  } catch (err) {
+
+    try {
+      preparedBooks.push(await prepareBookScan(libraryId, rootPath, settings, folderAbsolutePath, files));
+    } catch (err) {
+      const folder = folderAbsolutePath.replace(rootPath, "").replace(/^[\\/]/, "") || folderAbsolutePath;
+      const msg = err instanceof Error ? err.message : String(err);
+      bookErrors.push(`${folder}: ${msg}`);
+    }
+  }
+
+  if (bookErrors.length > 0 && preparedBooks.length === 0) {
     db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
-    throw err;
+    throw new Error(`All books failed to scan:\n${bookErrors.join("\n")}`);
   }
 
   db.transaction(() => {
@@ -860,7 +879,7 @@ export async function scanAudiobookLibrary(libraryId: string) {
     `).run(libraryId);
   })();
 
-  return { discoveredBooks, discoveredFiles };
+  return { discoveredBooks, discoveredFiles, bookErrors };
 }
 
 export async function rescanSingleBook(bookId: string) {
@@ -954,7 +973,9 @@ export async function processAudiobookScanQueue() {
           WHERE id = ?
         `).run(JSON.stringify({ ...payload, result }), job.id);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Audiobook scan failed";
+        const message = err instanceof Error
+          ? `${err.message}${err.stack ? `\n\nStack:\n${err.stack}` : ""}`
+          : "Audiobook scan failed";
         if (job.attempts + 1 < job.max_attempts) {
           const runAt = new Date(Date.now() + Math.min(job.attempts + 1, 5) * 60_000).toISOString();
           db.prepare(`

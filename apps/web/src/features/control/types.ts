@@ -90,6 +90,11 @@ export interface Job {
   completedAt: string | null;
   failedAt: string | null;
   error: string | null;
+  result: {
+    discoveredBooks?: number;
+    discoveredFiles?: number;
+    bookErrors?: string[];
+  } | null;
 }
 
 export interface DbInfo {

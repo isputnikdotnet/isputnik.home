@@ -72,18 +72,45 @@ export async function statusPlugin(app: FastifyInstance) {
     }[];
 
     return {
-      jobs: rows.map((r) => ({
-        id: r.id,
-        type: r.type,
-        status: r.status,
-        attempts: r.attempts,
-        libraryName: r.library_name,
-        createdAt: r.created_at,
-        completedAt: r.completed_at,
-        failedAt: r.failed_at,
-        error: r.error
-      }))
+      jobs: rows.map((r) => {
+        let result: { discoveredBooks?: number; discoveredFiles?: number; bookErrors?: string[] } | null = null;
+        try {
+          const p = JSON.parse(r.payload) as { result?: typeof result };
+          result = p.result ?? null;
+        } catch { /* ignore */ }
+        return {
+          id: r.id,
+          type: r.type,
+          status: r.status,
+          attempts: r.attempts,
+          libraryName: r.library_name,
+          createdAt: r.created_at,
+          completedAt: r.completed_at,
+          failedAt: r.failed_at,
+          error: r.error,
+          result
+        };
+      })
     };
+  });
+
+  app.post("/api/jobs/:id/cancel", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const job = db.prepare("SELECT id, status FROM jobs WHERE id = ?").get(id) as { id: string; status: string } | undefined;
+    if (!job) {
+      reply.code(404).send({ error: "Job not found" });
+      return;
+    }
+    if (job.status !== "pending" && job.status !== "running") {
+      reply.code(409).send({ error: "Job is not active" });
+      return;
+    }
+    db.prepare(`
+      UPDATE jobs
+      SET status = 'failed', failed_at = CURRENT_TIMESTAMP, locked_at = NULL, locked_by = NULL, error = 'Cancelled by user'
+      WHERE id = ?
+    `).run(id);
+    reply.send({ cancelled: true });
   });
 
   app.get("/api/db/info", { preHandler: app.requireAdmin }, async () => {
@@ -125,6 +152,18 @@ export async function statusPlugin(app: FastifyInstance) {
       server: "Fastify + TypeScript",
       frontend: "React + TypeScript",
       versionUpdates: [
+        {
+          version: "0.4.3",
+          label: "Scan reliability & job controls",
+          changes: [
+            "Fixed scanner crash on Linux (Unraid) caused by audio tag fields returning non-string values — now handled safely throughout.",
+            "Scanner no longer aborts on a single bad book — each book is processed independently, errors are collected and reported.",
+            "Job cancellation: active jobs can now be cancelled from the Jobs page.",
+            "Jobs page now shows scan results (books and files discovered, skipped count) and full error details on click.",
+            "Running jobs that exceed 10 minutes show a pulsing warning badge.",
+            "Job errors now include the full stack trace for easier diagnosis.",
+          ]
+        },
         {
           version: "0.4.2",
           label: "Jobs, Database & library management",
