@@ -1,14 +1,15 @@
+import { BookOpen, Library, Mic2, Pen, Tag } from "lucide-react";
 import { followRoute } from "../../router";
 
-export function AudiobookNav({ active }: { active: "books" | "authors" | "narrators" }) {
+export function AudiobookNav({ active }: { active: "books" | "authors" | "narrators" | "series" | "genres" }) {
   return (
     <nav className="side-nav">
-      <p className="side-nav-label">Audiobooks</p>
       <a
         className={active === "books" ? "active" : ""}
         href="/audiobooks"
         onClick={(e) => followRoute(e, "/audiobooks")}
       >
+        <BookOpen size={22} />
         Books
       </a>
       <a
@@ -16,6 +17,7 @@ export function AudiobookNav({ active }: { active: "books" | "authors" | "narrat
         href="/audiobooks/authors"
         onClick={(e) => followRoute(e, "/audiobooks/authors")}
       >
+        <Pen size={22} />
         Authors
       </a>
       <a
@@ -23,7 +25,24 @@ export function AudiobookNav({ active }: { active: "books" | "authors" | "narrat
         href="/audiobooks/narrators"
         onClick={(e) => followRoute(e, "/audiobooks/narrators")}
       >
+        <Mic2 size={22} />
         Narrators
+      </a>
+      <a
+        className={active === "series" ? "active" : ""}
+        href="/audiobooks/series"
+        onClick={(e) => followRoute(e, "/audiobooks/series")}
+      >
+        <Library size={22} />
+        Series
+      </a>
+      <a
+        className={active === "genres" ? "active" : ""}
+        href="/audiobooks/genres"
+        onClick={(e) => followRoute(e, "/audiobooks/genres")}
+      >
+        <Tag size={22} />
+        Genres
       </a>
     </nav>
   );

@@ -11,6 +11,10 @@ import { AboutPage } from "../pages/AboutPage";
 import { AudiobookBookPage, AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
 import { PersonListPage } from "../features/audiobooks/PersonListPage";
 import { PersonDetailPage } from "../features/audiobooks/PersonDetailPage";
+import { SeriesListPage } from "../features/audiobooks/SeriesListPage";
+import { SeriesDetailPage } from "../features/audiobooks/SeriesDetailPage";
+import { GenreListPage } from "../features/audiobooks/GenreListPage";
+import { GenreDetailPage } from "../features/audiobooks/GenreDetailPage";
 import { ControlPanelPage } from "../features/control/ControlPanelPage";
 
 interface SessionState {
@@ -148,6 +152,22 @@ export function App() {
 
   if (route.name === "audiobookNarratorDetail") {
     return <PersonDetailPage personName={route.personName} role="narrator" user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookSeries") {
+    return <SeriesListPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookSeriesDetail") {
+    return <SeriesDetailPage seriesId={route.seriesId} user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookGenres") {
+    return <GenreListPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookGenreDetail") {
+    return <GenreDetailPage genreId={route.genreId} user={session.user} logout={logout} />;
   }
 
   return <HomePage user={session.user} logout={logout} />;

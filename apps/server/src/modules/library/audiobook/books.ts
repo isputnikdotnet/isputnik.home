@@ -9,6 +9,7 @@ import { searchAllMetadataProviders, searchMetadataProvider, type MetadataCandid
 import { rescanSingleBook, sortTitle, writeCoverImages } from "./scanner.js";
 import { writeMetadataExport } from "../shared/metadata.js";
 import { normaliseRelativePath, pathIsInside } from "../shared/storage-roots.js";
+import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import type { AudiobookBookRow, BookFileRow } from "./types.js";
 
 function largeCoverUrl(storageKey: string | null) {
@@ -60,7 +61,9 @@ const manualMetadataSchema = z.object({
   description: z.string().trim().max(20000).nullable().optional(),
   language: z.string().trim().max(24).nullable().optional(),
   isbn: z.string().trim().max(64).nullable().optional(),
-  asin: z.string().trim().max(64).nullable().optional()
+  asin: z.string().trim().max(64).nullable().optional(),
+  series: z.string().trim().max(240).nullable().optional(),
+  seriesPosition: z.number().min(0).nullable().optional()
 });
 
 function splitGroupConcat(value: string | null) {
@@ -89,6 +92,15 @@ function replaceBookPeople(bookId: string, libraryId: string, role: "author" | "
       VALUES (?, ?, ?, ?)
     `).run(bookId, author.id, role, index);
   });
+}
+
+function upsertSeries(libraryId: string, name: string) {
+  db.prepare(`
+    INSERT INTO series (id, library_id, name, sort_name)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(library_id, name) DO NOTHING
+  `).run(nanoid(16), libraryId, name, sortTitle(name));
+  return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
 }
 
 function upsertGenre(libraryId: string, name: string) {
@@ -388,6 +400,14 @@ function updateManualMetadata(bookId: string, metadata: z.infer<typeof manualMet
     replaceBookGenres(bookId, current.library_id, metadata.genres);
   })();
 
+  if (metadata.series) {
+    const series = upsertSeries(current.library_id, metadata.series);
+    db.prepare("UPDATE books SET series_id = ?, series_position = ? WHERE id = ?")
+      .run(series.id, metadata.seriesPosition ?? null, bookId);
+  } else {
+    db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE id = ?").run(bookId);
+  }
+
   exportBookMetadata(bookId);
   return getAudiobookBookDetail(bookId);
 }
@@ -402,7 +422,9 @@ function getAudiobookBookDetail(id: string) {
       books.discovered_at,
       books.updated_at,
       books.deleted_at,
+      books.series_position,
       libraries.name AS library_name,
+      series.name AS series_name,
       book_metadata.title,
       book_metadata.sort_title,
       book_metadata.description,
@@ -426,6 +448,7 @@ function getAudiobookBookDetail(id: string) {
       ) AS total_size
     FROM books
     JOIN libraries ON libraries.id = books.library_id
+    LEFT JOIN series ON series.id = books.series_id
     LEFT JOIN book_metadata ON book_metadata.book_id = books.id
     LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
     LEFT JOIN authors ON authors.id = book_authors.author_id
@@ -438,6 +461,8 @@ function getAudiobookBookDetail(id: string) {
     GROUP BY books.id
   `).get(id) as (AudiobookBookRow & {
     library_name: string;
+    series_name: string | null;
+    series_position: number | null;
     description: string | null;
     year_published: number | null;
     isbn: string | null;
@@ -468,6 +493,8 @@ function getAudiobookBookDetail(id: string) {
     status: book.status,
     title: book.title ?? path.basename(book.folder_path),
     sortTitle: book.sort_title,
+    series: book.series_name ?? null,
+    seriesPosition: book.series_position ?? null,
     description: book.description,
     yearPublished: book.year_published,
     language: book.language,
@@ -506,7 +533,8 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
 
   app.get("/api/library/audiobook-libraries/:id/books", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const library = db.prepare("SELECT id FROM libraries WHERE id = ? AND type = 'audiobook'").get(id);
+    const user = request.user!;
+    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
     if (!library) {
       reply.code(404).send({ error: "Audiobook library not found" });
       return;
@@ -521,6 +549,8 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
         books.discovered_at,
         books.updated_at,
         books.deleted_at,
+        books.series_position,
+        series.name AS series_name,
         book_metadata.title,
         book_metadata.sort_title,
         book_metadata.language,
@@ -544,6 +574,7 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
             AND book_files.status = 'available'
         ) AS total_size
       FROM books
+      LEFT JOIN series ON series.id = books.series_id
       LEFT JOIN book_metadata ON book_metadata.book_id = books.id
       LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
       LEFT JOIN authors ON authors.id = book_authors.author_id
@@ -555,7 +586,7 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
         AND books.deleted_at IS NULL
       GROUP BY books.id
       ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
-    `).all(id) as AudiobookBookRow[];
+    `).all(id) as (AudiobookBookRow & { series_name: string | null; series_position: number | null })[];
 
     return {
       books: books.map((book) => ({
@@ -565,6 +596,8 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
         status: book.status,
         title: book.title ?? path.basename(book.folder_path),
         sortTitle: book.sort_title,
+        series: book.series_name ?? null,
+        seriesPosition: book.series_position ?? null,
         language: book.language,
         authors: splitGroupConcat(book.author_names),
         narrators: splitGroupConcat(book.narrator_names),
@@ -627,6 +660,13 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
 
   app.post("/api/library/books/:id/metadata-match", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required to edit metadata." });
+      return;
+    }
+
     const parsed = parseBody(metadataMatchSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid metadata match", details: parsed.error });
@@ -653,6 +693,13 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
 
   app.patch("/api/library/books/:id/metadata", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required to edit metadata." });
+      return;
+    }
+
     const parsed = parseBody(manualMetadataSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid metadata details", details: parsed.error });
@@ -716,6 +763,13 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
 
   app.post("/api/library/books/:id/cover", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required to change covers." });
+      return;
+    }
+
     const parsed = parseBody(coverSourceSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid cover selection", details: parsed.error });
@@ -739,6 +793,13 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
 
   app.put("/api/library/books/:id/cover", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required to change covers." });
+      return;
+    }
+
     const existing = db.prepare("SELECT id FROM books WHERE id = ? AND deleted_at IS NULL").get(id);
     if (!existing) {
       reply.code(404).send({ error: "Audiobook not found" });
@@ -898,8 +959,440 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
     reply.send({ reset: true });
   });
 
+  app.get("/api/library/audiobook-libraries/:id/people", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    if (!library) {
+      reply.code(404).send({ error: "Audiobook library not found" });
+      return;
+    }
+
+    const rows = db.prepare(`
+      SELECT name FROM authors WHERE library_id = ? ORDER BY name COLLATE NOCASE
+    `).all(id) as { name: string }[];
+
+    reply.send({ people: rows.map((r) => r.name) });
+  });
+
+  app.get("/api/library/audiobook-libraries/:id/series", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    if (!library) {
+      reply.code(404).send({ error: "Audiobook library not found" });
+      return;
+    }
+
+    const rows = db.prepare(`
+      SELECT
+        series.id,
+        series.name,
+        COUNT(books.id) AS book_count,
+        (
+          SELECT book_metadata.cover_storage_key
+          FROM books b
+          LEFT JOIN book_metadata ON book_metadata.book_id = b.id
+          WHERE b.series_id = series.id AND b.deleted_at IS NULL
+          ORDER BY b.series_position ASC
+          LIMIT 1
+        ) AS cover_storage_key
+      FROM series
+      LEFT JOIN books ON books.series_id = series.id AND books.deleted_at IS NULL
+      WHERE series.library_id = ?
+      GROUP BY series.id
+      ORDER BY series.name COLLATE NOCASE
+    `).all(id) as { id: string; name: string; book_count: number; cover_storage_key: string | null }[];
+
+    reply.send({
+      series: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        bookCount: r.book_count,
+        coverUrl: r.cover_storage_key ? `/api/library/covers/${r.cover_storage_key}` : null
+      }))
+    });
+  });
+
+  app.post("/api/library/audiobook-libraries/:id/series", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    if (!library || !canUserWriteLibrary(library, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    const parsed = parseBody(z.object({
+      name: z.string().trim().min(1).max(240),
+      description: z.string().trim().max(10000).nullable().optional()
+    }), request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Series name is required." });
+      return;
+    }
+
+    const existing = db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(id, parsed.data.name);
+    if (existing) {
+      reply.code(409).send({ error: "A series with this name already exists in this library." });
+      return;
+    }
+
+    const seriesId = nanoid(16);
+    db.prepare("INSERT INTO series (id, library_id, name, sort_name, description) VALUES (?, ?, ?, ?, ?)").run(
+      seriesId, id, parsed.data.name, sortTitle(parsed.data.name), parsed.data.description ?? null
+    );
+
+    reply.code(201).send({ series: { id: seriesId, name: parsed.data.name, bookCount: 0, coverUrl: null } });
+  });
+
+  app.get("/api/library/series/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare(`
+      SELECT series.id, series.name, series.description, series.library_id, libraries.name AS library_name
+      FROM series
+      JOIN libraries ON libraries.id = series.library_id
+      WHERE series.id = ?
+    `).get(id) as { id: string; name: string; description: string | null; library_id: string; library_name: string } | undefined;
+
+    if (!row) {
+      reply.code(404).send({ error: "Series not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib) {
+      reply.code(404).send({ error: "Series not found" });
+      return;
+    }
+
+    const books = db.prepare(`
+      SELECT
+        books.id,
+        books.series_position,
+        COALESCE(book_metadata.title, books.folder_path) AS title,
+        book_metadata.cover_storage_key,
+        GROUP_CONCAT(authors.name ORDER BY book_authors.sort_order) AS author_names
+      FROM books
+      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
+      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
+      LEFT JOIN authors ON authors.id = book_authors.author_id
+      WHERE books.series_id = ?
+        AND books.deleted_at IS NULL
+      GROUP BY books.id
+      ORDER BY books.series_position ASC, title COLLATE NOCASE
+    `).all(id) as { id: string; series_position: number | null; title: string; cover_storage_key: string | null; author_names: string | null }[];
+
+    reply.send({
+      series: {
+        id: row.id,
+        name: row.name,
+        description: row.description ?? null,
+        libraryId: row.library_id,
+        libraryName: row.library_name,
+        books: books.map((b) => ({
+          id: b.id,
+          title: b.title,
+          authors: b.author_names ? b.author_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
+          coverUrl: b.cover_storage_key ? `/api/library/covers/${b.cover_storage_key}` : null,
+          seriesPosition: b.series_position
+        }))
+      }
+    });
+  });
+
+  app.patch("/api/library/series/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    if (!row) {
+      reply.code(404).send({ error: "Series not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    const parsed = parseBody(z.object({
+      name: z.string().trim().min(1).max(240),
+      description: z.string().trim().max(10000).nullable().optional()
+    }), request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Series name is required." });
+      return;
+    }
+
+    db.prepare("UPDATE series SET name = ?, sort_name = ?, description = ? WHERE id = ?").run(
+      parsed.data.name, sortTitle(parsed.data.name), parsed.data.description ?? null, id
+    );
+
+    reply.send({ updated: true });
+  });
+
+  app.delete("/api/library/series/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    if (!row) {
+      reply.code(404).send({ error: "Series not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    db.transaction(() => {
+      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE series_id = ?").run(id);
+      db.prepare("DELETE FROM series WHERE id = ?").run(id);
+    })();
+
+    reply.send({ deleted: true });
+  });
+
+  app.put("/api/library/series/:id/books", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    if (!row) {
+      reply.code(404).send({ error: "Series not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    const parsed = parseBody(
+      z.object({ books: z.array(z.object({ bookId: z.string().min(1), position: z.number().nullable() })) }),
+      request.body
+    );
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid books list." });
+      return;
+    }
+
+    const newBookIds = new Set(parsed.data.books.map((b) => b.bookId));
+
+    db.transaction(() => {
+      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE series_id = ?").run(id);
+      for (const { bookId, position } of parsed.data.books) {
+        db.prepare("UPDATE books SET series_id = ?, series_position = ? WHERE id = ? AND library_id = ?")
+          .run(id, position, bookId, row.library_id);
+      }
+    })();
+
+    void newBookIds;
+    reply.send({ updated: true });
+  });
+
+  app.post("/api/library/audiobook-libraries/:id/genres", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    if (!library || !canUserWriteLibrary(library, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    const parsed = parseBody(z.object({ name: z.string().trim().min(1).max(120) }), request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Genre name is required." });
+      return;
+    }
+
+    const existing = db.prepare("SELECT id FROM genres WHERE library_id = ? AND name = ?").get(id, parsed.data.name);
+    if (existing) {
+      reply.code(409).send({ error: "A genre with this name already exists in this library." });
+      return;
+    }
+
+    const genreId = nanoid(16);
+    db.prepare("INSERT INTO genres (id, library_id, name) VALUES (?, ?, ?)").run(genreId, id, parsed.data.name);
+    reply.code(201).send({ genre: { id: genreId, name: parsed.data.name, bookCount: 0 } });
+  });
+
+  app.get("/api/library/audiobook-libraries/:id/genres", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    if (!library) {
+      reply.code(404).send({ error: "Audiobook library not found" });
+      return;
+    }
+
+    const rows = db.prepare(`
+      SELECT
+        genres.id,
+        genres.name,
+        COUNT(DISTINCT books.id) AS book_count
+      FROM genres
+      LEFT JOIN book_genres ON book_genres.genre_id = genres.id
+      LEFT JOIN books ON books.id = book_genres.book_id AND books.deleted_at IS NULL
+      WHERE genres.library_id = ?
+      GROUP BY genres.id
+      ORDER BY genres.name COLLATE NOCASE
+    `).all(id) as { id: string; name: string; book_count: number }[];
+
+    reply.send({
+      genres: rows.map((r) => ({ id: r.id, name: r.name, bookCount: r.book_count }))
+    });
+  });
+
+  app.get("/api/library/genres/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare(`
+      SELECT genres.id, genres.name, genres.library_id, libraries.name AS library_name
+      FROM genres
+      JOIN libraries ON libraries.id = genres.library_id
+      WHERE genres.id = ?
+    `).get(id) as { id: string; name: string; library_id: string; library_name: string } | undefined;
+
+    if (!row) {
+      reply.code(404).send({ error: "Genre not found" });
+      return;
+    }
+
+    const library = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!library) {
+      reply.code(404).send({ error: "Genre not found" });
+      return;
+    }
+
+    const books = db.prepare(`
+      SELECT
+        books.id,
+        COALESCE(book_metadata.title, books.folder_path) AS title,
+        book_metadata.cover_storage_key,
+        GROUP_CONCAT(DISTINCT authors.name) AS author_names
+      FROM book_genres
+      JOIN books ON books.id = book_genres.book_id
+      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
+      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
+      LEFT JOIN authors ON authors.id = book_authors.author_id
+      WHERE book_genres.genre_id = ?
+        AND books.deleted_at IS NULL
+      GROUP BY books.id
+      ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
+    `).all(id) as { id: string; title: string; cover_storage_key: string | null; author_names: string | null }[];
+
+    reply.send({
+      genre: {
+        id: row.id,
+        name: row.name,
+        libraryId: row.library_id,
+        libraryName: row.library_name,
+        books: books.map((b) => ({
+          id: b.id,
+          title: b.title,
+          authors: b.author_names ? b.author_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
+          coverUrl: b.cover_storage_key ? `/api/library/covers/${b.cover_storage_key}` : null
+        }))
+      }
+    });
+  });
+
+  app.patch("/api/library/genres/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare("SELECT id, library_id FROM genres WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    if (!row) {
+      reply.code(404).send({ error: "Genre not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    const parsed = parseBody(z.object({ name: z.string().trim().min(1).max(120) }), request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Genre name is required." });
+      return;
+    }
+
+    db.prepare("UPDATE genres SET name = ? WHERE id = ?").run(parsed.data.name, id);
+    reply.send({ updated: true });
+  });
+
+  app.delete("/api/library/genres/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare("SELECT id, library_id FROM genres WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    if (!row) {
+      reply.code(404).send({ error: "Genre not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    db.prepare("DELETE FROM genres WHERE id = ?").run(id);
+    reply.send({ deleted: true });
+  });
+
+  app.put("/api/library/genres/:id/books", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare("SELECT id, library_id FROM genres WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    if (!row) {
+      reply.code(404).send({ error: "Genre not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    const parsed = parseBody(z.object({ bookIds: z.array(z.string()) }), request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid request", details: parsed.error });
+      return;
+    }
+
+    db.transaction(() => {
+      db.prepare("DELETE FROM book_genres WHERE genre_id = ?").run(id);
+      for (const bookId of parsed.data.bookIds) {
+        db.prepare("INSERT OR IGNORE INTO book_genres (book_id, genre_id) VALUES (?, ?)").run(bookId, id);
+      }
+    })();
+
+    reply.send({ updated: true });
+  });
+
   app.post("/api/library/books/:id/metadata-reset", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required to reset metadata." });
+      return;
+    }
+
     const existing = db.prepare("SELECT id FROM books WHERE id = ? AND deleted_at IS NULL").get(id);
     if (!existing) {
       reply.code(404).send({ error: "Audiobook not found" });

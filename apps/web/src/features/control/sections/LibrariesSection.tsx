@@ -1,22 +1,33 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Pencil } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate } from "../../../shared/utils";
 import type { AudiobookLibrary } from "../../audiobooks/types";
-import type { LibrarySettings, StorageRoot, StorageBrowse } from "../types";
+import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
 
 export function LibrariesSection() {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
   const [storageRoots, setStorageRoots] = useState<StorageRoot[]>([]);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [groups, setGroups] = useState<ManagedGroup[]>([]);
   const [selectedRootId, setSelectedRootId] = useState("");
   const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
   const [libraryName, setLibraryName] = useState("");
+  const [libraryVisibility, setLibraryVisibility] = useState<"public" | "private">("public");
+  const [libraryOwnerId, setLibraryOwnerId] = useState("");
+  const [libraryOwnerType, setLibraryOwnerType] = useState<"user" | "group" | "">("");
   const [rescanningLibraryId, setRescanningLibraryId] = useState("");
   const [creating, setCreating] = useState(false);
   const [createLibraryOpen, setCreateLibraryOpen] = useState(false);
+  const [editingLibrary, setEditingLibrary] = useState<AudiobookLibrary | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editVisibility, setEditVisibility] = useState<"public" | "private">("public");
+  const [editOwnerId, setEditOwnerId] = useState("");
+  const [editOwnerType, setEditOwnerType] = useState<"user" | "group" | "">("");
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const loadStorage = useCallback(async () => {
@@ -31,8 +42,14 @@ export function LibrariesSection() {
 
   const loadLibraries = useCallback(async () => {
     await loadStorage();
-    const payload = await api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries");
-    setLibraries(payload.libraries);
+    const [librariesPayload, usersPayload, groupsPayload] = await Promise.all([
+      api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries"),
+      api<{ users: ManagedUser[] }>("/api/users"),
+      api<{ groups: ManagedGroup[] }>("/api/groups")
+    ]);
+    setLibraries(librariesPayload.libraries);
+    setUsers(usersPayload.users);
+    setGroups(groupsPayload.groups);
   }, [loadStorage]);
 
   useEffect(() => {
@@ -89,17 +106,56 @@ export function LibrariesSection() {
         body: JSON.stringify({
           name: libraryName,
           sourcePath: storageBrowse.selectedPath,
-          defaultLanguage: "en"
+          defaultLanguage: "en",
+          visibility: libraryVisibility,
+          ownerId: libraryOwnerId || null,
+          ownerType: libraryOwnerType || null
         })
       });
       setCreateLibraryOpen(false);
       setLibraryName("");
+      setLibraryVisibility("public");
+      setLibraryOwnerId("");
+      setLibraryOwnerType("");
       setStorageBrowse(null);
       await loadLibraries();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create audiobook library");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const openEdit = (library: AudiobookLibrary) => {
+    setEditingLibrary(library);
+    setEditName(library.name);
+    setEditVisibility(library.visibility);
+    setEditOwnerId(library.ownerId ?? "");
+    setEditOwnerType(library.ownerType ?? "");
+    setError("");
+  };
+
+  const saveEdit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editingLibrary) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/library/audiobook-libraries/${editingLibrary.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: editName,
+          visibility: editVisibility,
+          ownerId: editOwnerId || null,
+          ownerType: editOwnerType || null
+        })
+      });
+      setEditingLibrary(null);
+      await loadLibraries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save changes");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -156,6 +212,7 @@ export function LibrariesSection() {
             <thead>
               <tr>
                 <th>Library</th>
+                <th>Visibility</th>
                 <th className="col-num">Books</th>
                 <th className="col-num">Files</th>
                 <th className="col-scan">Last scanned</th>
@@ -164,34 +221,54 @@ export function LibrariesSection() {
               </tr>
             </thead>
             <tbody>
-              {libraries.map((library) => (
-                <tr key={library.id}>
-                  <td>
-                    <div className="datagrid-primary">
-                      <strong>{library.name}</strong>
-                      <small>{library.sourcePath ?? "Source path hidden"}</small>
-                    </div>
-                  </td>
-                  <td className="col-num datagrid-muted">{library.bookCount}</td>
-                  <td className="col-num datagrid-muted">{library.fileCount}</td>
-                  <td className="col-scan datagrid-muted">
-                    {library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : "Not yet"}
-                  </td>
-                  <td>
-                    <span className={`status-badge ${library.scanStatus}`}>{library.scanStatus}</span>
-                  </td>
-                  <td className="col-actions">
-                    <button
-                      className="secondary-button compact-button rescan-library-button"
-                      disabled={rescanningLibraryId === library.id}
-                      onClick={() => rescanLibrary(library.id)}
-                    >
-                      <RefreshCw size={14} />
-                      {rescanningLibraryId === library.id ? "Scanning..." : "Rescan"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {libraries.map((library) => {
+                const ownerUser = library.ownerType === "user" ? users.find((u) => u.id === library.ownerId) : null;
+                const ownerGroup = library.ownerType === "group" ? groups.find((g) => g.id === library.ownerId) : null;
+                return (
+                  <tr key={library.id}>
+                    <td>
+                      <div className="datagrid-primary">
+                        <strong>{library.name}</strong>
+                        <small>{library.sourcePath ?? "Source path hidden"}</small>
+                        {ownerUser && <small>Owner: {ownerUser.displayName}</small>}
+                        {ownerGroup && <small>Owner: {ownerGroup.name} (group)</small>}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`status-badge ${library.visibility}`}>
+                        {library.visibility === "public" ? "Public" : "Private"}
+                      </span>
+                    </td>
+                    <td className="col-num datagrid-muted">{library.bookCount}</td>
+                    <td className="col-num datagrid-muted">{library.fileCount}</td>
+                    <td className="col-scan datagrid-muted">
+                      {library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : "Not yet"}
+                    </td>
+                    <td>
+                      <span className={`status-badge ${library.scanStatus}`}>{library.scanStatus}</span>
+                    </td>
+                    <td className="col-actions">
+                      <div className="row-actions">
+                        <button
+                          className="icon-button"
+                          title="Edit library"
+                          onClick={() => openEdit(library)}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          className="secondary-button compact-button rescan-library-button"
+                          disabled={rescanningLibraryId === library.id}
+                          onClick={() => rescanLibrary(library.id)}
+                        >
+                          <RefreshCw size={14} />
+                          {rescanningLibraryId === library.id ? "Scanning..." : "Rescan"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -215,6 +292,42 @@ export function LibrariesSection() {
               </MessageBox>
             )}
             <Field label="Library name" value={libraryName} onChange={setLibraryName} />
+            <label className="field">
+              <span>Owner</span>
+              <select
+                value={libraryOwnerId ? `${libraryOwnerType}:${libraryOwnerId}` : ""}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  if (!val) { setLibraryOwnerId(""); setLibraryOwnerType(""); return; }
+                  const [type, id] = val.split(":");
+                  setLibraryOwnerType(type as "user" | "group");
+                  setLibraryOwnerId(id);
+                }}
+              >
+                <option value="">No owner (system library)</option>
+                {users.length > 0 && (
+                  <optgroup label="Users">
+                    {users.map((user) => (
+                      <option value={`user:${user.id}`} key={user.id}>{user.displayName} ({user.email})</option>
+                    ))}
+                  </optgroup>
+                )}
+                {groups.length > 0 && (
+                  <optgroup label="Groups">
+                    {groups.map((group) => (
+                      <option value={`group:${group.id}`} key={group.id}>{group.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </label>
+            <label className="field">
+              <span>Visibility</span>
+              <select value={libraryVisibility} onChange={(event) => setLibraryVisibility(event.target.value as "public" | "private")}>
+                <option value="public">Public — all users can access</option>
+                <option value="private">Private — owner and admins only</option>
+              </select>
+            </label>
             <label className="field">
               <span>Container</span>
               <select
@@ -275,6 +388,67 @@ export function LibrariesSection() {
               </button>
               <button className="primary-button" disabled={creating || !librarySettings?.thumbnailPathReady || storageRoots.length === 0 || !storageBrowse}>
                 {creating ? "Scanning..." : "Add and scan"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {editingLibrary && (
+        <div className="modal-backdrop" onMouseDown={() => !saving && setEditingLibrary(null)}>
+          <form
+            className="confirm-modal edit-library-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-library-title"
+            onSubmit={saveEdit}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="edit-library-title">Edit library</h2>
+            <Field label="Library name" value={editName} onChange={setEditName} />
+            <label className="field">
+              <span>Owner</span>
+              <select
+                value={editOwnerId ? `${editOwnerType}:${editOwnerId}` : ""}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  if (!val) { setEditOwnerId(""); setEditOwnerType(""); return; }
+                  const [type, id] = val.split(":");
+                  setEditOwnerType(type as "user" | "group");
+                  setEditOwnerId(id);
+                }}
+              >
+                <option value="">No owner (system library)</option>
+                {users.length > 0 && (
+                  <optgroup label="Users">
+                    {users.map((user) => (
+                      <option value={`user:${user.id}`} key={user.id}>{user.displayName} ({user.email})</option>
+                    ))}
+                  </optgroup>
+                )}
+                {groups.length > 0 && (
+                  <optgroup label="Groups">
+                    {groups.map((group) => (
+                      <option value={`group:${group.id}`} key={group.id}>{group.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </label>
+            <label className="field">
+              <span>Visibility</span>
+              <select value={editVisibility} onChange={(event) => setEditVisibility(event.target.value as "public" | "private")}>
+                <option value="public">Public — all users can access</option>
+                <option value="private">Private — owner and admins only</option>
+              </select>
+            </label>
+            {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button className="secondary-button" type="button" onClick={() => setEditingLibrary(null)} disabled={saving} autoFocus>
+                Cancel
+              </button>
+              <button className="primary-button" disabled={saving || !editName.trim()}>
+                {saving ? "Saving..." : "Save changes"}
               </button>
             </div>
           </form>

@@ -10,6 +10,7 @@ import { StatusSection } from "./sections/StatusSection";
 import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
+import { GroupsSection } from "./sections/GroupsSection";
 
 export function ControlPanelPage({
   section,
@@ -47,6 +48,7 @@ export function ControlPanelPage({
             <div className="control-group">
               <p>User administration</p>
               <a className={section === "users" ? "active" : ""} href="/control/users" onClick={(event) => followRoute(event, "/control/users")}>Users</a>
+              <a className={section === "groups" ? "active" : ""} href="/control/groups" onClick={(event) => followRoute(event, "/control/groups")}>Groups</a>
               <a className={section === "invites" ? "active" : ""} href="/control/invites" onClick={(event) => followRoute(event, "/control/invites")}>Invite links</a>
               <a className={section === "sessions" ? "active" : ""} href="/control/sessions" onClick={(event) => followRoute(event, "/control/sessions")}>Sessions</a>
             </div>
@@ -61,6 +63,7 @@ export function ControlPanelPage({
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
           {section === "libraries" && <LibrariesSection />}
+          {section === "groups"    && <GroupsSection />}
         </section>
       </div>
     </DashboardShell>

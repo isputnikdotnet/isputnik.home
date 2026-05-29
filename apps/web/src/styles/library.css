@@ -40,6 +40,263 @@
   white-space: nowrap;
 }
 
+/* ── Series grid & cards ────────────────────────────────────────── */
+
+.series-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.series-card {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.series-card:hover {
+  border-color: var(--mint);
+}
+
+.series-card-cover {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background: var(--active);
+  color: var(--mint);
+}
+
+.series-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.series-card-body {
+  display: grid;
+  gap: 2px;
+  padding: 0 12px 12px;
+}
+
+.series-card-body strong {
+  font-size: 0.88rem;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.series-card-body span,
+.series-card-body small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* ── Series detail page ─────────────────────────────────────────── */
+
+.series-detail-head {
+  margin-bottom: 18px;
+}
+
+.series-detail-head .muted {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+}
+
+.series-name-edit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.series-name-edit h1 {
+  margin: 0;
+}
+
+.series-name-input {
+  min-height: 44px;
+  min-width: 280px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--field);
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.series-name-input:focus {
+  border-color: var(--mint);
+  outline: 3px solid rgba(134, 228, 216, 0.18);
+}
+
+.series-name-error {
+  color: var(--rose);
+  font-size: 0.88rem;
+}
+
+.series-detail-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.series-book-list {
+  display: grid;
+  gap: 6px;
+}
+
+.series-book-row {
+  display: grid;
+  grid-template-columns: 52px 44px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.genre-book-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.series-position-input {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--field);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.series-position-input:focus {
+  border-color: var(--mint);
+  outline: 2px solid rgba(134, 228, 216, 0.18);
+}
+
+.series-book-cover {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 58px;
+  border-radius: 4px;
+  background: var(--active);
+  color: var(--mint);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.series-book-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.series-book-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.series-book-title-link {
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+}
+
+.series-book-title-link:hover {
+  color: var(--mint);
+  text-decoration: underline;
+}
+
+.series-book-info span,
+.series-book-info small {
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Series add-books modal ─────────────────────────────────────── */
+
+.series-add-modal {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  width: min(100%, 560px);
+  max-height: min(80vh, 700px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: 0 22px 52px var(--shadow);
+  overflow: hidden;
+}
+
+.series-add-list {
+  overflow-y: auto;
+  padding: 8px 16px;
+  display: grid;
+  gap: 4px;
+}
+
+.series-add-row {
+  display: grid;
+  grid-template-columns: 20px 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.series-add-row:hover {
+  background: var(--hover);
+}
+
+.series-library-label {
+  font-size: 0.88rem;
+}
+
+.series-description {
+  margin: 10px 0 0;
+  max-width: 680px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 /* ── Person grid (Authors / Narrators) ──────────────────────────── */
 
 .person-grid {
@@ -593,6 +850,12 @@
 .metadata-modal .field textarea {
   min-height: 36px;
   padding: 7px 9px;
+  font-size: 0.9rem;
+}
+
+.metadata-modal .field .people-combobox-input-area {
+  min-height: 36px;
+  padding: 5px 8px;
   font-size: 0.9rem;
 }
 

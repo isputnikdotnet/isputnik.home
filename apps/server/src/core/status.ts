@@ -51,6 +51,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.4.0",
+          label: "Series, Genres & Groups",
+          changes: [
+            "Added Series list and detail pages — browse, create, rename, delete series, and manage which books belong to each.",
+            "Added Genres list and detail pages — browse, create, rename, delete genres, and manually assign books to genres.",
+            "Added user groups — admins can create groups, add members with member or manager roles, and assign libraries to groups.",
+            "Library sharing: libraries can now be owned by a group, giving all group members access.",
+            "Library access control extracted into shared module — consistent read/write permission checks across all library endpoints.",
+            "Audiobook list page now supports filtering by library, author, and narrator.",
+          ]
+        },
+        {
           version: "0.3.0",
           label: "Library navigation & people",
           changes: [

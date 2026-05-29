@@ -52,8 +52,18 @@
   cursor: pointer;
 }
 
+.primary-button,
+.secondary-button,
+.danger-button,
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .primary-button {
-  min-height: 48px;
+  min-height: 44px;
   padding: 0 16px;
   border-radius: 7px;
   color: #102238;
@@ -319,6 +329,23 @@
   font-weight: 760;
 }
 
+.icon-button.danger {
+  color: var(--rose);
+}
+
+.icon-button.danger:hover {
+  background: color-mix(in srgb, var(--rose) 12%, transparent);
+}
+
+/* ── Row actions (button group inside a table cell) ─────────────── */
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .empty-state {
   display: grid;
   justify-items: center;
@@ -399,6 +426,18 @@
   display: grid;
   gap: 16px;
   width: min(100%, 620px);
+}
+
+.create-group-modal,
+.edit-library-modal {
+  display: grid;
+  gap: 16px;
+}
+
+.manage-group-modal {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 560px);
 }
 
 .create-library-modal > p,
@@ -588,4 +627,128 @@
   border-radius: 8px;
   color: var(--muted);
   text-align: center;
+}
+
+/* ── People combobox ────────────────────────────────────────────── */
+
+.people-combobox {
+  position: relative;
+}
+
+.people-combobox-input-area {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  cursor: text;
+}
+
+.people-combobox-input-area:focus-within {
+  border-color: var(--mint);
+  outline: 3px solid rgba(134, 228, 216, 0.18);
+}
+
+.people-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 10px;
+  border-radius: 100px;
+  background: var(--active);
+  color: var(--mint);
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.people-chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+.people-chip button:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.people-combobox-input-area input {
+  flex: 1;
+  min-width: 80px;
+  min-height: unset;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  background: transparent;
+  font-size: inherit;
+}
+
+.people-combobox-dropdown {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 210px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.people-combobox-option {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+
+.people-combobox-option:hover,
+.people-combobox-option:focus {
+  background: var(--hover);
+}
+
+.people-combobox-option-new {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── Suggest input (single-value with dropdown) ─────────────────── */
+
+.suggest-input {
+  position: relative;
+}
+
+.suggest-input input {
+  width: 100%;
+}
+
+/* ── Series fields in metadata edit grid ────────────────────────── */
+
+.metadata-field-series-name {
+  grid-column: span 3;
+}
+
+.metadata-field-series-pos {
+  grid-column: span 1;
 }

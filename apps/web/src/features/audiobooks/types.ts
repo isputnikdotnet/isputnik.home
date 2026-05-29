@@ -5,6 +5,9 @@ export interface AudiobookLibrary {
   sourcePath?: string;
   scanStatus: "idle" | "scanning" | "error";
   lastScannedAt: string | null;
+  ownerId: string | null;
+  ownerType: "user" | "group" | null;
+  visibility: "private" | "public";
   createdAt: string;
   updatedAt: string;
   bookCount: number;
@@ -17,6 +20,8 @@ export interface AudiobookBook {
   folderPath: string;
   status: "pending" | "ready" | "error";
   title: string;
+  series: string | null;
+  seriesPosition: number | null;
   authors: string[];
   narrators: string[];
   genres: string[];
@@ -75,6 +80,47 @@ export interface MetadataCandidate {
   genres?: string[];
   language?: string;
   source: "itunes" | "openlibrary" | "fantlab";
+}
+
+export interface SeriesSummary {
+  id: string;
+  name: string;
+  bookCount: number;
+  coverUrl: string | null;
+}
+
+export interface SeriesDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  libraryId: string;
+  libraryName: string;
+  books: {
+    id: string;
+    title: string;
+    authors: string[];
+    coverUrl: string | null;
+    seriesPosition: number | null;
+  }[];
+}
+
+export interface GenreSummary {
+  id: string;
+  name: string;
+  bookCount: number;
+}
+
+export interface GenreDetail {
+  id: string;
+  name: string;
+  libraryId: string;
+  libraryName: string;
+  books: {
+    id: string;
+    title: string;
+    authors: string[];
+    coverUrl: string | null;
+  }[];
 }
 
 export interface CoverCandidate {

@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 import archiver from "archiver";
 import { db } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
+import { canUserAccessLibrary } from "../shared/library-access.js";
 
 function parseRangeHeader(header: string, totalSize: number) {
   const match = header.match(/^bytes=(\d*)-(\d*)$/);
@@ -26,7 +27,10 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
         book_files.relative_path,
         book_files.mime_type,
         book_files.status,
-        libraries.source_path
+        libraries.source_path,
+        libraries.owner_id,
+        libraries.owner_type,
+        libraries.visibility
       FROM book_files
       JOIN books ON books.id = book_files.book_id
       JOIN libraries ON libraries.id = books.library_id
@@ -38,9 +42,18 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
       mime_type: string | null;
       status: string;
       source_path: string;
+      owner_id: string | null;
+      owner_type: string | null;
+      visibility: string;
     } | undefined;
 
     if (!row || row.status !== "available") {
+      reply.code(404).send({ error: "Audio file not found" });
+      return;
+    }
+
+    const user = request.user!;
+    if (!canUserAccessLibrary(row, user.id, user.role)) {
       reply.code(404).send({ error: "Audio file not found" });
       return;
     }
@@ -88,14 +101,20 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     const { id } = request.params as { id: string };
 
     const meta = db.prepare(`
-      SELECT libraries.source_path, book_metadata.title
+      SELECT libraries.source_path, libraries.owner_id, libraries.owner_type, libraries.visibility, book_metadata.title
       FROM books
       JOIN libraries ON libraries.id = books.library_id
       LEFT JOIN book_metadata ON book_metadata.book_id = books.id
       WHERE books.id = ? AND books.deleted_at IS NULL
-    `).get(id) as { source_path: string; title: string | null } | undefined;
+    `).get(id) as { source_path: string; owner_id: string | null; owner_type: string | null; visibility: string; title: string | null } | undefined;
 
     if (!meta) {
+      reply.code(404).send({ error: "Book not found" });
+      return;
+    }
+
+    const downloadUser = request.user!;
+    if (!canUserAccessLibrary({ owner_id: meta.owner_id, owner_type: meta.owner_type, visibility: meta.visibility }, downloadUser.id, downloadUser.role)) {
       reply.code(404).send({ error: "Book not found" });
       return;
     }

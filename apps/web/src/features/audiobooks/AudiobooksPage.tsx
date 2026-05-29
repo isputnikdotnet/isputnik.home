@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, FastForward, List, Pause, Pencil, Play, Rewind, RotateCcw, Save, Search, SkipBack, SkipForward, Upload, Volume2, VolumeX, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -257,10 +257,14 @@ function BookDetailView({
   const [coverLoading, setCoverLoading] = useState(false);
   const [coverSaving, setCoverSaving] = useState("");
   const [coverError, setCoverError] = useState("");
+  const [libraryPeople, setLibraryPeople] = useState<string[]>([]);
+  const [librarySeries, setLibrarySeries] = useState<string[]>([]);
   const [editForm, setEditForm] = useState(() => ({
     title: book.title,
-    authors: book.authors.join(", "),
-    narrators: book.narrators.join(", "),
+    series: book.series ?? "",
+    seriesPosition: book.seriesPosition?.toString() ?? "",
+    authors: book.authors,
+    narrators: book.narrators,
     genres: book.genres.join(", "),
     publisher: book.publisher ?? "",
     yearPublished: book.yearPublished?.toString() ?? "",
@@ -273,8 +277,10 @@ function BookDetailView({
   useEffect(() => {
     setEditForm({
       title: book.title,
-      authors: book.authors.join(", "),
-      narrators: book.narrators.join(", "),
+      series: book.series ?? "",
+      seriesPosition: book.seriesPosition?.toString() ?? "",
+      authors: book.authors,
+      narrators: book.narrators,
       genres: book.genres.join(", "),
       publisher: book.publisher ?? "",
       yearPublished: book.yearPublished?.toString() ?? "",
@@ -303,6 +309,16 @@ function BookDetailView({
       loadCoverCandidates();
     }
   }, [activeMetadataTab, loadCoverCandidates, metadataModalOpen]);
+
+  useEffect(() => {
+    if (!metadataModalOpen) return;
+    api<{ people: string[] }>(`/api/library/audiobook-libraries/${book.libraryId}/people`)
+      .then((payload) => setLibraryPeople(payload.people))
+      .catch(() => {});
+    api<{ series: { id: string; name: string }[] }>(`/api/library/audiobook-libraries/${book.libraryId}/series`)
+      .then((payload) => setLibrarySeries(payload.series.map((s) => s.name)))
+      .catch(() => {});
+  }, [metadataModalOpen, book.libraryId]);
 
   const splitList = (value: string) => value
     .split(",")
@@ -370,8 +386,10 @@ function BookDetailView({
         method: "PATCH",
         body: JSON.stringify({
           title: editForm.title,
-          authors: splitList(editForm.authors),
-          narrators: splitList(editForm.narrators),
+          series: editForm.series || null,
+          seriesPosition: editForm.seriesPosition ? Number(editForm.seriesPosition) : null,
+          authors: editForm.authors,
+          narrators: editForm.narrators,
           genres: splitList(editForm.genres),
           publisher: editForm.publisher || null,
           yearPublished: editForm.yearPublished ? Number(editForm.yearPublished) : null,
@@ -488,6 +506,12 @@ function BookDetailView({
           )}
 
           <dl className="book-detail-meta">
+            {book.series && (
+              <div>
+                <dt>Series</dt>
+                <dd>{book.series}{book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}</dd>
+              </div>
+            )}
             {book.authors.length > 0 && (
               <div>
                 <dt>Authors</dt>
@@ -608,14 +632,44 @@ function BookDetailView({
                       <span>Title</span>
                       <input value={editForm.title} onChange={(event) => setEditForm((form) => ({ ...form, title: event.target.value }))} />
                     </label>
-                    <label className="field metadata-field-half">
+                    <div className="field metadata-field-series-name">
+                      <span>Series</span>
+                      <SuggestInput
+                        value={editForm.series}
+                        onChange={(v) => setEditForm((form) => ({ ...form, series: v }))}
+                        suggestions={librarySeries}
+                        placeholder="Series name…"
+                      />
+                    </div>
+                    <label className="field metadata-field-series-pos">
+                      <span>#</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={editForm.seriesPosition}
+                        onChange={(event) => setEditForm((form) => ({ ...form, seriesPosition: event.target.value }))}
+                        placeholder="1"
+                      />
+                    </label>
+                    <div className="field metadata-field-half">
                       <span>Authors</span>
-                      <input value={editForm.authors} onChange={(event) => setEditForm((form) => ({ ...form, authors: event.target.value }))} />
-                    </label>
-                    <label className="field metadata-field-half">
+                      <PeopleCombobox
+                        value={editForm.authors}
+                        onChange={(v) => setEditForm((form) => ({ ...form, authors: v }))}
+                        suggestions={libraryPeople}
+                        placeholder="Add author…"
+                      />
+                    </div>
+                    <div className="field metadata-field-half">
                       <span>Narrators</span>
-                      <input value={editForm.narrators} onChange={(event) => setEditForm((form) => ({ ...form, narrators: event.target.value }))} />
-                    </label>
+                      <PeopleCombobox
+                        value={editForm.narrators}
+                        onChange={(v) => setEditForm((form) => ({ ...form, narrators: v }))}
+                        suggestions={libraryPeople}
+                        placeholder="Add narrator…"
+                      />
+                    </div>
                     <label className="field metadata-field-half">
                       <span>Genres</span>
                       <input value={editForm.genres} onChange={(event) => setEditForm((form) => ({ ...form, genres: event.target.value }))} />
@@ -853,6 +907,145 @@ function BookDetailView({
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function SuggestInput({
+  value,
+  onChange,
+  suggestions,
+  placeholder
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  suggestions: string[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = suggestions.filter((s) => s.toLowerCase().includes(value.toLowerCase()));
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="suggest-input" ref={containerRef}>
+      <input
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") setOpen(false); }}
+        placeholder={placeholder}
+      />
+      {open && filtered.length > 0 && (
+        <div className="people-combobox-dropdown">
+          {filtered.map((s) => (
+            <button key={s} type="button" className="people-combobox-option" onMouseDown={(e) => { e.preventDefault(); onChange(s); setOpen(false); }}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PeopleCombobox({
+  value,
+  onChange,
+  suggestions,
+  placeholder
+}: {
+  value: string[];
+  onChange: (value: string[]) => void;
+  suggestions: string[];
+  placeholder?: string;
+}) {
+  const [inputValue, setInputValue] = useState("");
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = suggestions.filter(
+    (s) => !value.includes(s) && s.toLowerCase().includes(inputValue.toLowerCase())
+  );
+
+  const add = (name: string) => {
+    const trimmed = name.trim();
+    if (trimmed && !value.includes(trimmed)) {
+      onChange([...value, trimmed]);
+    }
+    setInputValue("");
+  };
+
+  const remove = (name: string) => {
+    onChange(value.filter((v) => v !== name));
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && inputValue.trim()) {
+      e.preventDefault();
+      add(inputValue);
+    } else if (e.key === "Backspace" && !inputValue && value.length > 0) {
+      remove(value[value.length - 1]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const showNew = inputValue.trim() && !value.includes(inputValue.trim()) && !filtered.some((s) => s.toLowerCase() === inputValue.trim().toLowerCase());
+
+  return (
+    <div className="people-combobox" ref={containerRef}>
+      <div className="people-combobox-input-area" onClick={() => inputRef.current?.focus()}>
+        {value.map((name) => (
+          <span key={name} className="people-chip">
+            {name}
+            <button type="button" onClick={(e) => { e.stopPropagation(); remove(name); }} aria-label={`Remove ${name}`}>
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          value={inputValue}
+          onChange={(e) => { setInputValue(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={value.length === 0 ? placeholder : ""}
+        />
+      </div>
+      {open && (filtered.length > 0 || showNew) && (
+        <div className="people-combobox-dropdown">
+          {filtered.map((s) => (
+            <button key={s} type="button" className="people-combobox-option" onMouseDown={(e) => { e.preventDefault(); add(s); }}>
+              {s}
+            </button>
+          ))}
+          {showNew && (
+            <button type="button" className="people-combobox-option people-combobox-option-new" onMouseDown={(e) => { e.preventDefault(); add(inputValue); }}>
+              Add "{inputValue.trim()}"
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

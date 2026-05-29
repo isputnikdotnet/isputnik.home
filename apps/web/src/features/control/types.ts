@@ -79,3 +79,19 @@ export interface StorageBrowse {
   parentPath: string | null;
   entries: StorageBrowseEntry[];
 }
+
+export interface ManagedGroup {
+  id: string;
+  name: string;
+  createdAt: string;
+  memberCount: number;
+  libraryCount: number;
+}
+
+export interface GroupMember {
+  userId: string;
+  displayName: string;
+  email: string;
+  role: "member" | "manager";
+  joinedAt: string;
+}

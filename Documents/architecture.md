@@ -88,7 +88,7 @@ The primary content module. Supports multiple **library types** — each type ha
 
 - Background job queue for scans, metadata extraction, thumbnail generation
 - Sharded thumbnail cache at `THUMBNAIL_PATH`
-- Sharing model (library-level and item-level) via `shares` and `share_links` tables
+- Library-level access via ownership model (`owner_id` + `visibility`); item-level sharing via `shares` and `share_links` (planned)
 - Collections — user-curated lists shared across all library types and Notes
 - Soft delete — `deleted_at` on all content, 30-day retention before purge
 - Safety rule — source files are never renamed, moved, or deleted
@@ -113,9 +113,11 @@ A SQLite-backed job queue handles all slow work — scans, metadata extraction, 
 
 ## Sharing and Permissions
 
-A single `shares` table is reused across all modules. Visibility levels: `private`, `family`, `shared` (specific users), `link` (anyone with the link). Permission levels: `read`, `edit`, `manage`. Public link tokens are stored hashed in `share_links`. When a resource is deleted, its shares are deleted in the same transaction.
+A single `shares` table is reused across all modules for item-level sharing. Visibility levels: `private`, `family`, `shared` (specific users), `link` (anyone with the link). Permission levels: `read`, `edit`, `manage`. Public link tokens are stored hashed in `share_links`.
 
-See [`sharing.md`](sharing.md) for the full schema, indexes, and access resolution order.
+**Library-level access** uses an ownership model. Each library has an `owner_id`, an `owner_type` (`user` or `group`), and a `visibility` (`private` or `public`). Public libraries are accessible to all active users. Private libraries are accessible to the owner and admins only. Only the owner or an admin can edit library content — non-owners are always read-only. Group ownership is planned for Phase 2.
+
+See [`sharing.md`](sharing.md) for the general sharing schema and [`library-sharing.md`](library-sharing.md) for the library access model and roadmap.
 
 ---
 
@@ -202,7 +204,7 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 4. **Done** — Digital Library infrastructure (storage containers, thumbnail config, audiobook scan)
 5. **Done** — Audiobook library Phase 2 (metadata, covers, async scan)
 6. **Next** — Audiobook library Phase 3 (lookup/enrichment and manual metadata)
-7. **Planned** — Digital Library sharing and access control
+7. **Planned** — Digital Library sharing Phase 1 — library ownership and visibility (private / public)
 8. **Planned** — Backup and restore tooling
 9. **Future** — Notes module
 10. **Future** — MFA
@@ -217,4 +219,5 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 | [`audiobook-library.md`](audiobook-library.md) | Audiobook library type — scan pipeline, metadata, phases, schema |
 | [`audiobook-db.md`](audiobook-db.md) | Audiobook database ER diagram and table reference |
 | [`auth.md`](auth.md) | Authentication detail — sessions, invite flow, future MFA |
-| [`sharing.md`](sharing.md) | Sharing model — full schema, access resolution, share links |
+| [`sharing.md`](sharing.md) | Sharing model — general `shares` / `share_links` schema, access resolution |
+| [`library-sharing.md`](library-sharing.md) | Library access model — ownership, visibility, Phase 1 schema, roadmap |

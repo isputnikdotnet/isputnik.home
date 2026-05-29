@@ -14,7 +14,7 @@
 }
 
 .dashboard-body.has-sidebar {
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 88px minmax(0, 1fr);
 }
 
 .dashboard-body.control-body {
@@ -25,7 +25,7 @@
   position: sticky;
   top: 68px;
   height: calc(100vh - 68px);
-  padding: 20px 14px;
+  padding: 16px 6px;
   border-right: 1px solid var(--line);
   overflow-y: auto;
 }
@@ -33,30 +33,30 @@
 .side-nav {
   display: grid;
   align-content: start;
-  gap: 4px;
+  gap: 2px;
 }
 
 .side-nav-label {
-  margin: 0 10px 7px;
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 750;
-  text-transform: uppercase;
+  display: none;
 }
 
 .side-nav button,
 .side-nav a {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 5px;
   width: 100%;
-  min-height: 42px;
-  padding: 10px;
-  border-radius: 7px;
+  min-height: 68px;
+  padding: 10px 6px;
+  border-radius: 8px;
   color: var(--muted);
   background: transparent;
-  font-weight: 650;
-  text-align: left;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: center;
   text-decoration: none;
 }
 

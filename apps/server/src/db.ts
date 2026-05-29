@@ -245,6 +245,24 @@ db.exec(`
     error TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS user_groups (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_by TEXT NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS group_members (
+    group_id  TEXT NOT NULL REFERENCES user_groups(id) ON DELETE CASCADE,
+    user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role      TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'manager')),
+    joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (group_id, user_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+  CREATE INDEX IF NOT EXISTS idx_group_members_user  ON group_members(user_id);
+
   CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
   CREATE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash);
@@ -327,6 +345,26 @@ if (!bookMetaColumns.some((column) => column.name === "asin")) {
 if (!bookMetaColumns.some((column) => column.name === "publisher")) {
   db.exec("ALTER TABLE book_metadata ADD COLUMN publisher TEXT");
 }
+
+const seriesColumns = db.prepare("PRAGMA table_info(series)").all() as { name: string }[];
+if (!seriesColumns.some((column) => column.name === "description")) {
+  db.exec("ALTER TABLE series ADD COLUMN description TEXT");
+}
+
+const libraryColumns = db.prepare("PRAGMA table_info(libraries)").all() as { name: string }[];
+if (!libraryColumns.some((column) => column.name === "owner_id")) {
+  db.exec("ALTER TABLE libraries ADD COLUMN owner_id TEXT");
+}
+if (!libraryColumns.some((column) => column.name === "owner_type")) {
+  db.exec("ALTER TABLE libraries ADD COLUMN owner_type TEXT CHECK (owner_type IN ('user', 'group'))");
+}
+if (!libraryColumns.some((column) => column.name === "visibility")) {
+  db.exec("ALTER TABLE libraries ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('private', 'public'))");
+}
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_libraries_owner      ON libraries(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_libraries_visibility ON libraries(visibility);
+`);
 
 export function hasUsers() {
   const row = db.prepare("SELECT COUNT(*) AS count FROM users WHERE deleted_at IS NULL").get() as { count: number };

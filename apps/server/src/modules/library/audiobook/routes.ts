@@ -3,7 +3,9 @@ import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { audioExtensions, enqueueAudiobookScan, processAudiobookScanQueue, validateLibrarySource } from "./scanner.js";
+import { z } from "zod";
 import { audiobookLibrarySchema, publicAudiobookLibrary } from "./serializers.js";
+import { canUserAccessLibrary } from "../shared/library-access.js";
 import type { AudiobookLibraryRow } from "./types.js";
 
 export async function audiobookRoutesPlugin(app: FastifyInstance) {
@@ -22,6 +24,36 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       return;
     }
 
+    const ownerId = parsed.data.ownerId ?? null;
+    const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
+    const visibility = parsed.data.visibility ?? "public";
+
+    if (ownerId && ownerType === "user") {
+      const ownerExists = db.prepare("SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1").get(ownerId);
+      if (!ownerExists) {
+        reply.code(400).send({ error: "Owner user not found." });
+        return;
+      }
+      const duplicate = db.prepare("SELECT id FROM libraries WHERE type = 'audiobook' AND owner_id = ? AND owner_type = 'user'").get(ownerId);
+      if (duplicate) {
+        reply.code(409).send({ error: "This user already has an audiobook library." });
+        return;
+      }
+    }
+
+    if (ownerId && ownerType === "group") {
+      const groupExists = db.prepare("SELECT id FROM user_groups WHERE id = ?").get(ownerId);
+      if (!groupExists) {
+        reply.code(400).send({ error: "Owner group not found." });
+        return;
+      }
+      const duplicate = db.prepare("SELECT id FROM libraries WHERE type = 'audiobook' AND owner_id = ? AND owner_type = 'group'").get(ownerId);
+      if (duplicate) {
+        reply.code(409).send({ error: "This group already has an audiobook library." });
+        return;
+      }
+    }
+
     const libraryId = nanoid(16);
     const settings = {
       folder_structure: "author_book",
@@ -32,9 +64,9 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     };
 
     db.prepare(`
-      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by)
-      VALUES (?, ?, 'audiobook', ?, ?, ?)
-    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id);
+      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility)
+      VALUES (?, ?, 'audiobook', ?, ?, ?, ?, ?, ?)
+    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility);
 
     const jobId = enqueueAudiobookScan(libraryId);
     void processAudiobookScanQueue();
@@ -52,6 +84,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
   });
 
   app.get("/api/library/audiobook-libraries", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
     const rows = db.prepare(`
       SELECT
         libraries.*,
@@ -65,9 +98,93 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       ORDER BY datetime(libraries.created_at) DESC
     `).all() as AudiobookLibraryRow[];
 
+    const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
+
     return {
-      libraries: rows.map((row) => publicAudiobookLibrary(row, request.user?.role === "admin"))
+      libraries: accessible.map((row) => publicAudiobookLibrary(row, user.role === "admin"))
     };
+  });
+
+  const audiobookLibraryUpdateSchema = z.object({
+    name: z.string().trim().min(2).max(120),
+    ownerId: z.string().trim().min(1).max(64).nullable().optional(),
+    ownerType: z.enum(["user", "group"]).nullable().optional(),
+    visibility: z.enum(["private", "public"])
+  });
+
+  app.patch("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const existing = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'audiobook'")
+      .get(id) as { id: string; name: string } | undefined;
+    if (!existing) {
+      reply.code(404).send({ error: "Audiobook library not found" });
+      return;
+    }
+
+    const parsed = parseBody(audiobookLibraryUpdateSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid library details", details: parsed.error });
+      return;
+    }
+
+    const ownerId = parsed.data.ownerId ?? null;
+    const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
+
+    if (ownerId && ownerType === "user") {
+      const ownerExists = db.prepare("SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1").get(ownerId);
+      if (!ownerExists) {
+        reply.code(400).send({ error: "Owner user not found." });
+        return;
+      }
+      const duplicate = db.prepare(
+        "SELECT id FROM libraries WHERE type = 'audiobook' AND owner_id = ? AND owner_type = 'user' AND id != ?"
+      ).get(ownerId, id);
+      if (duplicate) {
+        reply.code(409).send({ error: "This user already owns another audiobook library." });
+        return;
+      }
+    }
+
+    if (ownerId && ownerType === "group") {
+      const groupExists = db.prepare("SELECT id FROM user_groups WHERE id = ?").get(ownerId);
+      if (!groupExists) {
+        reply.code(400).send({ error: "Owner group not found." });
+        return;
+      }
+      const duplicate = db.prepare(
+        "SELECT id FROM libraries WHERE type = 'audiobook' AND owner_id = ? AND owner_type = 'group' AND id != ?"
+      ).get(ownerId, id);
+      if (duplicate) {
+        reply.code(409).send({ error: "This group already owns another audiobook library." });
+        return;
+      }
+    }
+
+    db.prepare(`
+      UPDATE libraries
+      SET name = ?, owner_id = ?, owner_type = ?, visibility = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(parsed.data.name, ownerId, ownerType, parsed.data.visibility, id);
+
+    logActivity({
+      event: "library.audiobook.updated",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: id,
+      detail: `Updated audiobook library "${parsed.data.name}".`,
+      ipAddress: request.ip
+    });
+
+    const updated = db.prepare(`
+      SELECT libraries.*, COUNT(DISTINCT books.id) AS book_count, COUNT(book_files.id) AS file_count
+      FROM libraries
+      LEFT JOIN books ON books.library_id = libraries.id AND books.deleted_at IS NULL
+      LEFT JOIN book_files ON book_files.book_id = books.id AND book_files.status = 'available'
+      WHERE libraries.id = ?
+      GROUP BY libraries.id
+    `).get(id) as AudiobookLibraryRow;
+
+    reply.send({ library: publicAudiobookLibrary(updated, true) });
   });
 
   app.post("/api/library/audiobook-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {

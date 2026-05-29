@@ -82,3 +82,11 @@ Effective access is resolved in this order, first match wins:
 `shares` and `share_links` reference resources by `module` + `resource_id` rather than database foreign keys. This allows the sharing tables to be shared across all modules without knowing every resource table's schema. When a resource is deleted or purged, its shares and link shares must be deleted in the same transaction by the module's service code.
 
 ---
+
+## Library Access Model
+
+Library-level access uses a separate ownership model — libraries have an `owner_id` and a `visibility` field rather than `shares` rows. The `shares` table applies at the item level (individual books, photos, etc.) in later phases.
+
+See [`library-sharing.md`](library-sharing.md) for the full schema, access resolution, and roadmap.
+
+---

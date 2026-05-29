@@ -6,6 +6,9 @@ export interface AudiobookLibraryRow {
   settings_json: string;
   scan_status: "idle" | "scanning" | "error";
   last_scanned_at: string | null;
+  owner_id: string | null;
+  owner_type: "user" | "group" | null;
+  visibility: "private" | "public";
   created_at: string;
   updated_at: string;
   book_count: number;
