@@ -80,6 +80,28 @@ export interface StorageBrowse {
   entries: StorageBrowseEntry[];
 }
 
+export interface Job {
+  id: string;
+  type: string;
+  status: "pending" | "running" | "completed" | "failed";
+  attempts: number;
+  libraryName: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  failedAt: string | null;
+  error: string | null;
+}
+
+export interface DbInfo {
+  path: string;
+  directory: string;
+  filename: string;
+  sizeBytes: number;
+  walSizeBytes: number;
+  totalSizeBytes: number;
+  lastModified: string | null;
+}
+
 export interface ManagedGroup {
   id: string;
   name: string;

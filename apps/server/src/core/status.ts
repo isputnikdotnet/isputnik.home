@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { db } from "../db.js";
 import { config } from "../config.js";
@@ -40,6 +41,80 @@ export async function statusPlugin(app: FastifyInstance) {
     };
   });
 
+  app.get("/api/jobs", { preHandler: app.requireAdmin }, async () => {
+    const rows = db.prepare(`
+      SELECT
+        jobs.id,
+        jobs.type,
+        jobs.status,
+        jobs.attempts,
+        jobs.created_at,
+        jobs.completed_at,
+        jobs.failed_at,
+        jobs.error,
+        jobs.payload,
+        libraries.name AS library_name
+      FROM jobs
+      LEFT JOIN libraries ON libraries.id = json_extract(jobs.payload, '$.libraryId')
+      ORDER BY jobs.created_at DESC
+      LIMIT 50
+    `).all() as {
+      id: string;
+      type: string;
+      status: string;
+      attempts: number;
+      created_at: string;
+      completed_at: string | null;
+      failed_at: string | null;
+      error: string | null;
+      payload: string;
+      library_name: string | null;
+    }[];
+
+    return {
+      jobs: rows.map((r) => ({
+        id: r.id,
+        type: r.type,
+        status: r.status,
+        attempts: r.attempts,
+        libraryName: r.library_name,
+        createdAt: r.created_at,
+        completedAt: r.completed_at,
+        failedAt: r.failed_at,
+        error: r.error
+      }))
+    };
+  });
+
+  app.get("/api/db/info", { preHandler: app.requireAdmin }, async () => {
+    const dbPath = config.dbPath;
+    const walPath = `${dbPath}-wal`;
+    const shmPath = `${dbPath}-shm`;
+
+    const statOrNull = (p: string) => {
+      try { return fs.statSync(p); } catch { return null; }
+    };
+
+    const mainStat = statOrNull(dbPath);
+    const walStat = statOrNull(walPath);
+
+    const sizeBytes = mainStat?.size ?? 0;
+    const walSizeBytes = walStat?.size ?? 0;
+    const lastModified = mainStat?.mtime.toISOString() ?? null;
+
+    return {
+      db: {
+        path: dbPath,
+        directory: path.dirname(dbPath),
+        filename: path.basename(dbPath),
+        sizeBytes,
+        walSizeBytes,
+        totalSizeBytes: sizeBytes + walSizeBytes + (statOrNull(shmPath)?.size ?? 0),
+        lastModified
+      }
+    };
+  });
+
   app.get("/api/about", { preHandler: app.authenticate }, async () => ({
     about: {
       name: "isputnik.home",
@@ -50,6 +125,16 @@ export async function statusPlugin(app: FastifyInstance) {
       server: "Fastify + TypeScript",
       frontend: "React + TypeScript",
       versionUpdates: [
+        {
+          version: "0.4.2",
+          label: "Jobs, Database & library management",
+          changes: [
+            "Added Jobs page in the control panel showing the last 50 background jobs with status, duration, and error details. Auto-refreshes while jobs are active.",
+            "Added Database page showing the SQLite file path, size, WAL size, and last modified time for backup reference.",
+            "Added Delete library button with a confirmation modal — removes all database records without touching files on disk.",
+            "Rescan button is now disabled and shows 'Scanning…' while a library scan is already in progress.",
+          ]
+        },
         {
           version: "0.4.1",
           label: "Logo update",

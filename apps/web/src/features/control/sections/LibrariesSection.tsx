@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { Plus, RefreshCw, Pencil } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -20,6 +20,8 @@ export function LibrariesSection() {
   const [libraryOwnerId, setLibraryOwnerId] = useState("");
   const [libraryOwnerType, setLibraryOwnerType] = useState<"user" | "group" | "">("");
   const [rescanningLibraryId, setRescanningLibraryId] = useState("");
+  const [deleteConfirmLibrary, setDeleteConfirmLibrary] = useState<AudiobookLibrary | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createLibraryOpen, setCreateLibraryOpen] = useState(false);
   const [editingLibrary, setEditingLibrary] = useState<AudiobookLibrary | null>(null);
@@ -172,6 +174,21 @@ export function LibrariesSection() {
     }
   };
 
+  const deleteLibrary = async () => {
+    if (!deleteConfirmLibrary) return;
+    setDeleting(true);
+    setError("");
+    try {
+      await api(`/api/library/audiobook-libraries/${deleteConfirmLibrary.id}`, { method: "DELETE" });
+      setDeleteConfirmLibrary(null);
+      await loadLibraries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete library");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <div className="section-head">
@@ -258,11 +275,19 @@ export function LibrariesSection() {
                         </button>
                         <button
                           className="secondary-button compact-button rescan-library-button"
-                          disabled={rescanningLibraryId === library.id}
+                          disabled={rescanningLibraryId === library.id || library.scanStatus === "scanning"}
                           onClick={() => rescanLibrary(library.id)}
+                          title={library.scanStatus === "scanning" ? "Scan already in progress" : "Rescan library"}
                         >
                           <RefreshCw size={14} />
-                          {rescanningLibraryId === library.id ? "Scanning..." : "Rescan"}
+                          {library.scanStatus === "scanning" ? "Scanning..." : "Rescan"}
+                        </button>
+                        <button
+                          className="icon-button danger"
+                          title="Delete library"
+                          onClick={() => setDeleteConfirmLibrary(library)}
+                        >
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -391,6 +416,36 @@ export function LibrariesSection() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {deleteConfirmLibrary && (
+        <div className="modal-backdrop" onMouseDown={() => !deleting && setDeleteConfirmLibrary(null)}>
+          <div
+            className="confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-library-title"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h2 id="delete-library-title">Delete "{deleteConfirmLibrary.name}"?</h2>
+            <p>This will remove the library and all its book records, metadata, series, and genres from the database.</p>
+            <p><strong>Your files on disk will not be touched.</strong> You can re-add this library at any time and it will be re-scanned from the same folder.</p>
+            {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button
+                className="secondary-button"
+                onClick={() => setDeleteConfirmLibrary(null)}
+                disabled={deleting}
+                autoFocus
+              >
+                Cancel
+              </button>
+              <button className="danger-button" onClick={deleteLibrary} disabled={deleting}>
+                <Trash2 size={15} /> {deleting ? "Deleting…" : "Yes, delete library"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -11,6 +11,8 @@ import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
 import { GroupsSection } from "./sections/GroupsSection";
+import { JobsSection } from "./sections/JobsSection";
+import { DatabaseSection } from "./sections/DatabaseSection";
 
 export function ControlPanelPage({
   section,
@@ -44,6 +46,8 @@ export function ControlPanelPage({
               <a className={section === "storage" ? "active" : ""} href="/control/storage" onClick={(event) => followRoute(event, "/control/storage")}>Storage</a>
               <a className={section === "libraries" ? "active" : ""} href="/control/libraries" onClick={(event) => followRoute(event, "/control/libraries")}>Digital Library</a>
               <a className={section === "logs" ? "active" : ""} href="/control/logs" onClick={(event) => followRoute(event, "/control/logs")}>Logs</a>
+              <a className={section === "jobs" ? "active" : ""} href="/control/jobs" onClick={(event) => followRoute(event, "/control/jobs")}>Jobs</a>
+              <a className={section === "database" ? "active" : ""} href="/control/database" onClick={(event) => followRoute(event, "/control/database")}>Database</a>
             </div>
             <div className="control-group">
               <p>User administration</p>
@@ -64,6 +68,8 @@ export function ControlPanelPage({
           {section === "storage"   && <StorageSection />}
           {section === "libraries" && <LibrariesSection />}
           {section === "groups"    && <GroupsSection />}
+          {section === "jobs"      && <JobsSection />}
+          {section === "database"  && <DatabaseSection />}
         </section>
       </div>
     </DashboardShell>

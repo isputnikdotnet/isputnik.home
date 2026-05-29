@@ -187,6 +187,29 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     reply.send({ library: publicAudiobookLibrary(updated, true) });
   });
 
+  app.delete("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'audiobook'")
+      .get(id) as { id: string; name: string } | undefined;
+    if (!exists) {
+      reply.code(404).send({ error: "Audiobook library not found" });
+      return;
+    }
+
+    db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
+
+    logActivity({
+      event: "library.audiobook.deleted",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: id,
+      detail: `Deleted audiobook library "${exists.name}". Files on disk were not removed.`,
+      ipAddress: request.ip
+    });
+
+    reply.send({ deleted: true });
+  });
+
   app.post("/api/library/audiobook-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'audiobook'")

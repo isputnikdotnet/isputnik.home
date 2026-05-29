@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "storage" | "groups";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "storage" | "groups" | "jobs" | "database";
 
 export type Route =
   | { name: "install" }
@@ -112,6 +112,14 @@ export function getRoute(): Route {
 
   if (path === "/control/storage") {
     return { name: "control", section: "storage" };
+  }
+
+  if (path === "/control/jobs") {
+    return { name: "control", section: "jobs" };
+  }
+
+  if (path === "/control/database") {
+    return { name: "control", section: "database" };
   }
 
   if (["/control/library", "/control/libraries"].includes(path)) {
