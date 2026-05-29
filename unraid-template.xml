@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>isputnik</Name>
+  <Repository>ghcr.io/isputnikdotnet/isputnik.home:latest</Repository>
+  <Registry>https://ghcr.io/isputnikdotnet/isputnik.home</Registry>
+  <Network>bridge</Network>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Overview>Private self-hosted family audiobook app. On first run, open the web UI to create an admin account.</Overview>
+  <Category>MediaApp:Music</Category>
+  <WebUI>http://[IP]:[PORT:4000]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/isputnikdotnet/isputnik.home/main/Assets/brand/isputnik-app-icon.png</Icon>
+
+  <Config Name="Web UI Port"
+    Target="4000" Default="4000" Mode="tcp"
+    Description="Port for the web interface."
+    Type="Port" Display="always" Required="true" Mask="false">4000</Config>
+
+  <Config Name="Config &amp; Data"
+    Target="/config" Default="/mnt/user/appdata/isputnik" Mode="rw"
+    Description="Stores the database, thumbnails, and metadata. Keep this on your appdata share."
+    Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/isputnik</Config>
+
+  <Config Name="Audiobooks"
+    Target="/media" Default="/mnt/user/audiobooks" Mode="ro"
+    Description="Path to your audiobook library. Add this path as a storage root inside the app."
+    Type="Path" Display="always" Required="true" Mask="false">/mnt/user/audiobooks</Config>
+
+  <Config Name="App URL"
+    Target="APP_URL" Default="http://localhost:4000" Mode=""
+    Description="The URL you use to open the app in your browser. Used for CORS — must match exactly (IP or domain, including port)."
+    Type="Variable" Display="always" Required="true" Mask="false">http://localhost:4000</Config>
+
+  <Config Name="Cookie Secure"
+    Target="COOKIE_SECURE" Default="false" Mode=""
+    Description="Set to true only if you access the app over HTTPS (e.g. behind a reverse proxy with SSL). Leave false for plain HTTP."
+    Type="Variable" Display="always" Required="true" Mask="false">false</Config>
+
+  <Config Name="Session Length (days)"
+    Target="SESSION_DAYS" Default="14" Mode=""
+    Description="How many days a login session stays valid."
+    Type="Variable" Display="advanced" Required="false" Mask="false">14</Config>
+
+  <Config Name="Invite Validity (days)"
+    Target="INVITE_DAYS" Default="7" Mode=""
+    Description="How many days an invite link remains active."
+    Type="Variable" Display="advanced" Required="false" Mask="false">7</Config>
+</Container>

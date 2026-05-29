@@ -38,14 +38,16 @@ COPY package.json ./
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=4000
-# Fastify serves the built frontend from this path
 ENV STATIC_PATH=/app/web
-# SQLite database location — mount a volume here
-ENV DB_PATH=/data/db/isputnik.sqlite
+# All persistent data lives under /config — mount this as a volume
+ENV DB_PATH=/config/db/isputnik.sqlite
+ENV THUMBNAIL_PATH=/config/thumbnails
+ENV METADATA_PATH=/config/metadata
+# Set to "true" only when served over HTTPS
+ENV COOKIE_SECURE=false
 
 EXPOSE 4000
 
-# Create data dirs so the app can write to them even without a volume
-RUN mkdir -p /data/db /data/thumbnails /data/metadata
+RUN mkdir -p /config/db /config/thumbnails /config/metadata
 
 CMD ["node", "apps/server/dist/index.js"]
