@@ -75,11 +75,8 @@ function uniqueValues(values: string[]) {
 }
 
 function upsertAuthor(libraryId: string, name: string) {
-  db.prepare(`
-    INSERT INTO authors (id, library_id, name, sort_name)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(library_id, name) DO NOTHING
-  `).run(nanoid(16), libraryId, name, sortTitle(name));
+  db.prepare("INSERT OR IGNORE INTO authors (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
+    .run(nanoid(16), libraryId, name, sortTitle(name));
   return db.prepare("SELECT id FROM authors WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
 }
 
@@ -87,39 +84,28 @@ function replaceBookPeople(bookId: string, libraryId: string, role: "author" | "
   db.prepare("DELETE FROM book_authors WHERE book_id = ? AND role = ?").run(bookId, role);
   uniqueValues(names).forEach((name, index) => {
     const author = upsertAuthor(libraryId, name);
-    db.prepare(`
-      INSERT INTO book_authors (book_id, author_id, role, sort_order)
-      VALUES (?, ?, ?, ?)
-    `).run(bookId, author.id, role, index);
+    db.prepare("INSERT INTO book_authors (book_id, author_id, role, sort_order) VALUES (?, ?, ?, ?)")
+      .run(bookId, author.id, role, index);
   });
 }
 
 function upsertSeries(libraryId: string, name: string) {
-  db.prepare(`
-    INSERT INTO series (id, library_id, name, sort_name)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(library_id, name) DO NOTHING
-  `).run(nanoid(16), libraryId, name, sortTitle(name));
+  db.prepare("INSERT OR IGNORE INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
+    .run(nanoid(16), libraryId, name, sortTitle(name));
   return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
 }
 
 function upsertGenre(libraryId: string, name: string) {
-  db.prepare(`
-    INSERT INTO genres (id, library_id, name)
-    VALUES (?, ?, ?)
-    ON CONFLICT(library_id, name) DO NOTHING
-  `).run(nanoid(16), libraryId, name);
+  db.prepare("INSERT OR IGNORE INTO genres (id, library_id, name) VALUES (?, ?, ?)")
+    .run(nanoid(16), libraryId, name);
   return db.prepare("SELECT id FROM genres WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
 }
 
 function mergeBookGenres(bookId: string, libraryId: string, names: string[]) {
   uniqueValues(names).forEach((name) => {
     const genre = upsertGenre(libraryId, name);
-    db.prepare(`
-      INSERT INTO book_genres (book_id, genre_id)
-      VALUES (?, ?)
-      ON CONFLICT(book_id, genre_id) DO NOTHING
-    `).run(bookId, genre.id);
+    db.prepare("INSERT OR IGNORE INTO book_genres (book_id, genre_id) VALUES (?, ?)")
+      .run(bookId, genre.id);
   });
 }
 

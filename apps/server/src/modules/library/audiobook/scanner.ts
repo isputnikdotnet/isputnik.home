@@ -666,31 +666,22 @@ async function prepareBookScan(
 }
 
 function upsertAuthor(libraryId: string, name: string) {
-  db.prepare(`
-    INSERT INTO authors (id, library_id, name, sort_name)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(library_id, name) DO NOTHING
-  `).run(nanoid(16), libraryId, name, sortTitle(name));
+  db.prepare("INSERT OR IGNORE INTO authors (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
+    .run(nanoid(16), libraryId, name, sortTitle(name));
   return db.prepare("SELECT id FROM authors WHERE library_id = ? AND name = ?")
     .get(libraryId, name) as { id: string };
 }
 
 function upsertGenre(libraryId: string, name: string) {
-  db.prepare(`
-    INSERT INTO genres (id, library_id, name)
-    VALUES (?, ?, ?)
-    ON CONFLICT(library_id, name) DO NOTHING
-  `).run(nanoid(16), libraryId, name);
+  db.prepare("INSERT OR IGNORE INTO genres (id, library_id, name) VALUES (?, ?, ?)")
+    .run(nanoid(16), libraryId, name);
   return db.prepare("SELECT id FROM genres WHERE library_id = ? AND name = ?")
     .get(libraryId, name) as { id: string };
 }
 
 function upsertSeries(libraryId: string, name: string) {
-  db.prepare(`
-    INSERT INTO series (id, library_id, name, sort_name)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(library_id, name) DO NOTHING
-  `).run(nanoid(16), libraryId, name, sortTitle(name));
+  db.prepare("INSERT OR IGNORE INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
+    .run(nanoid(16), libraryId, name, sortTitle(name));
   return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?")
     .get(libraryId, name) as { id: string };
 }

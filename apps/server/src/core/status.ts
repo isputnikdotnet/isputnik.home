@@ -153,6 +153,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.4.4",
+          label: "Linux scan fixes",
+          changes: [
+            "Fixed crash on Linux/Unraid: replaced ON CONFLICT(cols) DO NOTHING with INSERT OR IGNORE throughout — certain SQLite builds on Linux miscounted binding parameters in the ON CONFLICT clause.",
+          ]
+        },
+        {
           version: "0.4.3",
           label: "Scan reliability & job controls",
           changes: [
