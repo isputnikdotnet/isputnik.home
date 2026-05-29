@@ -51,6 +51,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.2.3",
+          label: "Docker & self-hosting",
+          changes: [
+            "Added Docker support with multi-stage build and GitHub Container Registry publishing.",
+            "Added Unraid Docker template with /config volume convention for appdata.",
+            "Fixed session cookies not persisting over plain HTTP on local networks.",
+            "Fixed invite links using server URL from the request instead of configuration.",
+          ]
+        },
+        {
           version: "0.2.0",
           label: "Audiobook player UX",
           changes: [
