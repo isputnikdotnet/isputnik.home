@@ -17,7 +17,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </div>
       <section className="auth-panel">
         <div className="brand-row">
-          <img src="/Assets/brand/isputnik-app-icon.svg" alt="" />
+          <img src="/Assets/brand/isputnik-logo-sputnik-earth-mark.svg" alt="" />
           <div>
             <strong>isputnik.home</strong>
             <span>our world revolves around you.</span>

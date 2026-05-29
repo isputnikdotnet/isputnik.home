@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 360" role="img" aria-labelledby="title desc">
+  <title id="title">iSputnik logo with Sputnik orbiting Earth</title>
+  <desc id="desc">A horizontal iSputnik logo showing a vintage Sputnik satellite flying around Earth with retro space colors.</desc>
+  <defs>
+    <linearGradient id="space" x1="0" y1="0" x2="1080" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#10233a"/>
+      <stop offset="0.48" stop-color="#214f59"/>
+      <stop offset="1" stop-color="#0d1829"/>
+    </linearGradient>
+    <radialGradient id="earth" cx="42%" cy="34%" r="68%">
+      <stop offset="0" stop-color="#b7efe0"/>
+      <stop offset="0.52" stop-color="#4d9ca0"/>
+      <stop offset="1" stop-color="#18344d"/>
+    </radialGradient>
+    <linearGradient id="land" x1="110" y1="72" x2="265" y2="254" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f7e3a4"/>
+      <stop offset="1" stop-color="#d69a5a"/>
+    </linearGradient>
+    <linearGradient id="orbit" x1="45" y1="116" x2="362" y2="234" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8ed4c6"/>
+      <stop offset="0.52" stop-color="#f8e4a5"/>
+      <stop offset="1" stop-color="#d4573c"/>
+    </linearGradient>
+    <linearGradient id="satellite" x1="280" y1="84" x2="350" y2="154" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff0bd"/>
+      <stop offset="1" stop-color="#d95b3d"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-30%" width="150%" height="170%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#050b15" flood-opacity="0.42"/>
+    </filter>
+    <clipPath id="earthClip">
+      <circle cx="182" cy="183" r="92"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1080" height="360" rx="48" fill="url(#space)"/>
+  <path d="M723 0 1080 0v96L772 360H515Z" fill="#c83e35" opacity="0.16"/>
+  <path d="M0 288c154-74 330-111 526-111 231 0 415-48 554-144" fill="none" stroke="#f8e4a5" stroke-width="2" opacity="0.19"/>
+  <path d="M0 317c172-55 348-78 528-68 201 12 385-16 552-83" fill="none" stroke="#8ed4c6" stroke-width="2" opacity="0.14"/>
+
+  <g transform="translate(54 0)" filter="url(#softShadow)">
+    <ellipse cx="182" cy="183" rx="152" ry="57" fill="none" stroke="#87cfc4" stroke-width="24" stroke-linecap="round" opacity="0.42" transform="rotate(-18 182 183)"/>
+    <ellipse cx="182" cy="183" rx="152" ry="57" fill="none" stroke="url(#orbit)" stroke-width="14" stroke-linecap="round" transform="rotate(-18 182 183)"/>
+
+    <circle cx="182" cy="183" r="92" fill="url(#earth)"/>
+    <g clip-path="url(#earthClip)">
+      <path d="M104 143c35-22 68-25 100-10 17 8 33 10 49 5 13-4 23-3 31 4 9 8 10 19 3 32-13 25-40 35-80 30-33-4-57 4-73 24-13 17-28 21-44 12-15-9-21-24-17-46 4-21 14-38 31-51Z" fill="url(#land)" opacity="0.88"/>
+      <path d="M146 88c18 7 34 18 48 32 11 12 10 23-2 33-12 9-28 10-48 3-20-8-31-20-34-37-2-15 10-26 36-31Z" fill="#f8e4a5" opacity="0.72"/>
+      <path d="M225 221c30-7 53-2 69 15 14 15 10 30-11 44-26 17-56 19-91 6-20-8-25-20-16-37 8-14 24-24 49-28Z" fill="#d77b4b" opacity="0.74"/>
+      <path d="M85 184c53 17 115 18 186 2" fill="none" stroke="#f8e4a5" stroke-width="3" opacity="0.22"/>
+      <path d="M182 91c-19 49-20 110-3 184" fill="none" stroke="#f8e4a5" stroke-width="3" opacity="0.18"/>
+    </g>
+    <circle cx="182" cy="183" r="92" fill="none" stroke="#f8e4a5" stroke-width="5" opacity="0.58"/>
+
+    <g transform="translate(310 102) rotate(-18)">
+      <circle cx="0" cy="0" r="27" fill="url(#satellite)"/>
+      <circle cx="0" cy="0" r="10" fill="#1b3a4f" opacity="0.22"/>
+      <path d="M-24 13-76 57M-13 24-42 91M13 24l38 72M24 12l86 27" fill="none" stroke="#f8e4a5" stroke-width="5" stroke-linecap="round"/>
+      <path d="M32-5c24-8 49-8 75 0" fill="none" stroke="#f8e4a5" stroke-width="4" stroke-linecap="round" opacity="0.86"/>
+    </g>
+  </g>
+
+  <g transform="translate(405 96)">
+    <text x="0" y="89" fill="#fff0bd" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="82" font-weight="800" letter-spacing="0">iSputnik</text>
+    <path d="M7 120h417" stroke="#8ed4c6" stroke-width="8" stroke-linecap="round" opacity="0.82"/>
+    <path d="M7 120h236" stroke="#d95b3d" stroke-width="8" stroke-linecap="round" opacity="0.92"/>
+    <text x="3" y="166" fill="#d7c58b" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="4">HOME ORBIT CONTROL</text>
+  </g>
+
+  <g fill="#fff0bd" opacity="0.82">
+    <path d="m883 73 7 15 16 2-12 11 3 16-14-8-14 8 3-16-12-11 16-2Z"/>
+    <circle cx="1018" cy="241" r="5"/>
+    <circle cx="622" cy="52" r="4"/>
+    <circle cx="965" cy="119" r="3"/>
+  </g>
+</svg>

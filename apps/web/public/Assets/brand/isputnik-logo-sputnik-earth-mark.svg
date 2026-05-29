@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">iSputnik Earth orbit logo mark</title>
+  <desc id="desc">A square iSputnik logo mark with a vintage Sputnik satellite flying around Earth.</desc>
+  <defs>
+    <linearGradient id="space" x1="64" y1="46" x2="452" y2="468" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#10233a"/>
+      <stop offset="0.54" stop-color="#245762"/>
+      <stop offset="1" stop-color="#0d1829"/>
+    </linearGradient>
+    <radialGradient id="earth" cx="41%" cy="35%" r="68%">
+      <stop offset="0" stop-color="#b7efe0"/>
+      <stop offset="0.52" stop-color="#4d9ca0"/>
+      <stop offset="1" stop-color="#18344d"/>
+    </radialGradient>
+    <linearGradient id="land" x1="151" y1="141" x2="343" y2="354" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f7e3a4"/>
+      <stop offset="1" stop-color="#d77b4b"/>
+    </linearGradient>
+    <linearGradient id="orbit" x1="56" y1="197" x2="456" y2="326" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8ed4c6"/>
+      <stop offset="0.52" stop-color="#f8e4a5"/>
+      <stop offset="1" stop-color="#d4573c"/>
+    </linearGradient>
+    <linearGradient id="satellite" x1="335" y1="112" x2="426" y2="197" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff0bd"/>
+      <stop offset="1" stop-color="#d95b3d"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#050b15" flood-opacity="0.42"/>
+    </filter>
+    <clipPath id="earthClip">
+      <circle cx="240" cy="265" r="118"/>
+    </clipPath>
+  </defs>
+
+  <rect width="512" height="512" rx="108" fill="url(#space)"/>
+  <path d="M269 0h243v124L306 512H113Z" fill="#c83e35" opacity="0.18"/>
+  <path d="M0 374c71-35 149-55 234-60 121-8 211-45 270-112" fill="none" stroke="#f8e4a5" stroke-width="2" opacity="0.22"/>
+  <path d="M0 419c82-30 167-41 254-33 106 9 192-11 258-61" fill="none" stroke="#8ed4c6" stroke-width="2" opacity="0.17"/>
+
+  <g filter="url(#shadow)">
+    <ellipse cx="240" cy="265" rx="192" ry="74" fill="none" stroke="#87cfc4" stroke-width="30" stroke-linecap="round" opacity="0.42" transform="rotate(-18 240 265)"/>
+    <ellipse cx="240" cy="265" rx="192" ry="74" fill="none" stroke="url(#orbit)" stroke-width="18" stroke-linecap="round" transform="rotate(-18 240 265)"/>
+
+    <circle cx="240" cy="265" r="118" fill="url(#earth)"/>
+    <g clip-path="url(#earthClip)">
+      <path d="M139 214c43-29 84-33 123-12 22 12 43 14 62 6 16-7 30-6 40 4 12 11 12 27 0 44-18 27-51 40-99 37-39-3-68 8-88 34-15 21-34 27-56 17-20-10-28-29-23-56 5-31 19-56 41-74Z" fill="url(#land)" opacity="0.9"/>
+      <path d="M197 147c23 9 43 23 59 42 13 16 11 30-6 41-16 11-37 10-63-2-23-11-37-28-40-51-2-17 15-27 50-30Z" fill="#f8e4a5" opacity="0.72"/>
+      <path d="M292 315c39-10 69-4 90 18 16 17 11 35-14 52-33 21-72 23-116 7-25-9-32-25-19-46 10-15 29-26 59-31Z" fill="#d77b4b" opacity="0.74"/>
+      <path d="M118 265c67 22 145 22 234 2" fill="none" stroke="#f8e4a5" stroke-width="4" opacity="0.22"/>
+      <path d="M240 147c-24 62-26 141-4 236" fill="none" stroke="#f8e4a5" stroke-width="4" opacity="0.18"/>
+    </g>
+    <circle cx="240" cy="265" r="118" fill="none" stroke="#f8e4a5" stroke-width="7" opacity="0.6"/>
+
+    <g transform="translate(384 139) rotate(-18)">
+      <circle cx="0" cy="0" r="34" fill="url(#satellite)"/>
+      <circle cx="0" cy="0" r="12" fill="#1b3a4f" opacity="0.24"/>
+      <path d="M-30 16-95 72M-16 30-52 112M16 29l45 89M30 15l103 34" fill="none" stroke="#f8e4a5" stroke-width="7" stroke-linecap="round"/>
+      <path d="M39-7c29-11 61-11 96 0" fill="none" stroke="#f8e4a5" stroke-width="5" stroke-linecap="round" opacity="0.86"/>
+    </g>
+  </g>
+
+  <g fill="#fff0bd" opacity="0.86">
+    <path d="m97 111 7 16 17 2-13 11 4 17-15-9-15 9 4-17-13-11 17-2Z"/>
+    <circle cx="415" cy="336" r="5"/>
+    <circle cx="367" cy="66" r="5"/>
+    <circle cx="105" cy="362" r="4"/>
+  </g>
+</svg>

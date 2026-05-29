@@ -9,9 +9,9 @@
   overflow: hidden;
   isolation: isolate;
   background:
-    radial-gradient(circle at 78% 20%, rgba(245, 159, 90, 0.34), transparent 28%),
-    radial-gradient(circle at 18% 74%, rgba(134, 228, 216, 0.24), transparent 30%),
-    linear-gradient(145deg, #102238 0%, #16324f 48%, #2f4d54 100%);
+    radial-gradient(circle at 78% 20%, rgba(217, 91, 61, 0.28), transparent 29%),
+    radial-gradient(circle at 18% 74%, rgba(142, 212, 198, 0.26), transparent 31%),
+    linear-gradient(145deg, #0f2238 0%, #183a54 48%, #24545f 100%);
 }
 
 .app-shell::after {
@@ -41,6 +41,26 @@
   pointer-events: none;
 }
 
+.auth-scene::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background-image: url("/Assets/brand/isputnik-login-orbit-backdrop.svg");
+  background-position: 10% 50%;
+  background-repeat: no-repeat;
+  background-size: min(1040px, 72vw) auto;
+  opacity: 0.46;
+}
+
+.auth-scene::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(90deg, rgba(15, 34, 56, 0.1), rgba(15, 34, 56, 0.58) 62%, rgba(15, 34, 56, 0.2)),
+    linear-gradient(180deg, rgba(15, 34, 56, 0.05), rgba(15, 34, 56, 0.38));
+}
+
 .auth-hero {
   position: relative;
   z-index: 1;
@@ -54,9 +74,10 @@
 
 .auth-hero h1 {
   margin: 0;
-  color: #f6f4ee;
+  color: #fff0bd;
   font-size: clamp(4.6rem, 10vw, 8.4rem);
   line-height: 0.9;
+  text-shadow: 0 18px 60px rgba(5, 11, 21, 0.42);
 }
 
 .auth-orbit {

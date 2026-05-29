@@ -24,7 +24,7 @@ export function DashboardShell({
     <main className={`dashboard ${isControlPanel ? "control-dashboard" : ""}`}>
       <header className="app-header">
         <a className="header-brand app-brand" href="/" onClick={(event) => followRoute(event, "/")} title="Home">
-          <img src="/Assets/brand/isputnik-app-icon.svg" alt="" />
+          <img src="/Assets/brand/isputnik-logo-sputnik-earth-mark.svg" alt="" />
           <strong>isputnik.home</strong>
         </a>
         <nav className="top-nav">
