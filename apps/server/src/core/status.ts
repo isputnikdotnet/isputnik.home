@@ -153,6 +153,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.4.5",
+          label: "Unraid scanner hardening",
+          changes: [
+            "Fixed audiobook scans failing on Unraid when sidecar metadata provided series values as objects instead of plain strings.",
+            "Sidecar metadata normalization now safely supports object-style series names and sequence numbers before writing to SQLite.",
+          ]
+        },
+        {
           version: "0.4.4",
           label: "Linux scan fixes",
           changes: [

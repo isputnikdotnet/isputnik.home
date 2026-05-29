@@ -241,23 +241,105 @@ function preparedFilesFromExisting(files: AudioFileEntry[], existingFiles: Exist
     .sort((left, right) => left.trackNumber - right.trackNumber || left.relativePath.localeCompare(right.relativePath, undefined, { numeric: true }));
 }
 
+type SidecarStringField = "title" | "subtitle" | "description" | "publisher" | "isbn" | "asin" | "language";
+
+function numberValue(value: unknown): number | undefined {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const match = value.match(/\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : undefined;
+}
+
+function yearValue(value: unknown): number | undefined {
+  const year = numberValue(value);
+  return year && year > 0 ? Math.trunc(year) : undefined;
+}
+
+function applyStringField(target: SidecarMetadata, key: SidecarStringField, value: unknown) {
+  const text = stringValue(value);
+  if (text) {
+    target[key] = text;
+  }
+}
+
+function seriesValue(value: unknown): { name?: string; position?: number } {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const series = seriesValue(item);
+      if (series.name) {
+        return series;
+      }
+    }
+    return {};
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const name = stringValue(record.name)
+      ?? stringValue(record.title)
+      ?? stringValue(record.seriesName)
+      ?? stringValue(record.series);
+    const position = numberValue(record.sequence)
+      ?? numberValue(record.position)
+      ?? numberValue(record.seriesPosition);
+    return {
+      ...(name ? { name } : {}),
+      ...(position !== undefined ? { position } : {})
+    };
+  }
+
+  const name = stringValue(value);
+  return name ? { name } : {};
+}
+
 function normaliseSidecar(raw: Record<string, unknown>): SidecarMetadata {
   const isAbs = typeof raw.authorName === "string" || typeof raw.narratorName === "string";
   if (!isAbs) {
-    const safe: SidecarMetadata = { ...raw } as SidecarMetadata;
-    if (raw.title != null && typeof raw.title !== "string") safe.title = stringValue(raw.title) ?? undefined;
-    if (raw.description != null && typeof raw.description !== "string") safe.description = stringValue(raw.description) ?? undefined;
-    if (raw.series != null && typeof raw.series !== "string" && !Array.isArray(raw.series)) safe.series = stringValue(raw.series) ?? undefined;
-    return safe;
+    const result: SidecarMetadata = {};
+    applyStringField(result, "title", raw.title);
+    applyStringField(result, "subtitle", raw.subtitle);
+    applyStringField(result, "description", raw.description);
+    applyStringField(result, "publisher", raw.publisher);
+    applyStringField(result, "isbn", raw.isbn);
+    applyStringField(result, "asin", raw.asin);
+    applyStringField(result, "language", raw.language);
+
+    const authors = sidecarArray(raw.authors);
+    if (authors.length > 0) result.authors = authors;
+    const narrators = sidecarArray(raw.narrators);
+    if (narrators.length > 0) result.narrators = narrators;
+    const genres = sidecarArray(raw.genres);
+    if (genres.length > 0) result.genres = genres;
+
+    const year = yearValue(raw.year);
+    if (year !== undefined) result.year = year;
+    const yearPublished = yearValue(raw.yearPublished);
+    if (yearPublished !== undefined) result.yearPublished = yearPublished;
+
+    const series = seriesValue(raw.series);
+    if (series.name) result.series = series.name;
+    const seriesName = seriesValue(raw.seriesName);
+    if (seriesName.name) result.seriesName = seriesName.name;
+    const seriesPosition = numberValue(raw.seriesPosition)
+      ?? seriesName.position
+      ?? series.position
+      ?? numberValue(raw.sequence);
+    if (seriesPosition !== undefined) result.seriesPosition = seriesPosition;
+
+    return result;
   }
 
   const result: SidecarMetadata = {};
-  if (typeof raw.title === "string") result.title = raw.title;
-  if (typeof raw.subtitle === "string") result.subtitle = raw.subtitle;
-  if (typeof raw.description === "string") result.description = raw.description;
-  if (typeof raw.language === "string") result.language = raw.language;
-  if (typeof raw.isbn === "string") result.isbn = raw.isbn;
-  if (typeof raw.asin === "string") result.asin = raw.asin;
+  applyStringField(result, "title", raw.title);
+  applyStringField(result, "subtitle", raw.subtitle);
+  applyStringField(result, "description", raw.description);
+  applyStringField(result, "language", raw.language);
+  applyStringField(result, "isbn", raw.isbn);
+  applyStringField(result, "asin", raw.asin);
 
   if (typeof raw.authorName === "string" && raw.authorName.trim()) {
     result.authors = splitTagValues([raw.authorName]);
@@ -267,31 +349,25 @@ function normaliseSidecar(raw: Record<string, unknown>): SidecarMetadata {
   }
 
   if (raw.publishedYear != null) {
-    const y = Math.trunc(Number(raw.publishedYear));
-    if (y > 0) result.year = y;
+    const y = yearValue(raw.publishedYear);
+    if (y !== undefined) result.year = y;
   } else if (typeof raw.publishedDate === "string") {
     const m = raw.publishedDate.match(/\d{4}/);
     if (m) result.year = Number(m[0]);
   }
 
-  if (Array.isArray(raw.genres)) {
-    result.genres = raw.genres.filter((g): g is string => typeof g === "string" && g.trim().length > 0);
-  }
+  const genres = sidecarArray(raw.genres);
+  if (genres.length > 0) result.genres = genres;
 
-  if (typeof raw.series === "string" && raw.series.trim()) {
-    result.series = raw.series;
-  } else if (Array.isArray(raw.series) && raw.series.length > 0) {
-    const first = raw.series[0] as Record<string, unknown>;
-    if (first && typeof first.name === "string") {
-      result.series = first.name;
-      const pos = parseFloat(String(first.sequence ?? ""));
-      if (!isNaN(pos)) result.seriesPosition = pos;
-    }
+  const series = seriesValue(raw.series);
+  if (series.name) result.series = series.name;
+  if (series.position !== undefined) {
+    result.seriesPosition = series.position;
   }
 
   if (result.seriesPosition === undefined && raw.sequence != null) {
-    const pos = parseFloat(String(raw.sequence));
-    if (!isNaN(pos)) result.seriesPosition = pos;
+    const pos = numberValue(raw.sequence);
+    if (pos !== undefined) result.seriesPosition = pos;
   }
 
   return result;
