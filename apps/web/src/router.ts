@@ -8,6 +8,10 @@ export type Route =
   | { name: "home" }
   | { name: "audiobooks" }
   | { name: "audiobookBook"; id: string }
+  | { name: "audiobookAuthors" }
+  | { name: "audiobookAuthorDetail"; personName: string }
+  | { name: "audiobookNarrators" }
+  | { name: "audiobookNarratorDetail"; personName: string }
   | { name: "control"; section: ControlSection }
   | { name: "about" }
   | { name: "profile" }
@@ -40,6 +44,24 @@ export function getRoute(): Route {
   const audiobookBookMatch = path.match(/^\/audiobooks\/books\/([^/]+)$/);
   if (audiobookBookMatch) {
     return { name: "audiobookBook", id: audiobookBookMatch[1] };
+  }
+
+  if (path === "/audiobooks/authors") {
+    return { name: "audiobookAuthors" };
+  }
+
+  const audiobookAuthorDetailMatch = path.match(/^\/audiobooks\/authors\/(.+)$/);
+  if (audiobookAuthorDetailMatch) {
+    return { name: "audiobookAuthorDetail", personName: decodeURIComponent(audiobookAuthorDetailMatch[1]) };
+  }
+
+  if (path === "/audiobooks/narrators") {
+    return { name: "audiobookNarrators" };
+  }
+
+  const audiobookNarratorDetailMatch = path.match(/^\/audiobooks\/narrators\/(.+)$/);
+  if (audiobookNarratorDetailMatch) {
+    return { name: "audiobookNarratorDetail", personName: decodeURIComponent(audiobookNarratorDetailMatch[1]) };
   }
 
   if (path === "/control/users") {

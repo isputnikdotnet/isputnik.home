@@ -325,6 +325,14 @@
   gap: 8px;
 }
 
+.rescan-library-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  white-space: nowrap;
+}
+
 .setting-status {
   max-width: 220px;
   padding: 5px 8px;

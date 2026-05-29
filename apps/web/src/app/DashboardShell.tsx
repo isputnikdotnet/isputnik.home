@@ -1,5 +1,5 @@
 import React from "react";
-import { Headphones, Home, Info, LogOut, Settings, UserRound } from "lucide-react";
+import { Headphones, Info, LogOut, Settings, UserRound } from "lucide-react";
 import type { PublicUser } from "../api";
 import { navigate, followRoute } from "../router";
 
@@ -7,15 +7,18 @@ export function DashboardShell({
   active,
   user,
   logout,
+  sideNav,
   children
 }: {
   active: "home" | "audiobooks" | "about" | "profile" | "control";
   user: PublicUser;
   logout: () => Promise<void>;
+  sideNav?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const isAdmin = user.role === "admin";
   const isControlPanel = active === "control";
+  const hasSidebar = !isControlPanel && !!sideNav;
 
   return (
     <main className={`dashboard ${isControlPanel ? "control-dashboard" : ""}`}>
@@ -24,6 +27,24 @@ export function DashboardShell({
           <img src="/Assets/brand/isputnik-app-icon.svg" alt="" />
           <strong>isputnik.home</strong>
         </a>
+        <nav className="top-nav">
+          <a
+            className={`top-nav-item ${active === "audiobooks" ? "active" : ""}`}
+            href="/audiobooks"
+            onClick={(event) => followRoute(event, "/audiobooks")}
+          >
+            <Headphones size={18} />
+            <span>Audiobooks</span>
+          </a>
+          <a
+            className={`top-nav-item ${active === "about" ? "active" : ""}`}
+            href="/about"
+            onClick={(event) => followRoute(event, "/about")}
+          >
+            <Info size={18} />
+            <span>About</span>
+          </a>
+        </nav>
         <div className="header-actions">
           {isAdmin && (
             <a
@@ -36,36 +57,23 @@ export function DashboardShell({
               <Settings size={20} />
             </a>
           )}
-          <button className={`user-button ${active === "profile" ? "active" : ""}`} onClick={() => navigate("/profile")} title="Your profile">
+          <button className="header-button" onClick={logout} title="Sign out" aria-label="Sign out">
+            <LogOut size={20} />
+          </button>
+          <button
+            className={`user-button ${active === "profile" ? "active" : ""}`}
+            onClick={() => navigate("/profile")}
+            title="Your profile"
+          >
             <span>{user.displayName}</span>
             <span className="avatar" aria-hidden="true"><UserRound size={19} /></span>
           </button>
         </div>
       </header>
-      <div className={`dashboard-body ${isControlPanel ? "control-body" : ""}`}>
-        {!isControlPanel && (
+      <div className={`dashboard-body${isControlPanel ? " control-body" : ""}${hasSidebar ? " has-sidebar" : ""}`}>
+        {hasSidebar && (
           <aside className="sidebar">
-            <nav className="side-nav">
-              <button className={active === "home" ? "active" : ""} onClick={() => navigate("/")} title="Home">
-                <Home size={22} />
-                <span className="sr-only">Home</span>
-              </button>
-              <button className={active === "audiobooks" ? "active" : ""} onClick={() => navigate("/audiobooks")} title="Audiobooks">
-                <Headphones size={22} />
-                <span className="sr-only">Audiobooks</span>
-              </button>
-              <button className={active === "about" ? "active" : ""} onClick={() => navigate("/about")} title="About">
-                <Info size={22} />
-                <span className="sr-only">About</span>
-              </button>
-            </nav>
-            <div className="rail-foot">
-              <button className="logout-button" onClick={logout} title="Sign out">
-                <LogOut size={21} />
-                <span className="sr-only">Sign out</span>
-              </button>
-              <span className="version">v0.2.0</span>
-            </div>
+            {sideNav}
           </aside>
         )}
         <div className="dashboard-main">

@@ -182,7 +182,7 @@ export function LibrariesSection() {
                   </td>
                   <td className="col-actions">
                     <button
-                      className="secondary-button compact-button"
+                      className="secondary-button compact-button rescan-library-button"
                       disabled={rescanningLibraryId === library.id}
                       onClick={() => rescanLibrary(library.id)}
                     >

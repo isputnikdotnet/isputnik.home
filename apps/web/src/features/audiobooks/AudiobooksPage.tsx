@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, FastForward, List, Pause, Pencil, Play, Rewind, RotateCcw, Save, Search, SkipBack, SkipForward, Upload, Volume2, VolumeX, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
+import { AudiobookNav } from "./AudiobookNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes, formatDuration } from "../../shared/utils";
@@ -17,6 +18,8 @@ export function AudiobooksPage({
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
   const [selectedLibraryId, setSelectedLibraryId] = useState("all");
+  const [selectedAuthor, setSelectedAuthor] = useState("all");
+  const [selectedNarrator, setSelectedNarrator] = useState("all");
   const [bookSearch, setBookSearch] = useState("");
   const [error, setError] = useState("");
 
@@ -56,59 +59,30 @@ export function AudiobooksPage({
     return () => window.clearInterval(timer);
   }, [libraries, loadMissingLibraryBooks]);
 
-  const visibleLibraryIds = selectedLibraryId === "all"
-    ? libraries.map((library) => library.id)
-    : [selectedLibraryId];
+  const allBooks = libraries.flatMap((library) =>
+    (booksByLibrary[library.id] ?? []).map((book) => ({ ...book, libraryName: library.name }))
+  );
+  const uniqueAuthors = [...new Set(allBooks.flatMap((b) => b.authors))].sort();
+  const uniqueNarrators = [...new Set(allBooks.flatMap((b) => b.narrators))].sort();
   const searchTerm = bookSearch.trim().toLowerCase();
-  const visibleBooks = visibleLibraryIds
-    .flatMap((libraryId) => (booksByLibrary[libraryId] ?? []).map((book) => ({
-      ...book,
-      libraryName: libraries.find((library) => library.id === libraryId)?.name ?? "Audiobooks"
-    })))
-    .filter((book) => {
-      if (!searchTerm) {
-        return true;
-      }
-
-      return [
-        book.title,
-        book.folderPath,
-        book.libraryName,
-        ...book.authors
-      ].some((value) => value.toLowerCase().includes(searchTerm));
-    });
-
-  const handleLibraryFilter = (libraryId: string) => {
-    setSelectedLibraryId(libraryId);
-    const idsToLoad = libraryId === "all" ? libraries.map((library) => library.id) : [libraryId];
-    const missingIds = idsToLoad.filter((id) => !booksByLibrary[id]);
-    if (missingIds.length > 0) {
-      loadMissingLibraryBooks(missingIds).catch((err) => setError(err instanceof Error ? err.message : "Unable to load books"));
+  const visibleBooks = allBooks.filter((book) => {
+    if (selectedLibraryId !== "all" && book.libraryId !== selectedLibraryId) return false;
+    if (selectedAuthor !== "all" && !book.authors.includes(selectedAuthor)) return false;
+    if (selectedNarrator !== "all" && !book.narrators.includes(selectedNarrator)) return false;
+    if (searchTerm) {
+      const haystack = [book.title, book.libraryName, ...book.authors, ...book.narrators];
+      if (!haystack.some((v) => v?.toLowerCase().includes(searchTerm))) return false;
     }
-  };
+    return true;
+  });
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="books" />}>
       <section className="work-area scene-page audiobook-scene audiobook-area">
           <div className="section-head audiobook-head">
             <div>
               <p className="eyebrow">Digital Library</p>
-              <div className="title-with-control">
-                <h1>Audiobooks</h1>
-                {libraries.length > 0 && (
-                  <select
-                    className="library-filter"
-                    value={selectedLibraryId}
-                    onChange={(event) => handleLibraryFilter(event.target.value)}
-                    aria-label="Filter audiobook library"
-                  >
-                    <option value="all">All libraries</option>
-                    {libraries.map((library) => (
-                      <option value={library.id} key={library.id}>{library.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
+              <h1>Audiobooks</h1>
             </div>
           </div>
 
@@ -129,10 +103,47 @@ export function AudiobooksPage({
                     type="search"
                     value={bookSearch}
                     onChange={(event) => setBookSearch(event.target.value)}
-                    placeholder="Search title, author, or library"
+                    placeholder="Search title, author, or narrator"
                     aria-label="Search audiobooks"
                   />
                 </label>
+                <select
+                  className="library-filter"
+                  value={selectedLibraryId}
+                  onChange={(event) => setSelectedLibraryId(event.target.value)}
+                  aria-label="Filter by library"
+                >
+                  <option value="all">All libraries</option>
+                  {libraries.map((library) => (
+                    <option key={library.id} value={library.id}>{library.name}</option>
+                  ))}
+                </select>
+                {uniqueAuthors.length > 0 && (
+                  <select
+                    className="library-filter"
+                    value={selectedAuthor}
+                    onChange={(event) => setSelectedAuthor(event.target.value)}
+                    aria-label="Filter by author"
+                  >
+                    <option value="all">All authors</option>
+                    {uniqueAuthors.map((author) => (
+                      <option key={author} value={author}>{author}</option>
+                    ))}
+                  </select>
+                )}
+                {uniqueNarrators.length > 0 && (
+                  <select
+                    className="library-filter"
+                    value={selectedNarrator}
+                    onChange={(event) => setSelectedNarrator(event.target.value)}
+                    aria-label="Filter by narrator"
+                  >
+                    <option value="all">All narrators</option>
+                    {uniqueNarrators.map((narrator) => (
+                      <option key={narrator} value={narrator}>{narrator}</option>
+                    ))}
+                  </select>
+                )}
                 <span>{visibleBooks.length} {visibleBooks.length === 1 ? "book" : "books"}</span>
               </div>
 

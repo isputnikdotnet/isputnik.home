@@ -9,6 +9,8 @@ import { HomePage } from "../pages/HomePage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { AboutPage } from "../pages/AboutPage";
 import { AudiobookBookPage, AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
+import { PersonListPage } from "../features/audiobooks/PersonListPage";
+import { PersonDetailPage } from "../features/audiobooks/PersonDetailPage";
 import { ControlPanelPage } from "../features/control/ControlPanelPage";
 
 interface SessionState {
@@ -44,7 +46,7 @@ export function App() {
     const preferred = session.user?.theme ?? "dark";
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const applyTheme = () => {
-      const theme = preferred === "system" ? (mediaQuery.matches ? "dark" : "light") : preferred;
+      const theme = preferred === "system" ? (mediaQuery.matches ? "plain-dark" : "plain-light") : preferred;
       document.documentElement.dataset.theme = theme;
     };
 
@@ -130,6 +132,22 @@ export function App() {
 
   if (route.name === "audiobookBook") {
     return <AudiobookBookPage id={route.id} user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookAuthors") {
+    return <PersonListPage role="author" user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookAuthorDetail") {
+    return <PersonDetailPage personName={route.personName} role="author" user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookNarrators") {
+    return <PersonListPage role="narrator" user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookNarratorDetail") {
+    return <PersonDetailPage personName={route.personName} role="narrator" user={session.user} logout={logout} />;
   }
 
   return <HomePage user={session.user} logout={logout} />;

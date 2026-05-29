@@ -21,10 +21,20 @@
     Description="Stores the database, thumbnails, and metadata. Keep this on your appdata share."
     Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/isputnik</Config>
 
-  <Config Name="Audiobooks"
-    Target="/media" Default="/mnt/user/audiobooks" Mode="ro"
-    Description="Path to your audiobook library. Add this path as a storage root inside the app."
-    Type="Path" Display="always" Required="true" Mask="false">/mnt/user/audiobooks</Config>
+  <Config Name="Media Library 1"
+    Target="/media" Default="/mnt/user/media" Mode="ro"
+    Description="Path to your primary media library (audiobooks, music, videos, photos, etc.). Add this path as a storage root inside the app."
+    Type="Path" Display="always" Required="true" Mask="false">/mnt/user/media</Config>
+
+  <Config Name="Media Library 2"
+    Target="/media2" Default="" Mode="ro"
+    Description="Optional second media library. Leave blank if not needed. Add this path as a storage root inside the app."
+    Type="Path" Display="advanced" Required="false" Mask="false"></Config>
+
+  <Config Name="Media Library 3"
+    Target="/media3" Default="" Mode="ro"
+    Description="Optional third media library. Leave blank if not needed. Add this path as a storage root inside the app."
+    Type="Path" Display="advanced" Required="false" Mask="false"></Config>
 
   <Config Name="App URL"
     Target="APP_URL" Default="http://localhost:4000" Mode=""

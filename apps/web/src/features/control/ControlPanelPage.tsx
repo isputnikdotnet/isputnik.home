@@ -27,8 +27,8 @@ export function ControlPanelPage({
     invites: "scene-page cosmonaut-scene user-admin-scene",
     sessions: "scene-page cosmonaut-scene user-admin-scene",
     logs: "scene-page control-center-scene logs-scene",
-    libraries: "scene-page audiobook-scene library-storage-scene",
-    storage: "scene-page audiobook-scene library-storage-scene"
+    libraries: "scene-page sputnik-storage-scene library-storage-scene",
+    storage: "scene-page sputnik-storage-scene library-storage-scene"
   };
   const sceneClass = sceneClasses[section] ?? "";
 
@@ -43,7 +43,6 @@ export function ControlPanelPage({
               <a className={section === "storage" ? "active" : ""} href="/control/storage" onClick={(event) => followRoute(event, "/control/storage")}>Storage</a>
               <a className={section === "libraries" ? "active" : ""} href="/control/libraries" onClick={(event) => followRoute(event, "/control/libraries")}>Digital Library</a>
               <a className={section === "logs" ? "active" : ""} href="/control/logs" onClick={(event) => followRoute(event, "/control/logs")}>Logs</a>
-              <a className={section === "about" ? "active" : ""} href="/control/about" onClick={(event) => followRoute(event, "/control/about")}>About</a>
             </div>
             <div className="control-group">
               <p>User administration</p>

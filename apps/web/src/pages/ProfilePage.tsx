@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Monitor, Moon, Sun, UserRound } from "lucide-react";
+import { Monitor, Moon, Orbit, Sparkles, Sun, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { Field } from "../shared/Field";
@@ -73,8 +73,10 @@ export function ProfilePage({
             <span>Appearance</span>
             <span className="theme-switcher" role="radiogroup" aria-label="Theme preference">
               <ThemeOption icon={<Monitor size={17} />} label="System" selected={theme === "system"} onClick={() => setTheme("system")} />
-              <ThemeOption icon={<Sun size={17} />} label="Light" selected={theme === "light"} onClick={() => setTheme("light")} />
-              <ThemeOption icon={<Moon size={17} />} label="iSputnik" selected={theme === "dark"} onClick={() => setTheme("dark")} />
+              <ThemeOption icon={<Sun size={17} />} label="Plain Light" selected={theme === "plain-light"} onClick={() => setTheme("plain-light")} />
+              <ThemeOption icon={<Moon size={17} />} label="Plain Dark" selected={theme === "plain-dark"} onClick={() => setTheme("plain-dark")} />
+              <ThemeOption icon={<Sparkles size={17} />} label="iSputnik Light" selected={theme === "light"} onClick={() => setTheme("light")} />
+              <ThemeOption icon={<Orbit size={17} />} label="iSputnik Night" selected={theme === "dark"} onClick={() => setTheme("dark")} />
             </span>
           </label>
           {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}

@@ -41,42 +41,46 @@
     display: block;
   }
 
-  .dashboard:not(.control-dashboard) {
-    padding-bottom: 72px;
-  }
-
   .dashboard-body {
     display: block;
     min-height: 0;
   }
 
+  .dashboard-body.has-sidebar {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
   .sidebar {
-    position: fixed;
-    z-index: 10;
-    top: auto;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 64px;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
+    position: static;
+    height: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
     padding: 8px 14px;
-    border-top: 1px solid var(--line);
     border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
 
   .side-nav {
-    order: -1;
-  }
-
-  .rail-foot {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: row;
+    gap: 4px;
   }
 
-  .version {
+  .side-nav-label {
+    display: none;
+  }
+
+  .side-nav button,
+  .side-nav a {
+    white-space: nowrap;
+    min-height: 36px;
+    padding: 6px 12px;
+    width: auto;
+  }
+
+  .top-nav-item span {
     display: none;
   }
 
@@ -96,7 +100,7 @@
   }
 
   .user-button {
-    max-width: calc(100vw - 78px);
+    max-width: min(180px, 32vw);
   }
 
   .work-area {
@@ -141,13 +145,13 @@
     align-items: start;
   }
 
-  .audiobook-toolbar {
-    display: grid;
+  .audiobook-toolbar .search-field {
+    flex: 0 0 100%;
   }
 
-  .search-field,
-  .library-filter {
-    width: 100%;
+  .audiobook-toolbar .library-filter {
+    flex: 1;
+    min-width: 0;
   }
 
   .audiobook-grid {

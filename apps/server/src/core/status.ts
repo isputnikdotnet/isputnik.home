@@ -51,6 +51,21 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.3.0",
+          label: "Library navigation & people",
+          changes: [
+            "Redesigned navigation: section links moved to the top bar, left sidebar is now contextual per section.",
+            "Added Authors and Narrators pages under Audiobooks with name search and book counts.",
+            "Added person detail page showing all books by that author or narrator.",
+            "Added person profile editing: name, sort name, biography, and photo upload.",
+            "Added library, author, and narrator filter dropdowns to the audiobooks page.",
+            "App logo now links home; Home button removed from navigation.",
+            "Top navigation bar now shown on all pages including the control panel.",
+            "Removed About from the control panel sidebar — accessible from the top menu.",
+            "Docker template now supports one required media path plus two optional additional paths.",
+          ]
+        },
+        {
           version: "0.2.3",
           label: "Docker & self-hosting",
           changes: [

@@ -16,5 +16,8 @@ services:
     volumes:
       # App config, database, thumbnails (use appdata on Unraid)
       - /mnt/user/appdata/isputnik:/config
-      # Your audiobook library — read-only
-      - /path/to/audiobooks:/media:ro
+      # Primary media library (required) — read-only
+      - /path/to/library:/media:ro
+      # Optional additional libraries — uncomment and set paths as needed
+      # - /path/to/library2:/media2:ro
+      # - /path/to/library3:/media3:ro

@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import { config } from "./config.js";
 
 export type Role = "admin" | "member";
+export type ThemePreference = "system" | "light" | "dark" | "plain-light" | "plain-dark";
 
 export interface User {
   id: string;
@@ -12,7 +13,7 @@ export interface User {
   password_hash: string;
   display_name: string;
   role: Role;
-  theme: "system" | "light" | "dark";
+  theme: ThemePreference;
   protected_from_delete: 0 | 1;
   is_active: 0 | 1;
   created_at: string;
@@ -46,7 +47,7 @@ db.exec(`
     password_hash TEXT NOT NULL,
     display_name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
-    theme TEXT NOT NULL DEFAULT 'dark' CHECK (theme IN ('system', 'light', 'dark')),
+    theme TEXT NOT NULL DEFAULT 'dark' CHECK (theme IN ('system', 'light', 'dark', 'plain-light', 'plain-dark')),
     protected_from_delete INTEGER NOT NULL DEFAULT 0 CHECK (protected_from_delete IN (0, 1)),
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -258,6 +259,61 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_progress_book ON playback_progress(book_id);
   CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, run_at);
 `);
+
+const usersTable = db.prepare("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'users'").get() as { sql: string } | undefined;
+if (usersTable?.sql && !usersTable.sql.includes("plain-light")) {
+  db.exec(`
+    PRAGMA foreign_keys = OFF;
+    BEGIN TRANSACTION;
+
+    CREATE TABLE users_new (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      password_hash TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
+      theme TEXT NOT NULL DEFAULT 'dark' CHECK (theme IN ('system', 'light', 'dark', 'plain-light', 'plain-dark')),
+      protected_from_delete INTEGER NOT NULL DEFAULT 0 CHECK (protected_from_delete IN (0, 1)),
+      is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      deleted_at TEXT
+    );
+
+    INSERT INTO users_new (
+      id,
+      email,
+      password_hash,
+      display_name,
+      role,
+      theme,
+      protected_from_delete,
+      is_active,
+      created_at,
+      updated_at,
+      deleted_at
+    )
+    SELECT
+      id,
+      email,
+      password_hash,
+      display_name,
+      role,
+      theme,
+      protected_from_delete,
+      is_active,
+      created_at,
+      updated_at,
+      deleted_at
+    FROM users;
+
+    DROP TABLE users;
+    ALTER TABLE users_new RENAME TO users;
+
+    COMMIT;
+    PRAGMA foreign_keys = ON;
+  `);
+}
 
 const inviteColumns = db.prepare("PRAGMA table_info(invites)").all() as { name: string }[];
 if (!inviteColumns.some((column) => column.name === "token")) {

@@ -5,7 +5,7 @@ import { parseBody } from "./shared.js";
 
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
-  theme: z.enum(["system", "light", "dark"])
+  theme: z.enum(["system", "light", "dark", "plain-light", "plain-dark"])
 });
 
 export async function profilePlugin(app: FastifyInstance) {
