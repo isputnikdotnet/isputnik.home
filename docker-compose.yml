@@ -10,6 +10,10 @@ services:
       # Change this to your server's IP or domain.
       APP_URL: http://localhost:4000
 
+      # Set to "true" only if you access the app over HTTPS.
+      # Leave as "false" for plain HTTP on a local network (Unraid default).
+      COOKIE_SECURE: "false"
+
       # Optional: override session and invite lifetimes (days)
       # SESSION_DAYS: 14
       # INVITE_DAYS: 7
