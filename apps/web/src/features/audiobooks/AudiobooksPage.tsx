@@ -196,7 +196,7 @@ export function AudiobookBookPage({
 
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
-      <section className="work-area scene-page audiobook-scene book-detail-area">
+      <section className="work-area scene-page audiobook-scene audiobook-book-scene book-detail-area">
         <div className="book-detail-shell">
           {error && <MessageBox tone="error" title="Audiobook error">{error}</MessageBox>}
           {book ? (

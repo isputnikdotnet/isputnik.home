@@ -232,6 +232,10 @@
   background-image: url("../assets/backgrounds/retro-space-audiobook-quiet-orbit-v1.png");
 }
 
+.audiobook-book-scene::before {
+  background-image: url("../assets/backgrounds/retro-space-audiobook-cosmonaut-v1.png");
+}
+
 .home-scene {
   min-height: calc(100vh - 68px);
   width: 100%;
