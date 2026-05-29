@@ -51,6 +51,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.4.1",
+          label: "Logo update",
+          changes: [
+            "Updated application logo and brand assets.",
+          ]
+        },
+        {
           version: "0.4.0",
           label: "Series, Genres & Groups",
           changes: [
