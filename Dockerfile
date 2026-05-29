@@ -25,7 +25,6 @@ WORKDIR /app
 
 # Runtime node_modules (with compiled native bindings from the build stage)
 COPY --from=deps /build/node_modules ./node_modules
-COPY --from=deps /build/apps/server/node_modules ./apps/server/node_modules
 
 # Compiled server
 COPY --from=server-build /build/apps/server/dist ./apps/server/dist
