@@ -76,3 +76,10 @@ export interface MetadataCandidate {
   language?: string;
   source: "itunes" | "openlibrary" | "fantlab";
 }
+
+export interface CoverCandidate {
+  name: string;
+  relativePath: string;
+  size: number;
+  previewUrl: string;
+}

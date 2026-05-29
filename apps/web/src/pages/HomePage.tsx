@@ -4,7 +4,7 @@ import { DashboardShell } from "../app/DashboardShell";
 export function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
   return (
     <DashboardShell active="home" user={user} logout={logout}>
-      <section className="work-area">
+      <section className="work-area scene-page rocket-scene home-scene">
         <p className="eyebrow">Home</p>
         <h1>Welcome, {user.displayName}</h1>
         <div className="empty-state">

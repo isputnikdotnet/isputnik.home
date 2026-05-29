@@ -74,7 +74,7 @@ export function ProfilePage({
             <span className="theme-switcher" role="radiogroup" aria-label="Theme preference">
               <ThemeOption icon={<Monitor size={17} />} label="System" selected={theme === "system"} onClick={() => setTheme("system")} />
               <ThemeOption icon={<Sun size={17} />} label="Light" selected={theme === "light"} onClick={() => setTheme("light")} />
-              <ThemeOption icon={<Moon size={17} />} label="Dark" selected={theme === "dark"} onClick={() => setTheme("dark")} />
+              <ThemeOption icon={<Moon size={17} />} label="iSputnik" selected={theme === "dark"} onClick={() => setTheme("dark")} />
             </span>
           </label>
           {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}

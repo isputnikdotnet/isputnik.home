@@ -1,0 +1,207 @@
+.app-shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(360px, 500px);
+  align-items: center;
+  gap: clamp(40px, 7vw, 100px);
+  min-height: 100vh;
+  padding: clamp(28px, 6vw, 76px);
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 78% 20%, rgba(245, 159, 90, 0.34), transparent 28%),
+    radial-gradient(circle at 18% 74%, rgba(134, 228, 216, 0.24), transparent 30%),
+    linear-gradient(145deg, #102238 0%, #16324f 48%, #2f4d54 100%);
+}
+
+.app-shell::after {
+  position: absolute;
+  z-index: -1;
+  inset: auto 0 0;
+  height: 124px;
+  content: "";
+  background: linear-gradient(to bottom, transparent, rgba(16, 34, 56, 0.9));
+}
+
+:root[data-theme="light"] .app-shell {
+  background:
+    radial-gradient(circle at 78% 20%, rgba(245, 159, 90, 0.18), transparent 28%),
+    radial-gradient(circle at 18% 74%, rgba(36, 111, 105, 0.13), transparent 30%),
+    linear-gradient(145deg, #f6f4ee, #e5eeee);
+}
+
+:root[data-theme="light"] .app-shell::after {
+  background: linear-gradient(to bottom, transparent, rgba(246, 244, 238, 0.86));
+}
+
+.auth-scene {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+}
+
+.auth-hero {
+  position: relative;
+  z-index: 1;
+  justify-self: end;
+  width: min(100%, 650px);
+}
+
+.auth-hero .eyebrow {
+  margin: 0 0 14px;
+}
+
+.auth-hero h1 {
+  margin: 0;
+  color: #f6f4ee;
+  font-size: clamp(4.6rem, 10vw, 8.4rem);
+  line-height: 0.9;
+}
+
+.auth-orbit {
+  position: absolute;
+  left: 38%;
+  top: 50%;
+  width: min(78vw, 980px);
+  aspect-ratio: 2.6 / 1;
+  border: 1px solid rgba(248, 232, 176, 0.34);
+  border-radius: 50%;
+  transform: translate(-50%, -48%) rotate(-18deg);
+}
+
+.auth-orbit-b {
+  width: min(62vw, 780px);
+  border-color: rgba(134, 228, 216, 0.24);
+  transform: translate(-44%, -54%) rotate(19deg);
+}
+
+.auth-orbit-c {
+  width: min(48vw, 610px);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translate(-58%, -38%) rotate(54deg);
+}
+
+.auth-node {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 28px rgba(248, 232, 176, 0.8);
+}
+
+.auth-node-a {
+  top: 25%;
+  right: 40%;
+  width: 16px;
+  height: 16px;
+}
+
+.auth-node-b {
+  left: 13%;
+  bottom: 23%;
+  width: 10px;
+  height: 10px;
+  background: var(--mint);
+  box-shadow: 0 0 26px rgba(134, 228, 216, 0.78);
+}
+
+.auth-node-c {
+  right: 44%;
+  bottom: 17%;
+  width: 12px;
+  height: 12px;
+  background: var(--amber);
+  box-shadow: 0 0 28px rgba(245, 159, 90, 0.72);
+}
+
+:root[data-theme="light"] .auth-orbit {
+  border-color: rgba(227, 168, 73, 0.34);
+}
+
+:root[data-theme="light"] .auth-orbit-b {
+  border-color: rgba(36, 111, 105, 0.2);
+}
+
+:root[data-theme="light"] .auth-orbit-c {
+  border-color: rgba(16, 34, 56, 0.13);
+}
+
+.auth-panel {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 500px);
+  justify-self: start;
+  transform: none;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 93%, transparent);
+  box-shadow: 0 24px 70px var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.brand-row img {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+}
+
+.brand-row div {
+  display: grid;
+  min-width: 0;
+}
+
+.brand-row span {
+  color: var(--muted);
+}
+
+.stack {
+  display: grid;
+  gap: 14px;
+  margin-top: 34px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--mint);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.auth-panel h1 {
+  font-size: clamp(1.65rem, 4vw, 2.25rem);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .auth-node-a {
+    animation: auth-drift 7s ease-in-out infinite;
+  }
+
+  .auth-node-b {
+    animation: auth-drift 9s ease-in-out infinite reverse;
+  }
+
+  .auth-node-c {
+    animation: auth-drift 8s ease-in-out infinite;
+  }
+}
+
+@keyframes auth-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(12px, -10px, 0);
+  }
+}

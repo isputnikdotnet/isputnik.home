@@ -13,6 +13,7 @@ export const config = {
   host: process.env.HOST ?? "127.0.0.1",
   port: Number(process.env.PORT ?? 4000),
   appUrl: process.env.APP_URL ?? "http://127.0.0.1:5173",
+  staticPath: process.env.STATIC_PATH ?? "",
   dbPath: process.env.DB_PATH ?? path.join(rootDir, "data", "db", "isputnik.sqlite"),
   thumbnailPath: process.env.THUMBNAIL_PATH ?? "",
   metadataPath: process.env.METADATA_PATH ?? "",

@@ -1,0 +1,13 @@
+node_modules
+apps/web/node_modules
+apps/server/node_modules
+apps/web/dist
+apps/server/dist
+.git
+.gitignore
+.env
+.env.local
+data/
+Documents/
+*.md
+.claude

@@ -1,0 +1,591 @@
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+.field > span:first-child {
+  color: var(--muted);
+}
+
+.field input,
+.field select,
+.field textarea,
+.invite-box input,
+.invite-link input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--field);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.invite-box input:focus,
+.invite-link input:focus {
+  border-color: var(--mint);
+  outline: 3px solid rgba(134, 228, 216, 0.18);
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 110px;
+  line-height: 1.45;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────── */
+
+.primary-button,
+.secondary-button,
+.danger-button,
+.icon-button,
+.text-button,
+.side-nav button,
+.logout-button,
+.header-button,
+.user-button,
+.theme-switcher button {
+  border: 0;
+  cursor: pointer;
+}
+
+.primary-button {
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 7px;
+  color: #102238;
+  background: var(--gold);
+  font-weight: 760;
+}
+
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.secondary-button,
+.danger-button {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 7px;
+  font-weight: 700;
+}
+
+.secondary-button {
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+.danger-button {
+  color: #fff;
+  background: #b23b52;
+}
+
+.secondary-button:disabled,
+.danger-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.text-button {
+  min-height: 36px;
+  border-radius: 7px;
+  color: var(--rose);
+  background: transparent;
+  font-weight: 750;
+}
+
+.text-button:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  opacity: 0.65;
+}
+
+.text-button.danger:not(:disabled) {
+  color: var(--rose);
+}
+
+.text-button.danger:not(:disabled):hover {
+  text-decoration: underline;
+}
+
+.compact-button {
+  min-height: 42px;
+}
+
+.pager-button {
+  min-height: 38px;
+}
+
+.pager-button:disabled {
+  cursor: not-allowed;
+}
+
+/* ── Message box ────────────────────────────────────────────────── */
+
+.message-box {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid;
+  border-radius: 8px;
+  font-size: 0.94rem;
+}
+
+.message-box svg {
+  margin-top: 2px;
+}
+
+.message-box strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.message-box p {
+  margin: 0;
+  color: inherit;
+}
+
+.message-box code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.9em;
+}
+
+.message-box.info {
+  color: var(--blue);
+  border-color: rgba(94, 176, 216, 0.3);
+  background: rgba(47, 103, 145, 0.15);
+}
+
+.message-box.warning {
+  color: var(--amber);
+  border-color: rgba(245, 159, 90, 0.3);
+  background: rgba(245, 159, 90, 0.13);
+}
+
+.message-box.error {
+  color: var(--rose);
+  border-color: rgba(255, 126, 145, 0.3);
+  background: rgba(178, 59, 82, 0.14);
+}
+
+.message-box.success {
+  color: var(--success);
+  border-color: rgba(134, 228, 216, 0.28);
+  background: rgba(134, 228, 216, 0.1);
+}
+
+.status {
+  margin: 34px 0 0;
+}
+
+/* ── Modals ─────────────────────────────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 12, 21, 0.64);
+}
+
+.confirm-modal {
+  width: min(100%, 420px);
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 22px 52px var(--shadow);
+}
+
+.confirm-modal h2 {
+  font-size: 1.25rem;
+}
+
+.confirm-modal p {
+  margin: 12px 0 24px;
+  color: var(--muted);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.modal-tabs {
+  display: flex;
+  padding: 8px 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-tab {
+  padding: 8px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.modal-tab:hover {
+  color: var(--ink);
+}
+
+.modal-tab.active {
+  color: var(--mint);
+  border-bottom-color: var(--mint);
+}
+
+.modal-tab-content {
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+/* ── Section & layout helpers ───────────────────────────────────── */
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 10px;
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--surface-raised);
+}
+
+.icon-button:hover {
+  background: var(--hover);
+}
+
+.icon-button.with-label {
+  padding-inline: 14px;
+  font-weight: 760;
+}
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(100%, 520px);
+  margin: 52px auto 0;
+  padding: 52px 28px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.empty-state img {
+  width: 74px;
+  height: 74px;
+  margin-bottom: 8px;
+  border-radius: 16px;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+/* ── Search field ───────────────────────────────────────────────── */
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 520px);
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: var(--field);
+}
+
+.search-field input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  background: transparent;
+}
+
+/* ── Invite box ─────────────────────────────────────────────────── */
+
+.invite-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.created-invite {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.created-invite .invite-box {
+  margin-bottom: 0;
+}
+
+.create-invite-modal {
+  width: min(100%, 560px);
+}
+
+.create-library-modal,
+.create-storage-modal,
+.edit-thumbnail-modal {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 620px);
+}
+
+.create-library-modal > p,
+.create-storage-modal > p,
+.edit-thumbnail-modal > p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.create-invite-modal .created-invite {
+  margin: 18px 0 22px;
+}
+
+.create-invite-modal .message-box {
+  margin-bottom: 22px;
+}
+
+/* ── Datagrid ───────────────────────────────────────────────────── */
+
+.datagrid-wrap {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+.datagrid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.datagrid thead tr {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.datagrid th {
+  padding: 9px 14px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.datagrid th.col-num,
+.datagrid td.col-num {
+  text-align: right;
+}
+
+.datagrid th.col-actions,
+.datagrid td.col-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.datagrid tbody tr {
+  border-bottom: 1px solid var(--line);
+  transition: background 0.1s;
+}
+
+.datagrid tbody tr:last-child {
+  border-bottom: none;
+}
+
+.datagrid tbody tr:hover {
+  background: var(--hover);
+}
+
+.datagrid td {
+  padding: 11px 14px;
+  vertical-align: middle;
+}
+
+.datagrid-primary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.datagrid-primary strong {
+  font-weight: 600;
+}
+
+.datagrid-primary small,
+.datagrid-secondary {
+  color: var(--muted);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.datagrid-muted {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ── Status badge ───────────────────────────────────────────────── */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 100px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.status-badge::before {
+  content: '';
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-badge.idle {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.status-badge.scanning {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.status-badge.error {
+  color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 18%, transparent);
+}
+
+/* ── Count badge (shared by .book-files-count and .count-badge) ── */
+
+.book-files-count,
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--active);
+  color: var(--mint);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* ── Invite status ──────────────────────────────────────────────── */
+
+.invite-status {
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.invite-status.active {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.invite-status.expired {
+  color: var(--amber);
+  background: rgba(245, 159, 90, 0.13);
+}
+
+.invite-status.used {
+  color: var(--blue);
+  background: rgba(94, 176, 216, 0.15);
+}
+
+.management-empty {
+  margin: 0;
+  padding: 36px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  text-align: center;
+}

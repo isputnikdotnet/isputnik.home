@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, Eye, FastForward, List, Pause, Pencil, Play, Rewind, RotateCcw, Save, Search, SkipBack, SkipForward, Sparkles, Volume2, VolumeX, X } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, FastForward, List, Pause, Pencil, Play, Rewind, RotateCcw, Save, Search, SkipBack, SkipForward, Upload, Volume2, VolumeX, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
+import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes, formatDuration } from "../../shared/utils";
-import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, MetadataCandidate, PlaybackProgress } from "./types";
+import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, CoverCandidate, MetadataCandidate, PlaybackProgress } from "./types";
 
 export function AudiobooksPage({
   user,
@@ -16,7 +17,6 @@ export function AudiobooksPage({
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
   const [selectedLibraryId, setSelectedLibraryId] = useState("all");
-  const [selectedBookDetail, setSelectedBookDetail] = useState<AudiobookBookDetail | null>(null);
   const [bookSearch, setBookSearch] = useState("");
   const [error, setError] = useState("");
 
@@ -28,14 +28,6 @@ export function AudiobooksPage({
   const loadMissingLibraryBooks = useCallback(async (libraryIds: string[]) => {
     await Promise.all(libraryIds.map((libraryId) => loadLibraryBooks(libraryId)));
   }, [loadLibraryBooks]);
-
-  useEffect(() => {
-    const onPop = () => {
-      if (window.location.pathname === "/audiobooks") setSelectedBookDetail(null);
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
 
   useEffect(() => {
     api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
@@ -95,28 +87,9 @@ export function AudiobooksPage({
     }
   };
 
-  const openBookDetail = async (bookId: string) => {
-    setError("");
-    try {
-      const payload = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${bookId}`);
-      setSelectedBookDetail(payload.book);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load audiobook details");
-    }
-  };
-
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
-      {selectedBookDetail ? (
-        <section className="work-area book-detail-area">
-          <BookDetailView
-            book={selectedBookDetail}
-            onBack={() => setSelectedBookDetail(null)}
-            onBookUpdated={setSelectedBookDetail}
-          />
-        </section>
-      ) : (
-        <section className="work-area audiobook-area">
+      <section className="work-area scene-page audiobook-scene audiobook-area">
           <div className="section-head audiobook-head">
             <div>
               <p className="eyebrow">Digital Library</p>
@@ -171,7 +144,7 @@ export function AudiobooksPage({
 
               <div className="audiobook-grid">
                 {visibleBooks.map((book) => (
-                  <button className="audiobook-card" key={book.id} onClick={() => openBookDetail(book.id)}>
+                  <button className="audiobook-card" key={book.id} onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
                     <div className="audiobook-cover" aria-hidden="true">
                       {book.coverUrl ? (
                         <img src={book.coverUrl} alt="" />
@@ -196,8 +169,47 @@ export function AudiobooksPage({
               </div>
             </>
           )}
-        </section>
-      )}
+      </section>
+    </DashboardShell>
+  );
+}
+
+export function AudiobookBookPage({
+  id,
+  user,
+  logout
+}: {
+  id: string;
+  user: PublicUser;
+  logout: () => Promise<void>;
+}) {
+  const [book, setBook] = useState<AudiobookBookDetail | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setBook(null);
+    setError("");
+    api<{ book: AudiobookBookDetail }>(`/api/library/books/${id}`)
+      .then((payload) => setBook(payload.book))
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load audiobook details"));
+  }, [id]);
+
+  return (
+    <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <section className="work-area scene-page audiobook-scene book-detail-area">
+        <div className="book-detail-shell">
+          {error && <MessageBox tone="error" title="Audiobook error">{error}</MessageBox>}
+          {book ? (
+            <BookDetailView
+              book={book}
+              onBack={() => navigate("/audiobooks")}
+              onBookUpdated={setBook}
+            />
+          ) : !error ? (
+            <p className="management-empty">Loading audiobook...</p>
+          ) : null}
+        </div>
+      </section>
     </DashboardShell>
   );
 }
@@ -213,14 +225,13 @@ function BookDetailView({
 }) {
   const [filesOpen, setFilesOpen] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
-  const [activeMetadataTab, setActiveMetadataTab] = useState<"edit" | "lookup">("edit");
+  const [activeMetadataTab, setActiveMetadataTab] = useState<"edit" | "cover" | "lookup">("edit");
   const [metadataQuery, setMetadataQuery] = useState(`${book.title} ${book.authors[0] ?? ""}`.trim());
   const [metadataProvider, setMetadataProvider] = useState<"all" | MetadataCandidate["source"]>("all");
   const [updateDetails, setUpdateDetails] = useState(true);
   const [updateCover, setUpdateCover] = useState(true);
   const [metadataResults, setMetadataResults] = useState<MetadataCandidate[]>([]);
   const [metadataLoading, setMetadataLoading] = useState(false);
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [applyingIndex, setApplyingIndex] = useState<number | null>(null);
   const [metadataError, setMetadataError] = useState("");
   const [resetting, setResetting] = useState(false);
@@ -228,6 +239,13 @@ function BookDetailView({
   const [resetError, setResetError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
+  const [progressAction, setProgressAction] = useState<"complete" | "reset" | "">("");
+  const [progressActionError, setProgressActionError] = useState("");
+  const [progressVersion, setProgressVersion] = useState(0);
+  const [coverCandidates, setCoverCandidates] = useState<CoverCandidate[]>([]);
+  const [coverLoading, setCoverLoading] = useState(false);
+  const [coverSaving, setCoverSaving] = useState("");
+  const [coverError, setCoverError] = useState("");
   const [editForm, setEditForm] = useState(() => ({
     title: book.title,
     authors: book.authors.join(", "),
@@ -255,6 +273,25 @@ function BookDetailView({
       description: book.description ?? ""
     });
   }, [book]);
+
+  const loadCoverCandidates = useCallback(async () => {
+    setCoverLoading(true);
+    setCoverError("");
+    try {
+      const payload = await api<{ covers: CoverCandidate[] }>(`/api/library/books/${book.id}/cover-candidates`);
+      setCoverCandidates(payload.covers);
+    } catch (err) {
+      setCoverError(err instanceof Error ? err.message : "Unable to load cover files");
+    } finally {
+      setCoverLoading(false);
+    }
+  }, [book.id]);
+
+  useEffect(() => {
+    if (metadataModalOpen && activeMetadataTab === "cover") {
+      loadCoverCandidates();
+    }
+  }, [activeMetadataTab, loadCoverCandidates, metadataModalOpen]);
 
   const splitList = (value: string) => value
     .split(",")
@@ -292,7 +329,6 @@ function BookDetailView({
       });
       onBookUpdated(payload.book);
       setMetadataResults([]);
-      setExpandedIndex(null);
       setMetadataModalOpen(false);
     } catch (err) {
       setMetadataError(err instanceof Error ? err.message : "Unable to apply metadata");
@@ -343,21 +379,76 @@ function BookDetailView({
     }
   };
 
-  const diffRows = (candidate: MetadataCandidate) => {
-    const rows: { label: string; current: string; next: string; changed: boolean }[] = [];
-    const add = (label: string, current: string | null | undefined, next: string | null | undefined) => {
-      if (next == null || next === "") return;
-      rows.push({ label, current: current || "—", next, changed: current !== next });
-    };
-    add("Title", book.title, candidate.title);
-    add("Authors", book.authors.join(", ") || null, candidate.authors.join(", "));
-    add("Narrators", book.narrators.join(", ") || null, candidate.narrators?.join(", "));
-    add("Year", book.yearPublished?.toString(), candidate.year?.toString());
-    add("Publisher", book.publisher, candidate.publisher);
-    add("Language", book.language, candidate.language);
-    add("Genres", book.genres.join(", ") || null, candidate.genres?.join(", "));
-    add("ISBN", book.isbn, candidate.isbn);
-    return rows;
+  const markBookFinished = async () => {
+    setProgressAction("complete");
+    setProgressActionError("");
+    try {
+      await api(`/api/library/books/${book.id}/progress/complete`, { method: "POST", body: "{}" });
+      setProgressVersion((version) => version + 1);
+    } catch (err) {
+      setProgressActionError(err instanceof Error ? err.message : "Unable to mark book finished");
+    } finally {
+      setProgressAction("");
+    }
+  };
+
+  const resetBookProgress = async () => {
+    setProgressAction("reset");
+    setProgressActionError("");
+    try {
+      await api(`/api/library/books/${book.id}/progress`, { method: "DELETE" });
+      setProgressVersion((version) => version + 1);
+    } catch (err) {
+      setProgressActionError(err instanceof Error ? err.message : "Unable to reset book progress");
+    } finally {
+      setProgressAction("");
+    }
+  };
+
+  const applyFolderCover = async (cover: CoverCandidate) => {
+    setCoverSaving(cover.relativePath);
+    setCoverError("");
+    try {
+      const payload = await api<{ updated: boolean; book: AudiobookBookDetail }>(`/api/library/books/${book.id}/cover`, {
+        method: "POST",
+        body: JSON.stringify({ relativePath: cover.relativePath })
+      });
+      showUpdatedCover(payload.book);
+    } catch (err) {
+      setCoverError(err instanceof Error ? err.message : "Unable to apply cover");
+    } finally {
+      setCoverSaving("");
+    }
+  };
+
+  const uploadCover = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    setCoverSaving("upload");
+    setCoverError("");
+    try {
+      const payload = await api<{ updated: boolean; book: AudiobookBookDetail }>(`/api/library/books/${book.id}/cover`, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file
+      });
+      showUpdatedCover(payload.book);
+    } catch (err) {
+      setCoverError(err instanceof Error ? err.message : "Unable to upload cover");
+    } finally {
+      setCoverSaving("");
+    }
+  };
+
+  const showUpdatedCover = (updatedBook: AudiobookBookDetail) => {
+    const version = Date.now();
+    onBookUpdated({
+      ...updatedBook,
+      coverUrl: updatedBook.coverUrl ? `${updatedBook.coverUrl}?v=${version}` : updatedBook.coverUrl,
+      coverLargeUrl: updatedBook.coverLargeUrl ? `${updatedBook.coverLargeUrl}?v=${version}` : updatedBook.coverLargeUrl
+    });
   };
 
   return (
@@ -459,17 +550,22 @@ function BookDetailView({
           <Pencil size={16} />
           <span>Edit metadata</span>
         </button>
-        <button className="secondary-button" onClick={() => { setActiveMetadataTab("lookup"); setMetadataModalOpen(true); }}>
-          <Sparkles size={16} />
-          <span>Metadata lookup</span>
+        <button className="secondary-button" onClick={markBookFinished} disabled={progressAction !== ""}>
+          <CheckCircle2 size={16} />
+          <span>{progressAction === "complete" ? "Saving..." : "Mark finished"}</span>
+        </button>
+        <button className="secondary-button" onClick={resetBookProgress} disabled={progressAction !== ""}>
+          <RotateCcw size={16} />
+          <span>{progressAction === "reset" ? "Resetting..." : "Reset progress"}</span>
         </button>
         <a className="secondary-button" href={`/api/library/books/${book.id}/download`} download>
           <Download size={16} />
           <span>Download</span>
         </a>
       </div>
+      {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
 
-      <AudioPlayer book={book} />
+      <AudioPlayer key={`${book.id}-${progressVersion}`} book={book} />
 
       {metadataModalOpen && (
         <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { setMetadataModalOpen(false); setResetConfirm(false); } }}>
@@ -485,6 +581,9 @@ function BookDetailView({
               <button className={`modal-tab${activeMetadataTab === "edit" ? " active" : ""}`} onClick={() => setActiveMetadataTab("edit")}>
                 Metadata
               </button>
+              <button className={`modal-tab${activeMetadataTab === "cover" ? " active" : ""}`} onClick={() => setActiveMetadataTab("cover")}>
+                Cover
+              </button>
               <button className={`modal-tab${activeMetadataTab === "lookup" ? " active" : ""}`} onClick={() => setActiveMetadataTab("lookup")}>
                 Metadata Lookup
               </button>
@@ -494,23 +593,23 @@ function BookDetailView({
               {activeMetadataTab === "edit" ? (
                 <>
                   <div className="metadata-edit-grid">
-                    <label className="field metadata-field-wide">
+                    <label className="field metadata-field-half">
                       <span>Title</span>
                       <input value={editForm.title} onChange={(event) => setEditForm((form) => ({ ...form, title: event.target.value }))} />
                     </label>
-                    <label className="field">
+                    <label className="field metadata-field-half">
                       <span>Authors</span>
                       <input value={editForm.authors} onChange={(event) => setEditForm((form) => ({ ...form, authors: event.target.value }))} />
                     </label>
-                    <label className="field">
+                    <label className="field metadata-field-half">
                       <span>Narrators</span>
                       <input value={editForm.narrators} onChange={(event) => setEditForm((form) => ({ ...form, narrators: event.target.value }))} />
                     </label>
-                    <label className="field">
+                    <label className="field metadata-field-half">
                       <span>Genres</span>
                       <input value={editForm.genres} onChange={(event) => setEditForm((form) => ({ ...form, genres: event.target.value }))} />
                     </label>
-                    <label className="field">
+                    <label className="field metadata-field-half">
                       <span>Publisher</span>
                       <input value={editForm.publisher} onChange={(event) => setEditForm((form) => ({ ...form, publisher: event.target.value }))} />
                     </label>
@@ -532,7 +631,7 @@ function BookDetailView({
                     </label>
                     <label className="field metadata-field-wide">
                       <span>Description</span>
-                      <textarea value={editForm.description} onChange={(event) => setEditForm((form) => ({ ...form, description: event.target.value }))} rows={5} />
+                      <textarea value={editForm.description} onChange={(event) => setEditForm((form) => ({ ...form, description: event.target.value }))} rows={4} />
                     </label>
                   </div>
 
@@ -567,19 +666,72 @@ function BookDetailView({
                     </div>
                   )}
                 </>
+              ) : activeMetadataTab === "cover" ? (
+                <>
+                  <div className="cover-tab-layout">
+                    <section className="cover-current-panel">
+                      <span>Current cover</span>
+                      <div className="cover-current-preview">
+                        {book.coverUrl ? (
+                          <img src={book.coverLargeUrl ?? book.coverUrl} alt="" />
+                        ) : (
+                          <BookOpen size={34} />
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="cover-picker-panel">
+                      <div className="cover-picker-head">
+                        <div>
+                          <strong>Folder covers</strong>
+                          <span>{coverLoading ? "Scanning folder..." : `${coverCandidates.length} image file${coverCandidates.length === 1 ? "" : "s"}`}</span>
+                        </div>
+                        <button className="secondary-button compact-button" onClick={loadCoverCandidates} disabled={coverLoading || Boolean(coverSaving)}>
+                          <RotateCcw size={14} />
+                          <span>Refresh</span>
+                        </button>
+                      </div>
+
+                      <div className="cover-candidate-grid">
+                        {coverCandidates.map((cover) => (
+                          <button
+                            className="cover-candidate"
+                            key={cover.relativePath}
+                            onClick={() => applyFolderCover(cover)}
+                            disabled={Boolean(coverSaving)}
+                          >
+                            <img src={cover.previewUrl} alt="" />
+                            <span>{cover.name}</span>
+                            <small>{formatBytes(cover.size)}</small>
+                            <strong>{coverSaving === cover.relativePath ? "Applying..." : "Apply"}</strong>
+                          </button>
+                        ))}
+                        {!coverLoading && coverCandidates.length === 0 && (
+                          <p className="management-empty">No cover image files were found in this audiobook folder.</p>
+                        )}
+                      </div>
+                    </section>
+                  </div>
+
+                  <label className="cover-upload-panel">
+                    <Upload size={18} />
+                    <span>{coverSaving === "upload" ? "Uploading..." : "Upload new cover"}</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      disabled={Boolean(coverSaving)}
+                      onChange={(event) => {
+                        uploadCover(event.target.files?.[0] ?? null);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+
+                  {coverError && <MessageBox tone="error" title="Cover error">{coverError}</MessageBox>}
+                </>
               ) : (
                 <>
                   <div className="metadata-search-row">
-                    <label className="search-field">
-                      <Search size={17} aria-hidden="true" />
-                      <input
-                        type="search"
-                        value={metadataQuery}
-                        onChange={(event) => setMetadataQuery(event.target.value)}
-                        placeholder="Search title or author"
-                        aria-label="Search metadata"
-                      />
-                    </label>
                     <select
                       className="library-filter"
                       value={metadataProvider}
@@ -591,7 +743,17 @@ function BookDetailView({
                       <option value="openlibrary">Open Library</option>
                       <option value="fantlab">FantLab</option>
                     </select>
-                    <button className="primary-button" onClick={searchMetadata} disabled={metadataLoading}>
+                    <label className="search-field">
+                      <Search size={17} aria-hidden="true" />
+                      <input
+                        type="search"
+                        value={metadataQuery}
+                        onChange={(event) => setMetadataQuery(event.target.value)}
+                        placeholder="Search title or ASIN"
+                        aria-label="Search metadata"
+                      />
+                    </label>
+                    <button className="primary-button metadata-search-button" onClick={searchMetadata} disabled={metadataLoading}>
                       <Search size={16} />
                       <span>{metadataLoading ? "Searching..." : "Search"}</span>
                     </button>
@@ -611,83 +773,35 @@ function BookDetailView({
                   {metadataError && <MessageBox tone="error" title="Metadata lookup error">{metadataError}</MessageBox>}
 
                   <div className="metadata-results">
-                    {metadataResults.map((candidate, index) => {
-                      const isExpanded = expandedIndex === index;
-                      const rows = isExpanded ? diffRows(candidate) : [];
-                      return (
-                        <article className="metadata-result-card" key={`${candidate.source}-${candidate.title}-${index}`}>
-                          <div className="metadata-result-cover" aria-hidden="true">
-                            {candidate.coverUrl ? <img src={candidate.coverUrl} alt="" /> : <BookOpen size={22} />}
-                          </div>
-                          <div className="metadata-result-body">
+                    {metadataResults.map((candidate, index) => (
+                      <article className="metadata-result-card" key={`${candidate.source}-${candidate.title}-${index}`}>
+                        <div className="metadata-result-cover" aria-hidden="true">
+                          {candidate.coverUrl ? <img src={candidate.coverUrl} alt="" /> : <BookOpen size={22} />}
+                        </div>
+                        <div className="metadata-result-body">
+                          <div className="metadata-result-title-row">
                             <strong>{candidate.title}</strong>
-                            {candidate.subtitle && <span>{candidate.subtitle}</span>}
-                            <small>
-                              {[candidate.authors.join(", "), candidate.year, candidate.publisher, candidate.source]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </small>
+                            {candidate.year && <b>{candidate.year}</b>}
                           </div>
-                          <button
-                            className="secondary-button compact-button"
-                            onClick={() => setExpandedIndex(isExpanded ? null : index)}
-                            disabled={applyingIndex !== null}
-                          >
-                            <Eye size={15} />
-                            <span>{isExpanded ? "Collapse" : "Preview"}</span>
-                          </button>
-
-                          {isExpanded && (
-                            <div className="metadata-diff-panel">
-                              {candidate.description && (
-                                <p className="metadata-diff-description">{candidate.description}</p>
-                              )}
-                              <table className="metadata-diff-table">
-                                <thead>
-                                  <tr><th>Field</th><th>Current</th><th>Candidate</th></tr>
-                                </thead>
-                                <tbody>
-                                  {rows.map((row) => (
-                                    <tr key={row.label} className={row.changed ? "diff-changed" : "diff-same"}>
-                                      <td>{row.label}</td>
-                                      <td>{row.current}</td>
-                                      <td>{row.next}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                              {updateCover && candidate.coverUrl && (
-                                <div className="metadata-diff-covers">
-                                  <div>
-                                    <p>Current cover</p>
-                                    {book.coverUrl
-                                      ? <img src={book.coverUrl} alt="" />
-                                      : <div className="cover-placeholder"><BookOpen size={22} /></div>}
-                                  </div>
-                                  <div>
-                                    <p>Candidate cover</p>
-                                    <img src={candidate.coverUrl} alt="" />
-                                  </div>
-                                </div>
-                              )}
-                              <div className="metadata-actions">
-                                <button
-                                  className="primary-button"
-                                  onClick={() => applyMetadata(candidate, index)}
-                                  disabled={applyingIndex !== null}
-                                >
-                                  <CheckCircle2 size={15} />
-                                  <span>{applyingIndex === index ? "Applying..." : "Apply"}</span>
-                                </button>
-                                <button className="secondary-button" onClick={() => setExpandedIndex(null)} disabled={applyingIndex !== null}>
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </article>
-                      );
-                    })}
+                          <span>{candidate.authors.length > 0 ? `by ${candidate.authors.join(", ")}` : "Unknown author"}</span>
+                          <small>
+                            {[candidate.narrators?.length ? `Narrators: ${candidate.narrators.join(", ")}` : "", candidate.publisher, candidate.source]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </small>
+                          {candidate.subtitle && <em>{candidate.subtitle}</em>}
+                          {candidate.description && <p>{candidate.description}</p>}
+                        </div>
+                        <button
+                          className="primary-button compact-button metadata-apply-button"
+                          onClick={() => applyMetadata(candidate, index)}
+                          disabled={applyingIndex !== null}
+                        >
+                          <CheckCircle2 size={15} />
+                          <span>{applyingIndex === index ? "Applying..." : "Apply"}</span>
+                        </button>
+                      </article>
+                    ))}
                     {!metadataLoading && metadataResults.length === 0 && (
                       <p className="management-empty">Search for a provider match to update details and cover art.</p>
                     )}
@@ -765,6 +879,21 @@ function AudioPlayer({ book }: { book: AudiobookBookDetail }) {
   const bookPosition = completedDuration + currentTime;
 
   const currentFile: AudiobookFile | undefined = availableFiles[fileIndex];
+  const chapterProgressFor = (file: AudiobookFile, index: number) => {
+    const duration = file.durationSeconds ?? 0;
+    if (duration <= 0) {
+      return { seconds: 0, percent: index < fileIndex ? 1 : 0 };
+    }
+    if (index < fileIndex) {
+      return { seconds: duration, percent: 1 };
+    }
+    if (index > fileIndex) {
+      return { seconds: 0, percent: 0 };
+    }
+
+    const seconds = Math.max(0, Math.min(currentTime, duration));
+    return { seconds, percent: Math.min(seconds / duration, 1) };
+  };
 
   const saveProgress = useCallback((file: AudiobookFile, position: number) => {
     api(`/api/library/books/${book.id}/progress`, {
@@ -805,17 +934,25 @@ function AudioPlayer({ book }: { book: AudiobookBookDetail }) {
 
   // Save progress on tab/window close
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const saveCurrentProgress = () => {
       if (!currentFile || !audioRef.current) return;
-      fetch(`/api/library/books/${book.id}/progress`, {
+      return fetch(`/api/library/books/${book.id}/progress`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileId: currentFile.id, positionSeconds: Math.floor(audioRef.current.currentTime) }),
         keepalive: true
       });
     };
+
+    const handleBeforeUnload = () => {
+      saveCurrentProgress();
+    };
+
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      saveCurrentProgress();
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, [book.id, currentFile]);
 
   // Set src whenever the current file changes. With preload="none" audio.load() only
@@ -1114,19 +1251,33 @@ function AudioPlayer({ book }: { book: AudiobookBookDetail }) {
       {chaptersOpen && (
         <div className="player-chapter-list">
           {availableFiles.map((file, index) => (
-            <button
-              key={file.id}
-              className={`player-chapter-item${index === fileIndex ? " active" : ""}`}
-              onClick={() => jumpToChapter(index)}
-            >
-              <span className="player-chapter-item-num">{index + 1}</span>
-              <span className="player-chapter-item-title">
-                {file.chapterTitle || file.relativePath.split("/").at(-1) || `Chapter ${index + 1}`}
-              </span>
-              {file.durationSeconds != null && (
-                <span className="player-chapter-item-dur">{formatTime(file.durationSeconds)}</span>
-              )}
-            </button>
+            (() => {
+              const progress = chapterProgressFor(file, index);
+              return (
+                <button
+                  key={file.id}
+                  className={`player-chapter-item${index === fileIndex ? " active" : ""}${progress.percent >= 0.98 ? " complete" : ""}`}
+                  onClick={() => jumpToChapter(index)}
+                >
+                  <span className="player-chapter-item-num">{index + 1}</span>
+                  <span className="player-chapter-item-main">
+                    <span className="player-chapter-item-title">
+                      {file.chapterTitle || file.relativePath.split("/").at(-1) || `Chapter ${index + 1}`}
+                    </span>
+                    <span className="player-chapter-progress">
+                      <span style={{ width: `${Math.round(progress.percent * 100)}%` }} />
+                    </span>
+                  </span>
+                  {file.durationSeconds != null && (
+                    <span className="player-chapter-item-dur">
+                      {progress.seconds > 0 && progress.percent < 0.98
+                        ? `${formatTime(progress.seconds)} / ${formatTime(file.durationSeconds)}`
+                        : formatTime(file.durationSeconds)}
+                    </span>
+                  )}
+                </button>
+              );
+            })()
           ))}
         </div>
       )}

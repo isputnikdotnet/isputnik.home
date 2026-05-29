@@ -1,0 +1,349 @@
+/* ── Audio player ───────────────────────────────────────────────── */
+
+.audio-player {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+.player-chapter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.player-chapter-index {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 20px;
+  color: var(--mint);
+  background: var(--active);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.player-chapter-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.player-btn {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+
+.player-btn:hover {
+  background: var(--hover);
+}
+
+.player-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.player-btn-primary {
+  width: 52px;
+  height: 52px;
+  color: #102238;
+  background: var(--gold);
+  box-shadow: 0 3px 10px rgba(248, 232, 176, 0.28);
+}
+
+.player-btn-primary:hover {
+  background: color-mix(in srgb, var(--gold) 88%, white);
+}
+
+.player-seek {
+  display: grid;
+  grid-template-columns: 46px 1fr 46px;
+  align-items: center;
+  gap: 8px;
+}
+
+.player-time {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.player-seekbar {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  accent-color: var(--mint);
+  border-radius: 2px;
+}
+
+.player-seekbar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--mint);
+  cursor: pointer;
+}
+
+.player-seekbar::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--mint);
+  border: none;
+  cursor: pointer;
+}
+
+.player-aux {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.player-vol {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 160px;
+}
+
+.player-vol-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.player-vol-icon:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.player-vol-slider {
+  flex: 1;
+  height: 4px;
+  cursor: pointer;
+  accent-color: var(--mint);
+}
+
+.player-speed {
+  position: relative;
+}
+
+.player-speed-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.player-speed-btn:hover,
+.player-speed-btn.open {
+  color: var(--ink);
+  background: var(--hover);
+  border-color: var(--mint);
+}
+
+.player-speed-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  gap: 2px;
+  padding: 5px;
+  min-width: 80px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px var(--shadow);
+  z-index: 10;
+}
+
+.player-speed-option {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.player-speed-option:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.player-speed-option.active {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.player-btn-skip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  width: auto;
+  padding: 0 10px;
+  border-radius: 20px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.player-btn-skip:hover {
+  color: var(--ink);
+}
+
+.player-book-progress {
+  display: grid;
+  grid-template-columns: 46px 1fr 46px;
+  align-items: center;
+  gap: 8px;
+}
+
+.player-book-bar {
+  position: relative;
+  height: 3px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.player-book-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: color-mix(in srgb, var(--mint) 55%, transparent);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.player-chapter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.player-chapter-item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.player-chapter-item:hover {
+  background: var(--hover);
+}
+
+.player-chapter-item.active {
+  background: var(--active);
+  color: var(--mint);
+}
+
+.player-chapter-item.complete:not(.active) .player-chapter-item-num {
+  color: var(--mint);
+}
+
+.player-chapter-item-num {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.player-chapter-item.active .player-chapter-item-num {
+  color: var(--mint);
+}
+
+.player-chapter-item-main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.player-chapter-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.player-chapter-progress {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 75%, transparent);
+}
+
+.player-chapter-progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--mint) 58%, transparent);
+  transition: width 1s linear;
+}
+
+.player-chapter-item-dur {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}

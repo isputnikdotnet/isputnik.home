@@ -29,6 +29,7 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
         </div>
         <div className="about-heading-text">
           <h2>{about.name}</h2>
+          <p className="about-code-name">Спутник Один</p>
           <span className="about-version-badge">v{about.version}</span>
         </div>
       </div>

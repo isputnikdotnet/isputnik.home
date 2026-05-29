@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
@@ -7,6 +8,7 @@ import { parseBody } from "../../../core/shared.js";
 import { searchAllMetadataProviders, searchMetadataProvider, type MetadataCandidate, type MetadataProvider } from "./providers/index.js";
 import { rescanSingleBook, sortTitle, writeCoverImages } from "./scanner.js";
 import { writeMetadataExport } from "../shared/metadata.js";
+import { normaliseRelativePath, pathIsInside } from "../shared/storage-roots.js";
 import type { AudiobookBookRow, BookFileRow } from "./types.js";
 
 function largeCoverUrl(storageKey: string | null) {
@@ -42,6 +44,10 @@ const metadataMatchSchema = z.object({
   candidate: metadataCandidateSchema,
   updateDetails: z.boolean().default(true),
   updateCover: z.boolean().default(true)
+});
+
+const coverSourceSchema = z.object({
+  relativePath: z.string().trim().min(1).max(1000)
 });
 
 const manualMetadataSchema = z.object({
@@ -127,6 +133,75 @@ async function downloadCover(url: string) {
   }
 
   return Buffer.from(await response.arrayBuffer());
+}
+
+const coverImageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+
+function imageMimeType(filePath: string) {
+  return {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp"
+  }[path.extname(filePath).toLowerCase()] ?? "application/octet-stream";
+}
+
+function getBookCoverFolder(bookId: string) {
+  const row = db.prepare(`
+    SELECT books.folder_path, libraries.source_path
+    FROM books
+    JOIN libraries ON libraries.id = books.library_id
+    WHERE books.id = ?
+      AND books.deleted_at IS NULL
+  `).get(bookId) as { folder_path: string; source_path: string } | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  const folderPath = path.resolve(row.source_path, ...row.folder_path.split("/"));
+  if (!pathIsInside(folderPath, row.source_path) || !fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
+    return null;
+  }
+
+  return { sourcePath: row.source_path, folderPath };
+}
+
+function coverFilePathFromRelative(bookId: string, relativePath: string) {
+  const context = getBookCoverFolder(bookId);
+  if (!context) {
+    return null;
+  }
+
+  const candidate = path.resolve(context.folderPath, ...relativePath.split("/"));
+  if (!pathIsInside(candidate, context.folderPath) || !fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) {
+    return null;
+  }
+
+  if (!coverImageExtensions.has(path.extname(candidate).toLowerCase())) {
+    return null;
+  }
+
+  return candidate;
+}
+
+function updateBookCover(bookId: string, coverStorageKey: string) {
+  const updated = db.prepare(`
+    UPDATE book_metadata
+    SET source = 'manual',
+      cover_storage_key = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE book_id = ?
+  `).run(coverStorageKey, bookId);
+
+  if (updated.changes === 0) {
+    db.prepare(`
+      INSERT INTO book_metadata (id, book_id, source, cover_storage_key)
+      VALUES (?, ?, 'manual', ?)
+    `).run(nanoid(16), bookId, coverStorageKey);
+  }
+
+  return getAudiobookBookDetail(bookId);
 }
 
 function getBookForMetadata(bookId: string) {
@@ -425,6 +500,10 @@ function getAudiobookBookDetail(id: string) {
 }
 
 export async function audiobookBooksPlugin(app: FastifyInstance) {
+  app.addContentTypeParser(["image/jpeg", "image/png", "image/webp"], { parseAs: "buffer" }, (_request, body, done) => {
+    done(null, body);
+  });
+
   app.get("/api/library/audiobook-libraries/:id/books", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const library = db.prepare("SELECT id FROM libraries WHERE id = ? AND type = 'audiobook'").get(id);
@@ -594,6 +673,103 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
     reply.send({ updated: true, book });
   });
 
+  app.get("/api/library/books/:id/cover-candidates", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const context = getBookCoverFolder(id);
+    if (!context) {
+      reply.code(404).send({ error: "Audiobook not found" });
+      return;
+    }
+
+    const candidates = fs.readdirSync(context.folderPath, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && coverImageExtensions.has(path.extname(entry.name).toLowerCase()))
+      .map((entry) => {
+        const filePath = path.join(context.folderPath, entry.name);
+        const stat = fs.statSync(filePath);
+        const relativePath = normaliseRelativePath(path.relative(context.folderPath, filePath));
+        return {
+          name: entry.name,
+          relativePath,
+          size: stat.size,
+          previewUrl: `/api/library/books/${id}/cover-candidate?path=${encodeURIComponent(relativePath)}`
+        };
+      })
+      .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }));
+
+    reply.send({ covers: candidates });
+  });
+
+  app.get("/api/library/books/:id/cover-candidate", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const relativePath = String((request.query as { path?: string }).path ?? "");
+    const filePath = coverFilePathFromRelative(id, relativePath);
+    if (!filePath) {
+      reply.code(404).send({ error: "Cover file not found" });
+      return;
+    }
+
+    reply
+      .type(imageMimeType(filePath))
+      .header("Cache-Control", "private, max-age=300")
+      .send(fs.createReadStream(filePath));
+  });
+
+  app.post("/api/library/books/:id/cover", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const parsed = parseBody(coverSourceSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid cover selection", details: parsed.error });
+      return;
+    }
+
+    const filePath = coverFilePathFromRelative(id, parsed.data.relativePath);
+    if (!filePath) {
+      reply.code(404).send({ error: "Cover file not found" });
+      return;
+    }
+
+    try {
+      const coverStorageKey = await writeCoverImages(id, filePath);
+      const book = updateBookCover(id, coverStorageKey);
+      reply.send({ updated: true, book });
+    } catch (err) {
+      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to apply cover" });
+    }
+  });
+
+  app.put("/api/library/books/:id/cover", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const existing = db.prepare("SELECT id FROM books WHERE id = ? AND deleted_at IS NULL").get(id);
+    if (!existing) {
+      reply.code(404).send({ error: "Audiobook not found" });
+      return;
+    }
+
+    const contentType = request.headers["content-type"]?.split(";")[0]?.toLowerCase();
+    if (!contentType || !["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
+      reply.code(415).send({ error: "Upload a JPEG, PNG, or WebP image." });
+      return;
+    }
+
+    const body = request.body;
+    if (!Buffer.isBuffer(body) || body.byteLength === 0) {
+      reply.code(400).send({ error: "Cover image is required." });
+      return;
+    }
+    if (body.byteLength > 10 * 1024 * 1024) {
+      reply.code(400).send({ error: "Cover image is too large." });
+      return;
+    }
+
+    try {
+      const coverStorageKey = await writeCoverImages(id, body);
+      const book = updateBookCover(id, coverStorageKey);
+      reply.send({ updated: true, book });
+    } catch (err) {
+      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to upload cover" });
+    }
+  });
+
   app.get("/api/library/books/:id/progress", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
     const userId = request.user!.id;
@@ -635,10 +811,22 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
     const cumulative = db.prepare(`
       SELECT COALESCE(SUM(bf.duration_seconds), 0) AS before_seconds
       FROM book_files bf
-      JOIN book_files current_file ON current_file.id = ? AND current_file.book_id = bf.book_id
+      JOIN book_files current_file ON current_file.id = ? AND current_file.book_id = ? AND current_file.book_id = bf.book_id
       WHERE bf.track_number < current_file.track_number
         AND bf.status = 'available'
-    `).get(fileId, fileId) as { before_seconds: number } | undefined;
+    `).get(fileId, bookId) as { before_seconds: number } | undefined;
+
+    const currentFile = db.prepare(`
+      SELECT id
+      FROM book_files
+      WHERE id = ?
+        AND book_id = ?
+        AND status = 'available'
+    `).get(fileId, bookId);
+    if (!currentFile) {
+      reply.code(404).send({ error: "Audio file not found" });
+      return;
+    }
 
     const totalDuration = (db.prepare("SELECT duration_seconds FROM book_metadata WHERE book_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
 
@@ -668,6 +856,46 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
     );
 
     reply.send({ updated: true });
+  });
+
+  app.post("/api/library/books/:id/progress/complete", { preHandler: app.authenticate }, async (request, reply) => {
+    const bookId = (request.params as { id: string }).id;
+    const userId = request.user!.id;
+    const file = db.prepare(`
+      SELECT id, duration_seconds
+      FROM book_files
+      WHERE book_id = ?
+        AND status = 'available'
+      ORDER BY track_number DESC, relative_path COLLATE NOCASE DESC
+      LIMIT 1
+    `).get(bookId) as { id: string; duration_seconds: number | null } | undefined;
+
+    if (!file) {
+      reply.code(404).send({ error: "No audio files available" });
+      return;
+    }
+
+    const totalDuration = (db.prepare("SELECT duration_seconds FROM book_metadata WHERE book_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
+    db.prepare(`
+      INSERT INTO playback_progress (id, user_id, book_id, current_file_id, position_seconds, duration_seconds, percent_complete, updated_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id, book_id) DO UPDATE SET
+        current_file_id = excluded.current_file_id,
+        position_seconds = excluded.position_seconds,
+        duration_seconds = excluded.duration_seconds,
+        percent_complete = 1,
+        updated_at = CURRENT_TIMESTAMP,
+        completed_at = CURRENT_TIMESTAMP
+    `).run(nanoid(16), userId, bookId, file.id, file.duration_seconds ?? totalDuration ?? 0, totalDuration);
+
+    reply.send({ updated: true });
+  });
+
+  app.delete("/api/library/books/:id/progress", { preHandler: app.authenticate }, async (request, reply) => {
+    const bookId = (request.params as { id: string }).id;
+    const userId = request.user!.id;
+    db.prepare("DELETE FROM playback_progress WHERE book_id = ? AND user_id = ?").run(bookId, userId);
+    reply.send({ reset: true });
   });
 
   app.post("/api/library/books/:id/metadata-reset", { preHandler: app.authenticate }, async (request, reply) => {

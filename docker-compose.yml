@@ -1,0 +1,27 @@
+services:
+  isputnik:
+    image: ghcr.io/isputnikdotnet/isputnik.home:latest
+    container_name: isputnik
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      # The URL users access the app from — used for CORS.
+      # Change this to your server's IP or domain.
+      APP_URL: http://localhost:4000
+
+      # Optional: override session and invite lifetimes (days)
+      # SESSION_DAYS: 14
+      # INVITE_DAYS: 7
+
+    volumes:
+      # Database and app data (must be persistent)
+      - isputnik-data:/data
+
+      # Your audio library roots — add as many as needed.
+      # The path on the right (/media) is what you enter inside the app.
+      # Example for Unraid: /mnt/user/Audiobooks:/media:ro
+      - /path/to/your/audiobooks:/media:ro
+
+volumes:
+  isputnik-data:

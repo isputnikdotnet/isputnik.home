@@ -1,6 +1,7 @@
 import fastify from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
 import { corePlugin } from "./core/index.js";
@@ -19,6 +20,16 @@ await app.register(cookie);
 await registerAuthDecorators(app);
 await app.register(corePlugin);
 await app.register(libraryPlugin);
+
+if (config.staticPath) {
+  await app.register(staticFiles, {
+    root: config.staticPath,
+    wildcard: false
+  });
+  app.setNotFoundHandler((_request, reply) => {
+    return reply.sendFile("index.html");
+  });
+}
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);

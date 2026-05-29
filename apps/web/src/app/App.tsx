@@ -8,7 +8,7 @@ import { InvitePage } from "../pages/InvitePage";
 import { HomePage } from "../pages/HomePage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { AboutPage } from "../pages/AboutPage";
-import { AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
+import { AudiobookBookPage, AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
 import { ControlPanelPage } from "../features/control/ControlPanelPage";
 
 interface SessionState {
@@ -126,6 +126,10 @@ export function App() {
 
   if (route.name === "audiobooks") {
     return <AudiobooksPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookBook") {
+    return <AudiobookBookPage id={route.id} user={session.user} logout={logout} />;
   }
 
   return <HomePage user={session.user} logout={logout} />;

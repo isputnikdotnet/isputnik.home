@@ -100,7 +100,7 @@ export async function searchFantlab(input: MetadataSearchInput): Promise<Metadat
     const rawTitle = matchFirst(chunk, /<div class="title">[\s\S]*?<a\s+href="[^"]+"\s*[^>]*>([\s\S]*?)<\/a>/i);
     const author = matchFirst(chunk, /<div class="autor">[\s\S]*?<a\s+href="[^"]+"\s*[^>]*>([\s\S]*?)<\/a>/i);
     const plus = stripTags(matchFirst(chunk, /<div class="plus">([\s\S]*?)<\/div>/i) ?? "");
-    const detail: { description?: string; coverUrl?: string } = relativeUrl ? await enrichFromWorkPage(relativeUrl) : {};
+    const detail: { description?: string; coverUrl?: string; originalTitle?: string } = relativeUrl ? await enrichFromWorkPage(relativeUrl) : {};
 
     return {
       title: stripTags(rawTitle ?? ""),

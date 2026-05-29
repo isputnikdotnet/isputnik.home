@@ -20,9 +20,19 @@ export function ControlPanelPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const sceneClasses: Partial<Record<ControlSection, string>> = {
+    status: "scene-page rocket-scene status-scene",
+    about: "scene-page sputnik-scene about-scene",
+    users: "scene-page cosmonaut-scene user-admin-scene",
+    invites: "scene-page cosmonaut-scene user-admin-scene",
+    sessions: "scene-page cosmonaut-scene user-admin-scene",
+    logs: "scene-page control-center-scene logs-scene"
+  };
+  const sceneClass = sceneClasses[section] ?? "";
+
   return (
     <DashboardShell active="control" user={user} logout={logout}>
-      <div className="control-panel">
+      <div className={`control-panel${sceneClass ? ` ${sceneClass}` : ""}`}>
         <aside className="control-nav">
           <nav className="control-links" aria-label="Management">
             <div className="control-group">
