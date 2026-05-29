@@ -22,9 +22,9 @@
     Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/isputnik</Config>
 
   <Config Name="Media Library 1"
-    Target="/media" Default="/mnt/user/media" Mode="ro"
+    Target="/media" Default="/mnt/user/data/" Mode="ro"
     Description="Path to your primary media library (audiobooks, music, videos, photos, etc.). Add this path as a storage root inside the app."
-    Type="Path" Display="always" Required="true" Mask="false">/mnt/user/media</Config>
+    Type="Path" Display="always" Required="true" Mask="false">/mnt/user/data/</Config>
 
   <Config Name="Media Library 2"
     Target="/media2" Default="" Mode="ro"
