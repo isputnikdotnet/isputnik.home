@@ -245,6 +245,7 @@
 .about-scene,
 .user-admin-scene,
 .logs-scene,
+.library-storage-scene,
 .audiobook-scene {
   min-height: calc(100vh - 68px);
   width: 100%;

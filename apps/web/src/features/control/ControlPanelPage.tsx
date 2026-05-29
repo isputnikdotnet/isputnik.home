@@ -26,7 +26,9 @@ export function ControlPanelPage({
     users: "scene-page cosmonaut-scene user-admin-scene",
     invites: "scene-page cosmonaut-scene user-admin-scene",
     sessions: "scene-page cosmonaut-scene user-admin-scene",
-    logs: "scene-page control-center-scene logs-scene"
+    logs: "scene-page control-center-scene logs-scene",
+    libraries: "scene-page audiobook-scene library-storage-scene",
+    storage: "scene-page audiobook-scene library-storage-scene"
   };
   const sceneClass = sceneClasses[section] ?? "";
 

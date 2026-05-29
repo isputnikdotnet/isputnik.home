@@ -48,17 +48,19 @@ export async function invitesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
+    const origin = `${request.protocol}://${request.headers.host}`;
     reply.code(201).send({
       invite: {
         id: inviteId,
         role: parsed.data.role,
         expiresAt,
-        url: `${config.appUrl}/invite/${token}`
+        url: `${origin}/invite/${token}`
       }
     });
   });
 
-  app.get("/api/invites", { preHandler: app.requireAdmin }, async () => {
+  app.get("/api/invites", { preHandler: app.requireAdmin }, async (request) => {
+    const origin = `${request.protocol}://${request.headers.host}`;
     const invites = db.prepare(`
       SELECT
         invites.id,
@@ -81,7 +83,7 @@ export async function invitesPlugin(app: FastifyInstance) {
       invites: invites.map((invite) => ({
         id: invite.id,
         role: invite.role,
-        url: invite.token ? `${config.appUrl}/invite/${invite.token}` : null,
+        url: invite.token ? `${origin}/invite/${invite.token}` : null,
         createdAt: invite.created_at,
         expiresAt: invite.expires_at,
         usedAt: invite.used_at,
