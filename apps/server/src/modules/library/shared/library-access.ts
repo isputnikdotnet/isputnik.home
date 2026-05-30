@@ -45,12 +45,13 @@ export function getAccessibleLibrary(
   userRole: string,
   type?: string
 ): LibraryAccessRow | null {
-  const typeClause = type ? `AND type = '${type}'` : "";
+  const typeClause = type ? "AND type = ?" : "";
+  const params = type ? [id, type] : [id];
   const library = db.prepare(`
     SELECT id, owner_id, owner_type, visibility, type
     FROM libraries
     WHERE id = ? ${typeClause}
-  `).get(id) as LibraryAccessRow | undefined;
+  `).get(...params) as LibraryAccessRow | undefined;
 
   if (!library) return null;
   if (!canUserAccessLibrary(library, userId, userRole)) return null;

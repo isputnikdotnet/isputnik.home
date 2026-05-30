@@ -43,6 +43,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
       return;
     }
 
+    const tokenHash = sha256(token);
     const row = db.prepare(`
       SELECT users.*
       FROM sessions
@@ -52,7 +53,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
         AND datetime(sessions.expires_at) > CURRENT_TIMESTAMP
         AND users.deleted_at IS NULL
         AND users.is_active = 1
-    `).get(sha256(token)) as User | undefined;
+    `).get(tokenHash) as User | undefined;
 
     if (!row) {
       clearSession(reply);
@@ -60,7 +61,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
       return;
     }
 
-    db.prepare("UPDATE sessions SET last_seen = CURRENT_TIMESTAMP WHERE token_hash = ?").run(sha256(token));
+    db.prepare("UPDATE sessions SET last_seen = CURRENT_TIMESTAMP WHERE token_hash = ?").run(tokenHash);
     request.user = row;
   });
 

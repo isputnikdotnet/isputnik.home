@@ -152,7 +152,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
 
     for (const file of files) {
       const filePath = path.join(meta.source_path, ...file.relative_path.split("/"));
-      if (fs.existsSync(filePath)) {
+      if (pathIsInside(filePath, meta.source_path) && fs.existsSync(filePath)) {
         archive.file(filePath, { name: file.relative_path.split("/").pop() ?? path.basename(filePath) });
       }
     }
