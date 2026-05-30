@@ -112,6 +112,16 @@
   color: var(--muted);
 }
 
+.version-timeline-frame {
+  height: 420px;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--muted) 18%, transparent);
+  border-radius: 12px;
+  padding: 4px 16px 16px;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  scrollbar-width: thin;
+}
+
 .version-timeline {
   position: relative;
   display: flex;

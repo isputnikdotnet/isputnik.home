@@ -8,6 +8,7 @@ export type Route =
   | { name: "home" }
   | { name: "audiobooks" }
   | { name: "audiobookBook"; id: string }
+  | { name: "audiobookPlayer"; id: string }
   | { name: "audiobookAuthors" }
   | { name: "audiobookAuthorDetail"; personName: string }
   | { name: "audiobookNarrators" }
@@ -48,6 +49,11 @@ export function getRoute(): Route {
   const audiobookBookMatch = path.match(/^\/audiobooks\/books\/([^/]+)$/);
   if (audiobookBookMatch) {
     return { name: "audiobookBook", id: audiobookBookMatch[1] };
+  }
+
+  const audiobookPlayerMatch = path.match(/^\/player\/([^/]+)$/);
+  if (audiobookPlayerMatch) {
+    return { name: "audiobookPlayer", id: audiobookPlayerMatch[1] };
   }
 
   if (path === "/audiobooks/authors") {

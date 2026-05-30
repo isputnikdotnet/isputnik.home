@@ -100,7 +100,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     }
 
     const ext = contentType === "image/png" ? ".png" : contentType === "image/webp" ? ".webp" : ".jpg";
-    const storageKey = thumbnailStorageKey(firstAuthor.id, `${firstAuthor.id}-photo${ext}`);
+    const storageKey = thumbnailStorageKey("people", firstAuthor.id, `${firstAuthor.id}-photo${ext}`);
     const absolutePath = thumbnailAbsolutePath(storageKey);
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, body as Buffer);

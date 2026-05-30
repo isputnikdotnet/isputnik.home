@@ -47,24 +47,26 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
 
       <section className="version-updates" aria-label="Version updates">
         <p className="version-updates-eyebrow">What's new</p>
-        <div className="version-timeline">
-          {about.versionUpdates.map((update, index) => (
-            <article
-              className={`version-update${index === 0 ? " version-update-current" : ""}`}
-              key={update.version}
-            >
-              <div className="version-update-dot" aria-hidden="true" />
-              <div className="version-update-body">
-                <div className="version-update-head">
-                  <strong className="version-update-num">v{update.version}</strong>
-                  <span className="version-update-label">{update.label}</span>
+        <div className="version-timeline-frame">
+          <div className="version-timeline">
+            {about.versionUpdates.map((update, index) => (
+              <article
+                className={`version-update${index === 0 ? " version-update-current" : ""}`}
+                key={update.version}
+              >
+                <div className="version-update-dot" aria-hidden="true" />
+                <div className="version-update-body">
+                  <div className="version-update-head">
+                    <strong className="version-update-num">v{update.version}</strong>
+                    <span className="version-update-label">{update.label}</span>
+                  </div>
+                  <ul className="version-update-list">
+                    {update.changes.map((change) => <li key={change}>{change}</li>)}
+                  </ul>
                 </div>
-                <ul className="version-update-list">
-                  {update.changes.map((change) => <li key={change}>{change}</li>)}
-                </ul>
-              </div>
-            </article>
-          ))}
+              </article>
+            ))}
+          </div>
         </div>
       </section>
     </section>

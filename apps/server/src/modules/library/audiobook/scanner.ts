@@ -304,8 +304,13 @@ function seriesValue(value: unknown): { name?: string; position?: number } {
     };
   }
 
-  const name = stringValue(value);
-  return name ? { name } : {};
+  const raw = stringValue(value);
+  if (!raw) return {};
+  const match = raw.match(/^(.+?)\s*#\s*(\d+(?:\.\d+)?)\s*$/);
+  if (match) {
+    return { name: match[1].trim(), position: parseFloat(match[2]) };
+  }
+  return { name: raw };
 }
 
 function normaliseSidecar(raw: Record<string, unknown>): SidecarMetadata {
@@ -480,9 +485,9 @@ function findFolderCover(folderPath: string, settings: AudiobookSettings) {
   return fallback?.filePath ?? null;
 }
 
-export async function writeCoverImages(bookId: string, source: string | Buffer) {
-  const coverStorageKey = thumbnailStorageKey(bookId, `${bookId}-cover.webp`);
-  const largeStorageKey = thumbnailStorageKey(bookId, `${bookId}-cover-large.webp`);
+export async function writeCoverImages(libraryId: string, bookId: string, source: string | Buffer) {
+  const coverStorageKey = thumbnailStorageKey(libraryId, bookId, `${bookId}-cover.webp`);
+  const largeStorageKey = thumbnailStorageKey(libraryId, bookId, `${bookId}-cover-large.webp`);
   const coverPath = thumbnailAbsolutePath(coverStorageKey);
   const largePath = thumbnailAbsolutePath(largeStorageKey);
 
@@ -497,16 +502,16 @@ export async function writeCoverImages(bookId: string, source: string | Buffer) 
   return coverStorageKey;
 }
 
-async function generateCover(bookId: string, folderPath: string, settings: AudiobookSettings, firstMetadata: IAudioMetadata | null) {
+async function generateCover(libraryId: string, bookId: string, folderPath: string, settings: AudiobookSettings, firstMetadata: IAudioMetadata | null) {
   try {
     const folderCover = findFolderCover(folderPath, settings);
     if (folderCover) {
-      return await writeCoverImages(bookId, folderCover);
+      return await writeCoverImages(libraryId, bookId, folderCover);
     }
 
     const embeddedCover = firstMetadata?.common.picture?.[0]?.data;
     if (embeddedCover) {
-      return await writeCoverImages(bookId, Buffer.from(embeddedCover));
+      return await writeCoverImages(libraryId, bookId, Buffer.from(embeddedCover));
     }
   } catch {
     return null;
@@ -707,7 +712,7 @@ async function prepareBookScan(
   const isbn = firstNativeString(firstMetadata, ["isbn", "ISBN"]);
   const asin = common?.asin ?? firstNativeString(firstMetadata, ["asin", "audible_asin", "AUDIBLE_ASIN"]);
   const publisher = primaryPublisher(firstMetadata);
-  const coverStorageKey = manualMetadata ? null : await generateCover(bookId, folderAbsolutePath, settings, firstMetadata);
+  const coverStorageKey = manualMetadata ? null : await generateCover(libraryId, bookId, folderAbsolutePath, settings, firstMetadata);
   const sidecarAuthors = sidecarArray(sidecar?.authors);
   const sidecarNarrators = sidecarArray(sidecar?.narrators);
   const sidecarGenres = sidecarArray(sidecar?.genres);

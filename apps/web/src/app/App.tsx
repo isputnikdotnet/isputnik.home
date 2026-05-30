@@ -9,6 +9,7 @@ import { HomePage } from "../pages/HomePage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { AboutPage } from "../pages/AboutPage";
 import { AudiobookBookPage, AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
+import { PlayerPage } from "../features/audiobooks/PlayerPage";
 import { PersonListPage } from "../features/audiobooks/PersonListPage";
 import { PersonDetailPage } from "../features/audiobooks/PersonDetailPage";
 import { SeriesListPage } from "../features/audiobooks/SeriesListPage";
@@ -136,6 +137,10 @@ export function App() {
 
   if (route.name === "audiobookBook") {
     return <AudiobookBookPage id={route.id} user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookPlayer") {
+    return <PlayerPage id={route.id} />;
   }
 
   if (route.name === "audiobookAuthors") {

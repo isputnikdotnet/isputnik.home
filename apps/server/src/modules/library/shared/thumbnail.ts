@@ -37,9 +37,9 @@ export function getConfiguredThumbnailPath() {
   return validateThumbnailPath(thumbnailPath);
 }
 
-export function thumbnailStorageKey(resourceId: string, fileName: string) {
+export function thumbnailStorageKey(bucket: string, resourceId: string, fileName: string) {
   const shard = resourceId.slice(0, 4).padEnd(4, "0");
-  return normaliseRelativePath(path.join(shard.slice(0, 2), shard.slice(2, 4), fileName));
+  return normaliseRelativePath(path.join(bucket, shard.slice(0, 2), shard.slice(2, 4), fileName));
 }
 
 export function thumbnailAbsolutePath(storageKey: string) {

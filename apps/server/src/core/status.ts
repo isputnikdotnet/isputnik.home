@@ -163,6 +163,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.4.7",
+          label: "Popup player & sidecar improvements",
+          changes: [
+            "Audiobook player now opens in a dedicated popup window (Audible-style) at /player/:id — stays alive while browsing the main app.",
+            "Player popup features large cover art, chapter title, Audible-style minimal controls (outlined skip circles, large dark play button), and a bottom-sheet chapter list that slides up full-screen.",
+            "Add a Bookmark button saves the current position to localStorage for later reference.",
+            "Mark as Finished available via the ⋯ menu in the player popup.",
+            "Thumbnails are now organized by library ID on disk — deleting a library cleans up its covers with a single folder removal. Author photos live under a shared 'people/' bucket.",
+            "Sidecar metadata: series strings in 'Name #N' format are now parsed into separate series name and position fields (e.g. 'Читер #2' → series: Читер, position: 2).",
+          ]
+        },
+        {
           version: "0.4.6",
           label: "Scan performance & reliability",
           changes: [

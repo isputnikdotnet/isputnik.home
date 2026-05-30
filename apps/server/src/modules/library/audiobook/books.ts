@@ -279,7 +279,7 @@ async function applyMetadataCandidate(bookId: string, candidate: MetadataCandida
   let coverStorageKey = current.cover_storage_key;
   if (updateCover && candidate.coverUrl) {
     const cover = await downloadCover(candidate.coverUrl);
-    coverStorageKey = await writeCoverImages(bookId, cover);
+    coverStorageKey = await writeCoverImages(current.library_id, bookId, cover);
   }
 
   const next = {
@@ -771,7 +771,7 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
     }
 
     try {
-      const coverStorageKey = await writeCoverImages(id, filePath);
+      const coverStorageKey = await writeCoverImages(lib.id, id, filePath);
       const book = updateBookCover(id, coverStorageKey);
       reply.send({ updated: true, book });
     } catch (err) {
@@ -811,7 +811,7 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
     }
 
     try {
-      const coverStorageKey = await writeCoverImages(id, body);
+      const coverStorageKey = await writeCoverImages(lib.id, id, body);
       const book = updateBookCover(id, coverStorageKey);
       reply.send({ updated: true, book });
     } catch (err) {
