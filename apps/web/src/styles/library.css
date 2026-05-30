@@ -671,6 +671,14 @@
   font-weight: 500;
 }
 
+.book-folder-path {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  word-break: break-all;
+  color: var(--muted);
+  font-weight: 400;
+}
+
 .book-description {
   line-height: 1.6;
   color: var(--muted);

@@ -58,6 +58,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     const settings = {
       folder_structure: "author_book",
       default_language: parsed.data.defaultLanguage,
+      ignore_sidecar: parsed.data.ignoreSidecar || undefined,
       show_narrator: true,
       supported_extensions: Array.from(audioExtensions).map((extension) => extension.slice(1)),
       cover_filenames: ["cover", "folder", "artwork"]

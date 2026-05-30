@@ -95,6 +95,10 @@ export interface Job {
     discoveredFiles?: number;
     bookErrors?: string[];
   } | null;
+  progress: {
+    booksProcessed: number;
+    booksTotal: number;
+  } | null;
 }
 
 export interface DbInfo {

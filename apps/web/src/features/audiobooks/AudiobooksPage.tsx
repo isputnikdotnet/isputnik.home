@@ -572,6 +572,10 @@ function BookDetailView({
                 <dd>{book.genres.join(", ")}</dd>
               </div>
             )}
+            <div>
+              <dt>Path</dt>
+              <dd className="book-folder-path">{book.folderPath}</dd>
+            </div>
           </dl>
         </div>
       </div>

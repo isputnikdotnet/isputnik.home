@@ -17,6 +17,7 @@ export function LibrariesSection() {
   const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
   const [libraryName, setLibraryName] = useState("");
   const [libraryVisibility, setLibraryVisibility] = useState<"public" | "private">("public");
+  const [libraryIgnoreSidecar, setLibraryIgnoreSidecar] = useState(false);
   const [libraryOwnerId, setLibraryOwnerId] = useState("");
   const [libraryOwnerType, setLibraryOwnerType] = useState<"user" | "group" | "">("");
   const [rescanningLibraryId, setRescanningLibraryId] = useState("");
@@ -109,6 +110,7 @@ export function LibrariesSection() {
           name: libraryName,
           sourcePath: storageBrowse.selectedPath,
           defaultLanguage: "en",
+          ignoreSidecar: libraryIgnoreSidecar,
           visibility: libraryVisibility,
           ownerId: libraryOwnerId || null,
           ownerType: libraryOwnerType || null
@@ -117,6 +119,7 @@ export function LibrariesSection() {
       setCreateLibraryOpen(false);
       setLibraryName("");
       setLibraryVisibility("public");
+      setLibraryIgnoreSidecar(false);
       setLibraryOwnerId("");
       setLibraryOwnerType("");
       setStorageBrowse(null);
@@ -397,6 +400,14 @@ export function LibrariesSection() {
                 </div>
               </section>
             )}
+            <label className="field-checkbox">
+              <input
+                type="checkbox"
+                checked={libraryIgnoreSidecar}
+                onChange={(event) => setLibraryIgnoreSidecar(event.target.checked)}
+              />
+              <span>Do not read metadata.json files</span>
+            </label>
             {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
             <div className="modal-actions">
               <button

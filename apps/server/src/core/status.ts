@@ -74,9 +74,11 @@ export async function statusPlugin(app: FastifyInstance) {
     return {
       jobs: rows.map((r) => {
         let result: { discoveredBooks?: number; discoveredFiles?: number; bookErrors?: string[] } | null = null;
+        let progress: { booksProcessed: number; booksTotal: number } | null = null;
         try {
-          const p = JSON.parse(r.payload) as { result?: typeof result };
+          const p = JSON.parse(r.payload) as { result?: typeof result; progress?: typeof progress };
           result = p.result ?? null;
+          progress = p.progress ?? null;
         } catch { /* ignore */ }
         return {
           id: r.id,
@@ -88,7 +90,8 @@ export async function statusPlugin(app: FastifyInstance) {
           completedAt: r.completed_at,
           failedAt: r.failed_at,
           error: r.error,
-          result
+          result,
+          progress
         };
       })
     };
@@ -96,7 +99,7 @@ export async function statusPlugin(app: FastifyInstance) {
 
   app.post("/api/jobs/:id/cancel", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const job = db.prepare("SELECT id, status FROM jobs WHERE id = ?").get(id) as { id: string; status: string } | undefined;
+    const job = db.prepare("SELECT id, status, payload FROM jobs WHERE id = ?").get(id) as { id: string; status: string; payload: string } | undefined;
     if (!job) {
       reply.code(404).send({ error: "Job not found" });
       return;
@@ -110,6 +113,13 @@ export async function statusPlugin(app: FastifyInstance) {
       SET status = 'failed', failed_at = CURRENT_TIMESTAMP, locked_at = NULL, locked_by = NULL, error = 'Cancelled by user'
       WHERE id = ?
     `).run(id);
+    try {
+      const p = JSON.parse(job.payload) as { libraryId?: string };
+      if (p.libraryId) {
+        db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND scan_status = 'scanning'")
+          .run(p.libraryId);
+      }
+    } catch { /* ignore */ }
     reply.send({ cancelled: true });
   });
 
@@ -152,6 +162,22 @@ export async function statusPlugin(app: FastifyInstance) {
       server: "Fastify + TypeScript",
       frontend: "React + TypeScript",
       versionUpdates: [
+        {
+          version: "0.4.6",
+          label: "Scan performance & reliability",
+          changes: [
+            "Scan is now 5–10× faster: audio files within each book are parsed in parallel, SHA-256 hashing removed (size + mtime fingerprint is sufficient), and up to 4 books are processed concurrently.",
+            "Async directory walk no longer blocks the HTTP server during large library scans.",
+            "Each book is written to the database as soon as it finishes — partial progress is preserved if the scan is cancelled or the server restarts.",
+            "Jobs page now shows live scan progress (X / Y books) while a scan is running.",
+            "Fixed: cancelling a job now immediately sets the library status to error; the cancelled scan no longer gets rescheduled for retry.",
+            "Fixed: certain M4B files caused music-metadata to hang indefinitely due to a chapter-parsing bug. Chapter parsing removed (unused); 15-second parse timeout added as a safety net.",
+            "Fixed: folder cover images are now found even when the filename is not a standard name like cover.jpg — the scanner falls back to the largest image file in the folder.",
+            "Fixed: cover images in the Edit Metadata cover browser showed as broken links due to a Fastify async streaming issue. Fixed by reading image files into a buffer before sending.",
+            "New library setting: Do not read metadata.json — when enabled at library creation time, sidecar metadata files are ignored during all scans.",
+            "Book detail page now shows the folder path of the book on disk.",
+          ]
+        },
         {
           version: "0.4.5",
           label: "Unraid scanner hardening",

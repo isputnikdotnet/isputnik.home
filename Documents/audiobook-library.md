@@ -58,12 +58,13 @@ Stored in `libraries.settings_json` when a library is created:
 | `default_language` | `en` | Fallback when no language tag is found |
 | `show_narrator` | `true` | Display narrator prominently in the UI |
 | `supported_extensions` | see below | Audio formats to include during scan |
-| `cover_filenames` | `cover,folder,artwork` | Image filenames to recognise as folder cover art |
+| `cover_filenames` | `cover,folder,artwork` | Image filenames to recognise as folder cover art (if none match, the largest image file in the folder is used as fallback) |
+| `ignore_sidecar` | `false` | When `true`, `metadata.json` files in book folders are ignored during all scans |
 
 Default supported extensions:
 
 ```json
-["m4b", "m4a", "mp3", "flac", "ogg", "opus", "aac"]
+["m4b", "m4a", "mp3", "flac", "ogg", "opus", "aac", "wav", "wave"]
 ```
 
 ---
@@ -204,7 +205,7 @@ chapter_title    TEXT
 duration_seconds INTEGER                    -- per-file duration (Phase 2, from music-metadata)
 size             INTEGER
 modified_at      TEXT
-content_hash     TEXT                        -- sha256 (Phase 2)
+content_hash     TEXT                        -- sha256 (reserved; no longer computed during scan — size+modified_at fingerprint is sufficient)
 
 UNIQUE (book_id, relative_path)
 ```
@@ -245,63 +246,59 @@ CREATE INDEX idx_progress_book        ON playback_progress(book_id);
 
 ### Current implementation (Phase 2)
 
-The scan runs asynchronously through the SQLite job queue. Create and rescan requests enqueue `SCAN_AUDIOBOOK_LIBRARY`, set `scan_status = 'scanning'`, and return immediately. The worker processes scan jobs in the server process; the UI polls `scan_status` until it returns to `idle`.
+The scan runs asynchronously through the SQLite job queue. Create and rescan requests enqueue `SCAN_AUDIOBOOK_LIBRARY`, set `scan_status = 'scanning'`, and return immediately. The worker processes scan jobs in the server process; the UI polls `scan_status` (and live progress) until it returns to `idle`.
 
 ```
-Admin registers library (name, source_path, defaultLanguage)
+Admin registers library (name, source_path, defaultLanguage, ignoreSidecar?)
   → validateLibrarySource:
       - path must be absolute
       - directory must exist
       - must fall inside a registered storage root
       - must not overlap with THUMBNAIL_PATH
-  → INSERT libraries record
-  → scanAudiobookLibrary(libraryId) — runs inline, returns when done
+  → INSERT libraries record (settings_json includes ignore_sidecar flag)
+  → enqueueAudiobookScan(libraryId) → INSERT jobs row, return immediately
 
-scanAudiobookLibrary:
+scanAudiobookLibrary (runs in background worker):
   → SET scan_status = 'scanning'
   → walkAudiobookFiles(rootPath):
-      recursive walk, skip symlinks outside root
+      async recursive walk (fs.promises.readdir), skip symlinks outside root
       collect audio files grouped by parent folder
       return Map<folderAbsPath, files[]>
 
-  → BEGIN TRANSACTION
-  → for each book folder:
-      sort files by filename (alpha-numeric)
-      folderPath = relative path from library root
+  → process up to 4 book folders concurrently:
 
-      upsert book (library_id, folder_path)
-        new  → INSERT status='ready'
-        seen → UPDATE status='ready', deleted_at=NULL
+      [per book folder]
+      fingerprint check (size + modified_at for all files):
+        if all files unchanged AND book already in DB AND no sidecar → skip, reuse existing data
 
-      upsert book_metadata
-        title       = first file's album/title tag, falling back to folder name
-        sort_title  = strip leading "the/a/an"
-        language    = tag language, falling back to settings.default_language
-        description, year, publisher, isbn, asin from tags when available
-        duration_seconds = sum(book_files.duration_seconds)
-        cover_storage_key = generated WebP thumbnail key when cover art is found
+      otherwise:
+        parse all files in parallel (Promise.all):
+          first file  → full parse (book metadata + cover extraction)
+          other files → parse for duration, track number, chapter title
 
-      upsert author from artist/albumartist tag, falling back to parent folder name
-      upsert narrators from composer tag as book_authors.role='narrator'
-      upsert genres from genre tags
-      INSERT book_authors (role='author') ON CONFLICT DO NOTHING
+        if settings.ignore_sidecar = false AND metadata.json present in folder:
+          read sidecar → overrides title, authors, narrators, description, year,
+                         language, genres, series, isbn, asin, publisher
 
-      mark all existing book_files as status='missing'
-      for each audio file (sorted):
-        upsert book_files
-          track_number  = parse from filename prefix or sort index
-          chapter_title = tag title or filename without extension
-          mime_type     = mapped from extension
-          duration_seconds = music-metadata duration
-          size          = fs.statSync
-          modified_at   = fs.statSync
-          content_hash  = sha256
+        resolve cover:
+          1. named file match: cover.jpg / folder.png / artwork.webp (or cover_filenames setting)
+          2. fallback: largest image file in the folder
+          3. fallback: embedded cover from first audio file tags
 
-  → soft-delete books not found in this walk (deleted_at = now)
-  → mark their files missing
-  → mark job completed with discovered book/file counts
-  → SET scan_status='idle', last_scanned_at=now
-  → COMMIT
+        upsert book (library_id, folder_path)
+        upsert book_metadata (skip fields where source='manual')
+        upsert authors, narrators, genres, series
+        mark existing book_files missing
+        upsert book_files (track_number, chapter_title, duration_seconds, size, modified_at)
+
+      write book to DB immediately (per-book transaction)
+      update job progress (booksProcessed / booksTotal) every 5 books or 3 seconds
+
+  → after all books processed:
+      soft-delete books not found in this walk (deleted_at = now)
+      mark their files missing
+      SET scan_status='idle', last_scanned_at=now
+      mark job completed with discovered book/file counts
 ```
 
 ### Phase 2 additions implemented
@@ -330,9 +327,11 @@ Phase 2 additions per book folder:
       disc_number  → tag: disc (for multi-disc sort ordering)
 
   → look for cover image in folder:
-      check filenames: cover.jpg, cover.png, folder.jpg, artwork.jpg, etc.
+      1. named match: cover.jpg / cover.png / folder.jpg / artwork.jpg, etc. (configurable via cover_filenames)
+      2. fallback: largest image file by size in the folder (handles non-standard filenames)
+      3. fallback: embedded cover from audio file tags
       if found: copy to /data/cache/thumbnails/<shard>/<book-id>-cover.webp
-               generate 300×300 WebP with sharp
+               generate 300×300 and 600×600 WebP with sharp
 
   → upsert book_metadata with tag values (skip fields where source='manual')
   → upsert authors, narrators, genres from tags
@@ -650,7 +649,7 @@ Audiobookshelf writes its own `metadata.json` (and `metadata.abs`) with differen
 | Condition | Action |
 |---|---|
 | New folder found | Insert book record, run full metadata pipeline |
-| Existing folder, files unchanged | Mark book/files available without re-reading tags or re-hashing files |
+| Existing folder, files unchanged | Skip re-parsing — size + modified_at fingerprint matches existing DB records |
 | Existing folder, file changed (size or `modified_at` differs) | Update `book_files`, re-run metadata pipeline |
 | Previously known folder not found | `book.deleted_at = now`, files marked missing (30-day retention) |
 | Previously missing folder reappears | Clear `deleted_at`, re-run metadata pipeline |
@@ -713,10 +712,9 @@ Configured library source (read-only):
 |---|---|---|---|
 | Folder walking | Node.js `fs` | 1 ✓ | Built-in, no dependency |
 | Track number from filename | Regex | 1 ✓ | Built-in |
-| Audio tag reading (metadata) | `music-metadata` (npm) | 2 | First file: title/author/etc. |
+| Audio tag reading (metadata) | `music-metadata` (npm) | 2 | All files parsed in parallel; 15 s timeout per file guards against malformed files |
 | Audio duration + track order | `music-metadata` (npm) | 2 | All files: sum duration, sort order |
-| Cover art processing | `sharp` (npm) | 2 | WebP generation, two sizes |
-| File hashing | Node.js `crypto` | 2 | SHA-256, incremental for large files |
+| Cover art processing | `sharp` (npm) | 2 | WebP generation, two sizes (300 px and 600 px) |
 
 ---
 

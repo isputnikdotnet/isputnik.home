@@ -3,6 +3,7 @@ export interface AudiobookLibrary {
   name: string;
   type: "audiobook";
   sourcePath?: string;
+  ignoreSidecar: boolean;
   scanStatus: "idle" | "scanning" | "error";
   lastScannedAt: string | null;
   ownerId: string | null;

@@ -119,6 +119,9 @@ export function JobsSection() {
                       <td className="col-scan datagrid-muted">{d ?? <span className="muted">—</span>}</td>
                       <td>
                         {result && <span className="datagrid-muted">{result}</span>}
+                        {!result && job.status === "running" && job.progress && (
+                          <span className="datagrid-muted">{job.progress.booksProcessed} / {job.progress.booksTotal} books</span>
+                        )}
                         {!result && errorText && (
                           <button
                             className="job-error-toggle"
@@ -128,7 +131,7 @@ export function JobsSection() {
                             {errorText.split("\n")[0].slice(0, 80)}{errorText.length > 80 ? "…" : ""}
                           </button>
                         )}
-                        {!result && !errorText && <span className="muted">—</span>}
+                        {!result && !errorText && !(job.status === "running" && job.progress) && <span className="muted">—</span>}
                       </td>
                       <td className="col-actions">
                         {(job.status === "pending" || job.status === "running") && (

@@ -3,6 +3,15 @@
   gap: 7px;
 }
 
+.field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
 .field > span:first-child {
   color: var(--muted);
 }

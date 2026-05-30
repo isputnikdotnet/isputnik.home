@@ -741,10 +741,12 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
       return;
     }
 
+    const buffer = await fs.promises.readFile(filePath);
     reply
       .type(imageMimeType(filePath))
+      .header("Content-Length", buffer.byteLength)
       .header("Cache-Control", "private, max-age=300")
-      .send(fs.createReadStream(filePath));
+      .send(buffer);
   });
 
   app.post("/api/library/books/:id/cover", { preHandler: app.authenticate }, async (request, reply) => {

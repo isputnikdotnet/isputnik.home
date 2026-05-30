@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
 import { parseFile, type IAudioMetadata } from "music-metadata";
 import { nanoid } from "nanoid";
 import sharp from "sharp";
@@ -8,7 +7,8 @@ import { db } from "../../../db.js";
 import { normaliseRelativePath, findStorageRootForPath } from "../shared/storage-roots.js";
 import { getConfiguredThumbnailPath, thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 
-export const audioExtensions = new Set([".m4b", ".m4a", ".mp3", ".flac", ".ogg", ".opus", ".aac"]);
+const legacyAudioExtensions = new Set([".m4b", ".m4a", ".mp3", ".flac", ".ogg", ".opus", ".aac"]);
+export const audioExtensions = new Set([...legacyAudioExtensions, ".wav", ".wave"]);
 const imageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
 const scanJobType = "SCAN_AUDIOBOOK_LIBRARY";
 
@@ -16,6 +16,7 @@ interface AudiobookSettings {
   default_language?: string;
   supported_extensions?: string[];
   cover_filenames?: string[];
+  ignore_sidecar?: boolean;
 }
 
 interface AudioFileEntry {
@@ -102,7 +103,9 @@ export function mimeFromExtension(extension: string) {
     ".m4b": "audio/mp4",
     ".mp3": "audio/mpeg",
     ".ogg": "audio/ogg",
-    ".opus": "audio/opus"
+    ".opus": "audio/opus",
+    ".wav": "audio/wav",
+    ".wave": "audio/wav"
   }[extension] ?? "application/octet-stream";
 }
 
@@ -124,10 +127,20 @@ function supportedAudioExtensions(settings: AudiobookSettings) {
     return audioExtensions;
   }
 
-  return new Set(settings.supported_extensions.map((extension) => {
+  const extensions = new Set(settings.supported_extensions.map((extension) => {
     const normalised = extension.trim().toLowerCase();
     return normalised.startsWith(".") ? normalised : `.${normalised}`;
   }));
+
+  const isLegacyDefault = extensions.size === legacyAudioExtensions.size
+    && Array.from(extensions).every((extension) => legacyAudioExtensions.has(extension));
+  if (isLegacyDefault) {
+    for (const extension of audioExtensions) {
+      extensions.add(extension);
+    }
+  }
+
+  return extensions;
 }
 
 function discNumberFromFolderName(folderName: string) {
@@ -215,7 +228,6 @@ function existingFilesAreCurrent(files: AudioFileEntry[], existingFiles: Existin
       existing
       && existing.size === fingerprint.size
       && existing.modified_at === fingerprint.modifiedAt
-      && existing.content_hash
     );
   });
 }
@@ -429,25 +441,17 @@ function primaryPublisher(metadata: IAudioMetadata | null) {
 
 async function safeParseAudio(filePath: string, includeCover: boolean) {
   try {
-    return await parseFile(filePath, {
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 15_000));
+    const parse = parseFile(filePath, {
       duration: true,
-      skipCovers: !includeCover,
-      includeChapters: true
+      skipCovers: !includeCover
     });
+    return await Promise.race([parse, timeout]);
   } catch {
     return null;
   }
 }
 
-async function hashFile(filePath: string) {
-  return await new Promise<string>((resolve, reject) => {
-    const hash = createHash("sha256");
-    const stream = fs.createReadStream(filePath);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("error", reject);
-    stream.on("end", () => resolve(hash.digest("hex")));
-  });
-}
 
 function findFolderCover(folderPath: string, settings: AudiobookSettings) {
   const coverNames = settings.cover_filenames?.length ? settings.cover_filenames : ["cover", "folder", "artwork"];
@@ -457,13 +461,23 @@ function findFolderCover(folderPath: string, settings: AudiobookSettings) {
     return parsedExtension ? [base] : imageExtensions.map((extension) => `${base}${extension}`);
   }));
 
+  let fallback: { filePath: string; size: number } | null = null;
+
   for (const entry of fs.readdirSync(folderPath, { withFileTypes: true })) {
-    if (entry.isFile() && wanted.has(entry.name.toLowerCase())) {
-      return path.join(folderPath, entry.name);
+    if (!entry.isFile()) continue;
+    const ext = path.extname(entry.name).toLowerCase();
+    if (!imageExtensions.includes(ext)) continue;
+    const filePath = path.join(folderPath, entry.name);
+    if (wanted.has(entry.name.toLowerCase())) {
+      return filePath;
+    }
+    const size = fs.statSync(filePath).size;
+    if (!fallback || size > fallback.size) {
+      fallback = { filePath, size };
     }
   }
 
-  return null;
+  return fallback?.filePath ?? null;
 }
 
 export async function writeCoverImages(bookId: string, source: string | Buffer) {
@@ -527,46 +541,59 @@ export function validateLibrarySource(sourcePath: string) {
   return realSource;
 }
 
-export function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings = {}) {
+export async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings = {}) {
   const extensions = supportedAudioExtensions(settings);
   const filesByBookFolder = new Map<string, AudioFileEntry[]>();
 
-  const walk = (currentPath: string) => {
-    for (const entry of fs.readdirSync(currentPath, { withFileTypes: true })) {
+  const walk = async (currentPath: string): Promise<void> => {
+    let entries: fs.Dirent[];
+    try {
+      entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    await Promise.all(entries.map(async (entry) => {
       const absolutePath = path.join(currentPath, entry.name);
+
       if (entry.isSymbolicLink()) {
-        const real = fs.realpathSync(absolutePath);
-        if (!real.startsWith(`${rootPath}${path.sep}`)) {
-          continue;
+        try {
+          const real = await fs.promises.realpath(absolutePath);
+          if (!real.startsWith(`${rootPath}${path.sep}`)) return;
+        } catch {
+          return;
         }
       }
 
       if (entry.isDirectory()) {
-        walk(absolutePath);
-        continue;
+        await walk(absolutePath);
+        return;
       }
 
-      if (!entry.isFile()) {
-        continue;
-      }
+      if (!entry.isFile()) return;
 
       const extension = path.extname(entry.name).toLowerCase();
-      if (!extensions.has(extension)) {
-        continue;
-      }
+      if (!extensions.has(extension)) return;
 
       const folderPath = path.dirname(absolutePath);
       const discHint = discNumberFromFolderName(path.basename(folderPath));
       const bookFolderPath = discHint ? path.dirname(folderPath) : folderPath;
       const relativePath = normaliseRelativePath(path.relative(rootPath, absolutePath));
-      const stat = fs.statSync(absolutePath);
-      const files = filesByBookFolder.get(bookFolderPath) ?? [];
-      files.push({ absolutePath, fileName: entry.name, relativePath, stat, discHint });
-      filesByBookFolder.set(bookFolderPath, files);
-    }
+
+      let stat: fs.Stats;
+      try {
+        stat = await fs.promises.stat(absolutePath);
+      } catch {
+        return;
+      }
+
+      const existing = filesByBookFolder.get(bookFolderPath) ?? [];
+      existing.push({ absolutePath, fileName: entry.name, relativePath, stat, discHint });
+      filesByBookFolder.set(bookFolderPath, existing);
+    }));
   };
 
-  walk(rootPath);
+  await walk(rootPath);
   return filesByBookFolder;
 }
 
@@ -612,7 +639,7 @@ async function prepareBookScan(
   const manualMetadata = metadataRow?.source === "manual";
   const titleHint = path.basename(folderAbsolutePath);
   const authorHint = path.basename(path.dirname(folderAbsolutePath));
-  const sidecar = manualMetadata ? null : readSidecarMetadata(folderAbsolutePath);
+  const sidecar = (manualMetadata || settings.ignore_sidecar) ? null : readSidecarMetadata(folderAbsolutePath);
 
   const filesWithFallbackOrder = files
     .sort((left, right) => {
@@ -654,10 +681,12 @@ async function prepareBookScan(
     }
   }
 
-  const parsedMetadata: Array<IAudioMetadata | null> = [];
-  for (const [index, file] of filesWithFallbackOrder.entries()) {
-    parsedMetadata.push(await safeParseAudio(file.absolutePath, index === 0 && !manualMetadata));
-  }
+  // Parse all files in parallel: first file gets cover extraction, rest skip it
+  const parsedMetadata = await Promise.all(
+    filesWithFallbackOrder.map((file, index) =>
+      safeParseAudio(file.absolutePath, index === 0 && !manualMetadata)
+    )
+  );
 
   const firstMetadata = parsedMetadata[0] ?? null;
   const common = firstMetadata?.common;
@@ -683,7 +712,7 @@ async function prepareBookScan(
   const sidecarNarrators = sidecarArray(sidecar?.narrators);
   const sidecarGenres = sidecarArray(sidecar?.genres);
 
-  const fileSortData = await Promise.all(filesWithFallbackOrder.map(async (file, index) => {
+  const fileSortData = filesWithFallbackOrder.map((file, index) => {
     const metadata = parsedMetadata[index];
     const extension = path.extname(file.fileName).toLowerCase();
     const discNumber = metadata?.common.disk.no ?? file.discHint ?? 0;
@@ -693,10 +722,9 @@ async function prepareBookScan(
       metadata,
       extension,
       sortDisc: discNumber,
-      sortTrack: taggedTrack ?? trackNumberFromFileName(file.fileName, index + 1),
-      contentHash: await hashFile(file.absolutePath)
+      sortTrack: taggedTrack ?? trackNumberFromFileName(file.fileName, index + 1)
     };
-  }));
+  });
 
   const preparedFiles = fileSortData
     .sort((left, right) => (
@@ -712,7 +740,7 @@ async function prepareBookScan(
       durationSeconds: item.metadata?.format.duration ? Math.round(item.metadata.format.duration) : null,
       size: item.file.stat.size,
       modifiedAt: item.file.stat.mtime.toISOString(),
-      contentHash: item.contentHash
+      contentHash: null
     }));
   const totalDuration = preparedFiles.reduce((total, file) => total + (file.durationSeconds ?? 0), 0);
 
@@ -882,7 +910,7 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
   }
 }
 
-export async function scanAudiobookLibrary(libraryId: string) {
+export async function scanAudiobookLibrary(libraryId: string, jobId: string | null = null) {
   const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
     .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
   if (!library) {
@@ -892,44 +920,79 @@ export async function scanAudiobookLibrary(libraryId: string) {
   const rootPath = validateLibrarySource(library.source_path);
   const settings = normaliseSettings(library.settings_json);
   db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
-  const filesByFolder = walkAudiobookFiles(rootPath, settings);
+
+  const filesByFolder = await walkAudiobookFiles(rootPath, settings);
+  const entries = [...filesByFolder.entries()];
+  const booksTotal = entries.length;
   const foundFolders = new Set<string>();
   let discoveredBooks = 0;
   let discoveredFiles = 0;
-  const preparedBooks: PreparedBookScan[] = [];
-
+  let booksProcessed = 0;
   const bookErrors: string[] = [];
+  let cancelled = false;
+  let lastProgressUpdate = 0;
 
-  for (const [folderAbsolutePath, files] of filesByFolder.entries()) {
-    const jobCancelled = db.prepare("SELECT status FROM jobs WHERE type = ? AND status IN ('failed', 'pending') AND payload LIKE ?")
-      .get(scanJobType, `%${libraryId}%`) as { status: string } | undefined;
-    if (jobCancelled?.status === "failed") {
-      db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
-      throw new Error("Job cancelled");
-    }
+  const updateProgress = () => {
+    if (!jobId) return;
+    const now = Date.now();
+    if (now - lastProgressUpdate < 3000 && booksProcessed % 5 !== 0) return;
+    lastProgressUpdate = now;
+    db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(
+      JSON.stringify({ libraryId, progress: { booksProcessed, booksTotal } }),
+      jobId
+    );
+  };
 
-    try {
-      preparedBooks.push(await prepareBookScan(libraryId, rootPath, settings, folderAbsolutePath, files));
-    } catch (err) {
-      const folder = folderAbsolutePath.replace(rootPath, "").replace(/^[\\/]/, "") || folderAbsolutePath;
-      const msg = err instanceof Error ? err.message : String(err);
-      bookErrors.push(`${folder}: ${msg}`);
+  const CONCURRENCY = 4;
+  let index = 0;
+
+  const worker = async () => {
+    while (!cancelled) {
+      const i = index++;
+      if (i >= entries.length) break;
+
+      if (jobId) {
+        const job = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as { status: string } | undefined;
+        if (job?.status === "failed") {
+          cancelled = true;
+          break;
+        }
+      }
+
+      const [folderAbsolutePath, files] = entries[i];
+      try {
+        const book = await prepareBookScan(libraryId, rootPath, settings, folderAbsolutePath, files);
+        db.transaction(() => writeBookScan(libraryId, book))();
+        foundFolders.add(book.folderPath);
+        discoveredBooks += 1;
+        discoveredFiles += book.files.length;
+      } catch (err) {
+        const folder = folderAbsolutePath.replace(rootPath, "").replace(/^[\\/]/, "") || folderAbsolutePath;
+        const msg = err instanceof Error ? err.message : String(err);
+        bookErrors.push(`${folder}: ${msg}`);
+      }
+
+      booksProcessed++;
+      updateProgress();
+      await new Promise<void>(resolve => setImmediate(resolve));
     }
+  };
+
+  if (entries.length > 0) {
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, entries.length) }, worker));
   }
 
-  if (bookErrors.length > 0 && preparedBooks.length === 0) {
+  if (cancelled) {
+    db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
+    throw new Error("Job cancelled");
+  }
+
+  if (bookErrors.length > 0 && discoveredBooks === 0) {
     db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
     throw new Error(`All books failed to scan:\n${bookErrors.join("\n")}`);
   }
 
   db.transaction(() => {
-    for (const book of preparedBooks) {
-      foundFolders.add(book.folderPath);
-      writeBookScan(libraryId, book);
-      discoveredBooks += 1;
-      discoveredFiles += book.files.length;
-    }
-
     const knownBooks = db.prepare("SELECT id, folder_path FROM books WHERE library_id = ? AND deleted_at IS NULL")
       .all(libraryId) as { id: string; folder_path: string }[];
     for (const book of knownBooks) {
@@ -938,7 +1001,6 @@ export async function scanAudiobookLibrary(libraryId: string) {
         db.prepare("UPDATE book_files SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(book.id);
       }
     }
-
     db.prepare(`
       UPDATE libraries
       SET scan_status = 'idle', last_scanned_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -1033,13 +1095,19 @@ export async function processAudiobookScanQueue() {
 
       const payload = JSON.parse(job.payload) as { libraryId: string };
       try {
-        const result = await scanAudiobookLibrary(payload.libraryId);
+        const result = await scanAudiobookLibrary(payload.libraryId, job.id);
         db.prepare(`
           UPDATE jobs
           SET status = 'completed', payload = ?, completed_at = CURRENT_TIMESTAMP, locked_at = NULL, locked_by = NULL
           WHERE id = ?
         `).run(JSON.stringify({ ...payload, result }), job.id);
       } catch (err) {
+        const currentStatus = (db.prepare("SELECT status FROM jobs WHERE id = ?").get(job.id) as { status: string } | undefined)?.status;
+        if (currentStatus === "failed") {
+          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND scan_status = 'scanning'")
+            .run(payload.libraryId);
+          continue;
+        }
         const message = err instanceof Error
           ? `${err.message}${err.stack ? `\n\nStack:\n${err.stack}` : ""}`
           : "Audiobook scan failed";
