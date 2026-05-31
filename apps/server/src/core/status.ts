@@ -163,6 +163,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.4.10",
+          label: "Audiobook detail polish",
+          changes: [
+            "My List now supports removing saved books directly from the My List page.",
+            "Book detail pages now keep actions, description, and the files dropdown aligned in the book info column.",
+            "Book metadata and descriptions are more compact by default, with show-more controls for the full detail set.",
+            "Removed the reset-progress button from book details and the extra top brand icon from the popup player."
+          ]
+        },
+        {
           version: "0.4.9",
           label: "Bookmarks, My List & encoding fix",
           changes: [

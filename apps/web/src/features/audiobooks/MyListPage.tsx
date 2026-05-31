@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Heart } from "lucide-react";
+import { BookOpen, Heart, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { AudiobookNav } from "./AudiobookNav";
@@ -17,12 +17,26 @@ export function MyListPage({
 }) {
   const [books, setBooks] = useState<SavedBook[] | null>(null);
   const [error, setError] = useState("");
+  const [removingIds, setRemovingIds] = useState<string[]>([]);
 
   useEffect(() => {
     api<{ books: SavedBook[] }>("/api/library/saved")
       .then((payload) => setBooks(payload.books))
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load your list"));
   }, []);
+
+  const removeBook = async (bookId: string) => {
+    setRemovingIds((current) => [...current, bookId]);
+    setError("");
+    try {
+      await api(`/api/library/books/${bookId}/save`, { method: "DELETE" });
+      setBooks((current) => current?.filter((book) => book.id !== bookId) ?? current);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to remove this book from My List");
+    } finally {
+      setRemovingIds((current) => current.filter((id) => id !== bookId));
+    }
+  };
 
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="saved" />}>
@@ -47,29 +61,43 @@ export function MyListPage({
           </div>
         ) : (
           <div className="audiobook-grid">
-            {(books ?? []).map((book) => (
-              <button className="audiobook-card" key={book.id} onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
-                <div className="audiobook-cover" aria-hidden="true">
-                  {book.coverUrl ? (
-                    <img src={book.coverUrl} alt="" />
-                  ) : (
-                    <>
-                      <BookOpen size={13} />
-                      <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
-                    </>
-                  )}
-                </div>
-                <div className="audiobook-card-body">
-                  <strong>{book.title}</strong>
-                  <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
-                  <small>
-                    {book.durationSeconds != null ? `${formatDuration(book.durationSeconds)} · ` : ""}
-                    {book.fileCount} {book.fileCount === 1 ? "file" : "files"}
-                  </small>
-                  {book.note && <p className="audiobook-card-note">{book.note}</p>}
-                </div>
-              </button>
-            ))}
+            {(books ?? []).map((book) => {
+              const removing = removingIds.includes(book.id);
+              return (
+                <article className="saved-audiobook-card" key={book.id}>
+                  <button className="audiobook-card" onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
+                    <div className="audiobook-cover" aria-hidden="true">
+                      {book.coverUrl ? (
+                        <img src={book.coverUrl} alt="" />
+                      ) : (
+                        <>
+                          <BookOpen size={13} />
+                          <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
+                        </>
+                      )}
+                    </div>
+                    <div className="audiobook-card-body">
+                      <strong>{book.title}</strong>
+                      <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
+                      <small>
+                        {book.durationSeconds != null ? `${formatDuration(book.durationSeconds)} · ` : ""}
+                        {book.fileCount} {book.fileCount === 1 ? "file" : "files"}
+                      </small>
+                      {book.note && <p className="audiobook-card-note">{book.note}</p>}
+                    </div>
+                  </button>
+                  <button
+                    className="icon-button danger saved-audiobook-remove"
+                    onClick={() => removeBook(book.id)}
+                    disabled={removing}
+                    aria-label={`Remove ${book.title} from My List`}
+                    title="Remove from My List"
+                  >
+                    <X size={16} />
+                  </button>
+                </article>
+              );
+            })}
             {books === null && <p className="management-empty">Loading your list...</p>}
           </div>
         )}

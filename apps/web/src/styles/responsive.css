@@ -166,6 +166,10 @@
     width: 100%;
   }
 
+  .saved-audiobook-card {
+    width: 100%;
+  }
+
   .book-detail-head {
     grid-template-columns: 120px minmax(0, 1fr);
     gap: 16px;

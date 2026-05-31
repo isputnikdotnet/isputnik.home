@@ -466,6 +466,43 @@
   border-color: color-mix(in srgb, var(--mint) 58%, var(--line));
 }
 
+.saved-audiobook-card {
+  position: relative;
+  width: 164px;
+  min-width: 0;
+}
+
+.saved-audiobook-card .audiobook-card {
+  width: 100%;
+}
+
+.saved-audiobook-card:focus-within .audiobook-cover {
+  border-color: color-mix(in srgb, var(--mint) 58%, var(--line));
+}
+
+.saved-audiobook-remove {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 1;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--rose) 45%, transparent);
+  color: #fff;
+  background: color-mix(in srgb, #101923 72%, var(--rose));
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
+}
+
+.saved-audiobook-remove:hover {
+  background: color-mix(in srgb, var(--rose) 56%, #101923);
+}
+
+.saved-audiobook-remove:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .audiobook-cover {
   position: relative;
   display: grid;
@@ -562,7 +599,7 @@
 
 .book-detail-view {
   display: grid;
-  gap: 28px;
+  gap: 22px;
   padding: 22px 0 32px;
 }
 
@@ -585,8 +622,8 @@
 
 .book-detail-head {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: 28px;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 24px;
   align-items: start;
 }
 
@@ -633,7 +670,7 @@
 
 .book-detail-title {
   margin: 2px 0 0;
-  font-size: 1.7rem;
+  font-size: 1.55rem;
   line-height: 1.2;
 }
 
@@ -645,17 +682,17 @@
 .book-detail-meta {
   display: grid;
   gap: 0;
-  margin: 16px 0 0;
+  margin: 12px 0 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
 .book-detail-meta div {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 0 16px;
-  padding: 9px 14px;
+  grid-template-columns: 104px 1fr;
+  gap: 0 12px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -666,14 +703,15 @@
 .book-detail-meta dt,
 .book-detail-meta dd {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
+  line-height: 1.3;
 }
 
 .book-detail-meta dt {
   color: var(--muted);
   text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
+  font-size: 0.66rem;
+  letter-spacing: 0.035em;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -685,24 +723,60 @@
 
 .book-folder-path {
   font-family: var(--font-mono, monospace);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   word-break: break-all;
   color: var(--muted);
   font-weight: 400;
 }
 
-.book-description {
-  line-height: 1.6;
-  color: var(--muted);
+.book-detail-more {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  min-height: 30px;
+  margin-top: 6px;
+  padding: 0 2px;
+  border: 0;
+  color: var(--mint);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.book-detail-more:hover,
+.book-detail-more:focus-visible {
+  color: var(--gold);
+}
+
+.book-description-block {
+  display: grid;
+  gap: 4px;
+  margin-top: 2px;
   max-width: 72ch;
+}
+
+.book-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.book-description-more {
+  margin-top: 0;
 }
 
 .book-detail-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  width: 100%;
+  margin-top: 10px;
 }
 
+.book-detail-actions .primary-button,
 .book-detail-actions .secondary-button,
 .book-detail-actions a.secondary-button {
   display: inline-flex;
@@ -720,6 +794,10 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
+}
+
+.book-detail-info .book-files-section {
+  margin-top: 4px;
 }
 
 .book-files-toggle {

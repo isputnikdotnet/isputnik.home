@@ -133,7 +133,6 @@ export function PlayerPage({ id }: { id: string }) {
   return (
     <div className="popup-player-page">
       <div className="popup-topbar">
-        <img className="popup-logo" src="/Assets/brand/isputnik-brand-icon.svg" alt="isputnik" />
         <div className="popup-more" ref={menuRef}>
           <button
             className="popup-menu-btn"

@@ -235,6 +235,8 @@ function BookDetailView({
   onBookUpdated: (book: AudiobookBookDetail) => void;
 }) {
   const [filesOpen, setFilesOpen] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [activeMetadataTab, setActiveMetadataTab] = useState<"edit" | "cover" | "lookup">("edit");
   const [metadataQuery, setMetadataQuery] = useState(`${book.title} ${book.authors[0] ?? ""}`.trim());
@@ -250,7 +252,7 @@ function BookDetailView({
   const [resetError, setResetError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
-  const [progressAction, setProgressAction] = useState<"complete" | "reset" | "">("");
+  const [progressAction, setProgressAction] = useState<"complete" | "">("");
   const [progressActionError, setProgressActionError] = useState("");
   const [coverCandidates, setCoverCandidates] = useState<CoverCandidate[]>([]);
   const [coverLoading, setCoverLoading] = useState(false);
@@ -289,6 +291,11 @@ function BookDetailView({
       description: book.description ?? ""
     });
   }, [book]);
+
+  useEffect(() => {
+    setDetailsExpanded(false);
+    setDescriptionExpanded(false);
+  }, [book.id]);
 
   const loadCoverCandidates = useCallback(async () => {
     setCoverLoading(true);
@@ -419,18 +426,6 @@ function BookDetailView({
     }
   };
 
-  const resetBookProgress = async () => {
-    setProgressAction("reset");
-    setProgressActionError("");
-    try {
-      await api(`/api/library/books/${book.id}/progress`, { method: "DELETE" });
-    } catch (err) {
-      setProgressActionError(err instanceof Error ? err.message : "Unable to reset book progress");
-    } finally {
-      setProgressAction("");
-    }
-  };
-
   const applyFolderCover = async (cover: CoverCandidate) => {
     setCoverSaving(cover.relativePath);
     setCoverError("");
@@ -477,6 +472,81 @@ function BookDetailView({
     });
   };
 
+  type DetailRow = { label: string; value: string; group: "core" | "extra"; className?: string };
+  const detailRows: DetailRow[] = [
+    book.series ? {
+      label: "Series",
+      value: `${book.series}${book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}`,
+      group: "core"
+    } : null,
+    book.narrators.length > 0 ? {
+      label: "Narrators",
+      value: book.narrators.join(", "),
+      group: "core"
+    } : null,
+    book.durationSeconds != null ? {
+      label: "Duration",
+      value: formatDuration(book.durationSeconds),
+      group: "core"
+    } : null,
+    book.yearPublished ? {
+      label: "Published",
+      value: String(book.yearPublished),
+      group: "core"
+    } : null,
+    book.totalSize > 0 ? {
+      label: "Size",
+      value: formatBytes(book.totalSize),
+      group: "core"
+    } : null,
+    book.authors.length > 0 ? {
+      label: "Authors",
+      value: book.authors.join(", "),
+      group: "extra"
+    } : null,
+    book.language ? {
+      label: "Language",
+      value: book.language,
+      group: "extra"
+    } : null,
+    book.publisher ? {
+      label: "Publisher",
+      value: book.publisher,
+      group: "extra"
+    } : null,
+    book.genres.length > 0 ? {
+      label: "Genres",
+      value: book.genres.join(", "),
+      group: "extra"
+    } : null,
+    book.isbn ? {
+      label: "ISBN",
+      value: book.isbn,
+      group: "extra"
+    } : null,
+    book.asin ? {
+      label: "ASIN",
+      value: book.asin,
+      group: "extra"
+    } : null,
+    {
+      label: "Path",
+      value: book.folderPath,
+      group: "extra",
+      className: "book-folder-path"
+    }
+  ].filter((row): row is DetailRow => Boolean(row));
+  const coreDetailRows = detailRows.filter((row) => row.group === "core");
+  const collapsedDetailRows = coreDetailRows.length > 0 ? coreDetailRows : detailRows.slice(0, 3);
+  const visibleDetailRows = detailsExpanded ? detailRows : collapsedDetailRows;
+  const canExpandDetails = detailRows.length > collapsedDetailRows.length;
+  const hiddenDetailCount = detailRows.length - collapsedDetailRows.length;
+  const descriptionText = book.description?.trim() ?? "";
+  const canExpandDescription = descriptionText.length > 420;
+  const visibleDescription = canExpandDescription && !descriptionExpanded
+    ? `${descriptionText.slice(0, 420).trimEnd()}...`
+    : descriptionText;
+
   return (
     <div className="book-detail-view">
       <button className="back-link" onClick={onBack}>
@@ -503,110 +573,96 @@ function BookDetailView({
           )}
 
           <dl className="book-detail-meta">
-            {book.series && (
-              <div>
-                <dt>Series</dt>
-                <dd>{book.series}{book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}</dd>
+            {visibleDetailRows.map((row) => (
+              <div key={row.label}>
+                <dt>{row.label}</dt>
+                <dd className={row.className}>{row.value}</dd>
               </div>
-            )}
-            {book.authors.length > 0 && (
-              <div>
-                <dt>Authors</dt>
-                <dd>{book.authors.join(", ")}</dd>
-              </div>
-            )}
-            {book.narrators.length > 0 && (
-              <div>
-                <dt>Narrators</dt>
-                <dd>{book.narrators.join(", ")}</dd>
-              </div>
-            )}
-            {book.yearPublished && (
-              <div>
-                <dt>Published</dt>
-                <dd>{book.yearPublished}</dd>
-              </div>
-            )}
-            {book.language && (
-              <div>
-                <dt>Language</dt>
-                <dd>{book.language}</dd>
-              </div>
-            )}
-            {book.durationSeconds != null && (
-              <div>
-                <dt>Duration</dt>
-                <dd>{formatDuration(book.durationSeconds)}</dd>
-              </div>
-            )}
-            {book.totalSize > 0 && (
-              <div>
-                <dt>Size</dt>
-                <dd>{formatBytes(book.totalSize)}</dd>
-              </div>
-            )}
-            {book.isbn && (
-              <div>
-                <dt>ISBN</dt>
-                <dd>{book.isbn}</dd>
-              </div>
-            )}
-            {book.asin && (
-              <div>
-                <dt>ASIN</dt>
-                <dd>{book.asin}</dd>
-              </div>
-            )}
-            {book.publisher && (
-              <div>
-                <dt>Publisher</dt>
-                <dd>{book.publisher}</dd>
-              </div>
-            )}
-            {book.genres.length > 0 && (
-              <div>
-                <dt>Genres</dt>
-                <dd>{book.genres.join(", ")}</dd>
-              </div>
-            )}
-            <div>
-              <dt>Path</dt>
-              <dd className="book-folder-path">{book.folderPath}</dd>
-            </div>
+            ))}
           </dl>
+          {canExpandDetails && (
+            <button
+              className="book-detail-more"
+              type="button"
+              onClick={() => setDetailsExpanded((expanded) => !expanded)}
+              aria-expanded={detailsExpanded}
+            >
+              {detailsExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              <span>{detailsExpanded ? "Show fewer details" : `Show ${hiddenDetailCount} more detail${hiddenDetailCount === 1 ? "" : "s"}`}</span>
+            </button>
+          )}
+
+          <div className="book-detail-actions">
+            <button
+              className="primary-button"
+              onClick={() => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=800,resizable=yes,scrollbars=yes")}
+            >
+              <Play size={16} />
+              <span>Play</span>
+            </button>
+            <button className="secondary-button" onClick={() => { setActiveMetadataTab("edit"); setMetadataModalOpen(true); }}>
+              <Pencil size={16} />
+              <span>Edit metadata</span>
+            </button>
+            <button className="secondary-button" onClick={markBookFinished} disabled={progressAction !== ""}>
+              <CheckCircle2 size={16} />
+              <span>{progressAction === "complete" ? "Saving..." : "Mark finished"}</span>
+            </button>
+            <a className="secondary-button" href={`/api/library/books/${book.id}/download`} download>
+              <Download size={16} />
+              <span>Download</span>
+            </a>
+          </div>
+          {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
+
+          {descriptionText && (
+            <section className="book-description-block">
+              <p className="book-description">{visibleDescription}</p>
+              {canExpandDescription && (
+                <button
+                  className="book-detail-more book-description-more"
+                  type="button"
+                  onClick={() => setDescriptionExpanded((expanded) => !expanded)}
+                  aria-expanded={descriptionExpanded}
+                >
+                  {descriptionExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  <span>{descriptionExpanded ? "Show less description" : "Show full description"}</span>
+                </button>
+              )}
+            </section>
+          )}
+
+          <section className="book-files-section">
+            <button
+              className="book-files-toggle"
+              onClick={() => setFilesOpen((open) => !open)}
+              aria-expanded={filesOpen}
+            >
+              <span>Files</span>
+              <span className="book-files-count">{book.files.length}</span>
+              {filesOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </button>
+
+            {filesOpen && (
+              <div className="book-file-list">
+                {book.files.map((file) => (
+                  <article className="book-file-row" key={file.id}>
+                    <span>{file.trackNumber ?? "-"}</span>
+                    <div>
+                      <strong>{file.chapterTitle || file.relativePath.split("/").at(-1) || file.relativePath}</strong>
+                      <small>{file.relativePath}</small>
+                    </div>
+                    <small>
+                      {file.durationSeconds != null ? `${formatDuration(file.durationSeconds)} · ` : ""}
+                      {formatBytes(file.size)}
+                    </small>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </div>
-
-      {book.description && (
-        <p className="book-description">{book.description}</p>
-      )}
-
-      <div className="book-detail-actions">
-        <button
-          className="primary-button"
-          onClick={() => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=800,resizable=yes,scrollbars=yes")}
-        >
-          <Play size={16} />
-          <span>Play</span>
-        </button>
-        <button className="secondary-button" onClick={() => { setActiveMetadataTab("edit"); setMetadataModalOpen(true); }}>
-          <Pencil size={16} />
-          <span>Edit metadata</span>
-        </button>
-        <button className="secondary-button" onClick={markBookFinished} disabled={progressAction !== ""}>
-          <CheckCircle2 size={16} />
-          <span>{progressAction === "complete" ? "Saving..." : "Mark finished"}</span>
-        </button>
-        <button className="secondary-button" onClick={resetBookProgress} disabled={progressAction !== ""}>
-          <RotateCcw size={16} />
-          <span>{progressAction === "reset" ? "Resetting..." : "Reset progress"}</span>
-        </button>
-        <a className="secondary-button" href={`/api/library/books/${book.id}/download`} download>
-          <Download size={16} />
-          <span>Download</span>
-        </a>
-      </div>
-      {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
 
       {metadataModalOpen && (
         <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { setMetadataModalOpen(false); setResetConfirm(false); } }}>
@@ -884,35 +940,6 @@ function BookDetailView({
         </div>
       )}
 
-      <section className="book-files-section">
-        <button
-          className="book-files-toggle"
-          onClick={() => setFilesOpen((open) => !open)}
-          aria-expanded={filesOpen}
-        >
-          <span>Files</span>
-          <span className="book-files-count">{book.files.length}</span>
-          {filesOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </button>
-
-        {filesOpen && (
-          <div className="book-file-list">
-            {book.files.map((file) => (
-              <article className="book-file-row" key={file.id}>
-                <span>{file.trackNumber ?? "-"}</span>
-                <div>
-                  <strong>{file.chapterTitle || file.relativePath.split("/").at(-1) || file.relativePath}</strong>
-                  <small>{file.relativePath}</small>
-                </div>
-                <small>
-                  {file.durationSeconds != null ? `${formatDuration(file.durationSeconds)} · ` : ""}
-                  {formatBytes(file.size)}
-                </small>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }

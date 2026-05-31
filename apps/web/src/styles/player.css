@@ -521,15 +521,10 @@
   z-index: 20;
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 50px;
-  padding: 0 12px;
+  justify-content: flex-end;
+  height: 40px;
+  padding: 6px 14px 0;
   flex-shrink: 0;
-}
-
-.popup-logo {
-  height: 26px;
-  width: auto;
 }
 
 .popup-book-header {
@@ -538,15 +533,12 @@
   flex-direction: column;
   align-items: center;
   gap: 5px;
-  padding: 2px 24px 10px;
+  padding: 0 24px 10px;
   text-align: center;
 }
 
 .popup-more {
-  position: absolute;
-  top: 50%;
-  right: 12px;
-  transform: translateY(-50%);
+  position: relative;
 }
 
 .popup-menu-btn {
