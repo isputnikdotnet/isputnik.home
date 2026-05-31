@@ -1456,4 +1456,40 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
     const book = getAudiobookBookDetail(id);
     reply.send({ reset: true, book });
   });
+
+  const rescanBookSchema = z.object({
+    skipSidecar: z.boolean().optional(),
+    tagEncoding: z.enum(["windows-1251", "windows-1250", "windows-1252", "koi8-r"]).optional()
+  });
+
+  app.post("/api/library/books/:id/rescan", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required to rescan." });
+      return;
+    }
+
+    const parsed = parseBody(rescanBookSchema, request.body ?? {});
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
+      return;
+    }
+
+    let result: string | null;
+    try {
+      result = await rescanSingleBook(id, parsed.data);
+    } catch (err) {
+      reply.code(400).send({ error: err instanceof Error ? err.message : "Rescan failed" });
+      return;
+    }
+    if (!result) {
+      reply.code(404).send({ error: "Audiobook folder not found or has no audio files." });
+      return;
+    }
+
+    const book = getAudiobookBookDetail(id);
+    reply.send({ rescanned: true, book });
+  });
 }

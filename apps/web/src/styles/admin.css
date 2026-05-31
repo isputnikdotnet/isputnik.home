@@ -586,9 +586,42 @@
   gap: 10px;
 }
 
+.status-stack {
+  display: grid;
+  gap: 30px;
+}
+
+.status-block {
+  display: grid;
+  gap: 14px;
+}
+
+.status-block-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.status-block-head h2,
+.status-table-title h3 {
+  margin: 0;
+}
+
+.status-block-head .health-line {
+  margin-bottom: 0;
+}
+
+.status-grid-four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .status-metric {
   display: grid;
-  gap: 9px;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 4px;
+  align-items: center;
   min-height: 96px;
   padding: 15px;
   border: 1px solid var(--line);
@@ -596,6 +629,79 @@
   background: var(--surface);
 }
 
+.status-metric-icon {
+  display: inline-flex;
+  grid-row: 1 / span 3;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--mint);
+  background: var(--active);
+}
+
+.status-metric-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .status-metric strong {
   font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.status-metric small {
+  color: var(--muted);
+}
+
+.status-subsection {
+  display: grid;
+  gap: 10px;
+}
+
+.status-table-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.status-table-title h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.98rem;
+}
+
+.status-table-title span,
+.status-empty {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.status-empty {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
+.status-rank-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.status-rank-table td:first-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.status-person-name {
+  display: block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

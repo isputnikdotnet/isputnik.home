@@ -242,6 +242,15 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .status-grid-four,
+  .status-rank-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .status-block-head {
+    align-items: start;
+  }
+
   .library-layout {
     grid-template-columns: 1fr;
   }
@@ -348,8 +357,14 @@
   }
 
   .session-row,
-  .status-grid {
+  .status-grid,
+  .status-grid-four,
+  .status-rank-grid {
     grid-template-columns: 1fr;
+  }
+
+  .status-block-head {
+    display: grid;
   }
 
   .session-meta,

@@ -11,7 +11,7 @@ export function formatBytes(bytes: number) {
     return `${bytes} B`;
   }
 
-  const units = ["KB", "MB", "GB"];
+  const units = ["KB", "MB", "GB", "TB", "PB"];
   let value = bytes / 1024;
   let unit = units[0];
   for (let index = 1; index < units.length && value >= 1024; index += 1) {

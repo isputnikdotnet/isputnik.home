@@ -668,6 +668,28 @@ function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, setti
   return files;
 }
 
+// Sidecar values take precedence over audio tags, so the encoding fix must also
+// repair mojibake stored inside a metadata.json (e.g. "title": "wap-version ÌÄÑ").
+function repairSidecar(sidecar: SidecarMetadata | null, encoding: TagEncoding | undefined): SidecarMetadata | null {
+  if (!sidecar || !encoding) {
+    return sidecar;
+  }
+  const fix = (value: string | undefined) => (value == null ? value : repairEncoding(value, encoding) ?? value);
+  return {
+    ...sidecar,
+    title: fix(sidecar.title),
+    subtitle: fix(sidecar.subtitle),
+    description: fix(sidecar.description),
+    publisher: fix(sidecar.publisher),
+    language: fix(sidecar.language),
+    series: fix(sidecar.series),
+    seriesName: fix(sidecar.seriesName),
+    authors: sidecar.authors ? repairList(sidecar.authors, encoding) : sidecar.authors,
+    narrators: sidecar.narrators ? repairList(sidecar.narrators, encoding) : sidecar.narrators,
+    genres: sidecar.genres ? repairList(sidecar.genres, encoding) : sidecar.genres
+  };
+}
+
 async function prepareBookScan(
   libraryId: string,
   rootPath: string,
@@ -685,9 +707,9 @@ async function prepareBookScan(
   const manualMetadata = metadataRow?.source === "manual";
   const titleHint = path.basename(folderAbsolutePath);
   const authorHint = path.basename(path.dirname(folderAbsolutePath));
-  const skipSidecar = manualMetadata || settings.ignore_sidecar || options.skipSidecar;
-  const sidecar = skipSidecar ? null : readSidecarMetadata(folderAbsolutePath);
   const enc = options.tagEncoding;
+  const skipSidecar = manualMetadata || settings.ignore_sidecar || options.skipSidecar;
+  const sidecar = repairSidecar(skipSidecar ? null : readSidecarMetadata(folderAbsolutePath), enc);
   // Rescan options force a fresh metadata read even when files are unchanged, so the
   // encoding fix / sidecar skip actually re-derive and overwrite the stored values.
   const forceReread = Boolean(options.tagEncoding) || Boolean(options.skipSidecar);
@@ -1062,7 +1084,7 @@ export async function scanAudiobookLibrary(libraryId: string, jobId: string | nu
   return { discoveredBooks, discoveredFiles, bookErrors };
 }
 
-export async function rescanSingleBook(bookId: string) {
+export async function rescanSingleBook(bookId: string, options: ScanOptions = {}) {
   const row = db.prepare(`
     SELECT books.id, books.folder_path, libraries.id AS library_id, libraries.source_path, libraries.settings_json
     FROM books
@@ -1087,7 +1109,7 @@ export async function rescanSingleBook(bookId: string) {
     return null;
   }
 
-  const book = await prepareBookScan(row.library_id, rootPath, settings, folderAbsolutePath, files);
+  const book = await prepareBookScan(row.library_id, rootPath, settings, folderAbsolutePath, files, options);
   db.transaction(() => writeBookScan(row.library_id, book))();
   return book.bookId;
 }

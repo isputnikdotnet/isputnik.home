@@ -38,6 +38,29 @@ export interface LogEvent {
   actorName: string | null;
 }
 
+export interface LibraryStatusStats {
+  id: string;
+  name: string;
+  bookCount: number;
+  totalSizeBytes: number;
+  totalDurationSeconds: number;
+}
+
+export interface PersonStatusStats {
+  name: string;
+  bookCount: number;
+  totalDurationSeconds: number;
+}
+
+export interface BookDurationStats {
+  id: string;
+  title: string;
+  libraryName: string;
+  authors: string[];
+  totalSizeBytes: number;
+  totalDurationSeconds: number;
+}
+
 export interface SystemStatus {
   health: string;
   databaseBytes: number;
@@ -47,6 +70,16 @@ export interface SystemStatus {
   logEntries: number;
   audiobookLibraries: number;
   audiobookBooks: number;
+  libraryStats: {
+    totalLibraries: number;
+    totalBooks: number;
+    totalSizeBytes: number;
+    totalDurationSeconds: number;
+    libraries: LibraryStatusStats[];
+    topAuthors: PersonStatusStats[];
+    topNarrators: PersonStatusStats[];
+    longestBooks: BookDurationStats[];
+  };
   uptimeSeconds: number;
   generatedAt: string;
 }
