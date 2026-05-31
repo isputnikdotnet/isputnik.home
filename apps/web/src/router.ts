@@ -7,6 +7,7 @@ export type Route =
   | { name: "login" }
   | { name: "home" }
   | { name: "audiobooks" }
+  | { name: "audiobookSaved" }
   | { name: "audiobookBook"; id: string }
   | { name: "audiobookPlayer"; id: string }
   | { name: "audiobookAuthors" }
@@ -44,6 +45,10 @@ export function getRoute(): Route {
 
   if (path === "/audiobooks") {
     return { name: "audiobooks" };
+  }
+
+  if (path === "/audiobooks/saved") {
+    return { name: "audiobookSaved" };
   }
 
   const audiobookBookMatch = path.match(/^\/audiobooks\/books\/([^/]+)$/);

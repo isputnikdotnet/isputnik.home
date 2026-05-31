@@ -40,6 +40,8 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 - Control panel: user/role/session management, invite links, activity logs, system status, About
 - Digital Library infrastructure: storage containers, thumbnail configuration, audiobook library registration and scan
 
+- Audiobook playback — resume progress, per-user position bookmarks with notes, and a saved-books "My List"
+
 ### In Progress
 
 - Audiobook library Phase 3 — metadata lookup and sidecar import are active; manual edit UI polish remains

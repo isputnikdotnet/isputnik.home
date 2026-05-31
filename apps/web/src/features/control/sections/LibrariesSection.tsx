@@ -20,7 +20,10 @@ export function LibrariesSection() {
   const [libraryIgnoreSidecar, setLibraryIgnoreSidecar] = useState(false);
   const [libraryOwnerId, setLibraryOwnerId] = useState("");
   const [libraryOwnerType, setLibraryOwnerType] = useState<"user" | "group" | "">("");
-  const [rescanningLibraryId, setRescanningLibraryId] = useState("");
+  const [rescanTarget, setRescanTarget] = useState<AudiobookLibrary | null>(null);
+  const [rescanSkipSidecar, setRescanSkipSidecar] = useState(false);
+  const [rescanEncoding, setRescanEncoding] = useState("auto");
+  const [rescanRunning, setRescanRunning] = useState(false);
   const [deleteConfirmLibrary, setDeleteConfirmLibrary] = useState<AudiobookLibrary | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -164,16 +167,31 @@ export function LibrariesSection() {
     }
   };
 
-  const rescanLibrary = async (libraryId: string) => {
-    setRescanningLibraryId(libraryId);
+  const openRescan = (library: AudiobookLibrary) => {
+    setRescanTarget(library);
+    setRescanSkipSidecar(library.ignoreSidecar);
+    setRescanEncoding("auto");
+    setError("");
+  };
+
+  const runRescan = async () => {
+    if (!rescanTarget) return;
+    setRescanRunning(true);
     setError("");
     try {
-      await api(`/api/library/audiobook-libraries/${libraryId}/rescan`, { method: "POST", body: "{}" });
+      await api(`/api/library/audiobook-libraries/${rescanTarget.id}/rescan`, {
+        method: "POST",
+        body: JSON.stringify({
+          skipSidecar: rescanSkipSidecar,
+          tagEncoding: rescanEncoding === "auto" ? undefined : rescanEncoding
+        })
+      });
+      setRescanTarget(null);
       await loadLibraries();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to scan audiobook library");
     } finally {
-      setRescanningLibraryId("");
+      setRescanRunning(false);
     }
   };
 
@@ -278,8 +296,8 @@ export function LibrariesSection() {
                         </button>
                         <button
                           className="secondary-button compact-button rescan-library-button"
-                          disabled={rescanningLibraryId === library.id || library.scanStatus === "scanning"}
-                          onClick={() => rescanLibrary(library.id)}
+                          disabled={library.scanStatus === "scanning"}
+                          onClick={() => openRescan(library)}
                           title={library.scanStatus === "scanning" ? "Scan already in progress" : "Rescan library"}
                         >
                           <RefreshCw size={14} />
@@ -427,6 +445,53 @@ export function LibrariesSection() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {rescanTarget && (
+        <div className="modal-backdrop" onMouseDown={() => !rescanRunning && setRescanTarget(null)}>
+          <div
+            className="confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rescan-library-title"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h2 id="rescan-library-title">Rescan "{rescanTarget.name}"</h2>
+            <p>Re-index this library from disk. Your files are never modified, and manually edited metadata is kept.</p>
+            <label className="field-checkbox">
+              <input
+                type="checkbox"
+                checked={rescanSkipSidecar}
+                onChange={(event) => setRescanSkipSidecar(event.target.checked)}
+              />
+              <span>Skip metadata.json sidecar files (read tags only)</span>
+            </label>
+            <label className="field">
+              <span>Tag text encoding</span>
+              <select value={rescanEncoding} onChange={(event) => setRescanEncoding(event.target.value)}>
+                <option value="auto">Auto — leave tags as-is</option>
+                <option value="windows-1251">Windows-1251 (Cyrillic)</option>
+                <option value="windows-1250">Windows-1250 (Central European)</option>
+                <option value="windows-1252">Windows-1252 (Western European)</option>
+                <option value="koi8-r">KOI8-R (Cyrillic)</option>
+              </select>
+            </label>
+            {rescanEncoding !== "auto" && (
+              <p className="muted" style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>
+                Repairs garbled tag text (e.g. "Ðàíåå" → "Ранее") for files whose tags were saved in this legacy encoding. Correctly stored tags are left untouched.
+              </p>
+            )}
+            {error && <MessageBox tone="error" title="Rescan error">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button className="secondary-button" type="button" onClick={() => setRescanTarget(null)} disabled={rescanRunning} autoFocus>
+                Cancel
+              </button>
+              <button className="primary-button" onClick={runRescan} disabled={rescanRunning}>
+                <RefreshCw size={15} /> {rescanRunning ? "Starting…" : "Start rescan"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

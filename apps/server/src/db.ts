@@ -229,6 +229,29 @@ db.exec(`
     UNIQUE (user_id, book_id)
   );
 
+  CREATE TABLE IF NOT EXISTS book_bookmarks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    file_id TEXT REFERENCES book_files(id) ON DELETE SET NULL,
+    position_seconds INTEGER NOT NULL DEFAULT 0,
+    book_position_seconds INTEGER,
+    label TEXT,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS book_saves (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, book_id)
+  );
+
   CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,
@@ -276,6 +299,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_progress_user ON playback_progress(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_progress_book ON playback_progress(book_id);
   CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, run_at);
+  CREATE INDEX IF NOT EXISTS idx_bookmarks_user_book ON book_bookmarks(user_id, book_id);
+  CREATE INDEX IF NOT EXISTS idx_bookmarks_book ON book_bookmarks(book_id);
+  CREATE INDEX IF NOT EXISTS idx_saves_user ON book_saves(user_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_saves_book ON book_saves(book_id);
 `);
 
 const usersTable = db.prepare("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'users'").get() as { sql: string } | undefined;

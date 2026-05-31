@@ -211,6 +211,11 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     reply.send({ deleted: true });
   });
 
+  const rescanOptionsSchema = z.object({
+    skipSidecar: z.boolean().optional(),
+    tagEncoding: z.enum(["windows-1251", "windows-1250", "windows-1252", "koi8-r"]).optional()
+  });
+
   app.post("/api/library/audiobook-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'audiobook'")
@@ -220,14 +225,24 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       return;
     }
 
-    const jobId = enqueueAudiobookScan(id);
+    const parsed = parseBody(rescanOptionsSchema, request.body ?? {});
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
+      return;
+    }
+
+    const jobId = enqueueAudiobookScan(id, parsed.data);
     void processAudiobookScanQueue();
+    const detailParts = [
+      parsed.data.skipSidecar ? "skipping metadata.json" : null,
+      parsed.data.tagEncoding ? `tag encoding ${parsed.data.tagEncoding}` : null
+    ].filter(Boolean);
     logActivity({
       event: "library.audiobook.scan_queued",
       actorUserId: request.user!.id,
       targetType: "library",
       targetId: id,
-      detail: `Queued scan for audiobook library "${exists.name}".`,
+      detail: `Queued scan for audiobook library "${exists.name}"${detailParts.length ? ` (${detailParts.join(", ")})` : ""}.`,
       ipAddress: request.ip
     });
     reply.code(202).send({ job: { id: jobId, type: "SCAN_AUDIOBOOK_LIBRARY" } });

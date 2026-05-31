@@ -584,7 +584,7 @@ function BookDetailView({
       <div className="book-detail-actions">
         <button
           className="primary-button"
-          onClick={() => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=860,resizable=yes,scrollbars=yes")}
+          onClick={() => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=800,resizable=yes,scrollbars=yes")}
         >
           <Play size={16} />
           <span>Play</span>

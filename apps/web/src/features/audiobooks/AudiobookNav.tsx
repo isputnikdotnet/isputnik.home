@@ -1,7 +1,7 @@
-import { BookOpen, Library, Mic2, Pen, Tag } from "lucide-react";
+import { BookOpen, Heart, Library, Mic2, Pen, Tag } from "lucide-react";
 import { followRoute } from "../../router";
 
-export function AudiobookNav({ active }: { active: "books" | "authors" | "narrators" | "series" | "genres" }) {
+export function AudiobookNav({ active }: { active: "books" | "saved" | "authors" | "narrators" | "series" | "genres" }) {
   return (
     <nav className="side-nav">
       <a
@@ -11,6 +11,14 @@ export function AudiobookNav({ active }: { active: "books" | "authors" | "narrat
       >
         <BookOpen size={22} />
         Books
+      </a>
+      <a
+        className={active === "saved" ? "active" : ""}
+        href="/audiobooks/saved"
+        onClick={(e) => followRoute(e, "/audiobooks/saved")}
+      >
+        <Heart size={22} />
+        My List
       </a>
       <a
         className={active === "authors" ? "active" : ""}

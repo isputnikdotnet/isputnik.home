@@ -123,6 +123,30 @@ erDiagram
         TEXT completed_at
     }
 
+    %% ── Per-user bookmarks ───────────────────────────────────────────
+    book_bookmarks {
+        TEXT id PK
+        TEXT user_id FK
+        TEXT book_id FK
+        TEXT file_id FK
+        INTEGER position_seconds
+        INTEGER book_position_seconds
+        TEXT label
+        TEXT note
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    %% ── Per-user saved books (My List) ───────────────────────────────
+    book_saves {
+        TEXT id PK
+        TEXT user_id FK
+        TEXT book_id FK
+        TEXT note
+        TEXT created_at
+        TEXT updated_at
+    }
+
     %% ── Shared systems (outline only) ────────────────────────────────
     jobs {
         TEXT id PK
@@ -145,10 +169,13 @@ erDiagram
     books     ||--o{  book_authors  : "linked via"
     books     ||--o{  book_genres   : "linked via"
     books     ||--o{  playback_progress : "tracked by"
+    books     ||--o{  book_bookmarks : "bookmarked in"
+    books     ||--o{  book_saves     : "saved in"
     authors   ||--o{  book_authors  : "linked via"
     genres    ||--o{  book_genres   : "linked via"
 
     book_files ||--o{ playback_progress : "position in"
+    book_files ||--o{ book_bookmarks    : "anchored in"
 
     jobs      }o--||  libraries     : "scan job for"
 ```
@@ -200,6 +227,14 @@ Join table linking books to genres.
 ### `playback_progress`
 
 One record per `(user_id, book_id)` pair, upserted on each position save. `current_file_id` is the file currently in progress. `percent_complete` is stored (not computed on read) for efficient sorting. Marked complete at 0.98 to allow for end credits.
+
+### `book_bookmarks`
+
+Per-user position bookmarks within a book — many rows per `(user_id, book_id)`. `file_id` + `position_seconds` locate the moment within a specific track (used to seek); `book_position_seconds` is the absolute offset within the whole book, denormalized on write for display and ordering. `label` defaults to the chapter title; `note` is optional free text. `file_id` is `ON DELETE SET NULL` so a bookmark survives if its file is purged. Private to the owning user.
+
+### `book_saves`
+
+Per-user "saved" flag for a whole book — the My List view. Unique on `(user_id, book_id)`, so a book is either saved or not. `note` holds an optional book-level note (a personal thought or mini-review), distinct from per-moment bookmark notes. Private to the owning user.
 
 ### `jobs`
 

@@ -248,6 +248,15 @@ CREATE INDEX idx_progress_book        ON playback_progress(book_id);
 
 The scan runs asynchronously through the SQLite job queue. Create and rescan requests enqueue `SCAN_AUDIOBOOK_LIBRARY`, set `scan_status = 'scanning'`, and return immediately. The worker processes scan jobs in the server process; the UI polls `scan_status` (and live progress) until it returns to `idle`.
 
+### Rescan options
+
+`POST /api/library/audiobook-libraries/:id/rescan` accepts an optional body `{ skipSidecar?, tagEncoding? }`, carried through the job payload into `scanAudiobookLibrary` → `prepareBookScan`. The admin sets these per run from the Rescan dialog; they are **not** persisted to library settings (the corrected metadata is written to the DB, so the fix sticks regardless).
+
+- **`skipSidecar`** — ignore `metadata.json` sidecars for this run and re-derive from audio tags (a per-run form of the `ignore_sidecar` setting).
+- **`tagEncoding`** — one of `windows-1251`, `windows-1250`, `windows-1252`, `koi8-r`. Repairs mojibake: tag text whose bytes are really a legacy charset but were decoded as Latin-1 (e.g. `Ðàíåå` → `Ранее`). `repairEncoding()` re-encodes the string to Latin-1 bytes and decodes with the chosen charset (Node `TextDecoder`, no dependency). Strings already containing characters above U+00FF (correct UTF-8) and plain ASCII are left untouched; manual-source metadata and ISBN/ASIN are never altered.
+
+Either option **forces a full metadata re-read** (bypassing the unchanged-files fast path) so the correction is actually applied and stored. A plain rescan with no options keeps the fast path.
+
 ```
 Admin registers library (name, source_path, defaultLanguage, ignoreSidecar?)
   → validateLibrarySource:

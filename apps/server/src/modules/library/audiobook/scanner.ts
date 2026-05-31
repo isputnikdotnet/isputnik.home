@@ -12,6 +12,46 @@ export const audioExtensions = new Set([...legacyAudioExtensions, ".wav", ".wave
 const imageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
 const scanJobType = "SCAN_AUDIOBOOK_LIBRARY";
 
+export type TagEncoding = "windows-1251" | "windows-1250" | "windows-1252" | "koi8-r";
+
+export interface ScanOptions {
+  skipSidecar?: boolean;
+  tagEncoding?: TagEncoding;
+}
+
+/**
+ * Repairs "mojibake" — text whose bytes are really in a legacy encoding (e.g. Windows-1251)
+ * but were decoded as Latin-1, producing garble like "Ðàíåå" instead of "Ранее". We reverse the
+ * bad decode (re-encode to Latin-1 bytes) and decode again with the correct charset.
+ *
+ * Strings that already contain characters above U+00FF were decoded correctly (e.g. real UTF-8
+ * Cyrillic) and are left untouched. Plain ASCII passes through unchanged either way.
+ */
+export function repairEncoding(value: string | null | undefined, encoding: TagEncoding | undefined): string | null {
+  if (value == null) {
+    return null;
+  }
+  if (!encoding) {
+    return value;
+  }
+  if (/[^\u0000-\u00ff]/.test(value)) {
+    return value;
+  }
+  try {
+    const decoded = new TextDecoder(encoding).decode(Buffer.from(value, "latin1"));
+    return decoded || value;
+  } catch {
+    return value;
+  }
+}
+
+function repairList(values: string[], encoding: TagEncoding | undefined): string[] {
+  if (!encoding) {
+    return values;
+  }
+  return values.map((value) => repairEncoding(value, encoding) ?? value);
+}
+
 interface AudiobookSettings {
   default_language?: string;
   supported_extensions?: string[];
@@ -633,7 +673,8 @@ async function prepareBookScan(
   rootPath: string,
   settings: AudiobookSettings,
   folderAbsolutePath: string,
-  files: AudioFileEntry[]
+  files: AudioFileEntry[],
+  options: ScanOptions = {}
 ): Promise<PreparedBookScan> {
   const folderPath = normaliseRelativePath(path.relative(rootPath, folderAbsolutePath)) || ".";
   const existingBook = db.prepare("SELECT id FROM books WHERE library_id = ? AND folder_path = ?")
@@ -644,7 +685,12 @@ async function prepareBookScan(
   const manualMetadata = metadataRow?.source === "manual";
   const titleHint = path.basename(folderAbsolutePath);
   const authorHint = path.basename(path.dirname(folderAbsolutePath));
-  const sidecar = (manualMetadata || settings.ignore_sidecar) ? null : readSidecarMetadata(folderAbsolutePath);
+  const skipSidecar = manualMetadata || settings.ignore_sidecar || options.skipSidecar;
+  const sidecar = skipSidecar ? null : readSidecarMetadata(folderAbsolutePath);
+  const enc = options.tagEncoding;
+  // Rescan options force a fresh metadata read even when files are unchanged, so the
+  // encoding fix / sidecar skip actually re-derive and overwrite the stored values.
+  const forceReread = Boolean(options.tagEncoding) || Boolean(options.skipSidecar);
 
   const filesWithFallbackOrder = files
     .sort((left, right) => {
@@ -652,7 +698,7 @@ async function prepareBookScan(
       return discCompare || left.relativePath.localeCompare(right.relativePath, undefined, { numeric: true });
     });
 
-  if (existingBook && metadataRow && !sidecar) {
+  if (existingBook && metadataRow && !sidecar && !forceReread) {
     const existingFiles = db.prepare(`
       SELECT relative_path, mime_type, track_number, chapter_title, duration_seconds, size, modified_at, content_hash
       FROM book_files
@@ -741,7 +787,7 @@ async function prepareBookScan(
       relativePath: item.file.relativePath,
       mimeType: mimeFromExtension(item.extension),
       trackNumber: index + 1,
-      chapterTitle: item.metadata?.common.title?.trim() || path.basename(item.file.fileName, item.extension),
+      chapterTitle: repairEncoding(item.metadata?.common.title?.trim() || null, enc) || path.basename(item.file.fileName, item.extension),
       durationSeconds: item.metadata?.format.duration ? Math.round(item.metadata.format.duration) : null,
       size: item.file.stat.size,
       modifiedAt: item.file.stat.mtime.toISOString(),
@@ -754,20 +800,20 @@ async function prepareBookScan(
     folderAbsolutePath,
     folderPath,
     manualMetadata,
-    title: sidecar?.title?.trim() || title,
-    sortTitle: sortTitle(sidecar?.title?.trim() || title),
-    description: sidecar?.description ?? firstComment(firstMetadata),
+    title: sidecar?.title?.trim() || repairEncoding(title, enc) || titleHint,
+    sortTitle: sortTitle(sidecar?.title?.trim() || repairEncoding(title, enc) || titleHint),
+    description: sidecar?.description ?? repairEncoding(firstComment(firstMetadata), enc),
     yearPublished: sidecar?.yearPublished ?? sidecar?.year ?? yearFromMetadata(firstMetadata),
     language: sidecar?.language || common?.language || settings.default_language || "en",
     durationSeconds: totalDuration > 0 ? totalDuration : null,
     coverStorageKey,
     isbn: sidecar?.isbn ?? isbn,
     asin: sidecar?.asin ?? asin,
-    publisher: sidecar?.publisher ?? publisher,
-    authors: sidecarAuthors.length > 0 ? sidecarAuthors : (authors.length > 0 ? authors : [authorHint]),
-    narrators: sidecarNarrators.length > 0 ? sidecarNarrators : narrators,
-    genres: sidecarGenres.length > 0 ? sidecarGenres : genres,
-    seriesName: sidecar?.seriesName ?? sidecar?.series ?? seriesName,
+    publisher: sidecar?.publisher ?? repairEncoding(publisher, enc),
+    authors: sidecarAuthors.length > 0 ? sidecarAuthors : (authors.length > 0 ? repairList(authors, enc) : [authorHint]),
+    narrators: sidecarNarrators.length > 0 ? sidecarNarrators : repairList(narrators, enc),
+    genres: sidecarGenres.length > 0 ? sidecarGenres : repairList(genres, enc),
+    seriesName: sidecar?.seriesName ?? sidecar?.series ?? repairEncoding(seriesName, enc),
     seriesPosition: sidecar?.seriesPosition ?? seriesPosition,
     skipMetadataUpdate: false,
     files: preparedFiles
@@ -915,7 +961,7 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
   }
 }
 
-export async function scanAudiobookLibrary(libraryId: string, jobId: string | null = null) {
+export async function scanAudiobookLibrary(libraryId: string, jobId: string | null = null, options: ScanOptions = {}) {
   const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
     .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
   if (!library) {
@@ -966,7 +1012,7 @@ export async function scanAudiobookLibrary(libraryId: string, jobId: string | nu
 
       const [folderAbsolutePath, files] = entries[i];
       try {
-        const book = await prepareBookScan(libraryId, rootPath, settings, folderAbsolutePath, files);
+        const book = await prepareBookScan(libraryId, rootPath, settings, folderAbsolutePath, files, options);
         db.transaction(() => writeBookScan(libraryId, book))();
         foundFolders.add(book.folderPath);
         discoveredBooks += 1;
@@ -1046,13 +1092,13 @@ export async function rescanSingleBook(bookId: string) {
   return book.bookId;
 }
 
-export function enqueueAudiobookScan(libraryId: string) {
+export function enqueueAudiobookScan(libraryId: string, options: ScanOptions = {}) {
   const jobId = nanoid(16);
   db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
   db.prepare(`
     INSERT INTO jobs (id, type, payload, status)
     VALUES (?, ?, ?, 'pending')
-  `).run(jobId, scanJobType, JSON.stringify({ libraryId }));
+  `).run(jobId, scanJobType, JSON.stringify({ libraryId, options }));
   return jobId;
 }
 
@@ -1098,9 +1144,9 @@ export async function processAudiobookScanQueue() {
         continue;
       }
 
-      const payload = JSON.parse(job.payload) as { libraryId: string };
+      const payload = JSON.parse(job.payload) as { libraryId: string; options?: ScanOptions };
       try {
-        const result = await scanAudiobookLibrary(payload.libraryId, job.id);
+        const result = await scanAudiobookLibrary(payload.libraryId, job.id, payload.options ?? {});
         db.prepare(`
           UPDATE jobs
           SET status = 'completed', payload = ?, completed_at = CURRENT_TIMESTAMP, locked_at = NULL, locked_by = NULL

@@ -67,6 +67,36 @@ export interface PlaybackProgress {
   completedAt: string | null;
 }
 
+export interface Bookmark {
+  id: string;
+  fileId: string | null;
+  positionSeconds: number;
+  bookPositionSeconds: number | null;
+  label: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BookSave {
+  saved: boolean;
+  note: string | null;
+}
+
+export interface SavedBook {
+  id: string;
+  libraryId: string;
+  title: string;
+  series: string | null;
+  seriesPosition: number | null;
+  authors: string[];
+  durationSeconds: number | null;
+  fileCount: number;
+  coverUrl: string | null;
+  note: string | null;
+  savedAt: string;
+}
+
 export interface MetadataCandidate {
   title: string;
   subtitle?: string;

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bookmark, ChevronDown, FastForward, List, Pause, Play, Rewind, SkipBack, SkipForward, Volume2, VolumeX, X } from "lucide-react";
+import { Bookmark, BookmarkPlus, CheckCircle2, ChevronDown, FastForward, Heart, List, Pause, Pencil, Play, Rewind, SkipBack, SkipForward, StickyNote, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
-import type { AudiobookBookDetail, AudiobookFile, PlaybackProgress } from "./types";
+import type { AudiobookBookDetail, AudiobookFile, Bookmark as BookmarkEntry, PlaybackProgress } from "./types";
 
 export function formatTime(seconds: number) {
   const h = Math.floor(seconds / 3600);
@@ -24,11 +24,21 @@ const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
 export function AudioPlayer({
   book,
   showBookmark,
-  popup
+  popup,
+  saved,
+  onToggleSave,
+  savingSave,
+  onAddNote,
+  onMarkFinished
 }: {
   book: AudiobookBookDetail;
   showBookmark?: boolean;
   popup?: boolean;
+  saved?: boolean;
+  onToggleSave?: () => void;
+  savingSave?: boolean;
+  onAddNote?: () => void;
+  onMarkFinished?: () => void;
 }) {
   const availableFiles = book.files.filter((f) => f.status === "available");
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -47,6 +57,10 @@ export function AudioPlayer({
   const [chaptersOpen, setChaptersOpen] = useState(false);
   const [playerError, setPlayerError] = useState("");
   const [bookmarkSaved, setBookmarkSaved] = useState(false);
+  const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
 
   const totalDuration = availableFiles.reduce((sum, f) => sum + (f.durationSeconds ?? 0), 0);
   const completedDuration = availableFiles.slice(0, fileIndex).reduce((sum, f) => sum + (f.durationSeconds ?? 0), 0);
@@ -70,18 +84,52 @@ export function AudioPlayer({
     }).catch(() => {});
   }, [book.id]);
 
-  const addBookmark = useCallback(() => {
+  const sortBookmarks = (list: BookmarkEntry[]) =>
+    [...list].sort((a, b) => (a.bookPositionSeconds ?? a.positionSeconds) - (b.bookPositionSeconds ?? b.positionSeconds));
+
+  const addBookmark = useCallback(async () => {
     if (!currentFile || !audioRef.current) return;
     const position = Math.floor(audioRef.current.currentTime);
-    const chapterTitle = currentFile.chapterTitle || currentFile.relativePath.split("/").at(-1) || `Chapter ${fileIndex + 1}`;
-    const key = `bookmarks-${book.id}`;
-    const existing: { fileId: string; position: number; chapterTitle: string; savedAt: number }[] =
-      JSON.parse(localStorage.getItem(key) || "[]");
-    existing.push({ fileId: currentFile.id, position, chapterTitle, savedAt: Date.now() });
-    localStorage.setItem(key, JSON.stringify(existing));
-    setBookmarkSaved(true);
-    setTimeout(() => setBookmarkSaved(false), 2000);
+    const label = currentFile.chapterTitle || currentFile.relativePath.split("/").at(-1) || `Chapter ${fileIndex + 1}`;
+    try {
+      const { bookmark } = await api<{ bookmark: BookmarkEntry }>(`/api/library/books/${book.id}/bookmarks`, {
+        method: "POST",
+        body: JSON.stringify({ fileId: currentFile.id, positionSeconds: position, label })
+      });
+      setBookmarks((prev) => sortBookmarks([...prev, bookmark]));
+      setBookmarkSaved(true);
+      setTimeout(() => setBookmarkSaved(false), 2000);
+      // Open the list with this bookmark ready for a note — "bookmark and jot a note" in one gesture.
+      setNoteDraft("");
+      setEditingBookmarkId(bookmark.id);
+      setBookmarksOpen(true);
+    } catch {
+      setPlayerError("Unable to save bookmark.");
+    }
   }, [book.id, currentFile, fileIndex]);
+
+  const saveBookmarkNote = useCallback(async (id: string, note: string) => {
+    try {
+      const { bookmark } = await api<{ bookmark: BookmarkEntry }>(`/api/library/books/${book.id}/bookmarks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ note })
+      });
+      setBookmarks((prev) => prev.map((b) => (b.id === id ? bookmark : b)));
+      setEditingBookmarkId(null);
+    } catch {
+      setPlayerError("Unable to save note.");
+    }
+  }, [book.id]);
+
+  const deleteBookmark = useCallback(async (id: string) => {
+    try {
+      await api(`/api/library/books/${book.id}/bookmarks/${id}`, { method: "DELETE" });
+      setBookmarks((prev) => prev.filter((b) => b.id !== id));
+      setEditingBookmarkId((current) => (current === id ? null : current));
+    } catch {
+      setPlayerError("Unable to delete bookmark.");
+    }
+  }, [book.id]);
 
   const skip = useCallback((seconds: number) => {
     const audio = audioRef.current;
@@ -105,13 +153,36 @@ export function AudioPlayer({
     }
   }, [fileIndex, fileDuration, availableFiles, currentFile, playing, saveProgress]);
 
+  // Seek to a position in a (possibly different) file. The pendingSeekRef path only fires
+  // on a file change, so same-file jumps must seek the already-loaded element directly.
+  const seekTo = useCallback((targetIndex: number, position: number) => {
+    if (targetIndex < 0) return;
+    if (targetIndex === fileIndex) {
+      const audio = audioRef.current;
+      if (audio) {
+        audio.currentTime = position;
+        setCurrentTime(position);
+      }
+    } else {
+      shouldAutoPlayRef.current = playing;
+      pendingSeekRef.current = position;
+      setFileIndex(targetIndex);
+    }
+  }, [fileIndex, playing]);
+
   const jumpToChapter = useCallback((index: number) => {
     if (audioRef.current && currentFile) saveProgress(currentFile, audioRef.current.currentTime);
-    shouldAutoPlayRef.current = playing;
-    pendingSeekRef.current = 0;
-    setFileIndex(index);
+    seekTo(index, 0);
     setChaptersOpen(false);
-  }, [currentFile, playing, saveProgress]);
+  }, [currentFile, saveProgress, seekTo]);
+
+  const jumpToBookmark = useCallback((bookmark: BookmarkEntry) => {
+    const index = availableFiles.findIndex((f) => f.id === bookmark.fileId);
+    if (index < 0) return;
+    if (audioRef.current && currentFile) saveProgress(currentFile, audioRef.current.currentTime);
+    seekTo(index, bookmark.positionSeconds);
+    setBookmarksOpen(false);
+  }, [availableFiles, currentFile, saveProgress, seekTo]);
 
   useEffect(() => {
     const saveCurrentProgress = () => {
@@ -147,6 +218,40 @@ export function AudioPlayer({
       audio.play().catch(() => {});
     }
   }, [fileIndex, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load bookmarks, migrating any legacy localStorage bookmarks to the server once.
+  useEffect(() => {
+    let cancelled = false;
+    const key = `bookmarks-${book.id}`;
+    const run = async () => {
+      // Claim the legacy data up front (remove before awaiting) so a double-mount can't re-migrate.
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        localStorage.removeItem(key);
+        try {
+          const legacy = JSON.parse(raw) as { fileId?: string; position?: number; chapterTitle?: string }[];
+          for (const entry of legacy) {
+            if (!entry.fileId) continue;
+            await api(`/api/library/books/${book.id}/bookmarks`, {
+              method: "POST",
+              body: JSON.stringify({
+                fileId: entry.fileId,
+                positionSeconds: Math.floor(entry.position ?? 0),
+                label: entry.chapterTitle
+              })
+            }).catch(() => {});
+          }
+        } catch {
+          // ignore malformed legacy data
+        }
+      }
+      const result = await api<{ bookmarks: BookmarkEntry[] }>(`/api/library/books/${book.id}/bookmarks`)
+        .catch(() => ({ bookmarks: [] as BookmarkEntry[] }));
+      if (!cancelled) setBookmarks(sortBookmarks(result.bookmarks));
+    };
+    void run();
+    return () => { cancelled = true; };
+  }, [book.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (availableFiles.length === 0) return;
@@ -326,6 +431,62 @@ export function AudioPlayer({
     </div>
   );
 
+  const bookmarkList = (
+    <div className="player-bookmark-list">
+      <button className="player-bookmark-add" onClick={addBookmark}>
+        <BookmarkPlus size={15} />
+        <span>{bookmarkSaved ? "Bookmark added" : "Bookmark this moment"}</span>
+      </button>
+      {bookmarks.length === 0 ? (
+        <p className="player-bookmark-empty">No bookmarks yet. Tap “Bookmark this moment” to save your spot and add a note.</p>
+      ) : (
+        bookmarks.map((bm) => {
+          const editing = editingBookmarkId === bm.id;
+          return (
+            <div className={`player-bookmark-item${editing ? " editing" : ""}`} key={bm.id}>
+              <div className="player-bookmark-row">
+                <button className="player-bookmark-jump" onClick={() => jumpToBookmark(bm)} disabled={!availableFiles.some((f) => f.id === bm.fileId)}>
+                  <Bookmark size={13} />
+                  <span className="player-bookmark-time">{formatTime(bm.bookPositionSeconds ?? bm.positionSeconds)}</span>
+                  <span className="player-bookmark-label">{bm.label || "Bookmark"}</span>
+                </button>
+                <div className="player-bookmark-actions">
+                  <button
+                    onClick={() => { setEditingBookmarkId(bm.id); setNoteDraft(bm.note ?? ""); }}
+                    aria-label="Edit note"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button onClick={() => deleteBookmark(bm.id)} aria-label="Delete bookmark">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+              {editing ? (
+                <div className="player-bookmark-edit">
+                  <textarea
+                    className="player-bookmark-note-input"
+                    value={noteDraft}
+                    onChange={(e) => setNoteDraft(e.target.value)}
+                    placeholder="Add a note…"
+                    rows={2}
+                    autoFocus
+                  />
+                  <div className="player-bookmark-edit-actions">
+                    <button className="player-bookmark-save" onClick={() => saveBookmarkNote(bm.id, noteDraft)}>Save</button>
+                    <button className="player-bookmark-cancel" onClick={() => setEditingBookmarkId(null)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                bm.note && <p className="player-bookmark-note">{bm.note}</p>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+
   const audioEl = (
     <audio
       ref={audioRef}
@@ -346,9 +507,10 @@ export function AudioPlayer({
         <div className="audio-player player--popup">
           {audioEl}
 
-          <p className="player-popup-chapter">
-            {currentFile?.chapterTitle || currentFile?.relativePath.split("/").at(-1) || ""}
-          </p>
+          <div className="player-popup-chapter">
+            <strong>Chapter {fileIndex + 1}</strong>
+            <span>{currentFile?.chapterTitle || currentFile?.relativePath.split("/").at(-1) || ""}</span>
+          </div>
 
           <div className="player-seek-popup">
             <div className="player-seek-times">
@@ -379,17 +541,17 @@ export function AudioPlayer({
               disabled={fileIndex === 0 && currentTime <= 3}
               aria-label="Previous chapter"
             >
-              <SkipBack size={20} />
+              <SkipBack size={18} />
             </button>
             <button className="player-btn player-btn-circle" onClick={() => skip(-30)} aria-label="Skip back 30 seconds">
-              <Rewind size={18} />
+              <Rewind size={15} />
               <span>30</span>
             </button>
             <button className="player-btn player-btn-primary" onClick={togglePlay} aria-label={playing ? "Pause" : "Play"}>
-              {playing ? <Pause size={26} /> : <Play size={26} />}
+              {playing ? <Pause size={21} /> : <Play size={21} />}
             </button>
             <button className="player-btn player-btn-circle" onClick={() => skip(30)} aria-label="Skip forward 30 seconds">
-              <FastForward size={18} />
+              <FastForward size={15} />
               <span>30</span>
             </button>
             <button
@@ -398,48 +560,99 @@ export function AudioPlayer({
               disabled={fileIndex >= availableFiles.length - 1}
               aria-label="Next chapter"
             >
-              <SkipForward size={20} />
+              <SkipForward size={18} />
             </button>
           </div>
 
+          <div className="player-volume-popup">
+            <button className="player-vol-icon" onClick={toggleMute} aria-label={muted ? "Unmute" : "Mute"}>
+              {muted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
+            <input
+              type="range"
+              className="player-vol-slider"
+              min={0}
+              max={1}
+              step={0.02}
+              value={muted ? 0 : volume}
+              onChange={handleVolumeChange}
+              aria-label="Volume"
+            />
+            <Volume2 size={16} className="player-vol-max" aria-hidden="true" />
+          </div>
+
           <div className="player-aux player-aux--popup">
-            <div className="player-popup-aux-item player-speed">
-              <button
-                className="player-popup-aux-btn"
-                onClick={toggleSpeedMenu}
-                aria-expanded={speedOpen}
-                aria-label="Playback speed"
-              >
-                <span className="player-popup-aux-value">{playbackRate === 1 ? "1.0×" : `${playbackRate}×`}</span>
-                <span className="player-popup-aux-label">Speed</span>
-              </button>
-              {speedMenu}
-            </div>
-
-            <div className="player-popup-aux-item">
-              <button
-                className="player-popup-aux-btn"
-                onClick={() => setChaptersOpen((o) => !o)}
-                aria-expanded={chaptersOpen}
-                aria-label="Chapter list"
-              >
-                <List size={20} />
-                <span className="player-popup-aux-label">Chapters</span>
-              </button>
-            </div>
-
-            {showBookmark && (
-              <div className="player-popup-aux-item">
+            <div className="player-popup-aux-row">
+              <div className="player-popup-aux-item player-speed">
                 <button
-                  className={`player-popup-aux-btn${bookmarkSaved ? " bookmark-saved" : ""}`}
-                  onClick={addBookmark}
-                  aria-label="Add bookmark"
+                  className="player-popup-aux-btn"
+                  onClick={toggleSpeedMenu}
+                  aria-expanded={speedOpen}
+                  aria-label="Playback speed"
                 >
-                  <Bookmark size={20} />
-                  <span className="player-popup-aux-label">{bookmarkSaved ? "Saved!" : "Add a Bookmark"}</span>
+                  <span className="player-popup-aux-value">{playbackRate === 1 ? "1.0×" : `${playbackRate}×`}</span>
+                  <span className="player-popup-aux-label">Speed</span>
                 </button>
+                {speedMenu}
               </div>
-            )}
+
+              {onToggleSave && (
+                <div className="player-popup-aux-item">
+                  <button
+                    className={`player-popup-aux-btn${saved ? " bookmark-saved" : ""}`}
+                    onClick={onToggleSave}
+                    disabled={savingSave}
+                    aria-pressed={saved ?? false}
+                    aria-label={saved ? "Remove from My List" : "Save to My List"}
+                  >
+                    <Heart size={18} fill={saved ? "currentColor" : "none"} />
+                    <span className="player-popup-aux-label">My List</span>
+                  </button>
+                </div>
+              )}
+
+              {showBookmark && (
+                <div className="player-popup-aux-item">
+                  <button
+                    className="player-popup-aux-btn"
+                    onClick={() => setBookmarksOpen((o) => !o)}
+                    aria-expanded={bookmarksOpen}
+                    aria-label="Bookmarks"
+                  >
+                    <Bookmark size={18} />
+                    <span className="player-popup-aux-label">Bookmarks{bookmarks.length > 0 ? ` (${bookmarks.length})` : ""}</span>
+                  </button>
+                </div>
+              )}
+
+              {onAddNote && (
+                <div className="player-popup-aux-item">
+                  <button className="player-popup-aux-btn" onClick={onAddNote} aria-label="Add a note">
+                    <StickyNote size={18} />
+                    <span className="player-popup-aux-label">Add Note</span>
+                  </button>
+                </div>
+              )}
+
+              {onMarkFinished && (
+                <div className="player-popup-aux-item">
+                  <button className="player-popup-aux-btn" onClick={onMarkFinished} aria-label="Mark as finished">
+                    <CheckCircle2 size={18} />
+                    <span className="player-popup-aux-label">Mark as Finished</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              className="player-popup-chapters-btn"
+              onClick={() => setChaptersOpen((o) => !o)}
+              aria-expanded={chaptersOpen}
+              aria-label="Chapter list"
+            >
+              <List size={16} />
+              <span>Chapters</span>
+            </button>
           </div>
 
           {playerError && <MessageBox tone="error" title="Playback error">{playerError}</MessageBox>}
@@ -458,6 +671,24 @@ export function AudioPlayer({
               </div>
               <div className="chapter-sheet-list">
                 {chapterList}
+              </div>
+            </div>
+          </>
+        )}
+
+        {bookmarksOpen && (
+          <>
+            <div className="chapter-sheet-backdrop" onClick={() => setBookmarksOpen(false)} />
+            <div className="chapter-sheet">
+              <div className="chapter-sheet-drag" />
+              <div className="chapter-sheet-header">
+                <h3 className="chapter-sheet-title">Bookmarks</h3>
+                <button className="chapter-sheet-close" onClick={() => setBookmarksOpen(false)} aria-label="Close bookmarks">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="chapter-sheet-list">
+                {bookmarkList}
               </div>
             </div>
           </>
@@ -563,14 +794,29 @@ export function AudioPlayer({
         </button>
 
         {showBookmark && (
-          <button
-            className={`player-speed-btn${bookmarkSaved ? " bookmark-saved" : ""}`}
-            onClick={addBookmark}
-            aria-label="Add bookmark"
-          >
-            <Bookmark size={15} />
-            <span>{bookmarkSaved ? "Saved!" : "Bookmark"}</span>
-          </button>
+          <>
+            <button
+              className={`player-speed-btn${bookmarksOpen ? " open" : ""}`}
+              onClick={() => setBookmarksOpen((o) => !o)}
+              aria-expanded={bookmarksOpen}
+              aria-label="Bookmarks"
+            >
+              <Bookmark size={15} />
+              <span>Bookmarks{bookmarks.length > 0 ? ` (${bookmarks.length})` : ""}</span>
+            </button>
+            {onToggleSave && (
+              <button
+                className={`player-speed-btn${saved ? " bookmark-saved" : ""}`}
+                onClick={onToggleSave}
+                disabled={savingSave}
+                aria-pressed={saved ?? false}
+                aria-label={saved ? "Remove from My List" : "Save to My List"}
+              >
+                <Heart size={15} fill={saved ? "currentColor" : "none"} />
+                <span>{saved ? "Saved" : "My List"}</span>
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -579,6 +825,8 @@ export function AudioPlayer({
           {chapterList}
         </div>
       )}
+
+      {bookmarksOpen && bookmarkList}
 
       {playerError && <MessageBox tone="error" title="Playback error">{playerError}</MessageBox>}
     </div>
