@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "storage" | "groups" | "jobs" | "database";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "storage" | "groups" | "jobs" | "database" | "categories";
 
 export type Route =
   | { name: "install" }
@@ -16,8 +16,8 @@ export type Route =
   | { name: "audiobookNarratorDetail"; personName: string }
   | { name: "audiobookSeries" }
   | { name: "audiobookSeriesDetail"; seriesId: string }
-  | { name: "audiobookGenres" }
-  | { name: "audiobookGenreDetail"; genreId: string }
+  | { name: "audiobookCategories" }
+  | { name: "audiobookCategoryDetail"; categoryKey: string }
   | { name: "control"; section: ControlSection }
   | { name: "about" }
   | { name: "profile" }
@@ -88,13 +88,13 @@ export function getRoute(): Route {
     return { name: "audiobookSeriesDetail", seriesId: audiobookSeriesDetailMatch[1] };
   }
 
-  if (path === "/audiobooks/genres") {
-    return { name: "audiobookGenres" };
+  if (path === "/audiobooks/categories") {
+    return { name: "audiobookCategories" };
   }
 
-  const audiobookGenreDetailMatch = path.match(/^\/audiobooks\/genres\/([^/]+)$/);
-  if (audiobookGenreDetailMatch) {
-    return { name: "audiobookGenreDetail", genreId: audiobookGenreDetailMatch[1] };
+  const audiobookCategoryDetailMatch = path.match(/^\/audiobooks\/categories\/([^/]+)$/);
+  if (audiobookCategoryDetailMatch) {
+    return { name: "audiobookCategoryDetail", categoryKey: audiobookCategoryDetailMatch[1] };
   }
 
   if (path === "/control/users") {
@@ -131,6 +131,10 @@ export function getRoute(): Route {
 
   if (path === "/control/database") {
     return { name: "control", section: "database" };
+  }
+
+  if (path === "/control/categories") {
+    return { name: "control", section: "categories" };
   }
 
   if (["/control/library", "/control/libraries"].includes(path)) {

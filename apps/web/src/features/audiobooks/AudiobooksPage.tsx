@@ -6,7 +6,7 @@ import { AudiobookNav } from "./AudiobookNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes, formatDuration } from "../../shared/utils";
-import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, CoverCandidate, MetadataCandidate, PlaybackProgress } from "./types";
+import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, CategorySummary, CoverCandidate, MetadataCandidate, PlaybackProgress } from "./types";
 
 export function AudiobooksPage({
   user,
@@ -260,13 +260,15 @@ function BookDetailView({
   const [coverError, setCoverError] = useState("");
   const [libraryPeople, setLibraryPeople] = useState<string[]>([]);
   const [librarySeries, setLibrarySeries] = useState<string[]>([]);
+  const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [editForm, setEditForm] = useState(() => ({
     title: book.title,
     series: book.series ?? "",
     seriesPosition: book.seriesPosition?.toString() ?? "",
     authors: book.authors,
     narrators: book.narrators,
-    genres: book.genres.join(", "),
+    tags: book.tags.join(", "),
+    categoryKey: book.category?.key ?? "",
     publisher: book.publisher ?? "",
     yearPublished: book.yearPublished?.toString() ?? "",
     language: book.language ?? "",
@@ -282,7 +284,8 @@ function BookDetailView({
       seriesPosition: book.seriesPosition?.toString() ?? "",
       authors: book.authors,
       narrators: book.narrators,
-      genres: book.genres.join(", "),
+      tags: book.tags.join(", "),
+    categoryKey: book.category?.key ?? "",
       publisher: book.publisher ?? "",
       yearPublished: book.yearPublished?.toString() ?? "",
       language: book.language ?? "",
@@ -323,6 +326,9 @@ function BookDetailView({
       .catch(() => {});
     api<{ series: { id: string; name: string }[] }>(`/api/library/audiobook-libraries/${book.libraryId}/series`)
       .then((payload) => setLibrarySeries(payload.series.map((s) => s.name)))
+      .catch(() => {});
+    api<{ categories: CategorySummary[] }>("/api/library/categories")
+      .then((payload) => setCategories(payload.categories))
       .catch(() => {});
   }, [metadataModalOpen, book.libraryId]);
 
@@ -396,7 +402,8 @@ function BookDetailView({
           seriesPosition: editForm.seriesPosition ? Number(editForm.seriesPosition) : null,
           authors: editForm.authors,
           narrators: editForm.narrators,
-          genres: splitList(editForm.genres),
+          tags: splitList(editForm.tags),
+          categoryKey: editForm.categoryKey || null,
           publisher: editForm.publisher || null,
           yearPublished: editForm.yearPublished ? Number(editForm.yearPublished) : null,
           description: editForm.description || null,
@@ -514,10 +521,10 @@ function BookDetailView({
       value: book.publisher,
       group: "extra"
     } : null,
-    book.genres.length > 0 ? {
-      label: "Genres",
-      value: book.genres.join(", "),
-      group: "extra"
+    book.category ? {
+      label: "Category",
+      value: book.category.name,
+      group: "main"
     } : null,
     book.isbn ? {
       label: "ISBN",
@@ -632,6 +639,14 @@ function BookDetailView({
             </section>
           )}
 
+          {book.tags.length > 0 && (
+            <section className="book-tags" aria-label="Tags">
+              {book.tags.map((tag) => (
+                <span className="book-tag-chip" key={tag}>{tag}</span>
+              ))}
+            </section>
+          )}
+
           <section className="book-files-section">
             <button
               className="book-files-toggle"
@@ -733,8 +748,21 @@ function BookDetailView({
                       />
                     </div>
                     <label className="field metadata-field-half">
-                      <span>Genres</span>
-                      <input value={editForm.genres} onChange={(event) => setEditForm((form) => ({ ...form, genres: event.target.value }))} />
+                      <span>Category</span>
+                      <select value={editForm.categoryKey} onChange={(event) => setEditForm((form) => ({ ...form, categoryKey: event.target.value }))}>
+                        <option value="">Auto (from scan)</option>
+                        {categories.map((category) => (
+                          <option key={category.key} value={category.key}>{category.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field metadata-field-half">
+                      <span>Tags</span>
+                      <input
+                        value={editForm.tags}
+                        onChange={(event) => setEditForm((form) => ({ ...form, tags: event.target.value }))}
+                        placeholder="Comma-separated, e.g. cyberpunk, попаданцы"
+                      />
                     </label>
                     <label className="field metadata-field-half">
                       <span>Publisher</span>

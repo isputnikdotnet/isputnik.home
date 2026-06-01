@@ -11,6 +11,8 @@ import { rescanSingleBook, sortTitle, writeCoverImages } from "./scanner.js";
 import { writeMetadataExport } from "../shared/metadata.js";
 import { normaliseRelativePath, pathIsInside } from "../shared/storage-roots.js";
 import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
+import { matchCategoryId, setEntityTags, addEntityTags } from "./categorize.js";
+import { canUserAccessLibrary } from "../shared/library-access.js";
 import type { AudiobookBookRow, BookFileRow } from "./types.js";
 
 function largeCoverUrl(storageKey: string | null) {
@@ -56,7 +58,8 @@ const manualMetadataSchema = z.object({
   title: z.string().trim().min(1).max(240),
   authors: z.array(z.string().trim().min(1).max(160)).default([]),
   narrators: z.array(z.string().trim().min(1).max(160)).default([]),
-  genres: z.array(z.string().trim().min(1).max(120)).default([]),
+  tags: z.array(z.string().trim().min(1).max(120)).default([]),
+  categoryKey: z.string().trim().min(1).max(64).nullable().optional(),
   publisher: z.string().trim().max(240).nullable().optional(),
   yearPublished: z.number().int().min(0).max(3000).nullable().optional(),
   description: z.string().trim().max(20000).nullable().optional(),
@@ -96,23 +99,35 @@ function upsertSeries(libraryId: string, name: string) {
   return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
 }
 
-function upsertGenre(libraryId: string, name: string) {
-  db.prepare("INSERT OR IGNORE INTO genres (id, library_id, name) VALUES (?, ?, ?)")
-    .run(nanoid(16), libraryId, name);
-  return db.prepare("SELECT id FROM genres WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
+interface CategoryRow {
+  id: string;
+  key: string;
+  name: string;
+  icon: string | null;
+  image_storage_key: string | null;
 }
 
-function mergeBookGenres(bookId: string, libraryId: string, names: string[]) {
-  uniqueValues(names).forEach((name) => {
-    const genre = upsertGenre(libraryId, name);
-    db.prepare("INSERT OR IGNORE INTO book_genres (book_id, genre_id) VALUES (?, ?)")
-      .run(bookId, genre.id);
-  });
+export function categoryImageUrl(imageStorageKey: string | null) {
+  return imageStorageKey ? `/api/library/covers/${imageStorageKey}` : null;
 }
 
-function replaceBookGenres(bookId: string, libraryId: string, names: string[]) {
-  db.prepare("DELETE FROM book_genres WHERE book_id = ?").run(bookId);
-  mergeBookGenres(bookId, libraryId, names);
+function categoryPayload(categoryId: string | null) {
+  if (!categoryId) {
+    return null;
+  }
+  const row = db.prepare("SELECT id, key, name, icon, image_storage_key FROM categories WHERE id = ?").get(categoryId) as CategoryRow | undefined;
+  return row ? { key: row.key, name: row.name, icon: row.icon, imageUrl: categoryImageUrl(row.image_storage_key) } : null;
+}
+
+function bookTags(bookId: string): string[] {
+  const rows = db.prepare(`
+    SELECT tags.display_name AS name
+    FROM taggables
+    JOIN tags ON tags.id = taggables.tag_id
+    WHERE taggables.entity_type = 'book' AND taggables.entity_id = ?
+    ORDER BY tags.display_name COLLATE NOCASE
+  `).all(bookId) as { name: string }[];
+  return rows.map((r) => r.name);
 }
 
 const MAX_COVER_BYTES = 10 * 1024 * 1024;
@@ -273,17 +288,15 @@ function getBookForMetadata(bookId: string) {
       book_metadata.isbn,
       book_metadata.asin,
       book_metadata.publisher,
+      book_metadata.category_id,
       GROUP_CONCAT(DISTINCT authors.name) AS author_names,
-      GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names,
-      GROUP_CONCAT(DISTINCT genres.name) AS genre_names
+      GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names
     FROM books
     LEFT JOIN book_metadata ON book_metadata.book_id = books.id
     LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
     LEFT JOIN authors ON authors.id = book_authors.author_id
     LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
     LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
-    LEFT JOIN book_genres ON book_genres.book_id = books.id
-    LEFT JOIN genres ON genres.id = book_genres.genre_id
     WHERE books.id = ?
       AND books.deleted_at IS NULL
     GROUP BY books.id
@@ -298,9 +311,9 @@ function getBookForMetadata(bookId: string) {
     isbn: string | null;
     asin: string | null;
     publisher: string | null;
+    category_id: string | null;
     author_names: string | null;
     narrator_names: string | null;
-    genre_names: string | null;
   } | undefined;
 }
 
@@ -315,7 +328,7 @@ function exportBookMetadata(bookId: string) {
       title: book.title,
       authors: splitGroupConcat(book.author_names),
       narrators: splitGroupConcat(book.narrator_names),
-      genres: splitGroupConcat(book.genre_names),
+      genres: bookTags(book.id),
       publisher: book.publisher,
       year: book.year_published,
       description: book.description,
@@ -391,8 +404,8 @@ async function applyMetadataCandidate(bookId: string, candidate: MetadataCandida
     if (candidate.narrators && (updateDetails || splitGroupConcat(current.narrator_names).length === 0)) {
       replaceBookPeople(bookId, current.library_id, "narrator", candidate.narrators);
     }
-    if (candidate.genres && (updateDetails || splitGroupConcat(current.genre_names).length === 0)) {
-      mergeBookGenres(bookId, current.library_id, candidate.genres);
+    if (candidate.genres && (updateDetails || bookTags(current.id).length === 0)) {
+      addEntityTags("book", bookId, candidate.genres);
     }
   })();
 
@@ -407,12 +420,15 @@ function updateManualMetadata(bookId: string, metadata: z.infer<typeof manualMet
   }
 
   db.transaction(() => {
+    const categoryId = metadata.categoryKey
+      ? (db.prepare("SELECT id FROM categories WHERE key = ?").get(metadata.categoryKey) as { id: string } | undefined)?.id ?? null
+      : null;
     db.prepare(`
       INSERT INTO book_metadata (
         id, book_id, source, title, sort_title, description, year_published, language,
-        duration_seconds, cover_storage_key, isbn, asin, publisher
+        duration_seconds, cover_storage_key, isbn, asin, publisher, category_id
       )
-      SELECT lower(hex(randomblob(8))), ?, 'manual', ?, ?, ?, ?, ?, duration_seconds, cover_storage_key, ?, ?, ?
+      SELECT lower(hex(randomblob(8))), ?, 'manual', ?, ?, ?, ?, ?, duration_seconds, cover_storage_key, ?, ?, ?, ?
       FROM book_metadata
       WHERE book_id = ?
       ON CONFLICT(book_id) DO UPDATE SET
@@ -425,6 +441,7 @@ function updateManualMetadata(bookId: string, metadata: z.infer<typeof manualMet
         isbn = excluded.isbn,
         asin = excluded.asin,
         publisher = excluded.publisher,
+        category_id = excluded.category_id,
         updated_at = CURRENT_TIMESTAMP
     `).run(
       bookId,
@@ -436,12 +453,13 @@ function updateManualMetadata(bookId: string, metadata: z.infer<typeof manualMet
       metadata.isbn ?? null,
       metadata.asin ?? null,
       metadata.publisher ?? null,
+      categoryId,
       bookId
     );
 
     replaceBookPeople(bookId, current.library_id, "author", metadata.authors);
     replaceBookPeople(bookId, current.library_id, "narrator", metadata.narrators);
-    replaceBookGenres(bookId, current.library_id, metadata.genres);
+    setEntityTags("book", bookId, metadata.tags);
   })();
 
   if (metadata.series) {
@@ -481,9 +499,9 @@ function getAudiobookBookDetail(id: string) {
       book_metadata.asin,
       book_metadata.publisher,
       book_metadata.openlibrary_id,
+      book_metadata.category_id,
       GROUP_CONCAT(DISTINCT authors.name) AS author_names,
       GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names,
-      GROUP_CONCAT(DISTINCT genres.name) AS genre_names,
       (
         SELECT COALESCE(SUM(book_files.size), 0)
         FROM book_files
@@ -498,8 +516,6 @@ function getAudiobookBookDetail(id: string) {
     LEFT JOIN authors ON authors.id = book_authors.author_id
     LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
     LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
-    LEFT JOIN book_genres ON book_genres.book_id = books.id
-    LEFT JOIN genres ON genres.id = book_genres.genre_id
     WHERE books.id = ?
       AND books.deleted_at IS NULL
     GROUP BY books.id
@@ -513,8 +529,8 @@ function getAudiobookBookDetail(id: string) {
     asin: string | null;
     publisher: string | null;
     openlibrary_id: string | null;
+    category_id: string | null;
     narrator_names: string | null;
-    genre_names: string | null;
     metadata_source: "scan" | "manual";
   }) | undefined;
 
@@ -544,7 +560,8 @@ function getAudiobookBookDetail(id: string) {
     language: book.language,
     authors: splitGroupConcat(book.author_names),
     narrators: splitGroupConcat(book.narrator_names),
-    genres: splitGroupConcat(book.genre_names),
+    category: categoryPayload(book.category_id),
+    tags: bookTags(book.id),
     totalSize: book.total_size ?? 0,
     durationSeconds: book.duration_seconds,
     coverUrl: book.cover_storage_key ? `/api/library/covers/${book.cover_storage_key}` : null,
@@ -602,9 +619,9 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
         book_metadata.cover_storage_key,
         book_metadata.publisher,
         book_metadata.asin,
+        book_metadata.category_id,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
         GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names,
-        GROUP_CONCAT(DISTINCT genres.name) AS genre_names,
         (
           SELECT COUNT(*)
           FROM book_files
@@ -624,13 +641,11 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
       LEFT JOIN authors ON authors.id = book_authors.author_id
       LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
       LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
-      LEFT JOIN book_genres ON book_genres.book_id = books.id
-      LEFT JOIN genres ON genres.id = book_genres.genre_id
       WHERE books.library_id = ?
         AND books.deleted_at IS NULL
       GROUP BY books.id
       ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
-    `).all(id) as (AudiobookBookRow & { series_name: string | null; series_position: number | null })[];
+    `).all(id) as (AudiobookBookRow & { series_name: string | null; series_position: number | null; category_id: string | null })[];
 
     return {
       books: books.map((book) => ({
@@ -645,7 +660,8 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
         language: book.language,
         authors: splitGroupConcat(book.author_names),
         narrators: splitGroupConcat(book.narrator_names),
-        genres: splitGroupConcat(book.genre_names),
+        category: categoryPayload(book.category_id),
+        tags: bookTags(book.id),
         fileCount: book.file_count,
         totalSize: book.total_size ?? 0,
         durationSeconds: book.duration_seconds,
@@ -754,7 +770,7 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
       ...parsed.data,
       authors: parsed.data.authors ?? [],
       narrators: parsed.data.narrators ?? [],
-      genres: parsed.data.genres ?? []
+      tags: parsed.data.tags ?? []
     });
     if (!book) {
       reply.code(404).send({ error: "Audiobook not found" });
@@ -1244,105 +1260,71 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
     reply.send({ updated: true });
   });
 
-  app.post("/api/library/audiobook-libraries/:id/genres", { preHandler: app.authenticate }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
+  interface AccessLibFields { owner_id: string | null; owner_type: string | null; visibility: string }
+
+  // Fixed navigation categories with book counts across the user's accessible libraries.
+  app.get("/api/library/categories", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
-    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
-    if (!library || !canUserWriteLibrary(library, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required." });
-      return;
+    const categories = db.prepare("SELECT id, key, name, icon, image_storage_key FROM categories ORDER BY sort_order").all() as { id: string; key: string; name: string; icon: string | null; image_storage_key: string | null }[];
+    const rows = db.prepare(`
+      SELECT book_metadata.category_id AS category_id, libraries.owner_id, libraries.owner_type, libraries.visibility
+      FROM books
+      JOIN libraries ON libraries.id = books.library_id
+      JOIN book_metadata ON book_metadata.book_id = books.id
+      WHERE books.deleted_at IS NULL AND libraries.type = 'audiobook' AND book_metadata.category_id IS NOT NULL
+    `).all() as (AccessLibFields & { category_id: string })[];
+
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      if (!canUserAccessLibrary(row, user.id, user.role)) continue;
+      counts.set(row.category_id, (counts.get(row.category_id) ?? 0) + 1);
     }
 
-    const parsed = parseBody(z.object({ name: z.string().trim().min(1).max(120) }), request.body);
-    if (parsed.error) {
-      reply.code(400).send({ error: "Genre name is required." });
-      return;
-    }
-
-    const existing = db.prepare("SELECT id FROM genres WHERE library_id = ? AND name = ?").get(id, parsed.data.name);
-    if (existing) {
-      reply.code(409).send({ error: "A genre with this name already exists in this library." });
-      return;
-    }
-
-    const genreId = nanoid(16);
-    db.prepare("INSERT INTO genres (id, library_id, name) VALUES (?, ?, ?)").run(genreId, id, parsed.data.name);
-    reply.code(201).send({ genre: { id: genreId, name: parsed.data.name, bookCount: 0 } });
+    return {
+      categories: categories.map((category) => ({
+        key: category.key,
+        name: category.name,
+        icon: category.icon,
+        imageUrl: categoryImageUrl(category.image_storage_key),
+        bookCount: counts.get(category.id) ?? 0
+      }))
+    };
   });
 
-  app.get("/api/library/audiobook-libraries/:id/genres", { preHandler: app.authenticate }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
+  app.get("/api/library/categories/:key/books", { preHandler: app.authenticate }, async (request, reply) => {
+    const key = (request.params as { key: string }).key;
     const user = request.user!;
-    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
-    if (!library) {
-      reply.code(404).send({ error: "Audiobook library not found" });
+    const category = db.prepare("SELECT id, key, name, icon, image_storage_key FROM categories WHERE key = ?").get(key) as { id: string; key: string; name: string; icon: string | null; image_storage_key: string | null } | undefined;
+    if (!category) {
+      reply.code(404).send({ error: "Category not found" });
       return;
     }
 
     const rows = db.prepare(`
       SELECT
-        genres.id,
-        genres.name,
-        COUNT(DISTINCT books.id) AS book_count
-      FROM genres
-      LEFT JOIN book_genres ON book_genres.genre_id = genres.id
-      LEFT JOIN books ON books.id = book_genres.book_id AND books.deleted_at IS NULL
-      WHERE genres.library_id = ?
-      GROUP BY genres.id
-      ORDER BY genres.name COLLATE NOCASE
-    `).all(id) as { id: string; name: string; book_count: number }[];
-
-    reply.send({
-      genres: rows.map((r) => ({ id: r.id, name: r.name, bookCount: r.book_count }))
-    });
-  });
-
-  app.get("/api/library/genres/:id", { preHandler: app.authenticate }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const user = request.user!;
-
-    const row = db.prepare(`
-      SELECT genres.id, genres.name, genres.library_id, libraries.name AS library_name
-      FROM genres
-      JOIN libraries ON libraries.id = genres.library_id
-      WHERE genres.id = ?
-    `).get(id) as { id: string; name: string; library_id: string; library_name: string } | undefined;
-
-    if (!row) {
-      reply.code(404).send({ error: "Genre not found" });
-      return;
-    }
-
-    const library = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
-    if (!library) {
-      reply.code(404).send({ error: "Genre not found" });
-      return;
-    }
-
-    const books = db.prepare(`
-      SELECT
         books.id,
         COALESCE(book_metadata.title, books.folder_path) AS title,
         book_metadata.cover_storage_key,
+        libraries.owner_id, libraries.owner_type, libraries.visibility,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names
-      FROM book_genres
-      JOIN books ON books.id = book_genres.book_id
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
+      FROM books
+      JOIN libraries ON libraries.id = books.library_id
+      JOIN book_metadata ON book_metadata.book_id = books.id AND book_metadata.category_id = ?
       LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
       LEFT JOIN authors ON authors.id = book_authors.author_id
-      WHERE book_genres.genre_id = ?
-        AND books.deleted_at IS NULL
+      WHERE books.deleted_at IS NULL AND libraries.type = 'audiobook'
       GROUP BY books.id
       ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
-    `).all(id) as { id: string; title: string; cover_storage_key: string | null; author_names: string | null }[];
+    `).all(category.id) as (AccessLibFields & { id: string; title: string; cover_storage_key: string | null; author_names: string | null })[];
 
+    const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
     reply.send({
-      genre: {
-        id: row.id,
-        name: row.name,
-        libraryId: row.library_id,
-        libraryName: row.library_name,
-        books: books.map((b) => ({
+      category: {
+        key: category.key,
+        name: category.name,
+        icon: category.icon,
+        imageUrl: categoryImageUrl(category.image_storage_key),
+        books: accessible.map((b) => ({
           id: b.id,
           title: b.title,
           authors: b.author_names ? b.author_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
@@ -1352,82 +1334,31 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
     });
   });
 
-  app.patch("/api/library/genres/:id", { preHandler: app.authenticate }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
+  // All tags in the user's accessible audiobook libraries, with usage counts.
+  app.get("/api/library/tags", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
+    const rows = db.prepare(`
+      SELECT tags.id AS tag_id, tags.display_name AS name, libraries.owner_id, libraries.owner_type, libraries.visibility
+      FROM taggables
+      JOIN tags ON tags.id = taggables.tag_id
+      JOIN books ON books.id = taggables.entity_id AND taggables.entity_type = 'book'
+      JOIN libraries ON libraries.id = books.library_id
+      WHERE books.deleted_at IS NULL AND libraries.type = 'audiobook'
+    `).all() as (AccessLibFields & { tag_id: string; name: string })[];
 
-    const row = db.prepare("SELECT id, library_id FROM genres WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
-    if (!row) {
-      reply.code(404).send({ error: "Genre not found" });
-      return;
+    const counts = new Map<string, { name: string; count: number }>();
+    for (const row of rows) {
+      if (!canUserAccessLibrary(row, user.id, user.role)) continue;
+      const entry = counts.get(row.tag_id) ?? { name: row.name, count: 0 };
+      entry.count += 1;
+      counts.set(row.tag_id, entry);
     }
 
-    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
-    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required." });
-      return;
-    }
-
-    const parsed = parseBody(z.object({ name: z.string().trim().min(1).max(120) }), request.body);
-    if (parsed.error) {
-      reply.code(400).send({ error: "Genre name is required." });
-      return;
-    }
-
-    db.prepare("UPDATE genres SET name = ? WHERE id = ?").run(parsed.data.name, id);
-    reply.send({ updated: true });
-  });
-
-  app.delete("/api/library/genres/:id", { preHandler: app.authenticate }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const user = request.user!;
-
-    const row = db.prepare("SELECT id, library_id FROM genres WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
-    if (!row) {
-      reply.code(404).send({ error: "Genre not found" });
-      return;
-    }
-
-    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
-    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required." });
-      return;
-    }
-
-    db.prepare("DELETE FROM genres WHERE id = ?").run(id);
-    reply.send({ deleted: true });
-  });
-
-  app.put("/api/library/genres/:id/books", { preHandler: app.authenticate }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const user = request.user!;
-
-    const row = db.prepare("SELECT id, library_id FROM genres WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
-    if (!row) {
-      reply.code(404).send({ error: "Genre not found" });
-      return;
-    }
-
-    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
-    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required." });
-      return;
-    }
-
-    const parsed = parseBody(z.object({ bookIds: z.array(z.string()) }), request.body);
-    if (parsed.error) {
-      reply.code(400).send({ error: "Invalid request", details: parsed.error });
-      return;
-    }
-
-    db.transaction(() => {
-      db.prepare("DELETE FROM book_genres WHERE genre_id = ?").run(id);
-      for (const bookId of parsed.data.bookIds) {
-        db.prepare("INSERT OR IGNORE INTO book_genres (book_id, genre_id) VALUES (?, ?)").run(bookId, id);
-      }
-    })();
-
-    reply.send({ updated: true });
+    return {
+      tags: [...counts.values()]
+        .map((e) => ({ name: e.name, count: e.count }))
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    };
   });
 
   app.post("/api/library/books/:id/metadata-reset", { preHandler: app.authenticate }, async (request, reply) => {

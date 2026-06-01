@@ -197,7 +197,16 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       return;
     }
 
-    db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
+    db.transaction(() => {
+      // taggables is polymorphic (no FK to books), so clean up its rows before the
+      // cascade removes the books and orphans them.
+      db.prepare(`
+        DELETE FROM taggables
+        WHERE entity_type = 'book'
+          AND entity_id IN (SELECT id FROM books WHERE library_id = ?)
+      `).run(id);
+      db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
+    })();
 
     logActivity({
       event: "library.audiobook.deleted",

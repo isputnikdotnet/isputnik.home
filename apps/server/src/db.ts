@@ -3,6 +3,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { nanoid } from "nanoid";
 import { config } from "./config.js";
+import { CATEGORY_SEED, ALIAS_SEED } from "./categories-seed.js";
 
 export type Role = "admin" | "member";
 export type ThemePreference = "system" | "light" | "dark" | "plain-light" | "plain-dark";
@@ -148,6 +149,7 @@ db.exec(`
     asin TEXT,
     publisher TEXT,
     openlibrary_id TEXT,
+    category_id TEXT REFERENCES categories(id),
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -197,6 +199,42 @@ db.exec(`
     genre_id TEXT NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
     PRIMARY KEY (book_id, genre_id)
   );
+
+  -- Fixed, app-defined navigation categories (audiobook-specific). Seeded below.
+  CREATE TABLE IF NOT EXISTS categories (
+    id TEXT PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    icon TEXT,
+    image_storage_key TEXT
+  );
+
+  -- Keyword -> category map used by the scanner to assign a primary category.
+  CREATE TABLE IF NOT EXISTS category_aliases (
+    id TEXT PRIMARY KEY,
+    keyword TEXT NOT NULL UNIQUE,
+    category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    priority INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- Global, freeform, cross-library-type tags.
+  CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- Polymorphic tag links so any entity type (book, photo, note, ...) can be tagged.
+  CREATE TABLE IF NOT EXISTS taggables (
+    tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    PRIMARY KEY (tag_id, entity_type, entity_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_taggables_entity ON taggables(entity_type, entity_id);
+  CREATE INDEX IF NOT EXISTS idx_category_aliases_cat ON category_aliases(category_id);
 
   CREATE TABLE IF NOT EXISTS book_files (
     id TEXT PRIMARY KEY,
@@ -372,6 +410,9 @@ if (!bookMetaColumns.some((column) => column.name === "asin")) {
 if (!bookMetaColumns.some((column) => column.name === "publisher")) {
   db.exec("ALTER TABLE book_metadata ADD COLUMN publisher TEXT");
 }
+if (!bookMetaColumns.some((column) => column.name === "category_id")) {
+  db.exec("ALTER TABLE book_metadata ADD COLUMN category_id TEXT REFERENCES categories(id)");
+}
 
 const seriesColumns = db.prepare("PRAGMA table_info(series)").all() as { name: string }[];
 if (!seriesColumns.some((column) => column.name === "description")) {
@@ -392,6 +433,49 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_libraries_owner      ON libraries(owner_id);
   CREATE INDEX IF NOT EXISTS idx_libraries_visibility ON libraries(visibility);
 `);
+
+const categoryColumns = db.prepare("PRAGMA table_info(categories)").all() as { name: string }[];
+if (categoryColumns.length > 0 && !categoryColumns.some((column) => column.name === "icon")) {
+  db.exec("ALTER TABLE categories ADD COLUMN icon TEXT");
+}
+if (categoryColumns.length > 0 && !categoryColumns.some((column) => column.name === "image_storage_key")) {
+  db.exec("ALTER TABLE categories ADD COLUMN image_storage_key TEXT");
+}
+
+// Seed the navigation categories and alias keywords. Fill-gaps only: existing rows are
+// never overwritten, so admin edits (renames, remapped/added/removed aliases) survive
+// restarts. New seed entries added in code are still inserted on next boot.
+{
+  const insertCategory = db.prepare(
+    "INSERT INTO categories (id, key, name, sort_order, icon) VALUES (?, ?, ?, ?, ?) ON CONFLICT(key) DO NOTHING"
+  );
+  // Backfill the default icon only where one was never set (preserves admin choices).
+  const backfillIcon = db.prepare("UPDATE categories SET icon = ? WHERE key = ? AND icon IS NULL");
+  const categoryIdByKey = new Map<string, string>();
+  const seedCategories = db.transaction(() => {
+    for (const category of CATEGORY_SEED) {
+      const existing = db.prepare("SELECT id FROM categories WHERE key = ?").get(category.key) as { id: string } | undefined;
+      const id = existing?.id ?? nanoid(16);
+      insertCategory.run(id, category.key, category.name, category.sortOrder, category.icon);
+      backfillIcon.run(category.icon, category.key);
+      categoryIdByKey.set(category.key, id);
+    }
+  });
+  seedCategories();
+
+  const insertAlias = db.prepare(
+    "INSERT INTO category_aliases (id, keyword, category_id, priority) VALUES (?, ?, ?, ?) ON CONFLICT(keyword) DO NOTHING"
+  );
+  const seedAliases = db.transaction(() => {
+    for (const alias of ALIAS_SEED) {
+      const categoryId = categoryIdByKey.get(alias.category);
+      if (categoryId) {
+        insertAlias.run(nanoid(16), alias.keyword, categoryId, alias.priority);
+      }
+    }
+  });
+  seedAliases();
+}
 
 export function hasUsers() {
   const row = db.prepare("SELECT COUNT(*) AS count FROM users WHERE deleted_at IS NULL").get() as { count: number };

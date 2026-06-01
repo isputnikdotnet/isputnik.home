@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { db } from "../../../db.js";
 import { normaliseRelativePath, findStorageRootForPath } from "../shared/storage-roots.js";
 import { getConfiguredThumbnailPath, thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
+import { matchCategoryId, setEntityTags } from "./categorize.js";
 
 const legacyAudioExtensions = new Set([".m4b", ".m4a", ".mp3", ".flac", ".ogg", ".opus", ".aac"]);
 export const audioExtensions = new Set([...legacyAudioExtensions, ".wav", ".wave"]);
@@ -849,12 +850,6 @@ function upsertAuthor(libraryId: string, name: string) {
     .get(libraryId, name) as { id: string };
 }
 
-function upsertGenre(libraryId: string, name: string) {
-  db.prepare("INSERT OR IGNORE INTO genres (id, library_id, name) VALUES (?, ?, ?)")
-    .run(nanoid(16), libraryId, name);
-  return db.prepare("SELECT id FROM genres WHERE library_id = ? AND name = ?")
-    .get(libraryId, name) as { id: string };
-}
 
 function upsertSeries(libraryId: string, name: string) {
   db.prepare("INSERT OR IGNORE INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
@@ -880,12 +875,13 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
   }
 
   if (!book.skipMetadataUpdate) {
+    const categoryId = matchCategoryId(book.genres);
     db.prepare(`
       INSERT INTO book_metadata (
         id, book_id, source, title, sort_title, description, year_published, language,
-        duration_seconds, cover_storage_key, isbn, asin, publisher
+        duration_seconds, cover_storage_key, isbn, asin, publisher, category_id
       )
-      VALUES (?, ?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(book_id) DO UPDATE SET
         title = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.title ELSE excluded.title END,
         sort_title = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.sort_title ELSE excluded.sort_title END,
@@ -900,6 +896,7 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
         isbn = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.isbn ELSE excluded.isbn END,
         asin = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.asin ELSE excluded.asin END,
         publisher = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.publisher ELSE excluded.publisher END,
+        category_id = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.category_id ELSE excluded.category_id END,
         updated_at = CURRENT_TIMESTAMP
     `).run(
       nanoid(16),
@@ -913,7 +910,8 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
       book.coverStorageKey,
       book.isbn,
       book.asin,
-      book.publisher
+      book.publisher,
+      categoryId
     );
   }
 
@@ -942,11 +940,9 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
       `).run(book.bookId, narrator.id, index);
     });
 
-    db.prepare("DELETE FROM book_genres WHERE book_id = ?").run(book.bookId);
-    book.genres.forEach((genreName) => {
-      const genre = upsertGenre(libraryId, genreName);
-      db.prepare("INSERT INTO book_genres (book_id, genre_id) VALUES (?, ?)").run(book.bookId, genre.id);
-    });
+    // Raw genres become global, freeform tags (the descriptive layer); the primary
+    // category is derived from them above.
+    setEntityTags("book", book.bookId, book.genres);
   }
 
   db.prepare("UPDATE book_files SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(book.bookId);

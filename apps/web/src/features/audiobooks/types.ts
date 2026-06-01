@@ -25,7 +25,8 @@ export interface AudiobookBook {
   seriesPosition: number | null;
   authors: string[];
   narrators: string[];
-  genres: string[];
+  category: BookCategory | null;
+  tags: string[];
   language: string | null;
   fileCount: number;
   totalSize: number;
@@ -135,23 +136,37 @@ export interface SeriesDetail {
   }[];
 }
 
-export interface GenreSummary {
-  id: string;
+export interface BookCategory {
+  key: string;
   name: string;
+  icon?: string | null;
+  imageUrl?: string | null;
+}
+
+export interface CategorySummary {
+  key: string;
+  name: string;
+  icon: string | null;
+  imageUrl: string | null;
   bookCount: number;
 }
 
-export interface GenreDetail {
-  id: string;
+export interface CategoryDetail {
+  key: string;
   name: string;
-  libraryId: string;
-  libraryName: string;
+  icon: string | null;
+  imageUrl: string | null;
   books: {
     id: string;
     title: string;
     authors: string[];
     coverUrl: string | null;
   }[];
+}
+
+export interface TagSummary {
+  name: string;
+  count: number;
 }
 
 export interface CoverCandidate {

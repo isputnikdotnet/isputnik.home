@@ -336,6 +336,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.4.12",
+          label: "Categories & tags",
+          changes: [
+            "Books are now sorted into a fixed set of navigation Categories (Fiction, Mystery & Thriller, Sci-Fi & Fantasy, Romance, Biographies & History, Self-Help & Business, Science & Culture, Kids & Teens) with a General / Other fallback — replacing the old free-form Genres.",
+            "Every original genre is kept as a searchable Tag, shown as chips on the book page; nothing is discarded. Tags are global and ready to be reused by future library types.",
+            "During a scan, incoming genre text is matched to a category via a bilingual (English + Russian) keyword table; unmatched books fall back to General / Other.",
+            "Book editor now has a Category dropdown and a Tags field; a manual choice is preserved across rescans.",
+            "New admin Control Panel section, Categories & Tags: rename/reorder categories, manage keyword-to-category mappings, map any tag to a category, and Re-match all books from their existing tags instantly — no file rescan needed.",
+            "Each category has an icon (admin-pickable) plus an optional uploaded image that overrides it, shown on the category browse cards."
+          ]
+        },
+        {
           version: "0.4.11",
           label: "Status dashboard & book rescan",
           changes: [

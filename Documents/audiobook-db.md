@@ -212,9 +212,20 @@ Library-scoped. Both authors and narrators are stored here; `book_authors.role` 
 
 Library-scoped. `books.series_position` supports decimals (2.5 for novellas between books). `sort_name` strips leading articles for sorting.
 
-### `genres`
+### `genres` / `book_genres` (deprecated)
 
-Library-scoped controlled vocabulary. Set from embedded tags or manual edit. Distinct from user-defined `tags` (which are global and freeform).
+The original library-scoped freeform genre tables. **Superseded** by the two-layer model below — the scanner no longer writes to them. Retained only to avoid a destructive migration; safe to drop later.
+
+### Genre model — categories + tags
+
+Incoming genre strings (from audio tags and sidecars) are split into two layers:
+
+- **`categories`** — a fixed, app-defined, global navigation taxonomy (Fiction, Mystery & Thriller, Sci-Fi & Fantasy, Romance, Biographies & History, Self-Help & Business, Science & Culture, Kids & Teens, plus a `general_other` fallback). Seeded on startup from `categories-seed.ts`. A book has **one** primary category (`book_metadata.category_id`).
+- **`category_aliases`** — `keyword → category_id` with a `priority`. The scanner normalizes each raw genre and assigns the highest-priority keyword match; no match → General / Other. Admin-tunable.
+- **`tags`** — global, freeform, normalized-by `key`. Every raw genre becomes a tag (the descriptive/filter layer). Nothing is discarded.
+- **`taggables`** — polymorphic link (`tag_id`, `entity_type`, `entity_id`) so tags are reusable across future library types and Notes, not just books. No FK on `entity_id`; library/book deletion cleans up its rows explicitly.
+
+`book_metadata.category_id` (and the book's tags) are protected by the `source = 'manual'` rule — a manual category/tag edit survives rescans.
 
 ### `book_authors`
 
