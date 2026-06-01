@@ -17,6 +17,7 @@ import { SeriesListPage } from "../features/audiobooks/SeriesListPage";
 import { SeriesDetailPage } from "../features/audiobooks/SeriesDetailPage";
 import { CategoryListPage } from "../features/audiobooks/CategoryListPage";
 import { CategoryDetailPage } from "../features/audiobooks/CategoryDetailPage";
+import { TagDetailPage } from "../features/audiobooks/TagDetailPage";
 import { ControlPanelPage } from "../features/control/ControlPanelPage";
 
 interface SessionState {
@@ -184,6 +185,10 @@ export function App() {
 
   if (route.name === "audiobookCategoryDetail") {
     return <CategoryDetailPage categoryKey={route.categoryKey} user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookTagDetail") {
+    return <TagDetailPage tagName={route.tagName} user={session.user} logout={logout} />;
   }
 
   if (route.name === "audiobookSection") {

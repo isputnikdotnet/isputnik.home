@@ -18,6 +18,7 @@ export type Route =
   | { name: "audiobookSeriesDetail"; seriesId: string }
   | { name: "audiobookCategories" }
   | { name: "audiobookCategoryDetail"; categoryKey: string }
+  | { name: "audiobookTagDetail"; tagName: string }
   | { name: "audiobookSection"; sectionId: string }
   | { name: "control"; section: ControlSection }
   | { name: "controlCategoryEditor"; categoryId: string | null }
@@ -102,6 +103,11 @@ export function getRoute(): Route {
   const audiobookSectionMatch = path.match(/^\/audiobooks\/sections\/([^/]+)$/);
   if (audiobookSectionMatch) {
     return { name: "audiobookSection", sectionId: audiobookSectionMatch[1] };
+  }
+
+  const audiobookTagDetailMatch = path.match(/^\/audiobooks\/tags\/(.+)$/);
+  if (audiobookTagDetailMatch) {
+    return { name: "audiobookTagDetail", tagName: decodeURIComponent(audiobookTagDetailMatch[1]) };
   }
 
   if (["/control/accounts", "/control/users"].includes(path)) {

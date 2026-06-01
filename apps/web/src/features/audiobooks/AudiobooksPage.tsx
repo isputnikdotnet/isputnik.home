@@ -9,16 +9,29 @@ import { formatBytes, formatDuration } from "../../shared/utils";
 import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, CategorySummary, CoverCandidate, LibrarySection, MetadataCandidate, PlaybackProgress } from "./types";
 
 function BookCard({ book }: { book: AudiobookBook }) {
+  const pct = book.progress?.percentComplete ?? null;
+  const finished = book.progress?.completedAt != null || (pct != null && pct >= 0.98);
+  const inProgress = !finished && pct != null && pct > 0;
   return (
     <button className="audiobook-card" onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
-      <div className="audiobook-cover" aria-hidden="true">
+      <div className="audiobook-cover">
         {book.coverUrl ? (
-          <img src={book.coverUrl} alt="" />
+          <img src={book.coverUrl} alt="" aria-hidden="true" />
         ) : (
           <>
-            <BookOpen size={13} />
-            <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
+            <BookOpen size={13} aria-hidden="true" />
+            <strong aria-hidden="true">{book.title.slice(0, 2).toUpperCase()}</strong>
           </>
+        )}
+        {finished && (
+          <span className="audiobook-progress-badge" title="Finished" aria-label="Finished">
+            <CheckCircle2 size={15} />
+          </span>
+        )}
+        {inProgress && (
+          <span className="audiobook-progress-bar" aria-label={`${Math.round((pct ?? 0) * 100)}% played`}>
+            <span style={{ width: `${Math.round((pct ?? 0) * 100)}%` }} />
+          </span>
         )}
       </div>
       <div className="audiobook-card-body">
@@ -374,6 +387,7 @@ function BookDetailView({
   onBookUpdated: (book: AudiobookBookDetail) => void;
 }) {
   const [filesOpen, setFilesOpen] = useState(false);
+  const [progress, setProgress] = useState<PlaybackProgress | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
@@ -438,6 +452,25 @@ function BookDetailView({
     setDetailsExpanded(false);
     setDescriptionExpanded(false);
   }, [book.id]);
+
+  useEffect(() => {
+    api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`)
+      .then((payload) => setProgress(payload.progress))
+      .catch(() => setProgress(null));
+  }, [book.id]);
+
+  // Derive per-file listened status from the book-level progress (current file +
+  // linear order). Accurate for sequential listening; an approximation if the
+  // user jumped around.
+  const currentFileIndex = progress?.fileId ? book.files.findIndex((f) => f.id === progress.fileId) : -1;
+  const bookFinished = progress?.completedAt != null || (progress?.percentComplete != null && progress.percentComplete >= 0.98);
+  const fileState = (index: number): "completed" | "in_progress" | "not_started" => {
+    if (bookFinished) return "completed";
+    if (currentFileIndex < 0) return "not_started";
+    if (index < currentFileIndex) return "completed";
+    if (index === currentFileIndex) return "in_progress";
+    return "not_started";
+  };
 
   const loadCoverCandidates = useCallback(async () => {
     setCoverLoading(true);
@@ -700,14 +733,31 @@ function BookDetailView({
       </button>
 
       <div className="book-detail-head">
-        <div className="book-detail-cover" aria-hidden="true">
-          {book.coverUrl ? (
-            <img src={book.coverLargeUrl ?? book.coverUrl} alt="" />
-          ) : (
-            <>
-              <BookOpen size={32} />
-              <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
-            </>
+        <div className="book-detail-cover-col">
+          <div className="book-detail-cover" aria-hidden="true">
+            {book.coverUrl ? (
+              <img src={book.coverLargeUrl ?? book.coverUrl} alt="" />
+            ) : (
+              <>
+                <BookOpen size={32} />
+                <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
+              </>
+            )}
+          </div>
+
+          {book.tags.length > 0 && (
+            <section className="book-tags book-tags-under-cover" aria-label="Tags">
+              {book.tags.map((tag) => (
+                <button
+                  className="book-tag-chip"
+                  key={tag}
+                  type="button"
+                  onClick={() => navigate(`/audiobooks/tags/${encodeURIComponent(tag)}`)}
+                >
+                  {tag}
+                </button>
+              ))}
+            </section>
           )}
         </div>
 
@@ -778,14 +828,6 @@ function BookDetailView({
             </section>
           )}
 
-          {book.tags.length > 0 && (
-            <section className="book-tags" aria-label="Tags">
-              {book.tags.map((tag) => (
-                <span className="book-tag-chip" key={tag}>{tag}</span>
-              ))}
-            </section>
-          )}
-
           <section className="book-files-section">
             <button
               className="book-files-toggle"
@@ -799,19 +841,27 @@ function BookDetailView({
 
             {filesOpen && (
               <div className="book-file-list">
-                {book.files.map((file) => (
-                  <article className="book-file-row" key={file.id}>
-                    <span>{file.trackNumber ?? "-"}</span>
-                    <div>
-                      <strong>{file.chapterTitle || file.relativePath.split("/").at(-1) || file.relativePath}</strong>
-                      <small>{file.relativePath}</small>
-                    </div>
-                    <small>
-                      {file.durationSeconds != null ? `${formatDuration(file.durationSeconds)} · ` : ""}
-                      {formatBytes(file.size)}
-                    </small>
-                  </article>
-                ))}
+                {book.files.map((file, index) => {
+                  const state = fileState(index);
+                  return (
+                    <article className="book-file-row" key={file.id}>
+                      <span>{file.trackNumber ?? "-"}</span>
+                      <div>
+                        <strong>{file.chapterTitle || file.relativePath.split("/").at(-1) || file.relativePath}</strong>
+                        <small>{file.relativePath}</small>
+                      </div>
+                      <span className={`book-file-status ${state}`}>
+                        {state === "completed" && (<><CheckCircle2 size={13} /> Done</>)}
+                        {state === "in_progress" && (<><span className="book-file-dot" /> Playing</>)}
+                        {state === "not_started" && "—"}
+                      </span>
+                      <small>
+                        {file.durationSeconds != null ? `${formatDuration(file.durationSeconds)} · ` : ""}
+                        {formatBytes(file.size)}
+                      </small>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>

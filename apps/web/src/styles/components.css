@@ -454,10 +454,21 @@
   border-top: 1px solid var(--line);
 }
 
+.wizard-step-indicator {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .create-group-modal,
 .edit-library-modal {
   display: grid;
   gap: 16px;
+}
+
+.edit-library-modal {
+  width: min(100%, 620px);
 }
 
 .manage-group-modal {

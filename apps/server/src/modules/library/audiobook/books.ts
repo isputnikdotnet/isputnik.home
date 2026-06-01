@@ -12,7 +12,7 @@ import { rescanSingleBook, sortTitle, writeCoverImages } from "./scanner.js";
 import { writeMetadataExport } from "../shared/metadata.js";
 import { normaliseRelativePath, pathIsInside } from "../shared/storage-roots.js";
 import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
-import { matchCategoryId, setEntityTags, addEntityTags } from "./categorize.js";
+import { matchCategoryId, setEntityTags, addEntityTags, normalizeText } from "./categorize.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import type { AudiobookBookRow, BookFileRow } from "./types.js";
 
@@ -626,6 +626,8 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
         book_metadata.category_id,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
         GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names,
+        progress.percent_complete AS progress_percent,
+        progress.completed_at AS progress_completed_at,
         (
           SELECT COUNT(*)
           FROM book_files
@@ -645,11 +647,12 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
       LEFT JOIN authors ON authors.id = book_authors.author_id
       LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
       LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
+      LEFT JOIN playback_progress AS progress ON progress.book_id = books.id AND progress.user_id = ?
       WHERE books.library_id = ?
         AND books.deleted_at IS NULL
       GROUP BY books.id
       ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
-    `).all(id) as (AudiobookBookRow & { series_name: string | null; series_position: number | null; category_id: string | null })[];
+    `).all(user.id, id) as (AudiobookBookRow & { series_name: string | null; series_position: number | null; category_id: string | null; progress_percent: number | null; progress_completed_at: string | null })[];
 
     return {
       books: books.map((book) => ({
@@ -673,6 +676,10 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
         coverLargeUrl: largeCoverUrl(book.cover_storage_key),
         publisher: book.publisher,
         asin: book.asin,
+        progress: {
+          percentComplete: book.progress_percent,
+          completedAt: book.progress_completed_at
+        },
         discoveredAt: book.discovered_at,
         updatedAt: book.updated_at
       }))
@@ -1363,6 +1370,50 @@ export async function audiobookBooksPlugin(app: FastifyInstance) {
         .map((e) => ({ name: e.name, count: e.count }))
         .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
     };
+  });
+
+  // Books carrying a given tag, across the user's accessible audiobook libraries.
+  // The :name param is the tag's display name; it's normalized to match tags.key.
+  app.get("/api/library/tags/:name/books", { preHandler: app.authenticate }, async (request, reply) => {
+    const name = decodeURIComponent((request.params as { name: string }).name);
+    const user = request.user!;
+    const tag = db.prepare("SELECT id, display_name FROM tags WHERE key = ?")
+      .get(normalizeText(name)) as { id: string; display_name: string } | undefined;
+    if (!tag) {
+      reply.code(404).send({ error: "Tag not found" });
+      return;
+    }
+
+    const rows = db.prepare(`
+      SELECT
+        books.id,
+        COALESCE(book_metadata.title, books.folder_path) AS title,
+        book_metadata.cover_storage_key,
+        libraries.owner_id, libraries.owner_type, libraries.visibility,
+        GROUP_CONCAT(DISTINCT authors.name) AS author_names
+      FROM books
+      JOIN libraries ON libraries.id = books.library_id
+      JOIN book_metadata ON book_metadata.book_id = books.id
+      JOIN taggables ON taggables.entity_id = books.id AND taggables.entity_type = 'book' AND taggables.tag_id = ?
+      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
+      LEFT JOIN authors ON authors.id = book_authors.author_id
+      WHERE books.deleted_at IS NULL AND libraries.type = 'audiobook'
+      GROUP BY books.id
+      ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
+    `).all(tag.id) as (AccessLibFields & { id: string; title: string; cover_storage_key: string | null; author_names: string | null })[];
+
+    const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
+    reply.send({
+      tag: {
+        name: tag.display_name,
+        books: accessible.map((b) => ({
+          id: b.id,
+          title: b.title,
+          authors: b.author_names ? b.author_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
+          coverUrl: b.cover_storage_key ? `/api/library/covers/${b.cover_storage_key}` : null
+        }))
+      }
+    });
   });
 
   app.post("/api/library/books/:id/metadata-reset", { preHandler: app.authenticate }, async (request, reply) => {

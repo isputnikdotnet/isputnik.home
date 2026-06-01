@@ -55,6 +55,7 @@ export interface AudiobookBook {
   coverLargeUrl: string | null;
   publisher: string | null;
   asin: string | null;
+  progress?: { percentComplete: number | null; completedAt: string | null };
   discoveredAt: string;
   updatedAt: string;
 }

@@ -336,6 +336,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.4.16",
+          label: "Listening progress & UX polish",
+          changes: [
+            "Book cards now show a listened indicator — a checkmark when finished and a progress bar while in progress.",
+            "Book detail lists each file's state under Files: completed, playing, or not started (derived from your current position).",
+            "Tags moved under the cover on the book page and are now clickable — open a tag to see every book carrying it.",
+            "Adding a library is now a step-by-step wizard (Details → Metadata overrides → Source folder) so the form fits the window.",
+            "Special-section overrides (Author, Narrator, Tags, etc.) are now correctly optional — leave any blank to keep scanned values.",
+            "Wider Edit library dialog and clearer spacing in the section dialog."
+          ]
+        },
+        {
           version: "0.4.15",
           label: "Special sections & control panel",
           changes: [

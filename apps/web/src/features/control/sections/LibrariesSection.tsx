@@ -57,8 +57,8 @@ function OverrideFields({
         Overwrites scanned metadata for every book. Leave blank to keep what the scan finds (e.g. blank Author keeps each story's real writer).
       </p>
       <div className="override-grid">
-        <Field label="Author" value={overrides.author} onChange={(v) => set({ author: v })} />
-        <Field label="Narrator" value={overrides.narrator} onChange={(v) => set({ narrator: v })} />
+        <Field label="Author" value={overrides.author} onChange={(v) => set({ author: v })} required={false} />
+        <Field label="Narrator" value={overrides.narrator} onChange={(v) => set({ narrator: v })} required={false} />
         <label className="field">
           <span>Category</span>
           <select value={overrides.categoryKey} onChange={(event) => set({ categoryKey: event.target.value })}>
@@ -68,7 +68,7 @@ function OverrideFields({
             ))}
           </select>
         </label>
-        <Field label="Tags (comma-separated)" value={overrides.tags} onChange={(v) => set({ tags: v })} />
+        <Field label="Tags (comma-separated)" value={overrides.tags} onChange={(v) => set({ tags: v })} required={false} />
         <label className="field override-desc">
           <span>Description</span>
           <textarea
@@ -115,6 +115,7 @@ export function LibrariesSection({ tab }: { tab: "audiobooks" | "special" }) {
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [librarySectionId, setLibrarySectionId] = useState("");
   const [libraryOverrides, setLibraryOverrides] = useState<OverrideForm>(EMPTY_OVERRIDE);
+  const [wizardStep, setWizardStep] = useState(0);
   const [editSectionId, setEditSectionId] = useState("");
   const [editOverrides, setEditOverrides] = useState<OverrideForm>(EMPTY_OVERRIDE);
   // Section CRUD (the grouping shell — name + icon only).
@@ -362,6 +363,7 @@ export function LibrariesSection({ tab }: { tab: "audiobooks" | "special" }) {
     setError("");
     setLibrarySectionId(tab === "special" ? (sections[0]?.id ?? "") : "");
     setLibraryOverrides(EMPTY_OVERRIDE);
+    setWizardStep(0);
     setCreateLibraryOpen(true);
     const rootId = selectedRootId || storageRoots[0]?.id || "";
     if (rootId) {
@@ -520,149 +522,197 @@ export function LibrariesSection({ tab }: { tab: "audiobooks" | "special" }) {
         </div>
       )}
 
-      {createLibraryOpen && (
-        <div className="modal-backdrop" onMouseDown={() => !creating && setCreateLibraryOpen(false)}>
+      {createLibraryOpen && (() => {
+        // Build the wizard step sequence: overrides step only appears for a
+        // special-section library that has a section selected.
+        const steps: ("details" | "overrides" | "source")[] = [
+          "details",
+          ...(tab === "special" && librarySectionId ? ["overrides" as const] : []),
+          "source"
+        ];
+        const lastStep = steps.length - 1;
+        const current = Math.min(wizardStep, lastStep);
+        const stepKey = steps[current];
+        const stepTitles: Record<typeof steps[number], string> = {
+          details: "Details",
+          overrides: "Metadata overrides",
+          source: "Source folder"
+        };
+        const canLeaveDetails = libraryName.trim().length >= 2;
+        const canSubmit = Boolean(storageBrowse?.selectedPath) && Boolean(librarySettings?.thumbnailPathReady) && storageRoots.length > 0;
+        const closeWizard = () => { setCreateLibraryOpen(false); setStorageBrowse(null); };
+        const goNext = () => {
+          if (stepKey === "details" && !canLeaveDetails) {
+            setError("Enter a library name (at least 2 characters) to continue.");
+            return;
+          }
+          setError("");
+          setWizardStep(current + 1);
+        };
+        const onWizardSubmit = (event: FormEvent) => {
+          if (current < lastStep) { event.preventDefault(); goNext(); return; }
+          createLibrary(event);
+        };
+
+        return (
+        <div className="modal-backdrop" onMouseDown={() => !creating && closeWizard()}>
           <form
             className="confirm-modal create-library-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-library-title"
-            onSubmit={createLibrary}
+            onSubmit={onWizardSubmit}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <h2 id="create-library-title">Add audiobook library</h2>
-            <p>Choose a configured storage container, then select the whole container or a folder inside it.</p>
+            <div>
+              <h2 id="create-library-title">Add audiobook library</h2>
+              <p className="wizard-step-indicator">Step {current + 1} of {steps.length} — {stepTitles[stepKey]}</p>
+            </div>
             {(!librarySettings?.thumbnailPathReady || storageRoots.length === 0) && (
               <MessageBox tone="warning" title="Thumbnail storage required">
                 Configure thumbnail storage and at least one Digital Library container first.
               </MessageBox>
             )}
-            <Field label="Library name" value={libraryName} onChange={setLibraryName} />
-            <label className="field">
-              <span>Owner</span>
-              <select
-                value={libraryOwnerId ? `${libraryOwnerType}:${libraryOwnerId}` : ""}
-                onChange={(event) => {
-                  const val = event.target.value;
-                  if (!val) { setLibraryOwnerId(""); setLibraryOwnerType(""); return; }
-                  const [type, id] = val.split(":");
-                  setLibraryOwnerType(type as "user" | "group");
-                  setLibraryOwnerId(id);
-                }}
-              >
-                <option value="">No owner (system library)</option>
-                {users.length > 0 && (
-                  <optgroup label="Users">
-                    {users.map((user) => (
-                      <option value={`user:${user.id}`} key={user.id}>{user.displayName} ({user.email})</option>
-                    ))}
-                  </optgroup>
-                )}
-                {groups.length > 0 && (
-                  <optgroup label="Groups">
-                    {groups.map((group) => (
-                      <option value={`group:${group.id}`} key={group.id}>{group.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </label>
-            <label className="field">
-              <span>Visibility</span>
-              <select value={libraryVisibility} onChange={(event) => setLibraryVisibility(event.target.value as "public" | "private")}>
-                <option value="public">Public — all users can access</option>
-                <option value="private">Private — owner and admins only</option>
-              </select>
-            </label>
-            {tab === "special" && (
+
+            {stepKey === "details" && (
               <>
+                <Field label="Library name" value={libraryName} onChange={setLibraryName} />
                 <label className="field">
-                  <span>Special section</span>
-                  <select value={librarySectionId} onChange={(event) => setLibrarySectionId(event.target.value)}>
-                    <option value="">None — show in the main grid</option>
-                    {sections.map((section) => (
-                      <option key={section.id} value={section.id}>{section.name}</option>
-                    ))}
+                  <span>Owner</span>
+                  <select
+                    value={libraryOwnerId ? `${libraryOwnerType}:${libraryOwnerId}` : ""}
+                    onChange={(event) => {
+                      const val = event.target.value;
+                      if (!val) { setLibraryOwnerId(""); setLibraryOwnerType(""); return; }
+                      const [type, id] = val.split(":");
+                      setLibraryOwnerType(type as "user" | "group");
+                      setLibraryOwnerId(id);
+                    }}
+                  >
+                    <option value="">No owner (system library)</option>
+                    {users.length > 0 && (
+                      <optgroup label="Users">
+                        {users.map((user) => (
+                          <option value={`user:${user.id}`} key={user.id}>{user.displayName} ({user.email})</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {groups.length > 0 && (
+                      <optgroup label="Groups">
+                        {groups.map((group) => (
+                          <option value={`group:${group.id}`} key={group.id}>{group.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </label>
-                {librarySectionId && (
-                  <OverrideFields overrides={libraryOverrides} onChange={setLibraryOverrides} categories={categories} />
+                <label className="field">
+                  <span>Visibility</span>
+                  <select value={libraryVisibility} onChange={(event) => setLibraryVisibility(event.target.value as "public" | "private")}>
+                    <option value="public">Public — all users can access</option>
+                    <option value="private">Private — owner and admins only</option>
+                  </select>
+                </label>
+                {tab === "special" && (
+                  <label className="field">
+                    <span>Special section</span>
+                    <select value={librarySectionId} onChange={(event) => setLibrarySectionId(event.target.value)}>
+                      <option value="">None — show in the main grid</option>
+                      {sections.map((section) => (
+                        <option key={section.id} value={section.id}>{section.name}</option>
+                      ))}
+                    </select>
+                  </label>
                 )}
               </>
             )}
-            <label className="field">
-              <span>Container</span>
-              <select
-                value={selectedRootId}
-                onChange={(event) => browseStorageRoot(event.target.value).catch((err) => setError(err instanceof Error ? err.message : "Unable to browse storage container"))}
-                required
-              >
-                {storageRoots.map((root) => (
-                  <option value={root.id} key={root.id}>{root.name}</option>
-                ))}
-              </select>
-            </label>
-            {storageBrowse && (
-              <section className="folder-browser" aria-label="Library folder browser">
-                <div className="folder-browser-head">
-                  <div>
-                    <strong>{storageBrowse.currentPath || storageBrowse.root.name}</strong>
-                    <span>{storageBrowse.selectedPath}</span>
-                  </div>
-                  {storageBrowse.parentPath !== null && (
-                    <button
-                      className="secondary-button compact-button"
-                      type="button"
-                      onClick={() => browseStorageRoot(storageBrowse.root.id, storageBrowse.parentPath ?? "")}
-                    >
-                      Up
-                    </button>
-                  )}
-                </div>
-                <div className="folder-list">
-                  {storageBrowse.entries.map((entry) => (
-                    <button
-                      className="folder-row"
-                      type="button"
-                      key={entry.relativePath}
-                      onClick={() => browseStorageRoot(storageBrowse.root.id, entry.relativePath)}
-                    >
-                      {entry.name}
-                    </button>
-                  ))}
-                  {storageBrowse.entries.length === 0 && <p className="management-empty">No child folders found. The current folder can still be used.</p>}
-                </div>
-              </section>
+
+            {stepKey === "overrides" && (
+              <OverrideFields overrides={libraryOverrides} onChange={setLibraryOverrides} categories={categories} />
             )}
-            <label className="field-checkbox">
-              <input
-                type="checkbox"
-                checked={libraryIgnoreSidecar}
-                onChange={(event) => setLibraryIgnoreSidecar(event.target.checked)}
-              />
-              <span>Do not read metadata.json files</span>
-            </label>
+
+            {stepKey === "source" && (
+              <>
+                <label className="field">
+                  <span>Container</span>
+                  <select
+                    value={selectedRootId}
+                    onChange={(event) => browseStorageRoot(event.target.value).catch((err) => setError(err instanceof Error ? err.message : "Unable to browse storage container"))}
+                    required
+                  >
+                    {storageRoots.map((root) => (
+                      <option value={root.id} key={root.id}>{root.name}</option>
+                    ))}
+                  </select>
+                </label>
+                {storageBrowse && (
+                  <section className="folder-browser" aria-label="Library folder browser">
+                    <div className="folder-browser-head">
+                      <div>
+                        <strong>{storageBrowse.currentPath || storageBrowse.root.name}</strong>
+                        <span>{storageBrowse.selectedPath}</span>
+                      </div>
+                      {storageBrowse.parentPath !== null && (
+                        <button
+                          className="secondary-button compact-button"
+                          type="button"
+                          onClick={() => browseStorageRoot(storageBrowse.root.id, storageBrowse.parentPath ?? "")}
+                        >
+                          Up
+                        </button>
+                      )}
+                    </div>
+                    <div className="folder-list">
+                      {storageBrowse.entries.map((entry) => (
+                        <button
+                          className="folder-row"
+                          type="button"
+                          key={entry.relativePath}
+                          onClick={() => browseStorageRoot(storageBrowse.root.id, entry.relativePath)}
+                        >
+                          {entry.name}
+                        </button>
+                      ))}
+                      {storageBrowse.entries.length === 0 && <p className="management-empty">No child folders found. The current folder can still be used.</p>}
+                    </div>
+                  </section>
+                )}
+                <label className="field-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={libraryIgnoreSidecar}
+                    onChange={(event) => setLibraryIgnoreSidecar(event.target.checked)}
+                  />
+                  <span>Do not read metadata.json files</span>
+                </label>
+              </>
+            )}
+
             {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
+
             <div className="modal-actions">
               <button
                 className="secondary-button"
                 type="button"
-                onClick={() => {
-                  setCreateLibraryOpen(false);
-                  setStorageBrowse(null);
-                }}
+                onClick={current > 0 ? () => setWizardStep(current - 1) : closeWizard}
                 disabled={creating}
-                autoFocus
               >
-                Cancel
+                {current > 0 ? "Back" : "Cancel"}
               </button>
-              <button className="primary-button" disabled={creating || !librarySettings?.thumbnailPathReady || storageRoots.length === 0 || !storageBrowse}>
-                {creating ? "Scanning..." : "Add and scan"}
-              </button>
+              {current < lastStep ? (
+                <button className="primary-button" type="submit">
+                  Next
+                </button>
+              ) : (
+                <button className="primary-button" type="submit" disabled={creating || !canSubmit}>
+                  {creating ? "Scanning..." : "Add and scan"}
+                </button>
+              )}
             </div>
           </form>
         </div>
-      )}
+        );
+      })()}
 
       {rescanTarget && (
         <div className="modal-backdrop" onMouseDown={() => !rescanRunning && setRescanTarget(null)}>
@@ -817,7 +867,7 @@ export function LibrariesSection({ tab }: { tab: "audiobooks" | "special" }) {
       {sectionModalOpen && (
         <div className="modal-backdrop" onMouseDown={() => !sectionSaving && setSectionModalOpen(false)}>
           <form
-            className="confirm-modal"
+            className="confirm-modal section-form-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="section-modal-title"
