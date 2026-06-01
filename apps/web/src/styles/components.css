@@ -437,6 +437,23 @@
   width: min(100%, 620px);
 }
 
+/* Cap tall forms (e.g. special-section overrides) and keep the action bar in view. */
+.create-library-modal,
+.edit-library-modal {
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.create-library-modal .modal-actions,
+.edit-library-modal .modal-actions {
+  position: sticky;
+  bottom: -24px;
+  margin: 0 -24px -24px;
+  padding: 14px 24px;
+  background: var(--surface-raised);
+  border-top: 1px solid var(--line);
+}
+
 .create-group-modal,
 .edit-library-modal {
   display: grid;

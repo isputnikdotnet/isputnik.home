@@ -6,11 +6,94 @@ import { nanoid } from "nanoid";
 import sharp from "sharp";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
+import { CATEGORY_SEED, isBuiltinCategoryImageKey } from "../../../categories-seed.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { normalizeText, rematchAllCategories } from "./categorize.js";
 
 function imageUrl(imageStorageKey: string | null) {
+  if (isBuiltinCategoryImageKey(imageStorageKey)) {
+    return null;
+  }
   return imageStorageKey ? `/api/library/covers/${imageStorageKey}` : null;
+}
+
+function categoryResponse(row: {
+  id: string;
+  key: string;
+  name: string;
+  sort_order: number;
+  icon: string | null;
+  image_storage_key: string | null;
+  book_count: number;
+  mapping_count: number;
+}) {
+  return {
+    id: row.id,
+    key: row.key,
+    name: row.name,
+    sortOrder: row.sort_order,
+    icon: row.icon,
+    imageUrl: imageUrl(row.image_storage_key),
+    bookCount: row.book_count,
+    mappingCount: row.mapping_count
+  };
+}
+
+function categoryKeyBase(name: string) {
+  const slug = name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return slug || "category";
+}
+
+function uniqueCategoryKey(name: string) {
+  const base = categoryKeyBase(name);
+  let key = base.slice(0, 64);
+  let suffix = 2;
+  while (db.prepare("SELECT 1 FROM categories WHERE key = ?").get(key)) {
+    const ending = `_${suffix}`;
+    key = `${base.slice(0, 64 - ending.length)}${ending}`;
+    suffix += 1;
+  }
+  return key;
+}
+
+function nextCategorySortOrder() {
+  const row = db.prepare("SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM categories WHERE key != 'general_other'")
+    .get() as { next_order: number };
+  return Math.min(row.next_order, 999);
+}
+
+function rememberDeletedCategoryKey(key: string) {
+  if (!CATEGORY_SEED.some((category) => category.key === key)) {
+    return;
+  }
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = 'deleted_category_keys'")
+    .get() as { value: string } | undefined;
+  let keys: string[] = [];
+  if (row) {
+    try {
+      const parsed = JSON.parse(row.value) as unknown;
+      if (Array.isArray(parsed)) {
+        keys = parsed.filter((value): value is string => typeof value === "string");
+      }
+    } catch {
+      keys = [];
+    }
+  }
+  if (!keys.includes(key)) {
+    keys.push(key);
+  }
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('deleted_category_keys', ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(JSON.stringify(keys));
 }
 
 async function writeCategoryImage(categoryId: string, source: Buffer) {
@@ -33,16 +116,54 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
         categories.id, categories.key, categories.name, categories.sort_order, categories.icon, categories.image_storage_key,
         (
           SELECT COUNT(*) FROM book_metadata WHERE book_metadata.category_id = categories.id
-        ) AS book_count
+        ) AS book_count,
+        (
+          SELECT COUNT(*) FROM category_aliases WHERE category_aliases.category_id = categories.id
+        ) AS mapping_count
       FROM categories
       ORDER BY categories.sort_order
-    `).all() as { id: string; key: string; name: string; sort_order: number; icon: string | null; image_storage_key: string | null; book_count: number }[];
+    `).all() as { id: string; key: string; name: string; sort_order: number; icon: string | null; image_storage_key: string | null; book_count: number; mapping_count: number }[];
     return {
-      categories: rows.map((r) => ({
-        id: r.id, key: r.key, name: r.name, sortOrder: r.sort_order,
-        icon: r.icon, imageUrl: imageUrl(r.image_storage_key), bookCount: r.book_count
-      }))
+      categories: rows.map(categoryResponse)
     };
+  });
+
+  const categoryCreateSchema = z.object({
+    name: z.string().trim().min(1).max(80),
+    sortOrder: z.number().int().min(0).max(999).optional(),
+    icon: z.string().trim().min(1).max(40).nullable().optional()
+  });
+
+  app.post("/api/library/manage/categories", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(categoryCreateSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid category", details: parsed.error });
+      return;
+    }
+    const categoryId = nanoid(16);
+    const key = uniqueCategoryKey(parsed.data.name);
+    const sortOrder = parsed.data.sortOrder ?? nextCategorySortOrder();
+    const icon = parsed.data.icon || "layout-grid";
+    db.prepare("INSERT INTO categories (id, key, name, sort_order, icon) VALUES (?, ?, ?, ?, ?)")
+      .run(categoryId, key, parsed.data.name, sortOrder, icon);
+    logActivity({
+      event: "library.category.created",
+      actorUserId: request.user!.id,
+      detail: `Created category "${parsed.data.name}".`,
+      ipAddress: request.ip
+    });
+    reply.code(201).send({
+      category: categoryResponse({
+        id: categoryId,
+        key,
+        name: parsed.data.name,
+        sort_order: sortOrder,
+        icon,
+        image_storage_key: null,
+        book_count: 0,
+        mapping_count: 0
+      })
+    });
   });
 
   const categoryUpdateSchema = z.object({
@@ -111,11 +232,47 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
       reply.code(404).send({ error: "Category not found" });
       return;
     }
-    if (row.image_storage_key) {
+    if (row.image_storage_key && !isBuiltinCategoryImageKey(row.image_storage_key)) {
       try { fs.rmSync(thumbnailAbsolutePath(row.image_storage_key), { force: true }); } catch { /* ignore */ }
     }
     db.prepare("UPDATE categories SET image_storage_key = NULL WHERE id = ?").run(id);
     reply.send({ deleted: true });
+  });
+
+  app.delete("/api/library/manage/categories/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const category = db.prepare("SELECT id, key, name, image_storage_key FROM categories WHERE id = ?")
+      .get(id) as { id: string; key: string; name: string; image_storage_key: string | null } | undefined;
+    if (!category) {
+      reply.code(404).send({ error: "Category not found" });
+      return;
+    }
+    if (category.key === "general_other") {
+      reply.code(400).send({ error: "General / Other cannot be deleted." });
+      return;
+    }
+    const fallback = db.prepare("SELECT id FROM categories WHERE key = 'general_other'").get() as { id: string } | undefined;
+    if (!fallback) {
+      reply.code(500).send({ error: "Fallback category is missing." });
+      return;
+    }
+    let movedBooks = 0;
+    db.transaction(() => {
+      movedBooks = db.prepare("UPDATE book_metadata SET category_id = ? WHERE category_id = ?")
+        .run(fallback.id, category.id).changes;
+      db.prepare("DELETE FROM categories WHERE id = ?").run(category.id);
+      rememberDeletedCategoryKey(category.key);
+    })();
+    if (category.image_storage_key && !isBuiltinCategoryImageKey(category.image_storage_key)) {
+      try { fs.rmSync(thumbnailAbsolutePath(category.image_storage_key), { force: true }); } catch { /* ignore */ }
+    }
+    logActivity({
+      event: "library.category.deleted",
+      actorUserId: request.user!.id,
+      detail: `Deleted category "${category.name}" and moved ${movedBooks} book(s) to General / Other.`,
+      ipAddress: request.ip
+    });
+    reply.send({ deleted: true, movedBooks });
   });
 
   app.get("/api/library/manage/aliases", { preHandler: app.requireAdmin }, async () => {
@@ -231,5 +388,135 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     return { changed };
+  });
+
+  // ── Tag management ────────────────────────────────────────────────
+  // Global tag list with usage counts (books not soft-deleted).
+  function listTags(): { id: string; name: string; bookCount: number }[] {
+    return db.prepare(`
+      SELECT
+        tags.id AS id,
+        tags.display_name AS name,
+        (
+          SELECT COUNT(*)
+          FROM taggables
+          JOIN books ON books.id = taggables.entity_id
+          WHERE taggables.tag_id = tags.id
+            AND taggables.entity_type = 'book'
+            AND books.deleted_at IS NULL
+        ) AS bookCount
+      FROM tags
+      ORDER BY tags.display_name COLLATE NOCASE
+    `).all() as { id: string; name: string; bookCount: number }[];
+  }
+
+  app.get("/api/library/manage/tags", { preHandler: app.requireAdmin }, async () => {
+    return { tags: listTags() };
+  });
+
+  const tagRenameSchema = z.object({ displayName: z.string().trim().min(1).max(120) });
+
+  app.patch("/api/library/manage/tags/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const existing = db.prepare("SELECT id, display_name FROM tags WHERE id = ?")
+      .get(id) as { id: string; display_name: string } | undefined;
+    if (!existing) {
+      reply.code(404).send({ error: "Tag not found" });
+      return;
+    }
+
+    const parsed = parseBody(tagRenameSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid tag name", details: parsed.error });
+      return;
+    }
+
+    const displayName = parsed.data.displayName.trim();
+    const newKey = normalizeText(displayName);
+    if (!newKey) {
+      reply.code(400).send({ error: "Tag name must contain letters or numbers." });
+      return;
+    }
+
+    // If another tag already uses this key, merge into it: move this tag's book
+    // links onto the survivor (deduping), then delete this tag.
+    const collision = db.prepare("SELECT id FROM tags WHERE key = ? AND id != ?")
+      .get(newKey, id) as { id: string } | undefined;
+
+    db.transaction(() => {
+      if (collision) {
+        db.prepare(`
+          INSERT OR IGNORE INTO taggables (tag_id, entity_type, entity_id)
+          SELECT ?, entity_type, entity_id FROM taggables WHERE tag_id = ?
+        `).run(collision.id, id);
+        db.prepare("DELETE FROM taggables WHERE tag_id = ?").run(id);
+        db.prepare("DELETE FROM tags WHERE id = ?").run(id);
+        // Keep the survivor's display name in sync with the chosen spelling.
+        db.prepare("UPDATE tags SET display_name = ? WHERE id = ?").run(displayName, collision.id);
+      } else {
+        db.prepare("UPDATE tags SET display_name = ?, key = ? WHERE id = ?").run(displayName, newKey, id);
+      }
+    })();
+
+    logActivity({
+      event: "library.tag.renamed",
+      actorUserId: request.user!.id,
+      targetType: "tag",
+      targetId: collision?.id ?? id,
+      detail: collision
+        ? `Merged tag "${existing.display_name}" into "${displayName}".`
+        : `Renamed tag "${existing.display_name}" to "${displayName}".`,
+      ipAddress: request.ip
+    });
+
+    return { tags: listTags(), merged: Boolean(collision) };
+  });
+
+  app.delete("/api/library/manage/tags/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const existing = db.prepare("SELECT id, display_name FROM tags WHERE id = ?")
+      .get(id) as { id: string; display_name: string } | undefined;
+    if (!existing) {
+      reply.code(404).send({ error: "Tag not found" });
+      return;
+    }
+
+    db.transaction(() => {
+      db.prepare("DELETE FROM taggables WHERE tag_id = ?").run(id);
+      db.prepare("DELETE FROM tags WHERE id = ?").run(id);
+    })();
+
+    logActivity({
+      event: "library.tag.deleted",
+      actorUserId: request.user!.id,
+      targetType: "tag",
+      targetId: id,
+      detail: `Deleted tag "${existing.display_name}".`,
+      ipAddress: request.ip
+    });
+
+    return { deleted: true };
+  });
+
+  // Delete tags that aren't linked to any non-deleted book.
+  app.post("/api/library/manage/tags/prune", { preHandler: app.requireAdmin }, async (request) => {
+    const unused = listTags().filter((tag) => tag.bookCount === 0);
+    db.transaction(() => {
+      for (const tag of unused) {
+        db.prepare("DELETE FROM taggables WHERE tag_id = ?").run(tag.id);
+        db.prepare("DELETE FROM tags WHERE id = ?").run(tag.id);
+      }
+    })();
+
+    if (unused.length > 0) {
+      logActivity({
+        event: "library.tag.pruned",
+        actorUserId: request.user!.id,
+        detail: `Pruned ${unused.length} unused tag(s).`,
+        ipAddress: request.ip
+      });
+    }
+
+    return { pruned: unused.length };
   });
 }

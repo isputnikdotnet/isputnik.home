@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "storage" | "groups" | "jobs" | "database" | "categories";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "librariesSpecial" | "librariesStats" | "media" | "otherMedia" | "storage" | "groups" | "jobs" | "backup" | "categories" | "tags";
 
 export type Route =
   | { name: "install" }
@@ -18,7 +18,9 @@ export type Route =
   | { name: "audiobookSeriesDetail"; seriesId: string }
   | { name: "audiobookCategories" }
   | { name: "audiobookCategoryDetail"; categoryKey: string }
+  | { name: "audiobookSection"; sectionId: string }
   | { name: "control"; section: ControlSection }
+  | { name: "controlCategoryEditor"; categoryId: string | null }
   | { name: "about" }
   | { name: "profile" }
   | { name: "invite"; token: string };
@@ -97,19 +99,24 @@ export function getRoute(): Route {
     return { name: "audiobookCategoryDetail", categoryKey: audiobookCategoryDetailMatch[1] };
   }
 
-  if (path === "/control/users") {
+  const audiobookSectionMatch = path.match(/^\/audiobooks\/sections\/([^/]+)$/);
+  if (audiobookSectionMatch) {
+    return { name: "audiobookSection", sectionId: audiobookSectionMatch[1] };
+  }
+
+  if (["/control/accounts", "/control/users"].includes(path)) {
     return { name: "control", section: "users" };
   }
 
-  if (path === "/control/invites") {
+  if (["/control/accounts/invites", "/control/invites"].includes(path)) {
     return { name: "control", section: "invites" };
   }
 
-  if (path === "/control/sessions") {
+  if (["/control/accounts/sessions", "/control/sessions"].includes(path)) {
     return { name: "control", section: "sessions" };
   }
 
-  if (path === "/control/groups") {
+  if (["/control/accounts/groups", "/control/groups"].includes(path)) {
     return { name: "control", section: "groups" };
   }
 
@@ -117,7 +124,8 @@ export function getRoute(): Route {
     return { name: "control", section: "logs" };
   }
 
-  if (path === "/control/status") {
+  // Database info now lives on the Status page; old database paths land there.
+  if (["/control/status", "/control/database", "/control/maintenance/database", "/control/system/database"].includes(path)) {
     return { name: "control", section: "status" };
   }
 
@@ -125,20 +133,50 @@ export function getRoute(): Route {
     return { name: "control", section: "storage" };
   }
 
-  if (path === "/control/jobs") {
+  // Maintenance defaults to Jobs.
+  if (["/control/maintenance", "/control/maintenance/jobs", "/control/system", "/control/jobs"].includes(path)) {
     return { name: "control", section: "jobs" };
   }
 
-  if (path === "/control/database") {
-    return { name: "control", section: "database" };
+  if (["/control/maintenance/backup", "/control/system/backup"].includes(path)) {
+    return { name: "control", section: "backup" };
+  }
+
+  if (["/control/library/special", "/control/libraries/special"].includes(path)) {
+    return { name: "control", section: "librariesSpecial" };
+  }
+
+  if (["/control/library/stats", "/control/libraries/stats"].includes(path)) {
+    return { name: "control", section: "librariesStats" };
+  }
+
+  if (["/control/library", "/control/libraries"].includes(path)) {
+    return { name: "control", section: "libraries" };
+  }
+
+  if (["/control/media", "/control/photos", "/control/video"].includes(path)) {
+    return { name: "control", section: "media" };
+  }
+
+  if (path === "/control/other-media") {
+    return { name: "control", section: "otherMedia" };
   }
 
   if (path === "/control/categories") {
     return { name: "control", section: "categories" };
   }
 
-  if (["/control/library", "/control/libraries"].includes(path)) {
-    return { name: "control", section: "libraries" };
+  if (["/control/categories/tags", "/control/tags"].includes(path)) {
+    return { name: "control", section: "tags" };
+  }
+
+  if (path === "/control/categories/new") {
+    return { name: "controlCategoryEditor", categoryId: null };
+  }
+
+  const controlCategoryEditMatch = path.match(/^\/control\/categories\/([^/]+)$/);
+  if (controlCategoryEditMatch) {
+    return { name: "controlCategoryEditor", categoryId: controlCategoryEditMatch[1] };
   }
 
   if (path === "/control/about") {

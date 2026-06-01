@@ -4,7 +4,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { audioExtensions, enqueueAudiobookScan, processAudiobookScanQueue, validateLibrarySource } from "./scanner.js";
 import { z } from "zod";
-import { audiobookLibrarySchema, publicAudiobookLibrary } from "./serializers.js";
+import { audiobookLibrarySchema, libraryOverridesSchema, overridesToSettings, publicAudiobookLibrary } from "./serializers.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import type { AudiobookLibraryRow } from "./types.js";
 
@@ -54,6 +54,14 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       }
     }
 
+    if (parsed.data.sectionId) {
+      const sectionExists = db.prepare("SELECT id FROM library_sections WHERE id = ?").get(parsed.data.sectionId);
+      if (!sectionExists) {
+        reply.code(400).send({ error: "Section not found." });
+        return;
+      }
+    }
+
     const libraryId = nanoid(16);
     const settings = {
       folder_structure: "author_book",
@@ -61,7 +69,9 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       ignore_sidecar: parsed.data.ignoreSidecar || undefined,
       show_narrator: true,
       supported_extensions: Array.from(audioExtensions).map((extension) => extension.slice(1)),
-      cover_filenames: ["cover", "folder", "artwork"]
+      cover_filenames: ["cover", "folder", "artwork"],
+      section_id: parsed.data.sectionId || undefined,
+      overrides: overridesToSettings(parsed.data.overrides)
     };
 
     db.prepare(`
@@ -110,13 +120,15 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     name: z.string().trim().min(2).max(120),
     ownerId: z.string().trim().min(1).max(64).nullable().optional(),
     ownerType: z.enum(["user", "group"]).nullable().optional(),
-    visibility: z.enum(["private", "public"])
+    visibility: z.enum(["private", "public"]),
+    sectionId: z.string().trim().min(1).max(64).nullable().optional(),
+    overrides: libraryOverridesSchema.nullable().optional()
   });
 
   app.patch("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const existing = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'audiobook'")
-      .get(id) as { id: string; name: string } | undefined;
+    const existing = db.prepare("SELECT id, name, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
+      .get(id) as { id: string; name: string; settings_json: string } | undefined;
     if (!existing) {
       reply.code(404).send({ error: "Audiobook library not found" });
       return;
@@ -127,6 +139,20 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       reply.code(400).send({ error: "Invalid library details", details: parsed.error });
       return;
     }
+
+    if (parsed.data.sectionId) {
+      const sectionExists = db.prepare("SELECT id FROM library_sections WHERE id = ?").get(parsed.data.sectionId);
+      if (!sectionExists) {
+        reply.code(400).send({ error: "Section not found." });
+        return;
+      }
+    }
+
+    // Merge section/override changes into the existing settings, preserving the
+    // scan-related keys (extensions, language, sidecar) untouched.
+    const settings = JSON.parse(existing.settings_json || "{}");
+    settings.section_id = parsed.data.sectionId || undefined;
+    settings.overrides = overridesToSettings(parsed.data.overrides);
 
     const ownerId = parsed.data.ownerId ?? null;
     const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
@@ -163,9 +189,9 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
 
     db.prepare(`
       UPDATE libraries
-      SET name = ?, owner_id = ?, owner_type = ?, visibility = ?, updated_at = CURRENT_TIMESTAMP
+      SET name = ?, owner_id = ?, owner_type = ?, visibility = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(parsed.data.name, ownerId, ownerType, parsed.data.visibility, id);
+    `).run(parsed.data.name, ownerId, ownerType, parsed.data.visibility, JSON.stringify(settings), id);
 
     logActivity({
       event: "library.audiobook.updated",
