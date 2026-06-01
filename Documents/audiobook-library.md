@@ -121,6 +121,7 @@ isbn             TEXT
 asin             TEXT                         -- Audible Standard Identification Number
 publisher        TEXT
 openlibrary_id   TEXT                         -- reserved for future enrichment
+category_id      TEXT REFERENCES categories(id)
 updated_at       TEXT NOT NULL
 
 
@@ -168,7 +169,47 @@ name        TEXT NOT NULL
 UNIQUE (library_id, name)
 ```
 
-Genres are library-scoped controlled vocabulary — "Fantasy" in an audiobook library and "Fantasy" in a future video library are independent.
+The `genres` table is deprecated. It remains in the schema to avoid a destructive migration, but new scans use categories and tags instead.
+
+### Categories and tags
+
+```sql
+categories
+----------
+id                TEXT PRIMARY KEY
+key               TEXT NOT NULL UNIQUE
+name              TEXT NOT NULL
+sort_order        INTEGER NOT NULL DEFAULT 0
+icon              TEXT
+image_storage_key TEXT
+
+
+category_aliases
+----------------
+id          TEXT PRIMARY KEY
+keyword     TEXT NOT NULL UNIQUE
+category_id TEXT NOT NULL REFERENCES categories(id)
+priority    INTEGER NOT NULL DEFAULT 0
+
+
+tags
+----
+id           TEXT PRIMARY KEY
+key          TEXT NOT NULL UNIQUE
+display_name TEXT NOT NULL
+created_at   TEXT NOT NULL
+
+
+taggables
+---------
+tag_id      TEXT NOT NULL REFERENCES tags(id)
+entity_type TEXT NOT NULL
+entity_id   TEXT NOT NULL
+
+PRIMARY KEY (tag_id, entity_type, entity_id)
+```
+
+Categories are fixed navigation buckets seeded from `categories-seed.ts`: Fiction, Classics & Literary, Adventure & Action, Mystery & Thriller, Sci-Fi & Fantasy, Horror & Supernatural, Romance, Humor & Satire, Biographies & Memoirs, History, Self-Help & Business, Science & Culture, Kids & Teens, and General / Other. A book has one primary category. Original genre strings are preserved as global tags. Seeded categories can also carry built-in public card art, while uploaded admin images still use thumbnail storage.
 
 ### Join tables
 
@@ -190,6 +231,8 @@ genre_id  TEXT NOT NULL REFERENCES genres(id)
 
 PRIMARY KEY (book_id, genre_id)
 ```
+
+`book_genres` is deprecated with `genres`. New scans write `book_metadata.category_id` and `taggables`.
 
 ### File tracking
 
@@ -287,7 +330,7 @@ scanAudiobookLibrary (runs in background worker):
 
         if settings.ignore_sidecar = false AND metadata.json present in folder:
           read sidecar → overrides title, authors, narrators, description, year,
-                         language, genres, series, isbn, asin, publisher
+                         language, genre strings, series, isbn, asin, publisher
 
         resolve cover:
           1. named file match: cover.jpg / folder.png / artwork.webp (or cover_filenames setting)
@@ -296,7 +339,7 @@ scanAudiobookLibrary (runs in background worker):
 
         upsert book (library_id, folder_path)
         upsert book_metadata (skip fields where source='manual')
-        upsert authors, narrators, genres, series
+        upsert authors, narrators, series, tags; assign category from mappings
         mark existing book_files missing
         upsert book_files (track_number, chapter_title, duration_seconds, size, modified_at)
 
@@ -328,7 +371,7 @@ Phase 2 additions per book folder:
       year          ← tag: date / year
       description   ← tag: description / comment
       language      ← tag: language
-      genres        ← tag: genre (comma-split)
+      raw genres    ← tag: genre (comma-split)
 
   → read all files with music-metadata (physical properties):
       duration_seconds per file → sum for book total
@@ -343,7 +386,7 @@ Phase 2 additions per book folder:
                generate 300×300 and 600×600 WebP with sharp
 
   → upsert book_metadata with tag values (skip fields where source='manual')
-  → upsert authors, narrators, genres from tags
+  → upsert authors and narrators; save raw genres as tags and assign category from mappings
 ```
 
 ### Phase 2 architecture change — async scan
@@ -460,7 +503,7 @@ iTunes, Open Library, and FantLab do not require API keys.
 7. Checkboxes: **Update details** (on by default) and **Update cover** (on by default)
 8. Click **Apply** — metadata saved, `source = 'manual'` set, cover downloaded
 
-Manual edits are also available from the book detail page. Users can directly edit title, authors, narrators, genres, publisher, year, description, language, ISBN, and ASIN. Saving direct edits sets `book_metadata.source = 'manual'`.
+Manual edits are also available from the book detail page. Users can directly edit title, authors, narrators, category, tags, publisher, year, description, language, ISBN, and ASIN. Saving direct edits sets `book_metadata.source = 'manual'`.
 
 ### API endpoints
 
@@ -474,7 +517,7 @@ POST /api/library/books/:id/metadata-match
      → { updated: bool, book: BookDetail }
 
 PATCH /api/library/books/:id/metadata
-     { title, authors, narrators, genres, publisher, yearPublished, description, language, isbn, asin }
+     { title, authors, narrators, categoryKey, tags, publisher, yearPublished, description, language, isbn, asin }
      → { updated: bool, book: BookDetail }
 
 POST /api/library/books/:id/metadata-reset
@@ -540,7 +583,8 @@ When the user clicks Apply, the server updates `book_metadata` and related table
 | publisher, year | ✓ | ✓ |
 | description | ✓ | ✓ |
 | isbn, asin | ✓ | ✓ |
-| genres | ✓ | ✓ — merges, deduplicates |
+| provider genres | ✓ | ✓ — added as tags, deduplicated |
+| category, tags | manual only | manual edits replace current category/tags |
 | language | ✓ | ✓ |
 | cover | only if no cover exists | ✓ — only when `updateCover = true` |
 
@@ -577,7 +621,7 @@ A book with `source = 'manual'` is permanently locked from automatic updates. Us
 **Behaviour:**
 1. Sets `book_metadata.source = 'scan'`
 2. Enqueues a single-book rescan (`RESCAN_BOOK` job type or inline call to `prepareBookScan`)
-3. The book refreshes with whatever the scanner derives from disk — tags, sidecar, folder names
+3. The book refreshes with whatever the scanner derives from disk — tags, category mappings, sidecar, folder names
 
 **API endpoint:**
 
@@ -758,7 +802,7 @@ $METADATA_PATH/<ab>/<cd>/<book-id>.json
 
 Same sharding pattern as thumbnails. Configured via `METADATA_PATH` environment variable. If `METADATA_PATH` is not set, export is silently skipped — it is best-effort and never blocks a save.
 
-**Exported fields:** title, authors, narrators, genres, publisher, year, description, language, isbn, asin.
+**Exported fields:** title, authors, narrators, category, tags, publisher, year, description, language, isbn, asin.
 
 The format matches our native sidecar schema, so the exported file can be copied back into a source folder as `metadata.json` if a user wants to migrate libraries.
 
@@ -781,6 +825,14 @@ A **Chapters** toggle button (same style as the speed menu button) sits in the a
 ### Save on browser close
 
 A `beforeunload` handler calls `fetch` with `keepalive: true`, which browsers keep alive even after the tab is closed or navigated away. The handler is re-registered whenever `currentFile` changes so the closure always captures the correct file ID. Combined with the existing 10 s periodic save and save-on-pause, progress loss on unexpected close is reduced to at most the current playback interval.
+
+---
+
+## Special Sections
+
+Audiobook libraries can be grouped into a **Special Section** — a master entry in the audiobook sidebar that holds one or more libraries and keeps their books out of the main grid. Each member library carries its own **overwrite-on-add** rules (Author, Narrator, Description, Category, Tags) applied by the scanner on add and rescan, respecting the `source = 'manual'` lock. Built for collections like *Model for Assembly* where embedded tags are inconsistent and a constant Narrator/Category is wanted across the set.
+
+See [`special-section.md`](special-section.md) for the full design, schema, and API.
 
 ---
 

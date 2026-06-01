@@ -52,6 +52,7 @@ erDiagram
         TEXT asin
         TEXT publisher
         TEXT openlibrary_id
+        TEXT category_id FK
         TEXT updated_at
     }
 
@@ -95,6 +96,35 @@ erDiagram
         TEXT id PK
         TEXT library_id FK
         TEXT name
+    }
+
+    categories {
+        TEXT id PK
+        TEXT key
+        TEXT name
+        INTEGER sort_order
+        TEXT icon
+        TEXT image_storage_key
+    }
+
+    category_aliases {
+        TEXT id PK
+        TEXT keyword
+        TEXT category_id FK
+        INTEGER priority
+    }
+
+    tags {
+        TEXT id PK
+        TEXT key
+        TEXT display_name
+        TEXT created_at
+    }
+
+    taggables {
+        TEXT tag_id FK
+        TEXT entity_type
+        TEXT entity_id
     }
 
     %% ── Join tables ──────────────────────────────────────────────────
@@ -147,6 +177,16 @@ erDiagram
         TEXT updated_at
     }
 
+    %% ── Library sections (grouping shell) ────────────────────────────
+    library_sections {
+        TEXT id PK
+        TEXT name
+        TEXT icon
+        TEXT created_by FK
+        TEXT created_at
+        TEXT updated_at
+    }
+
     %% ── Shared systems (outline only) ────────────────────────────────
     jobs {
         TEXT id PK
@@ -163,11 +203,15 @@ erDiagram
     libraries ||--o{ genres         : "scoped to"
 
     series    ||--o{ books          : "groups"
+    categories ||--o{ book_metadata : "assigned to"
+    categories ||--o{ category_aliases : "matched by"
+    tags      ||--o{ taggables      : "linked via"
 
     books     ||--||  book_metadata : "has one"
     books     ||--o{  book_files    : "has many"
     books     ||--o{  book_authors  : "linked via"
     books     ||--o{  book_genres   : "linked via"
+    books     ||--o{  taggables     : "tagged via"
     books     ||--o{  playback_progress : "tracked by"
     books     ||--o{  book_bookmarks : "bookmarked in"
     books     ||--o{  book_saves     : "saved in"
@@ -178,6 +222,7 @@ erDiagram
     book_files ||--o{ book_bookmarks    : "anchored in"
 
     jobs      }o--||  libraries     : "scan job for"
+    library_sections ||..o{ libraries : "groups (via settings_json.section_id)"
 ```
 
 ---
@@ -199,6 +244,7 @@ One-to-one with `books`. Holds all descriptive metadata. `source` tracks origin:
 - `'manual'` — set by user edit, never overwritten by the scanner
 
 `cover_storage_key` is a relative path into the thumbnail cache, e.g. `ab/cd/<book-id>-cover.webp`.
+`category_id` stores the book's single primary navigation category. If no mapping matches, the scanner assigns the seeded `general_other` category.
 
 ### `book_files`
 
@@ -220,10 +266,12 @@ The original library-scoped freeform genre tables. **Superseded** by the two-lay
 
 Incoming genre strings (from audio tags and sidecars) are split into two layers:
 
-- **`categories`** — a fixed, app-defined, global navigation taxonomy (Fiction, Mystery & Thriller, Sci-Fi & Fantasy, Romance, Biographies & History, Self-Help & Business, Science & Culture, Kids & Teens, plus a `general_other` fallback). Seeded on startup from `categories-seed.ts`. A book has **one** primary category (`book_metadata.category_id`).
-- **`category_aliases`** — `keyword → category_id` with a `priority`. The scanner normalizes each raw genre and assigns the highest-priority keyword match; no match → General / Other. Admin-tunable.
+- **`categories`** — a fixed, app-defined, global navigation taxonomy: Fiction, Classics & Literary, Adventure & Action, Mystery & Thriller, Sci-Fi & Fantasy, Horror & Supernatural, Romance, Humor & Satire, Biographies & Memoirs, History, Self-Help & Business, Science & Culture, Kids & Teens, plus the `general_other` fallback. Seeded on startup from `categories-seed.ts`. A book has **one** primary category (`book_metadata.category_id`).
+- **`category_aliases`** — `keyword → category_id` with a `priority`. The scanner normalizes each raw genre and assigns the highest-priority keyword match; no match → General / Other. Default aliases are English-only for new installs, and admins can add/edit aliases per category.
 - **`tags`** — global, freeform, normalized-by `key`. Every raw genre becomes a tag (the descriptive/filter layer). Nothing is discarded.
 - **`taggables`** — polymorphic link (`tag_id`, `entity_type`, `entity_id`) so tags are reusable across future library types and Notes, not just books. No FK on `entity_id`; library/book deletion cleans up its rows explicitly.
+
+Example: a scanned tag `historical mystery` matches the `mystery` keyword for Mystery & Thriller and could also match a lower-priority history keyword. The higher-priority match wins, so the book lands in Mystery & Thriller.
 
 `book_metadata.category_id` (and the book's tags) are protected by the `source = 'manual'` rule — a manual category/tag edit survives rescans.
 
@@ -233,7 +281,7 @@ Join table linking books to authors/narrators. `role` is `'author'` or `'narrato
 
 ### `book_genres`
 
-Join table linking books to genres.
+Deprecated join table linking books to the old `genres` table. The scanner now writes `category_id` and `taggables` instead.
 
 ### `playback_progress`
 
@@ -246,6 +294,10 @@ Per-user position bookmarks within a book — many rows per `(user_id, book_id)`
 ### `book_saves`
 
 Per-user "saved" flag for a whole book — the My List view. Unique on `(user_id, book_id)`, so a book is either saved or not. `note` holds an optional book-level note (a personal thought or mini-review), distinct from per-moment bookmark notes. Private to the owning user.
+
+### `library_sections`
+
+Grouping shell for **Special Sections** — a master entry in the audiobook sidebar that holds one or more audiobook libraries. Owns only identity (`name`, `icon`). Membership is not a foreign key: a library joins a section by storing `section_id` in its `settings_json`, and per-library metadata overrides live in `settings_json.overrides`. Member counts are derived with `json_extract`. Deleting a section detaches its members (clears their `section_id`); no books or files are removed. See [`special-section.md`](special-section.md).
 
 ### `jobs`
 

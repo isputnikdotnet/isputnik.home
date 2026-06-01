@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../../../db.js";
+import { builtinCategoryImageUrl, isBuiltinCategoryImageKey } from "../../../categories-seed.js";
 import { parseBody } from "../../../core/shared.js";
 import { searchAllMetadataProviders, searchMetadataProvider, type MetadataCandidate, type MetadataProvider } from "./providers/index.js";
 import { rescanSingleBook, sortTitle, writeCoverImages } from "./scanner.js";
@@ -108,6 +109,9 @@ interface CategoryRow {
 }
 
 export function categoryImageUrl(imageStorageKey: string | null) {
+  if (isBuiltinCategoryImageKey(imageStorageKey)) {
+    return builtinCategoryImageUrl(imageStorageKey);
+  }
   return imageStorageKey ? `/api/library/covers/${imageStorageKey}` : null;
 }
 

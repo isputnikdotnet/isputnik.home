@@ -4,10 +4,85 @@ import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate } from "../../../shared/utils";
-import type { AudiobookLibrary } from "../../audiobooks/types";
+import { CategoryIcon, SECTION_ICON_KEYS } from "../../audiobooks/categoryIcons";
+import type { AudiobookLibrary, CategorySummary, LibrarySection } from "../../audiobooks/types";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
 
-export function LibrariesSection() {
+interface OverrideForm {
+  author: string;
+  narrator: string;
+  description: string;
+  categoryKey: string;
+  tags: string;
+}
+
+const EMPTY_OVERRIDE: OverrideForm = { author: "", narrator: "", description: "", categoryKey: "", tags: "" };
+
+function overridesPayload(form: OverrideForm) {
+  return {
+    author: form.author.trim() || undefined,
+    narrator: form.narrator.trim() || undefined,
+    description: form.description.trim() || undefined,
+    categoryKey: form.categoryKey || undefined,
+    tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean)
+  };
+}
+
+function overridesToForm(overrides: AudiobookLibrary["overrides"]): OverrideForm {
+  return {
+    author: overrides?.author ?? "",
+    narrator: overrides?.narrator ?? "",
+    description: overrides?.description ?? "",
+    categoryKey: overrides?.categoryKey ?? "",
+    tags: (overrides?.tags ?? []).join(", ")
+  };
+}
+
+// Per-library metadata overrides for a special-section library. Any field left
+// blank falls back to normal scan-derived metadata on add and rescan.
+function OverrideFields({
+  overrides,
+  onChange,
+  categories
+}: {
+  overrides: OverrideForm;
+  onChange: (next: OverrideForm) => void;
+  categories: CategorySummary[];
+}) {
+  const set = (patch: Partial<OverrideForm>) => onChange({ ...overrides, ...patch });
+  return (
+    <fieldset className="override-fields">
+      <legend>Overwrite on add &amp; rescan</legend>
+      <p className="muted override-hint">
+        Overwrites scanned metadata for every book. Leave blank to keep what the scan finds (e.g. blank Author keeps each story's real writer).
+      </p>
+      <div className="override-grid">
+        <Field label="Author" value={overrides.author} onChange={(v) => set({ author: v })} />
+        <Field label="Narrator" value={overrides.narrator} onChange={(v) => set({ narrator: v })} />
+        <label className="field">
+          <span>Category</span>
+          <select value={overrides.categoryKey} onChange={(event) => set({ categoryKey: event.target.value })}>
+            <option value="">Auto (from scan)</option>
+            {categories.map((category) => (
+              <option key={category.key} value={category.key}>{category.name}</option>
+            ))}
+          </select>
+        </label>
+        <Field label="Tags (comma-separated)" value={overrides.tags} onChange={(v) => set({ tags: v })} />
+        <label className="field override-desc">
+          <span>Description</span>
+          <textarea
+            value={overrides.description}
+            onChange={(event) => set({ description: event.target.value })}
+            rows={2}
+          />
+        </label>
+      </div>
+    </fieldset>
+  );
+}
+
+export function LibrariesSection({ tab }: { tab: "audiobooks" | "special" }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
   const [storageRoots, setStorageRoots] = useState<StorageRoot[]>([]);
@@ -36,6 +111,20 @@ export function LibrariesSection() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const [sections, setSections] = useState<LibrarySection[]>([]);
+  const [categories, setCategories] = useState<CategorySummary[]>([]);
+  const [librarySectionId, setLibrarySectionId] = useState("");
+  const [libraryOverrides, setLibraryOverrides] = useState<OverrideForm>(EMPTY_OVERRIDE);
+  const [editSectionId, setEditSectionId] = useState("");
+  const [editOverrides, setEditOverrides] = useState<OverrideForm>(EMPTY_OVERRIDE);
+  // Section CRUD (the grouping shell — name + icon only).
+  const [sectionModalOpen, setSectionModalOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<LibrarySection | null>(null);
+  const [sectionName, setSectionName] = useState("");
+  const [sectionIcon, setSectionIcon] = useState("radio");
+  const [sectionSaving, setSectionSaving] = useState(false);
+  const [deleteConfirmSection, setDeleteConfirmSection] = useState<LibrarySection | null>(null);
+
   const loadStorage = useCallback(async () => {
     const settingsPayload = await api<{ settings: LibrarySettings }>("/api/library/settings");
     setLibrarySettings(settingsPayload.settings);
@@ -48,14 +137,18 @@ export function LibrariesSection() {
 
   const loadLibraries = useCallback(async () => {
     await loadStorage();
-    const [librariesPayload, usersPayload, groupsPayload] = await Promise.all([
+    const [librariesPayload, usersPayload, groupsPayload, sectionsPayload, categoriesPayload] = await Promise.all([
       api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries"),
       api<{ users: ManagedUser[] }>("/api/users"),
-      api<{ groups: ManagedGroup[] }>("/api/groups")
+      api<{ groups: ManagedGroup[] }>("/api/groups"),
+      api<{ sections: LibrarySection[] }>("/api/library/sections"),
+      api<{ categories: CategorySummary[] }>("/api/library/categories")
     ]);
     setLibraries(librariesPayload.libraries);
     setUsers(usersPayload.users);
     setGroups(groupsPayload.groups);
+    setSections(sectionsPayload.sections);
+    setCategories(categoriesPayload.categories);
   }, [loadStorage]);
 
   useEffect(() => {
@@ -116,7 +209,9 @@ export function LibrariesSection() {
           ignoreSidecar: libraryIgnoreSidecar,
           visibility: libraryVisibility,
           ownerId: libraryOwnerId || null,
-          ownerType: libraryOwnerType || null
+          ownerType: libraryOwnerType || null,
+          sectionId: librarySectionId || null,
+          overrides: librarySectionId ? overridesPayload(libraryOverrides) : null
         })
       });
       setCreateLibraryOpen(false);
@@ -125,6 +220,8 @@ export function LibrariesSection() {
       setLibraryIgnoreSidecar(false);
       setLibraryOwnerId("");
       setLibraryOwnerType("");
+      setLibrarySectionId("");
+      setLibraryOverrides(EMPTY_OVERRIDE);
       setStorageBrowse(null);
       await loadLibraries();
     } catch (err) {
@@ -140,6 +237,8 @@ export function LibrariesSection() {
     setEditVisibility(library.visibility);
     setEditOwnerId(library.ownerId ?? "");
     setEditOwnerType(library.ownerType ?? "");
+    setEditSectionId(library.sectionId ?? "");
+    setEditOverrides(overridesToForm(library.overrides));
     setError("");
   };
 
@@ -155,7 +254,9 @@ export function LibrariesSection() {
           name: editName,
           visibility: editVisibility,
           ownerId: editOwnerId || null,
-          ownerType: editOwnerType || null
+          ownerType: editOwnerType || null,
+          sectionId: editSectionId || null,
+          overrides: editSectionId ? overridesPayload(editOverrides) : null
         })
       });
       setEditingLibrary(null);
@@ -210,6 +311,64 @@ export function LibrariesSection() {
     }
   };
 
+  const openSectionModal = (section: LibrarySection | null) => {
+    setEditingSection(section);
+    setSectionName(section?.name ?? "");
+    setSectionIcon(section?.icon ?? "radio");
+    setSectionModalOpen(true);
+    setError("");
+  };
+
+  const saveSection = async (event: FormEvent) => {
+    event.preventDefault();
+    setSectionSaving(true);
+    setError("");
+    try {
+      const path = editingSection ? `/api/library/sections/${editingSection.id}` : "/api/library/sections";
+      await api(path, {
+        method: editingSection ? "PATCH" : "POST",
+        body: JSON.stringify({ name: sectionName, icon: sectionIcon })
+      });
+      setSectionModalOpen(false);
+      setEditingSection(null);
+      await loadLibraries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save section");
+    } finally {
+      setSectionSaving(false);
+    }
+  };
+
+  const deleteSection = async () => {
+    if (!deleteConfirmSection) return;
+    setSectionSaving(true);
+    setError("");
+    try {
+      await api(`/api/library/sections/${deleteConfirmSection.id}`, { method: "DELETE" });
+      setDeleteConfirmSection(null);
+      await loadLibraries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete section");
+    } finally {
+      setSectionSaving(false);
+    }
+  };
+
+  const displayedLibraries = tab === "special"
+    ? libraries.filter((library) => library.specialSection)
+    : libraries.filter((library) => !library.specialSection);
+
+  const openCreateLibrary = () => {
+    setError("");
+    setLibrarySectionId(tab === "special" ? (sections[0]?.id ?? "") : "");
+    setLibraryOverrides(EMPTY_OVERRIDE);
+    setCreateLibraryOpen(true);
+    const rootId = selectedRootId || storageRoots[0]?.id || "";
+    if (rootId) {
+      browseStorageRoot(rootId).catch((err) => setError(err instanceof Error ? err.message : "Unable to browse storage container"));
+    }
+  };
+
   return (
     <>
       <div className="section-head">
@@ -217,23 +376,29 @@ export function LibrariesSection() {
           <p className="eyebrow">Digital Library</p>
           <h1>Audiobooks</h1>
         </div>
-        <button
-          className="icon-button with-label"
-          disabled={!librarySettings?.thumbnailPathReady || storageRoots.length === 0}
-          onClick={() => {
-            setError("");
-            setCreateLibraryOpen(true);
-            const rootId = selectedRootId || storageRoots[0]?.id || "";
-            if (rootId) {
-              browseStorageRoot(rootId).catch((err) => setError(err instanceof Error ? err.message : "Unable to browse storage container"));
-            }
-          }}
-          title="Add audiobook library"
-        >
-          <Plus size={18} />
-          <span>Add library</span>
-        </button>
+        <div className="row-actions">
+          {tab === "special" && (
+            <button
+              className="icon-button with-label"
+              onClick={() => openSectionModal(null)}
+              title="Add special section"
+            >
+              <Plus size={18} />
+              <span>Add section</span>
+            </button>
+          )}
+          <button
+            className="icon-button with-label"
+            disabled={!librarySettings?.thumbnailPathReady || storageRoots.length === 0}
+            onClick={openCreateLibrary}
+            title="Add audiobook library"
+          >
+            <Plus size={18} />
+            <span>Add library</span>
+          </button>
+        </div>
       </div>
+
 
       {error && <MessageBox tone="error" title="Audiobook library error">{error}</MessageBox>}
       {(!librarySettings?.thumbnailPathReady || storageRoots.length === 0) && (
@@ -242,8 +407,40 @@ export function LibrariesSection() {
         </MessageBox>
       )}
 
-      {libraries.length === 0 ? (
-        <p className="management-empty">No audiobook libraries configured.</p>
+      {tab === "special" && sections.length === 0 && (
+        <MessageBox tone="info" title="No sections yet">
+          Create a section first ("Add section"), then add libraries to it. A section is a master icon in the audiobook sidebar that groups its libraries and hides their books from the main grid.
+        </MessageBox>
+      )}
+
+      {tab === "special" && sections.length > 0 && (
+        <div className="section-list" style={{ marginBottom: 18 }}>
+          {sections.map((section) => (
+            <div className="section-list-row" key={section.id}>
+              <span className="audiobook-section-icon" aria-hidden="true">
+                <CategoryIcon icon={section.icon} size={20} />
+              </span>
+              <div className="datagrid-primary">
+                <strong>{section.name}</strong>
+                <small>{section.libraryCount} {section.libraryCount === 1 ? "library" : "libraries"}</small>
+              </div>
+              <div className="row-actions">
+                <button className="icon-button" title="Edit section" onClick={() => openSectionModal(section)}>
+                  <Pencil size={15} />
+                </button>
+                <button className="icon-button danger" title="Delete section" onClick={() => setDeleteConfirmSection(section)}>
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {displayedLibraries.length === 0 ? (
+        <p className="management-empty">
+          {tab === "special" ? "No special-section libraries yet." : "No audiobook libraries configured."}
+        </p>
       ) : (
         <div className="datagrid-wrap">
           <table className="datagrid">
@@ -259,7 +456,7 @@ export function LibrariesSection() {
               </tr>
             </thead>
             <tbody>
-              {libraries.map((library) => {
+              {displayedLibraries.map((library) => {
                 const ownerUser = library.ownerType === "user" ? users.find((u) => u.id === library.ownerId) : null;
                 const ownerGroup = library.ownerType === "group" ? groups.find((g) => g.id === library.ownerId) : null;
                 return (
@@ -270,6 +467,9 @@ export function LibrariesSection() {
                         <small>{library.sourcePath ?? "Source path hidden"}</small>
                         {ownerUser && <small>Owner: {ownerUser.displayName}</small>}
                         {ownerGroup && <small>Owner: {ownerGroup.name} (group)</small>}
+                        {library.sectionId && (
+                          <small>Section: {sections.find((s) => s.id === library.sectionId)?.name ?? "—"}</small>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -374,6 +574,22 @@ export function LibrariesSection() {
                 <option value="private">Private — owner and admins only</option>
               </select>
             </label>
+            {tab === "special" && (
+              <>
+                <label className="field">
+                  <span>Special section</span>
+                  <select value={librarySectionId} onChange={(event) => setLibrarySectionId(event.target.value)}>
+                    <option value="">None — show in the main grid</option>
+                    {sections.map((section) => (
+                      <option key={section.id} value={section.id}>{section.name}</option>
+                    ))}
+                  </select>
+                </label>
+                {librarySectionId && (
+                  <OverrideFields overrides={libraryOverrides} onChange={setLibraryOverrides} categories={categories} />
+                )}
+              </>
+            )}
             <label className="field">
               <span>Container</span>
               <select
@@ -573,6 +789,18 @@ export function LibrariesSection() {
                 <option value="private">Private — owner and admins only</option>
               </select>
             </label>
+            <label className="field">
+              <span>Special section</span>
+              <select value={editSectionId} onChange={(event) => setEditSectionId(event.target.value)}>
+                <option value="">None — show in the main grid</option>
+                {sections.map((section) => (
+                  <option key={section.id} value={section.id}>{section.name}</option>
+                ))}
+              </select>
+            </label>
+            {editSectionId && (
+              <OverrideFields overrides={editOverrides} onChange={setEditOverrides} categories={categories} />
+            )}
             {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
             <div className="modal-actions">
               <button className="secondary-button" type="button" onClick={() => setEditingLibrary(null)} disabled={saving} autoFocus>
@@ -583,6 +811,67 @@ export function LibrariesSection() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {sectionModalOpen && (
+        <div className="modal-backdrop" onMouseDown={() => !sectionSaving && setSectionModalOpen(false)}>
+          <form
+            className="confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="section-modal-title"
+            onSubmit={saveSection}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="section-modal-title">{editingSection ? "Edit section" : "Add special section"}</h2>
+            <p>A section is a master icon on the Audiobooks page that groups one or more libraries. Its books are kept out of the main grid.</p>
+            <Field label="Section name" value={sectionName} onChange={setSectionName} />
+            <label className="field">
+              <span>Icon</span>
+              <div className="section-icon-picker">
+                {SECTION_ICON_KEYS.map((key) => (
+                  <button
+                    type="button"
+                    key={key}
+                    className={`section-icon-option${sectionIcon === key ? " active" : ""}`}
+                    onClick={() => setSectionIcon(key)}
+                    title={key}
+                    aria-pressed={sectionIcon === key}
+                  >
+                    <CategoryIcon icon={key} size={20} />
+                  </button>
+                ))}
+              </div>
+            </label>
+            {error && <MessageBox tone="error" title="Unable to save section">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button className="secondary-button" type="button" onClick={() => setSectionModalOpen(false)} disabled={sectionSaving}>
+                Cancel
+              </button>
+              <button className="primary-button" disabled={sectionSaving || sectionName.trim().length < 2}>
+                {sectionSaving ? "Saving..." : editingSection ? "Save section" : "Create section"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {deleteConfirmSection && (
+        <div className="modal-backdrop" onMouseDown={() => !sectionSaving && setDeleteConfirmSection(null)}>
+          <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-section-title" onMouseDown={(e) => e.stopPropagation()}>
+            <h2 id="delete-section-title">Delete "{deleteConfirmSection.name}"?</h2>
+            <p>The section is removed. Its {deleteConfirmSection.libraryCount} {deleteConfirmSection.libraryCount === 1 ? "library" : "libraries"} will be detached and reappear in the main grid — no books or files are deleted.</p>
+            {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button className="secondary-button" onClick={() => setDeleteConfirmSection(null)} disabled={sectionSaving} autoFocus>
+                Cancel
+              </button>
+              <button className="danger-button" onClick={deleteSection} disabled={sectionSaving}>
+                <Trash2 size={15} /> {sectionSaving ? "Deleting…" : "Yes, delete section"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

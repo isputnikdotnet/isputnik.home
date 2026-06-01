@@ -1,7 +1,7 @@
 import {
   BookOpen, Search, Rocket, Heart, Landmark, Briefcase, FlaskConical, Baby, LayoutGrid,
-  Ghost, Sword, Globe, Star, Sparkles, Music, Mic, GraduationCap, Map, Skull, Drama,
-  Compass, Castle, Bird, type LucideIcon
+  Ghost, Sword, Globe, Star, Sparkles, Music, Mic, GraduationCap, Map, Skull, Drama, Laugh,
+  Compass, Castle, Bird, Radio, Archive, Library, Podcast, type LucideIcon
 } from "lucide-react";
 
 // Curated set the admin can pick from. Keys are stored in categories.icon (kebab-case
@@ -23,14 +23,22 @@ export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   "sparkles": Sparkles,
   "music": Music,
   "mic": Mic,
+  "laugh": Laugh,
   "graduation-cap": GraduationCap,
   "map": Map,
   "skull": Skull,
   "drama": Drama,
   "compass": Compass,
   "castle": Castle,
-  "bird": Bird
+  "bird": Bird,
+  "radio": Radio,
+  "archive": Archive,
+  "library": Library,
+  "podcast": Podcast
 };
+
+// Icons offered when picking a section's master icon.
+export const SECTION_ICON_KEYS = ["radio", "archive", "library", "podcast", "mic", "music", "star"];
 
 export const CATEGORY_ICON_KEYS = Object.keys(CATEGORY_ICONS);
 

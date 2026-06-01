@@ -1,7 +1,25 @@
+import { useEffect, useState } from "react";
 import { BookOpen, Heart, LayoutGrid, Library, Mic2, Pen } from "lucide-react";
+import { api } from "../../api";
 import { followRoute } from "../../router";
+import { CategoryIcon } from "./categoryIcons";
+import type { LibrarySection } from "./types";
 
-export function AudiobookNav({ active }: { active: "books" | "saved" | "authors" | "narrators" | "series" | "categories" }) {
+export function AudiobookNav({
+  active,
+  activeSectionId
+}: {
+  active?: "books" | "saved" | "authors" | "narrators" | "series" | "categories";
+  activeSectionId?: string;
+}) {
+  const [sections, setSections] = useState<LibrarySection[]>([]);
+
+  useEffect(() => {
+    api<{ sections: LibrarySection[] }>("/api/library/sections")
+      .then((payload) => setSections(payload.sections))
+      .catch(() => {});
+  }, []);
+
   return (
     <nav className="side-nav">
       <a
@@ -52,6 +70,19 @@ export function AudiobookNav({ active }: { active: "books" | "saved" | "authors"
         <LayoutGrid size={22} />
         Categories
       </a>
+
+      {sections.length > 0 && <div className="side-nav-divider" aria-hidden="true" />}
+      {sections.map((section) => (
+        <a
+          key={section.id}
+          className={activeSectionId === section.id ? "active" : ""}
+          href={`/audiobooks/sections/${section.id}`}
+          onClick={(e) => followRoute(e, `/audiobooks/sections/${section.id}`)}
+        >
+          <CategoryIcon icon={section.icon} size={22} />
+          {section.name}
+        </a>
+      ))}
     </nav>
   );
 }

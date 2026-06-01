@@ -313,6 +313,15 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS library_sections (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    icon       TEXT NOT NULL DEFAULT 'radio',
+    created_by TEXT NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS group_members (
     group_id  TEXT NOT NULL REFERENCES user_groups(id) ON DELETE CASCADE,
     user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -442,21 +451,61 @@ if (categoryColumns.length > 0 && !categoryColumns.some((column) => column.name 
   db.exec("ALTER TABLE categories ADD COLUMN image_storage_key TEXT");
 }
 
-// Seed the navigation categories and alias keywords. Fill-gaps only: existing rows are
-// never overwritten, so admin edits (renames, remapped/added/removed aliases) survive
-// restarts. New seed entries added in code are still inserted on next boot.
+// v2 taxonomy split the old combined Biographies & History bucket into
+// Biographies & Memoirs plus History. Keep the old row/id for existing refs.
+{
+  const legacy = db.prepare("SELECT id FROM categories WHERE key = 'bio_history'").get() as { id: string } | undefined;
+  const target = db.prepare("SELECT id FROM categories WHERE key = 'biographies_memoirs'").get() as { id: string } | undefined;
+  if (legacy && !target) {
+    db.prepare(`
+      UPDATE categories
+      SET
+        key = 'biographies_memoirs',
+        name = CASE WHEN name = 'Biographies & History' THEN 'Biographies & Memoirs' ELSE name END,
+        sort_order = CASE WHEN sort_order = 5 THEN 9 ELSE sort_order END,
+        icon = CASE WHEN icon IS NULL OR icon = 'landmark' THEN 'mic' ELSE icon END
+      WHERE id = ?
+    `).run(legacy.id);
+  } else if (legacy && target) {
+    db.transaction(() => {
+      db.prepare("UPDATE book_metadata SET category_id = ? WHERE category_id = ?").run(target.id, legacy.id);
+      db.prepare("UPDATE category_aliases SET category_id = ? WHERE category_id = ?").run(target.id, legacy.id);
+      db.prepare("DELETE FROM categories WHERE id = ?").run(legacy.id);
+    })();
+  }
+}
+
+// Seed the navigation categories and alias keywords. Normal startup seeding is
+// fill-gaps only so admin edits survive restarts. Versioned taxonomy migrations
+// below can still adjust known defaults once when the category model changes.
 {
   const insertCategory = db.prepare(
-    "INSERT INTO categories (id, key, name, sort_order, icon) VALUES (?, ?, ?, ?, ?) ON CONFLICT(key) DO NOTHING"
+    "INSERT INTO categories (id, key, name, sort_order, icon, image_storage_key) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(key) DO NOTHING"
   );
   // Backfill the default icon only where one was never set (preserves admin choices).
   const backfillIcon = db.prepare("UPDATE categories SET icon = ? WHERE key = ? AND icon IS NULL");
+  const deletedCategoryKeysRow = db.prepare("SELECT value FROM app_settings WHERE key = 'deleted_category_keys'")
+    .get() as { value: string } | undefined;
+  let deletedCategoryKeys = new Set<string>();
+  if (deletedCategoryKeysRow) {
+    try {
+      const parsed = JSON.parse(deletedCategoryKeysRow.value) as unknown;
+      if (Array.isArray(parsed)) {
+        deletedCategoryKeys = new Set(parsed.filter((key): key is string => typeof key === "string"));
+      }
+    } catch {
+      deletedCategoryKeys = new Set<string>();
+    }
+  }
   const categoryIdByKey = new Map<string, string>();
   const seedCategories = db.transaction(() => {
     for (const category of CATEGORY_SEED) {
       const existing = db.prepare("SELECT id FROM categories WHERE key = ?").get(category.key) as { id: string } | undefined;
+      if (!existing && deletedCategoryKeys.has(category.key)) {
+        continue;
+      }
       const id = existing?.id ?? nanoid(16);
-      insertCategory.run(id, category.key, category.name, category.sortOrder, category.icon);
+      insertCategory.run(id, category.key, category.name, category.sortOrder, category.icon, category.defaultImageStorageKey ?? null);
       backfillIcon.run(category.icon, category.key);
       categoryIdByKey.set(category.key, id);
     }
@@ -475,6 +524,39 @@ if (categoryColumns.length > 0 && !categoryColumns.some((column) => column.name 
     }
   });
   seedAliases();
+
+  const taxonomyVersion = "2026-06-expanded-categories";
+  const storedTaxonomyVersion = db.prepare("SELECT value FROM app_settings WHERE key = ?")
+    .get("category_taxonomy_version") as { value: string } | undefined;
+  if (storedTaxonomyVersion?.value !== taxonomyVersion) {
+    const updateCategoryOrder = db.prepare("UPDATE categories SET sort_order = ? WHERE key = ?");
+    const upsertAlias = db.prepare(`
+      INSERT INTO category_aliases (id, keyword, category_id, priority)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(keyword) DO UPDATE SET
+        category_id = excluded.category_id,
+        priority = excluded.priority
+    `);
+    const saveTaxonomyVersion = db.prepare(`
+      INSERT INTO app_settings (key, value, updated_at)
+      VALUES (?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    db.transaction(() => {
+      for (const category of CATEGORY_SEED) {
+        updateCategoryOrder.run(category.sortOrder, category.key);
+      }
+      for (const alias of ALIAS_SEED) {
+        const categoryId = categoryIdByKey.get(alias.category);
+        if (categoryId) {
+          upsertAlias.run(nanoid(16), alias.keyword, categoryId, alias.priority);
+        }
+      }
+      saveTaxonomyVersion.run("category_taxonomy_version", taxonomyVersion);
+    })();
+  }
 }
 
 export function hasUsers() {

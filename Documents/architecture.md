@@ -30,7 +30,7 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 
 ## Implementation Status
 
-**Status snapshot: May 28, 2026**
+**Status snapshot: June 1, 2026**
 
 ### Completed
 
@@ -41,7 +41,8 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 - Digital Library infrastructure: storage containers, thumbnail configuration, audiobook library registration and scan
 
 - Audiobook playback — resume progress, per-user position bookmarks with notes, and a saved-books "My List"
-- Genre model — fixed navigation **categories** (keyword-matched per scan, bilingual aliases) plus global, cross-type **tags**; admin Control Panel screen to manage categories, mappings, and tag→category mapping with instant re-match
+- Genre model — fixed navigation **categories** (keyword-matched per scan with English default aliases) plus global, cross-type **tags**; admin Control Panel screen to manage categories, edit per-category mappings, promote scanned tags into keywords, and instantly re-match existing books
+- Special Sections — group audiobook libraries under a master sidebar entry with their books hidden from the main grid, plus per-library overwrite-on-add for Author, Narrator, Description, Category, and Tags
 
 ### In Progress
 
@@ -221,6 +222,7 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 |---|---|
 | [`audiobook-library.md`](audiobook-library.md) | Audiobook library type — scan pipeline, metadata, phases, schema |
 | [`audiobook-db.md`](audiobook-db.md) | Audiobook database ER diagram and table reference |
+| [`special-section.md`](special-section.md) | Special Sections — library grouping and per-library metadata overrides |
 | [`auth.md`](auth.md) | Authentication detail — sessions, invite flow, future MFA |
 | [`sharing.md`](sharing.md) | Sharing model — general `shares` / `share_links` schema, access resolution |
 | [`library-sharing.md`](library-sharing.md) | Library access model — ownership, visibility, Phase 1 schema, roadmap |

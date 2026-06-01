@@ -8,7 +8,7 @@ import { InvitePage } from "../pages/InvitePage";
 import { HomePage } from "../pages/HomePage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { AboutPage } from "../pages/AboutPage";
-import { AudiobookBookPage, AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
+import { AudiobookBookPage, AudiobooksPage, SectionPage } from "../features/audiobooks/AudiobooksPage";
 import { MyListPage } from "../features/audiobooks/MyListPage";
 import { PlayerPage } from "../features/audiobooks/PlayerPage";
 import { PersonListPage } from "../features/audiobooks/PersonListPage";
@@ -81,7 +81,7 @@ export function App() {
       return;
     }
 
-    if (session.user && route.name === "control" && session.user.role !== "admin") {
+    if (session.user && ["control", "controlCategoryEditor"].includes(route.name) && session.user.role !== "admin") {
       navigate("/");
     }
   }, [route.name, session]);
@@ -115,6 +115,12 @@ export function App() {
   if (route.name === "control") {
     return session.user.role === "admin"
       ? <ControlPanelPage section={route.section} user={session.user} logout={logout} />
+      : <HomePage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "controlCategoryEditor") {
+    return session.user.role === "admin"
+      ? <ControlPanelPage section="categories" categoryId={route.categoryId} user={session.user} logout={logout} />
       : <HomePage user={session.user} logout={logout} />;
   }
 
@@ -178,6 +184,10 @@ export function App() {
 
   if (route.name === "audiobookCategoryDetail") {
     return <CategoryDetailPage categoryKey={route.categoryKey} user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookSection") {
+    return <SectionPage sectionId={route.sectionId} user={session.user} logout={logout} />;
   }
 
   return <HomePage user={session.user} logout={logout} />;

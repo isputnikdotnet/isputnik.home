@@ -336,14 +336,38 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.4.15",
+          label: "Special sections & control panel",
+          changes: [
+            "New Labels screen (Categories + Tags tabs). Tag management: rename tags (renaming onto an existing tag merges them), delete a tag from all books, and remove unused tags in one click.",
+            "Audiobook catalog stats (libraries, top authors/narrators, longest listens) moved from the Status page to a dedicated Stats tab under Control Panel → Audiobooks; Status now focuses on system and database health.",
+            "Audiobook libraries can now be grouped into a Special Section — a master entry in the audiobook sidebar (with its own icon) that holds one or more libraries. Section books are kept out of the main Books grid and browsed behind the section.",
+            "Each library added to a section has its own Overwrite-on-add rules: force Author, Narrator, Description, Category, and Tags for every book on add and rescan. Blank fields keep the scanned value (e.g. a blank Author keeps each story's real writer).",
+            "Manually edited books still win — overrides apply as scan metadata, so a per-book manual edit survives rescans.",
+            "Admins manage sections from Control Panel → Audiobooks: create/edit/delete sections and attach libraries with their override values. Deleting a section detaches its libraries (no books or files are removed).",
+            "Control Panel navigation reorganized: a new Digital Library group (Storage, Audiobooks, plus Gallery / Other Media placeholders for future types), a Maintenance screen for Jobs (with a Backup placeholder), and database details folded into the Status page. User administration is now a single Accounts screen with Users / Groups / Invite links / Sessions tabs. The Audiobooks screen splits into Audiobooks, Special libraries, and Stats tabs."
+          ]
+        },
+        {
+          version: "0.4.13",
+          label: "Category management polish",
+          changes: [
+            "Category management is now centered on the category list, with mappings managed inside each category editor instead of a separate global tab.",
+            "The category editor now has Mappings and Tags tabs. Tags shows scanned genre tags with book counts and lets an admin add a tag as a keyword for the current category.",
+            "Added an on-page explanation of category mapping, including a concrete priority example, so admins can understand why a book lands in a category.",
+            "New installs now include a default Fiction category image for the public audiobook category cards, while category management remains icon-first unless an admin uploads a custom image.",
+            "Default category mappings for new installs are now English-only. Existing databases keep their current mappings until an admin changes them."
+          ]
+        },
+        {
           version: "0.4.12",
           label: "Categories & tags",
           changes: [
-            "Books are now sorted into a fixed set of navigation Categories (Fiction, Mystery & Thriller, Sci-Fi & Fantasy, Romance, Biographies & History, Self-Help & Business, Science & Culture, Kids & Teens) with a General / Other fallback — replacing the old free-form Genres.",
+            "Books are now sorted into a fixed set of navigation Categories (Fiction, Classics & Literary, Adventure & Action, Mystery & Thriller, Sci-Fi & Fantasy, Horror & Supernatural, Romance, Humor & Satire, Biographies & Memoirs, History, Self-Help & Business, Science & Culture, Kids & Teens) with a General / Other fallback — replacing the old free-form Genres.",
             "Every original genre is kept as a searchable Tag, shown as chips on the book page; nothing is discarded. Tags are global and ready to be reused by future library types.",
-            "During a scan, incoming genre text is matched to a category via a bilingual (English + Russian) keyword table; unmatched books fall back to General / Other.",
+            "During a scan, incoming genre text is matched to a category via keyword mappings; unmatched books fall back to General / Other.",
             "Book editor now has a Category dropdown and a Tags field; a manual choice is preserved across rescans.",
-            "New admin Control Panel section, Categories & Tags: rename/reorder categories, manage keyword-to-category mappings, map any tag to a category, and Re-match all books from their existing tags instantly — no file rescan needed.",
+            "New admin Control Panel section for categories: rename/reorder categories, manage keyword-to-category mappings, and Re-match all books from their existing tags instantly — no file rescan needed.",
             "Each category has an icon (admin-pickable) plus an optional uploaded image that overrides it, shown on the category browse cards."
           ]
         },

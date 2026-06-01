@@ -6,7 +6,32 @@ import { AudiobookNav } from "./AudiobookNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes, formatDuration } from "../../shared/utils";
-import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, CategorySummary, CoverCandidate, MetadataCandidate, PlaybackProgress } from "./types";
+import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, CategorySummary, CoverCandidate, LibrarySection, MetadataCandidate, PlaybackProgress } from "./types";
+
+function BookCard({ book }: { book: AudiobookBook }) {
+  return (
+    <button className="audiobook-card" onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
+      <div className="audiobook-cover" aria-hidden="true">
+        {book.coverUrl ? (
+          <img src={book.coverUrl} alt="" />
+        ) : (
+          <>
+            <BookOpen size={13} />
+            <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
+          </>
+        )}
+      </div>
+      <div className="audiobook-card-body">
+        <strong>{book.title}</strong>
+        <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
+        <small>
+          {book.durationSeconds != null ? `${formatDuration(book.durationSeconds)} · ` : ""}
+          {book.fileCount} {book.fileCount === 1 ? "file" : "files"}
+        </small>
+      </div>
+    </button>
+  );
+}
 
 export function AudiobooksPage({
   user,
@@ -37,7 +62,11 @@ export function AudiobooksPage({
       .then(async (payload) => {
         setLibraries(payload.libraries);
         setSelectedLibraryId("all");
-        await loadMissingLibraryBooks(payload.libraries.map((library) => library.id));
+        // Only the main grid's (non-section) libraries need their books loaded here;
+        // section books are shown inside the section view.
+        await loadMissingLibraryBooks(
+          payload.libraries.filter((library) => !library.specialSection).map((library) => library.id)
+        );
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load audiobooks"));
   }, [loadMissingLibraryBooks]);
@@ -51,7 +80,9 @@ export function AudiobooksPage({
       api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
         .then(async (payload) => {
           setLibraries(payload.libraries);
-          await loadMissingLibraryBooks(payload.libraries.map((library) => library.id));
+          await loadMissingLibraryBooks(
+            payload.libraries.filter((library) => !library.specialSection).map((library) => library.id)
+          );
         })
         .catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh audiobooks"));
     }, 3000);
@@ -59,7 +90,10 @@ export function AudiobooksPage({
     return () => window.clearInterval(timer);
   }, [libraries, loadMissingLibraryBooks]);
 
-  const allBooks = libraries.flatMap((library) =>
+  // Special-section libraries are walled off from the main grid; they appear only
+  // behind their section's master icon.
+  const normalLibraries = libraries.filter((library) => !library.specialSection);
+  const allBooks = normalLibraries.flatMap((library) =>
     (booksByLibrary[library.id] ?? []).map((book) => ({ ...book, libraryName: library.name }))
   );
   const uniqueAuthors = [...new Set(allBooks.flatMap((b) => b.authors))].sort();
@@ -88,13 +122,24 @@ export function AudiobooksPage({
 
           {error && <MessageBox tone="error" title="Audiobooks error">{error}</MessageBox>}
 
-          {libraries.length === 0 ? (
+          {normalLibraries.length === 0 && (
             <div className="empty-state library-empty">
               <BookOpen size={58} aria-hidden="true" />
-              <h2>No audiobook libraries yet</h2>
-              <p className="muted">An administrator can add libraries from the control panel.</p>
+              {libraries.some((library) => library.specialSection) ? (
+                <>
+                  <h2>No general audiobooks here</h2>
+                  <p className="muted">Open a special section from the sidebar to browse its books.</p>
+                </>
+              ) : (
+                <>
+                  <h2>No audiobook libraries yet</h2>
+                  <p className="muted">An administrator can add libraries from the control panel.</p>
+                </>
+              )}
             </div>
-          ) : (
+          )}
+
+          {normalLibraries.length > 0 && (
             <>
               <div className="audiobook-toolbar">
                 <label className="search-field">
@@ -114,7 +159,7 @@ export function AudiobooksPage({
                   aria-label="Filter by library"
                 >
                   <option value="all">All libraries</option>
-                  {libraries.map((library) => (
+                  {normalLibraries.map((library) => (
                     <option key={library.id} value={library.id}>{library.name}</option>
                   ))}
                 </select>
@@ -155,31 +200,125 @@ export function AudiobooksPage({
 
               <div className="audiobook-grid">
                 {visibleBooks.map((book) => (
-                  <button className="audiobook-card" key={book.id} onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
-                    <div className="audiobook-cover" aria-hidden="true">
-                      {book.coverUrl ? (
-                        <img src={book.coverUrl} alt="" />
-                      ) : (
-                        <>
-                          <BookOpen size={13} />
-                          <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
-                        </>
-                      )}
-                    </div>
-                    <div className="audiobook-card-body">
-                      <strong>{book.title}</strong>
-                      <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
-                      <small>
-                        {book.durationSeconds != null ? `${formatDuration(book.durationSeconds)} · ` : ""}
-                        {book.fileCount} {book.fileCount === 1 ? "file" : "files"}
-                      </small>
-                    </div>
-                  </button>
+                  <BookCard key={book.id} book={book} />
                 ))}
                 {visibleBooks.length === 0 && <p className="management-empty">No audiobooks match this filter.</p>}
               </div>
             </>
           )}
+      </section>
+    </DashboardShell>
+  );
+}
+
+export function SectionPage({
+  sectionId,
+  user,
+  logout
+}: {
+  sectionId: string;
+  user: PublicUser;
+  logout: () => Promise<void>;
+}) {
+  const [section, setSection] = useState<LibrarySection | null>(null);
+  const [members, setMembers] = useState<AudiobookLibrary[]>([]);
+  const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
+  const [selectedLibraryId, setSelectedLibraryId] = useState("all");
+  const [bookSearch, setBookSearch] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      api<{ sections: LibrarySection[] }>("/api/library/sections"),
+      api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
+    ])
+      .then(async ([sectionsPayload, librariesPayload]) => {
+        const found = sectionsPayload.sections.find((s) => s.id === sectionId) ?? null;
+        setSection(found);
+        const sectionMembers = librariesPayload.libraries.filter((library) => library.sectionId === sectionId);
+        setMembers(sectionMembers);
+        const booksLists = await Promise.all(
+          sectionMembers.map((library) =>
+            api<{ books: AudiobookBook[] }>(`/api/library/audiobook-libraries/${library.id}/books`)
+              .then((payload) => [library.id, payload.books] as const)
+          )
+        );
+        setBooksByLibrary(Object.fromEntries(booksLists));
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load section"));
+  }, [sectionId]);
+
+  const allBooks = members.flatMap((library) =>
+    (booksByLibrary[library.id] ?? []).map((book) => ({ ...book, libraryName: library.name }))
+  );
+  const searchTerm = bookSearch.trim().toLowerCase();
+  const visibleBooks = allBooks.filter((book) => {
+    if (selectedLibraryId !== "all" && book.libraryId !== selectedLibraryId) return false;
+    if (searchTerm) {
+      const haystack = [book.title, book.libraryName, ...book.authors, ...book.narrators];
+      if (!haystack.some((v) => v?.toLowerCase().includes(searchTerm))) return false;
+    }
+    return true;
+  });
+
+  return (
+    <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav activeSectionId={sectionId} />}>
+      <section className="work-area scene-page audiobook-scene audiobook-area">
+        <button className="back-link" onClick={() => navigate("/audiobooks")}>← Audiobooks</button>
+        <div className="section-head audiobook-head">
+          <div>
+            <p className="eyebrow">Special Section</p>
+            <h1>{section?.name ?? "Section"}</h1>
+          </div>
+        </div>
+
+        {error && <MessageBox tone="error" title="Section error">{error}</MessageBox>}
+
+        {members.length === 0 ? (
+          <p className="management-empty">No libraries have been added to this section yet.</p>
+        ) : (
+          <>
+            <div className="audiobook-toolbar">
+              <label className="search-field">
+                <Search size={17} aria-hidden="true" />
+                <input
+                  type="search"
+                  value={bookSearch}
+                  onChange={(event) => setBookSearch(event.target.value)}
+                  placeholder="Search title, author, or narrator"
+                  aria-label="Search section"
+                />
+              </label>
+              {members.length > 1 && (
+                <select
+                  className="library-filter"
+                  value={selectedLibraryId}
+                  onChange={(event) => setSelectedLibraryId(event.target.value)}
+                  aria-label="Filter by library"
+                >
+                  <option value="all">All libraries</option>
+                  {members.map((library) => (
+                    <option key={library.id} value={library.id}>{library.name}</option>
+                  ))}
+                </select>
+              )}
+              <span>{visibleBooks.length} {visibleBooks.length === 1 ? "book" : "books"}</span>
+            </div>
+
+            {members.some((library) => library.scanStatus === "scanning") && (
+              <MessageBox tone="info" title="Scanning">
+                New metadata and covers will appear as the scan finishes.
+              </MessageBox>
+            )}
+
+            <div className="audiobook-grid">
+              {visibleBooks.map((book) => (
+                <BookCard key={book.id} book={book} />
+              ))}
+              {visibleBooks.length === 0 && <p className="management-empty">No books match this filter.</p>}
+            </div>
+          </>
+        )}
       </section>
     </DashboardShell>
   );

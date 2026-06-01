@@ -40,6 +40,12 @@
   display: none;
 }
 
+.side-nav-divider {
+  height: 1px;
+  margin: 8px 10px;
+  background: var(--line);
+}
+
 .side-nav button,
 .side-nav a {
   display: flex;
@@ -334,6 +340,55 @@
 .control-links a.active {
   color: var(--mint);
   background: var(--active);
+}
+
+.control-links a.control-link-soon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.control-soon-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--muted);
+}
+
+.control-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+}
+
+.control-tabs a {
+  padding: 8px 14px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.control-tabs a:hover {
+  color: var(--ink);
+}
+
+.control-tabs a.active {
+  color: var(--mint);
+  border-bottom-color: var(--mint);
+}
+
+.control-tabs a.control-tab-soon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .control-work {
