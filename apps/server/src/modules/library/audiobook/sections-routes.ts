@@ -38,7 +38,8 @@ function listSections(): SectionRow[] {
       (
         SELECT COUNT(*)
         FROM libraries
-        WHERE json_extract(libraries.settings_json, '$.section_id') = library_sections.id
+        WHERE json_valid(libraries.settings_json)
+          AND json_extract(libraries.settings_json, '$.section_id') = library_sections.id
       ) AS library_count
     FROM library_sections
     ORDER BY library_sections.name COLLATE NOCASE
@@ -131,7 +132,7 @@ export async function sectionsRoutesPlugin(app: FastifyInstance) {
       // Detach member libraries so they reappear in the main grid rather than
       // pointing at a section that no longer exists.
       const members = db.prepare(
-        "SELECT id, settings_json FROM libraries WHERE json_extract(settings_json, '$.section_id') = ?"
+        "SELECT id, settings_json FROM libraries WHERE json_valid(settings_json) AND json_extract(settings_json, '$.section_id') = ?"
       ).all(id) as { id: string; settings_json: string }[];
       for (const member of members) {
         const settings = JSON.parse(member.settings_json || "{}");

@@ -23,12 +23,13 @@ export function StatusSection() {
   const [error, setError] = useState("");
 
   const loadStatus = async () => {
-    const [statusPayload, dbPayload] = await Promise.all([
-      api<{ status: SystemStatus }>("/api/status"),
-      api<{ db: DbInfo }>("/api/db/info")
-    ]);
-    setSystemStatus(statusPayload.status);
-    setDbInfo(dbPayload.db);
+    const payload = await api<{ status: SystemStatus }>("/api/status");
+    setSystemStatus(payload.status);
+    // Database details are secondary — load them separately so a db-info failure
+    // never hides the main status view.
+    api<{ db: DbInfo }>("/api/db/info")
+      .then((dbPayload) => setDbInfo(dbPayload.db))
+      .catch(() => setDbInfo(null));
   };
 
   useEffect(() => {

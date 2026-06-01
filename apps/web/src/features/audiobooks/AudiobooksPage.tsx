@@ -125,8 +125,17 @@ export function AudiobooksPage({
           {normalLibraries.length === 0 && (
             <div className="empty-state library-empty">
               <BookOpen size={58} aria-hidden="true" />
-              <h2>No audiobook libraries yet</h2>
-              <p className="muted">An administrator can add libraries from the control panel.</p>
+              {libraries.some((library) => library.specialSection) ? (
+                <>
+                  <h2>No general audiobooks here</h2>
+                  <p className="muted">Open a special section from the sidebar to browse its books.</p>
+                </>
+              ) : (
+                <>
+                  <h2>No audiobook libraries yet</h2>
+                  <p className="muted">An administrator can add libraries from the control panel.</p>
+                </>
+              )}
             </div>
           )}
 
