@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, Pencil, Play, RotateCcw, Save, Search, Upload, X } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
+import { ShareModal } from "../share/ShareModal";
 import { DashboardShell } from "../../app/DashboardShell";
 import { AudiobookNav } from "./AudiobookNav";
 import { navigate } from "../../router";
@@ -391,6 +392,7 @@ function BookDetailView({
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [activeMetadataTab, setActiveMetadataTab] = useState<"edit" | "cover" | "lookup">("edit");
   const [metadataQuery, setMetadataQuery] = useState(`${book.title} ${book.authors[0] ?? ""}`.trim());
   const [metadataProvider, setMetadataProvider] = useState<"all" | MetadataCandidate["source"]>("all");
@@ -808,6 +810,10 @@ function BookDetailView({
               <Download size={16} />
               <span>Download</span>
             </a>
+            <button className="secondary-button" onClick={() => setShareModalOpen(true)}>
+              <Share2 size={16} />
+              <span>Share</span>
+            </button>
           </div>
           {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
 
@@ -867,6 +873,10 @@ function BookDetailView({
           </section>
         </div>
       </div>
+
+      {shareModalOpen && (
+        <ShareModal bookId={book.id} bookTitle={book.title} onClose={() => setShareModalOpen(false)} />
+      )}
 
       {metadataModalOpen && (
         <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { setMetadataModalOpen(false); setResetConfirm(false); } }}>

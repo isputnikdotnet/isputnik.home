@@ -5,6 +5,7 @@ import { audiobookStreamPlugin } from "./stream.js";
 import { audiobookPeoplePlugin } from "./people.js";
 import { audiobookBookmarksPlugin } from "./bookmarks.js";
 import { audiobookSavesPlugin } from "./saves.js";
+import { audiobookSharesPlugin } from "./shares.js";
 import { categoriesAdminPlugin } from "./categories-routes.js";
 import { sectionsRoutesPlugin } from "./sections-routes.js";
 import { startAudiobookScanWorker } from "./scanner.js";
@@ -16,6 +17,7 @@ export async function audiobookPlugin(app: FastifyInstance) {
   await app.register(audiobookPeoplePlugin);
   await app.register(audiobookBookmarksPlugin);
   await app.register(audiobookSavesPlugin);
+  await app.register(audiobookSharesPlugin);
   await app.register(categoriesAdminPlugin);
   await app.register(sectionsRoutesPlugin);
 

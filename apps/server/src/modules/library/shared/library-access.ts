@@ -1,4 +1,5 @@
 import { db } from "../../../db.js";
+import { userHasItemShare } from "./share-access.js";
 
 export interface LibraryAccessRow {
   id: string;
@@ -56,6 +57,18 @@ export function getAccessibleLibrary(
   if (!library) return null;
   if (!canUserAccessLibrary(library, userId, userRole)) return null;
   return library;
+}
+
+// Book-level read access: granted by ordinary library access, OR by an explicit
+// user-to-user share of this single book even when its library is private.
+export function canUserAccessBook(
+  bookId: string,
+  library: { owner_id: string | null; owner_type: string | null; visibility: string },
+  userId: string,
+  userRole: string
+): boolean {
+  if (canUserAccessLibrary(library, userId, userRole)) return true;
+  return userHasItemShare("audiobook", bookId, userId);
 }
 
 export function getLibraryForBook(bookId: string): LibraryAccessRow | null {

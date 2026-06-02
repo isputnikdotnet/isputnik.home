@@ -1,0 +1,206 @@
+/* Public guest share page (no app shell). */
+.share-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px 64px;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.share-card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 28px 24px;
+  box-shadow: 0 18px 48px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.share-card--message {
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.share-book-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.share-cover {
+  width: 180px;
+  height: 180px;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 12px 30px var(--shadow);
+}
+
+.share-cover--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.share-title {
+  font-size: 1.35rem;
+  margin: 6px 0 0;
+  line-height: 1.25;
+}
+
+.share-authors { font-weight: 600; margin: 0; }
+.share-narrators { color: var(--muted); margin: 0; font-size: 0.9rem; }
+
+.share-chapter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+.share-chapter span { color: var(--muted); font-size: 0.9rem; }
+
+.share-seek {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* The guest page has no .audio-player wrapper, so define the thumb-ring var the
+   shared .player-seekbar thumb rules expect. The track background is set inline
+   (a real progress fill), overriding the player-track gradient. */
+.share-seek .player-seekbar {
+  flex: 1;
+  --player-thumb-ring: var(--canvas);
+}
+
+.share-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.share-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.share-chapter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+}
+
+.share-chapter-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  color: var(--ink);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.share-chapter-item:hover { background: var(--hover); }
+.share-chapter-item.active { background: var(--active); }
+.share-chapter-num { color: var(--muted); min-width: 1.6em; text-align: right; }
+.share-chapter-name { flex: 1; }
+.share-chapter-dur { color: var(--muted); font-size: 0.85rem; }
+
+.share-player-error {
+  color: var(--rose);
+  font-size: 0.88rem;
+  text-align: center;
+  margin: 0;
+}
+
+.share-description {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.share-footer {
+  text-align: center;
+  font-size: 0.8rem;
+  margin: 4px 0 0;
+}
+
+/* Share modal (inside the app) — rows for create + existing shares. */
+.share-create-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.share-create-row .field { flex: 1; min-width: 130px; }
+
+.share-new-url {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.share-url-row {
+  display: flex;
+  gap: 8px;
+}
+.share-url-row input {
+  flex: 1;
+  font-family: monospace;
+  font-size: 0.82rem;
+}
+
+.share-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.share-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.share-list-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.share-list-label { font-weight: 600; }
+.share-list-main .muted { font-size: 0.82rem; }
+
+.share-link-tab,
+.share-people-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

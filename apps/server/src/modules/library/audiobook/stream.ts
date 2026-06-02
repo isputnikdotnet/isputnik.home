@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import archiver from "archiver";
 import { db } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
-import { canUserAccessLibrary } from "../shared/library-access.js";
+import { canUserAccessBook } from "../shared/library-access.js";
 
 function parseRangeHeader(header: string, totalSize: number) {
   const match = header.match(/^bytes=(\d*)-(\d*)$/);
@@ -53,7 +53,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     }
 
     const user = request.user!;
-    if (!canUserAccessLibrary(row, user.id, user.role)) {
+    if (!canUserAccessBook(id, row, user.id, user.role)) {
       reply.code(404).send({ error: "Audio file not found" });
       return;
     }
@@ -114,7 +114,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     }
 
     const downloadUser = request.user!;
-    if (!canUserAccessLibrary({ owner_id: meta.owner_id, owner_type: meta.owner_type, visibility: meta.visibility }, downloadUser.id, downloadUser.role)) {
+    if (!canUserAccessBook(id, { owner_id: meta.owner_id, owner_type: meta.owner_type, visibility: meta.visibility }, downloadUser.id, downloadUser.role)) {
       reply.code(404).send({ error: "Book not found" });
       return;
     }

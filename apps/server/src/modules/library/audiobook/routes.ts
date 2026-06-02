@@ -6,6 +6,7 @@ import { audioExtensions, enqueueAudiobookScan, processAudiobookScanQueue, valid
 import { z } from "zod";
 import { audiobookLibrarySchema, libraryOverridesSchema, overridesToSettings, publicAudiobookLibrary } from "./serializers.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
+import { deleteSharesForLibrary } from "../shared/share-access.js";
 import type { AudiobookLibraryRow } from "./types.js";
 
 export async function audiobookRoutesPlugin(app: FastifyInstance) {
@@ -231,6 +232,8 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
         WHERE entity_type = 'book'
           AND entity_id IN (SELECT id FROM books WHERE library_id = ?)
       `).run(id);
+      // shares/share_links are polymorphic too — clean them up before the cascade.
+      deleteSharesForLibrary(id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();
 

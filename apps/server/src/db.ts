@@ -362,6 +362,40 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
   CREATE INDEX IF NOT EXISTS idx_group_members_user  ON group_members(user_id);
 
+  -- Item-level sharing, module-agnostic via (module, resource_id). See Documents/sharing.md.
+  -- User-to-user shares: grant a specific account read access to one item.
+  CREATE TABLE IF NOT EXISTS shares (
+    id          TEXT PRIMARY KEY,
+    module      TEXT NOT NULL,
+    resource_id TEXT NOT NULL,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    permission  TEXT NOT NULL DEFAULT 'read' CHECK (permission IN ('read', 'edit', 'manage')),
+    created_by  TEXT NOT NULL REFERENCES users(id),
+    created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at  TEXT,
+    revoked_at  TEXT,
+    UNIQUE (module, resource_id, user_id)
+  );
+
+  -- Guest link shares: anyone with the (hashed) token, until expiry. Required expiry.
+  CREATE TABLE IF NOT EXISTS share_links (
+    id          TEXT PRIMARY KEY,
+    module      TEXT NOT NULL,
+    resource_id TEXT NOT NULL,
+    token_hash  TEXT NOT NULL UNIQUE,
+    permission  TEXT NOT NULL DEFAULT 'read' CHECK (permission IN ('read', 'edit', 'manage')),
+    label       TEXT,
+    expires_at  TEXT NOT NULL,
+    created_by  TEXT NOT NULL REFERENCES users(id),
+    created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at  TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_shares_resource      ON shares(module, resource_id);
+  CREATE INDEX IF NOT EXISTS idx_shares_user          ON shares(user_id);
+  CREATE INDEX IF NOT EXISTS idx_share_links_token    ON share_links(token_hash);
+  CREATE INDEX IF NOT EXISTS idx_share_links_resource ON share_links(module, resource_id);
+
   CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
   CREATE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash);

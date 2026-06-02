@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Heart, LayoutGrid, Library, Mic2, Pen } from "lucide-react";
+import { BookOpen, Heart, LayoutGrid, Library, Mic2, Pen, Share2 } from "lucide-react";
 import { api } from "../../api";
 import { followRoute } from "../../router";
 import { CategoryIcon } from "./categoryIcons";
@@ -9,7 +9,7 @@ export function AudiobookNav({
   active,
   activeSectionId
 }: {
-  active?: "books" | "saved" | "authors" | "narrators" | "series" | "categories";
+  active?: "books" | "saved" | "shared" | "authors" | "narrators" | "series" | "categories";
   activeSectionId?: string;
 }) {
   const [sections, setSections] = useState<LibrarySection[]>([]);
@@ -37,6 +37,14 @@ export function AudiobookNav({
       >
         <Heart size={22} />
         My List
+      </a>
+      <a
+        className={active === "shared" ? "active" : ""}
+        href="/audiobooks/shared"
+        onClick={(e) => followRoute(e, "/audiobooks/shared")}
+      >
+        <Share2 size={22} />
+        Shared with me
       </a>
       <a
         className={active === "authors" ? "active" : ""}

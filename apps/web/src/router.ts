@@ -24,7 +24,9 @@ export type Route =
   | { name: "controlCategoryEditor"; categoryId: string | null }
   | { name: "about" }
   | { name: "profile" }
-  | { name: "invite"; token: string };
+  | { name: "invite"; token: string }
+  | { name: "share"; token: string }
+  | { name: "audiobookSharedWithMe" };
 
 export function getRoute(): Route {
   const path = window.location.pathname;
@@ -32,6 +34,11 @@ export function getRoute(): Route {
 
   if (inviteMatch) {
     return { name: "invite", token: inviteMatch[1] };
+  }
+
+  const shareMatch = path.match(/^\/share\/([^/]+)$/);
+  if (shareMatch) {
+    return { name: "share", token: shareMatch[1] };
   }
 
   if (path === "/install") {
@@ -52,6 +59,10 @@ export function getRoute(): Route {
 
   if (path === "/audiobooks/saved") {
     return { name: "audiobookSaved" };
+  }
+
+  if (path === "/audiobooks/shared") {
+    return { name: "audiobookSharedWithMe" };
   }
 
   const audiobookBookMatch = path.match(/^\/audiobooks\/books\/([^/]+)$/);

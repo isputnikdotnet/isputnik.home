@@ -10,6 +10,8 @@ import { ProfilePage } from "../pages/ProfilePage";
 import { AboutPage } from "../pages/AboutPage";
 import { AudiobookBookPage, AudiobooksPage, SectionPage } from "../features/audiobooks/AudiobooksPage";
 import { MyListPage } from "../features/audiobooks/MyListPage";
+import { SharedWithMePage } from "../features/audiobooks/SharedWithMePage";
+import { SharePage } from "../pages/SharePage";
 import { PlayerPage } from "../features/audiobooks/PlayerPage";
 import { PersonListPage } from "../features/audiobooks/PersonListPage";
 import { PersonDetailPage } from "../features/audiobooks/PersonDetailPage";
@@ -77,7 +79,7 @@ export function App() {
       return;
     }
 
-    if (!session.requiresSetup && !session.user && !["login", "invite"].includes(route.name)) {
+    if (!session.requiresSetup && !session.user && !["login", "invite", "share"].includes(route.name)) {
       navigate("/login");
       return;
     }
@@ -103,6 +105,11 @@ export function App() {
 
   if (route.name === "invite") {
     return <InvitePage token={route.token} onSignedIn={refreshSession} />;
+  }
+
+  // Guest share — viewable without an account.
+  if (route.name === "share") {
+    return <SharePage token={route.token} />;
   }
 
   if (route.name === "login") {
@@ -145,6 +152,10 @@ export function App() {
 
   if (route.name === "audiobookSaved") {
     return <MyListPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookSharedWithMe") {
+    return <SharedWithMePage user={session.user} logout={logout} />;
   }
 
   if (route.name === "audiobookBook") {
