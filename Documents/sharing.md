@@ -95,6 +95,8 @@ See [`library-sharing.md`](library-sharing.md) for the full schema, access resol
 
 ## Option A — Item-Level Media Sharing (current build)
 
+> **Status: implemented** (audiobooks). See [Implementation](#implementation) at the end of this section for the actual files, endpoints, and behaviour as shipped.
+
 An owner shares a **single media item** (an audiobook today; photos, notes, any module later) with a specific person. This is the "recommend / give a book to someone" flow, not social activity sharing. Both share types below are built on the generic tables above (`module` + `resource_id`), so implementing them for audiobooks makes them reusable for every future module without schema changes.
 
 There are **two share types**, for two different recipients:
@@ -201,5 +203,36 @@ The owner shares an item with a **specific registered user**, who then accesses 
 - Listening-activity / social sharing (separate feature, design-blocked upstream).
 - Synced progress for guests.
 - Per-recipient identity or accounts — guests are anonymous by design.
+
+### Implementation
+
+What actually shipped for audiobooks, and where it lives.
+
+**Server**
+
+- `share-access.ts` ([`apps/server/src/modules/library/shared/`](../apps/server/src/modules/library/shared/share-access.ts)) — the resolver: `resolveShareLink(token)`, `userHasItemShare(module, resourceId, userId)`, plus cleanup helpers `deleteSharesForResource()` and `deleteSharesForLibrary()`.
+- `shares.ts` ([`apps/server/src/modules/library/audiobook/`](../apps/server/src/modules/library/audiobook/shares.ts)) — all share routes (owner + public), registered in that module's `index.ts`.
+- `library-access.ts` gained `canUserAccessBook()` = library access **OR** active user share. Wired into the authenticated stream + download endpoints in `stream.ts`.
+- Tables `shares` and `share_links` are created in `db.ts` via `CREATE TABLE IF NOT EXISTS` (no migration needed).
+
+**Endpoints** (as built; superset of the API table above)
+
+| Method | Route | Auth | Notes |
+|---|---|---|---|
+| `POST` | `/api/shares` | signed-in | Create guest link. URL returned **once**, built from `config.appUrl` (not the request Host — a dev proxy reports the wrong port). |
+| `GET` / `DELETE` | `/api/shares` · `/api/shares/:id` | signed-in | List / revoke own links. |
+| `POST` / `GET` | `/api/shares/user` · `?bookId=` | signed-in | Grant / list user shares for a book. |
+| `DELETE` | `/api/shares/user/:id` | signed-in | Revoke a user share. |
+| `GET` | `/api/shares/directory` | signed-in | Minimal user list (id + display name) for the recipient picker. |
+| `GET` | `/api/shared-with-me` | signed-in | Items shared *to* the caller. |
+| `GET` | `/api/share/:token` · `/cover` · `/stream/:fileId` · `/download` | public | Guest resolve, cover, per-file stream (range), ZIP download. Logs `share.accessed` / `share.downloaded`. |
+
+**Cleanup** — shares are polymorphic (no FK), so module code removes them: `deleteSharesForLibrary()` runs in the library hard-delete transaction (`routes.ts`), and `deleteSharesForResource()` runs when the scanner soft-deletes a book whose files vanished (`scanner.ts`).
+
+**Web**
+
+- Public guest page `/share/:token` ([`pages/SharePage.tsx`](../apps/web/src/pages/SharePage.tsx)) — self-contained lightweight player (no progress/bookmarks), its own seekbar with a real progress fill, and a Download button. Rendered before the auth gate so guests reach it without an account.
+- Share dialog ([`features/share/ShareModal.tsx`](../apps/web/src/features/share/ShareModal.tsx)) — Guest link + People tabs, opened from the **Share** button on the book detail page.
+- "Shared with me" page ([`features/audiobooks/SharedWithMePage.tsx`](../apps/web/src/features/audiobooks/SharedWithMePage.tsx)) with a sidebar nav entry.
 
 ---
