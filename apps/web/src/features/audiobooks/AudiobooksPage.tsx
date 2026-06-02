@@ -2,6 +2,16 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "re
 import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
+import {
+  EMPTY_FILTERS,
+  FilterButton,
+  FilterChips,
+  SortSelect,
+  filterBooks,
+  sortBooks,
+  type BookFilters,
+  type SortKey
+} from "./BookFilter";
 import { DashboardShell } from "../../app/DashboardShell";
 import { AudiobookNav } from "./AudiobookNav";
 import { navigate } from "../../router";
@@ -57,8 +67,8 @@ export function AudiobooksPage({
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
   const [selectedLibraryId, setSelectedLibraryId] = useState("all");
-  const [selectedAuthor, setSelectedAuthor] = useState("all");
-  const [selectedNarrator, setSelectedNarrator] = useState("all");
+  const [filters, setFilters] = useState<BookFilters>(EMPTY_FILTERS);
+  const [sort, setSort] = useState<SortKey>("title");
   const [bookSearch, setBookSearch] = useState("");
   const [error, setError] = useState("");
 
@@ -110,19 +120,16 @@ export function AudiobooksPage({
   const allBooks = normalLibraries.flatMap((library) =>
     (booksByLibrary[library.id] ?? []).map((book) => ({ ...book, libraryName: library.name }))
   );
-  const uniqueAuthors = [...new Set(allBooks.flatMap((b) => b.authors))].sort();
-  const uniqueNarrators = [...new Set(allBooks.flatMap((b) => b.narrators))].sort();
   const searchTerm = bookSearch.trim().toLowerCase();
-  const visibleBooks = allBooks.filter((book) => {
+  const searched = allBooks.filter((book) => {
     if (selectedLibraryId !== "all" && book.libraryId !== selectedLibraryId) return false;
-    if (selectedAuthor !== "all" && !book.authors.includes(selectedAuthor)) return false;
-    if (selectedNarrator !== "all" && !book.narrators.includes(selectedNarrator)) return false;
     if (searchTerm) {
       const haystack = [book.title, book.libraryName, ...book.authors, ...book.narrators];
       if (!haystack.some((v) => v?.toLowerCase().includes(searchTerm))) return false;
     }
     return true;
   });
+  const visibleBooks = sortBooks(filterBooks(searched, filters), sort);
 
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="books" />}>
@@ -177,34 +184,12 @@ export function AudiobooksPage({
                     <option key={library.id} value={library.id}>{library.name}</option>
                   ))}
                 </select>
-                {uniqueAuthors.length > 0 && (
-                  <select
-                    className="library-filter"
-                    value={selectedAuthor}
-                    onChange={(event) => setSelectedAuthor(event.target.value)}
-                    aria-label="Filter by author"
-                  >
-                    <option value="all">All authors</option>
-                    {uniqueAuthors.map((author) => (
-                      <option key={author} value={author}>{author}</option>
-                    ))}
-                  </select>
-                )}
-                {uniqueNarrators.length > 0 && (
-                  <select
-                    className="library-filter"
-                    value={selectedNarrator}
-                    onChange={(event) => setSelectedNarrator(event.target.value)}
-                    aria-label="Filter by narrator"
-                  >
-                    <option value="all">All narrators</option>
-                    {uniqueNarrators.map((narrator) => (
-                      <option key={narrator} value={narrator}>{narrator}</option>
-                    ))}
-                  </select>
-                )}
+                <FilterButton books={allBooks} value={filters} onChange={setFilters} />
+                <SortSelect value={sort} onChange={setSort} />
                 <span>{visibleBooks.length} {visibleBooks.length === 1 ? "book" : "books"}</span>
               </div>
+
+              <FilterChips value={filters} onChange={setFilters} />
 
               {libraries.some((library) => library.scanStatus === "scanning") && (
                 <MessageBox tone="info" title="Scanning audiobooks">
@@ -238,6 +223,8 @@ export function SectionPage({
   const [members, setMembers] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
   const [selectedLibraryId, setSelectedLibraryId] = useState("all");
+  const [filters, setFilters] = useState<BookFilters>(EMPTY_FILTERS);
+  const [sort, setSort] = useState<SortKey>("title");
   const [bookSearch, setBookSearch] = useState("");
   const [error, setError] = useState("");
 
@@ -266,7 +253,7 @@ export function SectionPage({
     (booksByLibrary[library.id] ?? []).map((book) => ({ ...book, libraryName: library.name }))
   );
   const searchTerm = bookSearch.trim().toLowerCase();
-  const visibleBooks = allBooks.filter((book) => {
+  const searched = allBooks.filter((book) => {
     if (selectedLibraryId !== "all" && book.libraryId !== selectedLibraryId) return false;
     if (searchTerm) {
       const haystack = [book.title, book.libraryName, ...book.authors, ...book.narrators];
@@ -274,6 +261,7 @@ export function SectionPage({
     }
     return true;
   });
+  const visibleBooks = sortBooks(filterBooks(searched, filters), sort);
 
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav activeSectionId={sectionId} />}>
@@ -316,8 +304,12 @@ export function SectionPage({
                   ))}
                 </select>
               )}
+              <FilterButton books={allBooks} value={filters} onChange={setFilters} />
+              <SortSelect value={sort} onChange={setSort} />
               <span>{visibleBooks.length} {visibleBooks.length === 1 ? "book" : "books"}</span>
             </div>
+
+            <FilterChips value={filters} onChange={setFilters} />
 
             {members.some((library) => library.scanStatus === "scanning") && (
               <MessageBox tone="info" title="Scanning">
