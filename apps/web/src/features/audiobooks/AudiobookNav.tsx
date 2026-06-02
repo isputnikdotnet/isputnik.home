@@ -44,7 +44,7 @@ export function AudiobookNav({
         onClick={(e) => followRoute(e, "/audiobooks/shared")}
       >
         <Share2 size={22} />
-        Shared with me
+        Shared
       </a>
       <a
         className={active === "authors" ? "active" : ""}

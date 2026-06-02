@@ -48,7 +48,10 @@ export async function invitesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    const origin = `${request.protocol}://${request.headers.host}`;
+    // Build invite links from the configured front-end origin (also the CORS
+    // origin), not the request Host — behind a dev proxy the API Host is the
+    // wrong port.
+    const origin = config.appUrl.replace(/\/+$/, "");
     reply.code(201).send({
       invite: {
         id: inviteId,
@@ -59,8 +62,9 @@ export async function invitesPlugin(app: FastifyInstance) {
     });
   });
 
-  app.get("/api/invites", { preHandler: app.requireAdmin }, async (request) => {
-    const origin = `${request.protocol}://${request.headers.host}`;
+  app.get("/api/invites", { preHandler: app.requireAdmin }, async () => {
+    // Configured front-end origin, not the request Host (see POST above).
+    const origin = config.appUrl.replace(/\/+$/, "");
     const invites = db.prepare(`
       SELECT
         invites.id,

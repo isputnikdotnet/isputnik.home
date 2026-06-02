@@ -717,7 +717,7 @@ export function LibrariesSection({ tab }: { tab: "audiobooks" | "special" }) {
       {rescanTarget && (
         <div className="modal-backdrop" onMouseDown={() => !rescanRunning && setRescanTarget(null)}>
           <div
-            className="confirm-modal"
+            className="confirm-modal rescan-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="rescan-library-title"

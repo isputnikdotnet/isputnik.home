@@ -240,6 +240,12 @@
   gap: 10px;
 }
 
+/* The rescan modal ends in form fields (checkbox + encoding select), so the
+   action row needs breathing room — otherwise "Start rescan" hugs the dropdown. */
+.rescan-modal .modal-actions {
+  margin-top: 20px;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
