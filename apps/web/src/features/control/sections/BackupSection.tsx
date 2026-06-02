@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { DatabaseBackup, Download, Trash2, RotateCcw, Save } from "lucide-react";
+import { Archive, DatabaseBackup, Download, Folder, Trash2, RotateCcw, Save } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
@@ -106,103 +106,129 @@ export function BackupSection() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Maintenance</p>
-          <h1>Backup</h1>
-        </div>
-        <button className="icon-button with-label" onClick={createBackup} disabled={creating}>
-          <DatabaseBackup size={18} />
-          <span>{creating ? "Backing up…" : "Create backup now"}</span>
-        </button>
-      </div>
-
-      <p className="muted" style={{ marginTop: -6, marginBottom: 16, fontSize: "0.88rem", lineHeight: 1.45 }}>
-        Creates a consistent snapshot of the application database (accounts, libraries, metadata, listening
-        progress, bookmarks, saved lists) while the server keeps running. Thumbnails and cover art regenerate
-        on a rescan, so they are not included, and your media files are never modified.
-        {data && <> Kept in <code>{data.backupPath}</code>.</>}
-      </p>
-
-      {error && <MessageBox tone="error" title="Backup error">{error}</MessageBox>}
-      {notice && <MessageBox tone="success" title="Backups">{notice}</MessageBox>}
-
-      <section className="backup-settings">
-        <h2>Scheduled backups</h2>
-        <div className="backup-settings-row">
-          <label className="field-checkbox">
-            <input type="checkbox" checked={form.enabled} onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))} />
-            <span>Run a backup automatically every day</span>
-          </label>
-          <label className="field backup-field-time">
-            <span>Time</span>
-            <input type="time" value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} disabled={!form.enabled} />
-          </label>
-          <label className="field backup-field-keep">
-            <span>Keep newest</span>
-            <input type="number" min={1} max={100} value={form.retention} onChange={(e) => setForm((f) => ({ ...f, retention: Number(e.target.value) }))} />
-          </label>
-          <label className="field-checkbox">
-            <input
-              type="checkbox"
-              checked={form.includeCovers}
-              disabled={!data?.coversAvailable}
-              onChange={(e) => setForm((f) => ({ ...f, includeCovers: e.target.checked }))}
-            />
-            <span>Include cover art{data && !data.coversAvailable ? " (no thumbnail path configured)" : ""}</span>
-          </label>
-          <button className="primary-button compact-button" onClick={saveSettings} disabled={savingSettings}>
-            <Save size={15} /> {savingSettings ? "Saving…" : "Save"}
+      <div className="backup-page">
+        <div className="backup-hero">
+          <div className="backup-hero-copy">
+            <p className="eyebrow">Maintenance</p>
+            <h1>Backup</h1>
+            <p>
+              Creates a consistent snapshot of the application database (accounts, libraries, metadata,
+              listening progress, bookmarks, saved lists) while the server keeps running. Media files are
+              never modified; thumbnail caches can be regenerated, and cover art can be included with
+              backups below.
+            </p>
+            {data && (
+              <span className="backup-path-pill">
+                <Folder size={15} />
+                <code>{data.backupPath}</code>
+              </span>
+            )}
+          </div>
+          <button className="icon-button with-label backup-create-button" onClick={createBackup} disabled={creating}>
+            <DatabaseBackup size={18} />
+            <span>{creating ? "Backing up..." : "Create backup now"}</span>
           </button>
         </div>
-        <p className="muted backup-retention-note">Applies to manual and scheduled backups. Covers can't all be regenerated (uploaded and provider-fetched art), so including them is recommended. Older backups beyond the limit are removed automatically.</p>
-      </section>
 
-      {data && data.backups.length === 0 ? (
-        <p className="management-empty">No backups yet. Click "Create backup now" to make one.</p>
-      ) : data && (
-        <>
-          <div className="datagrid-wrap">
-            <table className="datagrid">
-              <thead>
-                <tr>
-                  <th>Backup</th>
-                  <th>Type</th>
-                  <th className="col-scan">Created</th>
-                  <th className="col-num">Size</th>
-                  <th className="col-actions"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.backups.map((backup) => (
-                  <tr key={backup.name}>
-                    <td><strong>{backup.name}</strong></td>
-                    <td className="datagrid-muted">{backup.kind === "full" ? "Full (DB + covers)" : "Database only"}</td>
-                    <td className="col-scan datagrid-muted">{formatManagedDate(backup.createdAt)}</td>
-                    <td className="col-num datagrid-muted">{formatBytes(backup.sizeBytes)}</td>
-                    <td className="col-actions">
-                      <div className="row-actions">
-                        <button className="secondary-button compact-button" title="Restore this backup" onClick={() => setPendingRestore(backup)}>
-                          <RotateCcw size={14} /> Restore
-                        </button>
-                        <a className="icon-button" title="Download backup" href={`/api/backups/${encodeURIComponent(backup.name)}/download`} download>
-                          <Download size={15} />
-                        </a>
-                        <button className="icon-button danger" title="Delete backup" onClick={() => setPendingDelete(backup)}>
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {error && <MessageBox tone="error" title="Backup error">{error}</MessageBox>}
+        {notice && <MessageBox tone="success" title="Backups">{notice}</MessageBox>}
+
+        <section className="backup-card backup-settings">
+          <h2>Scheduled backups</h2>
+          <div className="backup-settings-row">
+            <label className="field-checkbox backup-auto-toggle">
+              <input type="checkbox" checked={form.enabled} onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))} />
+              <span>Run a backup automatically every day</span>
+            </label>
+            <label className="field backup-field-time">
+              <span>Time</span>
+              <input type="time" value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} disabled={!form.enabled} />
+            </label>
+            <label className="field backup-field-keep">
+              <span>Keep newest</span>
+              <input type="number" min={1} max={100} value={form.retention} onChange={(e) => setForm((f) => ({ ...f, retention: Number(e.target.value) }))} />
+            </label>
+            <label className="field-checkbox backup-cover-toggle">
+              <input
+                type="checkbox"
+                checked={form.includeCovers}
+                disabled={!data?.coversAvailable}
+                onChange={(e) => setForm((f) => ({ ...f, includeCovers: e.target.checked }))}
+              />
+              <span>
+                Include cover art
+                {data && !data.coversAvailable && <small>(no thumbnail path configured)</small>}
+              </span>
+            </label>
           </div>
-          <p className="muted" style={{ marginTop: 14, fontSize: "0.85rem" }}>
-            Total: {formatBytes(data.totalSizeBytes)} across {data.backups.length} {data.backups.length === 1 ? "backup" : "backups"}.
-          </p>
-        </>
-      )}
+          <div className="backup-card-rule" />
+          <div className="backup-settings-footer">
+            <button className="primary-button compact-button backup-save-button" onClick={saveSettings} disabled={savingSettings}>
+              <Save size={15} /> {savingSettings ? "Saving..." : "Save"}
+            </button>
+            <p className="muted backup-retention-note">
+              Applies to manual and scheduled backups. Covers can't all be regenerated (uploaded and
+              provider-fetched art), so including them is recommended. Older backups beyond the limit are
+              removed automatically.
+            </p>
+          </div>
+        </section>
+
+        {data && data.backups.length === 0 ? (
+          <section className="backup-card backup-empty-card">
+            <span className="backup-empty-icon" aria-hidden="true">
+              <Archive size={30} />
+            </span>
+            <h2>No backups yet</h2>
+            <p className="muted">Click "Create backup now" to make one.</p>
+          </section>
+        ) : data && (
+          <section className="backup-card backup-list-card">
+            <div className="backup-list-head">
+              <h2>Backups</h2>
+              <span>
+                Total: {formatBytes(data.totalSizeBytes)} across {data.backups.length} {data.backups.length === 1 ? "backup" : "backups"}.
+              </span>
+            </div>
+            <div className="datagrid-wrap">
+              <table className="datagrid">
+                <thead>
+                  <tr>
+                    <th>Backup</th>
+                    <th>Type</th>
+                    <th className="col-scan">Created</th>
+                    <th className="col-num">Size</th>
+                    <th className="col-actions"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.backups.map((backup) => (
+                    <tr key={backup.name}>
+                      <td><strong>{backup.name}</strong></td>
+                      <td className="datagrid-muted">{backup.kind === "full" ? "Full (DB + covers)" : "Database only"}</td>
+                      <td className="col-scan datagrid-muted">{formatManagedDate(backup.createdAt)}</td>
+                      <td className="col-num datagrid-muted">{formatBytes(backup.sizeBytes)}</td>
+                      <td className="col-actions">
+                        <div className="row-actions">
+                          <button className="secondary-button compact-button" title="Restore this backup" onClick={() => setPendingRestore(backup)}>
+                            <RotateCcw size={14} /> Restore
+                          </button>
+                          <a className="icon-button" title="Download backup" href={`/api/backups/${encodeURIComponent(backup.name)}/download`} download>
+                            <Download size={15} />
+                          </a>
+                          <button className="icon-button danger" title="Delete backup" onClick={() => setPendingDelete(backup)}>
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+      </div>
 
       {pendingDelete && (
         <div className="modal-backdrop" onMouseDown={() => !deleting && setPendingDelete(null)}>

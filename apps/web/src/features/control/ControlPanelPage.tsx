@@ -71,7 +71,7 @@ export function ControlPanelPage({
             </div>
           </nav>
         </aside>
-        <section className="work-area control-work">
+        <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
           {(section === "users" || section === "groups" || section === "invites" || section === "sessions") && <AccountsSection section={section} currentUser={user} />}
           {section === "logs"      && <LogsSection />}
           {(section === "jobs" || section === "backup") && <MaintenanceSection section={section} />}
