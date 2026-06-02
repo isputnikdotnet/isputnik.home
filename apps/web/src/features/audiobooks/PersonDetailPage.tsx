@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BookOpen, Pencil } from "lucide-react";
+import { BookOpen, Merge, Pencil, Search, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -23,6 +23,10 @@ export function PersonDetailPage({
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState("");
+  const [mergeQuery, setMergeQuery] = useState("");
+  const [merging, setMerging] = useState(false);
   const [error, setError] = useState("");
 
   const loadBooks = useCallback(async (libraryId: string) => {
@@ -49,6 +53,30 @@ export function PersonDetailPage({
   const roleLabel = role === "author" ? "Author" : "Narrator";
   const navActive = role === "author" ? "authors" : "narrators";
 
+  // Other people of the same role to merge this one into.
+  const mergeCandidates = [...new Set(
+    allBooks.flatMap((book) => (role === "author" ? book.authors : book.narrators))
+  )].filter((name) => name !== personName).sort((a, b) => a.localeCompare(b));
+  const filteredCandidates = mergeQuery.trim()
+    ? mergeCandidates.filter((name) => name.toLowerCase().includes(mergeQuery.trim().toLowerCase()))
+    : mergeCandidates;
+
+  const runMerge = async () => {
+    if (!mergeTarget) return;
+    setMerging(true);
+    setError("");
+    try {
+      await api("/api/library/people/merge", {
+        method: "POST",
+        body: JSON.stringify({ from: personName, into: mergeTarget })
+      });
+      navigate(`/audiobooks/${navActive}/${encodeURIComponent(mergeTarget)}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Merge failed");
+      setMerging(false);
+    }
+  };
+
   return (
     <DashboardShell
       active="audiobooks"
@@ -69,6 +97,15 @@ export function PersonDetailPage({
               >
                 <Pencil size={17} />
               </button>
+              {user.role === "admin" && mergeCandidates.length > 0 && (
+                <button
+                  className="icon-button"
+                  onClick={() => { setMergeTarget(""); setMergeQuery(""); setMergeOpen(true); }}
+                  title={`Merge this ${roleLabel.toLowerCase()} into another`}
+                >
+                  <Merge size={17} />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -117,6 +154,49 @@ export function PersonDetailPage({
           role={role}
           onClose={() => setProfileModalOpen(false)}
         />
+      )}
+
+      {mergeOpen && (
+        <div className="modal-backdrop" onMouseDown={() => !merging && setMergeOpen(false)}>
+          <div className="confirm-modal merge-modal" role="dialog" aria-modal="true" aria-label="Merge person" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Merge “{personName}”</h2>
+              <button className="modal-close" onClick={() => setMergeOpen(false)} aria-label="Close"><X size={18} /></button>
+            </div>
+            <p>
+              Pick the {roleLabel.toLowerCase()} to merge <strong>{personName}</strong> into. Their {personBooks.length} {personBooks.length === 1 ? "book moves" : "books move"} to
+              the chosen name, and future scans will map “{personName}” there automatically.
+            </p>
+            <label className="facet-search merge-search">
+              <Search size={14} aria-hidden="true" />
+              <input
+                value={mergeQuery}
+                onChange={(e) => setMergeQuery(e.target.value)}
+                placeholder={`Search ${navActive}`}
+                aria-label="Search people"
+                autoFocus
+              />
+            </label>
+            <div className="merge-candidate-list">
+              {filteredCandidates.map((name) => (
+                <button
+                  key={name}
+                  className={`merge-candidate${mergeTarget === name ? " selected" : ""}`}
+                  onClick={() => setMergeTarget(name)}
+                >
+                  {name}
+                </button>
+              ))}
+              {filteredCandidates.length === 0 && <p className="facet-empty">No matches</p>}
+            </div>
+            <div className="modal-actions">
+              <button className="secondary-button" onClick={() => setMergeOpen(false)} disabled={merging}>Cancel</button>
+              <button className="primary-button" onClick={runMerge} disabled={merging || !mergeTarget}>
+                <Merge size={15} /> {merging ? "Merging…" : "Merge"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </DashboardShell>
   );

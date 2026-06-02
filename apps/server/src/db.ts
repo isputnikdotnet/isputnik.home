@@ -396,6 +396,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_share_links_token    ON share_links(token_hash);
   CREATE INDEX IF NOT EXISTS idx_share_links_resource ON share_links(module, resource_id);
 
+  -- Author/narrator name aliases. Merging a person records a variant -> canonical
+  -- mapping; the scanner resolves names through this before creating author rows,
+  -- so merges survive rescans. Alias is case-insensitive.
+  CREATE TABLE IF NOT EXISTS person_aliases (
+    id             TEXT PRIMARY KEY,
+    alias          TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    canonical_name TEXT NOT NULL,
+    created_by     TEXT REFERENCES users(id),
+    created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_person_aliases_alias ON person_aliases(alias);
+
   CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
   CREATE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash);

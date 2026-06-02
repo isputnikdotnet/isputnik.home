@@ -896,11 +896,20 @@ async function prepareBookScan(
   };
 }
 
+// Map a scanned name through the merge alias table so renamed/merged people stay
+// merged across rescans (e.g. "A.G. Riddle" -> "A. G. Riddle").
+function resolvePersonName(name: string): string {
+  const row = db.prepare("SELECT canonical_name FROM person_aliases WHERE alias = ?")
+    .get(name.trim()) as { canonical_name: string } | undefined;
+  return row ? row.canonical_name : name;
+}
+
 function upsertAuthor(libraryId: string, name: string) {
+  const resolved = resolvePersonName(name);
   db.prepare("INSERT OR IGNORE INTO authors (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
-    .run(nanoid(16), libraryId, name, sortTitle(name));
+    .run(nanoid(16), libraryId, resolved, sortTitle(resolved));
   return db.prepare("SELECT id FROM authors WHERE library_id = ? AND name = ?")
-    .get(libraryId, name) as { id: string };
+    .get(libraryId, resolved) as { id: string };
 }
 
 

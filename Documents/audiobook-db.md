@@ -92,6 +92,15 @@ erDiagram
         TEXT sort_name
     }
 
+    %% ── Person merge aliases (variant name -> canonical) ────────────
+    person_aliases {
+        TEXT id PK
+        TEXT alias
+        TEXT canonical_name
+        TEXT created_by FK
+        TEXT created_at
+    }
+
     genres {
         TEXT id PK
         TEXT library_id FK

@@ -150,6 +150,19 @@ Note: narrators are currently stored in the authors table with book_authors.role
 The narrators table is reserved for Phase 3 when narrators get their own entity.
 
 
+person_aliases
+--------------
+id              TEXT PRIMARY KEY
+alias           TEXT NOT NULL UNIQUE COLLATE NOCASE  -- variant name, e.g. 'A.G. Riddle'
+canonical_name  TEXT NOT NULL                        -- merged-into name, e.g. 'A. G. Riddle'
+created_by      TEXT REFERENCES users(id)
+created_at      TEXT
+
+Records person merges (see "Merging duplicate people"). The scanner resolves every
+author/narrator name through this table before upserting, so a merge stays merged
+across rescans even though book_authors links are otherwise re-derived from tags.
+
+
 series
 ------
 id          TEXT PRIMARY KEY
@@ -392,6 +405,22 @@ Phase 2 additions per book folder:
 ### Phase 2 architecture change — async scan
 
 `scanAudiobookLibrary` now runs from the job queue. The HTTP request creates the library record and enqueues `SCAN_AUDIOBOOK_LIBRARY`, then returns immediately. The UI polls `scan_status` and shows a scanning indicator until `idle`. Failed jobs retry up to `max_attempts`, and stale running jobs can be reclaimed by the worker.
+
+---
+
+## Merging Duplicate People
+
+Inconsistent tags across files produce duplicate authors/narrators — e.g. one book tagged `A.G. Riddle` and others `A. G. Riddle` become two separate people, splitting the filter list and detail pages.
+
+An admin resolves this from an author or narrator detail page: the **Merge** action folds the current person into a chosen target.
+
+What a merge does (admin only, `POST /api/library/people/merge`):
+
+1. Records a `person_aliases` row mapping the variant → the canonical name.
+2. Repoints `book_authors` links from the variant's `authors` rows to the target's (de-duplicating on `book_id, author_id, role`), then deletes the orphaned `authors` rows.
+3. Rewrites any existing aliases that pointed at the variant, so chains stay consistent.
+
+**Why the alias matters:** a rescan re-derives `book_authors` from the file tags (the author/narrator block is *not* protected by `source = 'manual'` — only `book_metadata` fields are). Without an alias the duplicate would return on the next scan. The scanner therefore resolves every scanned name through `person_aliases` in `upsertAuthor()` before creating rows, so the merge is permanent. Narrators are covered automatically because they upsert through the same function.
 
 ---
 
