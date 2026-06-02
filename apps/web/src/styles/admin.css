@@ -728,3 +728,37 @@
   color: var(--ink);
   font: inherit;
 }
+
+.backup-settings {
+  margin-bottom: 22px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.backup-settings h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.backup-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.backup-settings-row .field-checkbox {
+  margin-right: auto;
+}
+
+.backup-field-time,
+.backup-field-keep {
+  max-width: 130px;
+}
+
+.backup-retention-note {
+  margin: 12px 0 0;
+  font-size: 0.82rem;
+}

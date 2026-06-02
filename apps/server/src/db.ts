@@ -36,6 +36,35 @@ if (config.thumbnailPath) {
   fs.mkdirSync(config.thumbnailPath, { recursive: true });
 }
 
+// Apply a staged restore (set by the Backup screen) before opening the DB. We
+// can't swap the file while better-sqlite3 holds it open, so a restore is staged
+// as "<dbPath>.restore" and applied here on the next startup. The current DB is
+// copied into the backups folder first as an automatic safety snapshot.
+(function applyPendingRestore() {
+  const restoreFile = `${config.dbPath}.restore`;
+  if (!fs.existsSync(restoreFile)) {
+    return;
+  }
+  try {
+    if (fs.existsSync(config.dbPath)) {
+      fs.mkdirSync(config.backupPath, { recursive: true });
+      const d = new Date();
+      const p = (n: number) => String(n).padStart(2, "0");
+      const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+      fs.copyFileSync(config.dbPath, path.join(config.backupPath, `isputnik-${stamp}.sqlite`));
+    }
+    for (const ext of ["-wal", "-shm"]) {
+      fs.rmSync(`${config.dbPath}${ext}`, { force: true });
+    }
+    fs.renameSync(restoreFile, config.dbPath);
+  } catch (err) {
+    // If the restore can't be applied, leave the current DB untouched and drop
+    // the staging file so we don't loop on every boot.
+    try { fs.rmSync(restoreFile, { force: true }); } catch { /* ignore */ }
+    console.error("Pending restore failed; kept current database.", err);
+  }
+})();
+
 export const db = new Database(config.dbPath);
 db.pragma("journal_mode = WAL");
 db.pragma("synchronous = NORMAL");

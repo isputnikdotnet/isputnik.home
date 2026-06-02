@@ -11,6 +11,7 @@ import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
 import { AudiobookStatsSection } from "./sections/AudiobookStatsSection";
+import { BackupSection } from "./sections/BackupSection";
 import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
 import { TagsSection } from "./sections/TagsSection";
 import { GroupsSection } from "./sections/GroupsSection";
@@ -168,10 +169,10 @@ function MaintenanceSection({ section }: { section: "jobs" | "backup" }) {
     <>
       <ControlTabs tabs={[
         { label: "Jobs", href: "/control/maintenance", active: section === "jobs" },
-        { label: "Backup", href: "/control/maintenance/backup", active: section === "backup", soon: true }
+        { label: "Backup", href: "/control/maintenance/backup", active: section === "backup" }
       ]} />
       {section === "jobs"   && <JobsSection />}
-      {section === "backup" && <ComingSoonSection title="Backup" blurb="Scheduled database and metadata backups, plus restore tooling, are planned." />}
+      {section === "backup" && <BackupSection />}
     </>
   );
 }

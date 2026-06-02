@@ -8,6 +8,7 @@ import { invitesPlugin } from "./invites.js";
 import { logsPlugin } from "./logs.js";
 import { statusPlugin } from "./status.js";
 import { groupsPlugin } from "./groups.js";
+import { backupsPlugin } from "./backups.js";
 
 export async function corePlugin(app: FastifyInstance) {
   await app.register(setupPlugin);
@@ -19,4 +20,5 @@ export async function corePlugin(app: FastifyInstance) {
   await app.register(logsPlugin);
   await app.register(statusPlugin);
   await app.register(groupsPlugin);
+  await app.register(backupsPlugin);
 }

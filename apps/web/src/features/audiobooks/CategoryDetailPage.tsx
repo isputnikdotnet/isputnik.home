@@ -5,6 +5,7 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { AudiobookNav } from "./AudiobookNav";
+import { CategoryIcon } from "./categoryIcons";
 import type { CategoryDetail } from "./types";
 
 export function CategoryDetailPage({
@@ -36,12 +37,21 @@ export function CategoryDetailPage({
 
         {category && (
           <>
-            <div className="section-head audiobook-head">
-              <div>
+            <div className="category-detail-head">
+              <div className="category-detail-image" aria-hidden="true">
+                {category.imageUrl ? (
+                  <img src={category.imageUrl} alt="" />
+                ) : (
+                  <CategoryIcon icon={category.icon} size={46} />
+                )}
+              </div>
+              <div className="category-detail-copy">
                 <p className="eyebrow">Category</p>
                 <h1>{category.name}</h1>
               </div>
-              <span>{category.books.length} {category.books.length === 1 ? "book" : "books"}</span>
+              <span className="category-detail-count">
+                {category.books.length} {category.books.length === 1 ? "book" : "books"}
+              </span>
             </div>
 
             {category.books.length === 0 ? (

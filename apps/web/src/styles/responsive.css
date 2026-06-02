@@ -162,6 +162,20 @@
     gap: 16px 12px;
   }
 
+  .category-detail-head {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 12px;
+  }
+
+  .category-detail-image {
+    width: min(100%, 320px);
+  }
+
+  .category-detail-count {
+    white-space: normal;
+  }
+
   .audiobook-card {
     width: 100%;
   }

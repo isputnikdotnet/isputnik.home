@@ -27,21 +27,25 @@ export function builtinCategoryImageUrl(value: string) {
   return `/Assets/categories/${value.slice(BUILTIN_CATEGORY_IMAGE_PREFIX.length)}`;
 }
 
+function builtinCategoryImage(fileName: string) {
+  return `${BUILTIN_CATEGORY_IMAGE_PREFIX}${fileName}`;
+}
+
 export const CATEGORY_SEED: CategorySeed[] = [
-  { key: "fiction", name: "Fiction", sortOrder: 1, icon: "book-open", defaultImageStorageKey: `${BUILTIN_CATEGORY_IMAGE_PREFIX}fiction-v1.png` },
-  { key: "classics_literary", name: "Classics & Literary", sortOrder: 2, icon: "drama" },
-  { key: "adventure_action", name: "Adventure & Action", sortOrder: 3, icon: "compass" },
-  { key: "mystery_thriller", name: "Mystery & Thriller", sortOrder: 4, icon: "search" },
-  { key: "scifi_fantasy", name: "Sci-Fi & Fantasy", sortOrder: 5, icon: "rocket" },
-  { key: "horror_supernatural", name: "Horror & Supernatural", sortOrder: 6, icon: "ghost" },
-  { key: "romance", name: "Romance", sortOrder: 7, icon: "heart" },
-  { key: "humor_satire", name: "Humor & Satire", sortOrder: 8, icon: "laugh" },
-  { key: "biographies_memoirs", name: "Biographies & Memoirs", sortOrder: 9, icon: "mic" },
-  { key: "history", name: "History", sortOrder: 10, icon: "landmark" },
-  { key: "selfhelp_business", name: "Self-Help & Business", sortOrder: 11, icon: "briefcase" },
-  { key: "science_culture", name: "Science & Culture", sortOrder: 12, icon: "flask-conical" },
-  { key: "kids_teens", name: "Kids & Teens", sortOrder: 13, icon: "baby" },
-  { key: "general_other", name: "General / Other", sortOrder: 99, icon: "layout-grid" }
+  { key: "fiction", name: "Fiction", sortOrder: 1, icon: "book-open", defaultImageStorageKey: builtinCategoryImage("fiction-v1.png") },
+  { key: "classics_literary", name: "Classics & Literary", sortOrder: 2, icon: "drama", defaultImageStorageKey: builtinCategoryImage("classics-literary-v1.png") },
+  { key: "adventure_action", name: "Adventure & Action", sortOrder: 3, icon: "compass", defaultImageStorageKey: builtinCategoryImage("adventure-action-v1.png") },
+  { key: "mystery_thriller", name: "Mystery & Thriller", sortOrder: 4, icon: "search", defaultImageStorageKey: builtinCategoryImage("mystery-thriller-v1.png") },
+  { key: "scifi_fantasy", name: "Sci-Fi & Fantasy", sortOrder: 5, icon: "rocket", defaultImageStorageKey: builtinCategoryImage("scifi-fantasy-v1.png") },
+  { key: "horror_supernatural", name: "Horror & Supernatural", sortOrder: 6, icon: "ghost", defaultImageStorageKey: builtinCategoryImage("horror-supernatural-v1.png") },
+  { key: "romance", name: "Romance", sortOrder: 7, icon: "heart", defaultImageStorageKey: builtinCategoryImage("romance-v1.png") },
+  { key: "humor_satire", name: "Humor & Satire", sortOrder: 8, icon: "laugh", defaultImageStorageKey: builtinCategoryImage("humor-satire-v1.png") },
+  { key: "biographies_memoirs", name: "Biographies & Memoirs", sortOrder: 9, icon: "mic", defaultImageStorageKey: builtinCategoryImage("biographies-memoirs-v1.png") },
+  { key: "history", name: "History", sortOrder: 10, icon: "landmark", defaultImageStorageKey: builtinCategoryImage("history-v1.png") },
+  { key: "selfhelp_business", name: "Self-Help & Business", sortOrder: 11, icon: "briefcase", defaultImageStorageKey: builtinCategoryImage("selfhelp-business-v1.png") },
+  { key: "science_culture", name: "Science & Culture", sortOrder: 12, icon: "flask-conical", defaultImageStorageKey: builtinCategoryImage("science-culture-v1.png") },
+  { key: "kids_teens", name: "Kids & Teens", sortOrder: 13, icon: "baby", defaultImageStorageKey: builtinCategoryImage("kids-teens-v1.png") },
+  { key: "general_other", name: "General / Other", sortOrder: 99, icon: "layout-grid", defaultImageStorageKey: builtinCategoryImage("general-other-v1.png") }
 ];
 
 // Priorities: kids/teens wins over everything (a children's book stays a children's

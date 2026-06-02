@@ -336,6 +336,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.4.17",
+          label: "Backups",
+          changes: [
+            "New Backup screen (Control Panel → Maintenance → Backup): create an on-demand backup, download, restore, or delete — admin only.",
+            "Backups are a zip of the database plus cover art (uploaded and provider-fetched covers can't be regenerated); the database snapshot is taken live with no downtime. Media files and the metadata cache are not included.",
+            "Scheduled daily backups with a configurable time, retention limit, and an include-covers toggle.",
+            "Restore puts cover art back immediately and stages the database to be applied on the next server restart, after auto-saving the current database first.",
+            "Configurable via BACKUP_PATH and BACKUP_RETENTION."
+          ]
+        },
+        {
           version: "0.4.16",
           label: "Listening progress & UX polish",
           changes: [
@@ -367,7 +378,7 @@ export async function statusPlugin(app: FastifyInstance) {
             "Category management is now centered on the category list, with mappings managed inside each category editor instead of a separate global tab.",
             "The category editor now has Mappings and Tags tabs. Tags shows scanned genre tags with book counts and lets an admin add a tag as a keyword for the current category.",
             "Added an on-page explanation of category mapping, including a concrete priority example, so admins can understand why a book lands in a category.",
-            "New installs now include a default Fiction category image for the public audiobook category cards, while category management remains icon-first unless an admin uploads a custom image.",
+            "New installs now include default category images for the public audiobook category cards, while category management remains icon-first unless an admin uploads a custom image.",
             "Default category mappings for new installs are now English-only. Existing databases keep their current mappings until an admin changes them."
           ]
         },
