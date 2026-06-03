@@ -1,7 +1,7 @@
 {
   "name": "isputnik-home",
   "private": true,
-  "version": "0.4.18",
+  "version": "0.4.19",
   "description": "Private self-hosted family app.",
   "workspaces": [
     "apps/server",

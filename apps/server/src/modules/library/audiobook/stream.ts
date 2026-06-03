@@ -159,4 +159,81 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
 
     archive.finalize();
   });
+
+  // Serve a companion document (PDF/EPUB) for inline viewing or download. Range
+  // support lets the browser's PDF viewer fetch pages on demand.
+  app.get("/api/library/books/:id/documents/:docId", { preHandler: app.authenticate }, (request, reply) => {
+    const { id, docId } = request.params as { id: string; docId: string };
+
+    const row = db.prepare(`
+      SELECT
+        book_documents.relative_path,
+        book_documents.mime_type,
+        book_documents.status,
+        libraries.source_path,
+        libraries.owner_id,
+        libraries.owner_type,
+        libraries.visibility
+      FROM book_documents
+      JOIN books ON books.id = book_documents.book_id
+      JOIN libraries ON libraries.id = books.library_id
+      WHERE book_documents.id = ?
+        AND book_documents.book_id = ?
+        AND books.deleted_at IS NULL
+    `).get(docId, id) as {
+      relative_path: string;
+      mime_type: string | null;
+      status: string;
+      source_path: string;
+      owner_id: string | null;
+      owner_type: string | null;
+      visibility: string;
+    } | undefined;
+
+    if (!row || row.status !== "available") {
+      reply.code(404).send({ error: "Document not found" });
+      return;
+    }
+
+    const user = request.user!;
+    if (!canUserAccessBook(id, row, user.id, user.role)) {
+      reply.code(404).send({ error: "Document not found" });
+      return;
+    }
+
+    const filePath = path.join(row.source_path, ...row.relative_path.split("/"));
+    if (!pathIsInside(filePath, row.source_path) || !fs.existsSync(filePath)) {
+      reply.code(404).send({ error: "Document not found" });
+      return;
+    }
+
+    const stat = fs.statSync(filePath);
+    const totalSize = stat.size;
+    const mimeType = row.mime_type ?? "application/octet-stream";
+    const fileName = row.relative_path.split("/").pop() ?? "document";
+    const asciiName = fileName.replace(/[^\x20-\x7E]/g, "_");
+    const disposition = (request.query as { download?: string }).download != null ? "attachment" : "inline";
+    const rangeHeader = request.headers["range"];
+    const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
+
+    if (rangeHeader && !range) {
+      reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
+      return;
+    }
+
+    reply.hijack();
+    const baseHeaders = {
+      "Content-Type": mimeType,
+      "Content-Disposition": `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "private, no-cache"
+    };
+    if (range) {
+      reply.raw.writeHead(206, { ...baseHeaders, "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`, "Content-Length": range.size });
+      fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(reply.raw);
+    } else {
+      reply.raw.writeHead(200, { ...baseHeaders, "Content-Length": totalSize });
+      fs.createReadStream(filePath).pipe(reply.raw);
+    }
+  });
 }

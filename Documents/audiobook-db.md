@@ -74,6 +74,17 @@ erDiagram
         TEXT deleted_at
     }
 
+    %% ── Companion documents (PDF/EPUB bundled with a book) ───────────
+    book_documents {
+        TEXT id PK
+        TEXT book_id FK
+        TEXT relative_path
+        TEXT format
+        TEXT mime_type
+        INTEGER size
+        TEXT status
+    }
+
     %% ── Library-scoped lookup tables ─────────────────────────────────
     authors {
         TEXT id PK

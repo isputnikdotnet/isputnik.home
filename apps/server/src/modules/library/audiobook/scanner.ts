@@ -11,6 +11,16 @@ import { matchCategoryId, setEntityTags } from "./categorize.js";
 
 const legacyAudioExtensions = new Set([".m4b", ".m4a", ".mp3", ".flac", ".ogg", ".opus", ".aac"]);
 export const audioExtensions = new Set([...legacyAudioExtensions, ".wav", ".wave"]);
+
+// Companion documents bundled with an audiobook (e.g. a PDF supplement or the
+// ebook edition). Collected during scan but never treated as audio tracks.
+const documentMimeTypes: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".epub": "application/epub+zip",
+  ".mobi": "application/x-mobipocket-ebook",
+  ".azw3": "application/vnd.amazon.ebook"
+};
+const documentExtensions = new Set(Object.keys(documentMimeTypes));
 const imageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
 const scanJobType = "SCAN_AUDIOBOOK_LIBRARY";
 
@@ -138,6 +148,7 @@ interface PreparedBookScan {
   overrideCategoryKey: string | null;
   skipMetadataUpdate: boolean;
   files: PreparedBookFile[];
+  documents: DocumentEntry[];
 }
 
 interface ExistingBookFileRow {
@@ -706,6 +717,52 @@ function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, setti
   return files;
 }
 
+interface DocumentEntry {
+  relativePath: string;
+  format: string;
+  mimeType: string;
+  size: number;
+}
+
+// Collect companion documents (PDF/EPUB/…) anywhere inside a book's folder.
+function readBookFolderDocuments(rootPath: string, folderAbsolutePath: string): DocumentEntry[] {
+  const documents: DocumentEntry[] = [];
+
+  const scanDir = (dir: string) => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const absolutePath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        scanDir(absolutePath);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const extension = path.extname(entry.name).toLowerCase();
+      if (!documentExtensions.has(extension)) continue;
+      let size = 0;
+      try {
+        size = fs.statSync(absolutePath).size;
+      } catch {
+        continue;
+      }
+      documents.push({
+        relativePath: normaliseRelativePath(path.relative(rootPath, absolutePath)),
+        format: extension.slice(1),
+        mimeType: documentMimeTypes[extension],
+        size
+      });
+    }
+  };
+
+  scanDir(folderAbsolutePath);
+  return documents;
+}
+
 // Sidecar values take precedence over audio tags, so the encoding fix must also
 // repair mojibake stored inside a metadata.json (e.g. "title": "wap-version ÌÄÑ").
 function repairSidecar(sidecar: SidecarMetadata | null, encoding: TagEncoding | undefined): SidecarMetadata | null {
@@ -791,7 +848,8 @@ async function prepareBookScan(
         seriesPosition: null,
         overrideCategoryKey: null,
         skipMetadataUpdate: true,
-        files: preparedFilesFromExisting(filesWithFallbackOrder, existingFiles)
+        files: preparedFilesFromExisting(filesWithFallbackOrder, existingFiles),
+        documents: readBookFolderDocuments(rootPath, folderAbsolutePath)
       };
     }
   }
@@ -887,12 +945,17 @@ async function prepareBookScan(
     publisher: sidecar?.publisher ?? repairEncoding(publisher, enc),
     authors: overrideAuthors.length > 0 ? overrideAuthors : scannedAuthors,
     narrators: overrideNarrators.length > 0 ? overrideNarrators : scannedNarrators,
-    genres: overrides?.tags && overrides.tags.length > 0 ? overrides.tags : scannedGenres,
+    // Always split genres on comma/semicolon into separate tags. Sidecars can
+    // deliver a single array element holding a combined string (e.g. "Diets,
+    // Nutrition & Healthy Eating, Alternative & Complementary Medicine"), which
+    // sidecarArray leaves intact; splitTagValues breaks it apart (keeping "&").
+    genres: splitTagValues(overrides?.tags && overrides.tags.length > 0 ? overrides.tags : scannedGenres),
     seriesName: sidecar?.seriesName ?? sidecar?.series ?? repairEncoding(seriesName, enc),
     seriesPosition: sidecar?.seriesPosition ?? seriesPosition,
     overrideCategoryKey: overrides?.category_key?.trim() || null,
     skipMetadataUpdate: false,
-    files: preparedFiles
+    files: preparedFiles,
+    documents: readBookFolderDocuments(rootPath, folderAbsolutePath)
   };
 }
 
@@ -1041,6 +1104,22 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
       file.modifiedAt,
       file.contentHash
     );
+  }
+
+  // Companion documents — re-synced from disk on every scan, like book_files.
+  db.prepare("UPDATE book_documents SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(book.bookId);
+  for (const doc of book.documents) {
+    db.prepare(`
+      INSERT INTO book_documents (id, book_id, relative_path, format, mime_type, size, status, deleted_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'available', NULL)
+      ON CONFLICT(book_id, relative_path) DO UPDATE SET
+        format = excluded.format,
+        mime_type = excluded.mime_type,
+        size = excluded.size,
+        status = 'available',
+        deleted_at = NULL,
+        updated_at = CURRENT_TIMESTAMP
+    `).run(nanoid(16), book.bookId, doc.relativePath, doc.format, doc.mimeType, doc.size);
   }
 }
 

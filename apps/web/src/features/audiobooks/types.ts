@@ -72,6 +72,15 @@ export interface AudiobookFile {
   status: "available" | "missing";
 }
 
+export interface BookDocument {
+  id: string;
+  fileName: string;
+  format: string;
+  mimeType: string | null;
+  size: number;
+  url: string;
+}
+
 export interface AudiobookBookDetail extends AudiobookBook {
   libraryName: string;
   description: string | null;
@@ -80,6 +89,7 @@ export interface AudiobookBookDetail extends AudiobookBook {
   openLibraryId: string | null;
   metadataSource: "scan" | "manual";
   files: AudiobookFile[];
+  documents: BookDocument[];
 }
 
 export interface PlaybackProgress {

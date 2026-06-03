@@ -283,6 +283,23 @@ db.exec(`
     UNIQUE (book_id, relative_path)
   );
 
+  -- Companion documents bundled with an audiobook (PDF/EPUB siblings in the book
+  -- folder). Assets of the book, not catalogued ebooks — see Documents/audiobook-library.md.
+  CREATE TABLE IF NOT EXISTS book_documents (
+    id            TEXT PRIMARY KEY,
+    book_id       TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    relative_path TEXT NOT NULL,
+    format        TEXT NOT NULL,
+    mime_type     TEXT,
+    size          INTEGER,
+    status        TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'missing')),
+    discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at    TEXT,
+    UNIQUE (book_id, relative_path)
+  );
+  CREATE INDEX IF NOT EXISTS idx_book_documents_book ON book_documents(book_id);
+
   CREATE TABLE IF NOT EXISTS playback_progress (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -630,6 +647,54 @@ if (categoryColumns.length > 0 && !categoryColumns.some((column) => column.name 
         }
       }
       saveTaxonomyVersion.run("category_taxonomy_version", taxonomyVersion);
+    })();
+  }
+}
+
+// One-time: split legacy combined tags into separate ones. Early scans stored a
+// whole comma-separated genre string as a single tag (e.g. "Diets, Nutrition &
+// Healthy Eating, Alternative & Complementary Medicine"). Split on comma/semicolon
+// only — "&" stays — re-link each book to the parts, then drop the combined tag.
+{
+  const flagKey = "tags_split_combined_v1";
+  const alreadyDone = db.prepare("SELECT 1 FROM app_settings WHERE key = ?").get(flagKey);
+  if (!alreadyDone) {
+    // Mirror of categorize.ts normalizeText so split tags dedupe against existing ones.
+    const slug = (value: string) =>
+      value.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase()
+        .replace(/[/_|]+/g, " ").replace(/\s+/g, " ").trim();
+    const combined = db.prepare(
+      "SELECT id, display_name FROM tags WHERE display_name LIKE '%,%' OR display_name LIKE '%;%'"
+    ).all() as { id: string; display_name: string }[];
+
+    db.transaction(() => {
+      for (const tag of combined) {
+        const parts = tag.display_name.split(/\s*[,;]\s*/).map((p) => p.trim()).filter(Boolean);
+        if (parts.length <= 1) continue;
+
+        const links = db.prepare("SELECT entity_type, entity_id FROM taggables WHERE tag_id = ?")
+          .all(tag.id) as { entity_type: string; entity_id: string }[];
+        for (const link of links) {
+          for (const part of parts) {
+            const key = slug(part);
+            if (!key) continue;
+            let row = db.prepare("SELECT id FROM tags WHERE key = ?").get(key) as { id: string } | undefined;
+            if (!row) {
+              db.prepare("INSERT INTO tags (id, key, display_name) VALUES (?, ?, ?) ON CONFLICT(key) DO NOTHING")
+                .run(nanoid(16), key, part);
+              row = db.prepare("SELECT id FROM tags WHERE key = ?").get(key) as { id: string };
+            }
+            db.prepare("INSERT OR IGNORE INTO taggables (tag_id, entity_type, entity_id) VALUES (?, ?, ?)")
+              .run(row.id, link.entity_type, link.entity_id);
+          }
+        }
+        db.prepare("DELETE FROM taggables WHERE tag_id = ?").run(tag.id);
+        db.prepare("DELETE FROM tags WHERE id = ?").run(tag.id);
+      }
+      db.prepare(`
+        INSERT INTO app_settings (key, value, updated_at) VALUES (?, 'done', CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value = 'done', updated_at = CURRENT_TIMESTAMP
+      `).run(flagKey);
     })();
   }
 }

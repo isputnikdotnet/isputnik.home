@@ -266,6 +266,27 @@ content_hash     TEXT                        -- sha256 (reserved; no longer comp
 UNIQUE (book_id, relative_path)
 ```
 
+### Companion documents
+
+Bundled non-audio files in a book's folder — a PDF supplement or the ebook edition. Collected during the scan (any `.pdf` / `.epub` / `.mobi` / `.azw3` in the book folder), surfaced on the book detail page with download and an in-app reader (PDF now; EPUB once the ebook reader lands). These are *assets of the audiobook*, not catalogued ebooks — see the future ebook library type.
+
+```sql
+book_documents
+--------------
+id            TEXT PRIMARY KEY
+book_id       TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE
+relative_path TEXT NOT NULL
+format        TEXT NOT NULL                -- 'pdf' | 'epub' | 'mobi' | 'azw3'
+mime_type     TEXT
+size          INTEGER
+status        TEXT NOT NULL                -- 'available' | 'missing'
+... discovered_at / updated_at / deleted_at
+
+UNIQUE (book_id, relative_path)
+```
+
+Re-synced from disk on every scan (mark-missing-then-upsert), the same as `book_files`. Served via `GET /api/library/books/:id/documents/:docId` (inline by default, `?download` forces attachment, range supported), access-gated by `canUserAccessBook`.
+
 ### Playback progress
 
 ```sql

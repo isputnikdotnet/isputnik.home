@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
 import {
@@ -18,6 +19,10 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes, formatDuration } from "../../shared/utils";
 import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, CategorySummary, CoverCandidate, LibrarySection, MetadataCandidate, PlaybackProgress } from "./types";
+
+// Document formats we can render in the in-app reader overlay. Others get
+// download-only. EPUB joins this set once the epub reader lands (Phase B).
+const VIEWABLE_DOC_FORMATS = new Set(["pdf"]);
 
 function BookCard({ book }: { book: AudiobookBook }) {
   const pct = book.progress?.percentComplete ?? null;
@@ -385,6 +390,15 @@ function BookDetailView({
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string } | null>(null);
+
+  // Close the full-screen reader on Escape.
+  useEffect(() => {
+    if (!viewerDoc) return;
+    const onKey = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") setViewerDoc(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [viewerDoc]);
   const [activeMetadataTab, setActiveMetadataTab] = useState<"edit" | "cover" | "lookup">("edit");
   const [metadataQuery, setMetadataQuery] = useState(`${book.title} ${book.authors[0] ?? ""}`.trim());
   const [metadataProvider, setMetadataProvider] = useState<"all" | MetadataCandidate["source"]>("all");
@@ -826,6 +840,36 @@ function BookDetailView({
             </section>
           )}
 
+          {book.documents.length > 0 && (
+            <section className="book-documents-section">
+              <h2 className="book-documents-title">Documents</h2>
+              <div className="book-document-list">
+                {book.documents.map((doc) => (
+                  <div className="book-document-row" key={doc.id}>
+                    <FileText size={18} aria-hidden="true" />
+                    <div className="book-document-info">
+                      <strong>{doc.fileName}</strong>
+                      <small>{doc.format.toUpperCase()} · {formatBytes(doc.size)}</small>
+                    </div>
+                    {VIEWABLE_DOC_FORMATS.has(doc.format) && (
+                      <button
+                        className="secondary-button compact-button"
+                        onClick={() => setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url })}
+                      >
+                        <BookOpen size={15} />
+                        <span>Read</span>
+                      </button>
+                    )}
+                    <a className="secondary-button compact-button" href={`${doc.url}?download`} download>
+                      <Download size={15} />
+                      <span>Download</span>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section className="book-files-section">
             <button
               className="book-files-toggle"
@@ -868,6 +912,25 @@ function BookDetailView({
 
       {shareModalOpen && (
         <ShareModal bookId={book.id} bookTitle={book.title} onClose={() => setShareModalOpen(false)} />
+      )}
+
+      {viewerDoc && createPortal(
+        <div className="doc-viewer-backdrop" role="dialog" aria-modal="true" aria-label={viewerDoc.fileName}>
+          <div className="doc-viewer-head">
+            <span className="doc-viewer-name">{viewerDoc.fileName}</span>
+            <div className="doc-viewer-actions">
+              <a className="secondary-button compact-button" href={`${viewerDoc.url}?download`} download>
+                <Download size={15} />
+                <span>Download</span>
+              </a>
+              <button className="modal-close" onClick={() => setViewerDoc(null)} aria-label="Close reader">
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+          <iframe className="doc-viewer-frame" src={viewerDoc.url} title={viewerDoc.fileName} />
+        </div>,
+        document.body
       )}
 
       {metadataModalOpen && (

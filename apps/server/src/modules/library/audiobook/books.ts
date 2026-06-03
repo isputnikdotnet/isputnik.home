@@ -549,6 +549,13 @@ function getAudiobookBookDetail(id: string) {
     ORDER BY track_number, relative_path COLLATE NOCASE
   `).all(id) as BookFileRow[];
 
+  const documents = db.prepare(`
+    SELECT id, relative_path, format, mime_type, size
+    FROM book_documents
+    WHERE book_id = ? AND status = 'available'
+    ORDER BY relative_path COLLATE NOCASE
+  `).all(id) as { id: string; relative_path: string; format: string; mime_type: string | null; size: number | null }[];
+
   return {
     id: book.id,
     libraryId: book.library_id,
@@ -587,6 +594,14 @@ function getAudiobookBookDetail(id: string) {
       size: file.size ?? 0,
       modifiedAt: file.modified_at,
       status: file.status
+    })),
+    documents: documents.map((doc) => ({
+      id: doc.id,
+      fileName: doc.relative_path.split("/").pop() ?? doc.relative_path,
+      format: doc.format,
+      mimeType: doc.mime_type,
+      size: doc.size ?? 0,
+      url: `/api/library/books/${book.id}/documents/${doc.id}`
     }))
   };
 }
