@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "librariesSpecial" | "librariesStats" | "media" | "otherMedia" | "storage" | "groups" | "jobs" | "backup" | "categories" | "tags";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "librariesSpecial" | "librariesStats" | "ebooks" | "media" | "otherMedia" | "storage" | "groups" | "jobs" | "backup" | "categories" | "tags";
 
 export type Route =
   | { name: "install" }
@@ -169,6 +169,10 @@ export function getRoute(): Route {
 
   if (["/control/library", "/control/libraries"].includes(path)) {
     return { name: "control", section: "libraries" };
+  }
+
+  if (["/control/ebooks", "/control/library/ebooks", "/control/libraries/ebooks"].includes(path)) {
+    return { name: "control", section: "ebooks" };
   }
 
   if (["/control/media", "/control/photos", "/control/video"].includes(path)) {

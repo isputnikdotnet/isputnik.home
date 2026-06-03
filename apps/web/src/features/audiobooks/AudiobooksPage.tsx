@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
+import { EpubReader } from "./EpubReader";
 import {
   EMPTY_FILTERS,
   FilterButton,
@@ -20,9 +21,9 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes, formatDuration } from "../../shared/utils";
 import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, CategorySummary, CoverCandidate, LibrarySection, MetadataCandidate, PlaybackProgress } from "./types";
 
-// Document formats we can render in the in-app reader overlay. Others get
-// download-only. EPUB joins this set once the epub reader lands (Phase B).
-const VIEWABLE_DOC_FORMATS = new Set(["pdf"]);
+// Document formats we can render in the in-app reader overlay. Others (mobi,
+// azw3) get download-only — no in-browser renderer.
+const VIEWABLE_DOC_FORMATS = new Set(["pdf", "epub"]);
 
 function BookCard({ book }: { book: AudiobookBook }) {
   const pct = book.progress?.percentComplete ?? null;
@@ -390,7 +391,7 @@ function BookDetailView({
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string } | null>(null);
+  const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string } | null>(null);
 
   // Close the full-screen reader on Escape.
   useEffect(() => {
@@ -854,7 +855,7 @@ function BookDetailView({
                     {VIEWABLE_DOC_FORMATS.has(doc.format) && (
                       <button
                         className="secondary-button compact-button"
-                        onClick={() => setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url })}
+                        onClick={() => setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format })}
                       >
                         <BookOpen size={15} />
                         <span>Read</span>
@@ -928,7 +929,9 @@ function BookDetailView({
               </button>
             </div>
           </div>
-          <iframe className="doc-viewer-frame" src={viewerDoc.url} title={viewerDoc.fileName} />
+          {viewerDoc.format === "epub"
+            ? <EpubReader url={viewerDoc.url} />
+            : <iframe className="doc-viewer-frame" src={viewerDoc.url} title={viewerDoc.fileName} />}
         </div>,
         document.body
       )}

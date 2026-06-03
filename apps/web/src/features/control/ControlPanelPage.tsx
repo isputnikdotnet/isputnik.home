@@ -10,6 +10,7 @@ import { StatusSection } from "./sections/StatusSection";
 import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
+import { EbooksSection } from "./sections/EbooksSection";
 import { AudiobookStatsSection } from "./sections/AudiobookStatsSection";
 import { BackupSection } from "./sections/BackupSection";
 import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
@@ -40,6 +41,7 @@ export function ControlPanelPage({
     libraries: "scene-page sputnik-storage-scene library-storage-scene",
     librariesSpecial: "scene-page sputnik-storage-scene library-storage-scene",
     librariesStats: "scene-page sputnik-storage-scene library-storage-scene",
+    ebooks: "scene-page sputnik-storage-scene library-storage-scene",
     media: "scene-page sputnik-storage-scene library-storage-scene",
     otherMedia: "scene-page sputnik-storage-scene library-storage-scene",
     storage: "scene-page sputnik-storage-scene library-storage-scene"
@@ -62,6 +64,7 @@ export function ControlPanelPage({
               <p>Digital Library</p>
               <a className={section === "storage" ? "active" : ""} href="/control/storage" onClick={(event) => followRoute(event, "/control/storage")}>Storage</a>
               <a className={["libraries", "librariesSpecial", "librariesStats"].includes(section) ? "active" : ""} href="/control/libraries" onClick={(event) => followRoute(event, "/control/libraries")}>Audiobooks</a>
+              <a className={section === "ebooks" ? "active" : ""} href="/control/ebooks" onClick={(event) => followRoute(event, "/control/ebooks")}>Ebooks</a>
               <a className={`control-link-soon${section === "media" ? " active" : ""}`} href="/control/media" onClick={(event) => followRoute(event, "/control/media")}>Gallery<span className="control-soon-badge">Soon</span></a>
               <a className={`control-link-soon${section === "otherMedia" ? " active" : ""}`} href="/control/other-media" onClick={(event) => followRoute(event, "/control/other-media")}>Other Media<span className="control-soon-badge">Soon</span></a>
             </div>
@@ -79,6 +82,7 @@ export function ControlPanelPage({
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
           {(section === "libraries" || section === "librariesSpecial" || section === "librariesStats") && <AudiobooksControl section={section} />}
+          {section === "ebooks"    && <EbooksSection />}
           {section === "media"     && <ComingSoonSection title="Gallery" blurb="Photo and video library types — albums, thumbnails, and streaming playback — are planned." />}
           {section === "otherMedia" && <ComingSoonSection title="Other Media" blurb="A flexible library type for media that isn't an audiobook, photo, or video is planned." />}
           {section === "categories" && categoryId !== undefined && <CategoryEditorPage categoryId={categoryId} />}

@@ -1531,6 +1531,39 @@
   background: var(--field);
 }
 
+/* EPUB reader (epub.js) — paginated, with prev/next on either side. */
+.epub-reader {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  background: #fbfbf6;
+}
+.epub-reader-area {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.epub-nav {
+  flex: 0 0 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #555;
+  cursor: pointer;
+}
+.epub-nav:hover { background: rgba(0, 0, 0, 0.05); color: #111; }
+.epub-reader-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+}
+
 .book-files-toggle {
   display: flex;
   align-items: center;

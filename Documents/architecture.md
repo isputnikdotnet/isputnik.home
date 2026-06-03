@@ -83,7 +83,8 @@ The primary content module. Supports multiple **library types** — each type ha
 
 | Type | Status | Detail |
 |---|---|---|
-| Audiobook | Phase 1 — active | [`audiobook-library.md`](audiobook-library.md) |
+| Audiobook | Active | [`audiobook-library.md`](audiobook-library.md) |
+| Ebook | Active (EPUB/PDF, in-app reader) | [`ebook-library.md`](ebook-library.md) |
 | Photo | Planned | — |
 | Video | Planned | — |
 | Podcast | Future | — |
