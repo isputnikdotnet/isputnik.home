@@ -1,5 +1,5 @@
 import React from "react";
-import { Headphones, Info, LogOut, Settings, UserRound } from "lucide-react";
+import { BookMarked, Headphones, Info, LogOut, Settings, UserRound } from "lucide-react";
 import type { PublicUser } from "../api";
 import { navigate, followRoute } from "../router";
 
@@ -10,7 +10,7 @@ export function DashboardShell({
   sideNav,
   children
 }: {
-  active: "home" | "audiobooks" | "about" | "profile" | "control";
+  active: "home" | "audiobooks" | "ebooks" | "about" | "profile" | "control";
   user: PublicUser;
   logout: () => Promise<void>;
   sideNav?: React.ReactNode;
@@ -35,6 +35,14 @@ export function DashboardShell({
           >
             <Headphones size={18} />
             <span>Audiobooks</span>
+          </a>
+          <a
+            className={`top-nav-item ${active === "ebooks" ? "active" : ""}`}
+            href="/ebooks"
+            onClick={(event) => followRoute(event, "/ebooks")}
+          >
+            <BookMarked size={18} />
+            <span>Ebooks</span>
           </a>
           <a
             className={`top-nav-item ${active === "about" ? "active" : ""}`}

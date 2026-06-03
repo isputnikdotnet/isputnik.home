@@ -11,6 +11,7 @@ import { AboutPage } from "../pages/AboutPage";
 import { AudiobookBookPage, AudiobooksPage, SectionPage } from "../features/audiobooks/AudiobooksPage";
 import { MyListPage } from "../features/audiobooks/MyListPage";
 import { SharedWithMePage } from "../features/audiobooks/SharedWithMePage";
+import { EbooksPage } from "../features/audiobooks/EbooksPage";
 import { SharePage } from "../pages/SharePage";
 import { PlayerPage } from "../features/audiobooks/PlayerPage";
 import { PersonListPage } from "../features/audiobooks/PersonListPage";
@@ -164,6 +165,14 @@ export function App() {
 
   if (route.name === "audiobookPlayer") {
     return <PlayerPage id={route.id} />;
+  }
+
+  if (route.name === "ebooks") {
+    return <EbooksPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "ebookBook") {
+    return <AudiobookBookPage id={route.id} user={session.user} logout={logout} active="ebooks" backTo="/ebooks" />;
   }
 
   if (route.name === "audiobookAuthors") {

@@ -60,9 +60,15 @@ Detail + reading reuse `/api/library/books/:id` and `/api/library/books/:id/docu
 
 ---
 
+## Browse and detail
+
+- **`/ebooks`** — a browse page with the top-nav **Ebooks** entry, reusing the shared book grid, filter, and sort. The ebook books endpoint returns an audiobook-compatible shape so `BookFilter`/cards work unchanged.
+- **`/ebooks/books/:id`** — the shared book detail, made ebook-aware: when a book has no audio files, the primary action is **Read** (not Play), "Mark finished" and the Files section are hidden, and the Documents section drives reading/download.
+
 ## Status
 
 - Backend scanner, EPUB metadata + cover extraction, library CRUD/rescan — **done**.
 - EPUB reader (`epub.js`) + PDF reader overlay — **done**.
 - Control panel management (create/list/rescan/delete ebook libraries) — **done**.
-- **Pending:** a dedicated `/ebooks` browse page for users and an ebook-appropriate detail page (today an ebook opened via the audiobook detail shows audio actions like Play that don't apply).
+- User-facing `/ebooks` browse + ebook-aware detail page — **done**.
+- **Future:** reading-progress (EPUB CFI / PDF page), and lazy-loading the reader bundle.

@@ -122,11 +122,15 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
         book_metadata.year_published,
         book_metadata.language,
         book_metadata.cover_storage_key,
+        categories.key AS category_key,
+        categories.name AS category_name,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
         (SELECT format FROM book_documents WHERE book_id = books.id AND status = 'available' LIMIT 1) AS format,
+        (SELECT COUNT(*) FROM book_documents WHERE book_id = books.id AND status = 'available') AS file_count,
         (SELECT COALESCE(SUM(size), 0) FROM book_documents WHERE book_id = books.id AND status = 'available') AS total_size
       FROM books
       LEFT JOIN book_metadata ON book_metadata.book_id = books.id
+      LEFT JOIN categories ON categories.id = book_metadata.category_id
       LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
       LEFT JOIN authors ON authors.id = book_authors.author_id
       WHERE books.library_id = ? AND books.deleted_at IS NULL
@@ -135,23 +139,45 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     `).all(id) as {
       id: string; library_id: string; folder_path: string; status: string; discovered_at: string;
       title: string | null; year_published: number | null; language: string | null;
-      cover_storage_key: string | null; author_names: string | null; format: string | null; total_size: number;
+      cover_storage_key: string | null; category_key: string | null; category_name: string | null;
+      author_names: string | null; format: string | null; file_count: number; total_size: number;
     }[];
 
+    const tagsFor = db.prepare(`
+      SELECT tags.display_name AS name FROM taggables
+      JOIN tags ON tags.id = taggables.tag_id
+      WHERE taggables.entity_type = 'book' AND taggables.entity_id = ?
+      ORDER BY tags.display_name COLLATE NOCASE
+    `);
+
     return {
-      books: rows.map((row) => ({
-        id: row.id,
-        libraryId: row.library_id,
-        title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
-        authors: row.author_names ? row.author_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
-        yearPublished: row.year_published,
-        language: row.language,
-        format: row.format,
-        totalSize: row.total_size,
-        coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
-        status: row.status,
-        discoveredAt: row.discovered_at
-      }))
+      books: rows.map((row) => {
+        const coverUrl = row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null;
+        return {
+          id: row.id,
+          libraryId: row.library_id,
+          folderPath: row.folder_path,
+          status: row.status,
+          title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
+          series: null,
+          seriesPosition: null,
+          authors: row.author_names ? row.author_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
+          narrators: [],
+          category: row.category_key && row.category_name ? { key: row.category_key, name: row.category_name } : null,
+          tags: (tagsFor.all(row.id) as { name: string }[]).map((t) => t.name),
+          language: row.language,
+          format: row.format,
+          fileCount: row.file_count,
+          totalSize: row.total_size,
+          durationSeconds: null,
+          yearPublished: row.year_published,
+          coverUrl,
+          coverLargeUrl: coverUrl ? coverUrl.replace("-cover.webp", "-cover-large.webp") : null,
+          publisher: null,
+          asin: null,
+          discoveredAt: row.discovered_at
+        };
+      })
     };
   });
 

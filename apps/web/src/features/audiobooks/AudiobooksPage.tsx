@@ -339,11 +339,15 @@ export function SectionPage({
 export function AudiobookBookPage({
   id,
   user,
-  logout
+  logout,
+  active = "audiobooks",
+  backTo = "/audiobooks"
 }: {
   id: string;
   user: PublicUser;
   logout: () => Promise<void>;
+  active?: "audiobooks" | "ebooks";
+  backTo?: string;
 }) {
   const [book, setBook] = useState<AudiobookBookDetail | null>(null);
   const [error, setError] = useState("");
@@ -353,22 +357,22 @@ export function AudiobookBookPage({
     setError("");
     api<{ book: AudiobookBookDetail }>(`/api/library/books/${id}`)
       .then((payload) => setBook(payload.book))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load audiobook details"));
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load details"));
   }, [id]);
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell active={active} user={user} logout={logout}>
       <section className="work-area scene-page audiobook-scene audiobook-book-scene book-detail-area">
         <div className="book-detail-shell">
-          {error && <MessageBox tone="error" title="Audiobook error">{error}</MessageBox>}
+          {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
           {book ? (
             <BookDetailView
               book={book}
-              onBack={() => navigate("/audiobooks")}
+              onBack={() => navigate(backTo)}
               onBookUpdated={setBook}
             />
           ) : !error ? (
-            <p className="management-empty">Loading audiobook...</p>
+            <p className="management-empty">Loading…</p>
           ) : null}
         </div>
       </section>
@@ -400,6 +404,9 @@ function BookDetailView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [viewerDoc]);
+
+  // An ebook (or any audio-less book): content is a document, not audio tracks.
+  const isEbook = book.files.length === 0 && book.documents.length > 0;
   const [activeMetadataTab, setActiveMetadataTab] = useState<"edit" | "cover" | "lookup">("edit");
   const [metadataQuery, setMetadataQuery] = useState(`${book.title} ${book.authors[0] ?? ""}`.trim());
   const [metadataProvider, setMetadataProvider] = useState<"all" | MetadataCandidate["source"]>("all");
@@ -798,21 +805,33 @@ function BookDetailView({
           )}
 
           <div className="book-detail-actions">
-            <button
-              className="primary-button"
-              onClick={() => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=800,resizable=yes,scrollbars=yes")}
-            >
-              <Play size={16} />
-              <span>Play</span>
-            </button>
+            {isEbook ? (
+              <button
+                className="primary-button"
+                onClick={() => { const doc = book.documents[0]; if (doc) setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format }); }}
+              >
+                <BookOpen size={16} />
+                <span>Read</span>
+              </button>
+            ) : (
+              <button
+                className="primary-button"
+                onClick={() => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=800,resizable=yes,scrollbars=yes")}
+              >
+                <Play size={16} />
+                <span>Play</span>
+              </button>
+            )}
             <button className="secondary-button" onClick={() => { setActiveMetadataTab("edit"); setMetadataModalOpen(true); }}>
               <Pencil size={16} />
               <span>Edit metadata</span>
             </button>
-            <button className="secondary-button" onClick={markBookFinished} disabled={progressAction !== ""}>
-              <CheckCircle2 size={16} />
-              <span>{progressAction === "complete" ? "Saving..." : "Mark finished"}</span>
-            </button>
+            {!isEbook && (
+              <button className="secondary-button" onClick={markBookFinished} disabled={progressAction !== ""}>
+                <CheckCircle2 size={16} />
+                <span>{progressAction === "complete" ? "Saving..." : "Mark finished"}</span>
+              </button>
+            )}
             <a className="secondary-button" href={`/api/library/books/${book.id}/download`} download>
               <Download size={16} />
               <span>Download</span>
@@ -871,6 +890,7 @@ function BookDetailView({
             </section>
           )}
 
+          {!isEbook && (
           <section className="book-files-section">
             <button
               className="book-files-toggle"
@@ -908,6 +928,7 @@ function BookDetailView({
               </div>
             )}
           </section>
+          )}
         </div>
       </div>
 
