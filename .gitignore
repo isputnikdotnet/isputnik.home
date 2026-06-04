@@ -4,3 +4,6 @@ dist/
 .env.local
 .data
 .claude
+
+# Runtime data: SQLite DB, WAL/SHM, backups, uploaded media — never sync to remote
+data/
