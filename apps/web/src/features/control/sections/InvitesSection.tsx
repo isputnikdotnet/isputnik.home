@@ -121,7 +121,7 @@ export function InvitesSection() {
                 </button>
               </div>
             ) : (
-              <span className="invite-link-unavailable">Link unavailable for invitations created before link storage was enabled.</span>
+              <span className="invite-link-unavailable">The invite link is shown only once, when it's created. Delete and recreate to get a new link.</span>
             )}
           </article>
         ))}

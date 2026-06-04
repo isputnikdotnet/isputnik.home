@@ -350,6 +350,52 @@ export async function backupsPlugin(app: FastifyInstance) {
     reply.send({ staged: true, coversRestored });
   });
 
+  // Load the generated testing fixture over the live database. Like restore, the
+  // file is staged as "<dbPath>.restore" and swapped in by db.ts on next startup
+  // (db.ts also snapshots the current DB into backups first). Destructive on
+  // restart — intended for throwaway/testing environments.
+  app.post("/api/testing/load-database", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const fixture = config.testingDbPath;
+    if (!fs.existsSync(fixture)) {
+      reply.code(404).send({ error: "Testing database not found. Generate it first with: npm run seed:testing --workspace apps/server" });
+      return;
+    }
+    try {
+      assertValidSqlite(fixture);
+    } catch {
+      reply.code(400).send({ error: "Testing database is not a valid SQLite file. Re-run npm run seed:testing." });
+      return;
+    }
+
+    // Safety first: take a full backup of the current library so nothing is lost,
+    // and only stage the testing DB if that backup succeeds.
+    let backupName: string;
+    try {
+      const backup = await runBackup(request.user!.id, "manual");
+      backupName = backup.name;
+    } catch (err) {
+      reply.code(500).send({ error: `Could not back up the current library, so nothing was changed: ${err instanceof Error ? err.message : "backup failed"}` });
+      return;
+    }
+
+    try {
+      fs.copyFileSync(fixture, `${config.dbPath}.restore`);
+    } catch (err) {
+      reply.code(500).send({ error: err instanceof Error ? err.message : "Failed to stage the testing database" });
+      return;
+    }
+
+    logActivity({
+      event: "testing.database_load_staged",
+      actorUserId: request.user!.id,
+      targetType: "database",
+      targetId: "testing",
+      detail: `Backed up current library to "${backupName}" and staged the testing database; it replaces the current database on next restart.`,
+      ipAddress: request.ip
+    });
+    reply.send({ staged: true, backupName });
+  });
+
   app.addHook("onReady", async () => { rescheduleBackups(); });
   app.addHook("onClose", async () => { if (scheduleTimer) clearTimeout(scheduleTimer); });
 }

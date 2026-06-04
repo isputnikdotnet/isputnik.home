@@ -1,12 +1,13 @@
 {
   "name": "@isputnik/server",
   "private": true,
-  "version": "0.5.1",
+  "version": "0.5.2",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "seed:testing": "tsx src/scripts/seed-testing.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

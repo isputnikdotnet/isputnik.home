@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Archive, DatabaseBackup, Download, Folder, Trash2, RotateCcw, Save } from "lucide-react";
+import { Archive, DatabaseBackup, Download, FlaskConical, Folder, Trash2, RotateCcw, Save } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
@@ -37,6 +37,8 @@ export function BackupSection() {
   const [deleting, setDeleting] = useState(false);
   const [pendingRestore, setPendingRestore] = useState<BackupFile | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [pendingLoadTesting, setPendingLoadTesting] = useState(false);
+  const [loadingTesting, setLoadingTesting] = useState(false);
 
   const load = useCallback(async () => {
     const payload = await api<BackupList>("/api/backups");
@@ -104,6 +106,20 @@ export function BackupSection() {
     }
   };
 
+  const loadTestingData = async () => {
+    setLoadingTesting(true); setError(""); setNotice("");
+    try {
+      const res = await api<{ staged: boolean; backupName?: string }>("/api/testing/load-database", { method: "POST", body: "{}" });
+      await load();
+      setNotice(`Saved your current library${res.backupName ? ` as ${res.backupName}` : ""}. Testing database staged — restart the server to load it, then sign in with test@test.com / test1234.`);
+      setPendingLoadTesting(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load testing database");
+    } finally {
+      setLoadingTesting(false);
+    }
+  };
+
   return (
     <>
       <div className="backup-page">
@@ -124,10 +140,16 @@ export function BackupSection() {
               </span>
             )}
           </div>
-          <button className="icon-button with-label backup-create-button" onClick={createBackup} disabled={creating}>
-            <DatabaseBackup size={18} />
-            <span>{creating ? "Backing up..." : "Create backup now"}</span>
-          </button>
+          <div className="backup-hero-actions">
+            <button className="icon-button with-label backup-create-button" onClick={createBackup} disabled={creating}>
+              <DatabaseBackup size={18} />
+              <span>{creating ? "Backing up..." : "Create backup now"}</span>
+            </button>
+            <button className="icon-button with-label" onClick={() => { setError(""); setNotice(""); setPendingLoadTesting(true); }} title="Replace the database with generated testing data">
+              <FlaskConical size={18} />
+              <span>Load testing data</span>
+            </button>
+          </div>
         </div>
 
         {error && <MessageBox tone="error" title="Backup error">{error}</MessageBox>}
@@ -240,6 +262,24 @@ export function BackupSection() {
               <button className="secondary-button" onClick={() => setPendingDelete(null)} disabled={deleting} autoFocus>Cancel</button>
               <button className="danger-button" onClick={deleteBackup} disabled={deleting}>
                 <Trash2 size={15} /> {deleting ? "Deleting…" : "Delete backup"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingLoadTesting && (
+        <div className="modal-backdrop" onMouseDown={() => !loadingTesting && setPendingLoadTesting(false)}>
+          <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="load-testing-title" onMouseDown={(e) => e.stopPropagation()}>
+            <h2 id="load-testing-title">Load testing data?</h2>
+            <p>A full backup of your current library is created automatically first, so nothing is lost. Then the generated testing dataset (fake audiobooks and a known admin) replaces the current database the next time the server starts.</p>
+            <p><strong>You must restart the server to finish.</strong> After restart, sign in with <strong>test@test.com</strong> / <strong>test1234</strong>. To return to your real library later, restore the backup from the list below.</p>
+            <p className="muted">If you haven't generated it yet, run <code>npm run seed:testing --workspace apps/server</code> first.</p>
+            {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button className="secondary-button" onClick={() => setPendingLoadTesting(false)} disabled={loadingTesting} autoFocus>Cancel</button>
+              <button className="primary-button" onClick={loadTestingData} disabled={loadingTesting}>
+                <FlaskConical size={15} /> {loadingTesting ? "Staging…" : "Stage testing data"}
               </button>
             </div>
           </div>

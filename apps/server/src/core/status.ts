@@ -336,6 +336,32 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.5.2",
+          label: "Audiobook browse redesign & testing tools",
+          changes: [
+            "Audiobook browsing was rebuilt into one full-width, tabbed layout (Books, Authors, Narrators, Series, Collections) with a shared header, replacing the old per-page sidebar navigation.",
+            "The special-library (section) view now matches the main library: same header and filter/sort/view controls, with a \"back to all libraries\" link instead of a separate sidebar.",
+            "Filter, Sort, and the grid/list toggle now sit together on one row next to the library picker, which is now a dropdown menu styled like the book actions menu.",
+            "Author, Narrator, and Series pages use the same back button as book detail and drop the redundant per-page search and profile chrome.",
+            "Invite links hardened: only the token hash is stored (the link is shown once when created), and links now use the address you're actually visiting instead of a fixed default.",
+            "New admin tool (Control Panel → Maintenance → Backup): \"Load testing data\" loads a generated fake-audiobook database for interface testing, taking a full backup of your current library first."
+          ]
+        },
+        {
+          version: "0.5.1",
+          label: "Ebook browse page",
+          changes: [
+            "Dedicated ebook browse page and an ebook-aware book detail view."
+          ]
+        },
+        {
+          version: "0.5.0",
+          label: "Ebooks (EPUB/PDF)",
+          changes: [
+            "New ebook library type with an in-app EPUB and PDF reader."
+          ]
+        },
+        {
           version: "0.4.17",
           label: "Backups",
           changes: [

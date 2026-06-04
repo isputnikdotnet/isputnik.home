@@ -47,12 +47,14 @@ Passwords are hashed with Node.js `scrypt`. The salt is embedded in the stored h
 
 ## Invite-Only Registration
 
-No public sign-up. Admins generate a single-use invite link from the control panel. The invite token is stored as a SHA-256 hash. The raw token is also retained so admins can copy the link later from the control panel.
+No public sign-up. Admins generate a single-use invite link from the control panel. Only the token's SHA-256 hash is stored — the raw token is **never persisted**. The link is shown once, at creation; it cannot be re-displayed later, so the control panel list offers no copy action for existing invites (delete and recreate to get a new link). This mirrors how share links are handled.
+
+The invite URL is built from the request's `Origin` (the address the admin is actually using), falling back to the configured `APP_URL` — so links point at the real site instead of a hardcoded default.
 
 ```sql
 invites
 -------
-id, token_hash, token,
+id, token_hash,
 role,
 created_by, created_at,
 expires_at, used_at, used_by,
@@ -61,7 +63,7 @@ revoked_at
 
 **Invite lifecycle:**
 
-- Created by admin with a role (`admin` or `member`) and configurable expiry
+- Created by admin with a role (`admin` or `member`) and configurable expiry; the link is shown once on creation
 - Link is single-use — `used_at` is set on acceptance
 - Admins can revoke pending invites at any time (`revoked_at`)
 - Accepting an invite creates a user account and a session in the same transaction

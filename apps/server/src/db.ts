@@ -100,7 +100,6 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS invites (
     id TEXT PRIMARY KEY,
     token_hash TEXT NOT NULL UNIQUE,
-    token TEXT,
     role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
     created_by TEXT NOT NULL REFERENCES users(id),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -497,11 +496,6 @@ if (usersTable?.sql && !usersTable.sql.includes("plain-light")) {
     COMMIT;
     PRAGMA foreign_keys = ON;
   `);
-}
-
-const inviteColumns = db.prepare("PRAGMA table_info(invites)").all() as { name: string }[];
-if (!inviteColumns.some((column) => column.name === "token")) {
-  db.exec("ALTER TABLE invites ADD COLUMN token TEXT");
 }
 
 const bookMetaColumns = db.prepare("PRAGMA table_info(book_metadata)").all() as { name: string }[];

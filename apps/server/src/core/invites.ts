@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { nanoid } from "nanoid";
 import { db, logActivity, publicUser, type Role, type User } from "../db.js";
 import { sha256, hashPassword } from "../crypto.js";
@@ -12,9 +12,19 @@ const inviteSchema = z.object({
   expiresInDays: z.number().int().min(1).max(30).default(config.inviteDays)
 });
 
+// Prefer the origin of the page the admin is actually using (sent by the browser
+// on the fetch), so invite links match the real URL — a LAN address or public
+// domain — instead of the configured default. Fall back to config.appUrl.
+function inviteOrigin(request: FastifyRequest): string {
+  const origin = request.headers.origin;
+  if (typeof origin === "string" && /^https?:\/\/.+/i.test(origin)) {
+    return origin.replace(/\/+$/, "");
+  }
+  return config.appUrl.replace(/\/+$/, "");
+}
+
 interface InviteListRow {
   id: string;
-  token: string | null;
   role: Role;
   created_at: string;
   expires_at: string;
@@ -35,10 +45,11 @@ export async function invitesPlugin(app: FastifyInstance) {
     const inviteId = nanoid(16);
     const expiresInDays = parsed.data.expiresInDays ?? config.inviteDays;
     const expiresAt = addDays(expiresInDays).toISOString();
+    // Only the hash is stored; the raw token is shown once below and never persisted.
     db.prepare(`
-      INSERT INTO invites (id, token_hash, token, role, created_by, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(inviteId, sha256(token), token, parsed.data.role, request.user!.id, expiresAt);
+      INSERT INTO invites (id, token_hash, role, created_by, expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(inviteId, sha256(token), parsed.data.role, request.user!.id, expiresAt);
     logActivity({
       event: "invite.created",
       actorUserId: request.user!.id,
@@ -48,27 +59,20 @@ export async function invitesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    // Build invite links from the configured front-end origin (also the CORS
-    // origin), not the request Host — behind a dev proxy the API Host is the
-    // wrong port.
-    const origin = config.appUrl.replace(/\/+$/, "");
     reply.code(201).send({
       invite: {
         id: inviteId,
         role: parsed.data.role,
         expiresAt,
-        url: `${origin}/invite/${token}`
+        url: `${inviteOrigin(request)}/invite/${token}`
       }
     });
   });
 
   app.get("/api/invites", { preHandler: app.requireAdmin }, async () => {
-    // Configured front-end origin, not the request Host (see POST above).
-    const origin = config.appUrl.replace(/\/+$/, "");
     const invites = db.prepare(`
       SELECT
         invites.id,
-        invites.token,
         invites.role,
         invites.created_at,
         invites.expires_at,
@@ -87,7 +91,9 @@ export async function invitesPlugin(app: FastifyInstance) {
       invites: invites.map((invite) => ({
         id: invite.id,
         role: invite.role,
-        url: invite.token ? `${origin}/invite/${invite.token}` : null,
+        // The raw token is never stored, so the link can't be rebuilt later —
+        // it's shown only once when the invite is created.
+        url: null,
         createdAt: invite.created_at,
         expiresAt: invite.expires_at,
         usedAt: invite.used_at,
