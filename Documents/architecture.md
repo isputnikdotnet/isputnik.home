@@ -165,7 +165,8 @@ apps/server/src/
   modules/
     library/
       shared/                 ← thumbnail helpers, storage-root helpers, library-types
-      audiobook/              ← scanner, enricher, routes, serializers
+      audiobook/              ← scanner, enricher, serializers, book-helpers,
+                                 route modules (books / metadata / series / browse)
       settings.ts, covers.ts, storage.ts
   db.ts                       ← SQLite singleton, schema, migrations
   auth.ts, config.ts, crypto.ts, types.ts
@@ -181,7 +182,7 @@ apps/web/src/
   pages/                      ← Install, Login, Invite, Home, Profile, About
   shared/                     ← Field, MessageBox, AccountForm, AboutDetails, utils
   features/
-    audiobooks/               ← AudiobooksPage, types
+    audiobooks/               ← AudiobooksPage, BookDetailPage, types
     control/                  ← ControlPanelPage (nav dispatcher)
       sections/               ← Users, Invites, Sessions, Logs, Status, About, Storage, Libraries
 ```

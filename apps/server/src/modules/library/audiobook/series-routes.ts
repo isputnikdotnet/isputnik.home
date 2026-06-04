@@ -1,0 +1,255 @@
+import type { FastifyInstance } from "fastify";
+import { nanoid } from "nanoid";
+import { z } from "zod";
+import { db } from "../../../db.js";
+import { parseBody } from "../../../core/shared.js";
+import { sortTitle } from "./scanner.js";
+import { getAccessibleLibrary, canUserWriteLibrary } from "../shared/library-access.js";
+
+export function registerSeriesRoutes(app: FastifyInstance) {
+
+  app.get("/api/library/audiobook-libraries/:id/people", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    if (!library) {
+      reply.code(404).send({ error: "Audiobook library not found" });
+      return;
+    }
+
+    const rows = db.prepare(`
+      SELECT name FROM authors WHERE library_id = ? ORDER BY name COLLATE NOCASE
+    `).all(id) as { name: string }[];
+
+    reply.send({ people: rows.map((r) => r.name) });
+  });
+
+
+  app.get("/api/library/audiobook-libraries/:id/series", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    if (!library) {
+      reply.code(404).send({ error: "Audiobook library not found" });
+      return;
+    }
+
+    const rows = db.prepare(`
+      SELECT
+        series.id,
+        series.name,
+        COUNT(books.id) AS book_count,
+        (
+          SELECT book_metadata.cover_storage_key
+          FROM books b
+          LEFT JOIN book_metadata ON book_metadata.book_id = b.id
+          WHERE b.series_id = series.id AND b.deleted_at IS NULL
+          ORDER BY b.series_position ASC
+          LIMIT 1
+        ) AS cover_storage_key
+      FROM series
+      LEFT JOIN books ON books.series_id = series.id AND books.deleted_at IS NULL
+      WHERE series.library_id = ?
+      GROUP BY series.id
+      ORDER BY series.name COLLATE NOCASE
+    `).all(id) as { id: string; name: string; book_count: number; cover_storage_key: string | null }[];
+
+    reply.send({
+      series: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        bookCount: r.book_count,
+        coverUrl: r.cover_storage_key ? `/api/library/covers/${r.cover_storage_key}` : null
+      }))
+    });
+  });
+
+
+  app.post("/api/library/audiobook-libraries/:id/series", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    if (!library || !canUserWriteLibrary(library, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    const parsed = parseBody(z.object({
+      name: z.string().trim().min(1).max(240),
+      description: z.string().trim().max(10000).nullable().optional()
+    }), request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Series name is required." });
+      return;
+    }
+
+    const existing = db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(id, parsed.data.name);
+    if (existing) {
+      reply.code(409).send({ error: "A series with this name already exists in this library." });
+      return;
+    }
+
+    const seriesId = nanoid(16);
+    db.prepare("INSERT INTO series (id, library_id, name, sort_name, description) VALUES (?, ?, ?, ?, ?)").run(
+      seriesId, id, parsed.data.name, sortTitle(parsed.data.name), parsed.data.description ?? null
+    );
+
+    reply.code(201).send({ series: { id: seriesId, name: parsed.data.name, bookCount: 0, coverUrl: null } });
+  });
+
+
+  app.get("/api/library/series/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare(`
+      SELECT series.id, series.name, series.description, series.library_id, libraries.name AS library_name
+      FROM series
+      JOIN libraries ON libraries.id = series.library_id
+      WHERE series.id = ?
+    `).get(id) as { id: string; name: string; description: string | null; library_id: string; library_name: string } | undefined;
+
+    if (!row) {
+      reply.code(404).send({ error: "Series not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib) {
+      reply.code(404).send({ error: "Series not found" });
+      return;
+    }
+
+    const books = db.prepare(`
+      SELECT
+        books.id,
+        books.series_position,
+        COALESCE(book_metadata.title, books.folder_path) AS title,
+        book_metadata.cover_storage_key,
+        GROUP_CONCAT(authors.name ORDER BY book_authors.sort_order) AS author_names
+      FROM books
+      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
+      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
+      LEFT JOIN authors ON authors.id = book_authors.author_id
+      WHERE books.series_id = ?
+        AND books.deleted_at IS NULL
+      GROUP BY books.id
+      ORDER BY books.series_position ASC, title COLLATE NOCASE
+    `).all(id) as { id: string; series_position: number | null; title: string; cover_storage_key: string | null; author_names: string | null }[];
+
+    reply.send({
+      series: {
+        id: row.id,
+        name: row.name,
+        description: row.description ?? null,
+        libraryId: row.library_id,
+        libraryName: row.library_name,
+        books: books.map((b) => ({
+          id: b.id,
+          title: b.title,
+          authors: b.author_names ? b.author_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
+          coverUrl: b.cover_storage_key ? `/api/library/covers/${b.cover_storage_key}` : null,
+          seriesPosition: b.series_position
+        }))
+      }
+    });
+  });
+
+
+  app.patch("/api/library/series/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    if (!row) {
+      reply.code(404).send({ error: "Series not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    const parsed = parseBody(z.object({
+      name: z.string().trim().min(1).max(240),
+      description: z.string().trim().max(10000).nullable().optional()
+    }), request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Series name is required." });
+      return;
+    }
+
+    db.prepare("UPDATE series SET name = ?, sort_name = ?, description = ? WHERE id = ?").run(
+      parsed.data.name, sortTitle(parsed.data.name), parsed.data.description ?? null, id
+    );
+
+    reply.send({ updated: true });
+  });
+
+
+  app.delete("/api/library/series/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    if (!row) {
+      reply.code(404).send({ error: "Series not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    db.transaction(() => {
+      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE series_id = ?").run(id);
+      db.prepare("DELETE FROM series WHERE id = ?").run(id);
+    })();
+
+    reply.send({ deleted: true });
+  });
+
+
+  app.put("/api/library/series/:id/books", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
+    if (!row) {
+      reply.code(404).send({ error: "Series not found" });
+      return;
+    }
+
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required." });
+      return;
+    }
+
+    const parsed = parseBody(
+      z.object({ books: z.array(z.object({ bookId: z.string().min(1), position: z.number().nullable() })) }),
+      request.body
+    );
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid books list." });
+      return;
+    }
+
+    const newBookIds = new Set(parsed.data.books.map((b) => b.bookId));
+
+    db.transaction(() => {
+      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE series_id = ?").run(id);
+      for (const { bookId, position } of parsed.data.books) {
+        db.prepare("UPDATE books SET series_id = ?, series_position = ? WHERE id = ? AND library_id = ?")
+          .run(id, position, bookId, row.library_id);
+      }
+    })();
+
+    void newBookIds;
+    reply.send({ updated: true });
+  });
+}

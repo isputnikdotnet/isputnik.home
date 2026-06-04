@@ -336,6 +336,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.5.3",
+          label: "Internal code cleanup",
+          changes: [
+            "Maintenance release: split two oversized source files (the audiobook page and the audiobook server routes) into focused modules. No user-facing changes."
+          ]
+        },
+        {
           version: "0.5.2",
           label: "Audiobook browse redesign & testing tools",
           changes: [
