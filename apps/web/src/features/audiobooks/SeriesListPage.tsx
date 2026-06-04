@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, BookOpen, Plus, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Plus, Search, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -16,6 +16,7 @@ export function SeriesListPage({
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [seriesByLibrary, setSeriesByLibrary] = useState<Record<string, SeriesSummary[]>>({});
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -41,6 +42,8 @@ export function SeriesListPage({
   const allSeries = libraries.flatMap((lib) =>
     (seriesByLibrary[lib.id] ?? []).map((s) => ({ ...s, libraryName: lib.name, libraryId: lib.id }))
   );
+  const term = search.trim().toLowerCase();
+  const filteredSeries = term ? allSeries.filter((s) => s.name.toLowerCase().includes(term)) : allSeries;
 
   const openModal = () => {
     setNewName("");
@@ -78,7 +81,7 @@ export function SeriesListPage({
         <div className="section-head">
           <div className="audiobook-page-title">
             <h1>Series</h1>
-            <p>{allSeries.length} series</p>
+            <p>{filteredSeries.length} series</p>
           </div>
           <button className="primary-button" onClick={openModal}>
             <Plus size={16} />
@@ -88,15 +91,35 @@ export function SeriesListPage({
 
         {error && <MessageBox tone="error" title="Series error">{error}</MessageBox>}
 
+        {allSeries.length > 0 && (
+          <div className="audiobook-toolbar">
+            <label className="search-field">
+              <Search size={17} aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search series"
+                aria-label="Search series"
+              />
+            </label>
+          </div>
+        )}
+
         {allSeries.length === 0 && !error ? (
           <div className="empty-state library-empty">
             <BookOpen size={48} aria-hidden="true" />
             <h2>No series yet</h2>
             <p className="muted">Create a series and add books to it.</p>
           </div>
+        ) : filteredSeries.length === 0 ? (
+          <div className="empty-state library-empty">
+            <BookOpen size={48} aria-hidden="true" />
+            <h2>No series match</h2>
+          </div>
         ) : (
           <div className="series-grid">
-            {allSeries.map((s) => (
+            {filteredSeries.map((s) => (
               <button
                 key={s.id}
                 className="series-card"

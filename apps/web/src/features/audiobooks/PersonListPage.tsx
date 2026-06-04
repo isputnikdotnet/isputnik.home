@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, UserRound } from "lucide-react";
+import { ArrowLeft, Search, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -18,6 +18,7 @@ export function PersonListPage({
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   const loadBooks = useCallback(async (libraryId: string) => {
     const payload = await api<{ books: AudiobookBook[] }>(`/api/library/audiobook-libraries/${libraryId}/books`);
@@ -40,6 +41,9 @@ export function PersonListPage({
     .map((name) => ({ name, bookCount: allBooks.filter((b) => getNames(b).includes(name)).length }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const term = search.trim().toLowerCase();
+  const filtered = term ? persons.filter((person) => person.name.toLowerCase().includes(term)) : persons;
+
   const title = role === "author" ? "Authors" : "Narrators";
   const detailBase = role === "author" ? "/audiobooks/authors" : "/audiobooks/narrators";
 
@@ -53,10 +57,25 @@ export function PersonListPage({
 
         <div className="audiobook-page-title">
           <h1>{title}</h1>
-          <p>{persons.length} {persons.length === 1 ? title.slice(0, -1).toLowerCase() : title.toLowerCase()}</p>
+          <p>{filtered.length} {filtered.length === 1 ? title.slice(0, -1).toLowerCase() : title.toLowerCase()}</p>
         </div>
 
         {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
+
+        {libraries.length > 0 && (
+          <div className="audiobook-toolbar">
+            <label className="search-field">
+              <Search size={17} aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={`Search ${title.toLowerCase()}`}
+                aria-label={`Search ${title.toLowerCase()}`}
+              />
+            </label>
+          </div>
+        )}
 
         {libraries.length === 0 ? (
           <div className="empty-state library-empty">
@@ -64,14 +83,14 @@ export function PersonListPage({
             <h2>No audiobook libraries yet</h2>
             <p className="muted">An administrator can add libraries from the control panel.</p>
           </div>
-        ) : persons.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="empty-state library-empty">
             <UserRound size={48} aria-hidden="true" />
             <h2>No {title.toLowerCase()} match</h2>
           </div>
         ) : (
           <div className="person-grid">
-            {persons.map((person) => (
+            {filtered.map((person) => (
               <button
                 key={person.name}
                 className="person-card"
