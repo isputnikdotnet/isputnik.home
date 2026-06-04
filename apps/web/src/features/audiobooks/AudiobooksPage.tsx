@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, BookOpen, ChevronDown, Headphones, LayoutGrid, Library, List, Mic2, MoreVertical, Search, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { FilterButton, FilterChips, SortSelect, type SortKey } from "./BookFilter";
-import { useAudiobookCatalog, type CatalogScope } from "./useAudiobookCatalog";
+import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import { DashboardShell } from "../../app/DashboardShell";
 import { CategoryIcon } from "./categoryIcons";
 import { navigate } from "../../router";
@@ -163,7 +163,7 @@ export function AudiobooksPage({
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [sections, setSections] = useState<LibrarySection[]>([]);
-  const [selectedLibraryId, setSelectedLibraryId] = useState("all");
+  const [selectedLibraryId, setSelectedLibraryId] = useState(() => readCatalogView("audiobooks:main").selectedLibraryId);
   const [librariesError, setLibrariesError] = useState("");
   const [viewMode, setViewMode] = useState<AudiobookViewMode>("grid");
   const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
@@ -173,7 +173,11 @@ export function AudiobooksPage({
 
   const normalLibraries = libraries.filter((library) => !library.specialSection);
   const scope: CatalogScope = selectedLibraryId === "all" ? { kind: "all" } : { kind: "library", libraryId: selectedLibraryId };
-  const cat = useAudiobookCatalog(scope, "recent");
+  const cat = useAudiobookCatalog(scope, "recent", "audiobooks:main");
+
+  useEffect(() => {
+    writeCatalogView("audiobooks:main", { selectedLibraryId });
+  }, [selectedLibraryId]);
 
   useEffect(() => {
     api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
@@ -368,10 +372,15 @@ export function SectionPage({
   const [section, setSection] = useState<LibrarySection | null>(null);
   const [members, setMembers] = useState<AudiobookLibrary[]>([]);
   const [membersLoaded, setMembersLoaded] = useState(false);
-  const [sort, setSort] = useState<SortKey>("title");
+  const viewKey = `audiobooks:section:${sectionId}`;
+  const [sort, setSort] = useState<SortKey>(() => readCatalogView(viewKey).sort);
   const [viewMode, setViewMode] = useState<AudiobookViewMode>("grid");
   const [metaError, setMetaError] = useState("");
-  const cat = useAudiobookCatalog({ kind: "section", sectionId }, sort);
+  const cat = useAudiobookCatalog({ kind: "section", sectionId }, sort, viewKey);
+
+  useEffect(() => {
+    writeCatalogView(viewKey, { sort });
+  }, [viewKey, sort]);
 
   useEffect(() => {
     setMembersLoaded(false);

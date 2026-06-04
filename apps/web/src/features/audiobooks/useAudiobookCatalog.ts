@@ -5,6 +5,27 @@ import type { AudiobookBook } from "./types";
 
 const PAGE_SIZE = 48;
 
+// Per-view catalog UI state kept for the session, so navigating into a book and
+// back doesn't reset the chosen library / search / sort / filters. In-memory
+// (cleared on a full page reload) — swap to sessionStorage for reload-resilience.
+export interface CatalogView {
+  selectedLibraryId: string;
+  sort: SortKey;
+  search: string;
+  filters: BookFilters;
+}
+
+const DEFAULT_VIEW: CatalogView = { selectedLibraryId: "all", sort: "title", search: "", filters: EMPTY_FILTERS };
+const viewStore = new Map<string, CatalogView>();
+
+export function readCatalogView(key: string): CatalogView {
+  return viewStore.get(key) ?? DEFAULT_VIEW;
+}
+
+export function writeCatalogView(key: string, patch: Partial<CatalogView>) {
+  viewStore.set(key, { ...readCatalogView(key), ...patch });
+}
+
 export type CatalogScope =
   | { kind: "all" }
   | { kind: "library"; libraryId: string }
@@ -18,10 +39,15 @@ interface CatalogResponse {
 // Drives the server-side paged catalog: owns search/filters, fetches a page on
 // any query change, appends pages for infinite scroll, and loads the scope's
 // filter facets. Used by the main Audiobooks page and the special-section page.
-export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey) {
-  const [search, setSearch] = useState("");
-  const [debounced, setDebounced] = useState("");
-  const [filters, setFilters] = useState<BookFilters>(EMPTY_FILTERS);
+export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey, persistKey: string) {
+  const [search, setSearch] = useState(() => readCatalogView(persistKey).search);
+  const [debounced, setDebounced] = useState(() => readCatalogView(persistKey).search.trim());
+  const [filters, setFilters] = useState<BookFilters>(() => readCatalogView(persistKey).filters);
+
+  // Persist the bits this hook owns so they survive a remount within the session.
+  useEffect(() => {
+    writeCatalogView(persistKey, { search, filters });
+  }, [persistKey, search, filters]);
   const [books, setBooks] = useState<AudiobookBook[]>([]);
   const [total, setTotal] = useState(0);
   const [facets, setFacets] = useState<FacetOptions>(EMPTY_FACETS);
