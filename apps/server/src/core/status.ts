@@ -336,6 +336,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.6.0",
+          label: "Audiobook search & paging",
+          changes: [
+            "The audiobook catalog now searches, filters, sorts, and pages on the server, loading a page at a time (infinite scroll plus a Load more button) instead of fetching every book up front — so large libraries stay fast.",
+            "Search matches titles, authors, narrators, and series; filters (authors, narrators, categories, tags, series, language, status, length) and sorting now run against the whole library, not just what's loaded.",
+            "The special-library (section) view uses the same paged catalog."
+          ]
+        },
+        {
           version: "0.5.3",
           label: "Internal code cleanup",
           changes: [

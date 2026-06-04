@@ -332,6 +332,13 @@
   gap: 20px;
 }
 
+/* Infinite-scroll sentinel + "Load more" fallback at the foot of the catalog. */
+.audiobook-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+}
+
 .audiobook-catalog.grid {
   grid-template-columns: repeat(auto-fill, minmax(174px, 1fr));
 }

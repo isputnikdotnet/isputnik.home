@@ -1,13 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import path from "node:path";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
 import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
-import { type AudiobookBookRow } from "./types.js";
-import { largeCoverUrl, splitGroupConcat, categoryPayload, bookTags, getAudiobookBookDetail, progressUpdateSchema } from "./book-helpers.js";
+import { getAudiobookBookDetail, progressUpdateSchema, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
+import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
 
 export function registerBookRoutes(app: FastifyInstance) {
 
@@ -21,84 +20,71 @@ export function registerBookRoutes(app: FastifyInstance) {
     }
 
     const books = db.prepare(`
-      SELECT
-        books.id,
-        books.library_id,
-        books.folder_path,
-        books.status,
-        books.discovered_at,
-        books.updated_at,
-        books.deleted_at,
-        books.series_position,
-        series.name AS series_name,
-        book_metadata.title,
-        book_metadata.sort_title,
-        book_metadata.language,
-        book_metadata.duration_seconds,
-        book_metadata.cover_storage_key,
-        book_metadata.publisher,
-        book_metadata.asin,
-        book_metadata.category_id,
-        GROUP_CONCAT(DISTINCT authors.name) AS author_names,
-        GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names,
-        progress.percent_complete AS progress_percent,
-        progress.completed_at AS progress_completed_at,
-        (
-          SELECT COUNT(*)
-          FROM book_files
-          WHERE book_files.book_id = books.id
-            AND book_files.status = 'available'
-        ) AS file_count,
-        (
-          SELECT COALESCE(SUM(book_files.size), 0)
-          FROM book_files
-          WHERE book_files.book_id = books.id
-            AND book_files.status = 'available'
-        ) AS total_size
-      FROM books
-      LEFT JOIN series ON series.id = books.series_id
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-      LEFT JOIN authors ON authors.id = book_authors.author_id
-      LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
-      LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
-      LEFT JOIN playback_progress AS progress ON progress.book_id = books.id AND progress.user_id = ?
+      SELECT ${BOOK_LIST_COLUMNS}
+      ${BOOK_LIST_JOINS}
       WHERE books.library_id = ?
         AND books.deleted_at IS NULL
       GROUP BY books.id
       ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
-    `).all(user.id, id) as (AudiobookBookRow & { series_name: string | null; series_position: number | null; category_id: string | null; progress_percent: number | null; progress_completed_at: string | null })[];
+    `).all(user.id, id) as BookListRow[];
 
-    return {
-      books: books.map((book) => ({
-        id: book.id,
-        libraryId: book.library_id,
-        folderPath: book.folder_path,
-        status: book.status,
-        title: book.title ?? path.basename(book.folder_path),
-        sortTitle: book.sort_title,
-        series: book.series_name ?? null,
-        seriesPosition: book.series_position ?? null,
-        language: book.language,
-        authors: splitGroupConcat(book.author_names),
-        narrators: splitGroupConcat(book.narrator_names),
-        category: categoryPayload(book.category_id),
-        tags: bookTags(book.id),
-        fileCount: book.file_count,
-        totalSize: book.total_size ?? 0,
-        durationSeconds: book.duration_seconds,
-        coverUrl: book.cover_storage_key ? `/api/library/covers/${book.cover_storage_key}` : null,
-        coverLargeUrl: largeCoverUrl(book.cover_storage_key),
-        publisher: book.publisher,
-        asin: book.asin,
-        progress: {
-          percentComplete: book.progress_percent,
-          completedAt: book.progress_completed_at
-        },
-        discoveredAt: book.discovered_at,
-        updatedAt: book.updated_at
-      }))
-    };
+    return { books: books.map(mapBookListRow) };
+  });
+
+  // Paged, server-side searched/sorted/filtered catalog. Replaces loading every
+  // book client-side. scope = all (non-special libraries) | library | section.
+  const catalogSchema = z.object({
+    scope: z.enum(["all", "library", "section"]).default("all"),
+    libraryId: z.string().trim().min(1).optional(),
+    sectionId: z.string().trim().min(1).optional(),
+    q: z.string().trim().max(200).default(""),
+    sort: z.enum(["title", "title_desc", "recent", "duration", "author", "series"]).default("title"),
+    limit: z.number().int().min(1).max(200).default(48),
+    offset: z.number().int().min(0).default(0),
+    filters: z.object({
+      authors: z.array(z.string()).default([]),
+      narrators: z.array(z.string()).default([]),
+      categories: z.array(z.string()).default([]),
+      tags: z.array(z.string()).default([]),
+      series: z.array(z.string()).default([]),
+      languages: z.array(z.string()).default([]),
+      status: z.array(z.string()).default([]),
+      durations: z.array(z.string()).default([])
+    }).default({ authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: [] })
+  });
+
+  app.post("/api/library/audiobooks/catalog", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(catalogSchema, request.body ?? {});
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid catalog query", details: parsed.error });
+      return;
+    }
+    const p = parsed.data;
+    const f = p.filters ?? {};
+    const libIds = resolveScopeLibraryIds(request.user!, p.scope ?? "all", p.libraryId, p.sectionId);
+    reply.send(queryCatalog(request.user!.id, libIds, {
+      q: p.q ?? "",
+      sort: p.sort ?? "title",
+      limit: p.limit ?? 48,
+      offset: p.offset ?? 0,
+      filters: {
+        authors: f.authors ?? [],
+        narrators: f.narrators ?? [],
+        categories: f.categories ?? [],
+        tags: f.tags ?? [],
+        series: f.series ?? [],
+        languages: f.languages ?? [],
+        status: f.status ?? [],
+        durations: f.durations ?? []
+      }
+    }));
+  });
+
+  app.get("/api/library/audiobooks/facets", { preHandler: app.authenticate }, async (request) => {
+    const qp = request.query as { scope?: string; libraryId?: string; sectionId?: string };
+    const scope = qp.scope === "library" || qp.scope === "section" ? qp.scope : "all";
+    const libIds = resolveScopeLibraryIds(request.user!, scope, qp.libraryId, qp.sectionId);
+    return catalogFacets(libIds);
   });
 
 

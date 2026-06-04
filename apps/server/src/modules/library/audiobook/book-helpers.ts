@@ -601,3 +601,82 @@ export function getAudiobookBookDetail(id: string) {
     }))
   };
 }
+
+// ── Shared list/catalog row shape ───────────────────────────────────────────
+// Columns + joins shared by the per-library list route and the paged catalog
+// query, so both return an identical book shape. The trailing playback_progress
+// join binds the user id — it must be the FIRST positional ? in any query using
+// these joins.
+export const BOOK_LIST_COLUMNS = `
+        books.id,
+        books.library_id,
+        books.folder_path,
+        books.status,
+        books.discovered_at,
+        books.updated_at,
+        books.deleted_at,
+        books.series_position,
+        series.name AS series_name,
+        book_metadata.title,
+        book_metadata.sort_title,
+        book_metadata.language,
+        book_metadata.duration_seconds,
+        book_metadata.cover_storage_key,
+        book_metadata.publisher,
+        book_metadata.asin,
+        book_metadata.category_id,
+        GROUP_CONCAT(DISTINCT authors.name) AS author_names,
+        GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names,
+        progress.percent_complete AS progress_percent,
+        progress.completed_at AS progress_completed_at,
+        (SELECT COUNT(*) FROM book_files WHERE book_files.book_id = books.id AND book_files.status = 'available') AS file_count,
+        (SELECT COALESCE(SUM(book_files.size), 0) FROM book_files WHERE book_files.book_id = books.id AND book_files.status = 'available') AS total_size`;
+
+export const BOOK_LIST_JOINS = `
+      FROM books
+      LEFT JOIN series ON series.id = books.series_id
+      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
+      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
+      LEFT JOIN authors ON authors.id = book_authors.author_id
+      LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
+      LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
+      LEFT JOIN playback_progress AS progress ON progress.book_id = books.id AND progress.user_id = ?`;
+
+export type BookListRow = AudiobookBookRow & {
+  series_name: string | null;
+  series_position: number | null;
+  category_id: string | null;
+  progress_percent: number | null;
+  progress_completed_at: string | null;
+};
+
+export function mapBookListRow(book: BookListRow) {
+  return {
+    id: book.id,
+    libraryId: book.library_id,
+    folderPath: book.folder_path,
+    status: book.status,
+    title: book.title ?? path.basename(book.folder_path),
+    sortTitle: book.sort_title,
+    series: book.series_name ?? null,
+    seriesPosition: book.series_position ?? null,
+    language: book.language,
+    authors: splitGroupConcat(book.author_names),
+    narrators: splitGroupConcat(book.narrator_names),
+    category: categoryPayload(book.category_id),
+    tags: bookTags(book.id),
+    fileCount: book.file_count,
+    totalSize: book.total_size ?? 0,
+    durationSeconds: book.duration_seconds,
+    coverUrl: book.cover_storage_key ? `/api/library/covers/${book.cover_storage_key}` : null,
+    coverLargeUrl: largeCoverUrl(book.cover_storage_key),
+    publisher: book.publisher,
+    asin: book.asin,
+    progress: {
+      percentComplete: book.progress_percent,
+      completedAt: book.progress_completed_at
+    },
+    discoveredAt: book.discovered_at,
+    updatedAt: book.updated_at
+  };
+}

@@ -20,6 +20,36 @@ export const EMPTY_FILTERS: BookFilters = {
   authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: []
 };
 
+// Filter dropdown options, supplied by the server (the panel can no longer derive
+// them from the loaded books once the catalog is paged).
+export interface FacetOptions {
+  authors: string[];
+  narrators: string[];
+  categories: string[];
+  tags: string[];
+  series: string[];
+  languages: string[];
+}
+
+export const EMPTY_FACETS: FacetOptions = {
+  authors: [], narrators: [], categories: [], tags: [], series: [], languages: []
+};
+
+// Derive facet options from an in-memory book set — used by pages that still load
+// everything client-side (e.g. Ebooks). The audiobook catalog fetches facets from
+// the server instead.
+export function facetsFromBooks(books: FilterableBook[]): FacetOptions {
+  const uniq = (values: string[]) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  return {
+    authors: uniq(books.flatMap((b) => b.authors)),
+    narrators: uniq(books.flatMap((b) => b.narrators)),
+    categories: uniq(books.map((b) => b.category?.name ?? "")),
+    tags: uniq(books.flatMap((b) => b.tags)),
+    series: uniq(books.map((b) => b.series ?? "")),
+    languages: uniq(books.map((b) => b.language ?? ""))
+  };
+}
+
 export type SortKey = "title" | "title_desc" | "recent" | "duration" | "author" | "series";
 
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
@@ -76,22 +106,6 @@ function durationBucket(seconds: number | null): string | null {
   if (hours < 6) return "medium";
   if (hours < 12) return "long";
   return "epic";
-}
-
-function uniqueSorted(values: string[]): string[] {
-  return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
-}
-
-function deriveOptions(books: FilterableBook[], key: keyof BookFilters): string[] {
-  switch (key) {
-    case "authors": return uniqueSorted(books.flatMap((b) => b.authors));
-    case "narrators": return uniqueSorted(books.flatMap((b) => b.narrators));
-    case "categories": return uniqueSorted(books.map((b) => b.category?.name ?? "").filter(Boolean));
-    case "tags": return uniqueSorted(books.flatMap((b) => b.tags));
-    case "series": return uniqueSorted(books.map((b) => b.series ?? "").filter(Boolean));
-    case "languages": return uniqueSorted(books.map((b) => b.language ?? "").filter(Boolean));
-    default: return [];
-  }
 }
 
 export function activeFilterCount(filters: BookFilters): number {
@@ -200,9 +214,9 @@ function FacetSection({
 }
 
 export function FilterButton({
-  books, value, onChange
+  facets, value, onChange
 }: {
-  books: FilterableBook[];
+  facets: FacetOptions;
   value: BookFilters;
   onChange: (filters: BookFilters) => void;
 }) {
@@ -230,7 +244,7 @@ export function FilterButton({
             </div>
             <div className="filter-modal-body">
               {FACET_ORDER.map((facet) => {
-                const options = facet.fixed ?? deriveOptions(books, facet.key).map((v) => ({ value: v, label: v }));
+                const options = facet.fixed ?? (facets[facet.key as keyof FacetOptions] ?? []).map((v) => ({ value: v, label: v }));
                 return (
                   <FacetSection
                     key={facet.key}

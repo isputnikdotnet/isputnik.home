@@ -1,2 +1,7 @@
-It's SQLite (better-sqlite3), and the list endpoint to mirror is GET /api/library/audiobook-libraries/:id/books (books-routes.ts) — a per-library query joining book_metadata, authors/narrators, series, and per-user playback_progress. A search endpoint would essentially be that same query with a WHERE title/author/narrator LIKE ? (or FTS) and spanning libraries instead of one.
+DONE (v0.6.0): server-side search/filter/sort/paging for audiobooks lives in
+`POST /api/library/audiobooks/catalog` + `GET /api/library/audiobooks/facets`
+(catalog.ts / books-routes.ts), consumed by the `useAudiobookCatalog` hook.
+Search is LIKE-based for now; SQLite FTS5 is the upgrade path if ranked/typo-
+tolerant full-text is wanted. Still client-side: Authors/Narrators/Series browse
+pages and the Ebooks library type.
 

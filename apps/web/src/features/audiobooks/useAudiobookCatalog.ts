@@ -1,0 +1,123 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "../../api";
+import { EMPTY_FILTERS, EMPTY_FACETS, type BookFilters, type FacetOptions, type SortKey } from "./BookFilter";
+import type { AudiobookBook } from "./types";
+
+const PAGE_SIZE = 48;
+
+export type CatalogScope =
+  | { kind: "all" }
+  | { kind: "library"; libraryId: string }
+  | { kind: "section"; sectionId: string };
+
+interface CatalogResponse {
+  books: AudiobookBook[];
+  total: number;
+}
+
+// Drives the server-side paged catalog: owns search/filters, fetches a page on
+// any query change, appends pages for infinite scroll, and loads the scope's
+// filter facets. Used by the main Audiobooks page and the special-section page.
+export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey) {
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [filters, setFilters] = useState<BookFilters>(EMPTY_FILTERS);
+  const [books, setBooks] = useState<AudiobookBook[]>([]);
+  const [total, setTotal] = useState(0);
+  const [facets, setFacets] = useState<FacetOptions>(EMPTY_FACETS);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState("");
+  const [tick, setTick] = useState(0);
+
+  const reqId = useRef(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const scopeKey = JSON.stringify(scope);
+
+  // Debounce the search box so typing doesn't fire a request per keystroke.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  // Filter options for the scope (the panel can't derive them from one page).
+  useEffect(() => {
+    const params = new URLSearchParams({ scope: scope.kind });
+    if (scope.kind === "library") params.set("libraryId", scope.libraryId);
+    if (scope.kind === "section") params.set("sectionId", scope.sectionId);
+    api<FacetOptions>(`/api/library/audiobooks/facets?${params.toString()}`)
+      .then(setFacets)
+      .catch(() => setFacets(EMPTY_FACETS));
+  }, [scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const requestBody = useCallback((offset: number) => ({
+    scope: scope.kind,
+    libraryId: scope.kind === "library" ? scope.libraryId : undefined,
+    sectionId: scope.kind === "section" ? scope.sectionId : undefined,
+    q: debounced,
+    sort,
+    limit: PAGE_SIZE,
+    offset,
+    filters
+  }), [scopeKey, debounced, sort, filters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const queryKey = JSON.stringify({ scopeKey, debounced, sort, filters, tick });
+
+  // Reset to page 1 whenever the query changes. A request id guards against
+  // out-of-order responses (a slow page-1 landing after a newer query).
+  useEffect(() => {
+    const id = ++reqId.current;
+    setLoading(true);
+    setError("");
+    api<CatalogResponse>("/api/library/audiobooks/catalog", { method: "POST", body: JSON.stringify(requestBody(0)) })
+      .then((res) => {
+        if (reqId.current !== id) return;
+        setBooks(res.books);
+        setTotal(res.total);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (reqId.current !== id) return;
+        setError(err instanceof Error ? err.message : "Unable to load audiobooks");
+        setLoading(false);
+      });
+  }, [queryKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hasMore = books.length < total;
+
+  const loadMore = useCallback(() => {
+    if (loading || loadingMore || !hasMore) return;
+    const id = reqId.current; // tie to the current query
+    setLoadingMore(true);
+    api<CatalogResponse>("/api/library/audiobooks/catalog", { method: "POST", body: JSON.stringify(requestBody(books.length)) })
+      .then((res) => {
+        if (reqId.current !== id) return;
+        setBooks((prev) => [...prev, ...res.books]);
+        setTotal(res.total);
+        setLoadingMore(false);
+      })
+      .catch(() => setLoadingMore(false));
+  }, [loading, loadingMore, hasMore, books.length, requestBody]);
+
+  // Infinite scroll: load the next page when the sentinel nears the viewport.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) loadMore();
+    }, { rootMargin: "600px" });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  const refresh = useCallback(() => setTick((t) => t + 1), []);
+
+  return {
+    search, setSearch,
+    filters, setFilters,
+    books, total, facets,
+    loading, loadingMore, hasMore, loadMore,
+    sentinelRef, error, refresh
+  };
+}

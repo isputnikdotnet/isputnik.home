@@ -6,7 +6,7 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes } from "../../shared/utils";
 import {
-  EMPTY_FILTERS, FilterButton, FilterChips, SortSelect, filterBooks, sortBooks,
+  EMPTY_FILTERS, FilterButton, FilterChips, SortSelect, filterBooks, sortBooks, facetsFromBooks,
   type BookFilters, type SortKey, type FilterableBook
 } from "./BookFilter";
 
@@ -115,7 +115,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                   {libraries.map((lib) => <option key={lib.id} value={lib.id}>{lib.name}</option>)}
                 </select>
               )}
-              <FilterButton books={allBooks} value={filters} onChange={setFilters} />
+              <FilterButton facets={facetsFromBooks(allBooks)} value={filters} onChange={setFilters} />
               <SortSelect value={sort} onChange={setSort} />
               <span>{visibleBooks.length} {visibleBooks.length === 1 ? "book" : "books"}</span>
             </div>

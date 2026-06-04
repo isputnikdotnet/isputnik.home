@@ -1,17 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, BookOpen, ChevronDown, Headphones, LayoutGrid, Library, List, Mic2, MoreVertical, Search, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
-import {
-  EMPTY_FILTERS,
-  FilterButton,
-  FilterChips,
-  SortSelect,
-  filterBooks,
-  sortBooks,
-  type BookFilters,
-  type SortKey
-} from "./BookFilter";
+import { FilterButton, FilterChips, SortSelect, type SortKey } from "./BookFilter";
+import { useAudiobookCatalog, type CatalogScope } from "./useAudiobookCatalog";
 import { DashboardShell } from "../../app/DashboardShell";
 import { CategoryIcon } from "./categoryIcons";
 import { navigate } from "../../router";
@@ -24,10 +16,6 @@ type AudiobookViewMode = "grid" | "list";
 
 export function formatCount(value: number) {
   return new Intl.NumberFormat().format(value);
-}
-
-function uniqueNameCount(books: AudiobookBook[], key: "authors" | "narrators") {
-  return new Set(books.flatMap((book) => book[key])).size;
 }
 
 export function AudiobookTabs({ active }: { active: "books" | "authors" | "narrators" | "series" | "collections" | "categories" }) {
@@ -133,6 +121,39 @@ function CatalogBookCard({ book, viewMode }: { book: AudiobookBook; viewMode: Au
   );
 }
 
+// Bottom-of-grid loader: an IntersectionObserver sentinel for infinite scroll
+// plus an explicit "Load more" button as a fallback.
+function CatalogTail({
+  hasMore, loadingMore, loadMore, sentinelRef
+}: {
+  hasMore: boolean;
+  loadingMore: boolean;
+  loadMore: () => void;
+  sentinelRef: RefObject<HTMLDivElement | null>;
+}) {
+  if (!hasMore) return null;
+  return (
+    <div className="audiobook-load-more" ref={sentinelRef}>
+      <button className="secondary-button" type="button" onClick={loadMore} disabled={loadingMore}>
+        {loadingMore ? "Loading…" : "Load more"}
+      </button>
+    </div>
+  );
+}
+
+function ViewToggle({ viewMode, onChange }: { viewMode: AudiobookViewMode; onChange: (mode: AudiobookViewMode) => void }) {
+  return (
+    <div className="audiobook-view-toggle" role="group" aria-label="View mode">
+      <button type="button" className={viewMode === "grid" ? "active" : ""} onClick={() => onChange("grid")} aria-label="Grid view">
+        <LayoutGrid size={18} aria-hidden="true" />
+      </button>
+      <button type="button" className={viewMode === "list" ? "active" : ""} onClick={() => onChange("list")} aria-label="List view">
+        <List size={18} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 export function AudiobooksPage({
   user,
   logout
@@ -142,46 +163,39 @@ export function AudiobooksPage({
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [sections, setSections] = useState<LibrarySection[]>([]);
-  const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
   const [selectedLibraryId, setSelectedLibraryId] = useState("all");
-  const [filters, setFilters] = useState<BookFilters>(EMPTY_FILTERS);
-  const sort: SortKey = "recent";
-  const [bookSearch, setBookSearch] = useState("");
-  const [error, setError] = useState("");
+  const [librariesError, setLibrariesError] = useState("");
   const [viewMode, setViewMode] = useState<AudiobookViewMode>("grid");
   const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
   const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
   const libraryTriggerRef = useRef<HTMLButtonElement>(null);
   const libraryMenuRef = useRef<HTMLDivElement>(null);
 
-  const loadLibraryBooks = useCallback(async (libraryId: string) => {
-    const payload = await api<{ books: AudiobookBook[] }>(`/api/library/audiobook-libraries/${libraryId}/books`);
-    setBooksByLibrary((current) => ({ ...current, [libraryId]: payload.books }));
-  }, []);
-
-  const loadMissingLibraryBooks = useCallback(async (libraryIds: string[]) => {
-    await Promise.all(libraryIds.map((libraryId) => loadLibraryBooks(libraryId)));
-  }, [loadLibraryBooks]);
+  const normalLibraries = libraries.filter((library) => !library.specialSection);
+  const scope: CatalogScope = selectedLibraryId === "all" ? { kind: "all" } : { kind: "library", libraryId: selectedLibraryId };
+  const cat = useAudiobookCatalog(scope, "recent");
 
   useEffect(() => {
     api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
-      .then(async (payload) => {
-        setLibraries(payload.libraries);
-        setSelectedLibraryId("all");
-        // Only the main grid's (non-section) libraries need their books loaded here;
-        // section books are shown inside the section view.
-        await loadMissingLibraryBooks(
-          payload.libraries.filter((library) => !library.specialSection).map((library) => library.id)
-        );
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load audiobooks"));
-  }, [loadMissingLibraryBooks]);
-
-  useEffect(() => {
+      .then((payload) => setLibraries(payload.libraries))
+      .catch((err) => setLibrariesError(err instanceof Error ? err.message : "Unable to load libraries"));
     api<{ sections: LibrarySection[] }>("/api/library/sections")
       .then((payload) => setSections(payload.sections))
       .catch(() => setSections([]));
   }, []);
+
+  // While a library is scanning, refresh both the library status and the catalog
+  // so new books appear without a manual reload.
+  useEffect(() => {
+    if (!libraries.some((library) => library.scanStatus === "scanning")) return;
+    const timer = window.setInterval(() => {
+      api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
+        .then((payload) => setLibraries(payload.libraries))
+        .catch(() => {});
+      cat.refresh();
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [libraries, cat.refresh]);
 
   const toggleLibraryMenu = () => {
     setLibraryMenuOpen((open) => {
@@ -212,184 +226,131 @@ export function AudiobooksPage({
     };
   }, [libraryMenuOpen]);
 
-  useEffect(() => {
-    if (!libraries.some((library) => library.scanStatus === "scanning")) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
-        .then(async (payload) => {
-          setLibraries(payload.libraries);
-          await loadMissingLibraryBooks(
-            payload.libraries.filter((library) => !library.specialSection).map((library) => library.id)
-          );
-        })
-        .catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh audiobooks"));
-    }, 3000);
-
-    return () => window.clearInterval(timer);
-  }, [libraries, loadMissingLibraryBooks]);
-
-  // Special-section libraries are walled off from the main grid; they appear only
-  // behind their section's master icon.
-  const normalLibraries = libraries.filter((library) => !library.specialSection);
-  const allBooks = normalLibraries.flatMap((library) =>
-    (booksByLibrary[library.id] ?? []).map((book) => ({ ...book, libraryName: library.name }))
-  );
-  const searchTerm = bookSearch.trim().toLowerCase();
-  const searched = allBooks.filter((book) => {
-    if (selectedLibraryId !== "all" && book.libraryId !== selectedLibraryId) return false;
-    if (searchTerm) {
-      const haystack = [book.title, book.libraryName, ...book.authors, ...book.narrators];
-      if (!haystack.some((v) => v?.toLowerCase().includes(searchTerm))) return false;
-    }
-    return true;
-  });
-  const visibleBooks = sortBooks(filterBooks(searched, filters), sort);
-  const authorCount = uniqueNameCount(allBooks, "authors");
-  const narratorCount = uniqueNameCount(allBooks, "narrators");
   const selectedLibraryLabel = selectedLibraryId === "all"
     ? "All Libraries"
     : normalLibraries.find((library) => library.id === selectedLibraryId)?.name ?? "All Libraries";
+  const error = librariesError || cat.error;
 
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="audiobook-main-page">
-          <AudiobookPageHeader
-            title="Audiobooks"
-            subtitle={`${formatCount(allBooks.length)} audiobooks • ${formatCount(authorCount)} authors • ${formatCount(narratorCount)} narrators`}
-            search={bookSearch}
-            onSearchChange={setBookSearch}
-            searchPlaceholder="Search audiobooks..."
-          />
+        <AudiobookPageHeader
+          title="Audiobooks"
+          subtitle={`${formatCount(cat.total)} audiobooks • ${formatCount(cat.facets.authors.length)} authors • ${formatCount(cat.facets.narrators.length)} narrators`}
+          search={cat.search}
+          onSearchChange={cat.setSearch}
+          searchPlaceholder="Search audiobooks..."
+        />
 
-          {error && <MessageBox tone="error" title="Audiobooks error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title="Audiobooks error">{error}</MessageBox>}
 
-          {normalLibraries.length === 0 && (
-            <div className="empty-state library-empty">
-              <BookOpen size={58} aria-hidden="true" />
-              {libraries.some((library) => library.specialSection) ? (
-                <>
-                  <h2>No general audiobooks here</h2>
-                  <p className="muted">Open a special library shortcut above to browse its books.</p>
-                </>
-              ) : (
-                <>
-                  <h2>No audiobook libraries yet</h2>
-                  <p className="muted">An administrator can add libraries from the control panel.</p>
-                </>
-              )}
-            </div>
-          )}
-
-          {normalLibraries.length > 0 && (
-            <>
-              <div className="audiobook-page-nav-row">
-                <div className="audiobook-page-tabs-with-library">
-                  <div className="audiobook-library-shortcuts">
-                    <button
-                      ref={libraryTriggerRef}
-                      type="button"
-                      className="audiobook-library-tab"
-                      onClick={toggleLibraryMenu}
-                      aria-haspopup="menu"
-                      aria-expanded={libraryMenuOpen}
+        {normalLibraries.length === 0 ? (
+          <div className="empty-state library-empty">
+            <BookOpen size={58} aria-hidden="true" />
+            {libraries.some((library) => library.specialSection) ? (
+              <>
+                <h2>No general audiobooks here</h2>
+                <p className="muted">Open a special library shortcut to browse its books.</p>
+              </>
+            ) : (
+              <>
+                <h2>No audiobook libraries yet</h2>
+                <p className="muted">An administrator can add libraries from the control panel.</p>
+              </>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="audiobook-page-nav-row">
+              <div className="audiobook-page-tabs-with-library">
+                <div className="audiobook-library-shortcuts">
+                  <button
+                    ref={libraryTriggerRef}
+                    type="button"
+                    className="audiobook-library-tab"
+                    onClick={toggleLibraryMenu}
+                    aria-haspopup="menu"
+                    aria-expanded={libraryMenuOpen}
+                    aria-label="Select library"
+                  >
+                    <BookOpen size={19} aria-hidden="true" />
+                    <span>{selectedLibraryLabel}</span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </button>
+                  {libraryMenuOpen && libraryMenuPos && createPortal(
+                    <div
+                      ref={libraryMenuRef}
+                      className="book-detail-action-menu audiobook-library-menu"
+                      role="menu"
                       aria-label="Select library"
+                      style={{ position: "fixed", top: libraryMenuPos.top, left: libraryMenuPos.left, right: "auto" }}
                     >
-                      <BookOpen size={19} aria-hidden="true" />
-                      <span>{selectedLibraryLabel}</span>
-                      <ChevronDown size={16} aria-hidden="true" />
-                    </button>
-                    {libraryMenuOpen && libraryMenuPos && createPortal(
-                      <div
-                        ref={libraryMenuRef}
-                        className="book-detail-action-menu audiobook-library-menu"
-                        role="menu"
-                        aria-label="Select library"
-                        style={{ position: "fixed", top: libraryMenuPos.top, left: libraryMenuPos.left, right: "auto" }}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={selectedLibraryId === "all" ? "active" : ""}
+                        onClick={() => { setSelectedLibraryId("all"); setLibraryMenuOpen(false); }}
                       >
+                        <span>All Libraries</span>
+                      </button>
+                      {normalLibraries.map((library) => (
                         <button
+                          key={library.id}
                           type="button"
                           role="menuitem"
-                          className={selectedLibraryId === "all" ? "active" : ""}
-                          onClick={() => { setSelectedLibraryId("all"); setLibraryMenuOpen(false); }}
+                          className={selectedLibraryId === library.id ? "active" : ""}
+                          onClick={() => { setSelectedLibraryId(library.id); setLibraryMenuOpen(false); }}
                         >
-                          <span>All Libraries</span>
-                        </button>
-                        {normalLibraries.map((library) => (
-                          <button
-                            key={library.id}
-                            type="button"
-                            role="menuitem"
-                            className={selectedLibraryId === library.id ? "active" : ""}
-                            onClick={() => { setSelectedLibraryId(library.id); setLibraryMenuOpen(false); }}
-                          >
-                            <span>{library.name}</span>
-                          </button>
-                        ))}
-                      </div>,
-                      document.body
-                    )}
-                  </div>
-                  <AudiobookTabs active="books" />
-                  {sections.length > 0 && (
-                    <div className="audiobook-special-library-shortcuts">
-                      {sections.map((section) => (
-                        <button
-                          className="audiobook-special-library-tab"
-                          key={section.id}
-                          type="button"
-                          onClick={() => navigate(`/audiobooks/sections/${section.id}`)}
-                          title={section.name}
-                          aria-label={section.name}
-                        >
-                          <CategoryIcon icon={section.icon} size={20} />
-                          <span>{section.name}</span>
+                          <span>{library.name}</span>
                         </button>
                       ))}
-                    </div>
+                    </div>,
+                    document.body
                   )}
                 </div>
-                <div className="audiobook-catalog-controls">
-                  <FilterButton books={allBooks} value={filters} onChange={setFilters} />
-                  <div className="audiobook-view-toggle" role="group" aria-label="View mode">
-                    <button
-                      type="button"
-                      className={viewMode === "grid" ? "active" : ""}
-                      onClick={() => setViewMode("grid")}
-                      aria-label="Grid view"
-                    >
-                      <LayoutGrid size={18} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className={viewMode === "list" ? "active" : ""}
-                      onClick={() => setViewMode("list")}
-                      aria-label="List view"
-                    >
-                      <List size={18} aria-hidden="true" />
-                    </button>
+                <AudiobookTabs active="books" />
+                {sections.length > 0 && (
+                  <div className="audiobook-special-library-shortcuts">
+                    {sections.map((section) => (
+                      <button
+                        className="audiobook-special-library-tab"
+                        key={section.id}
+                        type="button"
+                        onClick={() => navigate(`/audiobooks/sections/${section.id}`)}
+                        title={section.name}
+                        aria-label={section.name}
+                      >
+                        <CategoryIcon icon={section.icon} size={20} />
+                        <span>{section.name}</span>
+                      </button>
+                    ))}
                   </div>
-                </div>
+                )}
               </div>
-
-              <FilterChips value={filters} onChange={setFilters} />
-
-              {libraries.some((library) => library.scanStatus === "scanning") && (
-                <MessageBox tone="info" title="Scanning audiobooks">
-                  New metadata and covers will appear as the scan finishes.
-                </MessageBox>
-              )}
-
-              <div className={`audiobook-catalog ${viewMode}`}>
-                {visibleBooks.map((book) => (
-                  <CatalogBookCard key={book.id} book={book} viewMode={viewMode} />
-                ))}
-                {visibleBooks.length === 0 && <p className="management-empty">No audiobooks match this filter.</p>}
+              <div className="audiobook-catalog-controls">
+                <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} />
+                <ViewToggle viewMode={viewMode} onChange={setViewMode} />
               </div>
-            </>
-          )}
+            </div>
+
+            <FilterChips value={cat.filters} onChange={cat.setFilters} />
+
+            {libraries.some((library) => library.scanStatus === "scanning") && (
+              <MessageBox tone="info" title="Scanning audiobooks">
+                New metadata and covers will appear as the scan finishes.
+              </MessageBox>
+            )}
+
+            <div className={`audiobook-catalog ${viewMode}`}>
+              {cat.books.map((book) => (
+                <CatalogBookCard key={book.id} book={book} viewMode={viewMode} />
+              ))}
+              {!cat.loading && cat.books.length === 0 && <p className="management-empty">No audiobooks match this filter.</p>}
+            </div>
+
+            <CatalogTail hasMore={cat.hasMore} loadingMore={cat.loadingMore} loadMore={cat.loadMore} sentinelRef={cat.sentinelRef} />
+          </>
+        )}
       </section>
     </DashboardShell>
   );
@@ -406,61 +367,42 @@ export function SectionPage({
 }) {
   const [section, setSection] = useState<LibrarySection | null>(null);
   const [members, setMembers] = useState<AudiobookLibrary[]>([]);
-  const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
-  const [filters, setFilters] = useState<BookFilters>(EMPTY_FILTERS);
+  const [membersLoaded, setMembersLoaded] = useState(false);
   const [sort, setSort] = useState<SortKey>("title");
-  const [bookSearch, setBookSearch] = useState("");
   const [viewMode, setViewMode] = useState<AudiobookViewMode>("grid");
-  const [error, setError] = useState("");
+  const [metaError, setMetaError] = useState("");
+  const cat = useAudiobookCatalog({ kind: "section", sectionId }, sort);
 
   useEffect(() => {
+    setMembersLoaded(false);
     Promise.all([
       api<{ sections: LibrarySection[] }>("/api/library/sections"),
       api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
     ])
-      .then(async ([sectionsPayload, librariesPayload]) => {
-        const found = sectionsPayload.sections.find((s) => s.id === sectionId) ?? null;
-        setSection(found);
-        const sectionMembers = librariesPayload.libraries.filter((library) => library.sectionId === sectionId);
-        setMembers(sectionMembers);
-        const booksLists = await Promise.all(
-          sectionMembers.map((library) =>
-            api<{ books: AudiobookBook[] }>(`/api/library/audiobook-libraries/${library.id}/books`)
-              .then((payload) => [library.id, payload.books] as const)
-          )
-        );
-        setBooksByLibrary(Object.fromEntries(booksLists));
+      .then(([sectionsPayload, librariesPayload]) => {
+        setSection(sectionsPayload.sections.find((s) => s.id === sectionId) ?? null);
+        setMembers(librariesPayload.libraries.filter((library) => library.sectionId === sectionId));
+        setMembersLoaded(true);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load section"));
+      .catch((err) => setMetaError(err instanceof Error ? err.message : "Unable to load section"));
   }, [sectionId]);
 
-  const allBooks = members.flatMap((library) =>
-    (booksByLibrary[library.id] ?? []).map((book) => ({ ...book, libraryName: library.name }))
-  );
-  const searchTerm = bookSearch.trim().toLowerCase();
-  const searched = allBooks.filter((book) => {
-    if (searchTerm) {
-      const haystack = [book.title, book.libraryName, ...book.authors, ...book.narrators];
-      if (!haystack.some((v) => v?.toLowerCase().includes(searchTerm))) return false;
-    }
-    return true;
-  });
-  const visibleBooks = sortBooks(filterBooks(searched, filters), sort);
+  const error = metaError || cat.error;
 
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="audiobook-main-page">
         <AudiobookPageHeader
           title={section?.name ?? "Section"}
-          subtitle={`${formatCount(allBooks.length)} ${allBooks.length === 1 ? "book" : "books"}`}
-          search={bookSearch}
-          onSearchChange={setBookSearch}
+          subtitle={`${formatCount(cat.total)} ${cat.total === 1 ? "book" : "books"}`}
+          search={cat.search}
+          onSearchChange={cat.setSearch}
           searchPlaceholder="Search title, author, or narrator"
         />
 
         {error && <MessageBox tone="error" title="Section error">{error}</MessageBox>}
 
-        {members.length === 0 ? (
+        {membersLoaded && members.length === 0 ? (
           <div className="empty-state library-empty">
             <BookOpen size={58} aria-hidden="true" />
             <h2>No libraries in this section yet</h2>
@@ -476,30 +418,13 @@ export function SectionPage({
                 </button>
               </div>
               <div className="audiobook-catalog-controls">
-                <FilterButton books={allBooks} value={filters} onChange={setFilters} />
+                <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} />
                 <SortSelect value={sort} onChange={setSort} />
-                <div className="audiobook-view-toggle" role="group" aria-label="View mode">
-                  <button
-                    type="button"
-                    className={viewMode === "grid" ? "active" : ""}
-                    onClick={() => setViewMode("grid")}
-                    aria-label="Grid view"
-                  >
-                    <LayoutGrid size={18} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className={viewMode === "list" ? "active" : ""}
-                    onClick={() => setViewMode("list")}
-                    aria-label="List view"
-                  >
-                    <List size={18} aria-hidden="true" />
-                  </button>
-                </div>
+                <ViewToggle viewMode={viewMode} onChange={setViewMode} />
               </div>
             </div>
 
-            <FilterChips value={filters} onChange={setFilters} />
+            <FilterChips value={cat.filters} onChange={cat.setFilters} />
 
             {members.some((library) => library.scanStatus === "scanning") && (
               <MessageBox tone="info" title="Scanning">
@@ -508,11 +433,13 @@ export function SectionPage({
             )}
 
             <div className={`audiobook-catalog ${viewMode}`}>
-              {visibleBooks.map((book) => (
+              {cat.books.map((book) => (
                 <CatalogBookCard key={book.id} book={book} viewMode={viewMode} />
               ))}
-              {visibleBooks.length === 0 && <p className="management-empty">No books match this filter.</p>}
+              {!cat.loading && cat.books.length === 0 && <p className="management-empty">No books match this filter.</p>}
             </div>
+
+            <CatalogTail hasMore={cat.hasMore} loadingMore={cat.loadingMore} loadMore={cat.loadMore} sentinelRef={cat.sentinelRef} />
           </>
         )}
       </section>
