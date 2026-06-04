@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Heart, LayoutGrid, Library, Mic2, Pen, Share2 } from "lucide-react";
+import { BookOpen, Heart, Library, Mic2, Pen, Share2 } from "lucide-react";
 import { api } from "../../api";
 import { followRoute } from "../../router";
 import { CategoryIcon } from "./categoryIcons";
@@ -70,15 +70,6 @@ export function AudiobookNav({
         <Library size={22} />
         Series
       </a>
-      <a
-        className={active === "categories" ? "active" : ""}
-        href="/audiobooks/categories"
-        onClick={(e) => followRoute(e, "/audiobooks/categories")}
-      >
-        <LayoutGrid size={22} />
-        Categories
-      </a>
-
       {sections.length > 0 && <div className="side-nav-divider" aria-hidden="true" />}
       {sections.map((section) => (
         <a

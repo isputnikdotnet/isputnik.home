@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Plus, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Plus, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
-import { AudiobookNav } from "./AudiobookNav";
 import type { AudiobookLibrary, SeriesSummary } from "./types";
 
 export function SeriesListPage({
@@ -69,12 +68,17 @@ export function SeriesListPage({
   };
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="series" />}>
-      <section className="work-area scene-page audiobook-scene">
+    <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <section className="audiobook-main-page">
+        <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
+          <ArrowLeft size={18} aria-hidden="true" />
+          <span>Back to audiobooks</span>
+        </button>
+
         <div className="section-head">
-          <div>
-            <p className="eyebrow">Digital Library</p>
+          <div className="audiobook-page-title">
             <h1>Series</h1>
+            <p>{allSeries.length} series</p>
           </div>
           <button className="primary-button" onClick={openModal}>
             <Plus size={16} />
@@ -85,7 +89,7 @@ export function SeriesListPage({
         {error && <MessageBox tone="error" title="Series error">{error}</MessageBox>}
 
         {allSeries.length === 0 && !error ? (
-          <div className="empty-state">
+          <div className="empty-state library-empty">
             <BookOpen size={48} aria-hidden="true" />
             <h2>No series yet</h2>
             <p className="muted">Create a series and add books to it.</p>

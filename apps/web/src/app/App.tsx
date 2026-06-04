@@ -18,6 +18,7 @@ import { PersonListPage } from "../features/audiobooks/PersonListPage";
 import { PersonDetailPage } from "../features/audiobooks/PersonDetailPage";
 import { SeriesListPage } from "../features/audiobooks/SeriesListPage";
 import { SeriesDetailPage } from "../features/audiobooks/SeriesDetailPage";
+import { CollectionsPage } from "../features/audiobooks/CollectionsPage";
 import { CategoryListPage } from "../features/audiobooks/CategoryListPage";
 import { CategoryDetailPage } from "../features/audiobooks/CategoryDetailPage";
 import { TagDetailPage } from "../features/audiobooks/TagDetailPage";
@@ -197,6 +198,10 @@ export function App() {
 
   if (route.name === "audiobookSeriesDetail") {
     return <SeriesDetailPage seriesId={route.seriesId} user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookCollections") {
+    return <CollectionsPage user={session.user} logout={logout} />;
   }
 
   if (route.name === "audiobookCategories") {

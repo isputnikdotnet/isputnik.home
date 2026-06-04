@@ -237,12 +237,34 @@
   }
 
   .book-detail-head {
-    grid-template-columns: 120px minmax(0, 1fr);
-    gap: 16px;
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+  .book-detail-topbar {
+    align-items: flex-start;
+  }
+
+  .book-detail-cover-col {
+    width: min(100%, 320px);
+  }
+
+  .book-detail-meta-grid,
+  .book-detail-meta-grid.full {
+    grid-template-columns: 1fr;
+  }
+
+  .book-detail-meta-item {
+    grid-template-columns: 22px minmax(78px, auto) minmax(0, 1fr);
   }
 
   .book-detail-title {
-    font-size: 1.3rem;
+    font-size: 1.8rem;
+  }
+
+  .book-detail-tabs {
+    gap: 22px;
+    overflow-x: auto;
   }
 
   .metadata-search-row,

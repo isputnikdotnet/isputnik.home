@@ -1,7 +1,73 @@
-import React from "react";
-import { BookMarked, Headphones, Info, LogOut, Settings, UserRound } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  BookOpen,
+  Bookmark,
+  FileText,
+  FolderOpen,
+  Headphones,
+  Home,
+  Image,
+  LogOut,
+  Rocket,
+  Settings
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { PublicUser } from "../api";
-import { navigate, followRoute } from "../router";
+import { followRoute } from "../router";
+
+type DashboardActive = "home" | "audiobooks" | "ebooks" | "about" | "profile" | "control";
+
+interface MainNavLink {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  active?: boolean;
+  disabled?: false;
+}
+
+interface DisabledMainNavLink {
+  label: string;
+  icon: LucideIcon;
+  disabled: true;
+}
+
+type MainNavItem = MainNavLink | DisabledMainNavLink;
+
+function DashboardNavLink({ item }: { item: MainNavItem }) {
+  const Icon = item.icon;
+
+  if (item.disabled) {
+    return (
+      <button className="home-nav-link is-disabled" type="button" disabled title={`${item.label} is coming soon`}>
+        <Icon size={21} aria-hidden="true" />
+        <span>{item.label}</span>
+      </button>
+    );
+  }
+
+  return (
+    <a
+      className={`home-nav-link${item.active ? " is-active" : ""}`}
+      href={item.href}
+      onClick={(event) => followRoute(event, item.href)}
+    >
+      <Icon size={21} aria-hidden="true" />
+      <span>{item.label}</span>
+    </a>
+  );
+}
+
+function mainNavItems(active: DashboardActive): MainNavItem[] {
+  return [
+    { label: "Home", href: "/", icon: Home, active: active === "home" },
+    { label: "Audiobooks", href: "/audiobooks", icon: Headphones, active: active === "audiobooks" },
+    { label: "Ebooks", href: "/ebooks", icon: BookOpen, active: active === "ebooks" },
+    { label: "Gallery", icon: Image, disabled: true },
+    { label: "Documents", icon: FolderOpen, disabled: true },
+    { label: "Notes", icon: FileText, disabled: true },
+    { label: "Bookmarks", href: "/audiobooks/saved", icon: Bookmark }
+  ];
+}
 
 export function DashboardShell({
   active,
@@ -10,84 +76,66 @@ export function DashboardShell({
   sideNav,
   children
 }: {
-  active: "home" | "audiobooks" | "ebooks" | "about" | "profile" | "control";
+  active: DashboardActive;
   user: PublicUser;
   logout: () => Promise<void>;
-  sideNav?: React.ReactNode;
-  children: React.ReactNode;
+  sideNav?: ReactNode;
+  children: ReactNode;
 }) {
-  const isAdmin = user.role === "admin";
   const isControlPanel = active === "control";
-  const hasSidebar = !isControlPanel && !!sideNav;
+  const settingsHref = user.role === "admin" && !isControlPanel ? "/control/status" : "/profile";
 
   return (
-    <main className={`dashboard ${isControlPanel ? "control-dashboard" : ""}`}>
-      <header className="app-header">
-        <a className="header-brand app-brand" href="/" onClick={(event) => followRoute(event, "/")} title="Home">
-          <img src="/Assets/brand/isputnik-logo-sputnik-earth-mark.svg" alt="" />
-          <strong>isputnik.home</strong>
+    <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}`}>
+      <aside className="home-sidebar" aria-label={isControlPanel ? "Control panel navigation" : "App navigation"}>
+        <a className="home-brand" href="/" onClick={(event) => followRoute(event, "/")}>
+          <span className="home-brand-icon" aria-hidden="true">
+            <Rocket size={23} fill="currentColor" />
+          </span>
+          <strong>iSputnik home</strong>
         </a>
-        <nav className="top-nav">
-          <a
-            className={`top-nav-item ${active === "audiobooks" ? "active" : ""}`}
-            href="/audiobooks"
-            onClick={(event) => followRoute(event, "/audiobooks")}
-          >
-            <Headphones size={18} />
-            <span>Audiobooks</span>
-          </a>
-          <a
-            className={`top-nav-item ${active === "ebooks" ? "active" : ""}`}
-            href="/ebooks"
-            onClick={(event) => followRoute(event, "/ebooks")}
-          >
-            <BookMarked size={18} />
-            <span>Ebooks</span>
-          </a>
-          <a
-            className={`top-nav-item ${active === "about" ? "active" : ""}`}
-            href="/about"
-            onClick={(event) => followRoute(event, "/about")}
-          >
-            <Info size={18} />
-            <span>About</span>
-          </a>
-        </nav>
-        <div className="header-actions">
-          {isAdmin && (
-            <a
-              className={`header-button ${active === "control" ? "active" : ""}`}
-              href="/control/status"
-              onClick={(event) => followRoute(event, "/control/status")}
-              title="App control panel"
-              aria-label="App control panel"
-            >
-              <Settings size={20} />
+
+        {isControlPanel && sideNav ? (
+          <div className="home-control-nav-wrap">{sideNav}</div>
+        ) : (
+          <>
+            <nav className="home-primary-nav" aria-label="Primary">
+              {mainNavItems(active).map((item) => (
+                <DashboardNavLink item={item} key={item.label} />
+              ))}
+            </nav>
+            {sideNav && (
+              <div className="home-secondary-nav" aria-label="Section navigation">
+                {sideNav}
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="home-sidebar-bottom">
+          {!isControlPanel && (
+            <a className="home-nav-link" href={settingsHref} onClick={(event) => followRoute(event, settingsHref)}>
+              <Settings size={21} aria-hidden="true" />
+              <span>Settings</span>
             </a>
           )}
-          <button className="header-button" onClick={logout} title="Sign out" aria-label="Sign out">
-            <LogOut size={20} />
-          </button>
-          <button
-            className={`user-button ${active === "profile" ? "active" : ""}`}
-            onClick={() => navigate("/profile")}
-            title="Your profile"
-          >
-            <span>{user.displayName}</span>
-            <span className="avatar" aria-hidden="true"><UserRound size={19} /></span>
+          <button className="home-nav-link" type="button" onClick={logout}>
+            <LogOut size={21} aria-hidden="true" />
+            <span>Logout</span>
           </button>
         </div>
-      </header>
-      <div className={`dashboard-body${isControlPanel ? " control-body" : ""}${hasSidebar ? " has-sidebar" : ""}`}>
-        {hasSidebar && (
-          <aside className="sidebar">
-            {sideNav}
-          </aside>
-        )}
+
+        <footer className="home-footer">
+          <strong>iSputnik home v1.0.0</strong>
+          <span>&copy; 2026 iSputnik</span>
+        </footer>
+      </aside>
+
+      <section className="home-main app-dashboard-main">
         <div className="dashboard-main">
           {children}
         </div>
-      </div>
+      </section>
     </main>
   );
 }

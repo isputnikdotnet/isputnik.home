@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { BookOpen } from "lucide-react";
+import { ArrowLeft, BookOpen } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
-import { AudiobookNav } from "./AudiobookNav";
 import { CategoryIcon } from "./categoryIcons";
 import type { CategoryDetail } from "./types";
 
@@ -29,9 +28,12 @@ export function CategoryDetailPage({
   }, [categoryKey]);
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="categories" />}>
-      <section className="work-area scene-page audiobook-scene audiobook-area">
-        <button className="back-link" onClick={() => navigate("/audiobooks/categories")}>← Categories</button>
+    <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <section className="audiobook-main-page">
+        <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
+          <ArrowLeft size={17} aria-hidden="true" />
+          <span>Back to audiobooks</span>
+        </button>
 
         {error && <MessageBox tone="error" title="Category error">{error}</MessageBox>}
 

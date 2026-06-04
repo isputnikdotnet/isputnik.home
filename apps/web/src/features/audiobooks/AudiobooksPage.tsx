@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Download, FileText, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, LayoutGrid, Library, List, Mic2, MoreHorizontal, MoreVertical, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, UserRound, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
 import { EpubReader } from "./EpubReader";
@@ -15,51 +16,138 @@ import {
   type SortKey
 } from "./BookFilter";
 import { DashboardShell } from "../../app/DashboardShell";
-import { AudiobookNav } from "./AudiobookNav";
+import { CategoryIcon } from "./categoryIcons";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes, formatDuration } from "../../shared/utils";
-import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, CategorySummary, CoverCandidate, LibrarySection, MetadataCandidate, PlaybackProgress } from "./types";
+import type { AudiobookBook, AudiobookBookDetail, AudiobookFile, AudiobookLibrary, BookSave, CategorySummary, CoverCandidate, LibrarySection, MetadataCandidate, PlaybackProgress } from "./types";
 
 // Document formats we can render in the in-app reader overlay. Others (mobi,
 // azw3) get download-only — no in-browser renderer.
 const VIEWABLE_DOC_FORMATS = new Set(["pdf", "epub"]);
 
-function BookCard({ book }: { book: AudiobookBook }) {
-  const pct = book.progress?.percentComplete ?? null;
-  const finished = book.progress?.completedAt != null || (pct != null && pct >= 0.98);
-  const inProgress = !finished && pct != null && pct > 0;
+type AudiobookViewMode = "grid" | "list";
+
+export function formatCount(value: number) {
+  return new Intl.NumberFormat().format(value);
+}
+
+function uniqueNameCount(books: AudiobookBook[], key: "authors" | "narrators") {
+  return new Set(books.flatMap((book) => book[key])).size;
+}
+
+function initials(displayName: string) {
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  const selected = parts.length > 1 ? [parts[0], parts[parts.length - 1]] : [parts[0] ?? "U"];
+  return selected.map((part) => part[0]?.toUpperCase() ?? "").join("").slice(0, 2) || "U";
+}
+
+export function AudiobookTabs({ active }: { active: "books" | "authors" | "narrators" | "series" | "collections" | "categories" }) {
+  const tabs = [
+    { id: "authors", label: "Authors", href: "/audiobooks/authors", icon: UserRound },
+    { id: "narrators", label: "Narrators", href: "/audiobooks/narrators", icon: Mic2 },
+    { id: "series", label: "Series", href: "/audiobooks/series", icon: Library }
+  ] as const;
+
   return (
-    <button className="audiobook-card" onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
-      <div className="audiobook-cover">
-        {book.coverUrl ? (
-          <img src={book.coverUrl} alt="" aria-hidden="true" />
-        ) : (
-          <>
-            <BookOpen size={13} aria-hidden="true" />
-            <strong aria-hidden="true">{book.title.slice(0, 2).toUpperCase()}</strong>
-          </>
-        )}
-        {finished && (
-          <span className="audiobook-progress-badge" title="Finished" aria-label="Finished">
-            <CheckCircle2 size={15} />
-          </span>
-        )}
-        {inProgress && (
-          <span className="audiobook-progress-bar" aria-label={`${Math.round((pct ?? 0) * 100)}% played`}>
-            <span style={{ width: `${Math.round((pct ?? 0) * 100)}%` }} />
-          </span>
-        )}
+    <nav className="audiobook-page-tabs" aria-label="Audiobook views">
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        return (
+          <a
+            key={tab.id}
+            className={active === tab.id ? "active" : ""}
+            href={tab.href}
+            onClick={(event) => {
+              event.preventDefault();
+              navigate(tab.href);
+            }}
+          >
+            <Icon size={19} aria-hidden="true" />
+            <span>{tab.label}</span>
+          </a>
+        );
+      })}
+    </nav>
+  );
+}
+
+export function AudiobookPageHeader({
+  title,
+  subtitle,
+  user,
+  search,
+  onSearchChange,
+  searchPlaceholder
+}: {
+  title: string;
+  subtitle?: string;
+  user: PublicUser;
+  search?: string;
+  onSearchChange?: (value: string) => void;
+  searchPlaceholder?: string;
+}) {
+  return (
+    <header className="audiobook-page-header">
+      <div className="audiobook-page-title">
+        <h1>{title}</h1>
+        {subtitle && <p>{subtitle}</p>}
       </div>
-      <div className="audiobook-card-body">
-        <strong>{book.title}</strong>
-        <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
-        <small>
-          {book.durationSeconds != null ? `${formatDuration(book.durationSeconds)} · ` : ""}
-          {book.fileCount} {book.fileCount === 1 ? "file" : "files"}
-        </small>
+      <div className="audiobook-page-actions">
+        {onSearchChange && (
+          <label className="audiobook-page-search">
+            <span className="sr-only">{searchPlaceholder ?? "Search audiobooks"}</span>
+            <input
+              type="search"
+              value={search ?? ""}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={searchPlaceholder ?? "Search audiobooks..."}
+            />
+            <Search size={22} aria-hidden="true" />
+          </label>
+        )}
+        <button className="audiobook-page-profile" type="button" onClick={() => navigate("/profile")} title="Your profile" aria-label="Your profile">
+          <span aria-hidden="true">{initials(user.displayName)}</span>
+          <ChevronDown size={17} aria-hidden="true" />
+        </button>
       </div>
-    </button>
+    </header>
+  );
+}
+
+function CatalogBookCard({ book, viewMode }: { book: AudiobookBook; viewMode: AudiobookViewMode }) {
+  return (
+    <article className={`audiobook-catalog-card ${viewMode}`}>
+      <button className="audiobook-catalog-open" type="button" onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
+        <span className="audiobook-catalog-cover" aria-hidden="true">
+          {book.coverUrl ? (
+            <img src={book.coverUrl} alt="" />
+          ) : (
+            <>
+              <BookOpen size={34} />
+              <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
+            </>
+          )}
+          <span className="audiobook-catalog-badge">
+            <Headphones size={17} />
+          </span>
+        </span>
+        <span className="audiobook-catalog-copy">
+          <strong>{book.title}</strong>
+          <small>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</small>
+          {viewMode === "list" && (
+            <span>
+              {[book.narrators.length ? `Narrated by ${book.narrators.join(", ")}` : "", book.durationSeconds != null ? formatDuration(book.durationSeconds) : "", book.fileCount === 1 ? "1 file" : `${book.fileCount} files`]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          )}
+        </span>
+      </button>
+      <button className="audiobook-catalog-menu" type="button" aria-label={`More options for ${book.title}`}>
+        <MoreVertical size={18} aria-hidden="true" />
+      </button>
+    </article>
   );
 }
 
@@ -71,12 +159,18 @@ export function AudiobooksPage({
   logout: () => Promise<void>;
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
+  const [sections, setSections] = useState<LibrarySection[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
   const [selectedLibraryId, setSelectedLibraryId] = useState("all");
   const [filters, setFilters] = useState<BookFilters>(EMPTY_FILTERS);
-  const [sort, setSort] = useState<SortKey>("title");
+  const [sort, setSort] = useState<SortKey>("recent");
   const [bookSearch, setBookSearch] = useState("");
   const [error, setError] = useState("");
+  const [viewMode, setViewMode] = useState<AudiobookViewMode>("grid");
+  const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
+  const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const libraryTriggerRef = useRef<HTMLButtonElement>(null);
+  const libraryMenuRef = useRef<HTMLDivElement>(null);
 
   const loadLibraryBooks = useCallback(async (libraryId: string) => {
     const payload = await api<{ books: AudiobookBook[] }>(`/api/library/audiobook-libraries/${libraryId}/books`);
@@ -100,6 +194,41 @@ export function AudiobooksPage({
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load audiobooks"));
   }, [loadMissingLibraryBooks]);
+
+  useEffect(() => {
+    api<{ sections: LibrarySection[] }>("/api/library/sections")
+      .then((payload) => setSections(payload.sections))
+      .catch(() => setSections([]));
+  }, []);
+
+  const toggleLibraryMenu = () => {
+    setLibraryMenuOpen((open) => {
+      if (!open && libraryTriggerRef.current) {
+        const rect = libraryTriggerRef.current.getBoundingClientRect();
+        setLibraryMenuPos({ top: rect.bottom + 8, left: rect.left });
+      }
+      return !open;
+    });
+  };
+
+  useEffect(() => {
+    if (!libraryMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (libraryTriggerRef.current?.contains(target)) return;
+      if (libraryMenuRef.current?.contains(target)) return;
+      setLibraryMenuOpen(false);
+    };
+    const dismiss = () => setLibraryMenuOpen(false);
+    window.addEventListener("mousedown", close);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
+  }, [libraryMenuOpen]);
 
   useEffect(() => {
     if (!libraries.some((library) => library.scanStatus === "scanning")) {
@@ -136,16 +265,23 @@ export function AudiobooksPage({
     return true;
   });
   const visibleBooks = sortBooks(filterBooks(searched, filters), sort);
+  const authorCount = uniqueNameCount(allBooks, "authors");
+  const narratorCount = uniqueNameCount(allBooks, "narrators");
+  const selectedLibraryLabel = selectedLibraryId === "all"
+    ? "All Libraries"
+    : normalLibraries.find((library) => library.id === selectedLibraryId)?.name ?? "All Libraries";
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="books" />}>
-      <section className="work-area scene-page audiobook-scene audiobook-area">
-          <div className="section-head audiobook-head">
-            <div>
-              <p className="eyebrow">Digital Library</p>
-              <h1>Audiobooks</h1>
-            </div>
-          </div>
+    <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <section className="audiobook-main-page">
+          <AudiobookPageHeader
+            title="Audiobooks"
+            subtitle={`${formatCount(allBooks.length)} audiobooks · ${formatCount(authorCount)} authors · ${formatCount(narratorCount)} narrators`}
+            user={user}
+            search={bookSearch}
+            onSearchChange={setBookSearch}
+            searchPlaceholder="Search audiobooks..."
+          />
 
           {error && <MessageBox tone="error" title="Audiobooks error">{error}</MessageBox>}
 
@@ -155,7 +291,7 @@ export function AudiobooksPage({
               {libraries.some((library) => library.specialSection) ? (
                 <>
                   <h2>No general audiobooks here</h2>
-                  <p className="muted">Open a special section from the sidebar to browse its books.</p>
+                  <p className="muted">Open a special library shortcut above to browse its books.</p>
                 </>
               ) : (
                 <>
@@ -168,31 +304,90 @@ export function AudiobooksPage({
 
           {normalLibraries.length > 0 && (
             <>
-              <div className="audiobook-toolbar">
-                <label className="search-field">
-                  <Search size={17} aria-hidden="true" />
-                  <input
-                    type="search"
-                    value={bookSearch}
-                    onChange={(event) => setBookSearch(event.target.value)}
-                    placeholder="Search title, author, or narrator"
-                    aria-label="Search audiobooks"
-                  />
-                </label>
-                <select
-                  className="library-filter"
-                  value={selectedLibraryId}
-                  onChange={(event) => setSelectedLibraryId(event.target.value)}
-                  aria-label="Filter by library"
-                >
-                  <option value="all">All libraries</option>
-                  {normalLibraries.map((library) => (
-                    <option key={library.id} value={library.id}>{library.name}</option>
-                  ))}
-                </select>
-                <FilterButton books={allBooks} value={filters} onChange={setFilters} />
-                <SortSelect value={sort} onChange={setSort} />
-                <span>{visibleBooks.length} {visibleBooks.length === 1 ? "book" : "books"}</span>
+              <div className="audiobook-page-nav-row">
+                <div className="audiobook-page-tabs-with-library">
+                  <div className="audiobook-library-shortcuts">
+                    <button
+                      ref={libraryTriggerRef}
+                      type="button"
+                      className="audiobook-library-tab"
+                      onClick={toggleLibraryMenu}
+                      aria-haspopup="menu"
+                      aria-expanded={libraryMenuOpen}
+                      aria-label="Select library"
+                    >
+                      <BookOpen size={19} aria-hidden="true" />
+                      <span>{selectedLibraryLabel}</span>
+                      <ChevronDown size={16} aria-hidden="true" />
+                    </button>
+                    {libraryMenuOpen && libraryMenuPos && createPortal(
+                      <div
+                        ref={libraryMenuRef}
+                        className="book-detail-action-menu audiobook-library-menu"
+                        role="menu"
+                        aria-label="Select library"
+                        style={{ position: "fixed", top: libraryMenuPos.top, left: libraryMenuPos.left, right: "auto" }}
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className={selectedLibraryId === "all" ? "active" : ""}
+                          onClick={() => { setSelectedLibraryId("all"); setLibraryMenuOpen(false); }}
+                        >
+                          <span>All Libraries</span>
+                        </button>
+                        {normalLibraries.map((library) => (
+                          <button
+                            key={library.id}
+                            type="button"
+                            role="menuitem"
+                            className={selectedLibraryId === library.id ? "active" : ""}
+                            onClick={() => { setSelectedLibraryId(library.id); setLibraryMenuOpen(false); }}
+                          >
+                            <span>{library.name}</span>
+                          </button>
+                        ))}
+                      </div>,
+                      document.body
+                    )}
+                    {sections.map((section) => (
+                      <button
+                        className="audiobook-special-library-tab"
+                        key={section.id}
+                        type="button"
+                        onClick={() => navigate(`/audiobooks/sections/${section.id}`)}
+                        title={section.name}
+                        aria-label={section.name}
+                      >
+                        <CategoryIcon icon={section.icon} size={20} />
+                        <span>{section.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <AudiobookTabs active="books" />
+                </div>
+                <div className="audiobook-catalog-controls">
+                  <FilterButton books={allBooks} value={filters} onChange={setFilters} />
+                  <SortSelect value={sort} onChange={setSort} />
+                  <div className="audiobook-view-toggle" role="group" aria-label="View mode">
+                    <button
+                      type="button"
+                      className={viewMode === "grid" ? "active" : ""}
+                      onClick={() => setViewMode("grid")}
+                      aria-label="Grid view"
+                    >
+                      <LayoutGrid size={18} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className={viewMode === "list" ? "active" : ""}
+                      onClick={() => setViewMode("list")}
+                      aria-label="List view"
+                    >
+                      <List size={18} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <FilterChips value={filters} onChange={setFilters} />
@@ -203,9 +398,9 @@ export function AudiobooksPage({
                 </MessageBox>
               )}
 
-              <div className="audiobook-grid">
+              <div className={`audiobook-catalog ${viewMode}`}>
                 {visibleBooks.map((book) => (
-                  <BookCard key={book.id} book={book} />
+                  <CatalogBookCard key={book.id} book={book} viewMode={viewMode} />
                 ))}
                 {visibleBooks.length === 0 && <p className="management-empty">No audiobooks match this filter.</p>}
               </div>
@@ -228,10 +423,10 @@ export function SectionPage({
   const [section, setSection] = useState<LibrarySection | null>(null);
   const [members, setMembers] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
-  const [selectedLibraryId, setSelectedLibraryId] = useState("all");
   const [filters, setFilters] = useState<BookFilters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<SortKey>("title");
   const [bookSearch, setBookSearch] = useState("");
+  const [viewMode, setViewMode] = useState<AudiobookViewMode>("grid");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -260,7 +455,6 @@ export function SectionPage({
   );
   const searchTerm = bookSearch.trim().toLowerCase();
   const searched = allBooks.filter((book) => {
-    if (selectedLibraryId !== "all" && book.libraryId !== selectedLibraryId) return false;
     if (searchTerm) {
       const haystack = [book.title, book.libraryName, ...book.authors, ...book.narrators];
       if (!haystack.some((v) => v?.toLowerCase().includes(searchTerm))) return false;
@@ -270,49 +464,56 @@ export function SectionPage({
   const visibleBooks = sortBooks(filterBooks(searched, filters), sort);
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav activeSectionId={sectionId} />}>
-      <section className="work-area scene-page audiobook-scene audiobook-area">
-        <button className="back-link" onClick={() => navigate("/audiobooks")}>← Audiobooks</button>
-        <div className="section-head audiobook-head">
-          <div>
-            <p className="eyebrow">Special Section</p>
-            <h1>{section?.name ?? "Section"}</h1>
-          </div>
-        </div>
+    <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <section className="audiobook-main-page">
+        <AudiobookPageHeader
+          title={section?.name ?? "Section"}
+          subtitle={`${formatCount(allBooks.length)} ${allBooks.length === 1 ? "book" : "books"}`}
+          user={user}
+          search={bookSearch}
+          onSearchChange={setBookSearch}
+          searchPlaceholder="Search title, author, or narrator"
+        />
 
         {error && <MessageBox tone="error" title="Section error">{error}</MessageBox>}
 
         {members.length === 0 ? (
-          <p className="management-empty">No libraries have been added to this section yet.</p>
+          <div className="empty-state library-empty">
+            <BookOpen size={58} aria-hidden="true" />
+            <h2>No libraries in this section yet</h2>
+            <p className="muted">An administrator can add libraries to it from the control panel.</p>
+          </div>
         ) : (
           <>
-            <div className="audiobook-toolbar">
-              <label className="search-field">
-                <Search size={17} aria-hidden="true" />
-                <input
-                  type="search"
-                  value={bookSearch}
-                  onChange={(event) => setBookSearch(event.target.value)}
-                  placeholder="Search title, author, or narrator"
-                  aria-label="Search section"
-                />
-              </label>
-              {members.length > 1 && (
-                <select
-                  className="library-filter"
-                  value={selectedLibraryId}
-                  onChange={(event) => setSelectedLibraryId(event.target.value)}
-                  aria-label="Filter by library"
-                >
-                  <option value="all">All libraries</option>
-                  {members.map((library) => (
-                    <option key={library.id} value={library.id}>{library.name}</option>
-                  ))}
-                </select>
-              )}
-              <FilterButton books={allBooks} value={filters} onChange={setFilters} />
-              <SortSelect value={sort} onChange={setSort} />
-              <span>{visibleBooks.length} {visibleBooks.length === 1 ? "book" : "books"}</span>
+            <div className="audiobook-page-nav-row">
+              <div className="audiobook-page-tabs-with-library">
+                <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
+                  <ArrowLeft size={18} aria-hidden="true" />
+                  <span>All libraries</span>
+                </button>
+              </div>
+              <div className="audiobook-catalog-controls">
+                <FilterButton books={allBooks} value={filters} onChange={setFilters} />
+                <SortSelect value={sort} onChange={setSort} />
+                <div className="audiobook-view-toggle" role="group" aria-label="View mode">
+                  <button
+                    type="button"
+                    className={viewMode === "grid" ? "active" : ""}
+                    onClick={() => setViewMode("grid")}
+                    aria-label="Grid view"
+                  >
+                    <LayoutGrid size={18} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className={viewMode === "list" ? "active" : ""}
+                    onClick={() => setViewMode("list")}
+                    aria-label="List view"
+                  >
+                    <List size={18} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
             </div>
 
             <FilterChips value={filters} onChange={setFilters} />
@@ -323,9 +524,9 @@ export function SectionPage({
               </MessageBox>
             )}
 
-            <div className="audiobook-grid">
+            <div className={`audiobook-catalog ${viewMode}`}>
               {visibleBooks.map((book) => (
-                <BookCard key={book.id} book={book} />
+                <CatalogBookCard key={book.id} book={book} viewMode={viewMode} />
               ))}
               {visibleBooks.length === 0 && <p className="management-empty">No books match this filter.</p>}
             </div>
@@ -362,7 +563,7 @@ export function AudiobookBookPage({
 
   return (
     <DashboardShell active={active} user={user} logout={logout}>
-      <section className="work-area scene-page audiobook-scene audiobook-book-scene book-detail-area">
+      <section className="work-area book-detail-area">
         <div className="book-detail-shell">
           {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
           {book ? (
@@ -389,13 +590,17 @@ function BookDetailView({
   onBack: () => void;
   onBookUpdated: (book: AudiobookBookDetail) => void;
 }) {
-  const [filesOpen, setFilesOpen] = useState(false);
   const [progress, setProgress] = useState<PlaybackProgress | null>(null);
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [activeBookTab, setActiveBookTab] = useState<"description" | "details" | "files">("description");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [save, setSave] = useState<BookSave | null>(null);
+  const [saveAction, setSaveAction] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string } | null>(null);
+  const detailMenuRef = useRef<HTMLDivElement>(null);
 
   // Close the full-screen reader on Escape.
   useEffect(() => {
@@ -404,6 +609,24 @@ function BookDetailView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [viewerDoc]);
+
+  useEffect(() => {
+    if (!detailMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      if (detailMenuRef.current && !detailMenuRef.current.contains(event.target as Node)) {
+        setDetailMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setDetailMenuOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [detailMenuOpen]);
 
   // An ebook (or any audio-less book): content is a document, not audio tracks.
   const isEbook = book.files.length === 0 && book.documents.length > 0;
@@ -465,14 +688,23 @@ function BookDetailView({
   }, [book]);
 
   useEffect(() => {
-    setDetailsExpanded(false);
+    setActiveBookTab("description");
     setDescriptionExpanded(false);
+    setDetailMenuOpen(false);
   }, [book.id]);
 
   useEffect(() => {
     api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`)
       .then((payload) => setProgress(payload.progress))
       .catch(() => setProgress(null));
+  }, [book.id]);
+
+  useEffect(() => {
+    setSave(null);
+    setSaveError("");
+    api<{ save: BookSave }>(`/api/library/books/${book.id}/save`)
+      .then((payload) => setSave(payload.save))
+      .catch(() => setSave(null));
   }, [book.id]);
 
   // Derive per-file listened status from the book-level progress (current file +
@@ -614,10 +846,38 @@ function BookDetailView({
     setProgressActionError("");
     try {
       await api(`/api/library/books/${book.id}/progress/complete`, { method: "POST", body: "{}" });
+      const lastFile = book.files.filter((file) => file.status === "available").at(-1) ?? book.files.at(-1);
+      setProgress({
+        fileId: lastFile?.id ?? null,
+        positionSeconds: lastFile?.durationSeconds ?? book.durationSeconds ?? 0,
+        percentComplete: 1,
+        completedAt: new Date().toISOString()
+      });
     } catch (err) {
       setProgressActionError(err instanceof Error ? err.message : "Unable to mark book finished");
     } finally {
       setProgressAction("");
+    }
+  };
+
+  const toggleSave = async () => {
+    setSaveAction(true);
+    setSaveError("");
+    try {
+      if (save?.saved) {
+        await api(`/api/library/books/${book.id}/save`, { method: "DELETE" });
+        setSave({ saved: false, note: null });
+      } else {
+        const payload = await api<{ save: BookSave }>(`/api/library/books/${book.id}/save`, {
+          method: "PUT",
+          body: JSON.stringify({ note: null })
+        });
+        setSave(payload.save);
+      }
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Unable to update bookmark");
+    } finally {
+      setSaveAction(false);
     }
   };
 
@@ -667,75 +927,60 @@ function BookDetailView({
     });
   };
 
-  type DetailRow = { label: string; value: string; group: "core" | "extra"; className?: string };
-  const detailRows: DetailRow[] = [
+  const fileFormat = (relativePath: string) => {
+    const extension = relativePath.split(/[\\/]/).at(-1)?.split(".").at(-1);
+    return extension && extension !== relativePath ? extension.toUpperCase() : null;
+  };
+  const audioFormat = [...new Set(book.files.map((file) => fileFormat(file.relativePath)).filter(Boolean))]
+    .slice(0, 2)
+    .join(", ");
+  const documentFormat = book.documents[0]?.format.toUpperCase() ?? "";
+  const formatValue = isEbook ? documentFormat : audioFormat || "Audio";
+  const currentProgressFile = progress?.fileId ? book.files.find((file) => file.id === progress.fileId) : null;
+  const progressPercent = progress?.completedAt ? 100 : Math.round(Math.max(0, Math.min(1, progress?.percentComplete ?? 0)) * 100);
+  const remainingSeconds = book.durationSeconds != null ? Math.max(0, Math.round(book.durationSeconds * (1 - progressPercent / 100))) : null;
+  const progressTitle = isEbook ? "Reading Progress" : "Listening Progress";
+  const progressActionLabel = isEbook ? "Read" : progressPercent > 0 && progressPercent < 100 ? "Continue Listening" : "Start Listening";
+  const progressLocation = progress?.completedAt
+    ? "Completed"
+    : currentProgressFile
+      ? currentProgressFile.chapterTitle || currentProgressFile.relativePath.split(/[\\/]/).at(-1) || currentProgressFile.relativePath
+      : "Not started yet";
+
+  type DetailRow = { label: string; value: string; icon: LucideIcon; className?: string };
+  const heroDetailRows = ([
+    book.narrators.length > 0 ? { label: "Narrator", value: book.narrators.join(", "), icon: Headphones } : null,
+    book.yearPublished ? { label: "Published", value: String(book.yearPublished), icon: Calendar } : null,
+    formatValue ? { label: "Format", value: formatValue, icon: FileIcon } : null,
+    book.language ? { label: "Language", value: book.language, icon: Globe } : null,
+    book.durationSeconds != null ? { label: isEbook ? "Length" : "Audio Length", value: formatDuration(book.durationSeconds), icon: Clock } : null,
+    book.totalSize > 0 ? { label: "File Size", value: formatBytes(book.totalSize), icon: HardDrive } : null,
     book.series ? {
       label: "Series",
       value: `${book.series}${book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}`,
-      group: "core"
-    } : null,
-    book.narrators.length > 0 ? {
-      label: "Narrators",
-      value: book.narrators.join(", "),
-      group: "core"
-    } : null,
-    book.durationSeconds != null ? {
-      label: "Duration",
-      value: formatDuration(book.durationSeconds),
-      group: "core"
-    } : null,
-    book.yearPublished ? {
-      label: "Published",
-      value: String(book.yearPublished),
-      group: "core"
-    } : null,
-    book.totalSize > 0 ? {
-      label: "Size",
-      value: formatBytes(book.totalSize),
-      group: "core"
-    } : null,
-    book.authors.length > 0 ? {
-      label: "Authors",
-      value: book.authors.join(", "),
-      group: "extra"
-    } : null,
-    book.language ? {
-      label: "Language",
-      value: book.language,
-      group: "extra"
-    } : null,
-    book.publisher ? {
-      label: "Publisher",
-      value: book.publisher,
-      group: "extra"
-    } : null,
-    book.category ? {
-      label: "Category",
-      value: book.category.name,
-      group: "main"
-    } : null,
-    book.isbn ? {
-      label: "ISBN",
-      value: book.isbn,
-      group: "extra"
-    } : null,
-    book.asin ? {
-      label: "ASIN",
-      value: book.asin,
-      group: "extra"
-    } : null,
+      icon: BookOpen
+    } : null
+  ] as (DetailRow | null)[]).filter((row): row is DetailRow => Boolean(row));
+  const detailRows = ([
+    { label: "Library", value: book.libraryName, icon: Library },
+    book.authors.length > 0 ? { label: "Authors", value: book.authors.join(", "), icon: UserRound } : null,
+    ...heroDetailRows,
+    book.publisher ? { label: "Publisher", value: book.publisher, icon: BookOpen } : null,
+    book.category ? { label: "Category", value: book.category.name, icon: Bookmark } : null,
+    book.isbn ? { label: "ISBN", value: book.isbn, icon: FileText } : null,
+    book.asin ? { label: "ASIN", value: book.asin, icon: FileText } : null,
     {
       label: "Path",
       value: book.folderPath,
-      group: "extra",
+      icon: FileText,
       className: "book-folder-path"
     }
-  ].filter((row): row is DetailRow => Boolean(row));
-  const coreDetailRows = detailRows.filter((row) => row.group === "core");
-  const collapsedDetailRows = coreDetailRows.length > 0 ? coreDetailRows : detailRows.slice(0, 3);
-  const visibleDetailRows = detailsExpanded ? detailRows : collapsedDetailRows;
-  const canExpandDetails = detailRows.length > collapsedDetailRows.length;
-  const hiddenDetailCount = detailRows.length - collapsedDetailRows.length;
+  ] as (DetailRow | null)[]).filter((row): row is DetailRow => Boolean(row));
+  const detailTabs = [
+    { id: "description", label: "Description" },
+    { id: "details", label: "Details" },
+    { id: "files", label: "Files" }
+  ] as const;
   const descriptionText = book.description?.trim() ?? "";
   const canExpandDescription = descriptionText.length > 420;
   const visibleDescription = canExpandDescription && !descriptionExpanded
@@ -744,9 +989,12 @@ function BookDetailView({
 
   return (
     <div className="book-detail-view">
-      <button className="back-link" onClick={onBack}>
-        ← Audiobooks
-      </button>
+      <div className="book-detail-topbar">
+        <button className="audiobook-back-button" type="button" onClick={onBack}>
+          <ArrowLeft size={18} aria-hidden="true" />
+          <span>Back to audiobooks</span>
+        </button>
+      </div>
 
       <div className="book-detail-head">
         <div className="book-detail-cover-col">
@@ -760,9 +1008,25 @@ function BookDetailView({
               </>
             )}
           </div>
+        </div>
 
-          {book.tags.length > 0 && (
-            <section className="book-tags book-tags-under-cover" aria-label="Tags">
+        <div className="book-detail-info">
+          <h1 className="book-detail-title">{book.title}</h1>
+          {book.authors.length > 0 && (
+            <p className="book-detail-author">{book.authors.join(", ")}</p>
+          )}
+
+          {(book.category || book.tags.length > 0) && (
+            <section className="book-tags book-detail-chip-row" aria-label="Tags">
+              {book.category && (
+                <button
+                  className="book-tag-chip"
+                  type="button"
+                  onClick={() => navigate(`/audiobooks/categories/${book.category?.key}`)}
+                >
+                  {book.category.name}
+                </button>
+              )}
               {book.tags.map((tag) => (
                 <button
                   className="book-tag-chip"
@@ -775,34 +1039,16 @@ function BookDetailView({
               ))}
             </section>
           )}
-        </div>
 
-        <div className="book-detail-info">
-          <p className="eyebrow">{book.libraryName}</p>
-          <h1 className="book-detail-title">{book.title}</h1>
-          {book.authors.length > 0 && (
-            <p className="book-detail-author">by {book.authors.join(", ")}</p>
-          )}
-
-          <dl className="book-detail-meta">
-            {visibleDetailRows.map((row) => (
-              <div key={row.label}>
+          <dl className="book-detail-meta-grid">
+            {heroDetailRows.map((row) => (
+              <div className="book-detail-meta-item" key={`${row.label}-${row.value}`}>
+                <row.icon size={18} aria-hidden="true" />
                 <dt>{row.label}</dt>
                 <dd className={row.className}>{row.value}</dd>
               </div>
             ))}
           </dl>
-          {canExpandDetails && (
-            <button
-              className="book-detail-more"
-              type="button"
-              onClick={() => setDetailsExpanded((expanded) => !expanded)}
-              aria-expanded={detailsExpanded}
-            >
-              {detailsExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-              <span>{detailsExpanded ? "Show fewer details" : `Show ${hiddenDetailCount} more detail${hiddenDetailCount === 1 ? "" : "s"}`}</span>
-            </button>
-          )}
 
           <div className="book-detail-actions">
             {isEbook ? (
@@ -811,7 +1057,7 @@ function BookDetailView({
                 onClick={() => { const doc = book.documents[0]; if (doc) setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format }); }}
               >
                 <BookOpen size={16} />
-                <span>Read</span>
+                <span>{progressActionLabel}</span>
               </button>
             ) : (
               <button
@@ -819,118 +1065,211 @@ function BookDetailView({
                 onClick={() => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=800,resizable=yes,scrollbars=yes")}
               >
                 <Play size={16} />
-                <span>Play</span>
+                <span>{progressActionLabel}</span>
               </button>
             )}
-            <button className="secondary-button" onClick={() => { setActiveMetadataTab("edit"); setMetadataModalOpen(true); }}>
-              <Pencil size={16} />
-              <span>Edit metadata</span>
+            <button className="secondary-button" onClick={toggleSave} disabled={saveAction} aria-pressed={save?.saved ?? false}>
+              <Bookmark size={16} fill={save?.saved ? "currentColor" : "none"} />
+              <span>{saveAction ? "Saving..." : save?.saved ? "Bookmarked" : "Add Bookmark"}</span>
             </button>
-            {!isEbook && (
-              <button className="secondary-button" onClick={markBookFinished} disabled={progressAction !== ""}>
-                <CheckCircle2 size={16} />
-                <span>{progressAction === "complete" ? "Saving..." : "Mark finished"}</span>
+            <div className="book-detail-menu-wrap" ref={detailMenuRef}>
+              <button
+                className="secondary-button book-detail-more-action"
+                type="button"
+                onClick={() => setDetailMenuOpen((open) => !open)}
+                aria-expanded={detailMenuOpen}
+                aria-haspopup="menu"
+                aria-label="More options"
+                title="More options"
+              >
+                <MoreHorizontal size={17} />
               </button>
-            )}
-            <a className="secondary-button" href={`/api/library/books/${book.id}/download`} download>
-              <Download size={16} />
-              <span>Download</span>
-            </a>
-            <button className="secondary-button" onClick={() => setShareModalOpen(true)}>
-              <Share2 size={16} />
-              <span>Share</span>
-            </button>
+              {detailMenuOpen && (
+                <div className="book-detail-action-menu" role="menu" aria-label="Book actions">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActiveMetadataTab("edit");
+                      setMetadataModalOpen(true);
+                      setDetailMenuOpen(false);
+                    }}
+                  >
+                    <Pencil size={17} aria-hidden="true" />
+                    <span>Edit metadata</span>
+                  </button>
+                  {!isEbook && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setDetailMenuOpen(false);
+                        void markBookFinished();
+                      }}
+                      disabled={progressAction !== ""}
+                    >
+                      <CheckCircle2 size={17} aria-hidden="true" />
+                      <span>{progressAction === "complete" ? "Saving..." : "Mark finished"}</span>
+                    </button>
+                  )}
+                  <a
+                    role="menuitem"
+                    href={`/api/library/books/${book.id}/download`}
+                    download
+                    onClick={() => setDetailMenuOpen(false)}
+                  >
+                    <Download size={17} aria-hidden="true" />
+                    <span>Download</span>
+                  </a>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setShareModalOpen(true);
+                      setDetailMenuOpen(false);
+                    }}
+                  >
+                    <Share2 size={17} aria-hidden="true" />
+                    <span>Share</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+          {saveError && <MessageBox tone="error" title="Bookmark error">{saveError}</MessageBox>}
           {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
 
-          {descriptionText && (
+          <section className="book-progress-card" aria-label={progressTitle}>
+            <div className="book-progress-head">
+              <strong>{progressTitle}</strong>
+              <b>{progressPercent}%</b>
+            </div>
+            <span className="book-progress-track">
+              <span style={{ width: `${progressPercent}%` }} />
+            </span>
+            <div className="book-progress-meta">
+              <span>{progressLocation}</span>
+              {remainingSeconds != null && !progress?.completedAt && <span>{formatDuration(remainingSeconds)} left</span>}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <section className="book-detail-tabs-section">
+        <nav className="book-detail-tabs" aria-label="Book detail sections">
+          {detailTabs.map((tab) => (
+            <button
+              className={activeBookTab === tab.id ? "active" : ""}
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveBookTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="book-detail-tab-panel">
+          {activeBookTab === "description" && (
             <section className="book-description-block">
-              <p className="book-description">{visibleDescription}</p>
-              {canExpandDescription && (
-                <button
-                  className="book-detail-more book-description-more"
-                  type="button"
-                  onClick={() => setDescriptionExpanded((expanded) => !expanded)}
-                  aria-expanded={descriptionExpanded}
-                >
-                  {descriptionExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                  <span>{descriptionExpanded ? "Show less description" : "Show full description"}</span>
-                </button>
+              {descriptionText ? (
+                <>
+                  <p className="book-description">{visibleDescription}</p>
+                  {canExpandDescription && (
+                    <button
+                      className="book-detail-more book-description-more"
+                      type="button"
+                      onClick={() => setDescriptionExpanded((expanded) => !expanded)}
+                      aria-expanded={descriptionExpanded}
+                    >
+                      {descriptionExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                      <span>{descriptionExpanded ? "Show less description" : "Show full description"}</span>
+                    </button>
+                  )}
+                </>
+              ) : (
+                <p className="book-description muted">No description yet.</p>
               )}
             </section>
           )}
 
-          {book.documents.length > 0 && (
-            <section className="book-documents-section">
-              <h2 className="book-documents-title">Documents</h2>
-              <div className="book-document-list">
-                {book.documents.map((doc) => (
-                  <div className="book-document-row" key={doc.id}>
-                    <FileText size={18} aria-hidden="true" />
-                    <div className="book-document-info">
-                      <strong>{doc.fileName}</strong>
-                      <small>{doc.format.toUpperCase()} · {formatBytes(doc.size)}</small>
-                    </div>
-                    {VIEWABLE_DOC_FORMATS.has(doc.format) && (
-                      <button
-                        className="secondary-button compact-button"
-                        onClick={() => setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format })}
-                      >
-                        <BookOpen size={15} />
-                        <span>Read</span>
-                      </button>
-                    )}
-                    <a className="secondary-button compact-button" href={`${doc.url}?download`} download>
-                      <Download size={15} />
-                      <span>Download</span>
-                    </a>
+          {activeBookTab === "details" && (
+            <section className="book-detail-full-details">
+              <dl className="book-detail-meta-grid full">
+                {detailRows.map((row) => (
+                  <div className="book-detail-meta-item" key={`${row.label}-${row.value}`}>
+                    <row.icon size={18} aria-hidden="true" />
+                    <dt>{row.label}</dt>
+                    <dd className={row.className}>{row.value}</dd>
                   </div>
                 ))}
-              </div>
+              </dl>
             </section>
           )}
 
-          {!isEbook && (
-          <section className="book-files-section">
-            <button
-              className="book-files-toggle"
-              onClick={() => setFilesOpen((open) => !open)}
-              aria-expanded={filesOpen}
-            >
-              <span>Files</span>
-              <span className="book-files-count">{book.files.length}</span>
-              {filesOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </button>
-
-            {filesOpen && (
-              <div className="book-file-list">
-                {book.files.map((file, index) => {
-                  const state = fileState(index);
-                  return (
-                    <article className="book-file-row" key={file.id}>
-                      <span>{file.trackNumber ?? "-"}</span>
-                      <div>
-                        <strong>{file.chapterTitle || file.relativePath.split("/").at(-1) || file.relativePath}</strong>
-                        <small>{file.relativePath}</small>
+          {activeBookTab === "files" && (
+            <section className="book-detail-files-tab">
+              {book.documents.length > 0 && (
+                <section className="book-documents-section">
+                  <h2 className="book-documents-title">Documents</h2>
+                  <div className="book-document-list">
+                    {book.documents.map((doc) => (
+                      <div className="book-document-row" key={doc.id}>
+                        <FileText size={18} aria-hidden="true" />
+                        <div className="book-document-info">
+                          <strong>{doc.fileName}</strong>
+                          <small>{doc.format.toUpperCase()} · {formatBytes(doc.size)}</small>
+                        </div>
+                        {VIEWABLE_DOC_FORMATS.has(doc.format) && (
+                          <button
+                            className="secondary-button compact-button"
+                            onClick={() => setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format })}
+                          >
+                            <BookOpen size={15} />
+                            <span>Read</span>
+                          </button>
+                        )}
+                        <a className="secondary-button compact-button" href={`${doc.url}?download`} download>
+                          <Download size={15} />
+                          <span>Download</span>
+                        </a>
                       </div>
-                      <span className={`book-file-status ${state}`}>
-                        {state === "completed" && (<><CheckCircle2 size={13} /> Done</>)}
-                        {state === "in_progress" && (<><span className="book-file-dot" /> Playing</>)}
-                        {state === "not_started" && "—"}
-                      </span>
-                      <small>
-                        {file.durationSeconds != null ? `${formatDuration(file.durationSeconds)} · ` : ""}
-                        {formatBytes(file.size)}
-                      </small>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {!isEbook && (
+                <section className="book-files-section">
+                  <div className="book-file-list">
+                    {book.files.map((file, index) => {
+                      const state = fileState(index);
+                      return (
+                        <article className="book-file-row" key={file.id}>
+                          <span>{file.trackNumber ?? "-"}</span>
+                          <div>
+                            <strong>{file.chapterTitle || file.relativePath.split(/[\\/]/).at(-1) || file.relativePath}</strong>
+                            <small>{file.relativePath}</small>
+                          </div>
+                          <span className={`book-file-status ${state}`}>
+                            {state === "completed" && (<><CheckCircle2 size={13} /> Done</>)}
+                            {state === "in_progress" && (<><span className="book-file-dot" /> Playing</>)}
+                            {state === "not_started" && "-"}
+                          </span>
+                          <small>
+                            {file.durationSeconds != null ? `${formatDuration(file.durationSeconds)} · ` : ""}
+                            {formatBytes(file.size)}
+                          </small>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+            </section>
           )}
         </div>
-      </div>
+      </section>
 
       {shareModalOpen && (
         <ShareModal bookId={book.id} bookTitle={book.title} onClose={() => setShareModalOpen(false)} />

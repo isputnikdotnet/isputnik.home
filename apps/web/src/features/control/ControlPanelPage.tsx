@@ -2,6 +2,18 @@ import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute } from "../../router";
 import type { ControlSection } from "../../router";
+import {
+  Activity,
+  BookOpen,
+  FileStack,
+  HardDrive,
+  Headphones,
+  Image,
+  ScrollText,
+  Tags,
+  UsersRound,
+  Wrench
+} from "lucide-react";
 import { UsersSection } from "./sections/UsersSection";
 import { InvitesSection } from "./sections/InvitesSection";
 import { SessionsSection } from "./sections/SessionsSection";
@@ -49,31 +61,8 @@ export function ControlPanelPage({
   const sceneClass = sceneClasses[section] ?? "";
 
   return (
-    <DashboardShell active="control" user={user} logout={logout}>
-      <div className={`control-panel${sceneClass ? ` ${sceneClass}` : ""}`}>
-        <aside className="control-nav">
-          <nav className="control-links" aria-label="Management">
-            <div className="control-group">
-              <p>Application</p>
-              <a className={section === "status" ? "active" : ""} href="/control/status" onClick={(event) => followRoute(event, "/control/status")}>Status</a>
-              <a className={section === "categories" || section === "tags" ? "active" : ""} href="/control/categories" onClick={(event) => followRoute(event, "/control/categories")}>Labels</a>
-              <a className={section === "logs" ? "active" : ""} href="/control/logs" onClick={(event) => followRoute(event, "/control/logs")}>Logs</a>
-              <a className={["jobs", "backup"].includes(section) ? "active" : ""} href="/control/maintenance" onClick={(event) => followRoute(event, "/control/maintenance")}>Maintenance</a>
-            </div>
-            <div className="control-group">
-              <p>Digital Library</p>
-              <a className={section === "storage" ? "active" : ""} href="/control/storage" onClick={(event) => followRoute(event, "/control/storage")}>Storage</a>
-              <a className={["libraries", "librariesSpecial", "librariesStats"].includes(section) ? "active" : ""} href="/control/libraries" onClick={(event) => followRoute(event, "/control/libraries")}>Audiobooks</a>
-              <a className={section === "ebooks" ? "active" : ""} href="/control/ebooks" onClick={(event) => followRoute(event, "/control/ebooks")}>Ebooks</a>
-              <a className={`control-link-soon${section === "media" ? " active" : ""}`} href="/control/media" onClick={(event) => followRoute(event, "/control/media")}>Gallery<span className="control-soon-badge">Soon</span></a>
-              <a className={`control-link-soon${section === "otherMedia" ? " active" : ""}`} href="/control/other-media" onClick={(event) => followRoute(event, "/control/other-media")}>Other Media<span className="control-soon-badge">Soon</span></a>
-            </div>
-            <div className="control-group">
-              <p>User administration</p>
-              <a className={["users", "groups", "invites", "sessions"].includes(section) ? "active" : ""} href="/control/accounts" onClick={(event) => followRoute(event, "/control/accounts")}>Accounts</a>
-            </div>
-          </nav>
-        </aside>
+    <DashboardShell active="control" user={user} logout={logout} sideNav={<ControlPanelNav section={section} />}>
+      <div className={`control-panel control-panel-single${sceneClass ? ` ${sceneClass}` : ""}`}>
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
           {(section === "users" || section === "groups" || section === "invites" || section === "sessions") && <AccountsSection section={section} currentUser={user} />}
           {section === "logs"      && <LogsSection />}
@@ -91,6 +80,60 @@ export function ControlPanelPage({
         </section>
       </div>
     </DashboardShell>
+  );
+}
+
+function ControlPanelNav({ section }: { section: ControlSection }) {
+  return (
+    <nav className="home-control-nav" aria-label="Management">
+      <div className="home-control-group">
+        <p>Application</p>
+        <ControlNavLink icon={Activity} label="Status" href="/control/status" active={section === "status"} />
+        <ControlNavLink icon={Tags} label="Labels" href="/control/categories" active={section === "categories" || section === "tags"} />
+        <ControlNavLink icon={ScrollText} label="Logs" href="/control/logs" active={section === "logs"} />
+        <ControlNavLink icon={Wrench} label="Maintenance" href="/control/maintenance" active={["jobs", "backup"].includes(section)} />
+      </div>
+
+      <div className="home-control-group">
+        <p>Digital Library</p>
+        <ControlNavLink icon={HardDrive} label="Storage" href="/control/storage" active={section === "storage"} />
+        <ControlNavLink icon={Headphones} label="Audiobooks" href="/control/libraries" active={["libraries", "librariesSpecial", "librariesStats"].includes(section)} />
+        <ControlNavLink icon={BookOpen} label="Ebooks" href="/control/ebooks" active={section === "ebooks"} />
+        <ControlNavLink icon={Image} label="Gallery" href="/control/media" active={section === "media"} soon />
+        <ControlNavLink icon={FileStack} label="Other Media" href="/control/other-media" active={section === "otherMedia"} soon />
+      </div>
+
+      <div className="home-control-group">
+        <p>User administration</p>
+        <ControlNavLink icon={UsersRound} label="Accounts" href="/control/accounts" active={["users", "groups", "invites", "sessions"].includes(section)} />
+      </div>
+    </nav>
+  );
+}
+
+function ControlNavLink({
+  icon: Icon,
+  label,
+  href,
+  active,
+  soon
+}: {
+  icon: typeof Activity;
+  label: string;
+  href: string;
+  active: boolean;
+  soon?: boolean;
+}) {
+  return (
+    <a
+      className={`home-nav-link${active ? " is-active" : ""}${soon ? " home-control-link-soon" : ""}`}
+      href={href}
+      onClick={(event) => followRoute(event, href)}
+    >
+      <Icon size={21} aria-hidden="true" />
+      <span>{label}</span>
+      {soon && <span className="control-soon-badge">Soon</span>}
+    </a>
   );
 }
 

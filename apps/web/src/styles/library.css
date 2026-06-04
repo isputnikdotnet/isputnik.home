@@ -40,6 +40,712 @@
   white-space: nowrap;
 }
 
+/* ── Audiobook landing page ─────────────────────────────────────── */
+
+.audiobook-main-page {
+  --audiobook-soft-shadow: 0 8px 18px var(--shadow);
+  --audiobook-strong-shadow: 0 18px 36px var(--shadow);
+
+  display: grid;
+  align-content: start;
+  gap: 28px;
+  width: 100%;
+  min-height: calc(100vh - 56px);
+  color: var(--ink);
+}
+
+.audiobook-page-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.audiobook-page-title {
+  min-width: 220px;
+}
+
+.audiobook-page-title h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(1.9rem, 3vw, 2.35rem);
+  line-height: 1.06;
+}
+
+.audiobook-page-title p {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 540;
+}
+
+.audiobook-page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 22px;
+  min-width: 0;
+}
+
+.audiobook-page-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: min(calc(100vw - 650px), 420px);
+  min-width: 280px;
+  min-height: 52px;
+  padding: 0 20px 0 24px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--field);
+  box-shadow: 0 8px 20px var(--shadow);
+}
+
+.audiobook-page-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  background: transparent;
+}
+
+.audiobook-page-search input::placeholder {
+  color: var(--muted);
+}
+
+.audiobook-page-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 54px;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 720;
+}
+
+.audiobook-page-profile > span {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--surface-raised);
+  border-radius: 50%;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0f4f66, #f08b5f);
+  box-shadow: 0 12px 24px var(--shadow);
+  font-size: 0.78rem;
+}
+
+.audiobook-page-nav-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.audiobook-page-tabs {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 3vw, 42px);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.audiobook-page-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.audiobook-page-tabs-with-library {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 3vw, 42px);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.audiobook-page-tabs-with-library::-webkit-scrollbar {
+  display: none;
+}
+
+.audiobook-library-tab {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, auto) auto;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mint);
+  font: inherit;
+  font-size: 0.94rem;
+  font-weight: 680;
+  cursor: pointer;
+}
+
+.audiobook-library-tab > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 190px;
+  text-align: left;
+}
+
+/* Dropdown mirrors the book-detail three-dots menu, but is portalled to <body>
+   and fixed-positioned (inline styles) so the nav row's horizontal scroll can't
+   clip it. Override the base menu's right anchor. */
+.audiobook-library-menu {
+  right: auto;
+  max-height: min(60vh, 360px);
+  overflow-y: auto;
+}
+
+.audiobook-library-menu button.active {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.audiobook-library-tab::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  content: "";
+  background: var(--mint);
+}
+
+
+.audiobook-library-shortcuts {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.audiobook-special-library-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 180px;
+  height: 38px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--mint) 22%, var(--line));
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface);
+  box-shadow: var(--audiobook-soft-shadow);
+  cursor: pointer;
+}
+
+.audiobook-special-library-tab svg {
+  flex: 0 0 auto;
+}
+
+.audiobook-special-library-tab span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 680;
+}
+
+.audiobook-special-library-tab:hover,
+.audiobook-special-library-tab:focus-visible {
+  color: var(--mint);
+  background: var(--active);
+  outline: 0;
+}
+
+.audiobook-page-tabs a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 10px;
+  min-height: 52px;
+  color: var(--muted);
+  font-size: 0.94rem;
+  font-weight: 680;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.audiobook-page-tabs a::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  content: "";
+  background: transparent;
+}
+
+.audiobook-page-tabs a:hover,
+.audiobook-page-tabs a.active {
+  color: var(--mint);
+}
+
+.audiobook-page-tabs a.active::after {
+  background: var(--mint);
+}
+
+.audiobook-page-nav-row .filter-button,
+.audiobook-catalog-controls .filter-button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--field);
+  box-shadow: var(--audiobook-soft-shadow);
+}
+
+.audiobook-catalog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 2px;
+}
+
+.audiobook-catalog-head h2 {
+  color: var(--ink);
+  font-size: 1.16rem;
+  line-height: 1.15;
+}
+
+.audiobook-catalog-head p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.audiobook-catalog-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.audiobook-catalog-controls .library-filter,
+.audiobook-pill-select {
+  min-height: 42px;
+  min-width: 0;
+  padding: 0 13px;
+  border-color: var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--field);
+  box-shadow: var(--audiobook-soft-shadow);
+}
+
+.audiobook-view-toggle {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  box-shadow: var(--audiobook-soft-shadow);
+}
+
+.audiobook-view-toggle button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 42px;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.audiobook-view-toggle button + button {
+  border-left: 1px solid var(--line);
+}
+
+.audiobook-view-toggle button:hover,
+.audiobook-view-toggle button.active {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.audiobook-catalog {
+  display: grid;
+  gap: 20px;
+}
+
+.audiobook-catalog.grid {
+  grid-template-columns: repeat(auto-fill, minmax(174px, 1fr));
+}
+
+.audiobook-catalog.list {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.audiobook-catalog-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--audiobook-soft-shadow);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.audiobook-catalog-card:hover,
+.audiobook-catalog-card:focus-within {
+  transform: translateY(-2px);
+  box-shadow: var(--audiobook-strong-shadow);
+}
+
+.audiobook-catalog-open {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-open {
+  grid-template-rows: auto minmax(72px, auto);
+}
+
+.audiobook-catalog-card.list .audiobook-catalog-open {
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 112px;
+  padding: 10px 56px 10px 10px;
+}
+
+.audiobook-catalog-cover {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--mint);
+  background:
+    linear-gradient(155deg, color-mix(in srgb, var(--mint) 22%, transparent), transparent 46%),
+    linear-gradient(25deg, color-mix(in srgb, var(--blue) 18%, transparent), transparent 58%),
+    var(--active);
+}
+
+.audiobook-catalog-card.grid .audiobook-catalog-cover {
+  aspect-ratio: 1 / 0.86;
+}
+
+.audiobook-catalog-card.list .audiobook-catalog-cover {
+  width: 92px;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+}
+
+.audiobook-catalog-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.audiobook-catalog-cover > strong {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  color: color-mix(in srgb, var(--mint) 80%, var(--ink));
+  font-size: 0.7rem;
+}
+
+.audiobook-catalog-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: var(--mint);
+  box-shadow: 0 9px 18px var(--shadow);
+}
+
+.audiobook-catalog-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 42px 14px 12px;
+}
+
+.audiobook-catalog-card.list .audiobook-catalog-copy {
+  padding: 0;
+}
+
+.audiobook-catalog-copy strong,
+.audiobook-catalog-copy small,
+.audiobook-catalog-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audiobook-catalog-copy strong {
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.22;
+}
+
+.audiobook-catalog-copy small,
+.audiobook-catalog-copy span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.audiobook-catalog-menu {
+  position: absolute;
+  right: 8px;
+  bottom: 12px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.audiobook-catalog-card.list .audiobook-catalog-menu {
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.audiobook-catalog-menu:hover {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.audiobook-load-more-row {
+  display: flex;
+  justify-content: center;
+}
+
+.audiobook-load-more-row .secondary-button {
+  min-width: 150px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.audiobook-collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 16px;
+}
+
+.audiobook-collection-card {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 92px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--audiobook-soft-shadow);
+}
+
+.audiobook-collection-card:hover {
+  border-color: color-mix(in srgb, var(--mint) 55%, var(--line));
+  transform: translateY(-1px);
+}
+
+.audiobook-collection-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  color: var(--mint);
+  background: var(--active);
+}
+
+.audiobook-collection-card > span:last-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.audiobook-collection-card strong,
+.audiobook-collection-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audiobook-collection-card small {
+  color: var(--muted);
+}
+
+.audiobook-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 42px;
+  margin-bottom: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  font-weight: 680;
+}
+
+.audiobook-back-button:hover,
+.audiobook-back-button:focus-visible {
+  color: var(--ink);
+  background: transparent;
+  outline: 0;
+}
+
+/* Inside the grid-based main page the 28px row gap handles spacing, so drop the
+   button's own bottom margin (same as the book-detail topbar). */
+.audiobook-main-page > .audiobook-back-button,
+.audiobook-page-nav-row .audiobook-back-button {
+  margin-bottom: 0;
+}
+
+@media (max-width: 1040px) {
+  .audiobook-page-header {
+    display: grid;
+    gap: 18px;
+  }
+
+  .audiobook-page-actions {
+    justify-content: space-between;
+  }
+
+  .audiobook-page-search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .audiobook-page-tabs {
+    gap: 24px;
+  }
+
+  .audiobook-page-tabs-with-library {
+    gap: 24px;
+  }
+
+  .audiobook-catalog.grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 740px) {
+  .audiobook-main-page {
+    gap: 22px;
+  }
+
+  .audiobook-page-actions,
+  .audiobook-catalog-head,
+  .audiobook-page-nav-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .audiobook-page-profile {
+    justify-self: start;
+  }
+
+  .audiobook-page-tabs {
+    width: 100%;
+    gap: 18px;
+  }
+
+  .audiobook-page-tabs-with-library {
+    width: 100%;
+    gap: 18px;
+  }
+
+  .audiobook-page-nav-row .filter-button {
+    justify-self: start;
+  }
+
+  .audiobook-catalog-controls {
+    justify-content: flex-start;
+  }
+
+  .audiobook-catalog.grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audiobook-catalog-card.grid .audiobook-catalog-cover {
+    aspect-ratio: 1 / 0.92;
+  }
+}
+
+@media (max-width: 430px) {
+  .audiobook-page-title h1 {
+    font-size: 1.7rem;
+  }
+
+  .audiobook-library-tab > span {
+    max-width: 150px;
+  }
+
+  .audiobook-library-shortcuts {
+    gap: 6px;
+  }
+
+  .audiobook-catalog.grid,
+  .audiobook-collection-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .audiobook-catalog-card.list .audiobook-catalog-open {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .audiobook-catalog-card.list .audiobook-catalog-cover {
+    width: 72px;
+  }
+}
+
 /* ── Category detail ────────────────────────────────────────────── */
 
 .category-detail-head {
@@ -764,40 +1470,89 @@
 /* ── Book detail ────────────────────────────────────────────────── */
 
 .book-detail-area {
-  padding-block: 0;
+  width: min(100%, 1180px);
+  padding-block: 0 38px;
 }
 
 .book-detail-shell {
-  width: min(100%, 1040px);
+  width: 100%;
 }
 
 .book-detail-view {
   display: grid;
-  gap: 22px;
-  padding: 22px 0 32px;
+  gap: 34px;
+  padding: 0;
 }
 
-.back-link {
+.book-detail-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 58px;
+  border-bottom: 1px solid var(--line);
+}
+
+.book-detail-topbar .audiobook-back-button {
+  margin-bottom: 0;
+}
+
+.book-detail-top-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0;
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: color 0.15s;
+  gap: 16px;
+  min-width: 0;
 }
 
-.back-link:hover {
-  color: var(--fg);
+.book-detail-icon-button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.book-detail-icon-button:hover,
+.book-detail-icon-button:focus-visible {
+  color: var(--ink);
+  background: var(--hover);
+  outline: 0;
+}
+
+.book-detail-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+
+.book-detail-profile > span {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 3px solid var(--surface-raised);
+  border-radius: 50%;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0f4f66, #f08b5f);
+  box-shadow: 0 12px 24px var(--shadow);
+  font-size: 0.78rem;
+  font-weight: 760;
 }
 
 .book-detail-head {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  gap: clamp(30px, 4.7vw, 58px);
   align-items: start;
 }
 
@@ -806,11 +1561,12 @@
   display: grid;
   place-items: center;
   aspect-ratio: 2 / 3;
-  border: 1px solid color-mix(in srgb, var(--mint) 28%, var(--line));
+  border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
   color: var(--mint);
   background: var(--surface);
+  box-shadow: 0 18px 36px var(--shadow);
 }
 
 .book-detail-cover img {
@@ -834,65 +1590,71 @@
 
 .book-detail-info {
   display: grid;
-  gap: 4px;
+  gap: 0;
   align-content: start;
 }
 
-.book-detail-info .eyebrow {
-  margin: 0;
-}
-
 .book-detail-title {
-  margin: 2px 0 0;
-  font-size: 1.55rem;
-  line-height: 1.2;
+  margin: 20px 0 0;
+  color: var(--ink);
+  font-size: clamp(2rem, 3vw, 2.65rem);
+  line-height: 1.08;
 }
 
 .book-detail-author {
-  margin: 4px 0 0;
-  color: var(--muted);
+  margin: 14px 0 0;
+  color: var(--mint);
+  font-size: 1.32rem;
+  font-weight: 760;
 }
 
-.book-detail-meta {
+.book-detail-chip-row {
+  margin-top: 16px;
+}
+
+.book-detail-meta-grid {
   display: grid;
-  gap: 0;
-  margin: 12px 0 0;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  overflow: hidden;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 18px 34px;
+  margin: 30px 0 0;
 }
 
-.book-detail-meta div {
-  display: grid;
-  grid-template-columns: 104px 1fr;
-  gap: 0 12px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--line);
-}
-
-.book-detail-meta div:last-child {
-  border-bottom: none;
-}
-
-.book-detail-meta dt,
-.book-detail-meta dd {
+.book-detail-meta-grid.full {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.3;
 }
 
-.book-detail-meta dt {
-  color: var(--muted);
-  text-transform: uppercase;
-  font-size: 0.66rem;
-  letter-spacing: 0.035em;
-  font-weight: 600;
-  display: flex;
+.book-detail-meta-item {
+  display: grid;
+  grid-template-columns: 22px minmax(82px, auto) minmax(0, 1fr);
   align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
-.book-detail-meta dd {
-  font-weight: 500;
+.book-detail-meta-item svg {
+  color: var(--muted);
+}
+
+.book-detail-meta-item dt,
+.book-detail-meta-item dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.book-detail-meta-item dt {
+  color: var(--muted);
+  font-weight: 620;
+}
+
+.book-detail-meta-item dd {
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .book-folder-path {
@@ -901,6 +1663,7 @@
   word-break: break-all;
   color: var(--muted);
   font-weight: 400;
+  white-space: normal;
 }
 
 .book-detail-more {
@@ -926,15 +1689,119 @@
 
 .book-description-block {
   display: grid;
-  gap: 4px;
-  margin-top: 2px;
-  max-width: 72ch;
+  gap: 8px;
+  margin-top: 0;
+  max-width: 82ch;
 }
 
 .book-detail-cover-col {
   display: grid;
   gap: 12px;
   align-content: start;
+}
+
+.book-progress-card {
+  display: grid;
+  gap: 13px;
+  max-width: 500px;
+  margin-top: 28px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+}
+
+.book-progress-head,
+.book-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.book-progress-head strong {
+  font-size: 0.98rem;
+}
+
+.book-progress-head b {
+  color: var(--mint);
+  font-size: 1.28rem;
+}
+
+.book-progress-track {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+}
+
+.book-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mint);
+}
+
+.book-progress-meta {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.book-detail-tabs-section {
+  display: grid;
+  gap: 0;
+  max-width: 860px;
+}
+
+.book-detail-tabs {
+  display: flex;
+  align-items: center;
+  gap: clamp(24px, 4vw, 54px);
+  border-bottom: 1px solid var(--line);
+}
+
+.book-detail-tabs button {
+  position: relative;
+  min-height: 48px;
+  padding: 0 2px;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.book-detail-tabs button::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  content: "";
+  background: transparent;
+}
+
+.book-detail-tabs button:hover,
+.book-detail-tabs button:focus-visible,
+.book-detail-tabs button.active {
+  color: var(--ink);
+  outline: 0;
+}
+
+.book-detail-tabs button.active::after {
+  background: var(--mint);
+}
+
+.book-detail-tab-panel {
+  padding-top: 24px;
+}
+
+.book-detail-full-details,
+.book-detail-files-tab {
+  display: grid;
+  gap: 20px;
 }
 
 .book-tags {
@@ -1414,8 +2281,8 @@
 .book-description {
   margin: 0;
   color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.55;
+  font-size: 1rem;
+  line-height: 1.72;
 }
 
 .book-description-more {
@@ -1427,7 +2294,7 @@
   flex-wrap: wrap;
   gap: 10px;
   width: 100%;
-  margin-top: 10px;
+  margin-top: 30px;
 }
 
 .book-detail-actions .primary-button,
@@ -1437,6 +2304,61 @@
   align-items: center;
   gap: 8px;
   text-decoration: none;
+}
+
+.book-detail-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.book-detail-more-action {
+  width: 52px;
+  padding: 0;
+}
+
+.book-detail-action-menu {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 10px);
+  right: 0;
+  display: grid;
+  min-width: 210px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 18px 40px var(--shadow);
+}
+
+.book-detail-action-menu button,
+.book-detail-action-menu a {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.book-detail-action-menu button:hover,
+.book-detail-action-menu button:focus-visible,
+.book-detail-action-menu a:hover,
+.book-detail-action-menu a:focus-visible {
+  background: var(--hover);
+  outline: 0;
+}
+
+.book-detail-action-menu button:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 /* ── Book files ─────────────────────────────────────────────────── */
@@ -1454,9 +2376,13 @@
   margin-top: 4px;
 }
 
+.book-detail-files-tab .book-files-section {
+  margin: 0;
+}
+
 /* ── Companion documents (PDF/EPUB bundled with an audiobook) ──────── */
 .book-documents-section {
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .book-documents-title {

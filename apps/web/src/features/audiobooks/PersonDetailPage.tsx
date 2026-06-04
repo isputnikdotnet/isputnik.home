@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { BookOpen, Merge, Pencil, Search, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Merge, Pencil, Search, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatDuration } from "../../shared/utils";
-import { AudiobookNav } from "./AudiobookNav";
 import { PersonProfileModal } from "./PersonProfileModal";
 import type { AudiobookBook, AudiobookLibrary } from "./types";
 
@@ -78,13 +77,12 @@ export function PersonDetailPage({
   };
 
   return (
-    <DashboardShell
-      active="audiobooks"
-      user={user}
-      logout={logout}
-      sideNav={<AudiobookNav active={navActive} />}
-    >
-      <section className="work-area scene-page audiobook-scene">
+    <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <section className="audiobook-main-page">
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(`/audiobooks/${navActive}`)}>
+          <ArrowLeft size={17} aria-hidden="true" />
+          <span>Back to {navActive}</span>
+        </button>
         <div className="section-head">
           <div>
             <p className="eyebrow">{roleLabel}</p>

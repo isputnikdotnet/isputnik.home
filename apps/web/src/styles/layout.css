@@ -278,8 +278,11 @@
   background-image: url("../assets/backgrounds/retro-space-audiobook-cosmonaut-v1.png");
 }
 
+/* Scene pages live inside .home-main, whose vertical padding (28px top + 30px
+   bottom) is the only chrome between them and the viewport — there is no longer
+   a 68px app header. Subtract that padding so the scene fills the page. */
 .home-scene {
-  min-height: calc(100vh - 68px);
+  min-height: calc(100vh - 58px);
   width: 100%;
 }
 
@@ -289,14 +292,14 @@
 .logs-scene,
 .library-storage-scene,
 .audiobook-scene {
-  min-height: calc(100vh - 68px);
+  min-height: calc(100vh - 58px);
   width: 100%;
 }
 
 .control-panel {
   display: grid;
   grid-template-columns: 208px minmax(0, 1fr);
-  min-height: calc(100vh - 68px);
+  min-height: calc(100vh - 58px);
 }
 
 .control-nav {

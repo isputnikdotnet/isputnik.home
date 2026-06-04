@@ -3,7 +3,7 @@ import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
-import { AudiobookNav } from "./AudiobookNav";
+import { AudiobookPageHeader, AudiobookTabs } from "./AudiobooksPage";
 import { CategoryIcon } from "./categoryIcons";
 import type { CategorySummary } from "./types";
 
@@ -24,16 +24,19 @@ export function CategoryListPage({
   }, []);
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="categories" />}>
-      <section className="work-area scene-page audiobook-scene">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">Digital Library</p>
-            <h1>Categories</h1>
-          </div>
-        </div>
+    <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <section className="audiobook-main-page">
+        <AudiobookPageHeader
+          title="Categories"
+          subtitle={`${categories.length} ${categories.length === 1 ? "category" : "categories"}`}
+          user={user}
+        />
 
         {error && <MessageBox tone="error" title="Categories error">{error}</MessageBox>}
+
+        <div className="audiobook-page-nav-row">
+          <AudiobookTabs active="categories" />
+        </div>
 
         <div className="series-grid">
           {categories.map((category) => (

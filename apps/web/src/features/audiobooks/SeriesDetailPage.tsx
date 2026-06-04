@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
-import { AudiobookNav } from "./AudiobookNav";
 import type { AudiobookBook, SeriesDetail } from "./types";
 
 interface EditableBook {
@@ -168,9 +167,12 @@ export function SeriesDetailPage({
 
   if (error) {
     return (
-      <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="series" />}>
-        <section className="work-area scene-page audiobook-scene">
-          <button className="back-link" onClick={() => navigate("/audiobooks/series")}>← Series</button>
+      <DashboardShell active="audiobooks" user={user} logout={logout}>
+        <section className="audiobook-main-page">
+          <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
+            <ArrowLeft size={17} aria-hidden="true" />
+            <span>Back to audiobooks</span>
+          </button>
           <MessageBox tone="error" title="Error">{error}</MessageBox>
         </section>
       </DashboardShell>
@@ -179,8 +181,8 @@ export function SeriesDetailPage({
 
   if (!series) {
     return (
-      <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="series" />}>
-        <section className="work-area scene-page audiobook-scene">
+      <DashboardShell active="audiobooks" user={user} logout={logout}>
+        <section className="audiobook-main-page">
           <p className="management-empty">Loading series…</p>
         </section>
       </DashboardShell>
@@ -188,9 +190,12 @@ export function SeriesDetailPage({
   }
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="series" />}>
-      <section className="work-area scene-page audiobook-scene">
-        <button className="back-link" onClick={() => navigate("/audiobooks/series")}>← Series</button>
+    <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <section className="audiobook-main-page">
+        <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
+          <ArrowLeft size={17} aria-hidden="true" />
+          <span>Back to audiobooks</span>
+        </button>
 
         <div className="series-detail-head">
           <div className="series-name-edit">
