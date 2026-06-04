@@ -141,11 +141,11 @@ export function BackupSection() {
             )}
           </div>
           <div className="backup-hero-actions">
-            <button className="icon-button with-label backup-create-button" onClick={createBackup} disabled={creating}>
+            <button className="primary-button" onClick={createBackup} disabled={creating}>
               <DatabaseBackup size={18} />
               <span>{creating ? "Backing up..." : "Create backup now"}</span>
             </button>
-            <button className="icon-button with-label" onClick={() => { setError(""); setNotice(""); setPendingLoadTesting(true); }} title="Replace the database with generated testing data">
+            <button className="secondary-button" onClick={() => { setError(""); setNotice(""); setPendingLoadTesting(true); }} title="Replace the database with generated testing data">
               <FlaskConical size={18} />
               <span>Load testing data</span>
             </button>

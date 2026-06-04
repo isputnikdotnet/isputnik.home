@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Check, Pencil, Trash2, X, Eraser, Search } from "lucide-react";
+import { Check, Pencil, Trash2, X, Eraser, Search, Plus } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 
@@ -19,6 +19,9 @@ export function TagsSection() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ManageTag | null>(null);
   const [pruning, setPruning] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     const payload = await api<{ tags: ManageTag[] }>("/api/library/manage/tags");
@@ -89,6 +92,29 @@ export function TagsSection() {
     }
   };
 
+  const createTag = async () => {
+    const displayName = newTagName.trim();
+    if (!displayName) return;
+
+    setCreating(true);
+    setError("");
+    setNotice("");
+    try {
+      const payload = await api<{ tags: ManageTag[] }>("/api/library/manage/tags", {
+        method: "POST",
+        body: JSON.stringify({ displayName })
+      });
+      setTags(payload.tags);
+      setNewTagName("");
+      setCreateOpen(false);
+      setNotice(`Created tag "${displayName}".`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create tag");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const term = search.trim().toLowerCase();
   const visible = term ? tags.filter((tag) => tag.name.toLowerCase().includes(term)) : tags;
   const unusedCount = tags.filter((tag) => tag.bookCount === 0).length;
@@ -100,14 +126,20 @@ export function TagsSection() {
           <p className="eyebrow">Digital Library</p>
           <h1>Tags</h1>
         </div>
-        <button className="secondary-button compact-button" onClick={pruneUnused} disabled={pruning || unusedCount === 0}>
-          <Eraser size={15} aria-hidden="true" />
-          {pruning ? "Removing…" : `Remove unused${unusedCount > 0 ? ` (${unusedCount})` : ""}`}
-        </button>
+        <div className="row-actions">
+          <button className="primary-button" onClick={() => { setError(""); setNotice(""); setCreateOpen(true); }}>
+            <Plus size={18} aria-hidden="true" />
+            <span>New tag</span>
+          </button>
+          <button className="secondary-button compact-button" onClick={pruneUnused} disabled={pruning || unusedCount === 0}>
+            <Eraser size={15} aria-hidden="true" />
+            {pruning ? "Removing…" : `Remove unused${unusedCount > 0 ? ` (${unusedCount})` : ""}`}
+          </button>
+        </div>
       </div>
 
       <p className="muted" style={{ marginTop: -6, marginBottom: 16, fontSize: "0.88rem", lineHeight: 1.45 }}>
-        Tags are the descriptive layer from scanned genres. Rename to fix typos (renaming onto an existing tag merges them) or delete to remove a tag from all books. Renaming a tag that is also a category keyword won't re-sort books — use "Re-match all books" on the Categories tab afterward if needed.
+        Tags are the descriptive layer for your library and can also be created from scanned genres. Rename to fix typos (renaming onto an existing tag merges them) or delete to remove a tag from all books. Renaming a tag that is also a category keyword won't re-sort books — use "Re-match all books" on the Categories tab afterward if needed.
       </p>
 
       {error && <MessageBox tone="error" title="Tag error">{error}</MessageBox>}
@@ -128,7 +160,7 @@ export function TagsSection() {
       </div>
 
       {tags.length === 0 ? (
-        <p className="management-empty">No tags yet. They are created automatically from scanned genres.</p>
+        <p className="management-empty">No tags yet. Create one here or scan books to import their genres.</p>
       ) : (
         <div className="datagrid-wrap">
           <table className="datagrid">
@@ -189,6 +221,44 @@ export function TagsSection() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {createOpen && (
+        <div className="modal-backdrop" onMouseDown={() => !creating && setCreateOpen(false)}>
+          <form
+            className="confirm-modal create-tag-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-tag-title"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createTag();
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="create-tag-title">New tag</h2>
+            <label className="field">
+              <span>Tag name</span>
+              <input
+                autoFocus
+                maxLength={120}
+                value={newTagName}
+                onChange={(event) => setNewTagName(event.target.value)}
+              />
+            </label>
+            <p>New tags start unused and can be assigned from a book's metadata editor.</p>
+            {error && <MessageBox tone="error" title="Unable to create tag">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button className="secondary-button" type="button" onClick={() => setCreateOpen(false)} disabled={creating}>
+                Cancel
+              </button>
+              <button className="primary-button" disabled={creating || !newTagName.trim()}>
+                <Plus size={15} aria-hidden="true" />
+                {creating ? "Creating…" : "Create tag"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

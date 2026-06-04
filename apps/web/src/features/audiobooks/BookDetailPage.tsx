@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Library, MoreHorizontal, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, UserRound, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Library, MoreHorizontal, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
@@ -69,8 +69,9 @@ function BookDetailView({
   onBookUpdated: (book: AudiobookBookDetail) => void;
 }) {
   const [progress, setProgress] = useState<PlaybackProgress | null>(null);
-  const [activeBookTab, setActiveBookTab] = useState<"description" | "details" | "files">("description");
+  const [activeBookTab, setActiveBookTab] = useState<"description" | "files">("description");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [save, setSave] = useState<BookSave | null>(null);
   const [saveAction, setSaveAction] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -108,7 +109,7 @@ function BookDetailView({
 
   // An ebook (or any audio-less book): content is a document, not audio tracks.
   const isEbook = book.files.length === 0 && book.documents.length > 0;
-  const [activeMetadataTab, setActiveMetadataTab] = useState<"edit" | "cover" | "lookup">("edit");
+  const [activeMetadataTab, setActiveMetadataTab] = useState<"edit" | "series" | "cover" | "lookup">("edit");
   const [metadataQuery, setMetadataQuery] = useState(`${book.title} ${book.authors[0] ?? ""}`.trim());
   const [metadataProvider, setMetadataProvider] = useState<"all" | MetadataCandidate["source"]>("all");
   const [updateDetails, setUpdateDetails] = useState(true);
@@ -168,6 +169,7 @@ function BookDetailView({
   useEffect(() => {
     setActiveBookTab("description");
     setDescriptionExpanded(false);
+    setDetailsExpanded(false);
     setDetailMenuOpen(false);
   }, [book.id]);
 
@@ -319,6 +321,11 @@ function BookDetailView({
     }
   };
 
+  const closeMetadataModal = () => {
+    setMetadataModalOpen(false);
+    setResetConfirm(false);
+  };
+
   const markBookFinished = async () => {
     setProgressAction("complete");
     setProgressActionError("");
@@ -441,12 +448,11 @@ function BookDetailView({
   ] as (DetailRow | null)[]).filter((row): row is DetailRow => Boolean(row));
   const detailRows = ([
     { label: "Library", value: book.libraryName, icon: Library },
-    book.authors.length > 0 ? { label: "Authors", value: book.authors.join(", "), icon: UserRound } : null,
     ...heroDetailRows,
     book.publisher ? { label: "Publisher", value: book.publisher, icon: BookOpen } : null,
     book.category ? { label: "Category", value: book.category.name, icon: Bookmark } : null,
-    book.isbn ? { label: "ISBN", value: book.isbn, icon: FileText } : null,
-    book.asin ? { label: "ASIN", value: book.asin, icon: FileText } : null,
+    { label: "ISBN", value: book.isbn || "Not available", icon: FileText },
+    { label: "ASIN", value: book.asin || "Not available", icon: FileText },
     {
       label: "Path",
       value: book.folderPath,
@@ -454,9 +460,11 @@ function BookDetailView({
       className: "book-folder-path"
     }
   ] as (DetailRow | null)[]).filter((row): row is DetailRow => Boolean(row));
+  const moreDetailRows = detailRows.filter(
+    (row) => !heroDetailRows.some((heroRow) => heroRow.label === row.label && heroRow.value === row.value)
+  );
   const detailTabs = [
     { id: "description", label: "Description" },
-    { id: "details", label: "Details" },
     { id: "files", label: "Files" }
   ] as const;
   const descriptionText = book.description?.trim() ?? "";
@@ -526,6 +534,32 @@ function BookDetailView({
               </div>
             ))}
           </dl>
+          {moreDetailRows.length > 0 && (
+            <div className="book-detail-more-details">
+              <button
+                className="book-detail-more"
+                type="button"
+                onClick={() => setDetailsExpanded((expanded) => !expanded)}
+                aria-expanded={detailsExpanded}
+              >
+                {detailsExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                <span>{detailsExpanded ? "Hide details" : "More details"}</span>
+              </button>
+              {detailsExpanded && (
+                <section className="book-detail-more-details-panel" aria-label="More details">
+                  <dl className="book-detail-meta-grid full">
+                    {moreDetailRows.map((row) => (
+                      <div className="book-detail-meta-item" key={`${row.label}-${row.value}`}>
+                        <row.icon size={18} aria-hidden="true" />
+                        <dt>{row.label}</dt>
+                        <dd className={row.className}>{row.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              )}
+            </div>
+          )}
 
           <div className="book-detail-actions">
             {isEbook ? (
@@ -670,20 +704,6 @@ function BookDetailView({
             </section>
           )}
 
-          {activeBookTab === "details" && (
-            <section className="book-detail-full-details">
-              <dl className="book-detail-meta-grid full">
-                {detailRows.map((row) => (
-                  <div className="book-detail-meta-item" key={`${row.label}-${row.value}`}>
-                    <row.icon size={18} aria-hidden="true" />
-                    <dt>{row.label}</dt>
-                    <dd className={row.className}>{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          )}
-
           {activeBookTab === "files" && (
             <section className="book-detail-files-tab">
               {book.documents.length > 0 && (
@@ -774,18 +794,26 @@ function BookDetailView({
       )}
 
       {metadataModalOpen && (
-        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { setMetadataModalOpen(false); setResetConfirm(false); } }}>
-          <div className="metadata-modal" role="dialog" aria-modal="true" aria-label="Metadata">
-            <div className="modal-header">
-              <h2>Metadata</h2>
-              <button className="modal-close" onClick={() => { setMetadataModalOpen(false); setResetConfirm(false); }} aria-label="Close">
-                <X size={18} />
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) closeMetadataModal(); }}>
+          <div className="metadata-modal book-metadata-modal" role="dialog" aria-modal="true" aria-label="Edit Metadata">
+            <div className="modal-header book-metadata-header">
+              <div className="book-metadata-title">
+                <span className="book-metadata-title-icon" aria-hidden="true">
+                  <Pencil size={22} />
+                </span>
+                <h2>Edit Metadata</h2>
+              </div>
+              <button className="modal-close" onClick={closeMetadataModal} aria-label="Close">
+                <X size={22} />
               </button>
             </div>
 
-            <div className="modal-tabs">
+            <div className="modal-tabs book-metadata-tabs">
               <button className={`modal-tab${activeMetadataTab === "edit" ? " active" : ""}`} onClick={() => setActiveMetadataTab("edit")}>
                 Metadata
+              </button>
+              <button className={`modal-tab${activeMetadataTab === "series" ? " active" : ""}`} onClick={() => setActiveMetadataTab("series")}>
+                Series
               </button>
               <button className={`modal-tab${activeMetadataTab === "cover" ? " active" : ""}`} onClick={() => setActiveMetadataTab("cover")}>
                 Cover
@@ -795,33 +823,13 @@ function BookDetailView({
               </button>
             </div>
 
-            <div className="modal-tab-content">
+            <div className="modal-tab-content book-metadata-content">
               {activeMetadataTab === "edit" ? (
                 <>
                   <div className="metadata-edit-grid">
-                    <label className="field metadata-field-half">
+                    <label className="field metadata-field-wide">
                       <span>Title</span>
                       <input value={editForm.title} onChange={(event) => setEditForm((form) => ({ ...form, title: event.target.value }))} />
-                    </label>
-                    <div className="field metadata-field-series-name">
-                      <span>Series</span>
-                      <SuggestInput
-                        value={editForm.series}
-                        onChange={(v) => setEditForm((form) => ({ ...form, series: v }))}
-                        suggestions={librarySeries}
-                        placeholder="Series name…"
-                      />
-                    </div>
-                    <label className="field metadata-field-series-pos">
-                      <span>#</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        value={editForm.seriesPosition}
-                        onChange={(event) => setEditForm((form) => ({ ...form, seriesPosition: event.target.value }))}
-                        placeholder="1"
-                      />
                     </label>
                     <div className="field metadata-field-half">
                       <span>Authors</span>
@@ -858,23 +866,23 @@ function BookDetailView({
                         placeholder="Comma-separated, e.g. cyberpunk, попаданцы"
                       />
                     </label>
-                    <label className="field metadata-field-half">
+                    <label className="field metadata-field-third">
                       <span>Publisher</span>
                       <input value={editForm.publisher} onChange={(event) => setEditForm((form) => ({ ...form, publisher: event.target.value }))} />
                     </label>
-                    <label className="field">
+                    <label className="field metadata-field-third">
                       <span>Year</span>
                       <input type="number" value={editForm.yearPublished} onChange={(event) => setEditForm((form) => ({ ...form, yearPublished: event.target.value }))} />
                     </label>
-                    <label className="field">
+                    <label className="field metadata-field-third">
                       <span>Language</span>
                       <input value={editForm.language} onChange={(event) => setEditForm((form) => ({ ...form, language: event.target.value }))} />
                     </label>
-                    <label className="field">
+                    <label className="field metadata-field-third">
                       <span>ISBN</span>
                       <input value={editForm.isbn} onChange={(event) => setEditForm((form) => ({ ...form, isbn: event.target.value }))} />
                     </label>
-                    <label className="field">
+                    <label className="field metadata-field-third">
                       <span>ASIN</span>
                       <input value={editForm.asin} onChange={(event) => setEditForm((form) => ({ ...form, asin: event.target.value }))} />
                     </label>
@@ -886,17 +894,84 @@ function BookDetailView({
 
                   {editError && <MessageBox tone="error" title="Metadata edit error">{editError}</MessageBox>}
 
-                  <div className="metadata-actions">
-                    <button className="primary-button" onClick={saveManualMetadata} disabled={editSaving || !editForm.title.trim()}>
-                      <Save size={16} />
-                      <span>{editSaving ? "Saving..." : "Save metadata"}</span>
-                    </button>
+                  <div className="metadata-actions book-metadata-footer">
                     {book.metadataSource === "manual" && !resetConfirm && (
                       <button className="secondary-button" onClick={() => setResetConfirm(true)}>
                         <RotateCcw size={16} />
                         <span>Reset to auto</span>
                       </button>
                     )}
+                    <span className="book-metadata-footer-spacer" aria-hidden="true"></span>
+                    <button className="secondary-button" onClick={closeMetadataModal} disabled={editSaving || resetting}>
+                      Cancel
+                    </button>
+                    <button className="primary-button" onClick={saveManualMetadata} disabled={editSaving || !editForm.title.trim()}>
+                      <Save size={16} />
+                      <span>{editSaving ? "Saving..." : "Save metadata"}</span>
+                    </button>
+                  </div>
+
+                  {resetConfirm && (
+                    <div className="metadata-reset-confirm">
+                      <p>This will replace all manually edited fields with data from the file scan. Continue?</p>
+                      <div className="metadata-actions">
+                        <button className="primary-button" onClick={resetMetadata} disabled={resetting}>
+                          <RotateCcw size={16} />
+                          <span>{resetting ? "Resetting..." : "Yes, reset"}</span>
+                        </button>
+                        <button className="secondary-button" onClick={() => setResetConfirm(false)} disabled={resetting}>
+                          Cancel
+                        </button>
+                      </div>
+                      {resetError && <MessageBox tone="error" title="Reset error">{resetError}</MessageBox>}
+                    </div>
+                  )}
+                </>
+              ) : activeMetadataTab === "series" ? (
+                <>
+                  <div className="metadata-series-panel">
+                    <div className="metadata-series-grid">
+                      <div className="field">
+                        <span>Series</span>
+                        <SuggestInput
+                          value={editForm.series}
+                          onChange={(v) => setEditForm((form) => ({ ...form, series: v }))}
+                          suggestions={librarySeries}
+                          placeholder="Series name…"
+                        />
+                      </div>
+                      <label className="field">
+                        <span>Position</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={editForm.seriesPosition}
+                          onChange={(event) => setEditForm((form) => ({ ...form, seriesPosition: event.target.value }))}
+                          placeholder="1"
+                        />
+                      </label>
+                    </div>
+                    <p className="muted">Choose an existing series or enter a new one, then set this book's position in the series.</p>
+                  </div>
+
+                  {editError && <MessageBox tone="error" title="Metadata edit error">{editError}</MessageBox>}
+
+                  <div className="metadata-actions book-metadata-footer">
+                    {book.metadataSource === "manual" && !resetConfirm && (
+                      <button className="secondary-button" onClick={() => setResetConfirm(true)}>
+                        <RotateCcw size={16} />
+                        <span>Reset to auto</span>
+                      </button>
+                    )}
+                    <span className="book-metadata-footer-spacer" aria-hidden="true"></span>
+                    <button className="secondary-button" onClick={closeMetadataModal} disabled={editSaving || resetting}>
+                      Cancel
+                    </button>
+                    <button className="primary-button" onClick={saveManualMetadata} disabled={editSaving || !editForm.title.trim()}>
+                      <Save size={16} />
+                      <span>{editSaving ? "Saving..." : "Save metadata"}</span>
+                    </button>
                   </div>
 
                   {resetConfirm && (

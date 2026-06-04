@@ -146,7 +146,7 @@ export function StorageSection() {
             <p>Containers are approved root folders. Libraries can use the whole container or any folder inside it.</p>
           </div>
           <button
-            className="icon-button with-label"
+            className="primary-button"
             onClick={() => {
               setError("");
               setRootNameInput("");

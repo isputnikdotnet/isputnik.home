@@ -1,8 +1,9 @@
 /**
  * Generates a reusable testing database at data/db/testing/isputnik-testing.sqlite
- * seeded with a known admin account and fake audiobook data (libraries, authors,
- * narrators, series, categories, books with metadata/files, plus a few playback
- * progress states and tags). Run with: `npm run seed:testing --workspace apps/server`.
+ * seeded with a known admin account, fake audiobook data (1000 books across 3
+ * libraries — authors, narrators, series, categories, metadata/files, progress,
+ * tags) and fake ebook data (5000 books across 2 ebook libraries — epub/pdf
+ * documents). Run with: `npm run seed:testing --workspace apps/server`.
  *
  * The file is regenerated from scratch each run, so it's deterministic and never
  * needs to be committed — it lives under the gitignored data/ folder. Load it into
@@ -61,6 +62,10 @@ const LIBRARIES = [
   { name: "Kids & Classics", count: 320 },
   { name: "Sci-Fi Vault", count: 200 }
 ];
+const EBOOK_LIBRARIES = [
+  { name: "Family Ebooks", count: 3000 },
+  { name: "Reference Library", count: 2000 }
+];
 
 const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
@@ -82,7 +87,7 @@ const insertUser = db.prepare(`
 `);
 const insertLibrary = db.prepare(`
   INSERT INTO libraries (id, name, type, source_path, settings_json, scan_status, last_scanned_at, created_by, owner_id, owner_type, visibility)
-  VALUES (?, ?, 'audiobook', ?, '{}', 'idle', ?, ?, NULL, NULL, 'public')
+  VALUES (?, ?, ?, ?, '{}', 'idle', ?, ?, NULL, NULL, 'public')
 `);
 const insertAuthor = db.prepare("INSERT INTO authors (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)");
 const insertSeries = db.prepare("INSERT INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)");
@@ -98,6 +103,10 @@ const insertBookAuthor = db.prepare("INSERT INTO book_authors (book_id, author_i
 const insertFile = db.prepare(`
   INSERT INTO book_files (id, book_id, relative_path, mime_type, track_number, chapter_title, duration_seconds, size, status)
   VALUES (?, ?, ?, 'audio/mpeg', ?, ?, ?, ?, 'available')
+`);
+const insertDocument = db.prepare(`
+  INSERT INTO book_documents (id, book_id, relative_path, format, mime_type, size, status)
+  VALUES (?, ?, ?, ?, ?, ?, 'available')
 `);
 const insertProgress = db.prepare(`
   INSERT INTO playback_progress (id, user_id, book_id, position_seconds, duration_seconds, percent_complete, completed_at, updated_at)
@@ -125,7 +134,7 @@ const seed = db.transaction(() => {
   let bookCounter = 0;
   for (const libDef of LIBRARIES) {
     const libraryId = nanoid(16);
-    insertLibrary.run(libraryId, libDef.name, `/testing/${slug(libDef.name)}`, now, adminId);
+    insertLibrary.run(libraryId, libDef.name, "audiobook", `/testing/${slug(libDef.name)}`, now, adminId);
 
     const authorId = new Map<string, string>();
     for (const name of AUTHORS) {
@@ -203,15 +212,59 @@ const seed = db.transaction(() => {
     }
   }
 
-  return bookCounter;
+  // ── Ebooks (reuse the books/book_metadata tables; the file is a book_document
+  // carrying the epub/pdf format). No narrators, series, duration, or progress. ──
+  let ebookCounter = 0;
+  for (const libDef of EBOOK_LIBRARIES) {
+    const libraryId = nanoid(16);
+    insertLibrary.run(libraryId, libDef.name, "ebook", `/testing/${slug(libDef.name)}`, now, adminId);
+
+    const authorId = new Map<string, string>();
+    for (const name of AUTHORS) {
+      const id = nanoid(16);
+      insertAuthor.run(id, libraryId, name, name);
+      authorId.set(name, id);
+    }
+
+    for (let k = 0; k < libDef.count; k++) {
+      const i = globalIndex++;
+      const bookTitle = makeTitle(i);
+      const bookId = nanoid(16);
+
+      const author1 = AUTHORS[i % AUTHORS.length];
+      const author2 = i % 3 === 0 ? AUTHORS[(i + 7) % AUTHORS.length] : null;
+      const category = categories.length > 0 ? categories[i % categories.length] : null;
+      const year = 1990 + (i % 35);
+      const folder = `${slug(author1)}/${String(i).padStart(5, "0")}-${slug(bookTitle)}`;
+      const isPdf = i % 4 === 0;
+      const format = isPdf ? "pdf" : "epub";
+      const mime = isPdf ? "application/pdf" : "application/epub+zip";
+      const description = `${bookTitle} is a fictional ebook used for interface testing. Fake metadata only — there is no real file.`;
+
+      insertBook.run(bookId, libraryId, folder, null, null, now, now);
+      insertMetadata.run(nanoid(16), bookId, bookTitle, bookTitle, description, year, null, category?.id ?? null, now);
+      insertBookAuthor.run(bookId, authorId.get(author1)!, "author", 0);
+      if (author2 && author2 !== author1) insertBookAuthor.run(bookId, authorId.get(author2)!, "author", 1);
+
+      insertDocument.run(nanoid(16), bookId, `${slug(bookTitle)}.${format}`, format, mime, (1 + (i % 9)) * 600000);
+
+      if (i % 2 === 0) insertTaggable.run(tagIds[i % tagIds.length], bookId);
+      if (i % 5 === 1) insertTaggable.run(tagIds[(i + 3) % tagIds.length], bookId);
+
+      ebookCounter++;
+    }
+  }
+
+  return { audiobooks: bookCounter, ebooks: ebookCounter };
 });
 
-const bookTotal = seed();
+const counts = seed();
 
 // WAL → main file, so the single .sqlite is self-contained for copying/loading.
 db.pragma("wal_checkpoint(TRUNCATE)");
 db.close();
 
 console.log(`✓ Testing database written to ${testingDbPath}`);
-console.log(`  ${LIBRARIES.length} libraries · ${bookTotal} books`);
+console.log(`  ${LIBRARIES.length} audiobook libraries · ${counts.audiobooks} audiobooks`);
+console.log(`  ${EBOOK_LIBRARIES.length} ebook libraries · ${counts.ebooks} ebooks`);
 console.log(`  Login: ${TEST_EMAIL} / ${TEST_PASSWORD}`);

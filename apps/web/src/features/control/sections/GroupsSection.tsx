@@ -131,7 +131,7 @@ export function GroupsSection() {
           <p className="eyebrow">User administration</p>
           <h1>Groups</h1>
         </div>
-        <button className="icon-button with-label" onClick={() => { setError(""); setCreateOpen(true); }}>
+        <button className="primary-button" onClick={() => { setError(""); setCreateOpen(true); }}>
           <Plus size={18} />
           <span>New group</span>
         </button>

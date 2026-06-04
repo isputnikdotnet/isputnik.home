@@ -10,10 +10,12 @@ known admin account, for exercising the UI at scale without touching real data.
 - A known admin login:
   - **email:** `test@test.com`
   - **password:** `test1234`
-- 3 audiobook libraries and **1,000 books** with metadata, file rows, authors,
+- 3 audiobook libraries and **1,000 audiobooks** with metadata, file rows, authors,
   narrators, series, categories, tags, and a spread of listening-progress states.
-- Letter-fallback covers only — there are **no real audio files**, so browsing,
-  search, filtering, and detail views work, but playback does not.
+- 2 ebook libraries and **5,000 ebooks** (epub/pdf `book_documents`, authors,
+  categories, tags) — a large set for exercising/stress-testing the ebook views.
+- Letter-fallback covers only — there are **no real files**, so browsing, search,
+  filtering, and detail views work, but playback / reading does not.
 
 The fixture is deterministic (no randomness) and regenerated from scratch each
 run, so it never needs to be committed. It lives under the gitignored `data/`

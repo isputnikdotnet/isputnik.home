@@ -390,8 +390,8 @@
 
 .home-book-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(150px, 1fr));
-  gap: clamp(16px, 2.1vw, 24px);
+  grid-template-columns: repeat(auto-fill, minmax(174px, 1fr));
+  gap: 20px;
 }
 
 .home-book-card,
@@ -439,13 +439,13 @@ a.home-overview-card:focus-visible {
 }
 
 .home-cover {
-  aspect-ratio: 1 / 1.08;
-  padding: 18px;
+  aspect-ratio: 1 / 0.86;
+  padding: 14px;
 }
 
 .home-recent-cover {
-  aspect-ratio: 1 / 0.97;
-  padding: 14px;
+  aspect-ratio: 1 / 0.86;
+  padding: 12px;
 }
 
 .home-cover::before,
@@ -588,8 +588,8 @@ a.home-overview-card:focus-visible {
 
 .home-recent-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(128px, 1fr));
-  gap: clamp(14px, 1.8vw, 24px);
+  grid-template-columns: repeat(auto-fill, minmax(174px, 1fr));
+  gap: 20px;
 }
 
 .home-collection-grid {
@@ -817,11 +817,11 @@ a.home-overview-card:focus-visible {
     grid-template-columns: 238px minmax(0, 1fr);
   }
 
-  .home-book-grid {
-    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  .home-book-grid,
+  .home-recent-grid {
+    grid-template-columns: repeat(auto-fill, minmax(174px, 1fr));
   }
 
-  .home-recent-grid,
   .home-collection-grid {
     grid-template-columns: repeat(3, minmax(140px, 1fr));
   }

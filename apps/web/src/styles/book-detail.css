@@ -101,6 +101,30 @@
   margin: 0;
 }
 
+.book-detail-more-details {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.book-detail-more-details-panel {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.book-detail-more-details-panel .book-detail-meta-grid.full {
+  grid-template-columns: 1fr;
+}
+
+.book-detail-more-details-panel .book-detail-meta-item dd {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .book-detail-meta-item {
   display: grid;
   grid-template-columns: 22px minmax(82px, auto) minmax(0, 1fr);
@@ -275,7 +299,6 @@
   padding-top: 24px;
 }
 
-.book-detail-full-details,
 .book-detail-files-tab {
   display: grid;
   gap: 20px;

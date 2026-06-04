@@ -83,7 +83,7 @@ export function InvitesSection() {
           <h1>Invite links</h1>
         </div>
         <button
-          className="icon-button with-label"
+          className="primary-button"
           onClick={() => {
             setInviteUrl("");
             setError("");

@@ -336,6 +336,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.6.1",
+          label: "Shared navigation & library UI polish",
+          changes: [
+            "Primary pages now use one shared left navigation with a profile dropdown and bottom-aligned Settings and About links; the control panel also includes a Home link.",
+            "Audiobook browsing has a reorganized catalog header, and the home dashboard uses compact book-cover cards that match the audiobook catalog scale.",
+            "Book details now expose additional metadata through an expandable More details panel, while Edit Metadata has a larger responsive layout with dedicated Metadata, Series, Cover, and Metadata Lookup tabs.",
+            "Admins can create tags manually from Control Panel > Labels > Tags, alongside rename, delete, merge, and remove-unused actions.",
+            "Control-panel actions and light-theme primary buttons were made more consistent, with disabled controls using the standard unavailable cursor."
+          ]
+        },
+        {
           version: "0.6.0",
           label: "Audiobook search & paging",
           changes: [

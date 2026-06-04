@@ -76,8 +76,18 @@
   font-weight: 760;
 }
 
+:root[data-theme="plain-light"] .primary-button:not(.danger) {
+  color: #ffffff;
+  background: #7c3aed;
+}
+
+:root[data-theme="plain-light"] .primary-button:not(.danger):hover:not(:disabled),
+:root[data-theme="plain-light"] .primary-button:not(.danger):focus-visible {
+  background: #6d28d9;
+}
+
 .primary-button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.7;
 }
 
@@ -101,7 +111,7 @@
 
 .secondary-button:disabled,
 .danger-button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.7;
 }
 
@@ -464,6 +474,7 @@
 }
 
 .create-group-modal,
+.create-tag-modal,
 .edit-library-modal {
   display: grid;
   gap: 16px;
@@ -481,9 +492,15 @@
 
 .create-library-modal > p,
 .create-storage-modal > p,
+.create-tag-modal > p,
 .edit-thumbnail-modal > p {
   margin: 0;
   color: var(--muted);
+}
+
+.create-tag-modal .message-box p {
+  margin: 0;
+  color: inherit;
 }
 
 .create-invite-modal .created-invite {

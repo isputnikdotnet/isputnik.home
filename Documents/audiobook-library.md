@@ -224,6 +224,8 @@ PRIMARY KEY (tag_id, entity_type, entity_id)
 
 Categories are fixed navigation buckets seeded from `categories-seed.ts`: Fiction, Classics & Literary, Adventure & Action, Mystery & Thriller, Sci-Fi & Fantasy, Horror & Supernatural, Romance, Humor & Satire, Biographies & Memoirs, History, Self-Help & Business, Science & Culture, Kids & Teens, and General / Other. A book has one primary category. Original genre strings are preserved as global tags. Seeded categories can also carry built-in public card art, while uploaded admin images still use thumbnail storage.
 
+Tags are created automatically from scanned genre metadata or manually from **Control Panel → Labels → Tags**. Admin tag management supports creating, renaming, deleting, merging on a rename collision, and removing unused tags.
+
 ### Join tables
 
 ```sql
@@ -524,6 +526,21 @@ We never write to source folders. If a user's library already has `metadata.json
 
 ---
 
+## Book details and manual editing
+
+The book detail page keeps the cover, title, author, playback action, and core metadata at the top. Tags sit below the shorter cover. **More details** expands additional metadata one field per row, including ISBN and ASIN, while Description and Files remain as the page tabs.
+
+**Edit metadata** opens a large responsive modal without leaving the book:
+
+- **Metadata** — title, authors, narrators, category, tags, publisher, year, language, ISBN, ASIN, and description
+- **Series** — series and position
+- **Cover** — refresh or upload cover art
+- **Metadata Lookup** — search providers and apply a result
+
+Saving direct edits sets `book_metadata.source = 'manual'`. Resetting to automatic metadata remains available from the editor.
+
+---
+
 ## Metadata Lookup
 
 **Phase 3 — complete.**
@@ -545,15 +562,13 @@ iTunes, Open Library, and FantLab do not require API keys.
 ### User flow
 
 1. Open a book's detail page
-2. Click **"Look up metadata"**
-3. An inline search panel opens, pre-filled with current title + author
-4. User adjusts the query and selects a provider
+2. Open **More options**, then select **Edit metadata**
+3. Select the **Metadata Lookup** tab; search is pre-filled with the current title and author
+4. Adjust the query and select a provider
 5. Results appear as cards showing: cover thumbnail, title, author(s), year, publisher
-6. User clicks a result to preview what would change on their book
-7. Checkboxes: **Update details** (on by default) and **Update cover** (on by default)
-8. Click **Apply** — metadata saved, `source = 'manual'` set, cover downloaded
-
-Manual edits are also available from the book detail page. Users can directly edit title, authors, narrators, category, tags, publisher, year, description, language, ISBN, and ASIN. Saving direct edits sets `book_metadata.source = 'manual'`.
+6. Select a result to preview what would change on the book
+7. Choose whether to update details and cover
+8. Apply the result — metadata is saved, `source = 'manual'` is set, and the selected cover is downloaded
 
 ### API endpoints
 

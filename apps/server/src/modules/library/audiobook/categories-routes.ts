@@ -414,7 +414,41 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     return { tags: listTags() };
   });
 
-  const tagRenameSchema = z.object({ displayName: z.string().trim().min(1).max(120) });
+  const tagNameSchema = z.object({ displayName: z.string().trim().min(1).max(120) });
+
+  app.post("/api/library/manage/tags", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(tagNameSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid tag name", details: parsed.error });
+      return;
+    }
+
+    const displayName = parsed.data.displayName.trim();
+    const key = normalizeText(displayName);
+    if (!key) {
+      reply.code(400).send({ error: "Tag name must contain letters or numbers." });
+      return;
+    }
+
+    const id = nanoid();
+    const result = db.prepare("INSERT OR IGNORE INTO tags (id, key, display_name) VALUES (?, ?, ?)")
+      .run(id, key, displayName);
+    if (result.changes === 0) {
+      reply.code(409).send({ error: "Tag already exists." });
+      return;
+    }
+
+    logActivity({
+      event: "library.tag.created",
+      actorUserId: request.user!.id,
+      targetType: "tag",
+      targetId: id,
+      detail: `Created tag "${displayName}".`,
+      ipAddress: request.ip
+    });
+
+    return { tags: listTags() };
+  });
 
   app.patch("/api/library/manage/tags/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
@@ -425,7 +459,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
       return;
     }
 
-    const parsed = parseBody(tagRenameSchema, request.body);
+    const parsed = parseBody(tagNameSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid tag name", details: parsed.error });
       return;

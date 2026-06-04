@@ -275,3 +275,14 @@
   background: var(--gold);
   font-weight: 700;
 }
+
+:root[data-theme="plain-light"] .theme-switcher button.selected {
+  color: #ffffff;
+  background: #7c3aed;
+}
+
+:root[data-theme="plain-light"] .theme-switcher button.selected:hover,
+:root[data-theme="plain-light"] .theme-switcher button.selected:focus-visible {
+  color: #ffffff;
+  background: #6d28d9;
+}

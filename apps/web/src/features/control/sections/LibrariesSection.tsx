@@ -381,7 +381,7 @@ export function LibrariesSection({ tab }: { tab: "audiobooks" | "special" }) {
         <div className="row-actions">
           {tab === "special" && (
             <button
-              className="icon-button with-label"
+              className="primary-button"
               onClick={() => openSectionModal(null)}
               title="Add special section"
             >
@@ -390,7 +390,7 @@ export function LibrariesSection({ tab }: { tab: "audiobooks" | "special" }) {
             </button>
           )}
           <button
-            className="icon-button with-label"
+            className="primary-button"
             disabled={!librarySettings?.thumbnailPathReady || storageRoots.length === 0}
             onClick={openCreateLibrary}
             title="Add audiobook library"

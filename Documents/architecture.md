@@ -30,23 +30,20 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 
 ## Implementation Status
 
-**Status snapshot: June 1, 2026**
+**Status snapshot: June 4, 2026**
 
 ### Completed
 
 - React + TypeScript frontend, Node.js + Fastify + TypeScript backend, SQLite database
 - Admin setup, email/password login, cookie sessions, invite-only registration, protected routes
-- App shell: navigation, profile, light/dark/system themes
+- App shell: shared left navigation across primary pages, profile dropdown, light/dark/system themes
 - Control panel: user/role/session management, invite links, activity logs, system status, About
 - Digital Library infrastructure: storage containers, thumbnail configuration, audiobook library registration and scan
 
 - Audiobook playback — resume progress, per-user position bookmarks with notes, and a saved-books "My List"
-- Genre model — fixed navigation **categories** (keyword-matched per scan with English default aliases) plus global, cross-type **tags**; admin Control Panel screen to manage categories, edit per-category mappings, promote scanned tags into keywords, and instantly re-match existing books
+- Genre model — fixed navigation **categories** (keyword-matched per scan with English default aliases) plus global, cross-type **tags**; admins can manage category mappings, promote scanned tags into keywords, create/rename/delete tags, remove unused tags, and instantly re-match existing books
 - Special Sections — group audiobook libraries under a master sidebar entry with their books hidden from the main grid, plus per-library overwrite-on-add for Author, Narrator, Description, Category, and Tags
-
-### In Progress
-
-- Audiobook library Phase 3 — metadata lookup and sidecar import are active; manual edit UI polish remains
+- Audiobook library Phase 3 — metadata lookup, sidecar import, expandable book details, and the tabbed manual metadata editor
 
 ### Planned
 
@@ -209,8 +206,8 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 3. **Done** — Control panel (user/session admin, logs, status, About)
 4. **Done** — Digital Library infrastructure (storage containers, thumbnail config, audiobook scan)
 5. **Done** — Audiobook library Phase 2 (metadata, covers, async scan)
-6. **Next** — Audiobook library Phase 3 (lookup/enrichment and manual metadata)
-7. **Planned** — Digital Library sharing Phase 1 — library ownership and visibility (private / public)
+6. **Done** — Audiobook library Phase 3 (lookup/enrichment, sidecar import, and manual metadata editor)
+7. **Next** — Digital Library sharing Phase 1 — library ownership and visibility (private / public)
 8. **Planned** — Backup and restore tooling
 9. **Future** — Notes module
 10. **Future** — MFA

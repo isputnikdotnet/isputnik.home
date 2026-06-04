@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, BookOpen, ChevronDown, Headphones, LayoutGrid, Library, List, Mic2, MoreVertical, Search, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
-import { FilterButton, FilterChips, SortSelect, type SortKey } from "./BookFilter";
+import { FilterButton, FilterChips, SORT_OPTIONS, SortSelect, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import { DashboardShell } from "../../app/DashboardShell";
-import { CategoryIcon } from "./categoryIcons";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatDuration } from "../../shared/utils";
@@ -18,16 +17,24 @@ export function formatCount(value: number) {
   return new Intl.NumberFormat().format(value);
 }
 
-export function AudiobookTabs({ active }: { active: "books" | "authors" | "narrators" | "series" | "collections" | "categories" }) {
+export function AudiobookTabs({
+  active,
+  includeBooks = true
+}: {
+  active: "books" | "authors" | "narrators" | "series" | "collections" | "categories";
+  includeBooks?: boolean;
+}) {
   const tabs = [
+    { id: "books", label: "All Libraries", href: "/audiobooks", icon: BookOpen },
     { id: "authors", label: "Authors", href: "/audiobooks/authors", icon: UserRound },
     { id: "narrators", label: "Narrators", href: "/audiobooks/narrators", icon: Mic2 },
     { id: "series", label: "Series", href: "/audiobooks/series", icon: Library }
   ] as const;
+  const visibleTabs = includeBooks ? tabs : tabs.filter((tab) => tab.id !== "books");
 
   return (
     <nav className="audiobook-page-tabs" aria-label="Audiobook views">
-      {tabs.map((tab) => {
+      {visibleTabs.map((tab) => {
         const Icon = tab.icon;
         return (
           <a
@@ -53,13 +60,15 @@ export function AudiobookPageHeader({
   subtitle,
   search,
   onSearchChange,
-  searchPlaceholder
+  searchPlaceholder,
+  actions
 }: {
   title: string;
   subtitle?: string;
   search?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
+  actions?: ReactNode;
 }) {
   return (
     <header className="audiobook-page-header">
@@ -67,21 +76,38 @@ export function AudiobookPageHeader({
         <h1>{title}</h1>
         {subtitle && <p>{subtitle}</p>}
       </div>
-      {onSearchChange && (
+      {(onSearchChange || actions) && (
         <div className="audiobook-page-actions">
-          <label className="audiobook-page-search">
-            <span className="sr-only">{searchPlaceholder ?? "Search audiobooks"}</span>
-            <Search size={22} aria-hidden="true" />
-            <input
-              type="search"
-              value={search ?? ""}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder={searchPlaceholder ?? "Search audiobooks..."}
-            />
-          </label>
+          {onSearchChange && (
+            <label className="audiobook-page-search">
+              <span className="sr-only">{searchPlaceholder ?? "Search audiobooks"}</span>
+              <Search size={22} aria-hidden="true" />
+              <input
+                type="search"
+                value={search ?? ""}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder={searchPlaceholder ?? "Search audiobooks..."}
+              />
+            </label>
+          )}
+          {actions}
         </div>
       )}
     </header>
+  );
+}
+
+function AudiobookHeaderSort({ value, onChange }: { value: SortKey; onChange: (sort: SortKey) => void }) {
+  return (
+    <label className="audiobook-sort-control">
+      <span>Sort by</span>
+      <select value={value} onChange={(event) => onChange(event.target.value as SortKey)} aria-label="Sort audiobooks">
+        {SORT_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+      <ChevronDown size={16} aria-hidden="true" />
+    </label>
   );
 }
 
@@ -162,10 +188,10 @@ export function AudiobooksPage({
   logout: () => Promise<void>;
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
-  const [sections, setSections] = useState<LibrarySection[]>([]);
   const [selectedLibraryId, setSelectedLibraryId] = useState(() => readCatalogView("audiobooks:main").selectedLibraryId);
+  const [sort, setSort] = useState<SortKey>("recent");
   const [librariesError, setLibrariesError] = useState("");
-  const [viewMode, setViewMode] = useState<AudiobookViewMode>("grid");
+  const viewMode: AudiobookViewMode = "grid";
   const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
   const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
   const libraryTriggerRef = useRef<HTMLButtonElement>(null);
@@ -173,19 +199,16 @@ export function AudiobooksPage({
 
   const normalLibraries = libraries.filter((library) => !library.specialSection);
   const scope: CatalogScope = selectedLibraryId === "all" ? { kind: "all" } : { kind: "library", libraryId: selectedLibraryId };
-  const cat = useAudiobookCatalog(scope, "recent", "audiobooks:main");
+  const cat = useAudiobookCatalog(scope, sort, "audiobooks:main");
 
   useEffect(() => {
-    writeCatalogView("audiobooks:main", { selectedLibraryId });
-  }, [selectedLibraryId]);
+    writeCatalogView("audiobooks:main", { selectedLibraryId, sort });
+  }, [selectedLibraryId, sort]);
 
   useEffect(() => {
     api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
       .then((payload) => setLibraries(payload.libraries))
       .catch((err) => setLibrariesError(err instanceof Error ? err.message : "Unable to load libraries"));
-    api<{ sections: LibrarySection[] }>("/api/library/sections")
-      .then((payload) => setSections(payload.sections))
-      .catch(() => setSections([]));
   }, []);
 
   // While a library is scanning, refresh both the library status and the catalog
@@ -244,6 +267,12 @@ export function AudiobooksPage({
           search={cat.search}
           onSearchChange={cat.setSearch}
           searchPlaceholder="Search audiobooks..."
+          actions={
+            <>
+              <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} />
+              <AudiobookHeaderSort value={sort} onChange={setSort} />
+            </>
+          }
         />
 
         {error && <MessageBox tone="error" title="Audiobooks error">{error}</MessageBox>}
@@ -265,7 +294,7 @@ export function AudiobooksPage({
           </div>
         ) : (
           <>
-            <div className="audiobook-page-nav-row">
+            <div className="audiobook-page-nav-row audiobook-main-nav-row">
               <div className="audiobook-page-tabs-with-library">
                 <div className="audiobook-library-shortcuts">
                   <button
@@ -312,28 +341,7 @@ export function AudiobooksPage({
                     document.body
                   )}
                 </div>
-                <AudiobookTabs active="books" />
-                {sections.length > 0 && (
-                  <div className="audiobook-special-library-shortcuts">
-                    {sections.map((section) => (
-                      <button
-                        className="audiobook-special-library-tab"
-                        key={section.id}
-                        type="button"
-                        onClick={() => navigate(`/audiobooks/sections/${section.id}`)}
-                        title={section.name}
-                        aria-label={section.name}
-                      >
-                        <CategoryIcon icon={section.icon} size={20} />
-                        <span>{section.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="audiobook-catalog-controls">
-                <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} />
-                <ViewToggle viewMode={viewMode} onChange={setViewMode} />
+                <AudiobookTabs active="books" includeBooks={false} />
               </div>
             </div>
 

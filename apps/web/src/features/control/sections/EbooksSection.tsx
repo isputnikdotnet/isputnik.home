@@ -299,7 +299,7 @@ export function EbooksSection() {
             <p>The catalogue entry and covers are removed. Files on disk are never touched.</p>
             <div className="modal-actions">
               <button className="secondary-button" onClick={() => setDeleteConfirm(null)}>Cancel</button>
-              <button className="primary-button danger" onClick={deleteLibrary}>Delete library</button>
+              <button className="danger-button" onClick={deleteLibrary}>Delete library</button>
             </div>
           </div>
         </div>

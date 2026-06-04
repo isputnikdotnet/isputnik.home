@@ -550,7 +550,7 @@
 }
 
 .saved-audiobook-remove:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.72;
 }
 

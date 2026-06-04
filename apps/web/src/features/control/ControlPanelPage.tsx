@@ -8,6 +8,7 @@ import {
   FileStack,
   HardDrive,
   Headphones,
+  Home,
   Image,
   ScrollText,
   Tags,
@@ -67,6 +68,8 @@ export function ControlPanelPage({
 function ControlPanelNav({ section }: { section: ControlSection }) {
   return (
     <nav className="home-control-nav" aria-label="Management">
+      <ControlNavLink icon={Home} label="Home" href="/" active={false} />
+
       <div className="home-control-group">
         <p>Application</p>
         <ControlNavLink icon={Activity} label="Status" href="/control/status" active={section === "status"} />

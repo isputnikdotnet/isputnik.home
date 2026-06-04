@@ -1,3 +1,27 @@
+/* ── Control panel primary buttons ──────────────────────────────── */
+
+:root[data-theme="light"] .control-work,
+:root[data-theme="plain-light"] .control-work {
+  --control-primary-button: #7c3aed;
+  --control-primary-button-hover: #6d28d9;
+  --control-primary-button-ink: #ffffff;
+  --control-primary-button-shadow: rgba(124, 58, 237, 0.16);
+}
+
+:root[data-theme="light"] .control-work .primary-button:not(.danger),
+:root[data-theme="plain-light"] .control-work .primary-button:not(.danger) {
+  color: var(--control-primary-button-ink);
+  background: var(--control-primary-button);
+  box-shadow: 0 10px 22px var(--control-primary-button-shadow);
+}
+
+:root[data-theme="light"] .control-work .primary-button:not(.danger):hover:not(:disabled),
+:root[data-theme="plain-light"] .control-work .primary-button:not(.danger):hover:not(:disabled),
+:root[data-theme="light"] .control-work .primary-button:not(.danger):focus-visible,
+:root[data-theme="plain-light"] .control-work .primary-button:not(.danger):focus-visible {
+  background: var(--control-primary-button-hover);
+}
+
 /* ── Users ──────────────────────────────────────────────────────── */
 
 .user-list {
@@ -680,12 +704,6 @@
   justify-content: center;
   min-height: 52px;
   padding-inline: 18px;
-}
-
-.backup-create-button {
-  border: 1px solid var(--line);
-  background: var(--surface-raised);
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--shadow) 46%, transparent);
 }
 
 .backup-path-pill {

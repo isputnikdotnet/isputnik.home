@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, List, Pencil, Plus, RefreshCw, Tags as TagsIcon, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, Check, List, Pencil, Plus, RefreshCw, Tags as TagsIcon, Trash2, Upload, X } from "lucide-react";
 import { api } from "../../../api";
 import { navigate } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -444,7 +444,10 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
   return (
     <div className="category-editor-page">
       <div className="category-editor-page-head">
-        <button className="back-link" onClick={() => navigate("/control/categories")}>← Categories</button>
+        <button className="secondary-button compact-button" onClick={() => navigate("/control/categories")}>
+          <ArrowLeft size={15} />
+          Categories
+        </button>
         <div className="category-editor-title-row">
           <h1>{isNew ? "Add category" : "Edit category"}</h1>
           <div className="category-head-actions">
