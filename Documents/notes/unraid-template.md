@@ -1,0 +1,1 @@
+cp /mnt/user/workspace/sergeym/Projects/Docker/isputnik-home.xml /boot/config/plugins/dockerMan/templates-user/

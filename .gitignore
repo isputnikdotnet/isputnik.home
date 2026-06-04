@@ -2,8 +2,5 @@ node_modules/
 dist/
 .env
 .env.local
-data/db/*.sqlite
-data/db/*.sqlite-shm
-data/db/*.sqlite-wal
-Documents/notes/*.md
+.data
 .claude
