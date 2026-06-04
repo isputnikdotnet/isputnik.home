@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { BookOpen, Heart, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { AudiobookNav } from "./AudiobookNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatDuration } from "../../shared/utils";
@@ -39,8 +38,8 @@ export function MyListPage({
   };
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout} sideNav={<AudiobookNav active="saved" />}>
-      <section className="work-area scene-page audiobook-scene audiobook-area">
+    <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>
             <p className="eyebrow">Digital Library</p>

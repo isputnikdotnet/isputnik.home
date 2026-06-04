@@ -56,9 +56,3 @@ h2 {
 .muted {
   color: var(--muted);
 }
-
-.truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}

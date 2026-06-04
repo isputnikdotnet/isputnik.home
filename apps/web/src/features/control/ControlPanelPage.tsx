@@ -41,28 +41,9 @@ export function ControlPanelPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
-  const sceneClasses: Partial<Record<ControlSection, string>> = {
-    status: "scene-page rocket-scene status-scene",
-    about: "scene-page sputnik-scene about-scene",
-    users: "scene-page cosmonaut-scene user-admin-scene",
-    groups: "scene-page cosmonaut-scene user-admin-scene",
-    invites: "scene-page cosmonaut-scene user-admin-scene",
-    sessions: "scene-page cosmonaut-scene user-admin-scene",
-    logs: "scene-page control-center-scene logs-scene",
-    jobs: "scene-page job-queue-scene logs-scene",
-    libraries: "scene-page sputnik-storage-scene library-storage-scene",
-    librariesSpecial: "scene-page sputnik-storage-scene library-storage-scene",
-    librariesStats: "scene-page sputnik-storage-scene library-storage-scene",
-    ebooks: "scene-page sputnik-storage-scene library-storage-scene",
-    media: "scene-page sputnik-storage-scene library-storage-scene",
-    otherMedia: "scene-page sputnik-storage-scene library-storage-scene",
-    storage: "scene-page sputnik-storage-scene library-storage-scene"
-  };
-  const sceneClass = sceneClasses[section] ?? "";
-
   return (
     <DashboardShell active="control" user={user} logout={logout} sideNav={<ControlPanelNav section={section} />}>
-      <div className={`control-panel control-panel-single${sceneClass ? ` ${sceneClass}` : ""}`}>
+      <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
           {(section === "users" || section === "groups" || section === "invites" || section === "sessions") && <AccountsSection section={section} currentUser={user} />}
           {section === "logs"      && <LogsSection />}

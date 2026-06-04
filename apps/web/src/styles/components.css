@@ -52,10 +52,6 @@
 .danger-button,
 .icon-button,
 .text-button,
-.side-nav button,
-.logout-button,
-.header-button,
-.user-button,
 .theme-switcher button {
   border: 0;
   cursor: pointer;
@@ -568,8 +564,7 @@
   font-weight: 600;
 }
 
-.datagrid-primary small,
-.datagrid-secondary {
+.datagrid-primary small {
   color: var(--muted);
   font-size: 0.82rem;
   overflow: hidden;
@@ -680,7 +675,6 @@
 
 /* ── Count badge (shared by .book-files-count and .count-badge) ── */
 
-.book-files-count,
 .count-badge {
   display: inline-flex;
   align-items: center;

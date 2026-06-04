@@ -1,19 +1,22 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BookOpen,
   Bookmark,
+  ChevronDown,
   FileText,
-  FolderOpen,
   Headphones,
   Home,
   Image,
+  Info,
   LogOut,
-  Rocket,
-  Settings
+  Palette,
+  Settings,
+  UsersRound,
+  UserRound
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PublicUser } from "../api";
-import { followRoute } from "../router";
+import { followRoute, navigate } from "../router";
 
 type DashboardActive = "home" | "audiobooks" | "ebooks" | "about" | "profile" | "control";
 
@@ -32,6 +35,12 @@ interface DisabledMainNavLink {
 }
 
 type MainNavItem = MainNavLink | DisabledMainNavLink;
+
+interface UserMenuLink {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+}
 
 function DashboardNavLink({ item }: { item: MainNavItem }) {
   const Icon = item.icon;
@@ -63,8 +72,13 @@ function mainNavItems(active: DashboardActive): MainNavItem[] {
     { label: "Audiobooks", href: "/audiobooks", icon: Headphones, active: active === "audiobooks" },
     { label: "Ebooks", href: "/ebooks", icon: BookOpen, active: active === "ebooks" },
     { label: "Gallery", icon: Image, disabled: true },
-    { label: "Documents", icon: FolderOpen, disabled: true },
-    { label: "Notes", icon: FileText, disabled: true },
+    { label: "Documents", icon: FileText, disabled: true }
+  ];
+}
+
+function userMenuLinks(): UserMenuLink[] {
+  return [
+    { label: "Shared with me", href: "/audiobooks/shared", icon: UsersRound },
     { label: "Bookmarks", href: "/audiobooks/saved", icon: Bookmark }
   ];
 }
@@ -84,49 +98,158 @@ export function DashboardShell({
 }) {
   const isControlPanel = active === "control";
   const settingsHref = user.role === "admin" && !isControlPanel ? "/control/status" : "/profile";
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!userMenuOpen) {
+      return;
+    }
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!userMenuRef.current?.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [userMenuOpen]);
+
+  const openThemeSettings = () => {
+    setUserMenuOpen(false);
+    navigate("/profile");
+    window.setTimeout(() => {
+      document.getElementById("profile-theme")?.scrollIntoView({ block: "center" });
+    }, 50);
+  };
 
   return (
     <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}`}>
       <aside className="home-sidebar" aria-label={isControlPanel ? "Control panel navigation" : "App navigation"}>
-        <a className="home-brand" href="/" onClick={(event) => followRoute(event, "/")}>
-          <span className="home-brand-icon" aria-hidden="true">
-            <Rocket size={23} fill="currentColor" />
-          </span>
-          <strong>iSputnik home</strong>
-        </a>
+        {!isControlPanel && (
+          <div className="home-user-menu-wrap" ref={userMenuRef}>
+            <button
+              className={`home-user-link${userMenuOpen || active === "profile" ? " is-active" : ""}`}
+              type="button"
+              onClick={() => setUserMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen}
+            >
+              <span className="home-user-icon" aria-hidden="true">
+                <UserRound size={21} />
+              </span>
+              <span className="home-user-copy">
+                <strong>{user.displayName}</strong>
+                <small>{user.email}</small>
+              </span>
+              <ChevronDown className="home-user-chevron" size={17} aria-hidden="true" />
+            </button>
+
+            {userMenuOpen && (
+              <div className="home-user-menu" role="menu" aria-label="User menu">
+                {userMenuLinks().map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <a
+                      className="home-user-menu-link"
+                      href={item.href}
+                      key={item.label}
+                      role="menuitem"
+                      onClick={(event) => {
+                        setUserMenuOpen(false);
+                        followRoute(event, item.href);
+                      }}
+                    >
+                      <Icon size={19} aria-hidden="true" />
+                      <span>{item.label}</span>
+                    </a>
+                  );
+                })}
+                <button className="home-user-menu-link" type="button" role="menuitem" onClick={openThemeSettings}>
+                  <Palette size={19} aria-hidden="true" />
+                  <span>Theme</span>
+                </button>
+                <a
+                  className={`home-user-menu-link${active === "profile" ? " is-active" : ""}`}
+                  href="/profile"
+                  role="menuitem"
+                  onClick={(event) => {
+                    setUserMenuOpen(false);
+                    followRoute(event, "/profile");
+                  }}
+                >
+                  <UserRound size={19} aria-hidden="true" />
+                  <span>Profile</span>
+                </a>
+                <span className="home-user-menu-divider" aria-hidden="true"></span>
+                <button
+                  className="home-user-menu-link"
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    void logout();
+                  }}
+                >
+                  <LogOut size={19} aria-hidden="true" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {isControlPanel && sideNav ? (
           <div className="home-control-nav-wrap">{sideNav}</div>
         ) : (
-          <>
-            <nav className="home-primary-nav" aria-label="Primary">
-              {mainNavItems(active).map((item) => (
-                <DashboardNavLink item={item} key={item.label} />
-              ))}
-            </nav>
-            {sideNav && (
-              <div className="home-secondary-nav" aria-label="Section navigation">
-                {sideNav}
-              </div>
-            )}
-          </>
+          <nav className="home-primary-nav" aria-label="Primary">
+            {mainNavItems(active).map((item) => (
+              <DashboardNavLink item={item} key={item.label} />
+            ))}
+          </nav>
         )}
 
         <div className="home-sidebar-bottom">
           {!isControlPanel && (
-            <a className="home-nav-link" href={settingsHref} onClick={(event) => followRoute(event, settingsHref)}>
-              <Settings size={21} aria-hidden="true" />
-              <span>Settings</span>
-            </a>
+            <>
+              <a
+                className={`home-nav-link${active === "profile" && settingsHref === "/profile" ? " is-active" : ""}`}
+                href={settingsHref}
+                onClick={(event) => followRoute(event, settingsHref)}
+              >
+                <Settings size={21} aria-hidden="true" />
+                <span>Settings</span>
+              </a>
+              <a
+                className={`home-nav-link${active === "about" ? " is-active" : ""}`}
+                href="/about"
+                onClick={(event) => followRoute(event, "/about")}
+              >
+                <Info size={21} aria-hidden="true" />
+                <span>About</span>
+              </a>
+            </>
           )}
-          <button className="home-nav-link" type="button" onClick={logout}>
-            <LogOut size={21} aria-hidden="true" />
-            <span>Logout</span>
-          </button>
+          {isControlPanel && (
+            <button className="home-nav-link home-logout-link" type="button" onClick={logout}>
+              <LogOut size={21} aria-hidden="true" />
+              <span>Logout</span>
+            </button>
+          )}
         </div>
 
         <footer className="home-footer">
-          <strong>iSputnik home v0.5.3</strong>
+          <strong>v0.5.3</strong>
           <span>&copy; 2026 iSputnik</span>
         </footer>
       </aside>

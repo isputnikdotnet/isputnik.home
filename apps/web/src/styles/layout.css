@@ -1,193 +1,10 @@
-.dashboard {
-  display: grid;
-  grid-template-rows: 68px minmax(0, 1fr);
-  min-height: 100vh;
-  background:
-    linear-gradient(135deg, var(--canvas), var(--surface) 160%),
-    var(--canvas);
-}
-
-.dashboard-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  min-height: calc(100vh - 68px);
-}
-
-.dashboard-body.has-sidebar {
-  grid-template-columns: 88px minmax(0, 1fr);
-}
-
-.dashboard-body.control-body {
-  grid-template-columns: 1fr;
-}
-
-.sidebar {
-  position: sticky;
-  top: 68px;
-  height: calc(100vh - 68px);
-  padding: 16px 6px;
-  border-right: 1px solid var(--line);
-  overflow-y: auto;
-}
-
-.side-nav {
-  display: grid;
-  align-content: start;
-  gap: 2px;
-}
-
-.side-nav-label {
-  display: none;
-}
-
-.side-nav-divider {
-  height: 1px;
-  margin: 8px 10px;
-  background: var(--line);
-}
-
-.side-nav button,
-.side-nav a {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  width: 100%;
-  min-height: 68px;
-  padding: 10px 6px;
-  border-radius: 8px;
-  color: var(--muted);
-  background: transparent;
-  font-size: 0.67rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  text-align: center;
-  text-decoration: none;
-}
-
-.side-nav button:hover,
-.side-nav a:hover,
-.header-button:hover,
-.header-button.active,
-.user-button:hover,
-.user-button.active,
-.theme-switcher button:hover,
-.top-nav-item:hover {
+.theme-switcher button:hover {
   color: var(--ink);
   background: var(--hover);
 }
 
-.side-nav button.active,
-.side-nav a.active,
-.top-nav-item.active {
-  color: var(--mint);
-  background: var(--active);
-}
-
 .dashboard-main {
   min-width: 0;
-}
-
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  height: 68px;
-  padding: 10px 28px;
-  border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--canvas) 88%, transparent);
-  backdrop-filter: blur(16px);
-}
-
-.top-nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.top-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 7px;
-  color: var(--muted);
-  font-weight: 650;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.header-brand {
-  font-size: 1rem;
-}
-
-.app-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 11px;
-  flex: 0 1 auto;
-  min-width: 0;
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.app-brand strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.app-brand img {
-  display: block;
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-}
-
-.header-actions {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.header-button {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 7px;
-  color: var(--muted);
-  background: transparent;
-  text-decoration: none;
-}
-
-.user-button {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  min-height: 46px;
-  max-width: min(290px, 42vw);
-  min-width: 0;
-  padding: 4px 5px 4px 14px;
-  border-radius: 7px;
-  color: var(--ink);
-  background: transparent;
-  font-weight: 700;
-}
-
-.user-button > span:first-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .avatar {
@@ -246,51 +63,19 @@
   display: none;
 }
 
-.rocket-scene::before {
-  background-image: url("../assets/backgrounds/retro-space-background-v1.png");
-}
-
 .sputnik-scene::before {
   background-image: url("../assets/backgrounds/retro-space-sputnik-scene-v1.png");
-}
-
-.cosmonaut-scene::before {
-  background-image: url("../assets/backgrounds/retro-space-cosmonaut-scene-v1.png");
-}
-
-.control-center-scene::before {
-  background-image: url("../assets/backgrounds/retro-space-control-center-logs-v1.png");
-}
-
-.job-queue-scene::before {
-  background-image: url("../assets/backgrounds/retro-space-job-queue-control-v1.png");
-}
-
-.sputnik-storage-scene::before {
-  background-image: url("../assets/backgrounds/retro-space-sputnik-storage-v1.png");
 }
 
 .audiobook-scene::before {
   background-image: url("../assets/backgrounds/retro-space-audiobook-quiet-orbit-v1.png");
 }
 
-.audiobook-book-scene::before {
-  background-image: url("../assets/backgrounds/retro-space-audiobook-cosmonaut-v1.png");
-}
-
 /* Scene pages live inside .home-main, whose vertical padding (28px top + 30px
    bottom) is the only chrome between them and the viewport — there is no longer
    a 68px app header. Subtract that padding so the scene fills the page. */
-.home-scene {
-  min-height: calc(100vh - 58px);
-  width: 100%;
-}
 
-.status-scene,
 .about-scene,
-.user-admin-scene,
-.logs-scene,
-.library-storage-scene,
 .audiobook-scene {
   min-height: calc(100vh - 58px);
   width: 100%;
@@ -300,56 +85,6 @@
   display: grid;
   grid-template-columns: 208px minmax(0, 1fr);
   min-height: calc(100vh - 58px);
-}
-
-.control-nav {
-  padding: 38px 14px;
-  border-right: 1px solid var(--line);
-}
-
-.control-links {
-  display: grid;
-  gap: 24px;
-}
-
-.control-group {
-  display: grid;
-  gap: 4px;
-}
-
-.control-group > p {
-  margin: 0 10px 7px;
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 750;
-  text-transform: uppercase;
-}
-
-.control-links a {
-  min-height: 42px;
-  padding: 11px 10px;
-  border-radius: 7px;
-  color: var(--muted);
-  font-weight: 650;
-  text-decoration: none;
-}
-
-.control-links a:hover,
-.control-links a.active {
-  color: var(--ink);
-  background: var(--hover);
-}
-
-.control-links a.active {
-  color: var(--mint);
-  background: var(--active);
-}
-
-.control-links a.control-link-soon {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
 }
 
 .control-soon-badge {

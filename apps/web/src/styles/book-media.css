@@ -1,0 +1,206 @@
+/* book files, companion documents, in-app reader — split from library.css */
+
+/* ── Book files ─────────────────────────────────────────────────── */
+
+.book-files-section {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.book-detail-info .book-files-section {
+  margin-top: 4px;
+}
+
+.book-detail-files-tab .book-files-section {
+  margin: 0;
+}
+
+/* ── Companion documents (PDF/EPUB bundled with an audiobook) ──────── */
+.book-documents-section {
+  margin-top: 0;
+}
+
+.book-documents-title {
+  font-size: 0.95rem;
+  margin: 0 0 8px;
+}
+
+.book-document-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.book-document-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+}
+
+.book-document-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.book-document-info strong {
+  color: var(--ink);
+  word-break: break-word;
+}
+
+/* In-app reader — full-screen overlay above everything (incl. the top nav).
+   Portaled to <body> so the header's backdrop-filter can't trap position:fixed. */
+.doc-viewer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-raised);
+}
+
+.doc-viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.doc-viewer-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.doc-viewer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.doc-viewer-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: var(--field);
+}
+
+/* EPUB reader (epub.js) — paginated, with prev/next on either side. */
+.epub-reader {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  background: #fbfbf6;
+}
+.epub-reader-area {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.epub-nav {
+  flex: 0 0 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #555;
+  cursor: pointer;
+}
+.epub-nav:hover { background: rgba(0, 0, 0, 0.05); color: #111; }
+.epub-reader-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+}
+
+.book-file-list {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.book-file-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.book-file-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.book-file-status.completed {
+  color: var(--mint);
+}
+
+.book-file-status.in_progress {
+  color: var(--ink);
+}
+
+.book-file-status.not_started {
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+.book-file-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--mint);
+}
+
+.book-file-row:last-child {
+  border-bottom: none;
+}
+
+.book-file-row > span:first-child {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  color: var(--mint);
+  background: var(--active);
+  font-weight: 750;
+  font-size: 0.82rem;
+}
+
+.book-file-row div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.book-file-row strong,
+.book-file-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-file-row small {
+  color: var(--muted);
+}

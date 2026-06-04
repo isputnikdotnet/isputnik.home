@@ -242,6 +242,10 @@
   color: var(--muted);
 }
 
+#profile-theme {
+  scroll-margin-top: 32px;
+}
+
 /* ── Theme switcher ─────────────────────────────────────────────── */
 
 .theme-switcher {

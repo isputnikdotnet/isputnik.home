@@ -486,16 +486,8 @@ function BookDetailView({
               </>
             )}
           </div>
-        </div>
-
-        <div className="book-detail-info">
-          <h1 className="book-detail-title">{book.title}</h1>
-          {book.authors.length > 0 && (
-            <p className="book-detail-author">{book.authors.join(", ")}</p>
-          )}
-
           {(book.category || book.tags.length > 0) && (
-            <section className="book-tags book-detail-chip-row" aria-label="Tags">
+            <section className="book-tags book-tags-under-cover" aria-label="Tags">
               {book.category && (
                 <button
                   className="book-tag-chip"
@@ -516,6 +508,13 @@ function BookDetailView({
                 </button>
               ))}
             </section>
+          )}
+        </div>
+
+        <div className="book-detail-info">
+          <h1 className="book-detail-title">{book.title}</h1>
+          {book.authors.length > 0 && (
+            <p className="book-detail-author">{book.authors.join(", ")}</p>
           )}
 
           <dl className="book-detail-meta-grid">

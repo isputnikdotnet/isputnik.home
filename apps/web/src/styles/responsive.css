@@ -37,75 +37,6 @@
     transform: none;
   }
 
-  .dashboard {
-    display: block;
-  }
-
-  .dashboard-body {
-    display: block;
-    min-height: 0;
-  }
-
-  .dashboard-body.has-sidebar {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-  }
-
-  .sidebar {
-    position: static;
-    height: auto;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 8px 14px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .side-nav {
-    display: flex;
-    flex-direction: row;
-    gap: 4px;
-  }
-
-  .side-nav-label {
-    display: none;
-  }
-
-  .side-nav button,
-  .side-nav a {
-    flex-direction: row;
-    gap: 7px;
-    white-space: nowrap;
-    min-height: 36px;
-    padding: 6px 12px;
-    font-size: 0.82rem;
-    width: auto;
-  }
-
-  .top-nav-item span {
-    display: none;
-  }
-
-  .app-header {
-    gap: 10px;
-    height: 62px;
-    padding: 8px 14px;
-  }
-
-  .app-brand img {
-    width: 42px;
-    height: 42px;
-  }
-
-  .header-actions {
-    justify-content: flex-end;
-  }
-
-  .user-button {
-    max-width: min(180px, 32vw);
-  }
-
   .work-area {
     padding-top: 25px;
   }
@@ -113,30 +44,6 @@
   .control-panel {
     display: block;
     min-height: 0;
-  }
-
-  .control-nav {
-    padding: 14px 18px 10px;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .control-links {
-    gap: 15px;
-  }
-
-  .control-group {
-    display: flex;
-    flex-wrap: wrap;
-  }
-
-  .control-group > p {
-    flex: 0 0 100%;
-    margin: 0 0 4px;
-  }
-
-  .control-links a {
-    min-width: 86px;
   }
 
   .empty-state {
@@ -246,7 +153,7 @@
   }
 
   .book-detail-cover-col {
-    width: min(100%, 320px);
+    width: min(100%, 280px);
   }
 
   .book-detail-meta-grid,
@@ -259,7 +166,7 @@
   }
 
   .book-detail-title {
-    font-size: 1.8rem;
+    font-size: 1.55rem;
   }
 
   .book-detail-tabs {
@@ -339,10 +246,6 @@
     align-items: start;
   }
 
-  .library-layout {
-    grid-template-columns: 1fr;
-  }
-
   .library-settings-panel {
     grid-template-columns: 1fr;
   }
@@ -358,10 +261,6 @@
   .setting-status {
     max-width: none;
     text-align: left;
-  }
-
-  .library-detail-head {
-    display: grid;
   }
 
   .datagrid th.col-scan,
@@ -411,10 +310,6 @@
   .theme-switcher button {
     flex-direction: column;
     gap: 3px;
-  }
-
-  .badges {
-    justify-content: start;
   }
 
   .user-row {

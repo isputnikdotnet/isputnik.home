@@ -30,12 +30,6 @@ function uniqueNameCount(books: AudiobookBook[], key: "authors" | "narrators") {
   return new Set(books.flatMap((book) => book[key])).size;
 }
 
-function initials(displayName: string) {
-  const parts = displayName.trim().split(/\s+/).filter(Boolean);
-  const selected = parts.length > 1 ? [parts[0], parts[parts.length - 1]] : [parts[0] ?? "U"];
-  return selected.map((part) => part[0]?.toUpperCase() ?? "").join("").slice(0, 2) || "U";
-}
-
 export function AudiobookTabs({ active }: { active: "books" | "authors" | "narrators" | "series" | "collections" | "categories" }) {
   const tabs = [
     { id: "authors", label: "Authors", href: "/audiobooks/authors", icon: UserRound },
@@ -69,14 +63,12 @@ export function AudiobookTabs({ active }: { active: "books" | "authors" | "narra
 export function AudiobookPageHeader({
   title,
   subtitle,
-  user,
   search,
   onSearchChange,
   searchPlaceholder
 }: {
   title: string;
   subtitle?: string;
-  user: PublicUser;
   search?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
@@ -87,24 +79,20 @@ export function AudiobookPageHeader({
         <h1>{title}</h1>
         {subtitle && <p>{subtitle}</p>}
       </div>
-      <div className="audiobook-page-actions">
-        {onSearchChange && (
+      {onSearchChange && (
+        <div className="audiobook-page-actions">
           <label className="audiobook-page-search">
             <span className="sr-only">{searchPlaceholder ?? "Search audiobooks"}</span>
+            <Search size={22} aria-hidden="true" />
             <input
               type="search"
               value={search ?? ""}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder={searchPlaceholder ?? "Search audiobooks..."}
             />
-            <Search size={22} aria-hidden="true" />
           </label>
-        )}
-        <button className="audiobook-page-profile" type="button" onClick={() => navigate("/profile")} title="Your profile" aria-label="Your profile">
-          <span aria-hidden="true">{initials(user.displayName)}</span>
-          <ChevronDown size={17} aria-hidden="true" />
-        </button>
-      </div>
+        </div>
+      )}
     </header>
   );
 }
@@ -157,7 +145,7 @@ export function AudiobooksPage({
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
   const [selectedLibraryId, setSelectedLibraryId] = useState("all");
   const [filters, setFilters] = useState<BookFilters>(EMPTY_FILTERS);
-  const [sort, setSort] = useState<SortKey>("recent");
+  const sort: SortKey = "recent";
   const [bookSearch, setBookSearch] = useState("");
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<AudiobookViewMode>("grid");
@@ -270,8 +258,7 @@ export function AudiobooksPage({
       <section className="audiobook-main-page">
           <AudiobookPageHeader
             title="Audiobooks"
-            subtitle={`${formatCount(allBooks.length)} audiobooks · ${formatCount(authorCount)} authors · ${formatCount(narratorCount)} narrators`}
-            user={user}
+            subtitle={`${formatCount(allBooks.length)} audiobooks • ${formatCount(authorCount)} authors • ${formatCount(narratorCount)} narrators`}
             search={bookSearch}
             onSearchChange={setBookSearch}
             searchPlaceholder="Search audiobooks..."
@@ -344,25 +331,28 @@ export function AudiobooksPage({
                       </div>,
                       document.body
                     )}
-                    {sections.map((section) => (
-                      <button
-                        className="audiobook-special-library-tab"
-                        key={section.id}
-                        type="button"
-                        onClick={() => navigate(`/audiobooks/sections/${section.id}`)}
-                        title={section.name}
-                        aria-label={section.name}
-                      >
-                        <CategoryIcon icon={section.icon} size={20} />
-                        <span>{section.name}</span>
-                      </button>
-                    ))}
                   </div>
                   <AudiobookTabs active="books" />
+                  {sections.length > 0 && (
+                    <div className="audiobook-special-library-shortcuts">
+                      {sections.map((section) => (
+                        <button
+                          className="audiobook-special-library-tab"
+                          key={section.id}
+                          type="button"
+                          onClick={() => navigate(`/audiobooks/sections/${section.id}`)}
+                          title={section.name}
+                          aria-label={section.name}
+                        >
+                          <CategoryIcon icon={section.icon} size={20} />
+                          <span>{section.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="audiobook-catalog-controls">
                   <FilterButton books={allBooks} value={filters} onChange={setFilters} />
-                  <SortSelect value={sort} onChange={setSort} />
                   <div className="audiobook-view-toggle" role="group" aria-label="View mode">
                     <button
                       type="button"
@@ -463,7 +453,6 @@ export function SectionPage({
         <AudiobookPageHeader
           title={section?.name ?? "Section"}
           subtitle={`${formatCount(allBooks.length)} ${allBooks.length === 1 ? "book" : "books"}`}
-          user={user}
           search={bookSearch}
           onSearchChange={setBookSearch}
           searchPlaceholder="Search title, author, or narrator"

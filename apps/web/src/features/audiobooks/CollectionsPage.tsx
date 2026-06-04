@@ -24,7 +24,6 @@ export function CollectionsPage({ user, logout }: { user: PublicUser; logout: ()
         <AudiobookPageHeader
           title="Collections"
           subtitle={`${sections.length} ${sections.length === 1 ? "collection" : "collections"}`}
-          user={user}
         />
 
         <div className="audiobook-page-nav-row">

@@ -29,7 +29,6 @@ export function CategoryListPage({
         <AudiobookPageHeader
           title="Categories"
           subtitle={`${categories.length} ${categories.length === 1 ? "category" : "categories"}`}
-          user={user}
         />
 
         {error && <MessageBox tone="error" title="Categories error">{error}</MessageBox>}

@@ -1,0 +1,314 @@
+/* audiobook book detail + tags — split from library.css */
+
+/* ── Book detail ────────────────────────────────────────────────── */
+
+.book-detail-area {
+  width: min(100%, 1180px);
+  padding-block: 0 38px;
+}
+
+.book-detail-shell {
+  width: 100%;
+}
+
+.book-detail-view {
+  display: grid;
+  gap: 34px;
+  padding: 0;
+}
+
+.book-detail-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 58px;
+  border-bottom: 1px solid var(--line);
+}
+
+.book-detail-topbar .audiobook-back-button {
+  margin-bottom: 0;
+}
+
+.book-detail-head {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 48px);
+  align-items: start;
+}
+
+.book-detail-cover {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  color: var(--mint);
+  background: var(--surface);
+  box-shadow: 0 18px 36px var(--shadow);
+}
+
+.book-detail-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-detail-cover svg {
+  opacity: 0.36;
+}
+
+.book-detail-cover strong {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  font-size: 0.82rem;
+}
+
+.book-detail-info {
+  display: grid;
+  gap: 0;
+  align-content: start;
+}
+
+.book-detail-title {
+  margin: 14px 0 0;
+  color: var(--ink);
+  font-size: clamp(1.65rem, 2.2vw, 2.15rem);
+  line-height: 1.1;
+}
+
+.book-detail-author {
+  margin: 10px 0 0;
+  color: var(--mint);
+  font-size: 1.06rem;
+  font-weight: 760;
+}
+
+.book-detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 18px 34px;
+  margin: 30px 0 0;
+}
+
+.book-detail-meta-grid.full {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin: 0;
+}
+
+.book-detail-meta-item {
+  display: grid;
+  grid-template-columns: 22px minmax(82px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.book-detail-meta-item svg {
+  color: var(--muted);
+}
+
+.book-detail-meta-item dt,
+.book-detail-meta-item dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.book-detail-meta-item dt {
+  color: var(--muted);
+  font-weight: 620;
+}
+
+.book-detail-meta-item dd {
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-folder-path {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.74rem;
+  word-break: break-all;
+  color: var(--muted);
+  font-weight: 400;
+  white-space: normal;
+}
+
+.book-detail-more {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  min-height: 30px;
+  margin-top: 6px;
+  padding: 0 2px;
+  border: 0;
+  color: var(--mint);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.book-detail-more:hover,
+.book-detail-more:focus-visible {
+  color: var(--gold);
+}
+
+.book-description-block {
+  display: grid;
+  gap: 8px;
+  margin-top: 0;
+  max-width: 82ch;
+}
+
+.book-detail-cover-col {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.book-progress-card {
+  display: grid;
+  gap: 13px;
+  max-width: 500px;
+  margin-top: 28px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+}
+
+.book-progress-head,
+.book-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.book-progress-head strong {
+  font-size: 0.98rem;
+}
+
+.book-progress-head b {
+  color: var(--mint);
+  font-size: 1.28rem;
+}
+
+.book-progress-track {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+}
+
+.book-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mint);
+}
+
+.book-progress-meta {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.book-detail-tabs-section {
+  display: grid;
+  gap: 0;
+  max-width: 860px;
+}
+
+.book-detail-tabs {
+  display: flex;
+  align-items: center;
+  gap: clamp(24px, 4vw, 54px);
+  border-bottom: 1px solid var(--line);
+}
+
+.book-detail-tabs button {
+  position: relative;
+  min-height: 48px;
+  padding: 0 2px;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.book-detail-tabs button::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  content: "";
+  background: transparent;
+}
+
+.book-detail-tabs button:hover,
+.book-detail-tabs button:focus-visible,
+.book-detail-tabs button.active {
+  color: var(--ink);
+  outline: 0;
+}
+
+.book-detail-tabs button.active::after {
+  background: var(--mint);
+}
+
+.book-detail-tab-panel {
+  padding-top: 24px;
+}
+
+.book-detail-full-details,
+.book-detail-files-tab {
+  display: grid;
+  gap: 20px;
+}
+
+.book-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 72ch;
+}
+
+/* Tags shown under the cover are constrained to the cover column width. */
+.book-tags-under-cover {
+  max-width: 100%;
+}
+
+.book-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.3;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.book-tag-chip:hover {
+  border-color: color-mix(in srgb, var(--mint) 55%, var(--line));
+  color: var(--ink);
+}

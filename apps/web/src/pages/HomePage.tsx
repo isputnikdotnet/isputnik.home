@@ -1,41 +1,18 @@
 import {
   BookOpen,
   Bookmark,
-  ChevronDown,
   ChevronRight,
-  FileText,
   FolderOpen,
   Headphones,
-  Home,
   Image,
-  LogOut,
   Play,
-  Rocket,
-  Search,
-  Settings,
-  UserRound
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PublicUser } from "../api";
-import { followRoute, navigate } from "../router";
+import { DashboardShell } from "../app/DashboardShell";
+import { followRoute } from "../router";
 
 type HomeIcon = LucideIcon;
-
-interface NavLink {
-  label: string;
-  href: string;
-  icon: HomeIcon;
-  active?: boolean;
-  disabled?: false;
-}
-
-interface DisabledNavLink {
-  label: string;
-  icon: HomeIcon;
-  disabled: true;
-}
-
-type HomeNavItem = NavLink | DisabledNavLink;
 
 interface LibraryCard {
   title: string;
@@ -228,40 +205,10 @@ const overviewItems: OverviewCard[] = [
   }
 ];
 
-function initials(displayName: string) {
-  const parts = displayName.trim().split(/\s+/).filter(Boolean);
-  const letters = parts.length > 1 ? [parts[0], parts[parts.length - 1]] : [parts[0] ?? "U"];
-  return letters.map((part) => part[0]?.toUpperCase() ?? "").join("").slice(0, 2) || "U";
-}
-
 function iconForKind(kind: LibraryCard["kind"]) {
   if (kind === "audio") return Headphones;
   if (kind === "ebook") return BookOpen;
   return Image;
-}
-
-function HomeNavLink({ item }: { item: HomeNavItem }) {
-  const Icon = item.icon;
-
-  if (item.disabled) {
-    return (
-      <button className="home-nav-link is-disabled" type="button" disabled title={`${item.label} is coming soon`}>
-        <Icon size={21} aria-hidden="true" />
-        <span>{item.label}</span>
-      </button>
-    );
-  }
-
-  return (
-    <a
-      className={`home-nav-link${item.active ? " is-active" : ""}`}
-      href={item.href}
-      onClick={(event) => followRoute(event, item.href)}
-    >
-      <Icon size={21} aria-hidden="true" />
-      <span>{item.label}</span>
-    </a>
-  );
 }
 
 function SectionTitle({ id, title, href }: { id: string; title: string; href?: string }) {
@@ -404,72 +351,13 @@ function OverviewCardView({ item }: { item: OverviewCard }) {
 }
 
 export function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
-  const settingsHref = user.role === "admin" ? "/control/status" : "/profile";
-  const primaryNav: HomeNavItem[] = [
-    { label: "Home", href: "/", icon: Home, active: true },
-    { label: "Audiobooks", href: "/audiobooks", icon: Headphones },
-    { label: "Ebooks", href: "/ebooks", icon: BookOpen },
-    { label: "Gallery", icon: Image, disabled: true },
-    { label: "Documents", icon: FolderOpen, disabled: true },
-    { label: "Notes", icon: FileText, disabled: true },
-    { label: "Bookmarks", href: "/audiobooks/saved", icon: Bookmark }
-  ];
-  const profileInitials = initials(user.displayName);
-
   return (
-    <main className="home-dashboard-shell">
-      <aside className="home-sidebar" aria-label="Home navigation">
-        <a className="home-brand" href="/" onClick={(event) => followRoute(event, "/")}>
-          <span className="home-brand-icon" aria-hidden="true">
-            <Rocket size={23} fill="currentColor" />
-          </span>
-          <strong>iSputnik home</strong>
-        </a>
-
-        <nav className="home-primary-nav" aria-label="Primary">
-          {primaryNav.map((item) => (
-            <HomeNavLink item={item} key={item.label} />
-          ))}
-        </nav>
-
-        <div className="home-sidebar-bottom">
-          <a className="home-nav-link" href={settingsHref} onClick={(event) => followRoute(event, settingsHref)}>
-            <Settings size={21} aria-hidden="true" />
-            <span>Settings</span>
-          </a>
-          <button className="home-nav-link" type="button" onClick={logout}>
-            <LogOut size={21} aria-hidden="true" />
-            <span>Logout</span>
-          </button>
-        </div>
-
-        <footer className="home-footer">
-          <strong>iSputnik home v1.0.0</strong>
-          <span>&copy; 2026 iSputnik</span>
-        </footer>
-      </aside>
-
-      <section className="home-main" aria-label="Home">
+    <DashboardShell active="home" user={user} logout={logout}>
+      <section className="home-page" aria-label="Home">
         <header className="home-header">
           <div className="home-heading">
             <h1>Welcome back, {user.displayName}</h1>
             <p>Here's what's happening in your library</p>
-          </div>
-
-          <div className="home-header-actions">
-            <label className="home-search-field">
-              <span className="sr-only">Search library</span>
-              <input type="search" placeholder="Search..." />
-              <Search size={22} aria-hidden="true" />
-            </label>
-
-            <button className="home-profile-button" type="button" onClick={() => navigate("/profile")} title="Your profile">
-              <span className="home-profile-avatar" aria-hidden="true">
-                <UserRound size={17} />
-                <b>{profileInitials}</b>
-              </span>
-              <ChevronDown size={20} aria-hidden="true" />
-            </button>
           </div>
         </header>
 
@@ -511,6 +399,6 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
           </section>
         </div>
       </section>
-    </main>
+    </DashboardShell>
   );
 }

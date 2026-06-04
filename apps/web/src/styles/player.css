@@ -456,31 +456,10 @@
     var(--player-field-active);
 }
 
-.player-chapter-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  color: var(--gold);
-  background: color-mix(in srgb, var(--gold) 12%, transparent);
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
 .player-chapter-item-main {
   display: grid;
   gap: 6px;
   min-width: 0;
-}
-
-.player-chapter-name {
-  overflow: hidden;
-  color: var(--ink);
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .player-chapter-progress {
@@ -489,14 +468,6 @@
   overflow: hidden;
   border-radius: 999px;
   background: var(--player-track);
-}
-
-.player-chapter-progress-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 0;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--mint), var(--gold));
 }
 
 .player-chapter-item-dur {
@@ -558,26 +529,6 @@
 .popup-menu-btn:hover,
 .popup-menu-btn:focus-visible {
   background: color-mix(in srgb, var(--muted) 14%, transparent);
-}
-
-.popup-more-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 999px;
-  color: var(--muted);
-  background: transparent;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-
-.popup-more-btn:hover,
-.popup-more-btn:focus-visible {
-  background: color-mix(in srgb, var(--muted) 14%, transparent);
-  color: var(--ink);
 }
 
 .popup-more-menu {

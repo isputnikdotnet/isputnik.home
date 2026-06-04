@@ -69,7 +69,7 @@ export function ProfilePage({
             </div>
           </div>
           <Field label="Display name" value={displayName} onChange={setDisplayName} autoComplete="name" />
-          <label className="field">
+          <label className="field" id="profile-theme">
             <span>Appearance</span>
             <span className="theme-switcher" role="radiogroup" aria-label="Theme preference">
               <ThemeOption icon={<Monitor size={17} />} label="System" selected={theme === "system"} onClick={() => setTheme("system")} />
