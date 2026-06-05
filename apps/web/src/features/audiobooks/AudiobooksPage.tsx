@@ -98,16 +98,79 @@ export function AudiobookPageHeader({
 }
 
 function AudiobookHeaderSort({ value, onChange }: { value: SortKey; onChange: (sort: SortKey) => void }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const currentLabel = SORT_OPTIONS.find((option) => option.value === value)?.label ?? "";
+
+  const toggle = () => {
+    setOpen((isOpen) => {
+      if (!isOpen && triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setPos({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+      }
+      return !isOpen;
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const dismiss = () => setOpen(false);
+    window.addEventListener("mousedown", close);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
+  }, [open]);
+
   return (
-    <label className="audiobook-sort-control">
+    <div className="audiobook-sort-control">
       <span>Sort by</span>
-      <select value={value} onChange={(event) => onChange(event.target.value as SortKey)} aria-label="Sort audiobooks">
-        {SORT_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>{option.label}</option>
-        ))}
-      </select>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="audiobook-sort-trigger"
+        onClick={toggle}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Sort audiobooks"
+      >
+        <span>{currentLabel}</span>
+      </button>
       <ChevronDown size={16} aria-hidden="true" />
-    </label>
+      {open && pos && createPortal(
+        <div
+          ref={menuRef}
+          className="book-detail-action-menu audiobook-library-menu audiobook-sort-menu"
+          role="menu"
+          aria-label="Sort audiobooks"
+          style={{ position: "fixed", top: pos.top, left: pos.left, right: "auto", minWidth: pos.width }}
+        >
+          {SORT_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="menuitem"
+              className={value === option.value ? "active" : ""}
+              onClick={() => { onChange(option.value); setOpen(false); }}
+            >
+              <span>{option.label}</span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
   );
 }
 
