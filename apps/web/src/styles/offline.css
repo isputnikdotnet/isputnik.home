@@ -6,3 +6,59 @@
 .secondary-button.offline-saved svg {
   color: var(--mint);
 }
+
+.downloads-storage {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.downloads-storage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.86rem;
+}
+
+.downloads-storage-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+}
+
+.downloads-storage-persisted {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--mint);
+  font-size: 0.78rem;
+}
+
+.downloads-storage-track {
+  display: block;
+  margin-top: 10px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--field);
+  overflow: hidden;
+}
+
+.downloads-storage-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mint);
+}
+
+.downloads-card-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+}

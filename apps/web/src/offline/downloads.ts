@@ -143,6 +143,9 @@ export async function downloadBook(
   if (!handle) throw new Error("Sign in to download books for offline use.");
   const database = await handle;
 
+  // Try to make storage persistent so the OS won't evict downloads under pressure.
+  void requestPersistentStorage();
+
   const files = book.files.filter((f) => f.status === "available");
   if (files.length === 0) throw new Error("This book has no downloadable audio.");
 
@@ -218,10 +221,26 @@ export async function getDownloadedFileUrl(fileId: string): Promise<string | nul
 export interface StorageEstimate {
   usage: number;
   quota: number;
+  persisted: boolean;
 }
 
 export async function estimateStorage(): Promise<StorageEstimate | null> {
   if (!navigator.storage?.estimate) return null;
   const { usage = 0, quota = 0 } = await navigator.storage.estimate();
-  return { usage, quota };
+  const persisted = navigator.storage.persisted ? await navigator.storage.persisted().catch(() => false) : false;
+  return { usage, quota, persisted };
+}
+
+/**
+ * Ask the browser to keep our storage from being evicted under pressure. Best
+ * effort: some browsers grant silently, others ignore it. Safe to call repeatedly.
+ */
+export async function requestPersistentStorage(): Promise<boolean> {
+  if (!navigator.storage?.persist) return false;
+  try {
+    if (await navigator.storage.persisted?.()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return false;
+  }
 }

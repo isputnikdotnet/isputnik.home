@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BookOpen,
   ChevronDown,
+  DownloadCloud,
   FileText,
   Headphones,
   Heart,
@@ -79,7 +80,8 @@ function mainNavItems(active: DashboardActive): MainNavItem[] {
 function userMenuLinks(): UserMenuLink[] {
   return [
     { label: "Shared with me", href: "/audiobooks/shared", icon: UsersRound },
-    { label: "Favorites", href: "/audiobooks/saved", icon: Heart }
+    { label: "Favorites", href: "/audiobooks/saved", icon: Heart },
+    { label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud }
   ];
 }
 
@@ -249,7 +251,7 @@ export function DashboardShell({
         </div>
 
         <footer className="home-footer">
-            <strong>v0.7.1</strong>
+            <strong>v0.8.3</strong>
           <span>&copy; 2026 iSputnik</span>
         </footer>
       </aside>

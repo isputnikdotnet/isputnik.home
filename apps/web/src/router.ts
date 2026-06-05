@@ -8,6 +8,7 @@ export type Route =
   | { name: "home" }
   | { name: "audiobooks" }
   | { name: "audiobookSaved" }
+  | { name: "audiobookDownloads" }
   | { name: "audiobookBook"; id: string }
   | { name: "audiobookPlayer"; id: string }
   | { name: "ebooks" }
@@ -69,6 +70,10 @@ export function getRoute(): Route {
 
   if (path === "/audiobooks/saved") {
     return { name: "audiobookSaved" };
+  }
+
+  if (path === "/audiobooks/downloads") {
+    return { name: "audiobookDownloads" };
   }
 
   if (path === "/audiobooks/shared") {

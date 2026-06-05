@@ -13,6 +13,7 @@ import { AboutPage } from "../pages/AboutPage";
 import { AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
 import { AudiobookBookPage } from "../features/audiobooks/BookDetailPage";
 import { MyListPage } from "../features/audiobooks/MyListPage";
+import { DownloadsPage } from "../features/audiobooks/DownloadsPage";
 import { SharedWithMePage } from "../features/audiobooks/SharedWithMePage";
 import { EbooksPage } from "../features/audiobooks/EbooksPage";
 import { SharePage } from "../pages/SharePage";
@@ -172,6 +173,10 @@ export function App() {
 
   if (route.name === "audiobookSaved") {
     return <MyListPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "audiobookDownloads") {
+    return <DownloadsPage user={session.user} logout={logout} />;
   }
 
   if (route.name === "audiobookSharedWithMe") {
