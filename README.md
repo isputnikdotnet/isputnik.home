@@ -60,6 +60,51 @@ means the service worker won't register: no install, no offline. To use these fe
 over the network, put the app behind TLS — a reverse proxy (Caddy, Nginx Proxy Manager,
 Traefik), a Cloudflare Tunnel, or Tailscale HTTPS all work — then set `COOKIE_SECURE: "true"`.
 
+### Example: HTTPS with Caddy
+
+[Caddy](https://caddyserver.com) gets you automatic TLS with almost no config. Point a
+domain at your server and use a compose file like this:
+
+```yaml
+services:
+  isputnik:
+    image: ghcr.io/isputnikdotnet/isputnik.home:latest
+    container_name: isputnik
+    restart: unless-stopped
+    environment:
+      APP_URL: https://isputnik.example.com
+      COOKIE_SECURE: "true"
+    volumes:
+      - /path/to/appdata/isputnik:/config
+      - /path/to/library:/media:ro
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+
+volumes:
+  caddy_data:
+```
+
+`Caddyfile`:
+
+```
+isputnik.example.com {
+    reverse_proxy isputnik:4000
+}
+```
+
+Caddy provisions a Let's Encrypt certificate automatically. For local-only setups,
+[Tailscale HTTPS](https://tailscale.com/kb/1153/enabling-https) or a
+[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
+give you a trusted certificate without exposing a port.
+
 ## Install on your phone
 
 ### Android (Chrome)
