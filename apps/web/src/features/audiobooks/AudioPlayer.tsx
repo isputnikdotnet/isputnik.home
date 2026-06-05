@@ -49,6 +49,9 @@ export function AudioPlayer({
   const saveIntervalRef = useRef<number | null>(null);
   // Object URL for a locally-downloaded chapter, revoked when we move off it.
   const localUrlRef = useRef<string | null>(null);
+  // Latest media-control callbacks, so OS lock-screen handlers (registered once)
+  // always invoke current closures without re-registering.
+  const mediaHandlersRef = useRef<Record<string, (arg?: MediaSessionActionDetails) => void>>({});
 
   const [fileIndex, setFileIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -336,6 +339,21 @@ export function AudioPlayer({
     return () => window.removeEventListener("click", close);
   }, [speedOpen]);
 
+  // Report the current chapter's position to the OS so the lock-screen / car
+  // scrubber stays in sync. Guards against the not-yet-known duration.
+  const updateMediaPositionState = () => {
+    if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+    const audio = audioRef.current;
+    if (!audio || !isFinite(audio.duration) || audio.duration <= 0) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: audio.duration,
+        playbackRate: audio.playbackRate || 1,
+        position: Math.min(Math.max(audio.currentTime, 0), audio.duration)
+      });
+    } catch { /* invalid state — ignore */ }
+  };
+
   const handleLoadedMetadata = () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -344,9 +362,13 @@ export function AudioPlayer({
       audio.currentTime = pendingSeekRef.current;
       pendingSeekRef.current = null;
     }
+    updateMediaPositionState();
   };
 
-  const handleTimeUpdate = () => { if (audioRef.current) setCurrentTime(audioRef.current.currentTime); };
+  const handleTimeUpdate = () => {
+    if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+    updateMediaPositionState();
+  };
 
   const handleEnded = () => {
     if (!currentFile) return;
@@ -418,6 +440,7 @@ export function AudioPlayer({
     setPlaybackRate(rate);
     if (audioRef.current) audioRef.current.playbackRate = rate;
     setSpeedOpen(false);
+    updateMediaPositionState();
   };
 
   const toggleMute = () => setMuted((m) => !m);
@@ -430,6 +453,70 @@ export function AudioPlayer({
     e.stopPropagation();
     setSpeedOpen((open) => !open);
   };
+
+  // Keep the lock-screen action handlers pointed at the latest closures.
+  mediaHandlersRef.current = {
+    play: () => { audioRef.current?.play().catch(() => {}); },
+    pause: () => audioRef.current?.pause(),
+    prev: () => goToPrev(),
+    next: () => goToNext(),
+    back: (d) => skip(-(d?.seekOffset || 30)),
+    forward: (d) => skip(d?.seekOffset || 30),
+    seekTo: (d) => {
+      const audio = audioRef.current;
+      if (audio && typeof d?.seekTime === "number") {
+        audio.currentTime = d.seekTime;
+        setCurrentTime(d.seekTime);
+        updateMediaPositionState();
+      }
+    }
+  };
+
+  // Publish "now playing" metadata (cover, chapter, author) per chapter.
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !currentFile) return;
+    const chapter = currentFile.chapterTitle || currentFile.relativePath.split("/").at(-1) || `Chapter ${fileIndex + 1}`;
+    const cover = book.coverLargeUrl ?? book.coverUrl;
+    const artwork = cover
+      ? [{ src: new URL(cover, window.location.origin).href, sizes: "512x512", type: "image/jpeg" }]
+      : [];
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: chapter,
+        artist: book.authors.join(", ") || "Unknown author",
+        album: book.title,
+        artwork
+      });
+    } catch { /* unsupported metadata */ }
+  }, [book.id, fileIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Register OS media-control handlers once; they delegate through the ref.
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    const ms = navigator.mediaSession;
+    const actions: [MediaSessionAction, (d?: MediaSessionActionDetails) => void][] = [
+      ["play", () => mediaHandlersRef.current.play?.()],
+      ["pause", () => mediaHandlersRef.current.pause?.()],
+      ["previoustrack", () => mediaHandlersRef.current.prev?.()],
+      ["nexttrack", () => mediaHandlersRef.current.next?.()],
+      ["seekbackward", (d) => mediaHandlersRef.current.back?.(d)],
+      ["seekforward", (d) => mediaHandlersRef.current.forward?.(d)],
+      ["seekto", (d) => mediaHandlersRef.current.seekTo?.(d)]
+    ];
+    for (const [action, handler] of actions) {
+      try { ms.setActionHandler(action, handler); } catch { /* action unsupported */ }
+    }
+    return () => {
+      for (const [action] of actions) {
+        try { ms.setActionHandler(action, null); } catch { /* ignore */ }
+      }
+    };
+  }, []);
+
+  // Reflect play/pause in the OS so the right button shows on the lock screen.
+  useEffect(() => {
+    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+  }, [playing]);
 
   if (availableFiles.length === 0) return null;
 
