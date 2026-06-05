@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { api, type PublicUser } from "../api";
 import { setOfflineUserId } from "../offline/downloads";
+import { flushProgressQueue } from "../offline/progress";
 import { Shell } from "./Shell";
 import { useRoute, navigate } from "../router";
 import { InstallPage } from "../pages/InstallPage";
@@ -58,6 +59,16 @@ export function App() {
   // per user; /api/auth/me can't be reached without a network).
   useEffect(() => {
     if (session.user) setOfflineUserId(session.user.id);
+  }, [session.user]);
+
+  // Push any playback positions saved while offline once we're signed in, and
+  // again whenever connectivity returns.
+  useEffect(() => {
+    if (!session.user) return;
+    void flushProgressQueue();
+    const onOnline = () => { void flushProgressQueue(); };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
   }, [session.user]);
 
   useEffect(() => {

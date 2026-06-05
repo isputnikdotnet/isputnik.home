@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Bookmark, BookmarkPlus, CheckCircle2, ChevronDown, ChevronUp, Clock, FastForward, Heart, List, Pause, Pencil, PieChart, Play, Rewind, SkipBack, SkipForward, StickyNote, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { api } from "../../api";
 import { getDownloadedFileUrl } from "../../offline/downloads";
+import { getLocalProgress, persistProgress } from "../../offline/progress";
 import { MessageBox } from "../../shared/MessageBox";
 import type { AudiobookBookDetail, AudiobookFile, Bookmark as BookmarkEntry, PlaybackProgress } from "./types";
 
@@ -81,11 +82,10 @@ export function AudioPlayer({
     return { seconds, percent: Math.min(seconds / duration, 1) };
   };
 
+  // Always record locally (survives offline) and push to the server when possible;
+  // unsynced writes are flushed on reconnect.
   const saveProgress = useCallback((file: AudiobookFile, position: number) => {
-    api(`/api/library/books/${book.id}/progress`, {
-      method: "PATCH",
-      body: JSON.stringify({ fileId: file.id, positionSeconds: Math.floor(position) })
-    }).catch(() => {});
+    void persistProgress(book.id, file.id, position);
   }, [book.id]);
 
   const sortBookmarks = (list: BookmarkEntry[]) =>
@@ -286,15 +286,29 @@ export function AudioPlayer({
 
   useEffect(() => {
     if (availableFiles.length === 0) return;
-    api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`)
-      .then(({ progress }) => {
-        if (!progress?.fileId) return;
-        const idx = availableFiles.findIndex((f) => f.id === progress.fileId);
-        if (idx < 0) return;
-        pendingSeekRef.current = progress.positionSeconds;
-        if (idx !== 0) setFileIndex(idx);
-      })
-      .catch(() => {});
+    let cancelled = false;
+    (async () => {
+      const local = await getLocalProgress(book.id);
+      let resume: { fileId: string | null; positionSeconds: number } | null = null;
+      if (local && !local.synced) {
+        // An unsynced local write is newer than anything the server has.
+        resume = { fileId: local.fileId, positionSeconds: local.positionSeconds };
+      } else {
+        try {
+          const { progress } = await api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`);
+          resume = progress ? { fileId: progress.fileId, positionSeconds: progress.positionSeconds } : null;
+        } catch {
+          // Offline — fall back to the last position we stored locally.
+          resume = local ? { fileId: local.fileId, positionSeconds: local.positionSeconds } : null;
+        }
+      }
+      if (cancelled || !resume?.fileId) return;
+      const idx = availableFiles.findIndex((f) => f.id === resume!.fileId);
+      if (idx < 0) return;
+      pendingSeekRef.current = resume.positionSeconds;
+      if (idx !== 0) setFileIndex(idx);
+    })();
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

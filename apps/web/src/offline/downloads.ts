@@ -43,14 +43,15 @@ interface StoredFile {
   blob: Blob;
 }
 
-// Queue of playback positions written while offline (or when a PATCH failed),
-// flushed to the server on reconnect. Used by Phase 2b; the store is created now
-// to avoid a later schema migration.
+// Latest local playback position per book. `synced: false` means the server
+// hasn't received this write yet (offline, or a failed PATCH), so it's strictly
+// newer than the server's value and wins on resume. Flushed on reconnect.
 export interface QueuedProgress {
   bookId: string;
   fileId: string;
   positionSeconds: number;
   updatedAt: number;
+  synced: boolean;
 }
 
 interface OfflineDB extends DBSchema {
@@ -88,6 +89,12 @@ function db(): Promise<IDBPDatabase<OfflineDB>> | null {
     };
   }
   return cached.db;
+}
+
+// Shared opener for sibling offline modules (e.g. progress sync). Returns null
+// when no user id is known (signed out / guest share view).
+export function openOfflineDb(): Promise<IDBPDatabase<OfflineDB>> | null {
+  return db();
 }
 
 export async function getDownload(bookId: string): Promise<DownloadRecord | null> {
