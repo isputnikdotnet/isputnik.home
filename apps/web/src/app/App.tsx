@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { api, type PublicUser } from "../api";
-import { setOfflineUserId } from "../offline/downloads";
+import { cacheCurrentUser, clearCachedUser, getCachedUser } from "../offline/downloads";
 import { flushProgressQueue } from "../offline/progress";
 import { Shell } from "./Shell";
 import { useRoute, navigate } from "../router";
@@ -42,24 +42,37 @@ export function App() {
   });
 
   const refreshSession = useCallback(async () => {
-    const setup = await api<{ requiresSetup: boolean }>("/api/setup/status");
-    if (setup.requiresSetup) {
-      setSession({ loading: false, requiresSetup: true, user: null });
+    // Offline: trust the last known identity so downloaded books stay usable, and
+    // skip the network calls that would otherwise hang until they time out.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setSession({ loading: false, requiresSetup: false, user: getCachedUser() });
       return;
     }
 
-    const me = await api<{ user: PublicUser }>("/api/auth/me").catch(() => ({ user: null as unknown as PublicUser }));
-    setSession({ loading: false, requiresSetup: false, user: me.user });
+    try {
+      const setup = await api<{ requiresSetup: boolean }>("/api/setup/status");
+      if (setup.requiresSetup) {
+        setSession({ loading: false, requiresSetup: true, user: null });
+        return;
+      }
+
+      const me = await api<{ user: PublicUser }>("/api/auth/me").catch(() => ({ user: null as unknown as PublicUser }));
+      if (me.user) cacheCurrentUser(me.user);
+      setSession({ loading: false, requiresSetup: false, user: me.user });
+    } catch {
+      // Network failed (e.g. "lie-fi"): fall back to the cached identity if any.
+      setSession({ loading: false, requiresSetup: false, user: getCachedUser() });
+    }
   }, []);
 
   useEffect(() => {
     refreshSession().catch(() => setSession({ loading: false, requiresSetup: false, user: null }));
   }, [refreshSession]);
 
-  // Remember the user id for offline storage namespacing (downloads are keyed
-  // per user; /api/auth/me can't be reached without a network).
+  // Keep the cached identity fresh (used for per-user storage namespacing and for
+  // authenticating offline when /api/auth/me can't be reached).
   useEffect(() => {
-    if (session.user) setOfflineUserId(session.user.id);
+    if (session.user) cacheCurrentUser(session.user);
   }, [session.user]);
 
   // Push any playback positions saved while offline once we're signed in, and
@@ -112,6 +125,7 @@ export function App() {
 
   const logout = async () => {
     await api("/api/auth/logout", { method: "POST", body: "{}" }).catch(() => undefined);
+    clearCachedUser();
     setSession((current) => ({ ...current, user: null }));
     navigate("/login");
   };

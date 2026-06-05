@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { api } from "../api";
 import { Shell } from "../app/Shell";
 import { Field } from "../shared/Field";
@@ -38,6 +39,13 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
         />
         {error && <MessageBox tone="error" title="Unable to sign in">{error}</MessageBox>}
         <button className="primary-button">Sign in</button>
+
+        <div className="login-qr">
+          <div className="login-qr-code">
+            <QRCodeSVG value={window.location.href} size={128} bgColor="#ffffff" fgColor="#0f2238" />
+          </div>
+          <span>Scan to open this page on another device</span>
+        </div>
       </form>
     </Shell>
   );

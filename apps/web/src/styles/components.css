@@ -45,6 +45,36 @@
   line-height: 1.45;
 }
 
+.field-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.field-input-wrap.has-reveal input {
+  padding-right: 44px;
+}
+
+.field-reveal {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.field-reveal:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
 /* ── Buttons ────────────────────────────────────────────────────── */
 
 .primary-button,

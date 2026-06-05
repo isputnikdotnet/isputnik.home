@@ -1,10 +1,12 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import type { PublicUser } from "../api";
 import type { AudiobookBookDetail } from "../features/audiobooks/types";
 
 // Offline storage is namespaced per user so a shared family device never exposes
 // one account's downloads to another login. The current user's id is stashed in
 // localStorage at sign-in (see App.tsx) because /api/auth/me is unreachable offline.
 const UID_KEY = "isputnik-uid";
+const USER_KEY = "isputnik-user";
 
 export function setOfflineUserId(id: string) {
   try { localStorage.setItem(UID_KEY, id); } catch { /* private mode */ }
@@ -12,6 +14,28 @@ export function setOfflineUserId(id: string) {
 
 export function getOfflineUserId(): string | null {
   try { return localStorage.getItem(UID_KEY); } catch { return null; }
+}
+
+// Cache the signed-in user so the app can authenticate "offline" against the last
+// known identity (the server is unreachable with no network).
+export function cacheCurrentUser(user: PublicUser) {
+  try {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem(UID_KEY, user.id);
+  } catch { /* private mode */ }
+}
+
+export function getCachedUser(): PublicUser | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as PublicUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearCachedUser() {
+  try { localStorage.removeItem(USER_KEY); } catch { /* ignore */ }
 }
 
 export type DownloadState = "downloading" | "complete" | "failed";

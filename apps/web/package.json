@@ -1,7 +1,7 @@
 {
   "name": "@isputnik/web",
   "private": true,
-  "version": "0.8.5",
+  "version": "0.8.6",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -14,6 +14,7 @@
     "epubjs": "^0.3.93",
     "idb": "^7.1.1",
     "lucide-react": "^0.468.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "vite": "^6.2.0"
