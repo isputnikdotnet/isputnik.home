@@ -475,7 +475,7 @@ function BookDetailView({
   const detailRows = ([
     book.yearPublished ? { label: "Published", value: String(book.yearPublished), icon: Calendar } : null,
     ...heroDetailRows,
-    book.publisher ? { label: "Publisher", value: book.publisher, icon: BookOpen } : null,
+    { label: "Publisher", value: book.publisher || "Not available", icon: BookOpen },
     book.language ? { label: "Language", value: book.language, icon: Globe } : null,
     { label: "ISBN", value: book.isbn || "Not available", icon: FileText },
     { label: "ASIN", value: book.asin || "Not available", icon: FileText },
