@@ -336,6 +336,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.7.1",
+          label: "Player polish & smarter bulk edit",
+          changes: [
+            "The audiobook player was reworked: a compact bottom-anchored layout, a book-progress pill, an accent play button, an accent progress bar, and bordered action buttons — and it now sizes nicely on phones.",
+            "Bulk edit and the per-book Edit form now share the same Author, Narrator, and Tag pickers — type to choose existing values or add new ones, instead of typing comma-separated text.",
+            "Audiobook book tiles on the main page now sit on a transparent card (cover-forward), matching the home dashboard look."
+          ]
+        },
+        {
           version: "0.7.0",
           label: "Redesigned audiobook tiles & bulk editing",
           changes: [

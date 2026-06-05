@@ -6,6 +6,7 @@ import { FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFil
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import { DashboardShell } from "../../app/DashboardShell";
 import { ShareModal } from "../share/ShareModal";
+import { PeopleCombobox } from "./PeopleCombobox";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatDuration } from "../../shared/utils";
@@ -185,7 +186,7 @@ function initialStatus(book: AudiobookBook): BookStatus {
 }
 
 function openPlayer(bookId: string) {
-  window.open(`/player/${bookId}`, "isputnik-player", "width=500,height=800,resizable=yes,scrollbars=yes");
+  window.open(`/player/${bookId}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes");
 }
 
 function CatalogBookCard({
@@ -409,19 +410,23 @@ function CatalogTail({
 function BulkEditModal({
   count,
   categories,
+  peopleSuggestions,
+  tagSuggestions,
   onClose,
   onSubmit
 }: {
   count: number;
   categories: CategorySummary[];
+  peopleSuggestions: string[];
+  tagSuggestions: string[];
   onClose: () => void;
   onSubmit: (fields: Record<string, unknown>) => Promise<void>;
 }) {
-  const [author, setAuthor] = useState("");
-  const [narrator, setNarrator] = useState("");
+  const [authors, setAuthors] = useState<string[]>([]);
+  const [narrators, setNarrators] = useState<string[]>([]);
   const [categoryKey, setCategoryKey] = useState("");
   const [language, setLanguage] = useState("");
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -429,12 +434,11 @@ function BulkEditModal({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const payload: Record<string, unknown> = {};
-    if (author.trim()) payload.author = author.trim();
-    if (narrator.trim()) payload.narrator = narrator.trim();
+    if (authors.length) payload.authors = authors;
+    if (narrators.length) payload.narrators = narrators;
     if (categoryKey) payload.categoryKey = categoryKey;
     if (language.trim()) payload.language = language.trim();
-    const tagList = tags.split(",").map((tag) => tag.trim()).filter(Boolean);
-    if (tagList.length) payload.tags = tagList;
+    if (tags.length) payload.tags = tags;
     if (description.trim()) payload.description = description.trim();
 
     if (Object.keys(payload).length === 0) {
@@ -467,8 +471,14 @@ function BulkEditModal({
           <p className="muted">Overwrites scanned metadata for every selected book. Leave a field blank to keep each book's current value. Tags replace existing tags.</p>
         </div>
         <div className="override-grid">
-          <Field label="Author" value={author} onChange={setAuthor} required={false} />
-          <Field label="Narrator" value={narrator} onChange={setNarrator} required={false} />
+          <div className="field">
+            <span>Author</span>
+            <PeopleCombobox value={authors} onChange={setAuthors} suggestions={peopleSuggestions} placeholder="Add author…" />
+          </div>
+          <div className="field">
+            <span>Narrator</span>
+            <PeopleCombobox value={narrators} onChange={setNarrators} suggestions={peopleSuggestions} placeholder="Add narrator…" />
+          </div>
           <label className="field">
             <span>Category</span>
             <select value={categoryKey} onChange={(event) => setCategoryKey(event.target.value)}>
@@ -479,7 +489,10 @@ function BulkEditModal({
             </select>
           </label>
           <Field label="Language (e.g. en)" value={language} onChange={setLanguage} required={false} />
-          <Field label="Tags (comma-separated)" value={tags} onChange={setTags} required={false} />
+          <div className="field">
+            <span>Tags <span className="muted">(replace existing)</span></span>
+            <PeopleCombobox value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="Add tag…" />
+          </div>
           <label className="field override-desc">
             <span>Description</span>
             <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
@@ -533,6 +546,9 @@ export function AudiobooksPage({
   const canEditScope = selectedLibraryId === "all"
     ? libraries.some((library) => library.canWrite)
     : libraries.find((library) => library.id === selectedLibraryId)?.canWrite ?? false;
+
+  // Existing authors/narrators in the current scope, for the bulk-edit comboboxes.
+  const peopleSuggestions = Array.from(new Set([...cat.facets.authors, ...cat.facets.narrators]));
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -788,6 +804,8 @@ export function AudiobooksPage({
           <BulkEditModal
             count={selectedIds.size}
             categories={categories}
+            peopleSuggestions={peopleSuggestions}
+            tagSuggestions={cat.facets.tags}
             onClose={() => setBulkOpen(false)}
             onSubmit={submitBulk}
           />
@@ -797,6 +815,8 @@ export function AudiobooksPage({
           <BulkEditModal
             count={1}
             categories={categories}
+            peopleSuggestions={peopleSuggestions}
+            tagSuggestions={cat.facets.tags}
             onClose={() => setEditBook(null)}
             onSubmit={submitSingleEdit}
           />

@@ -630,7 +630,6 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
   gap: 12px;
 }
 
@@ -647,17 +646,74 @@
 /* ─── Popup player variant ────────────────────────────────────────────────── */
 
 .audio-player.player--popup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow: visible;
   border: none;
   border-radius: 0;
   background: none;
   box-shadow: none;
   padding: 0;
-  gap: 14px;
+  gap: 12px;
+}
+
+/* The chapter stays tucked under the cover/title; the flexible space sits below
+   it so the seek/progress bar + transport controls anchor to the bottom. */
+.player--popup .player-seek-popup {
+  margin-top: auto;
+}
+
+/* Accent-filled progress/seek bar in the popup. */
+.player--popup .player-seekbar {
+  accent-color: var(--mint);
+  background:
+    linear-gradient(90deg, var(--mint), var(--mint)),
+    var(--player-track-strong);
+  background-size: var(--seek-fill, 0%) 100%, 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.player--popup .player-seekbar::-webkit-slider-thumb {
+  background: var(--mint);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--mint) 22%, transparent);
+}
+
+.player--popup .player-seekbar::-moz-range-thumb {
+  background: var(--mint);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--mint) 22%, transparent);
 }
 
 .audio-player.player--popup::before {
   display: none;
+}
+
+/* Book progress summary pill (e.g. "42% Complete · 14h 11m left"). */
+.player-popup-progress {
+  display: flex;
+  align-self: center;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.player-popup-progress-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-popup-progress-item svg {
+  color: var(--mint);
+}
+
+.player-popup-progress-sep {
+  opacity: 0.55;
 }
 
 /* Chapter — number on top, title beneath */
@@ -672,9 +728,12 @@
 }
 
 .player-popup-chapter strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.98rem;
   font-weight: 800;
-  color: var(--ink);
+  color: var(--mint);
   line-height: 1.25;
 }
 
@@ -725,9 +784,9 @@
 }
 
 .player-seek-times {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
 .player-seek-times .player-time:last-child {
@@ -802,38 +861,58 @@
   line-height: 1;
 }
 
-/* Play/pause button — dark filled circle */
+/* Play/pause button — accent filled circle */
 .player-controls--popup .player-btn-primary {
   width: 60px;
   height: 60px;
   border: none;
   border-radius: 999px;
-  color: var(--canvas);
-  background: var(--ink);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+  color: #102238;
+  background: var(--mint);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--mint) 36%, transparent);
 }
 
 .player-controls--popup .player-btn-primary:hover:not(:disabled),
 .player-controls--popup .player-btn-primary:focus-visible {
-  background: color-mix(in srgb, var(--ink) 82%, white);
+  background: color-mix(in srgb, var(--mint) 86%, white);
   border-color: transparent;
-  color: var(--canvas);
   transform: scale(1.04);
 }
 
+/* White glyph where the accent is dark enough; the default theme's mint is light
+   so it keeps the dark glyph from the base rule. */
 :root[data-theme="light"] .player-controls--popup .player-btn-primary,
+:root[data-theme="plain-dark"] .player-controls--popup .player-btn-primary,
 :root[data-theme="plain-light"] .player-controls--popup .player-btn-primary {
   color: #ffffff;
+}
+
+/* Accent volume slider in the popup. */
+.player-volume-popup .player-vol-slider {
+  accent-color: var(--mint);
+  background: var(--player-track-strong);
+}
+
+.player-volume-popup .player-vol-slider::-webkit-slider-thumb {
+  background: var(--mint);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--mint) 22%, transparent);
+}
+
+.player-volume-popup .player-vol-slider::-moz-range-thumb {
+  background: var(--mint);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--mint) 22%, transparent);
+}
+
+.player-volume-popup .player-vol-icon {
+  color: var(--mint);
 }
 
 /* Popup aux bar — three equal columns */
 .player-aux--popup {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   padding: 0;
-  border-top: 1px solid var(--player-line-soft, rgba(255, 255, 255, 0.1));
-  padding-top: 12px;
 }
 
 .player-popup-aux-row {
@@ -841,14 +920,7 @@
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   align-items: stretch;
-}
-
-.player-popup-aux-row .player-popup-aux-item {
-  border-left: 1px solid color-mix(in srgb, var(--muted) 16%, transparent);
-}
-
-.player-popup-aux-row .player-popup-aux-item:first-child {
-  border-left: none;
+  gap: 8px;
 }
 
 /* The speed item carries the shared .player-speed class, which picks up a
@@ -861,25 +933,32 @@
 
 /* Chapters — full-width row beneath the Speed / Bookmarks / My List row. */
 .player-popup-chapters-btn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 8px;
   width: 100%;
-  min-height: 36px;
-  padding: 7px 12px;
+  min-height: 44px;
+  padding: 8px 16px;
   border: 1px solid color-mix(in srgb, var(--muted) 20%, transparent);
-  border-radius: 999px;
+  border-radius: 12px;
   color: var(--ink);
   background: transparent;
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.player-popup-chapters-btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .player-popup-chapters-btn:hover,
 .player-popup-chapters-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--mint) 45%, transparent);
   background: color-mix(in srgb, var(--mint) 10%, transparent);
   color: var(--mint);
 }
@@ -887,6 +966,21 @@
 :root[data-theme="light"] .player-aux--popup,
 :root[data-theme="plain-light"] .player-aux--popup {
   border-color: rgba(16, 34, 56, 0.1);
+}
+
+/* Phone player (opened as a full tab on mobile): enlarge the cover so the
+   now-playing screen fills the width instead of a small cover with a big empty
+   middle. Gated on a tall viewport so the short desktop popup window — which is
+   also narrow — keeps its compact cover. */
+@media (max-width: 480px) and (min-height: 640px) {
+  .popup-cover {
+    width: min(56vw, 220px);
+    height: min(56vw, 220px);
+  }
+
+  .popup-title {
+    font-size: 1.15rem;
+  }
 }
 
 .player-popup-aux-item {
@@ -901,20 +995,21 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 5px;
+  gap: 6px;
   width: 100%;
   min-width: 0;
-  padding: 6px 2px;
-  border: none;
-  border-radius: 10px;
+  padding: 11px 4px;
+  border: 1px solid var(--player-line-soft);
+  border-radius: 12px;
   color: var(--ink);
   background: transparent;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
 .player-popup-aux-btn:hover,
 .player-popup-aux-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--mint) 45%, transparent);
   background: color-mix(in srgb, var(--mint) 10%, transparent);
   color: var(--mint);
 }

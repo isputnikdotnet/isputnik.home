@@ -480,15 +480,15 @@ export function updateManualMetadata(bookId: string, metadata: z.infer<typeof ma
 // list. Touched books are flipped to source='manual' like a single-book edit.
 export const bulkMetadataSchema = z.object({
   bookIds: z.array(z.string().trim().min(1)).min(1).max(1000),
-  author: z.string().trim().max(300).optional(),
-  narrator: z.string().trim().max(300).optional(),
+  authors: z.array(z.string().trim().min(1).max(160)).max(50).optional(),
+  narrators: z.array(z.string().trim().min(1).max(160)).max(50).optional(),
   categoryKey: z.string().trim().min(1).max(64).optional(),
   language: z.string().trim().min(1).max(24).optional(),
   description: z.string().trim().max(20000).optional(),
   tags: z.array(z.string().trim().min(1).max(120)).max(50).optional()
 });
 
-export const BULK_METADATA_FIELDS = ["author", "narrator", "categoryKey", "language", "description", "tags"] as const;
+export const BULK_METADATA_FIELDS = ["authors", "narrators", "categoryKey", "language", "description", "tags"] as const;
 
 export function applyBulkMetadata(bookId: string, patch: z.infer<typeof bulkMetadataSchema>): boolean {
   const current = getBookForMetadata(bookId);
@@ -514,11 +514,11 @@ export function applyBulkMetadata(bookId: string, patch: z.infer<typeof bulkMeta
     }
     db.prepare(`UPDATE book_metadata SET ${sets.join(", ")} WHERE book_id = ?`).run(...args, bookId);
 
-    if (patch.author !== undefined) {
-      replaceBookPeople(bookId, current.library_id, "author", patch.author.split(",").map((name) => name.trim()).filter(Boolean));
+    if (patch.authors !== undefined) {
+      replaceBookPeople(bookId, current.library_id, "author", patch.authors);
     }
-    if (patch.narrator !== undefined) {
-      replaceBookPeople(bookId, current.library_id, "narrator", patch.narrator.split(",").map((name) => name.trim()).filter(Boolean));
+    if (patch.narrators !== undefined) {
+      replaceBookPeople(bookId, current.library_id, "narrator", patch.narrators);
     }
     if (patch.tags !== undefined) {
       setEntityTags("book", bookId, patch.tags);

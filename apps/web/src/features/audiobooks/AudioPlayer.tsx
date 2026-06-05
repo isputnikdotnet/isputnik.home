@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bookmark, BookmarkPlus, CheckCircle2, ChevronDown, FastForward, Heart, List, Pause, Pencil, Play, Rewind, SkipBack, SkipForward, StickyNote, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { Bookmark, BookmarkPlus, CheckCircle2, ChevronDown, ChevronUp, Clock, FastForward, Heart, List, Pause, Pencil, PieChart, Play, Rewind, SkipBack, SkipForward, StickyNote, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import type { AudiobookBookDetail, AudiobookFile, Bookmark as BookmarkEntry, PlaybackProgress } from "./types";
@@ -65,6 +65,7 @@ export function AudioPlayer({
   const totalDuration = availableFiles.reduce((sum, f) => sum + (f.durationSeconds ?? 0), 0);
   const completedDuration = availableFiles.slice(0, fileIndex).reduce((sum, f) => sum + (f.durationSeconds ?? 0), 0);
   const bookPosition = completedDuration + currentTime;
+  const bookPercent = totalDuration > 0 ? Math.round((bookPosition / totalDuration) * 100) : 0;
 
   const currentFile: AudiobookFile | undefined = availableFiles[fileIndex];
 
@@ -507,21 +508,24 @@ export function AudioPlayer({
         <div className="audio-player player--popup">
           {audioEl}
 
+          {totalDuration > 0 && (
+            <div className="player-popup-progress">
+              <span className="player-popup-progress-item">
+                <PieChart size={15} aria-hidden="true" /> {bookPercent}% Complete
+              </span>
+              <span className="player-popup-progress-sep" aria-hidden="true">•</span>
+              <span className="player-popup-progress-item">
+                <Clock size={15} aria-hidden="true" /> {formatTimeRemaining(totalDuration - bookPosition)}
+              </span>
+            </div>
+          )}
+
           <div className="player-popup-chapter">
-            <strong>Chapter {fileIndex + 1}</strong>
+            <strong><Bookmark size={15} aria-hidden="true" /> Chapter {fileIndex + 1}</strong>
             <span>{currentFile?.chapterTitle || currentFile?.relativePath.split("/").at(-1) || ""}</span>
           </div>
 
           <div className="player-seek-popup">
-            <div className="player-seek-times">
-              <span className="player-time">{formatTime(currentTime)}</span>
-              {totalDuration > 0 && (
-                <span className="player-time-remaining">{formatTimeRemaining(totalDuration - bookPosition)}</span>
-              )}
-              <span className="player-time">
-                {fileDuration > currentTime ? `-${formatTime(fileDuration - currentTime)}` : formatTime(fileDuration)}
-              </span>
-            </div>
             <input
               type="range"
               className="player-seekbar"
@@ -531,7 +535,14 @@ export function AudioPlayer({
               value={currentTime}
               onChange={handleSeek}
               aria-label="Seek"
+              style={{ ["--seek-fill" as string]: `${fileDuration > 0 ? (currentTime / fileDuration) * 100 : 0}%` }}
             />
+            <div className="player-seek-times">
+              <span className="player-time">{formatTime(currentTime)}</span>
+              <span className="player-time">
+                {fileDuration > currentTime ? `-${formatTime(fileDuration - currentTime)}` : formatTime(fileDuration)}
+              </span>
+            </div>
           </div>
 
           <div className="player-controls player-controls--popup">
@@ -650,8 +661,8 @@ export function AudioPlayer({
               aria-expanded={chaptersOpen}
               aria-label="Chapter list"
             >
-              <List size={16} />
-              <span>Chapters</span>
+              <span className="player-popup-chapters-btn-label"><List size={16} /> Chapters</span>
+              {chaptersOpen ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronUp size={16} aria-hidden="true" />}
             </button>
           </div>
 

@@ -1,10 +1,11 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, MoreHorizontal, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
 import { EpubReader } from "./EpubReader";
+import { PeopleCombobox } from "./PeopleCombobox";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
@@ -175,9 +176,19 @@ function BookDetailView({
   }, [book.id]);
 
   useEffect(() => {
-    api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`)
+    const loadProgress = () => api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`)
       .then((payload) => setProgress(payload.progress))
       .catch(() => setProgress(null));
+    loadProgress();
+    // The player opens in a separate window, so refresh when this page regains
+    // focus — returning after listening then reflects the latest position.
+    const onFocus = () => loadProgress();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [book.id]);
 
   useEffect(() => {
@@ -435,14 +446,20 @@ function BookDetailView({
   const formatValue = isEbook ? documentFormat : audioFormat || "Audio";
   const currentProgressFile = progress?.fileId ? book.files.find((file) => file.id === progress.fileId) : null;
   const progressPercent = progress?.completedAt ? 100 : Math.round(Math.max(0, Math.min(1, progress?.percentComplete ?? 0)) * 100);
+  // "Started" covers any saved progress — even when the percentage is unknown
+  // (a book whose total duration wasn't recorded) or rounds down to 0%.
+  const hasStarted = !bookFinished && progress != null
+    && ((progress.percentComplete ?? 0) > 0 || (progress.positionSeconds ?? 0) > 0 || progress.fileId != null);
   const remainingSeconds = book.durationSeconds != null ? Math.max(0, Math.round(book.durationSeconds * (1 - progressPercent / 100))) : null;
   const progressTitle = isEbook ? "Reading Progress" : "Listening Progress";
-  const progressActionLabel = isEbook ? "Read" : progressPercent > 0 && progressPercent < 100 ? "Continue Listening" : "Start Listening";
+  const progressActionLabel = isEbook
+    ? (hasStarted ? "Continue Reading" : "Read")
+    : bookFinished ? "Listen Again" : hasStarted ? "Continue Listening" : "Start Listening";
   const progressLocation = progress?.completedAt
     ? "Completed"
     : currentProgressFile
       ? currentProgressFile.chapterTitle || currentProgressFile.relativePath.split(/[\\/]/).at(-1) || currentProgressFile.relativePath
-      : "Not started yet";
+      : hasStarted ? "In progress" : "Not started yet";
 
   // Referrer so detail pages reached from here can offer "Back" to this book.
   const linkFrom = `?from=${encodeURIComponent(`/audiobooks/books/${book.id}`)}`;
@@ -658,7 +675,7 @@ function BookDetailView({
             ) : (
               <button
                 className="primary-button"
-                onClick={() => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=800,resizable=yes,scrollbars=yes")}
+                onClick={() => window.open(`/player/${book.id}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes")}
               >
                 <Play size={16} />
                 <span>{progressActionLabel}</span>
@@ -1231,95 +1248,3 @@ function SuggestInput({
   );
 }
 
-function PeopleCombobox({
-  value,
-  onChange,
-  suggestions,
-  placeholder
-}: {
-  value: string[];
-  onChange: (value: string[]) => void;
-  suggestions: string[];
-  placeholder?: string;
-}) {
-  const [inputValue, setInputValue] = useState("");
-  const [open, setOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const filtered = suggestions.filter(
-    (s) => !value.includes(s) && s.toLowerCase().includes(inputValue.toLowerCase())
-  );
-
-  const add = (name: string) => {
-    const trimmed = name.trim();
-    if (trimmed && !value.includes(trimmed)) {
-      onChange([...value, trimmed]);
-    }
-    setInputValue("");
-  };
-
-  const remove = (name: string) => {
-    onChange(value.filter((v) => v !== name));
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && inputValue.trim()) {
-      e.preventDefault();
-      add(inputValue);
-    } else if (e.key === "Backspace" && !inputValue && value.length > 0) {
-      remove(value[value.length - 1]);
-    } else if (e.key === "Escape") {
-      setOpen(false);
-    }
-  };
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const showNew = inputValue.trim() && !value.includes(inputValue.trim()) && !filtered.some((s) => s.toLowerCase() === inputValue.trim().toLowerCase());
-
-  return (
-    <div className="people-combobox" ref={containerRef}>
-      <div className="people-combobox-input-area" onClick={() => inputRef.current?.focus()}>
-        {value.map((name) => (
-          <span key={name} className="people-chip">
-            {name}
-            <button type="button" onClick={(e) => { e.stopPropagation(); remove(name); }} aria-label={`Remove ${name}`}>
-              <X size={12} />
-            </button>
-          </span>
-        ))}
-        <input
-          ref={inputRef}
-          value={inputValue}
-          onChange={(e) => { setInputValue(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={handleKeyDown}
-          placeholder={value.length === 0 ? placeholder : ""}
-        />
-      </div>
-      {open && (filtered.length > 0 || showNew) && (
-        <div className="people-combobox-dropdown">
-          {filtered.map((s) => (
-            <button key={s} type="button" className="people-combobox-option" onMouseDown={(e) => { e.preventDefault(); add(s); }}>
-              {s}
-            </button>
-          ))}
-          {showNew && (
-            <button type="button" className="people-combobox-option people-combobox-option-new" onMouseDown={(e) => { e.preventDefault(); add(inputValue); }}>
-              Add "{inputValue.trim()}"
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}

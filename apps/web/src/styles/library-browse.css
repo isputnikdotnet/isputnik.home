@@ -354,7 +354,7 @@
 }
 
 .audiobook-catalog.grid {
-  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(174px, 1fr));
 }
 
 .audiobook-catalog.list {
@@ -362,24 +362,22 @@
   gap: 12px;
 }
 
+/* Transparent card: only the cover is a boxed/shadowed tile; the title/author
+   sit on the page background below it (matches the home dashboard tiles). */
 .audiobook-catalog-card {
   position: relative;
+  display: grid;
+  gap: 9px;
   min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--audiobook-soft-shadow);
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
-.audiobook-catalog-card:hover,
-.audiobook-catalog-card:focus-within {
+.audiobook-catalog-card:hover .audiobook-catalog-cover,
+.audiobook-catalog-card:focus-within .audiobook-catalog-cover {
   transform: translateY(-2px);
   box-shadow: var(--audiobook-strong-shadow);
 }
 
-.audiobook-catalog-card.selected {
+.audiobook-catalog-card.selected .audiobook-catalog-cover {
   border-color: var(--mint);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mint) 55%, transparent);
 }
@@ -423,6 +421,10 @@
   min-width: 0;
   overflow: hidden;
   cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--audiobook-soft-shadow);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
   color: var(--mint);
   background:
     linear-gradient(155deg, color-mix(in srgb, var(--mint) 22%, transparent), transparent 46%),
@@ -431,7 +433,7 @@
 }
 
 .audiobook-catalog-card.grid .audiobook-catalog-cover {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 1 / 0.86;
 }
 
 .audiobook-catalog-cover:focus-visible {
@@ -570,9 +572,9 @@
 
 .audiobook-catalog-copy {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
-  padding: 10px 40px 12px 11px;
+  padding: 0 32px 0 0;
   cursor: pointer;
 }
 
@@ -738,7 +740,7 @@
   }
 
   .audiobook-catalog.grid {
-    grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
 
