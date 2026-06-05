@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Library, MoreHorizontal, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, MoreHorizontal, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
 import { EpubReader } from "./EpubReader";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes, formatDuration } from "../../shared/utils";
 import type { AudiobookBookDetail, BookSave, CategorySummary, CoverCandidate, MetadataCandidate, PlaybackProgress } from "./types";
@@ -109,7 +109,7 @@ function BookDetailView({
 
   // An ebook (or any audio-less book): content is a document, not audio tracks.
   const isEbook = book.files.length === 0 && book.documents.length > 0;
-  const [activeMetadataTab, setActiveMetadataTab] = useState<"edit" | "series" | "cover" | "lookup">("edit");
+  const [activeMetadataTab, setActiveMetadataTab] = useState<"edit" | "publishing" | "series" | "cover" | "lookup">("edit");
   const [metadataQuery, setMetadataQuery] = useState(`${book.title} ${book.authors[0] ?? ""}`.trim());
   const [metadataProvider, setMetadataProvider] = useState<"all" | MetadataCandidate["source"]>("all");
   const [updateDetails, setUpdateDetails] = useState(true);
@@ -123,7 +123,7 @@ function BookDetailView({
   const [resetError, setResetError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
-  const [progressAction, setProgressAction] = useState<"complete" | "">("");
+  const [progressAction, setProgressAction] = useState<"complete" | "reset" | "">("");
   const [progressActionError, setProgressActionError] = useState("");
   const [coverCandidates, setCoverCandidates] = useState<CoverCandidate[]>([]);
   const [coverLoading, setCoverLoading] = useState(false);
@@ -131,6 +131,7 @@ function BookDetailView({
   const [coverError, setCoverError] = useState("");
   const [libraryPeople, setLibraryPeople] = useState<string[]>([]);
   const [librarySeries, setLibrarySeries] = useState<string[]>([]);
+  const [libraryTags, setLibraryTags] = useState<string[]>([]);
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [editForm, setEditForm] = useState(() => ({
     title: book.title,
@@ -138,7 +139,7 @@ function BookDetailView({
     seriesPosition: book.seriesPosition?.toString() ?? "",
     authors: book.authors,
     narrators: book.narrators,
-    tags: book.tags.join(", "),
+    tags: book.tags,
     categoryKey: book.category?.key ?? "",
     publisher: book.publisher ?? "",
     yearPublished: book.yearPublished?.toString() ?? "",
@@ -155,7 +156,7 @@ function BookDetailView({
       seriesPosition: book.seriesPosition?.toString() ?? "",
       authors: book.authors,
       narrators: book.narrators,
-      tags: book.tags.join(", "),
+      tags: book.tags,
     categoryKey: book.category?.key ?? "",
       publisher: book.publisher ?? "",
       yearPublished: book.yearPublished?.toString() ?? "",
@@ -230,12 +231,10 @@ function BookDetailView({
     api<{ categories: CategorySummary[] }>("/api/library/categories")
       .then((payload) => setCategories(payload.categories))
       .catch(() => {});
+    api<{ tags: { name: string; count: number }[] }>("/api/library/tags")
+      .then((payload) => setLibraryTags(payload.tags.map((t) => t.name)))
+      .catch(() => {});
   }, [metadataModalOpen, book.libraryId]);
-
-  const splitList = (value: string) => value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 
   const searchMetadata = async () => {
     setMetadataLoading(true);
@@ -302,7 +301,7 @@ function BookDetailView({
           seriesPosition: editForm.seriesPosition ? Number(editForm.seriesPosition) : null,
           authors: editForm.authors,
           narrators: editForm.narrators,
-          tags: splitList(editForm.tags),
+          tags: editForm.tags,
           categoryKey: editForm.categoryKey || null,
           publisher: editForm.publisher || null,
           yearPublished: editForm.yearPublished ? Number(editForm.yearPublished) : null,
@@ -345,6 +344,19 @@ function BookDetailView({
     }
   };
 
+  const resetProgress = async () => {
+    setProgressAction("reset");
+    setProgressActionError("");
+    try {
+      await api(`/api/library/books/${book.id}/progress`, { method: "DELETE" });
+      setProgress(null);
+    } catch (err) {
+      setProgressActionError(err instanceof Error ? err.message : "Unable to reset progress");
+    } finally {
+      setProgressAction("");
+    }
+  };
+
   const toggleSave = async () => {
     setSaveAction(true);
     setSaveError("");
@@ -360,7 +372,7 @@ function BookDetailView({
         setSave(payload.save);
       }
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Unable to update bookmark");
+      setSaveError(err instanceof Error ? err.message : "Unable to update favorites");
     } finally {
       setSaveAction(false);
     }
@@ -432,25 +444,39 @@ function BookDetailView({
       ? currentProgressFile.chapterTitle || currentProgressFile.relativePath.split(/[\\/]/).at(-1) || currentProgressFile.relativePath
       : "Not started yet";
 
-  type DetailRow = { label: string; value: string; icon: LucideIcon; className?: string };
+  // Referrer so detail pages reached from here can offer "Back" to this book.
+  const linkFrom = `?from=${encodeURIComponent(`/audiobooks/books/${book.id}`)}`;
+  type DetailLink = { text: string; href: string };
+  type DetailRow = { label: string; value: string; icon: LucideIcon; className?: string; links?: DetailLink[] };
   const heroDetailRows = ([
-    book.narrators.length > 0 ? { label: "Narrator", value: book.narrators.join(", "), icon: Headphones } : null,
-    book.yearPublished ? { label: "Published", value: String(book.yearPublished), icon: Calendar } : null,
+    book.narrators.length > 0 ? {
+      label: "Narrator",
+      value: book.narrators.join(", "),
+      icon: Headphones,
+      links: book.narrators.map((name) => ({ text: name, href: `/audiobooks/narrators/${encodeURIComponent(name)}${linkFrom}` }))
+    } : null,
+    { label: "Library", value: book.libraryName, icon: Library },
     formatValue ? { label: "Format", value: formatValue, icon: FileIcon } : null,
-    book.language ? { label: "Language", value: book.language, icon: Globe } : null,
+    book.category ? {
+      label: "Category",
+      value: book.category.name,
+      icon: Bookmark,
+      links: [{ text: book.category.name, href: `/audiobooks/categories/${book.category.key}${linkFrom}` }]
+    } : null,
     book.durationSeconds != null ? { label: isEbook ? "Length" : "Audio Length", value: formatDuration(book.durationSeconds), icon: Clock } : null,
     book.totalSize > 0 ? { label: "File Size", value: formatBytes(book.totalSize), icon: HardDrive } : null,
     book.series ? {
       label: "Series",
       value: `${book.series}${book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}`,
-      icon: BookOpen
+      icon: BookOpen,
+      links: book.seriesId ? [{ text: `${book.series}${book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}`, href: `/audiobooks/series/${book.seriesId}${linkFrom}` }] : undefined
     } : null
   ] as (DetailRow | null)[]).filter((row): row is DetailRow => Boolean(row));
   const detailRows = ([
-    { label: "Library", value: book.libraryName, icon: Library },
+    book.yearPublished ? { label: "Published", value: String(book.yearPublished), icon: Calendar } : null,
     ...heroDetailRows,
     book.publisher ? { label: "Publisher", value: book.publisher, icon: BookOpen } : null,
-    book.category ? { label: "Category", value: book.category.name, icon: Bookmark } : null,
+    book.language ? { label: "Language", value: book.language, icon: Globe } : null,
     { label: "ISBN", value: book.isbn || "Not available", icon: FileText },
     { label: "ASIN", value: book.asin || "Not available", icon: FileText },
     {
@@ -472,6 +498,55 @@ function BookDetailView({
   const visibleDescription = canExpandDescription && !descriptionExpanded
     ? `${descriptionText.slice(0, 420).trimEnd()}...`
     : descriptionText;
+
+  const renderRowValue = (row: DetailRow) =>
+    row.links
+      ? row.links.map((lnk, i) => (
+          <Fragment key={lnk.href}>
+            {i > 0 && ", "}
+            <a className="book-detail-link" href={lnk.href} onClick={(event) => followRoute(event, lnk.href)}>{lnk.text}</a>
+          </Fragment>
+        ))
+      : row.value;
+
+  const metadataEditFooter = (
+    <>
+      {editError && <MessageBox tone="error" title="Metadata edit error">{editError}</MessageBox>}
+
+      <div className="metadata-actions book-metadata-footer">
+        {book.metadataSource === "manual" && !resetConfirm && (
+          <button className="secondary-button" onClick={() => setResetConfirm(true)}>
+            <RotateCcw size={16} />
+            <span>Reset to auto</span>
+          </button>
+        )}
+        <span className="book-metadata-footer-spacer" aria-hidden="true"></span>
+        <button className="secondary-button" onClick={closeMetadataModal} disabled={editSaving || resetting}>
+          Cancel
+        </button>
+        <button className="primary-button" onClick={saveManualMetadata} disabled={editSaving || !editForm.title.trim()}>
+          <Save size={16} />
+          <span>{editSaving ? "Saving..." : "Save metadata"}</span>
+        </button>
+      </div>
+
+      {resetConfirm && (
+        <div className="metadata-reset-confirm">
+          <p>This will replace all manually edited fields with data from the file scan. Continue?</p>
+          <div className="metadata-actions">
+            <button className="primary-button" onClick={resetMetadata} disabled={resetting}>
+              <RotateCcw size={16} />
+              <span>{resetting ? "Resetting..." : "Yes, reset"}</span>
+            </button>
+            <button className="secondary-button" onClick={() => setResetConfirm(false)} disabled={resetting}>
+              Cancel
+            </button>
+          </div>
+          {resetError && <MessageBox tone="error" title="Reset error">{resetError}</MessageBox>}
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div className="book-detail-view">
@@ -500,7 +575,7 @@ function BookDetailView({
                 <button
                   className="book-tag-chip"
                   type="button"
-                  onClick={() => navigate(`/audiobooks/categories/${book.category?.key}`)}
+                  onClick={() => navigate(`/audiobooks/categories/${book.category?.key}${linkFrom}`)}
                 >
                   {book.category.name}
                 </button>
@@ -522,7 +597,17 @@ function BookDetailView({
         <div className="book-detail-info">
           <h1 className="book-detail-title">{book.title}</h1>
           {book.authors.length > 0 && (
-            <p className="book-detail-author">{book.authors.join(", ")}</p>
+            <p className="book-detail-author">
+              {book.authors.map((name, i) => {
+                const href = `/audiobooks/authors/${encodeURIComponent(name)}${linkFrom}`;
+                return (
+                  <Fragment key={name}>
+                    {i > 0 && ", "}
+                    <a className="book-detail-link" href={href} onClick={(event) => followRoute(event, href)}>{name}</a>
+                  </Fragment>
+                );
+              })}
+            </p>
           )}
 
           <dl className="book-detail-meta-grid">
@@ -530,7 +615,7 @@ function BookDetailView({
               <div className="book-detail-meta-item" key={`${row.label}-${row.value}`}>
                 <row.icon size={18} aria-hidden="true" />
                 <dt>{row.label}</dt>
-                <dd className={row.className}>{row.value}</dd>
+                <dd className={row.className}>{renderRowValue(row)}</dd>
               </div>
             ))}
           </dl>
@@ -552,7 +637,7 @@ function BookDetailView({
                       <div className="book-detail-meta-item" key={`${row.label}-${row.value}`}>
                         <row.icon size={18} aria-hidden="true" />
                         <dt>{row.label}</dt>
-                        <dd className={row.className}>{row.value}</dd>
+                        <dd className={row.className}>{renderRowValue(row)}</dd>
                       </div>
                     ))}
                   </dl>
@@ -580,8 +665,8 @@ function BookDetailView({
               </button>
             )}
             <button className="secondary-button" onClick={toggleSave} disabled={saveAction} aria-pressed={save?.saved ?? false}>
-              <Bookmark size={16} fill={save?.saved ? "currentColor" : "none"} />
-              <span>{saveAction ? "Saving..." : save?.saved ? "Bookmarked" : "Add Bookmark"}</span>
+              <Heart size={16} fill={save?.saved ? "currentColor" : "none"} />
+              <span>{saveAction ? "Saving..." : save?.saved ? "Favorited" : "Add to Favorites"}</span>
             </button>
             <div className="book-detail-menu-wrap" ref={detailMenuRef}>
               <button
@@ -623,6 +708,20 @@ function BookDetailView({
                       <span>{progressAction === "complete" ? "Saving..." : "Mark finished"}</span>
                     </button>
                   )}
+                  {!isEbook && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setDetailMenuOpen(false);
+                        void resetProgress();
+                      }}
+                      disabled={progressAction !== ""}
+                    >
+                      <RotateCcw size={17} aria-hidden="true" />
+                      <span>{progressAction === "reset" ? "Resetting..." : "Reset progress"}</span>
+                    </button>
+                  )}
                   <a
                     role="menuitem"
                     href={`/api/library/books/${book.id}/download`}
@@ -647,7 +746,7 @@ function BookDetailView({
               )}
             </div>
           </div>
-          {saveError && <MessageBox tone="error" title="Bookmark error">{saveError}</MessageBox>}
+          {saveError && <MessageBox tone="error" title="Favorites error">{saveError}</MessageBox>}
           {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
 
           <section className="book-progress-card" aria-label={progressTitle}>
@@ -812,6 +911,9 @@ function BookDetailView({
               <button className={`modal-tab${activeMetadataTab === "edit" ? " active" : ""}`} onClick={() => setActiveMetadataTab("edit")}>
                 Metadata
               </button>
+              <button className={`modal-tab${activeMetadataTab === "publishing" ? " active" : ""}`} onClick={() => setActiveMetadataTab("publishing")}>
+                Publishing
+              </button>
               <button className={`modal-tab${activeMetadataTab === "series" ? " active" : ""}`} onClick={() => setActiveMetadataTab("series")}>
                 Series
               </button>
@@ -858,19 +960,31 @@ function BookDetailView({
                         ))}
                       </select>
                     </label>
-                    <label className="field metadata-field-half">
+                    <div className="field metadata-field-half">
                       <span>Tags</span>
-                      <input
+                      <PeopleCombobox
                         value={editForm.tags}
-                        onChange={(event) => setEditForm((form) => ({ ...form, tags: event.target.value }))}
-                        placeholder="Comma-separated, e.g. cyberpunk, попаданцы"
+                        onChange={(v) => setEditForm((form) => ({ ...form, tags: v }))}
+                        suggestions={libraryTags}
+                        placeholder="Add tag…"
                       />
+                    </div>
+                    <label className="field metadata-field-wide">
+                      <span>Description</span>
+                      <textarea value={editForm.description} onChange={(event) => setEditForm((form) => ({ ...form, description: event.target.value }))} rows={4} />
                     </label>
-                    <label className="field metadata-field-third">
+                  </div>
+
+                  {metadataEditFooter}
+                </>
+              ) : activeMetadataTab === "publishing" ? (
+                <>
+                  <div className="metadata-edit-grid">
+                    <label className="field metadata-field-half">
                       <span>Publisher</span>
                       <input value={editForm.publisher} onChange={(event) => setEditForm((form) => ({ ...form, publisher: event.target.value }))} />
                     </label>
-                    <label className="field metadata-field-third">
+                    <label className="field metadata-field-half">
                       <span>Year</span>
                       <input type="number" value={editForm.yearPublished} onChange={(event) => setEditForm((form) => ({ ...form, yearPublished: event.target.value }))} />
                     </label>
@@ -886,46 +1000,9 @@ function BookDetailView({
                       <span>ASIN</span>
                       <input value={editForm.asin} onChange={(event) => setEditForm((form) => ({ ...form, asin: event.target.value }))} />
                     </label>
-                    <label className="field metadata-field-wide">
-                      <span>Description</span>
-                      <textarea value={editForm.description} onChange={(event) => setEditForm((form) => ({ ...form, description: event.target.value }))} rows={4} />
-                    </label>
                   </div>
 
-                  {editError && <MessageBox tone="error" title="Metadata edit error">{editError}</MessageBox>}
-
-                  <div className="metadata-actions book-metadata-footer">
-                    {book.metadataSource === "manual" && !resetConfirm && (
-                      <button className="secondary-button" onClick={() => setResetConfirm(true)}>
-                        <RotateCcw size={16} />
-                        <span>Reset to auto</span>
-                      </button>
-                    )}
-                    <span className="book-metadata-footer-spacer" aria-hidden="true"></span>
-                    <button className="secondary-button" onClick={closeMetadataModal} disabled={editSaving || resetting}>
-                      Cancel
-                    </button>
-                    <button className="primary-button" onClick={saveManualMetadata} disabled={editSaving || !editForm.title.trim()}>
-                      <Save size={16} />
-                      <span>{editSaving ? "Saving..." : "Save metadata"}</span>
-                    </button>
-                  </div>
-
-                  {resetConfirm && (
-                    <div className="metadata-reset-confirm">
-                      <p>This will replace all manually edited fields with data from the file scan. Continue?</p>
-                      <div className="metadata-actions">
-                        <button className="primary-button" onClick={resetMetadata} disabled={resetting}>
-                          <RotateCcw size={16} />
-                          <span>{resetting ? "Resetting..." : "Yes, reset"}</span>
-                        </button>
-                        <button className="secondary-button" onClick={() => setResetConfirm(false)} disabled={resetting}>
-                          Cancel
-                        </button>
-                      </div>
-                      {resetError && <MessageBox tone="error" title="Reset error">{resetError}</MessageBox>}
-                    </div>
-                  )}
+                  {metadataEditFooter}
                 </>
               ) : activeMetadataTab === "series" ? (
                 <>
@@ -955,40 +1032,7 @@ function BookDetailView({
                     <p className="muted">Choose an existing series or enter a new one, then set this book's position in the series.</p>
                   </div>
 
-                  {editError && <MessageBox tone="error" title="Metadata edit error">{editError}</MessageBox>}
-
-                  <div className="metadata-actions book-metadata-footer">
-                    {book.metadataSource === "manual" && !resetConfirm && (
-                      <button className="secondary-button" onClick={() => setResetConfirm(true)}>
-                        <RotateCcw size={16} />
-                        <span>Reset to auto</span>
-                      </button>
-                    )}
-                    <span className="book-metadata-footer-spacer" aria-hidden="true"></span>
-                    <button className="secondary-button" onClick={closeMetadataModal} disabled={editSaving || resetting}>
-                      Cancel
-                    </button>
-                    <button className="primary-button" onClick={saveManualMetadata} disabled={editSaving || !editForm.title.trim()}>
-                      <Save size={16} />
-                      <span>{editSaving ? "Saving..." : "Save metadata"}</span>
-                    </button>
-                  </div>
-
-                  {resetConfirm && (
-                    <div className="metadata-reset-confirm">
-                      <p>This will replace all manually edited fields with data from the file scan. Continue?</p>
-                      <div className="metadata-actions">
-                        <button className="primary-button" onClick={resetMetadata} disabled={resetting}>
-                          <RotateCcw size={16} />
-                          <span>{resetting ? "Resetting..." : "Yes, reset"}</span>
-                        </button>
-                        <button className="secondary-button" onClick={() => setResetConfirm(false)} disabled={resetting}>
-                          Cancel
-                        </button>
-                      </div>
-                      {resetError && <MessageBox tone="error" title="Reset error">{resetError}</MessageBox>}
-                    </div>
-                  )}
+                  {metadataEditFooter}
                 </>
               ) : activeMetadataTab === "cover" ? (
                 <>

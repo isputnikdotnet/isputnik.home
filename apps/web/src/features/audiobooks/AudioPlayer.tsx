@@ -603,10 +603,10 @@ export function AudioPlayer({
                     onClick={onToggleSave}
                     disabled={savingSave}
                     aria-pressed={saved ?? false}
-                    aria-label={saved ? "Remove from My List" : "Save to My List"}
+                    aria-label={saved ? "Remove from Favorites" : "Add to Favorites"}
                   >
                     <Heart size={18} fill={saved ? "currentColor" : "none"} />
-                    <span className="player-popup-aux-label">My List</span>
+                    <span className="player-popup-aux-label">Favorites</span>
                   </button>
                 </div>
               )}
@@ -810,10 +810,10 @@ export function AudioPlayer({
                 onClick={onToggleSave}
                 disabled={savingSave}
                 aria-pressed={saved ?? false}
-                aria-label={saved ? "Remove from My List" : "Save to My List"}
+                aria-label={saved ? "Remove from Favorites" : "Add to Favorites"}
               >
                 <Heart size={15} fill={saved ? "currentColor" : "none"} />
-                <span>{saved ? "Saved" : "My List"}</span>
+                <span>{saved ? "Favorited" : "Favorites"}</span>
               </button>
             )}
           </>

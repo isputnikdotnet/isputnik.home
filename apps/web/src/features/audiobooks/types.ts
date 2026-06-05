@@ -83,6 +83,7 @@ export interface BookDocument {
 
 export interface AudiobookBookDetail extends AudiobookBook {
   libraryName: string;
+  seriesId: string | null;
   description: string | null;
   yearPublished: number | null;
   isbn: string | null;

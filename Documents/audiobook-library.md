@@ -528,11 +528,14 @@ We never write to source folders. If a user's library already has `metadata.json
 
 ## Book details and manual editing
 
-The book detail page keeps the cover, title, author, playback action, and core metadata at the top. Tags sit below the shorter cover. **More details** expands additional metadata one field per row, including ISBN and ASIN, while Description and Files remain as the page tabs.
+The book detail page keeps the cover, title, author, playback action, and core metadata at the top. **Author, narrator, series, and category are links** to their respective browse pages. When one of those pages is reached *from* a book, its "Back" button returns to the originating book (carried via a `?from=` referrer) instead of falling back to the list. The visible metadata grid leads with Library and Category (alongside Narrator, Format, Length, Size, Series); Published, Language, ISBN, and ASIN live under **More details**. Tags sit below the shorter cover, and Description and Files remain as the page tabs.
 
-**Edit metadata** opens a large responsive modal without leaving the book:
+The header action row exposes **Favorites** — a per-user, whole-book save (♥), the same toggle as the player's Favorites button and the Favorites page (formerly labelled "Bookmark" / "My List") — and a **More options** menu with Edit metadata, Mark finished, **Reset progress** (clears playback progress, mirroring the player's menu action), Download, and Share.
 
-- **Metadata** — title, authors, narrators, category, tags, publisher, year, language, ISBN, ASIN, and description
+**Edit metadata** opens a compact responsive modal without leaving the book:
+
+- **Metadata** — title, authors, narrators, category, tags, and description (tags use the same pick-existing-or-add combobox as authors and narrators)
+- **Publishing** — publisher, year, language, ISBN, ASIN
 - **Series** — series and position
 - **Cover** — refresh or upload cover art
 - **Metadata Lookup** — search providers and apply a result

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BookOpen,
-  Bookmark,
   ChevronDown,
   FileText,
   Headphones,
+  Heart,
   Home,
   Image,
   Info,
@@ -79,7 +79,7 @@ function mainNavItems(active: DashboardActive): MainNavItem[] {
 function userMenuLinks(): UserMenuLink[] {
   return [
     { label: "Shared with me", href: "/audiobooks/shared", icon: UsersRound },
-    { label: "Bookmarks", href: "/audiobooks/saved", icon: Bookmark }
+    { label: "Favorites", href: "/audiobooks/saved", icon: Heart }
   ];
 }
 

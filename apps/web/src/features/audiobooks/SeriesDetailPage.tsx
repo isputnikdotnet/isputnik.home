@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, BookOpen, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { getReferrer, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import type { AudiobookBook, SeriesDetail } from "./types";
+
+const backTarget = () => getReferrer() ?? "/audiobooks";
+const backLabel = () => (getReferrer() ? "Back" : "Back to audiobooks");
 
 interface EditableBook {
   id: string;
@@ -169,9 +172,9 @@ export function SeriesDetailPage({
     return (
       <DashboardShell active="audiobooks" user={user} logout={logout}>
         <section className="audiobook-main-page">
-          <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
+          <button className="audiobook-back-button" type="button" onClick={() => navigate(backTarget())}>
             <ArrowLeft size={17} aria-hidden="true" />
-            <span>Back to audiobooks</span>
+            <span>{backLabel()}</span>
           </button>
           <MessageBox tone="error" title="Error">{error}</MessageBox>
         </section>
@@ -192,9 +195,9 @@ export function SeriesDetailPage({
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTarget())}>
           <ArrowLeft size={17} aria-hidden="true" />
-          <span>Back to audiobooks</span>
+          <span>{backLabel()}</span>
         </button>
 
         <div className="series-detail-head">

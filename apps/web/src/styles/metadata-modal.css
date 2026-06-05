@@ -17,63 +17,63 @@
 }
 
 .book-metadata-modal {
-  width: min(calc(100vw - 32px), 1500px);
-  height: min(calc(100vh - 32px), 1040px);
+  width: min(calc(100vw - 32px), 880px);
+  height: min(calc(100vh - 32px), 660px);
   max-height: calc(100vh - 32px);
   border-radius: 10px;
 }
 
 .book-metadata-header {
-  min-height: 98px;
-  padding: 22px 34px;
+  min-height: 70px;
+  padding: 16px 26px;
 }
 
 .book-metadata-title {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
 }
 
 .book-metadata-title h2 {
-  font-size: 1.55rem;
+  font-size: 1.25rem;
 }
 
 .book-metadata-title-icon {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
   color: var(--mint);
   background: var(--active);
 }
 
 .book-metadata-header .modal-close {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
 }
 
 .book-metadata-tabs {
-  gap: 12px;
-  padding: 0 38px;
+  gap: 8px;
+  padding: 0 26px;
 }
 
 .book-metadata-tabs .modal-tab {
-  min-height: 58px;
-  padding: 0 18px;
-  font-size: 1rem;
+  min-height: 46px;
+  padding: 0 14px;
+  font-size: 0.92rem;
 }
 
 .book-metadata-content {
   display: flex;
   flex-direction: column;
-  padding: 26px 42px 24px;
-  gap: 22px;
+  padding: 20px 26px 32px;
+  gap: 16px;
 }
 
 .book-metadata-modal .metadata-edit-grid {
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 22px 28px;
+  gap: 14px 18px;
 }
 
 .book-metadata-modal .metadata-field-half {
@@ -85,30 +85,30 @@
 }
 
 .metadata-modal.book-metadata-modal .field {
-  gap: 8px;
+  gap: 6px;
 }
 
 .metadata-modal.book-metadata-modal .field > span:first-child {
   color: var(--ink);
-  font-size: 0.9rem;
+  font-size: 0.84rem;
 }
 
 .metadata-modal.book-metadata-modal .field input,
 .metadata-modal.book-metadata-modal .field select,
 .metadata-modal.book-metadata-modal .field textarea {
-  min-height: 50px;
-  padding: 11px 15px;
-  font-size: 1rem;
+  min-height: 42px;
+  padding: 9px 12px;
+  font-size: 0.94rem;
 }
 
 .metadata-modal.book-metadata-modal .field .people-combobox-input-area {
-  min-height: 50px;
-  padding: 7px 12px;
-  font-size: 1rem;
+  min-height: 42px;
+  padding: 6px 10px;
+  font-size: 0.94rem;
 }
 
 .metadata-modal.book-metadata-modal .field textarea {
-  min-height: 104px;
+  min-height: 92px;
 }
 
 .metadata-series-panel {
@@ -127,9 +127,9 @@
   margin: 0;
 }
 
-.book-metadata-footer {
+.metadata-actions.book-metadata-footer {
   margin-top: auto;
-  padding-top: 18px;
+  padding-top: 26px;
   border-top: 1px solid var(--line);
 }
 
@@ -452,6 +452,7 @@
 .cover-upload-panel {
   display: inline-flex;
   align-items: center;
+  align-self: flex-start;
   justify-self: start;
   gap: 10px;
   min-height: 38px;

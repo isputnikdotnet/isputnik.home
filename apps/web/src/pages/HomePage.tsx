@@ -1,9 +1,9 @@
 import {
   BookOpen,
-  Bookmark,
   ChevronRight,
   FolderOpen,
   Headphones,
+  Heart,
   Image,
   Play,
 } from "lucide-react";
@@ -197,11 +197,11 @@ const overviewItems: OverviewCard[] = [
     icon: FolderOpen
   },
   {
-    label: "Bookmarks",
+    label: "Favorites",
     value: "342",
     href: "/audiobooks/saved",
     tone: "rose",
-    icon: Bookmark
+    icon: Heart
   }
 ];
 

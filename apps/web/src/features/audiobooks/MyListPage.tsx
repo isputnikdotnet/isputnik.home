@@ -21,7 +21,7 @@ export function MyListPage({
   useEffect(() => {
     api<{ books: SavedBook[] }>("/api/library/saved")
       .then((payload) => setBooks(payload.books))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load your list"));
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load your favorites"));
   }, []);
 
   const removeBook = async (bookId: string) => {
@@ -31,7 +31,7 @@ export function MyListPage({
       await api(`/api/library/books/${bookId}/save`, { method: "DELETE" });
       setBooks((current) => current?.filter((book) => book.id !== bookId) ?? current);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove this book from My List");
+      setError(err instanceof Error ? err.message : "Unable to remove this book from Favorites");
     } finally {
       setRemovingIds((current) => current.filter((id) => id !== bookId));
     }
@@ -43,20 +43,20 @@ export function MyListPage({
         <div className="section-head audiobook-head">
           <div>
             <p className="eyebrow">Digital Library</p>
-            <h1>My List</h1>
+            <h1>Favorites</h1>
           </div>
           {books && books.length > 0 && (
             <span>{books.length} {books.length === 1 ? "book" : "books"}</span>
           )}
         </div>
 
-        {error && <MessageBox tone="error" title="My List error">{error}</MessageBox>}
+        {error && <MessageBox tone="error" title="Favorites error">{error}</MessageBox>}
 
         {books && books.length === 0 ? (
           <div className="empty-state library-empty">
             <Heart size={58} aria-hidden="true" />
-            <h2>Nothing saved yet</h2>
-            <p className="muted">Open a book and tap “My List” in the player to save it here.</p>
+            <h2>No favorites yet</h2>
+            <p className="muted">Open a book and tap “Add to Favorites” to save it here.</p>
           </div>
         ) : (
           <div className="audiobook-grid">
@@ -89,8 +89,8 @@ export function MyListPage({
                     className="icon-button danger saved-audiobook-remove"
                     onClick={() => removeBook(book.id)}
                     disabled={removing}
-                    aria-label={`Remove ${book.title} from My List`}
-                    title="Remove from My List"
+                    aria-label={`Remove ${book.title} from Favorites`}
+                    title="Remove from Favorites"
                   >
                     <X size={16} />
                   </button>

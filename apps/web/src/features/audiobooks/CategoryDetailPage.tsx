@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, BookOpen } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { getReferrer, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { CategoryIcon } from "./categoryIcons";
 import type { CategoryDetail } from "./types";
@@ -18,6 +18,7 @@ export function CategoryDetailPage({
 }) {
   const [category, setCategory] = useState<CategoryDetail | null>(null);
   const [error, setError] = useState("");
+  const backTo = getReferrer();
 
   useEffect(() => {
     setError("");
@@ -30,9 +31,9 @@ export function CategoryDetailPage({
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/audiobooks")}>
           <ArrowLeft size={17} aria-hidden="true" />
-          <span>Back to audiobooks</span>
+          <span>{backTo ? "Back" : "Back to audiobooks"}</span>
         </button>
 
         {error && <MessageBox tone="error" title="Category error">{error}</MessageBox>}

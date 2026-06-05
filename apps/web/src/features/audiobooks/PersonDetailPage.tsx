@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, BookOpen, Merge, Pencil, Search, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { getReferrer, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatDuration } from "../../shared/utils";
 import { PersonProfileModal } from "./PersonProfileModal";
@@ -51,6 +51,7 @@ export function PersonDetailPage({
 
   const roleLabel = role === "author" ? "Author" : "Narrator";
   const navActive = role === "author" ? "authors" : "narrators";
+  const backTo = getReferrer();
 
   // Other people of the same role to merge this one into.
   const mergeCandidates = [...new Set(
@@ -79,9 +80,9 @@ export function PersonDetailPage({
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(`/audiobooks/${navActive}`)}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? `/audiobooks/${navActive}`)}>
           <ArrowLeft size={17} aria-hidden="true" />
-          <span>Back to {navActive}</span>
+          <span>{backTo ? "Back" : `Back to ${navActive}`}</span>
         </button>
         <div className="section-head">
           <div>

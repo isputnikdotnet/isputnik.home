@@ -231,6 +231,14 @@ export function getRoute(): Route {
   return { name: "home" };
 }
 
+// Reads the `?from=` referrer param (a path to return to), if present. Used so
+// detail pages reached via an in-app link can offer a "Back" to the origin page
+// instead of always falling back to their list.
+export function getReferrer(): string | null {
+  const from = new URLSearchParams(window.location.search).get("from");
+  return from && from.startsWith("/") ? from : null;
+}
+
 export function navigate(path: string) {
   window.history.pushState({}, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));

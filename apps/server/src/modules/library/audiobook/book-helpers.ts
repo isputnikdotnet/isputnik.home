@@ -487,6 +487,7 @@ export function getAudiobookBookDetail(id: string) {
       books.series_position,
       libraries.name AS library_name,
       series.name AS series_name,
+      series.id AS series_id,
       book_metadata.title,
       book_metadata.sort_title,
       book_metadata.description,
@@ -522,6 +523,7 @@ export function getAudiobookBookDetail(id: string) {
   `).get(id) as (AudiobookBookRow & {
     library_name: string;
     series_name: string | null;
+    series_id: string | null;
     series_position: number | null;
     description: string | null;
     year_published: number | null;
@@ -561,6 +563,7 @@ export function getAudiobookBookDetail(id: string) {
     title: book.title ?? path.basename(book.folder_path),
     sortTitle: book.sort_title,
     series: book.series_name ?? null,
+    seriesId: book.series_id ?? null,
     seriesPosition: book.series_position ?? null,
     description: book.description,
     yearPublished: book.year_published,

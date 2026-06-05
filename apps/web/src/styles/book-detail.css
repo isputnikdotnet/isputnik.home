@@ -89,6 +89,18 @@
   font-weight: 760;
 }
 
+.book-detail-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.book-detail-link:hover,
+.book-detail-link:focus-visible {
+  color: var(--mint);
+  text-decoration: underline;
+}
+
 .book-detail-meta-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
