@@ -9,6 +9,7 @@ import { PeopleCombobox } from "./PeopleCombobox";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { useDownload } from "../../offline/useDownload";
 import { formatBytes, formatDuration } from "../../shared/utils";
 import type { AudiobookBookDetail, BookSave, CategorySummary, CoverCandidate, MetadataCandidate, PlaybackProgress } from "./types";
 
@@ -81,6 +82,7 @@ function BookDetailView({
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string } | null>(null);
   const detailMenuRef = useRef<HTMLDivElement>(null);
+  const offline = useDownload(book);
 
   // Close the full-screen reader on Escape.
   useEffect(() => {
@@ -685,6 +687,29 @@ function BookDetailView({
               <Heart size={16} fill={save?.saved ? "currentColor" : "none"} />
               <span>{saveAction ? "Saving..." : save?.saved ? "Favorited" : "Add to Favorites"}</span>
             </button>
+            {!isEbook && book.files.some((f) => f.status === "available") && (
+              <button
+                className={`secondary-button${offline.record?.state === "complete" ? " offline-saved" : ""}`}
+                onClick={() => {
+                  if (offline.busy) return;
+                  if (offline.record?.state === "complete") {
+                    if (window.confirm("Remove this downloaded book from this device?")) void offline.remove();
+                  } else {
+                    void offline.start();
+                  }
+                }}
+                disabled={offline.busy}
+                aria-label={offline.record?.state === "complete" ? "Remove offline download" : "Save for offline listening"}
+              >
+                {offline.record?.state === "complete" ? (
+                  <><CheckCircle2 size={16} /><span>Saved offline</span></>
+                ) : offline.busy ? (
+                  <><Download size={16} /><span>Downloading {Math.round(offline.progress * 100)}%</span></>
+                ) : (
+                  <><Download size={16} /><span>Save offline</span></>
+                )}
+              </button>
+            )}
             <div className="book-detail-menu-wrap" ref={detailMenuRef}>
               <button
                 className="secondary-button book-detail-more-action"
@@ -765,6 +790,7 @@ function BookDetailView({
           </div>
           {saveError && <MessageBox tone="error" title="Favorites error">{saveError}</MessageBox>}
           {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
+          {offline.error && <MessageBox tone="error" title="Download error">{offline.error}</MessageBox>}
 
           <section className="book-progress-card" aria-label={progressTitle}>
             <div className="book-progress-head">

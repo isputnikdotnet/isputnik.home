@@ -1,7 +1,7 @@
 {
   "name": "@isputnik/web",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.8.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -12,6 +12,7 @@
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "epubjs": "^0.3.93",
+    "idb": "^7.1.1",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

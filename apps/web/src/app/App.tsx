@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { api, type PublicUser } from "../api";
+import { setOfflineUserId } from "../offline/downloads";
 import { Shell } from "./Shell";
 import { useRoute, navigate } from "../router";
 import { InstallPage } from "../pages/InstallPage";
@@ -52,6 +53,12 @@ export function App() {
   useEffect(() => {
     refreshSession().catch(() => setSession({ loading: false, requiresSetup: false, user: null }));
   }, [refreshSession]);
+
+  // Remember the user id for offline storage namespacing (downloads are keyed
+  // per user; /api/auth/me can't be reached without a network).
+  useEffect(() => {
+    if (session.user) setOfflineUserId(session.user.id);
+  }, [session.user]);
 
   useEffect(() => {
     const preferred = session.user?.theme ?? "dark";

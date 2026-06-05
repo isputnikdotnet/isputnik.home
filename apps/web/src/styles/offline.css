@@ -1,0 +1,8 @@
+.secondary-button.offline-saved {
+  color: var(--mint);
+  border-color: var(--mint);
+}
+
+.secondary-button.offline-saved svg {
+  color: var(--mint);
+}

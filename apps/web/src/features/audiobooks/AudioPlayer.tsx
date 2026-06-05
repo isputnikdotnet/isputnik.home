@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bookmark, BookmarkPlus, CheckCircle2, ChevronDown, ChevronUp, Clock, FastForward, Heart, List, Pause, Pencil, PieChart, Play, Rewind, SkipBack, SkipForward, StickyNote, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { api } from "../../api";
+import { getDownloadedFileUrl } from "../../offline/downloads";
 import { MessageBox } from "../../shared/MessageBox";
 import type { AudiobookBookDetail, AudiobookFile, Bookmark as BookmarkEntry, PlaybackProgress } from "./types";
 
@@ -45,6 +46,8 @@ export function AudioPlayer({
   const pendingSeekRef = useRef<number | null>(null);
   const shouldAutoPlayRef = useRef(false);
   const saveIntervalRef = useRef<number | null>(null);
+  // Object URL for a locally-downloaded chapter, revoked when we move off it.
+  const localUrlRef = useRef<string | null>(null);
 
   const [fileIndex, setFileIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -205,20 +208,47 @@ export function AudioPlayer({
 
   // Set src whenever the current file changes. With preload="none" audio.load() only
   // resets the element — no network request happens until play() is called.
+  // If the chapter is downloaded for offline use, play from the local blob (which
+  // also gives native seeking) instead of the network stream.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentFile) return;
+    let cancelled = false;
     setCurrentTime(0);
     setFileDuration(0);
     setPlayerError("");
-    audio.src = `/api/library/books/${book.id}/stream/${currentFile.id}`;
-    audio.playbackRate = playbackRate;
-    audio.load();
-    if (shouldAutoPlayRef.current) {
-      shouldAutoPlayRef.current = false;
-      audio.play().catch(() => {});
-    }
+
+    const revokeLocal = () => {
+      if (localUrlRef.current) {
+        URL.revokeObjectURL(localUrlRef.current);
+        localUrlRef.current = null;
+      }
+    };
+
+    const fileId = currentFile.id;
+    getDownloadedFileUrl(fileId).then((localUrl) => {
+      if (cancelled) {
+        if (localUrl) URL.revokeObjectURL(localUrl);
+        return;
+      }
+      revokeLocal();
+      if (localUrl) localUrlRef.current = localUrl;
+      audio.src = localUrl ?? `/api/library/books/${book.id}/stream/${fileId}`;
+      audio.playbackRate = playbackRate;
+      audio.load();
+      if (shouldAutoPlayRef.current) {
+        shouldAutoPlayRef.current = false;
+        audio.play().catch(() => {});
+      }
+    });
+
+    return () => { cancelled = true; };
   }, [fileIndex, book.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Revoke any lingering local object URL on unmount.
+  useEffect(() => () => {
+    if (localUrlRef.current) URL.revokeObjectURL(localUrlRef.current);
+  }, []);
 
   // Load bookmarks, migrating any legacy localStorage bookmarks to the server once.
   useEffect(() => {
