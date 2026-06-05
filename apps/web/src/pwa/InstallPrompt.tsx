@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Share, X } from "lucide-react";
+import { isIos, isStandalone } from "./platform";
 
 // Chrome/Android fires this before showing its own install UI; we capture it to
 // trigger the prompt from our own button. Not in the TS DOM lib yet.
@@ -9,18 +10,6 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const DISMISS_KEY = "isputnik-install-dismissed";
-
-function isStandalone() {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    // iOS Safari exposes this non-standard flag when launched from the home screen.
-    (window.navigator as unknown as { standalone?: boolean }).standalone === true
-  );
-}
-
-function isIos() {
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-}
 
 export function InstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
