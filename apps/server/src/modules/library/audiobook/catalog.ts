@@ -28,40 +28,23 @@ interface LibraryRow {
   owner_id: string | null;
   owner_type: string | null;
   visibility: string;
-  settings_json: string;
-}
-
-function sectionIdOf(settingsJson: string): string | null {
-  try {
-    const parsed = JSON.parse(settingsJson) as { section_id?: unknown };
-    return typeof parsed.section_id === "string" ? parsed.section_id : null;
-  } catch {
-    return null;
-  }
 }
 
 // Audiobook library ids the user can see for a scope:
-//   all      → non-special libraries (no section)
+//   all      → every accessible library
 //   library  → one library
-//   section  → libraries attached to a section
 export function resolveScopeLibraryIds(
   user: { id: string; role: string },
   scope: string,
-  libraryId?: string,
-  sectionId?: string
+  libraryId?: string
 ): string[] {
   const rows = db.prepare(
-    "SELECT id, owner_id, owner_type, visibility, settings_json FROM libraries WHERE type = 'audiobook'"
+    "SELECT id, owner_id, owner_type, visibility FROM libraries WHERE type = 'audiobook'"
   ).all() as LibraryRow[];
 
   return rows
     .filter((row) => canUserAccessLibrary(row, user.id, user.role))
-    .filter((row) => {
-      const section = sectionIdOf(row.settings_json);
-      if (scope === "library") return row.id === libraryId;
-      if (scope === "section") return section === sectionId;
-      return section == null; // "all" excludes special-section libraries
-    })
+    .filter((row) => (scope === "library" ? row.id === libraryId : true))
     .map((row) => row.id);
 }
 
@@ -144,7 +127,7 @@ export function queryCatalog(userId: string, libIds: string[], opts: CatalogQuer
       GROUP BY books.id
       ORDER BY ${order}, books.id
       LIMIT ? OFFSET ?
-  `).all(userId, ...args, opts.limit, opts.offset) as BookListRow[];
+  `).all(userId, userId, ...args, opts.limit, opts.offset) as BookListRow[];
 
   const total = (db.prepare(`
     SELECT COUNT(*) AS n

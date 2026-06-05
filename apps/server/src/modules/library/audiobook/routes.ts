@@ -4,8 +4,8 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { audioExtensions, enqueueAudiobookScan, processAudiobookScanQueue, validateLibrarySource } from "./scanner.js";
 import { z } from "zod";
-import { audiobookLibrarySchema, libraryOverridesSchema, overridesToSettings, publicAudiobookLibrary } from "./serializers.js";
-import { canUserAccessLibrary } from "../shared/library-access.js";
+import { audiobookLibrarySchema, publicAudiobookLibrary } from "./serializers.js";
+import { canUserAccessLibrary, canUserWriteLibrary } from "../shared/library-access.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import type { AudiobookLibraryRow } from "./types.js";
 
@@ -55,14 +55,6 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       }
     }
 
-    if (parsed.data.sectionId) {
-      const sectionExists = db.prepare("SELECT id FROM library_sections WHERE id = ?").get(parsed.data.sectionId);
-      if (!sectionExists) {
-        reply.code(400).send({ error: "Section not found." });
-        return;
-      }
-    }
-
     const libraryId = nanoid(16);
     const settings = {
       folder_structure: "author_book",
@@ -70,9 +62,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       ignore_sidecar: parsed.data.ignoreSidecar || undefined,
       show_narrator: true,
       supported_extensions: Array.from(audioExtensions).map((extension) => extension.slice(1)),
-      cover_filenames: ["cover", "folder", "artwork"],
-      section_id: parsed.data.sectionId || undefined,
-      overrides: overridesToSettings(parsed.data.overrides)
+      cover_filenames: ["cover", "folder", "artwork"]
     };
 
     db.prepare(`
@@ -113,7 +103,8 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
 
     return {
-      libraries: accessible.map((row) => publicAudiobookLibrary(row, user.role === "admin"))
+      libraries: accessible.map((row) =>
+        publicAudiobookLibrary(row, user.role === "admin", canUserWriteLibrary(row, user.id, user.role)))
     };
   });
 
@@ -121,9 +112,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     name: z.string().trim().min(2).max(120),
     ownerId: z.string().trim().min(1).max(64).nullable().optional(),
     ownerType: z.enum(["user", "group"]).nullable().optional(),
-    visibility: z.enum(["private", "public"]),
-    sectionId: z.string().trim().min(1).max(64).nullable().optional(),
-    overrides: libraryOverridesSchema.nullable().optional()
+    visibility: z.enum(["private", "public"])
   });
 
   app.patch("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -141,19 +130,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       return;
     }
 
-    if (parsed.data.sectionId) {
-      const sectionExists = db.prepare("SELECT id FROM library_sections WHERE id = ?").get(parsed.data.sectionId);
-      if (!sectionExists) {
-        reply.code(400).send({ error: "Section not found." });
-        return;
-      }
-    }
-
-    // Merge section/override changes into the existing settings, preserving the
-    // scan-related keys (extensions, language, sidecar) untouched.
     const settings = JSON.parse(existing.settings_json || "{}");
-    settings.section_id = parsed.data.sectionId || undefined;
-    settings.overrides = overridesToSettings(parsed.data.overrides);
 
     const ownerId = parsed.data.ownerId ?? null;
     const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;

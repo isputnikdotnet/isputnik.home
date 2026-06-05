@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "librariesSpecial" | "librariesStats" | "ebooks" | "media" | "otherMedia" | "storage" | "groups" | "jobs" | "backup" | "categories" | "tags";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "librariesStats" | "ebooks" | "media" | "otherMedia" | "storage" | "groups" | "jobs" | "backup" | "categories" | "tags";
 
 export type Route =
   | { name: "install" }
@@ -18,11 +18,9 @@ export type Route =
   | { name: "audiobookNarratorDetail"; personName: string }
   | { name: "audiobookSeries" }
   | { name: "audiobookSeriesDetail"; seriesId: string }
-  | { name: "audiobookCollections" }
   | { name: "audiobookCategories" }
   | { name: "audiobookCategoryDetail"; categoryKey: string }
   | { name: "audiobookTagDetail"; tagName: string }
-  | { name: "audiobookSection"; sectionId: string }
   | { name: "control"; section: ControlSection }
   | { name: "controlCategoryEditor"; categoryId: string | null }
   | { name: "about" }
@@ -109,10 +107,6 @@ export function getRoute(): Route {
     return { name: "audiobookSeries" };
   }
 
-  if (path === "/audiobooks/collections") {
-    return { name: "audiobookCollections" };
-  }
-
   const audiobookSeriesDetailMatch = path.match(/^\/audiobooks\/series\/([^/]+)$/);
   if (audiobookSeriesDetailMatch) {
     return { name: "audiobookSeriesDetail", seriesId: audiobookSeriesDetailMatch[1] };
@@ -125,11 +119,6 @@ export function getRoute(): Route {
   const audiobookCategoryDetailMatch = path.match(/^\/audiobooks\/categories\/([^/]+)$/);
   if (audiobookCategoryDetailMatch) {
     return { name: "audiobookCategoryDetail", categoryKey: audiobookCategoryDetailMatch[1] };
-  }
-
-  const audiobookSectionMatch = path.match(/^\/audiobooks\/sections\/([^/]+)$/);
-  if (audiobookSectionMatch) {
-    return { name: "audiobookSection", sectionId: audiobookSectionMatch[1] };
   }
 
   const audiobookTagDetailMatch = path.match(/^\/audiobooks\/tags\/(.+)$/);
@@ -173,10 +162,6 @@ export function getRoute(): Route {
 
   if (["/control/maintenance/backup", "/control/system/backup"].includes(path)) {
     return { name: "control", section: "backup" };
-  }
-
-  if (["/control/library/special", "/control/libraries/special"].includes(path)) {
-    return { name: "control", section: "librariesSpecial" };
   }
 
   if (["/control/library/stats", "/control/libraries/stats"].includes(path)) {

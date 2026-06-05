@@ -336,6 +336,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.7.0",
+          label: "Redesigned audiobook tiles & bulk editing",
+          changes: [
+            "Audiobook tiles were redesigned: a cleaner cover (no redundant headphones badge), a listening-progress bar, a finished tick, listening duration and series position, and a denser grid that stays two-up on phones.",
+            "Each tile now has quick actions — a favorite heart and a hover Play button — plus a ⋮ menu for Play, Mark finished/unfinished, Download, Share, and (for editors) Edit metadata. These never interfere with opening the book.",
+            "New multi-select mode (the Select button): pick books across libraries and overwrite shared metadata — Author, Narrator, Category, Language, Tags, or Description — in one action. Editors can also edit a single book inline from its ⋮ menu.",
+            "The Special Libraries feature was removed to keep things simple; section/override data is cleaned up automatically. Existing libraries and books are unaffected."
+          ]
+        },
+        {
           version: "0.6.1",
           label: "Shared navigation & library UI polish",
           changes: [

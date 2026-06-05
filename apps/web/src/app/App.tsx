@@ -8,7 +8,7 @@ import { InvitePage } from "../pages/InvitePage";
 import { HomePage } from "../pages/HomePage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { AboutPage } from "../pages/AboutPage";
-import { AudiobooksPage, SectionPage } from "../features/audiobooks/AudiobooksPage";
+import { AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
 import { AudiobookBookPage } from "../features/audiobooks/BookDetailPage";
 import { MyListPage } from "../features/audiobooks/MyListPage";
 import { SharedWithMePage } from "../features/audiobooks/SharedWithMePage";
@@ -19,7 +19,6 @@ import { PersonListPage } from "../features/audiobooks/PersonListPage";
 import { PersonDetailPage } from "../features/audiobooks/PersonDetailPage";
 import { SeriesListPage } from "../features/audiobooks/SeriesListPage";
 import { SeriesDetailPage } from "../features/audiobooks/SeriesDetailPage";
-import { CollectionsPage } from "../features/audiobooks/CollectionsPage";
 import { CategoryListPage } from "../features/audiobooks/CategoryListPage";
 import { CategoryDetailPage } from "../features/audiobooks/CategoryDetailPage";
 import { TagDetailPage } from "../features/audiobooks/TagDetailPage";
@@ -201,10 +200,6 @@ export function App() {
     return <SeriesDetailPage seriesId={route.seriesId} user={session.user} logout={logout} />;
   }
 
-  if (route.name === "audiobookCollections") {
-    return <CollectionsPage user={session.user} logout={logout} />;
-  }
-
   if (route.name === "audiobookCategories") {
     return <CategoryListPage user={session.user} logout={logout} />;
   }
@@ -215,10 +210,6 @@ export function App() {
 
   if (route.name === "audiobookTagDetail") {
     return <TagDetailPage tagName={route.tagName} user={session.user} logout={logout} />;
-  }
-
-  if (route.name === "audiobookSection") {
-    return <SectionPage sectionId={route.sectionId} user={session.user} logout={logout} />;
   }
 
   return <HomePage user={session.user} logout={logout} />;

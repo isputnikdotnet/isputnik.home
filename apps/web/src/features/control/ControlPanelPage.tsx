@@ -52,7 +52,7 @@ export function ControlPanelPage({
           {section === "status"    && <StatusSection />}
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
-          {(section === "libraries" || section === "librariesSpecial" || section === "librariesStats") && <AudiobooksControl section={section} />}
+          {(section === "libraries" || section === "librariesStats") && <AudiobooksControl section={section} />}
           {section === "ebooks"    && <EbooksSection />}
           {section === "media"     && <ComingSoonSection title="Gallery" blurb="Photo and video library types — albums, thumbnails, and streaming playback — are planned." />}
           {section === "otherMedia" && <ComingSoonSection title="Other Media" blurb="A flexible library type for media that isn't an audiobook, photo, or video is planned." />}
@@ -81,7 +81,7 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
       <div className="home-control-group">
         <p>Digital Library</p>
         <ControlNavLink icon={HardDrive} label="Storage" href="/control/storage" active={section === "storage"} />
-        <ControlNavLink icon={Headphones} label="Audiobooks" href="/control/libraries" active={["libraries", "librariesSpecial", "librariesStats"].includes(section)} />
+        <ControlNavLink icon={Headphones} label="Audiobooks" href="/control/libraries" active={["libraries", "librariesStats"].includes(section)} />
         <ControlNavLink icon={BookOpen} label="Ebooks" href="/control/ebooks" active={section === "ebooks"} />
         <ControlNavLink icon={Image} label="Gallery" href="/control/media" active={section === "media"} soon />
         <ControlNavLink icon={FileStack} label="Other Media" href="/control/other-media" active={section === "otherMedia"} soon />
@@ -150,17 +150,15 @@ function ControlTabs({ tabs }: { tabs: ControlTab[] }) {
   );
 }
 
-function AudiobooksControl({ section }: { section: "libraries" | "librariesSpecial" | "librariesStats" }) {
+function AudiobooksControl({ section }: { section: "libraries" | "librariesStats" }) {
   return (
     <>
       <ControlTabs tabs={[
         { label: "Audiobooks", href: "/control/libraries", active: section === "libraries" },
-        { label: "Special libraries", href: "/control/libraries/special", active: section === "librariesSpecial" },
         { label: "Stats", href: "/control/libraries/stats", active: section === "librariesStats" }
       ]} />
-      {section === "libraries"        && <LibrariesSection tab="audiobooks" />}
-      {section === "librariesSpecial" && <LibrariesSection tab="special" />}
-      {section === "librariesStats"   && <AudiobookStatsSection />}
+      {section === "libraries"      && <LibrariesSection />}
+      {section === "librariesStats" && <AudiobookStatsSection />}
     </>
   );
 }

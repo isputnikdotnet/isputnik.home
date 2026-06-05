@@ -28,8 +28,7 @@ export function writeCatalogView(key: string, patch: Partial<CatalogView>) {
 
 export type CatalogScope =
   | { kind: "all" }
-  | { kind: "library"; libraryId: string }
-  | { kind: "section"; sectionId: string };
+  | { kind: "library"; libraryId: string };
 
 interface CatalogResponse {
   books: AudiobookBook[];
@@ -38,7 +37,7 @@ interface CatalogResponse {
 
 // Drives the server-side paged catalog: owns search/filters, fetches a page on
 // any query change, appends pages for infinite scroll, and loads the scope's
-// filter facets. Used by the main Audiobooks page and the special-section page.
+// filter facets. Used by the main Audiobooks page.
 export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey, persistKey: string) {
   const [search, setSearch] = useState(() => readCatalogView(persistKey).search);
   const [debounced, setDebounced] = useState(() => readCatalogView(persistKey).search.trim());
@@ -71,7 +70,6 @@ export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey, persistK
   useEffect(() => {
     const params = new URLSearchParams({ scope: scope.kind });
     if (scope.kind === "library") params.set("libraryId", scope.libraryId);
-    if (scope.kind === "section") params.set("sectionId", scope.sectionId);
     api<FacetOptions>(`/api/library/audiobooks/facets?${params.toString()}`)
       .then(setFacets)
       .catch(() => setFacets(EMPTY_FACETS));
@@ -80,7 +78,6 @@ export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey, persistK
   const requestBody = useCallback((offset: number) => ({
     scope: scope.kind,
     libraryId: scope.kind === "library" ? scope.libraryId : undefined,
-    sectionId: scope.kind === "section" ? scope.sectionId : undefined,
     q: debounced,
     sort,
     limit: PAGE_SIZE,

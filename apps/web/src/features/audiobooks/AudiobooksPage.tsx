@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, BookOpen, ChevronDown, Headphones, LayoutGrid, Library, List, Mic2, MoreVertical, Search, UserRound } from "lucide-react";
+import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, Mic2, MoreVertical, Pencil, Play, RotateCcw, Search, Share2, Square, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
-import { FilterButton, FilterChips, SORT_OPTIONS, SortSelect, type SortKey } from "./BookFilter";
+import { FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import { DashboardShell } from "../../app/DashboardShell";
+import { ShareModal } from "../share/ShareModal";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatDuration } from "../../shared/utils";
-import type { AudiobookBook, AudiobookLibrary, LibrarySection } from "./types";
+import { Field } from "../../shared/Field";
+import type { AudiobookBook, AudiobookLibrary, CategorySummary } from "./types";
 
 
 type AudiobookViewMode = "grid" | "list";
@@ -21,7 +23,7 @@ export function AudiobookTabs({
   active,
   includeBooks = true
 }: {
-  active: "books" | "authors" | "narrators" | "series" | "collections" | "categories";
+  active: "books" | "authors" | "narrators" | "series" | "categories";
   includeBooks?: boolean;
 }) {
   const tabs = [
@@ -174,38 +176,209 @@ function AudiobookHeaderSort({ value, onChange }: { value: SortKey; onChange: (s
   );
 }
 
-function CatalogBookCard({ book, viewMode }: { book: AudiobookBook; viewMode: AudiobookViewMode }) {
+type BookStatus = "finished" | "in_progress" | "none";
+
+function initialStatus(book: AudiobookBook): BookStatus {
+  if (book.progress?.completedAt != null || (book.progress?.percentComplete ?? 0) >= 0.98) return "finished";
+  if ((book.progress?.percentComplete ?? 0) > 0) return "in_progress";
+  return "none";
+}
+
+function openPlayer(bookId: string) {
+  window.open(`/player/${bookId}`, "isputnik-player", "width=500,height=800,resizable=yes,scrollbars=yes");
+}
+
+function CatalogBookCard({
+  book,
+  viewMode,
+  selectionMode,
+  selected,
+  onToggleSelect,
+  canEdit,
+  onShare,
+  onEdit
+}: {
+  book: AudiobookBook;
+  viewMode: AudiobookViewMode;
+  selectionMode: boolean;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
+  canEdit: boolean;
+  onShare: (book: AudiobookBook) => void;
+  onEdit: (book: AudiobookBook) => void;
+}) {
+  const [fav, setFav] = useState(book.saved);
+  const [favBusy, setFavBusy] = useState(false);
+  const [status, setStatus] = useState<BookStatus>(() => initialStatus(book));
+  const [statusBusy, setStatusBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const rootRef = useRef<HTMLElement>(null);
+
+  // Re-seed from the server shape when the catalog refreshes.
+  useEffect(() => { setFav(book.saved); }, [book.saved]);
+  useEffect(() => { setStatus(initialStatus(book)); }, [book.progress?.completedAt, book.progress?.percentComplete]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [menuOpen]);
+
+  const activate = () => {
+    if (selectionMode) onToggleSelect(book.id);
+    else navigate(`/audiobooks/books/${book.id}`);
+  };
+
+  const toggleFav = async () => {
+    if (favBusy) return;
+    const next = !fav;
+    setFav(next);
+    setFavBusy(true);
+    try {
+      if (next) await api(`/api/library/books/${book.id}/save`, { method: "PUT", body: JSON.stringify({ note: null }) });
+      else await api(`/api/library/books/${book.id}/save`, { method: "DELETE" });
+    } catch {
+      setFav(!next);
+    } finally {
+      setFavBusy(false);
+    }
+  };
+
+  const toggleFinished = async () => {
+    setMenuOpen(false);
+    if (statusBusy) return;
+    const wasFinished = status === "finished";
+    setStatus(wasFinished ? "none" : "finished");
+    setStatusBusy(true);
+    try {
+      if (wasFinished) await api(`/api/library/books/${book.id}/progress`, { method: "DELETE" });
+      else await api(`/api/library/books/${book.id}/progress/complete`, { method: "POST", body: "{}" });
+    } catch {
+      setStatus(initialStatus(book));
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
+  const metaParts = [
+    book.durationSeconds != null ? formatDuration(book.durationSeconds) : "",
+    book.seriesPosition != null ? `#${book.seriesPosition}` : ""
+  ].filter(Boolean);
+  const percent = Math.round((book.progress?.percentComplete ?? 0) * 100);
+
   return (
-    <article className={`audiobook-catalog-card ${viewMode}`}>
-      <button className="audiobook-catalog-open" type="button" onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
-        <span className="audiobook-catalog-cover" aria-hidden="true">
-          {book.coverUrl ? (
-            <img src={book.coverUrl} alt="" />
-          ) : (
-            <>
-              <BookOpen size={34} />
-              <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
-            </>
-          )}
-          <span className="audiobook-catalog-badge">
-            <Headphones size={17} />
+    <article
+      ref={rootRef}
+      className={`audiobook-catalog-card ${viewMode}${selectionMode ? " selectable" : ""}${selected ? " selected" : ""}${menuOpen ? " menu-open" : ""}`}
+    >
+      <div
+        className="audiobook-catalog-cover"
+        role="button"
+        tabIndex={0}
+        aria-pressed={selectionMode ? selected : undefined}
+        aria-label={selectionMode ? `Select ${book.title}` : `Open ${book.title}`}
+        onClick={activate}
+        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); } }}
+      >
+        {book.coverUrl ? (
+          <img src={book.coverUrl} alt="" />
+        ) : (
+          <>
+            <BookOpen size={34} aria-hidden="true" />
+            <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
+          </>
+        )}
+        {selectionMode ? (
+          <span className="audiobook-catalog-check" aria-hidden="true">
+            {selected ? <CheckSquare size={20} /> : <Square size={20} />}
           </span>
-        </span>
-        <span className="audiobook-catalog-copy">
-          <strong>{book.title}</strong>
-          <small>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</small>
-          {viewMode === "list" && (
-            <span>
-              {[book.narrators.length ? `Narrated by ${book.narrators.join(", ")}` : "", book.durationSeconds != null ? formatDuration(book.durationSeconds) : "", book.fileCount === 1 ? "1 file" : `${book.fileCount} files`]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
+        ) : (
+          <>
+            {status === "finished" && (
+              <span className="audiobook-catalog-finished" title="Finished"><Check size={14} /></span>
+            )}
+            {status === "in_progress" && percent > 0 && (
+              <span className="audiobook-catalog-progress"><i style={{ width: `${percent}%` }} /></span>
+            )}
+            <button
+              className={`audiobook-catalog-fav${fav ? " on" : ""}`}
+              type="button"
+              onClick={(event) => { event.stopPropagation(); toggleFav(); }}
+              aria-pressed={fav}
+              aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+              title={fav ? "Favorited" : "Add to favorites"}
+            >
+              <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
+            </button>
+            <button
+              className="audiobook-catalog-play"
+              type="button"
+              onClick={(event) => { event.stopPropagation(); openPlayer(book.id); }}
+              aria-label={`Play ${book.title}`}
+              title="Play"
+            >
+              <Play size={18} fill="currentColor" aria-hidden="true" />
+            </button>
+          </>
+        )}
+      </div>
+
+      <div className="audiobook-catalog-copy" onClick={activate}>
+        <strong>{book.title}</strong>
+        <small>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</small>
+        {metaParts.length > 0 && <span className="audiobook-catalog-meta">{metaParts.join(" · ")}</span>}
+      </div>
+
+      {!selectionMode && (
+        <>
+          <button
+            className="audiobook-catalog-menu"
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label={`More options for ${book.title}`}
+            onClick={(event) => { event.stopPropagation(); setMenuOpen((open) => !open); }}
+          >
+            <MoreVertical size={18} aria-hidden="true" />
+          </button>
+          {menuOpen && (
+            <div className="audiobook-card-menu" role="menu" aria-label={`Actions for ${book.title}`}>
+              <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); openPlayer(book.id); }}>
+                <Play size={15} aria-hidden="true" /> <span>Play</span>
+              </button>
+              <button role="menuitem" type="button" onClick={toggleFinished} disabled={statusBusy}>
+                {status === "finished"
+                  ? <><RotateCcw size={15} aria-hidden="true" /> <span>Mark unfinished</span></>
+                  : <><CheckCircle2 size={15} aria-hidden="true" /> <span>Mark finished</span></>}
+              </button>
+              <hr />
+              <a
+                role="menuitem"
+                className="audiobook-card-menu-link"
+                href={`/api/library/books/${book.id}/download`}
+                download
+                onClick={() => setMenuOpen(false)}
+              >
+                <Download size={15} aria-hidden="true" /> <span>Download</span>
+              </a>
+              <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); onShare(book); }}>
+                <Share2 size={15} aria-hidden="true" /> <span>Share</span>
+              </button>
+              {canEdit && (
+                <>
+                  <hr />
+                  <button role="menuitem" type="button" className="admin" onClick={() => { setMenuOpen(false); onEdit(book); }}>
+                    <Pencil size={15} aria-hidden="true" /> <span>Edit metadata</span>
+                  </button>
+                </>
+              )}
+            </div>
           )}
-        </span>
-      </button>
-      <button className="audiobook-catalog-menu" type="button" aria-label={`More options for ${book.title}`}>
-        <MoreVertical size={18} aria-hidden="true" />
-      </button>
+        </>
+      )}
     </article>
   );
 }
@@ -230,15 +403,98 @@ function CatalogTail({
   );
 }
 
-function ViewToggle({ viewMode, onChange }: { viewMode: AudiobookViewMode; onChange: (mode: AudiobookViewMode) => void }) {
+// Bulk-edit dialog: overwrite shared metadata across the selected books. Any
+// field left blank is skipped (keeps each book's existing value); Tags replace
+// the existing tags on every selected book.
+function BulkEditModal({
+  count,
+  categories,
+  onClose,
+  onSubmit
+}: {
+  count: number;
+  categories: CategorySummary[];
+  onClose: () => void;
+  onSubmit: (fields: Record<string, unknown>) => Promise<void>;
+}) {
+  const [author, setAuthor] = useState("");
+  const [narrator, setNarrator] = useState("");
+  const [categoryKey, setCategoryKey] = useState("");
+  const [language, setLanguage] = useState("");
+  const [tags, setTags] = useState("");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const payload: Record<string, unknown> = {};
+    if (author.trim()) payload.author = author.trim();
+    if (narrator.trim()) payload.narrator = narrator.trim();
+    if (categoryKey) payload.categoryKey = categoryKey;
+    if (language.trim()) payload.language = language.trim();
+    const tagList = tags.split(",").map((tag) => tag.trim()).filter(Boolean);
+    if (tagList.length) payload.tags = tagList;
+    if (description.trim()) payload.description = description.trim();
+
+    if (Object.keys(payload).length === 0) {
+      setError("Fill at least one field to overwrite.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    try {
+      await onSubmit(payload);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update books");
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="audiobook-view-toggle" role="group" aria-label="View mode">
-      <button type="button" className={viewMode === "grid" ? "active" : ""} onClick={() => onChange("grid")} aria-label="Grid view">
-        <LayoutGrid size={18} aria-hidden="true" />
-      </button>
-      <button type="button" className={viewMode === "list" ? "active" : ""} onClick={() => onChange("list")} aria-label="List view">
-        <List size={18} aria-hidden="true" />
-      </button>
+    <div className="modal-backdrop" onMouseDown={() => !saving && onClose()}>
+      <form
+        className="confirm-modal edit-library-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bulk-edit-title"
+        onSubmit={submit}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div>
+          <h2 id="bulk-edit-title">Edit {count} {count === 1 ? "book" : "books"}</h2>
+          <p className="muted">Overwrites scanned metadata for every selected book. Leave a field blank to keep each book's current value. Tags replace existing tags.</p>
+        </div>
+        <div className="override-grid">
+          <Field label="Author" value={author} onChange={setAuthor} required={false} />
+          <Field label="Narrator" value={narrator} onChange={setNarrator} required={false} />
+          <label className="field">
+            <span>Category</span>
+            <select value={categoryKey} onChange={(event) => setCategoryKey(event.target.value)}>
+              <option value="">Keep current</option>
+              {categories.map((category) => (
+                <option key={category.key} value={category.key}>{category.name}</option>
+              ))}
+            </select>
+          </label>
+          <Field label="Language (e.g. en)" value={language} onChange={setLanguage} required={false} />
+          <Field label="Tags (comma-separated)" value={tags} onChange={setTags} required={false} />
+          <label className="field override-desc">
+            <span>Description</span>
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
+          </label>
+        </div>
+        {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button className="primary-button" type="submit" disabled={saving}>
+            {saving ? "Saving…" : `Overwrite ${count} ${count === 1 ? "book" : "books"}`}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -260,9 +516,75 @@ export function AudiobooksPage({
   const libraryTriggerRef = useRef<HTMLButtonElement>(null);
   const libraryMenuRef = useRef<HTMLDivElement>(null);
 
-  const normalLibraries = libraries.filter((library) => !library.specialSection);
+  // Multi-select bulk editing (admins / library owners only).
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [categories, setCategories] = useState<CategorySummary[]>([]);
+  const [bulkNotice, setBulkNotice] = useState("");
+  // Per-tile actions that need page-level UI.
+  const [shareBook, setShareBook] = useState<AudiobookBook | null>(null);
+  const [editBook, setEditBook] = useState<AudiobookBook | null>(null);
+
   const scope: CatalogScope = selectedLibraryId === "all" ? { kind: "all" } : { kind: "library", libraryId: selectedLibraryId };
   const cat = useAudiobookCatalog(scope, sort, "audiobooks:main");
+
+  // Can the user edit books in the current scope? Drives the bulk-edit controls.
+  const canEditScope = selectedLibraryId === "all"
+    ? libraries.some((library) => library.canWrite)
+    : libraries.find((library) => library.id === selectedLibraryId)?.canWrite ?? false;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelection = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setBulkOpen(false);
+  };
+
+  // Drop selection when the scope changes or selection is disallowed.
+  useEffect(() => {
+    exitSelection();
+  }, [selectedLibraryId]);
+
+  useEffect(() => {
+    if (!canEditScope) exitSelection();
+  }, [canEditScope]);
+
+  const runBulk = async (ids: string[], fields: Record<string, unknown>) => {
+    const result = await api<{ updated: number; forbidden: number; missing: number }>(
+      "/api/library/books/bulk-metadata",
+      { method: "POST", body: JSON.stringify({ bookIds: ids, ...fields }) }
+    );
+    const parts = [`Updated ${result.updated} ${result.updated === 1 ? "book" : "books"}`];
+    if (result.forbidden > 0) parts.push(`${result.forbidden} skipped (no write access)`);
+    if (result.missing > 0) parts.push(`${result.missing} not found`);
+    setBulkNotice(parts.join(" · "));
+    cat.refresh();
+  };
+
+  const submitBulk = async (fields: Record<string, unknown>) => {
+    await runBulk([...selectedIds], fields);
+    exitSelection();
+  };
+
+  const submitSingleEdit = async (fields: Record<string, unknown>) => {
+    if (!editBook) return;
+    await runBulk([editBook.id], fields);
+    setEditBook(null);
+  };
+
+  useEffect(() => {
+    api<{ categories: CategorySummary[] }>("/api/library/categories")
+      .then((payload) => setCategories(payload.categories))
+      .catch(() => setCategories([]));
+  }, []);
 
   useEffect(() => {
     writeCatalogView("audiobooks:main", { selectedLibraryId, sort });
@@ -318,7 +640,7 @@ export function AudiobooksPage({
 
   const selectedLibraryLabel = selectedLibraryId === "all"
     ? "All Libraries"
-    : normalLibraries.find((library) => library.id === selectedLibraryId)?.name ?? "All Libraries";
+    : libraries.find((library) => library.id === selectedLibraryId)?.name ?? "All Libraries";
   const error = librariesError || cat.error;
 
   return (
@@ -334,26 +656,24 @@ export function AudiobooksPage({
             <>
               <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} />
               <AudiobookHeaderSort value={sort} onChange={setSort} />
+              {canEditScope && !selectionMode && (
+                <button type="button" className="secondary-button" onClick={() => { setSelectionMode(true); setBulkNotice(""); }}>
+                  <CheckSquare size={17} aria-hidden="true" />
+                  <span>Select</span>
+                </button>
+              )}
             </>
           }
         />
 
         {error && <MessageBox tone="error" title="Audiobooks error">{error}</MessageBox>}
+        {bulkNotice && <MessageBox tone="success" title="Books updated">{bulkNotice}</MessageBox>}
 
-        {normalLibraries.length === 0 ? (
+        {libraries.length === 0 ? (
           <div className="empty-state library-empty">
             <BookOpen size={58} aria-hidden="true" />
-            {libraries.some((library) => library.specialSection) ? (
-              <>
-                <h2>No general audiobooks here</h2>
-                <p className="muted">Open a special library shortcut to browse its books.</p>
-              </>
-            ) : (
-              <>
-                <h2>No audiobook libraries yet</h2>
-                <p className="muted">An administrator can add libraries from the control panel.</p>
-              </>
-            )}
+            <h2>No audiobook libraries yet</h2>
+            <p className="muted">An administrator can add libraries from the control panel.</p>
           </div>
         ) : (
           <>
@@ -389,7 +709,7 @@ export function AudiobooksPage({
                       >
                         <span>All Libraries</span>
                       </button>
-                      {normalLibraries.map((library) => (
+                      {libraries.map((library) => (
                         <button
                           key={library.id}
                           type="button"
@@ -408,6 +728,33 @@ export function AudiobooksPage({
               </div>
             </div>
 
+            {selectionMode && (
+              <div className="audiobook-bulk-bar">
+                <span className="audiobook-bulk-count">{selectedIds.size} selected</span>
+                <div className="row-actions">
+                  <button
+                    type="button"
+                    className="secondary-button compact-button"
+                    onClick={() => setSelectedIds(new Set(cat.books.map((book) => book.id)))}
+                    disabled={cat.books.length === 0}
+                  >
+                    Select all loaded
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-button compact-button"
+                    onClick={() => setBulkOpen(true)}
+                    disabled={selectedIds.size === 0}
+                  >
+                    Edit metadata
+                  </button>
+                  <button type="button" className="icon-button" onClick={exitSelection} aria-label="Cancel selection">
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             <FilterChips value={cat.filters} onChange={cat.setFilters} />
 
             {libraries.some((library) => library.scanStatus === "scanning") && (
@@ -418,7 +765,17 @@ export function AudiobooksPage({
 
             <div className={`audiobook-catalog ${viewMode}`}>
               {cat.books.map((book) => (
-                <CatalogBookCard key={book.id} book={book} viewMode={viewMode} />
+                <CatalogBookCard
+                  key={book.id}
+                  book={book}
+                  viewMode={viewMode}
+                  selectionMode={selectionMode}
+                  selected={selectedIds.has(book.id)}
+                  onToggleSelect={toggleSelect}
+                  canEdit={libraries.find((library) => library.id === book.libraryId)?.canWrite ?? false}
+                  onShare={setShareBook}
+                  onEdit={setEditBook}
+                />
               ))}
               {!cat.loading && cat.books.length === 0 && <p className="management-empty">No audiobooks match this filter.</p>}
             </div>
@@ -426,101 +783,27 @@ export function AudiobooksPage({
             <CatalogTail hasMore={cat.hasMore} loadingMore={cat.loadingMore} loadMore={cat.loadMore} sentinelRef={cat.sentinelRef} />
           </>
         )}
-      </section>
-    </DashboardShell>
-  );
-}
 
-export function SectionPage({
-  sectionId,
-  user,
-  logout
-}: {
-  sectionId: string;
-  user: PublicUser;
-  logout: () => Promise<void>;
-}) {
-  const [section, setSection] = useState<LibrarySection | null>(null);
-  const [members, setMembers] = useState<AudiobookLibrary[]>([]);
-  const [membersLoaded, setMembersLoaded] = useState(false);
-  const viewKey = `audiobooks:section:${sectionId}`;
-  const [sort, setSort] = useState<SortKey>(() => readCatalogView(viewKey).sort);
-  const [viewMode, setViewMode] = useState<AudiobookViewMode>("grid");
-  const [metaError, setMetaError] = useState("");
-  const cat = useAudiobookCatalog({ kind: "section", sectionId }, sort, viewKey);
+        {bulkOpen && (
+          <BulkEditModal
+            count={selectedIds.size}
+            categories={categories}
+            onClose={() => setBulkOpen(false)}
+            onSubmit={submitBulk}
+          />
+        )}
 
-  useEffect(() => {
-    writeCatalogView(viewKey, { sort });
-  }, [viewKey, sort]);
+        {editBook && (
+          <BulkEditModal
+            count={1}
+            categories={categories}
+            onClose={() => setEditBook(null)}
+            onSubmit={submitSingleEdit}
+          />
+        )}
 
-  useEffect(() => {
-    setMembersLoaded(false);
-    Promise.all([
-      api<{ sections: LibrarySection[] }>("/api/library/sections"),
-      api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
-    ])
-      .then(([sectionsPayload, librariesPayload]) => {
-        setSection(sectionsPayload.sections.find((s) => s.id === sectionId) ?? null);
-        setMembers(librariesPayload.libraries.filter((library) => library.sectionId === sectionId));
-        setMembersLoaded(true);
-      })
-      .catch((err) => setMetaError(err instanceof Error ? err.message : "Unable to load section"));
-  }, [sectionId]);
-
-  const error = metaError || cat.error;
-
-  return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
-      <section className="audiobook-main-page">
-        <AudiobookPageHeader
-          title={section?.name ?? "Section"}
-          subtitle={`${formatCount(cat.total)} ${cat.total === 1 ? "book" : "books"}`}
-          search={cat.search}
-          onSearchChange={cat.setSearch}
-          searchPlaceholder="Search title, author, or narrator"
-        />
-
-        {error && <MessageBox tone="error" title="Section error">{error}</MessageBox>}
-
-        {membersLoaded && members.length === 0 ? (
-          <div className="empty-state library-empty">
-            <BookOpen size={58} aria-hidden="true" />
-            <h2>No libraries in this section yet</h2>
-            <p className="muted">An administrator can add libraries to it from the control panel.</p>
-          </div>
-        ) : (
-          <>
-            <div className="audiobook-page-nav-row">
-              <div className="audiobook-page-tabs-with-library">
-                <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
-                  <ArrowLeft size={18} aria-hidden="true" />
-                  <span>All libraries</span>
-                </button>
-              </div>
-              <div className="audiobook-catalog-controls">
-                <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} />
-                <SortSelect value={sort} onChange={setSort} />
-                <ViewToggle viewMode={viewMode} onChange={setViewMode} />
-              </div>
-            </div>
-
-            <FilterChips value={cat.filters} onChange={cat.setFilters} />
-
-            {members.some((library) => library.scanStatus === "scanning") && (
-              <MessageBox tone="info" title="Scanning">
-                New metadata and covers will appear as the scan finishes.
-              </MessageBox>
-            )}
-
-            <div className={`audiobook-catalog ${viewMode}`}>
-              {cat.books.map((book) => (
-                <CatalogBookCard key={book.id} book={book} viewMode={viewMode} />
-              ))}
-              {!cat.loading && cat.books.length === 0 && <p className="management-empty">No books match this filter.</p>}
-            </div>
-
-            <CatalogTail hasMore={cat.hasMore} loadingMore={cat.loadingMore} loadMore={cat.loadMore} sentinelRef={cat.sentinelRef} />
-          </>
+        {shareBook && (
+          <ShareModal bookId={shareBook.id} bookTitle={shareBook.title} onClose={() => setShareBook(null)} />
         )}
       </section>
     </DashboardShell>

@@ -7,7 +7,6 @@ import { audiobookBookmarksPlugin } from "./bookmarks.js";
 import { audiobookSavesPlugin } from "./saves.js";
 import { audiobookSharesPlugin } from "./shares.js";
 import { categoriesAdminPlugin } from "./categories-routes.js";
-import { sectionsRoutesPlugin } from "./sections-routes.js";
 import { startAudiobookScanWorker } from "./scanner.js";
 
 export async function audiobookPlugin(app: FastifyInstance) {
@@ -19,7 +18,6 @@ export async function audiobookPlugin(app: FastifyInstance) {
   await app.register(audiobookSavesPlugin);
   await app.register(audiobookSharesPlugin);
   await app.register(categoriesAdminPlugin);
-  await app.register(sectionsRoutesPlugin);
 
   const stopWorker = startAudiobookScanWorker();
   app.addHook("onClose", async () => {

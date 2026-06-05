@@ -1,38 +1,19 @@
-export interface LibraryOverrides {
-  author: string;
-  narrator: string;
-  description: string;
-  categoryKey: string;
-  tags: string[];
-}
-
 export interface AudiobookLibrary {
   id: string;
   name: string;
   type: "audiobook";
   sourcePath?: string;
   ignoreSidecar: boolean;
+  canWrite: boolean;
   scanStatus: "idle" | "scanning" | "error";
   lastScannedAt: string | null;
   ownerId: string | null;
   ownerType: "user" | "group" | null;
   visibility: "private" | "public";
-  sectionId: string | null;
-  specialSection: boolean;
-  overrides?: LibraryOverrides;
   createdAt: string;
   updatedAt: string;
   bookCount: number;
   fileCount: number;
-}
-
-export interface LibrarySection {
-  id: string;
-  name: string;
-  icon: string;
-  createdAt: string;
-  updatedAt: string;
-  libraryCount: number;
 }
 
 export interface AudiobookBook {
@@ -56,6 +37,7 @@ export interface AudiobookBook {
   publisher: string | null;
   asin: string | null;
   progress?: { percentComplete: number | null; completedAt: string | null };
+  saved: boolean;
   discoveredAt: string;
   updatedAt: string;
 }

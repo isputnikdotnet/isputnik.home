@@ -1,5 +1,4 @@
-/* Filter button (toolbar) + popup + active-filter chips. Shared by the
-   Audiobooks grid and Special Library sections. */
+/* Filter button (toolbar) + popup + active-filter chips for the Audiobooks grid. */
 
 .filter-button {
   display: inline-flex;

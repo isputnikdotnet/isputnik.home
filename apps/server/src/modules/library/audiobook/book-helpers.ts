@@ -474,6 +474,61 @@ export function updateManualMetadata(bookId: string, metadata: z.infer<typeof ma
   return getAudiobookBookDetail(bookId);
 }
 
+// Bulk overwrite of shared metadata across many selected books. Only the fields
+// present in the payload are written; an absent field leaves each book untouched.
+// Tags replace the book's existing tags. Author/narrator accept a comma-separated
+// list. Touched books are flipped to source='manual' like a single-book edit.
+export const bulkMetadataSchema = z.object({
+  bookIds: z.array(z.string().trim().min(1)).min(1).max(1000),
+  author: z.string().trim().max(300).optional(),
+  narrator: z.string().trim().max(300).optional(),
+  categoryKey: z.string().trim().min(1).max(64).optional(),
+  language: z.string().trim().min(1).max(24).optional(),
+  description: z.string().trim().max(20000).optional(),
+  tags: z.array(z.string().trim().min(1).max(120)).max(50).optional()
+});
+
+export const BULK_METADATA_FIELDS = ["author", "narrator", "categoryKey", "language", "description", "tags"] as const;
+
+export function applyBulkMetadata(bookId: string, patch: z.infer<typeof bulkMetadataSchema>): boolean {
+  const current = getBookForMetadata(bookId);
+  if (!current) {
+    return false;
+  }
+
+  db.transaction(() => {
+    // Ensure a metadata row exists so the column updates have somewhere to land.
+    const hasRow = db.prepare("SELECT 1 FROM book_metadata WHERE book_id = ?").get(bookId);
+    if (!hasRow) {
+      db.prepare("INSERT INTO book_metadata (id, book_id, source) VALUES (?, ?, 'manual')").run(nanoid(16), bookId);
+    }
+
+    const sets = ["source = 'manual'", "updated_at = CURRENT_TIMESTAMP"];
+    const args: unknown[] = [];
+    if (patch.description !== undefined) { sets.push("description = ?"); args.push(patch.description || null); }
+    if (patch.language !== undefined) { sets.push("language = ?"); args.push(patch.language || null); }
+    if (patch.categoryKey !== undefined) {
+      const categoryId = (db.prepare("SELECT id FROM categories WHERE key = ?").get(patch.categoryKey) as { id: string } | undefined)?.id ?? null;
+      sets.push("category_id = ?");
+      args.push(categoryId);
+    }
+    db.prepare(`UPDATE book_metadata SET ${sets.join(", ")} WHERE book_id = ?`).run(...args, bookId);
+
+    if (patch.author !== undefined) {
+      replaceBookPeople(bookId, current.library_id, "author", patch.author.split(",").map((name) => name.trim()).filter(Boolean));
+    }
+    if (patch.narrator !== undefined) {
+      replaceBookPeople(bookId, current.library_id, "narrator", patch.narrator.split(",").map((name) => name.trim()).filter(Boolean));
+    }
+    if (patch.tags !== undefined) {
+      setEntityTags("book", bookId, patch.tags);
+    }
+  })();
+
+  exportBookMetadata(bookId);
+  return true;
+}
+
 export function getAudiobookBookDetail(id: string) {
   const book = db.prepare(`
     SELECT
@@ -608,8 +663,8 @@ export function getAudiobookBookDetail(id: string) {
 // ── Shared list/catalog row shape ───────────────────────────────────────────
 // Columns + joins shared by the per-library list route and the paged catalog
 // query, so both return an identical book shape. The trailing playback_progress
-// join binds the user id — it must be the FIRST positional ? in any query using
-// these joins.
+// and book_saves joins each bind the user id — they are the FIRST TWO positional
+// ? in any query using these joins (pass the user id twice, in this order).
 export const BOOK_LIST_COLUMNS = `
         books.id,
         books.library_id,
@@ -632,6 +687,7 @@ export const BOOK_LIST_COLUMNS = `
         GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names,
         progress.percent_complete AS progress_percent,
         progress.completed_at AS progress_completed_at,
+        (book_saves.id IS NOT NULL) AS saved,
         (SELECT COUNT(*) FROM book_files WHERE book_files.book_id = books.id AND book_files.status = 'available') AS file_count,
         (SELECT COALESCE(SUM(book_files.size), 0) FROM book_files WHERE book_files.book_id = books.id AND book_files.status = 'available') AS total_size`;
 
@@ -643,7 +699,8 @@ export const BOOK_LIST_JOINS = `
       LEFT JOIN authors ON authors.id = book_authors.author_id
       LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
       LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
-      LEFT JOIN playback_progress AS progress ON progress.book_id = books.id AND progress.user_id = ?`;
+      LEFT JOIN playback_progress AS progress ON progress.book_id = books.id AND progress.user_id = ?
+      LEFT JOIN book_saves ON book_saves.book_id = books.id AND book_saves.user_id = ?`;
 
 export type BookListRow = AudiobookBookRow & {
   series_name: string | null;
@@ -651,6 +708,7 @@ export type BookListRow = AudiobookBookRow & {
   category_id: string | null;
   progress_percent: number | null;
   progress_completed_at: string | null;
+  saved: number;
 };
 
 export function mapBookListRow(book: BookListRow) {
@@ -679,6 +737,7 @@ export function mapBookListRow(book: BookListRow) {
       percentComplete: book.progress_percent,
       completedAt: book.progress_completed_at
     },
+    saved: Boolean(book.saved),
     discoveredAt: book.discovered_at,
     updatedAt: book.updated_at
   };

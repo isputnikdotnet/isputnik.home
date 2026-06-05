@@ -64,46 +64,11 @@ function repairList(values: string[], encoding: TagEncoding | undefined): string
   return values.map((value) => repairEncoding(value, encoding) ?? value);
 }
 
-// Per-library metadata overrides for special-section libraries. Any field left
-// empty falls back to normal scan-derived metadata (e.g. blank author keeps the
-// real per-story writer from the tag). Applied as source='scan', so a manual
-// per-book edit still wins on rescan.
-interface LibraryOverrides {
-  author?: string;
-  narrator?: string;
-  description?: string;
-  category_key?: string;
-  tags?: string[];
-}
-
 interface AudiobookSettings {
   default_language?: string;
   supported_extensions?: string[];
   cover_filenames?: string[];
   ignore_sidecar?: boolean;
-  section_id?: string;
-  overrides?: LibraryOverrides;
-}
-
-function splitOverrideNames(value: string | undefined): string[] {
-  if (!value) {
-    return [];
-  }
-  return value.split(",").map((name) => name.trim()).filter(Boolean);
-}
-
-function activeOverrides(overrides: LibraryOverrides | undefined): LibraryOverrides | null {
-  if (!overrides) {
-    return null;
-  }
-  const hasAny = Boolean(
-    overrides.author?.trim()
-    || overrides.narrator?.trim()
-    || overrides.description?.trim()
-    || overrides.category_key?.trim()
-    || (overrides.tags && overrides.tags.length > 0)
-  );
-  return hasAny ? overrides : null;
 }
 
 interface AudioFileEntry {
@@ -145,7 +110,6 @@ interface PreparedBookScan {
   genres: string[];
   seriesName: string | null;
   seriesPosition: number | null;
-  overrideCategoryKey: string | null;
   skipMetadataUpdate: boolean;
   files: PreparedBookFile[];
   documents: DocumentEntry[];
@@ -805,12 +769,9 @@ async function prepareBookScan(
   const enc = options.tagEncoding;
   const skipSidecar = manualMetadata || settings.ignore_sidecar || options.skipSidecar;
   const sidecar = repairSidecar(skipSidecar ? null : readSidecarMetadata(folderAbsolutePath), enc);
-  const overrides = activeOverrides(settings.overrides);
   // Rescan options force a fresh metadata read even when files are unchanged, so the
   // encoding fix / sidecar skip actually re-derive and overwrite the stored values.
-  // Library overrides do the same: changing the override values and rescanning must
-  // re-apply them to every book, so skip the unchanged-files fast path.
-  const forceReread = Boolean(options.tagEncoding) || Boolean(options.skipSidecar) || Boolean(overrides);
+  const forceReread = Boolean(options.tagEncoding) || Boolean(options.skipSidecar);
 
   const filesWithFallbackOrder = files
     .sort((left, right) => {
@@ -846,7 +807,6 @@ async function prepareBookScan(
         genres: [],
         seriesName: null,
         seriesPosition: null,
-        overrideCategoryKey: null,
         skipMetadataUpdate: true,
         files: preparedFilesFromExisting(filesWithFallbackOrder, existingFiles),
         documents: readBookFolderDocuments(rootPath, folderAbsolutePath)
@@ -917,16 +877,10 @@ async function prepareBookScan(
     }));
   const totalDuration = preparedFiles.reduce((total, file) => total + (file.durationSeconds ?? 0), 0);
 
-  // Scan-derived values, before library overrides are applied.
   const scannedDescription = sidecar?.description ?? repairEncoding(firstComment(firstMetadata), enc);
   const scannedAuthors = sidecarAuthors.length > 0 ? sidecarAuthors : (authors.length > 0 ? repairList(authors, enc) : [authorHint]);
   const scannedNarrators = sidecarNarrators.length > 0 ? sidecarNarrators : repairList(narrators, enc);
   const scannedGenres = sidecarGenres.length > 0 ? sidecarGenres : repairList(genres, enc);
-
-  // Per-library overrides win over scan-derived metadata. Empty fields fall back
-  // to the scanned value (e.g. blank author keeps the real per-story writer).
-  const overrideAuthors = splitOverrideNames(overrides?.author);
-  const overrideNarrators = splitOverrideNames(overrides?.narrator);
 
   return {
     bookId,
@@ -935,7 +889,7 @@ async function prepareBookScan(
     manualMetadata,
     title: sidecar?.title?.trim() || repairEncoding(title, enc) || titleHint,
     sortTitle: sortTitle(sidecar?.title?.trim() || repairEncoding(title, enc) || titleHint),
-    description: overrides?.description?.trim() || scannedDescription,
+    description: scannedDescription,
     yearPublished: sidecar?.yearPublished ?? sidecar?.year ?? yearFromMetadata(firstMetadata),
     language: sidecar?.language || common?.language || settings.default_language || "en",
     durationSeconds: totalDuration > 0 ? totalDuration : null,
@@ -943,16 +897,15 @@ async function prepareBookScan(
     isbn: sidecar?.isbn ?? isbn,
     asin: sidecar?.asin ?? asin,
     publisher: sidecar?.publisher ?? repairEncoding(publisher, enc),
-    authors: overrideAuthors.length > 0 ? overrideAuthors : scannedAuthors,
-    narrators: overrideNarrators.length > 0 ? overrideNarrators : scannedNarrators,
+    authors: scannedAuthors,
+    narrators: scannedNarrators,
     // Always split genres on comma/semicolon into separate tags. Sidecars can
     // deliver a single array element holding a combined string (e.g. "Diets,
     // Nutrition & Healthy Eating, Alternative & Complementary Medicine"), which
     // sidecarArray leaves intact; splitTagValues breaks it apart (keeping "&").
-    genres: splitTagValues(overrides?.tags && overrides.tags.length > 0 ? overrides.tags : scannedGenres),
+    genres: splitTagValues(scannedGenres),
     seriesName: sidecar?.seriesName ?? sidecar?.series ?? repairEncoding(seriesName, enc),
     seriesPosition: sidecar?.seriesPosition ?? seriesPosition,
-    overrideCategoryKey: overrides?.category_key?.trim() || null,
     skipMetadataUpdate: false,
     files: preparedFiles,
     documents: readBookFolderDocuments(rootPath, folderAbsolutePath)
@@ -1000,10 +953,7 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
   }
 
   if (!book.skipMetadataUpdate) {
-    const overrideCategoryId = book.overrideCategoryKey
-      ? (db.prepare("SELECT id FROM categories WHERE key = ?").get(book.overrideCategoryKey) as { id: string } | undefined)?.id ?? null
-      : null;
-    const categoryId = overrideCategoryId ?? matchCategoryId(book.genres);
+    const categoryId = matchCategoryId(book.genres);
     db.prepare(`
       INSERT INTO book_metadata (
         id, book_id, source, title, sort_title, description, year_published, language,

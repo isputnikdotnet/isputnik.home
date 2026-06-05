@@ -358,15 +358,6 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
-  CREATE TABLE IF NOT EXISTS library_sections (
-    id         TEXT PRIMARY KEY,
-    name       TEXT NOT NULL,
-    icon       TEXT NOT NULL DEFAULT 'radio',
-    created_by TEXT NOT NULL REFERENCES users(id),
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-
   CREATE TABLE IF NOT EXISTS group_members (
     group_id  TEXT NOT NULL REFERENCES user_groups(id) ON DELETE CASCADE,
     user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -528,6 +519,27 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_libraries_owner      ON libraries(owner_id);
   CREATE INDEX IF NOT EXISTS idx_libraries_visibility ON libraries(visibility);
 `);
+
+// The "special libraries" / sections feature was removed. Drop its table and
+// strip the deprecated section_id / overrides keys from each library's settings.
+{
+  const libraries = db.prepare("SELECT id, settings_json FROM libraries WHERE type = 'audiobook'")
+    .all() as { id: string; settings_json: string | null }[];
+  const updateSettings = db.prepare("UPDATE libraries SET settings_json = ? WHERE id = ?");
+  for (const library of libraries) {
+    try {
+      const settings = JSON.parse(library.settings_json || "{}") as Record<string, unknown>;
+      if ("section_id" in settings || "overrides" in settings) {
+        delete settings.section_id;
+        delete settings.overrides;
+        updateSettings.run(JSON.stringify(settings), library.id);
+      }
+    } catch {
+      // leave unparseable settings untouched
+    }
+  }
+  db.exec("DROP TABLE IF EXISTS library_sections");
+}
 
 const categoryColumns = db.prepare("PRAGMA table_info(categories)").all() as { name: string }[];
 if (categoryColumns.length > 0 && !categoryColumns.some((column) => column.name === "icon")) {

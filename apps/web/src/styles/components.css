@@ -449,7 +449,7 @@
   width: min(100%, 620px);
 }
 
-/* Cap tall forms (e.g. special-section overrides) and keep the action bar in view. */
+/* Cap tall forms (e.g. the add-library wizard) and keep the action bar in view. */
 .create-library-modal,
 .edit-library-modal {
   max-height: 88vh;

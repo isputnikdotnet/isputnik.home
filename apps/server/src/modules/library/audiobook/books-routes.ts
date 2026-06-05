@@ -5,7 +5,7 @@ import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
 import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
-import { getAudiobookBookDetail, progressUpdateSchema, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
+import { getAudiobookBookDetail, progressUpdateSchema, bulkMetadataSchema, BULK_METADATA_FIELDS, applyBulkMetadata, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
 import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
 
 export function registerBookRoutes(app: FastifyInstance) {
@@ -26,17 +26,16 @@ export function registerBookRoutes(app: FastifyInstance) {
         AND books.deleted_at IS NULL
       GROUP BY books.id
       ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
-    `).all(user.id, id) as BookListRow[];
+    `).all(user.id, user.id, id) as BookListRow[];
 
     return { books: books.map(mapBookListRow) };
   });
 
   // Paged, server-side searched/sorted/filtered catalog. Replaces loading every
-  // book client-side. scope = all (non-special libraries) | library | section.
+  // book client-side. scope = all (every accessible library) | library.
   const catalogSchema = z.object({
-    scope: z.enum(["all", "library", "section"]).default("all"),
+    scope: z.enum(["all", "library"]).default("all"),
     libraryId: z.string().trim().min(1).optional(),
-    sectionId: z.string().trim().min(1).optional(),
     q: z.string().trim().max(200).default(""),
     sort: z.enum(["title", "title_desc", "recent", "duration", "author", "series"]).default("title"),
     limit: z.number().int().min(1).max(200).default(48),
@@ -61,7 +60,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     }
     const p = parsed.data;
     const f = p.filters ?? {};
-    const libIds = resolveScopeLibraryIds(request.user!, p.scope ?? "all", p.libraryId, p.sectionId);
+    const libIds = resolveScopeLibraryIds(request.user!, p.scope ?? "all", p.libraryId);
     reply.send(queryCatalog(request.user!.id, libIds, {
       q: p.q ?? "",
       sort: p.sort ?? "title",
@@ -81,12 +80,46 @@ export function registerBookRoutes(app: FastifyInstance) {
   });
 
   app.get("/api/library/audiobooks/facets", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { scope?: string; libraryId?: string; sectionId?: string };
-    const scope = qp.scope === "library" || qp.scope === "section" ? qp.scope : "all";
-    const libIds = resolveScopeLibraryIds(request.user!, scope, qp.libraryId, qp.sectionId);
+    const qp = request.query as { scope?: string; libraryId?: string };
+    const scope = qp.scope === "library" ? qp.scope : "all";
+    const libIds = resolveScopeLibraryIds(request.user!, scope, qp.libraryId);
     return catalogFacets(libIds);
   });
 
+
+  // Bulk overwrite metadata across selected books. Write access is checked per
+  // book's library; books the user can't write are skipped and reported back.
+  app.post("/api/library/books/bulk-metadata", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(bulkMetadataSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid bulk metadata", details: parsed.error });
+      return;
+    }
+
+    const hasField = BULK_METADATA_FIELDS.some((field) => parsed.data[field] !== undefined);
+    if (!hasField) {
+      reply.code(400).send({ error: "Provide at least one field to overwrite." });
+      return;
+    }
+
+    const user = request.user!;
+    let updated = 0;
+    let forbidden = 0;
+    let missing = 0;
+    for (const bookId of parsed.data.bookIds) {
+      const lib = getLibraryForBook(bookId);
+      if (!lib) { missing += 1; continue; }
+      if (!canUserWriteLibrary(lib, user.id, user.role)) { forbidden += 1; continue; }
+      if (applyBulkMetadata(bookId, parsed.data)) { updated += 1; } else { missing += 1; }
+    }
+
+    if (updated === 0 && forbidden > 0) {
+      reply.code(403).send({ error: "Write access required to edit the selected books." });
+      return;
+    }
+
+    reply.send({ updated, forbidden, missing });
+  });
 
   app.get("/api/library/books/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;

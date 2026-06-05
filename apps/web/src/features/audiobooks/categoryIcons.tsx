@@ -37,9 +37,6 @@ export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   "podcast": Podcast
 };
 
-// Icons offered when picking a section's master icon.
-export const SECTION_ICON_KEYS = ["radio", "archive", "library", "podcast", "mic", "music", "star"];
-
 export const CATEGORY_ICON_KEYS = Object.keys(CATEGORY_ICONS);
 
 export function CategoryIcon({ icon, size = 18 }: { icon: string | null; size?: number }) {
