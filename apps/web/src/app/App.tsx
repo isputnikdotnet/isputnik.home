@@ -33,6 +33,34 @@ interface SessionState {
   user: PublicUser | null;
 }
 
+type SessionCheck =
+  | { reachable: false }
+  | { reachable: true; requiresSetup: boolean; user: PublicUser | null };
+
+// Probe the server with a hard timeout so a dead/slow network can never hang the
+// app. Distinguishes "unreachable" (offline — keep the cached identity) from
+// "reachable but 401" (really signed out — show login).
+async function checkSession(): Promise<SessionCheck> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 4000);
+  try {
+    const setupRes = await fetch("/api/setup/status", { credentials: "include", signal: controller.signal });
+    if (!setupRes.ok) return { reachable: false };
+    const setup = (await setupRes.json()) as { requiresSetup: boolean };
+    if (setup.requiresSetup) return { reachable: true, requiresSetup: true, user: null };
+
+    const meRes = await fetch("/api/auth/me", { credentials: "include", signal: controller.signal });
+    if (meRes.status === 401) return { reachable: true, requiresSetup: false, user: null };
+    if (!meRes.ok) return { reachable: false };
+    const me = (await meRes.json()) as { user: PublicUser | null };
+    return { reachable: true, requiresSetup: false, user: me.user ?? null };
+  } catch {
+    return { reachable: false }; // network error or timeout/abort
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export function App() {
   const route = useRoute();
   const [session, setSession] = useState<SessionState>({
@@ -42,26 +70,31 @@ export function App() {
   });
 
   const refreshSession = useCallback(async () => {
-    // Offline: trust the last known identity so downloaded books stay usable, and
-    // skip the network calls that would otherwise hang until they time out.
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      setSession({ loading: false, requiresSetup: false, user: getCachedUser() });
-      return;
+    const cached = getCachedUser();
+    // Optimistic: if we know who you are, render the app immediately and never
+    // block on the network — this is what keeps the installed app usable offline.
+    if (cached) {
+      setSession({ loading: false, requiresSetup: false, user: cached });
     }
 
-    try {
-      const setup = await api<{ requiresSetup: boolean }>("/api/setup/status");
-      if (setup.requiresSetup) {
-        setSession({ loading: false, requiresSetup: true, user: null });
-        return;
-      }
-
-      const me = await api<{ user: PublicUser }>("/api/auth/me").catch(() => ({ user: null as unknown as PublicUser }));
-      if (me.user) cacheCurrentUser(me.user);
-      setSession({ loading: false, requiresSetup: false, user: me.user });
-    } catch {
-      // Network failed (e.g. "lie-fi"): fall back to the cached identity if any.
-      setSession({ loading: false, requiresSetup: false, user: getCachedUser() });
+    const result = await checkSession();
+    if (!result.reachable) {
+      // Offline / server unreachable — keep the cached identity; only fall to the
+      // login screen if there's nothing cached (first-ever use on this device).
+      if (!cached) setSession({ loading: false, requiresSetup: false, user: null });
+      return;
+    }
+    if (result.requiresSetup) {
+      setSession({ loading: false, requiresSetup: true, user: null });
+      return;
+    }
+    if (result.user) {
+      cacheCurrentUser(result.user);
+      setSession({ loading: false, requiresSetup: false, user: result.user });
+    } else {
+      // Server reachable but not authenticated — a genuine sign-out / expiry.
+      clearCachedUser();
+      setSession({ loading: false, requiresSetup: false, user: null });
     }
   }, []);
 
