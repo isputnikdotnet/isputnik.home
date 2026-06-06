@@ -251,7 +251,7 @@ export function DashboardShell({
         </div>
 
         <footer className="home-footer">
-            <strong>v0.8.8</strong>
+            <strong>v0.8.9</strong>
           <span>&copy; 2026 iSputnik</span>
         </footer>
       </aside>

@@ -10,10 +10,11 @@ built-in player — installable to your phone as an offline-capable app.
 - **Built-in player** — chapters, bookmarks, playback speed, resume, progress tracking.
 - **Sharing & accounts** — multi-user, groups, invites, guest share links.
 - **Control panel** — libraries, users, storage, backups, maintenance jobs.
-- **Installable PWA** — add to your phone's home screen; works offline.
-- **Offline listening** — download a book to the device and play it with no connection.
+- **Installable PWA** — add to your phone's home screen; works offline (opens to your library without re-login when there's no connection).
+- **Offline listening** — download a book to the device and play it with no connection; manage downloads and storage under the account menu → Downloads.
 - **Progress sync** — positions saved offline flush to the server on reconnect.
 - **OS media controls** — lock-screen / car / Bluetooth play, pause, skip, and scrubbing.
+- **Sign-in conveniences** — a QR code to open the app on another device, and a show/hide password toggle.
 
 ## Deploy with Docker
 

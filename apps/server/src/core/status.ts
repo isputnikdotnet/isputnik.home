@@ -336,6 +336,72 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.8.9",
+          label: "Docs & release notes",
+          changes: [
+            "Expanded the README with Docker deployment, the HTTPS requirement for the installable app, a Caddy reverse-proxy example, and phone install steps for Android and iOS.",
+            "Backfilled this What's New timeline with the 0.8 series — the progressive web app (PWA) and offline work below."
+          ]
+        },
+        {
+          version: "0.8.8",
+          label: "Mobile layout fixes",
+          changes: [
+            "The Audiobooks page now fits phone screens — no more sideways scrolling — with a denser, right-sized cover grid."
+          ]
+        },
+        {
+          version: "0.8.7",
+          label: "Reliable offline launch",
+          changes: [
+            "Opening the installed app with no connection no longer hangs or gets stuck on a sign-in screen: it opens straight into your library from your last sign-in, and only asks you to sign in again when the server is actually reachable."
+          ]
+        },
+        {
+          version: "0.8.6",
+          label: "Sign-in QR & show password",
+          changes: [
+            "The sign-in page shows a QR code of the current address, so you can open the app on another device by scanning it.",
+            "Password fields now have a show/hide toggle."
+          ]
+        },
+        {
+          version: "0.8.5",
+          label: "Lock-screen & car controls",
+          changes: [
+            "The player reports now-playing info (cover, chapter, author) to your device and wires up the lock-screen, car, and Bluetooth controls — play, pause, skip chapters, and scrubbing."
+          ]
+        },
+        {
+          version: "0.8.3",
+          label: "Manage downloads",
+          changes: [
+            "New Downloads screen (account menu → Downloads): see every book saved for offline, a device storage meter, and remove downloads to free space."
+          ]
+        },
+        {
+          version: "0.8.2",
+          label: "Offline progress sync",
+          changes: [
+            "Listening positions saved while offline now sync to the server automatically when you reconnect, and resume works offline."
+          ]
+        },
+        {
+          version: "0.8.1",
+          label: "Offline listening",
+          changes: [
+            "Save a book for offline from its detail page (Save offline); the player then plays it from on-device storage with no connection, including seeking.",
+            "On iPhone, a tip prompts you to add the app to the Home Screen first so downloads aren't cleared by Safari."
+          ]
+        },
+        {
+          version: "0.8.0",
+          label: "Install to your phone",
+          changes: [
+            "isputnik.home is now an installable app (PWA): add it to your home screen and it launches full-screen and opens even offline. Requires serving the app over HTTPS."
+          ]
+        },
+        {
           version: "0.7.1",
           label: "Player polish & smarter bulk edit",
           changes: [
