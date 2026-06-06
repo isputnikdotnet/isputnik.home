@@ -9,9 +9,11 @@ import { logsPlugin } from "./logs.js";
 import { statusPlugin } from "./status.js";
 import { groupsPlugin } from "./groups.js";
 import { backupsPlugin } from "./backups.js";
+import { appConfigPlugin } from "./app-config.js";
 
 export async function corePlugin(app: FastifyInstance) {
   await app.register(setupPlugin);
+  await app.register(appConfigPlugin);
   await app.register(authPlugin);
   await app.register(profilePlugin);
   await app.register(usersPlugin);

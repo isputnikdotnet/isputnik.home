@@ -1,10 +1,26 @@
-import { useEffect, useRef, useState } from "react";
-import { ChevronRight, Download, Headphones, Menu, RotateCcw, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronRight, Download, Headphones, ListMusic, Menu, RotateCcw, SkipForward, X } from "lucide-react";
 import { api } from "../../api";
 import { AudioPlayer } from "./AudioPlayer";
 import type { AudiobookBookDetail, BookSave } from "./types";
+import type { CollectionDetail } from "../collections/types";
+
+interface QueueEntry {
+  entityId: string;
+  title: string;
+}
 
 export function PlayerPage({ id }: { id: string }) {
+  // The collection ("playlist") this player is walking through, if any. The book
+  // being played is tracked separately so we can advance through the queue
+  // without reopening the window.
+  const collectionId = useMemo(() => new URLSearchParams(window.location.search).get("collection"), []);
+
+  const [currentId, setCurrentId] = useState(id);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [queue, setQueue] = useState<QueueEntry[]>([]);
+  const [collectionName, setCollectionName] = useState("");
+
   const [book, setBook] = useState<AudiobookBookDetail | null>(null);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -17,21 +33,51 @@ export function PlayerPage({ id }: { id: string }) {
   const [resetting, setResetting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Load the queue once: only available, playable audiobook members, in order.
+  useEffect(() => {
+    if (!collectionId) return;
+    api<{ collection: CollectionDetail }>(`/api/collections/${collectionId}`)
+      .then(({ collection }) => {
+        setCollectionName(collection.name);
+        setQueue(
+          collection.items
+            .filter((item) => item.available && item.playable && item.entityType === "audiobook")
+            .map((item) => ({ entityId: item.entityId, title: item.title }))
+        );
+      })
+      .catch(() => {});
+  }, [collectionId]);
+
+  // Load the current book (re-runs each time we advance through the queue).
   useEffect(() => {
     setBook(null);
     setError("");
     setSave(null);
     setNoteEditorOpen(false);
-    api<{ book: AudiobookBookDetail }>(`/api/library/books/${id}`)
+    // Keep the address bar pointed at the book actually playing so a refresh resumes here.
+    window.history.replaceState(null, "", `/player/${currentId}${collectionId ? `?collection=${collectionId}` : ""}`);
+    api<{ book: AudiobookBookDetail }>(`/api/library/books/${currentId}`)
       .then(({ book }) => {
         setBook(book);
         document.title = `${book.title} — isputnik.home`;
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load audiobook"));
-    api<{ save: BookSave }>(`/api/library/books/${id}/save`)
+    api<{ save: BookSave }>(`/api/library/books/${currentId}/save`)
       .then(({ save }) => setSave(save))
       .catch(() => {});
-  }, [id]);
+  }, [currentId, collectionId]);
+
+  const queueIndex = queue.findIndex((entry) => entry.entityId === currentId);
+  const nextEntry = queueIndex >= 0 && queueIndex < queue.length - 1 ? queue[queueIndex + 1] : null;
+
+  const goToBook = (entityId: string) => {
+    setAutoPlay(true);
+    setCurrentId(entityId);
+  };
+
+  const handleEndReached = () => {
+    if (nextEntry) goToBook(nextEntry.entityId);
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -47,7 +93,7 @@ export function PlayerPage({ id }: { id: string }) {
   const markFinished = async () => {
     setMarking(true);
     try {
-      await api(`/api/library/books/${id}/progress/complete`, { method: "POST", body: "{}" });
+      await api(`/api/library/books/${currentId}/progress/complete`, { method: "POST", body: "{}" });
       setMarked(true);
       setTimeout(() => setMarked(false), 3000);
     } catch {
@@ -59,7 +105,7 @@ export function PlayerPage({ id }: { id: string }) {
   };
 
   const putSave = async (note: string | null) => {
-    const { save: updated } = await api<{ save: BookSave }>(`/api/library/books/${id}/save`, {
+    const { save: updated } = await api<{ save: BookSave }>(`/api/library/books/${currentId}/save`, {
       method: "PUT",
       body: JSON.stringify({ note })
     });
@@ -70,7 +116,7 @@ export function PlayerPage({ id }: { id: string }) {
     setSavingSave(true);
     try {
       if (save?.saved) {
-        await api(`/api/library/books/${id}/save`, { method: "DELETE" });
+        await api(`/api/library/books/${currentId}/save`, { method: "DELETE" });
         setSave({ saved: false, note: null });
         setNoteEditorOpen(false);
       } else {
@@ -105,7 +151,7 @@ export function PlayerPage({ id }: { id: string }) {
   const resetProgress = async () => {
     setResetting(true);
     try {
-      await api(`/api/library/books/${id}/progress`, { method: "DELETE" });
+      await api(`/api/library/books/${currentId}/progress`, { method: "DELETE" });
     } catch {
       // best-effort
     } finally {
@@ -133,6 +179,12 @@ export function PlayerPage({ id }: { id: string }) {
   return (
     <div className="popup-player-page">
       <div className="popup-topbar">
+        {collectionId && queue.length > 0 && (
+          <div className="popup-queue-badge" title={collectionName}>
+            <ListMusic size={15} />
+            <span>{queueIndex >= 0 ? `${queueIndex + 1} / ${queue.length}` : collectionName}</span>
+          </div>
+        )}
         <div className="popup-more" ref={menuRef}>
           <button
             className="popup-menu-btn"
@@ -146,7 +198,7 @@ export function PlayerPage({ id }: { id: string }) {
             <div className="popup-more-menu">
               <a
                 className="popup-more-item"
-                href={`/api/library/books/${id}/download`}
+                href={`/api/library/books/${currentId}/download`}
                 download
                 onClick={() => setMenuOpen(false)}
               >
@@ -211,15 +263,28 @@ export function PlayerPage({ id }: { id: string }) {
       </div>
       <div className="popup-player-body">
         <AudioPlayer
+          key={currentId}
           book={book}
           showBookmark
           popup
+          autoPlay={autoPlay}
+          onEndReached={nextEntry ? handleEndReached : undefined}
           saved={save?.saved ?? false}
           onToggleSave={toggleSave}
           savingSave={savingSave}
           onAddNote={openNoteEditor}
           onMarkFinished={markFinished}
         />
+
+        {nextEntry && (
+          <button className="popup-next-up" onClick={() => goToBook(nextEntry.entityId)}>
+            <SkipForward size={15} aria-hidden="true" />
+            <span className="popup-next-up-text">
+              <small>Up next</small>
+              <strong>{nextEntry.title}</strong>
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );

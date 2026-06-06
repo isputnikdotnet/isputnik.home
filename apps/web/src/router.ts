@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "librariesStats" | "ebooks" | "media" | "otherMedia" | "storage" | "groups" | "jobs" | "backup" | "categories" | "tags";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "librariesStats" | "ebooks" | "media" | "otherMedia" | "storage" | "groups" | "jobs" | "backup" | "categories" | "tags" | "config";
 
 export type Route =
   | { name: "install" }
@@ -13,6 +13,8 @@ export type Route =
   | { name: "audiobookPlayer"; id: string }
   | { name: "ebooks" }
   | { name: "ebookBook"; id: string }
+  | { name: "collections" }
+  | { name: "collectionDetail"; id: string }
   | { name: "audiobookAuthors" }
   | { name: "audiobookAuthorDetail"; personName: string }
   | { name: "audiobookNarrators" }
@@ -26,6 +28,7 @@ export type Route =
   | { name: "controlCategoryEditor"; categoryId: string | null }
   | { name: "about" }
   | { name: "profile" }
+  | { name: "theme" }
   | { name: "invite"; token: string }
   | { name: "share"; token: string }
   | { name: "audiobookSharedWithMe" };
@@ -61,6 +64,15 @@ export function getRoute(): Route {
 
   if (path === "/ebooks") {
     return { name: "ebooks" };
+  }
+
+  if (path === "/collections") {
+    return { name: "collections" };
+  }
+
+  const collectionDetailMatch = path.match(/^\/collections\/([^/]+)$/);
+  if (collectionDetailMatch) {
+    return { name: "collectionDetail", id: collectionDetailMatch[1] };
   }
 
   const ebookBookMatch = path.match(/^\/ebooks\/books\/([^/]+)$/);
@@ -160,6 +172,10 @@ export function getRoute(): Route {
     return { name: "control", section: "storage" };
   }
 
+  if (path === "/control/config") {
+    return { name: "control", section: "config" };
+  }
+
   // Maintenance defaults to Jobs.
   if (["/control/maintenance", "/control/maintenance/jobs", "/control/system", "/control/jobs"].includes(path)) {
     return { name: "control", section: "jobs" };
@@ -212,6 +228,10 @@ export function getRoute(): Route {
 
   if (path === "/profile") {
     return { name: "profile" };
+  }
+
+  if (path === "/theme") {
+    return { name: "theme" };
   }
 
   if (path === "/about") {

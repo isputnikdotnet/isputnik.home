@@ -1,9 +1,10 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, MoreHorizontal, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Save, Search, Share2, Upload, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
+import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EpubReader } from "./EpubReader";
 import { PeopleCombobox } from "./PeopleCombobox";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -11,7 +12,6 @@ import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { useDownload } from "../../offline/useDownload";
 import { isStandalone } from "../../pwa/platform";
-import { InstallCta } from "../../pwa/InstallCta";
 import { formatBytes, formatDuration } from "../../shared/utils";
 import type { AudiobookBookDetail, BookSave, CategorySummary, CoverCandidate, MetadataCandidate, PlaybackProgress } from "./types";
 
@@ -82,6 +82,7 @@ function BookDetailView({
   const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [addToCollectionOpen, setAddToCollectionOpen] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string } | null>(null);
   const detailMenuRef = useRef<HTMLDivElement>(null);
   const offline = useDownload(book);
@@ -779,6 +780,17 @@ function BookDetailView({
                     type="button"
                     role="menuitem"
                     onClick={() => {
+                      setAddToCollectionOpen(true);
+                      setDetailMenuOpen(false);
+                    }}
+                  >
+                    <ListMusic size={17} aria-hidden="true" />
+                    <span>Add to collection</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
                       setShareModalOpen(true);
                       setDetailMenuOpen(false);
                     }}
@@ -790,12 +802,6 @@ function BookDetailView({
               )}
             </div>
           </div>
-          {!isEbook && !isStandalone() && book.files.some((f) => f.status === "available") && (
-            <InstallCta
-              title="Download for offline"
-              subtitle="Install the app to save this book and listen without a connection."
-            />
-          )}
           {saveError && <MessageBox tone="error" title="Favorites error">{saveError}</MessageBox>}
           {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
           {offline.error && <MessageBox tone="error" title="Download error">{offline.error}</MessageBox>}
@@ -920,6 +926,10 @@ function BookDetailView({
 
       {shareModalOpen && (
         <ShareModal bookId={book.id} bookTitle={book.title} onClose={() => setShareModalOpen(false)} />
+      )}
+
+      {addToCollectionOpen && (
+        <AddToCollectionModal entityId={book.id} title={book.title} onClose={() => setAddToCollectionOpen(false)} />
       )}
 
       {viewerDoc && createPortal(

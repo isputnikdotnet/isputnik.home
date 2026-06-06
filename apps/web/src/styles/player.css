@@ -508,6 +508,22 @@
   text-align: center;
 }
 
+/* Playlist position chip — pushed to the left of the top bar. */
+.popup-queue-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--mint) 30%, transparent);
+  border-radius: 999px;
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 10%, transparent);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .popup-more {
   position: relative;
 }
@@ -631,6 +647,46 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* "Up next" affordance under the player when walking a collection. */
+.popup-next-up {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.popup-next-up:hover {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
+.popup-next-up-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.popup-next-up-text small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.popup-next-up-text strong {
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .popup-status {

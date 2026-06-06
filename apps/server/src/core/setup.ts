@@ -4,10 +4,12 @@ import { db, hasUsers, logActivity, publicUser, type User } from "../db.js";
 import { hashPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody, setupSchema } from "./shared.js";
+import { getDefaultTheme } from "./app-config.js";
 
 export async function setupPlugin(app: FastifyInstance) {
   app.get("/api/setup/status", async () => ({
-    requiresSetup: !hasUsers()
+    requiresSetup: !hasUsers(),
+    defaultTheme: getDefaultTheme()
   }));
 
   app.post("/api/setup/admin", async (request, reply) => {
@@ -26,9 +28,9 @@ export async function setupPlugin(app: FastifyInstance) {
     const passwordHash = await hashPassword(parsed.data.password);
     const user = db.transaction(() => {
       db.prepare(`
-        INSERT INTO users (id, email, password_hash, display_name, role, protected_from_delete)
-        VALUES (?, ?, ?, ?, 'admin', 1)
-      `).run(userId, parsed.data.email, passwordHash, parsed.data.displayName);
+        INSERT INTO users (id, email, password_hash, display_name, role, protected_from_delete, theme)
+        VALUES (?, ?, ?, ?, 'admin', 1, ?)
+      `).run(userId, parsed.data.email, passwordHash, parsed.data.displayName, getDefaultTheme());
 
       return db.prepare("SELECT * FROM users WHERE id = ?").get(userId) as User;
     })();

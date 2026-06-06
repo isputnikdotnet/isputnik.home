@@ -6,6 +6,7 @@ import { sha256, hashPassword } from "../crypto.js";
 import { addDays, issueSession } from "../auth.js";
 import { config } from "../config.js";
 import { parseBody, setupSchema, getUserByEmail } from "./shared.js";
+import { getDefaultTheme } from "./app-config.js";
 
 const inviteSchema = z.object({
   role: z.enum(["admin", "member"]).default("member"),
@@ -178,9 +179,9 @@ export async function invitesPlugin(app: FastifyInstance) {
     const passwordHash = await hashPassword(parsed.data.password);
     const user = db.transaction(() => {
       db.prepare(`
-        INSERT INTO users (id, email, password_hash, display_name, role)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(userId, parsed.data.email, passwordHash, parsed.data.displayName, invite.role);
+        INSERT INTO users (id, email, password_hash, display_name, role, theme)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(userId, parsed.data.email, passwordHash, parsed.data.displayName, invite.role, getDefaultTheme());
       db.prepare("UPDATE invites SET used_at = CURRENT_TIMESTAMP, used_by = ? WHERE id = ?").run(userId, invite.id);
       return db.prepare("SELECT * FROM users WHERE id = ?").get(userId) as User;
     })();

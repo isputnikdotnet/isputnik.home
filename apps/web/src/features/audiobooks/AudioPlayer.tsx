@@ -31,7 +31,9 @@ export function AudioPlayer({
   onToggleSave,
   savingSave,
   onAddNote,
-  onMarkFinished
+  onMarkFinished,
+  autoPlay,
+  onEndReached
 }: {
   book: AudiobookBookDetail;
   showBookmark?: boolean;
@@ -41,11 +43,17 @@ export function AudioPlayer({
   savingSave?: boolean;
   onAddNote?: () => void;
   onMarkFinished?: () => void;
+  // Begin playing as soon as the first chapter loads (used when auto-advancing
+  // to the next book in a collection/playlist).
+  autoPlay?: boolean;
+  // Fires when the final chapter ends. When set, the player defers the
+  // end-of-book behaviour to the parent (queue advance) instead of just stopping.
+  onEndReached?: () => void;
 }) {
   const availableFiles = book.files.filter((f) => f.status === "available");
   const audioRef = useRef<HTMLAudioElement>(null);
   const pendingSeekRef = useRef<number | null>(null);
-  const shouldAutoPlayRef = useRef(false);
+  const shouldAutoPlayRef = useRef(autoPlay ?? false);
   const saveIntervalRef = useRef<number | null>(null);
   // Object URL for a locally-downloaded chapter, revoked when we move off it.
   const localUrlRef = useRef<string | null>(null);
@@ -376,6 +384,9 @@ export function AudioPlayer({
     if (fileIndex < availableFiles.length - 1) {
       shouldAutoPlayRef.current = true;
       setFileIndex((prev) => prev + 1);
+    } else if (onEndReached) {
+      setPlaying(false);
+      onEndReached();
     } else {
       setPlaying(false);
     }

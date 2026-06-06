@@ -7,6 +7,7 @@ import { z } from "zod";
 import { audiobookLibrarySchema, publicAudiobookLibrary } from "./serializers.js";
 import { canUserAccessLibrary, canUserWriteLibrary } from "../shared/library-access.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
+import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import type { AudiobookLibraryRow } from "./types.js";
 
 export async function audiobookRoutesPlugin(app: FastifyInstance) {
@@ -211,6 +212,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       `).run(id);
       // shares/share_links are polymorphic too — clean them up before the cascade.
       deleteSharesForLibrary(id);
+      deleteCollectionItemsForLibrary(id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();
 

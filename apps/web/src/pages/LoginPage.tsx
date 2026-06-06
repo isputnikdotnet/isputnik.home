@@ -4,7 +4,6 @@ import { api } from "../api";
 import { Shell } from "../app/Shell";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
-import { InstallCard } from "../pwa/InstallCard";
 import { navigate } from "../router";
 
 export function LoginPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
@@ -40,8 +39,6 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
         />
         {error && <MessageBox tone="error" title="Unable to sign in">{error}</MessageBox>}
         <button className="primary-button">Sign in</button>
-
-        <InstallCard />
 
         <div className="login-qr">
           <div className="login-qr-code">

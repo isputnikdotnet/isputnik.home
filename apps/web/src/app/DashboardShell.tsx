@@ -9,6 +9,7 @@ import {
   Home,
   Image,
   Info,
+  ListMusic,
   LogOut,
   Palette,
   Settings,
@@ -18,7 +19,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { PublicUser } from "../api";
 import { isStandalone } from "../pwa/platform";
-import { followRoute, navigate } from "../router";
+import { followRoute } from "../router";
 
 type DashboardActive = "home" | "audiobooks" | "ebooks" | "about" | "profile" | "control";
 
@@ -82,6 +83,7 @@ function userMenuLinks(): UserMenuLink[] {
   return [
     { label: "Shared with me", href: "/audiobooks/shared", icon: UsersRound },
     { label: "Favorites", href: "/audiobooks/saved", icon: Heart },
+    { label: "Collections", href: "/collections", icon: ListMusic },
     // Offline downloads only exist in the installed app, so only surface the
     // Downloads screen there.
     ...(isStandalone() ? [{ label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud }] : [])
@@ -130,14 +132,6 @@ export function DashboardShell({
     };
   }, [userMenuOpen]);
 
-  const openThemeSettings = () => {
-    setUserMenuOpen(false);
-    navigate("/profile");
-    window.setTimeout(() => {
-      document.getElementById("profile-theme")?.scrollIntoView({ block: "center" });
-    }, 50);
-  };
-
   return (
     <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}`}>
       <aside className="home-sidebar" aria-label={isControlPanel ? "Control panel navigation" : "App navigation"}>
@@ -180,10 +174,18 @@ export function DashboardShell({
                     </a>
                   );
                 })}
-                <button className="home-user-menu-link" type="button" role="menuitem" onClick={openThemeSettings}>
+                <a
+                  className="home-user-menu-link"
+                  href="/theme"
+                  role="menuitem"
+                  onClick={(event) => {
+                    setUserMenuOpen(false);
+                    followRoute(event, "/theme");
+                  }}
+                >
                   <Palette size={19} aria-hidden="true" />
                   <span>Theme</span>
-                </button>
+                </a>
                 <a
                   className={`home-user-menu-link${active === "profile" ? " is-active" : ""}`}
                   href="/profile"
@@ -254,7 +256,7 @@ export function DashboardShell({
         </div>
 
         <footer className="home-footer">
-            <strong>v0.8.12</strong>
+            <strong>v0.9.0</strong>
           <span>&copy; 2026 iSputnik</span>
         </footer>
       </aside>

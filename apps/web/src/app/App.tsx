@@ -9,6 +9,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { InvitePage } from "../pages/InvitePage";
 import { HomePage } from "../pages/HomePage";
 import { ProfilePage } from "../pages/ProfilePage";
+import { ThemePage } from "../pages/ThemePage";
 import { AboutPage } from "../pages/AboutPage";
 import { AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
 import { AudiobookBookPage } from "../features/audiobooks/BookDetailPage";
@@ -16,6 +17,8 @@ import { MyListPage } from "../features/audiobooks/MyListPage";
 import { DownloadsPage } from "../features/audiobooks/DownloadsPage";
 import { SharedWithMePage } from "../features/audiobooks/SharedWithMePage";
 import { EbooksPage } from "../features/audiobooks/EbooksPage";
+import { CollectionsPage } from "../features/collections/CollectionsPage";
+import { CollectionDetailPage } from "../features/collections/CollectionDetailPage";
 import { SharePage } from "../pages/SharePage";
 import { PlayerPage } from "../features/audiobooks/PlayerPage";
 import { PersonListPage } from "../features/audiobooks/PersonListPage";
@@ -27,15 +30,24 @@ import { CategoryDetailPage } from "../features/audiobooks/CategoryDetailPage";
 import { TagDetailPage } from "../features/audiobooks/TagDetailPage";
 import { ControlPanelPage } from "../features/control/ControlPanelPage";
 
+type Theme = PublicUser["theme"];
+
+const DEFAULT_THEME_KEY = "isputnik-default-theme";
+
+function cachedDefaultTheme(): Theme {
+  try { return (localStorage.getItem(DEFAULT_THEME_KEY) as Theme | null) ?? "dark"; } catch { return "dark"; }
+}
+
 interface SessionState {
   loading: boolean;
   requiresSetup: boolean;
   user: PublicUser | null;
+  defaultTheme: Theme;
 }
 
 type SessionCheck =
   | { reachable: false }
-  | { reachable: true; requiresSetup: boolean; user: PublicUser | null };
+  | { reachable: true; requiresSetup: boolean; user: PublicUser | null; defaultTheme: Theme };
 
 // Probe the server with a hard timeout so a dead/slow network can never hang the
 // app. Distinguishes "unreachable" (offline — keep the cached identity) from
@@ -46,14 +58,15 @@ async function checkSession(): Promise<SessionCheck> {
   try {
     const setupRes = await fetch("/api/setup/status", { credentials: "include", signal: controller.signal });
     if (!setupRes.ok) return { reachable: false };
-    const setup = (await setupRes.json()) as { requiresSetup: boolean };
-    if (setup.requiresSetup) return { reachable: true, requiresSetup: true, user: null };
+    const setup = (await setupRes.json()) as { requiresSetup: boolean; defaultTheme?: Theme };
+    const defaultTheme = setup.defaultTheme ?? "dark";
+    if (setup.requiresSetup) return { reachable: true, requiresSetup: true, user: null, defaultTheme };
 
     const meRes = await fetch("/api/auth/me", { credentials: "include", signal: controller.signal });
-    if (meRes.status === 401) return { reachable: true, requiresSetup: false, user: null };
+    if (meRes.status === 401) return { reachable: true, requiresSetup: false, user: null, defaultTheme };
     if (!meRes.ok) return { reachable: false };
     const me = (await meRes.json()) as { user: PublicUser | null };
-    return { reachable: true, requiresSetup: false, user: me.user ?? null };
+    return { reachable: true, requiresSetup: false, user: me.user ?? null, defaultTheme };
   } catch {
     return { reachable: false }; // network error or timeout/abort
   } finally {
@@ -66,7 +79,8 @@ export function App() {
   const [session, setSession] = useState<SessionState>({
     loading: true,
     requiresSetup: false,
-    user: null
+    user: null,
+    defaultTheme: cachedDefaultTheme()
   });
 
   const refreshSession = useCallback(async () => {
@@ -74,32 +88,33 @@ export function App() {
     // Optimistic: if we know who you are, render the app immediately and never
     // block on the network — this is what keeps the installed app usable offline.
     if (cached) {
-      setSession({ loading: false, requiresSetup: false, user: cached });
+      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: cached }));
     }
 
     const result = await checkSession();
     if (!result.reachable) {
       // Offline / server unreachable — keep the cached identity; only fall to the
       // login screen if there's nothing cached (first-ever use on this device).
-      if (!cached) setSession({ loading: false, requiresSetup: false, user: null });
+      if (!cached) setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: null }));
       return;
     }
+    try { localStorage.setItem(DEFAULT_THEME_KEY, result.defaultTheme); } catch { /* private mode */ }
     if (result.requiresSetup) {
-      setSession({ loading: false, requiresSetup: true, user: null });
+      setSession((s) => ({ ...s, loading: false, requiresSetup: true, user: null, defaultTheme: result.defaultTheme }));
       return;
     }
     if (result.user) {
       cacheCurrentUser(result.user);
-      setSession({ loading: false, requiresSetup: false, user: result.user });
+      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: result.user, defaultTheme: result.defaultTheme }));
     } else {
       // Server reachable but not authenticated — a genuine sign-out / expiry.
       clearCachedUser();
-      setSession({ loading: false, requiresSetup: false, user: null });
+      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: null, defaultTheme: result.defaultTheme }));
     }
   }, []);
 
   useEffect(() => {
-    refreshSession().catch(() => setSession({ loading: false, requiresSetup: false, user: null }));
+    refreshSession().catch(() => setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: null })));
   }, [refreshSession]);
 
   // Keep the cached identity fresh (used for per-user storage namespacing and for
@@ -119,7 +134,9 @@ export function App() {
   }, [session.user]);
 
   useEffect(() => {
-    const preferred = session.user?.theme ?? "dark";
+    // Signed-in users use their own theme; the sign-in screen and anyone without a
+    // saved preference fall back to the admin-configured default theme.
+    const preferred = session.user?.theme ?? session.defaultTheme;
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const applyTheme = () => {
       const theme = preferred === "system" ? (mediaQuery.matches ? "plain-dark" : "plain-light") : preferred;
@@ -129,7 +146,7 @@ export function App() {
     applyTheme();
     mediaQuery.addEventListener("change", applyTheme);
     return () => mediaQuery.removeEventListener("change", applyTheme);
-  }, [session.user?.theme]);
+  }, [session.user?.theme, session.defaultTheme]);
 
   useEffect(() => {
     if (session.loading) {
@@ -210,6 +227,16 @@ export function App() {
     );
   }
 
+  if (route.name === "theme") {
+    return (
+      <ThemePage
+        user={session.user}
+        logout={logout}
+        onUpdated={(user) => setSession((current) => ({ ...current, user }))}
+      />
+    );
+  }
+
   if (route.name === "about") {
     return <AboutPage user={session.user} logout={logout} />;
   }
@@ -240,6 +267,14 @@ export function App() {
 
   if (route.name === "ebooks") {
     return <EbooksPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "collections") {
+    return <CollectionsPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "collectionDetail") {
+    return <CollectionDetailPage id={route.id} user={session.user} logout={logout} />;
   }
 
   if (route.name === "ebookBook") {

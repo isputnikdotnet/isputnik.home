@@ -6,6 +6,7 @@ import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
 import { corePlugin } from "./core/index.js";
 import { libraryPlugin } from "./modules/library/index.js";
+import { collectionsPlugin } from "./modules/collections/index.js";
 
 const app = fastify({
   logger: true,
@@ -20,6 +21,7 @@ await app.register(cookie);
 await registerAuthDecorators(app);
 await app.register(corePlugin);
 await app.register(libraryPlugin);
+await app.register(collectionsPlugin);
 
 if (config.staticPath) {
   await app.register(staticFiles, {

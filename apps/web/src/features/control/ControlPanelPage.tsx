@@ -11,6 +11,7 @@ import {
   Home,
   Image,
   ScrollText,
+  Settings,
   Tags,
   UsersRound,
   Wrench
@@ -30,6 +31,7 @@ import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSect
 import { TagsSection } from "./sections/TagsSection";
 import { GroupsSection } from "./sections/GroupsSection";
 import { JobsSection } from "./sections/JobsSection";
+import { ConfigSection } from "./sections/ConfigSection";
 
 export function ControlPanelPage({
   section,
@@ -50,6 +52,7 @@ export function ControlPanelPage({
           {section === "logs"      && <LogsSection />}
           {(section === "jobs" || section === "backup") && <MaintenanceSection section={section} />}
           {section === "status"    && <StatusSection />}
+          {section === "config"    && <ConfigSection />}
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
           {(section === "libraries" || section === "librariesStats") && <AudiobooksControl section={section} />}
@@ -73,6 +76,7 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
       <div className="home-control-group">
         <p>Application</p>
         <ControlNavLink icon={Activity} label="Status" href="/control/status" active={section === "status"} />
+        <ControlNavLink icon={Settings} label="Config" href="/control/config" active={section === "config"} />
         <ControlNavLink icon={Tags} label="Labels" href="/control/categories" active={section === "categories" || section === "tags"} />
         <ControlNavLink icon={ScrollText} label="Logs" href="/control/logs" active={section === "logs"} />
         <ControlNavLink icon={Wrench} label="Maintenance" href="/control/maintenance" active={["jobs", "backup"].includes(section)} />

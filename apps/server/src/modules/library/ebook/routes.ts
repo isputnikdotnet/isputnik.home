@@ -5,6 +5,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
+import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { validateLibrarySource } from "../audiobook/scanner.js";
 import { enqueueEbookScan, processEbookScanQueue } from "./scanner.js";
 
@@ -213,6 +214,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     db.transaction(() => {
       db.prepare("DELETE FROM taggables WHERE entity_type = 'book' AND entity_id IN (SELECT id FROM books WHERE library_id = ?)").run(id);
       deleteSharesForLibrary(id);
+      deleteCollectionItemsForLibrary(id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();
 

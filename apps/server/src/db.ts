@@ -432,6 +432,35 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_bookmarks_book ON book_bookmarks(book_id);
   CREATE INDEX IF NOT EXISTS idx_saves_user ON book_saves(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_saves_book ON book_saves(book_id);
+
+  -- User-curated collections ("playlists"). Generic across all library types and
+  -- Notes: membership is polymorphic via (entity_type, entity_id) — the same
+  -- convention as taggables/shares. Playback (continuous auto-advance) is a
+  -- player-layer behaviour applied only to time-based entity types (audiobooks),
+  -- not a property of the storage. Items reference resources by id with no FK, so
+  -- module code must remove collection_items when a resource is deleted or purged.
+  CREATE TABLE IF NOT EXISTS collections (
+    id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    description TEXT,
+    created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS collection_items (
+    id            TEXT PRIMARY KEY,
+    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    entity_type   TEXT NOT NULL,
+    entity_id     TEXT NOT NULL,
+    position      REAL NOT NULL,
+    added_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (collection_id, entity_type, entity_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_collections_user ON collections(user_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_collection_items_collection ON collection_items(collection_id, position);
+  CREATE INDEX IF NOT EXISTS idx_collection_items_entity ON collection_items(entity_type, entity_id);
 `);
 
 const usersTable = db.prepare("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'users'").get() as { sql: string } | undefined;

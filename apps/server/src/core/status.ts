@@ -336,6 +336,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.9.0",
+          label: "Collections & themes",
+          changes: [
+            "New Collections — build your own ordered lists (\"playlists\") of audiobooks. Add a book from its menu, reorder or remove items, and rename or delete a collection from its page. Collections live under the user menu.",
+            "Continuous playback — \"Play all\" walks a collection book-by-book, showing the playlist position and an \"Up next\" card, and automatically rolls into the next book when one finishes.",
+            "Collections are built on a shared, media-agnostic foundation, so future library types (ebooks, photos, video) and Notes can reuse them without rework.",
+            "Theme picker — choose your own light/dark/system look from a dedicated Theme page, and admins can set the default theme for new sign-ins from Control Panel → Config."
+          ]
+        },
+        {
           version: "0.8.12",
           label: "Polished install card",
           changes: [

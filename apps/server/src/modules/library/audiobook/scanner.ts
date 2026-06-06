@@ -7,6 +7,7 @@ import { db } from "../../../db.js";
 import { normaliseRelativePath, findStorageRootForPath } from "../shared/storage-roots.js";
 import { getConfiguredThumbnailPath, thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { deleteSharesForResource } from "../shared/share-access.js";
+import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
 import { matchCategoryId, setEntityTags } from "./categorize.js";
 
 const legacyAudioExtensions = new Set([".m4b", ".m4a", ".mp3", ".flac", ".ogg", ".opus", ".aac"]);
@@ -1165,6 +1166,7 @@ export async function scanAudiobookLibrary(libraryId: string, jobId: string | nu
         // The book is gone for users — drop its shares so links stop working and
         // owners' share lists stay accurate.
         deleteSharesForResource("audiobook", book.id);
+        deleteCollectionItemsForResource("audiobook", book.id);
       }
     }
     db.prepare(`
