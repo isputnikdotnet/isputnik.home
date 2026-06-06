@@ -1,145 +1,85 @@
-# isputnik.home
+# About the Project
 
-A private, self-hosted family audiobook & ebook library. Scan your media, browse by
-series / author / narrator / category, share with household members, and listen in a
-built-in player — installable to your phone as an offline-capable app.
+iSputnik.home is an experimental self-hosted home server project created as a personal vision of what a modern family-oriented digital hub could be. The project is heavily assisted by AI and serves as both a learning experience and an exploration of new ideas in software design, automation, and media management.
 
-## Features
+The inspiration for iSputnik.home comes from several excellent open-source projects, including Audiobookshelf, Immich, Paperless-ngx, and other self-hosted applications. Rather than replicating any single solution, the goal is to combine the best ideas from these projects into a unified platform tailored for personal and family use.
 
-- **Audiobook & ebook libraries** — folder scanning, metadata lookup, cover art, series & people.
-- **Built-in player** — chapters, bookmarks, playback speed, resume, progress tracking.
-- **Sharing & accounts** — multi-user, groups, invites, guest share links.
-- **Control panel** — libraries, users, storage, backups, maintenance jobs.
-- **Installable PWA** — add to your phone's home screen; works offline (opens to your library without re-login when there's no connection).
-- **Offline listening** — download a book to the device and play it with no connection; manage downloads and storage under the account menu → Downloads.
-- **Progress sync** — positions saved offline flush to the server on reconnect.
-- **OS media controls** — lock-screen / car / Bluetooth play, pause, skip, and scrubbing.
-- **Sign-in conveniences** — a QR code to open the app on another device, and a show/hide password toggle.
+This project represents my vision of a self-hosted home server where media, documents, books, notes, and other personal content can be organized, accessed, and shared through a simple and modern interface. While audiobooks and ebooks are currently the primary focus, the long-term goal is to expand into a broader home hub platform with additional modules and services.
 
-## Deploy with Docker
+iSputnik.home is still in its very early stages of development. Many features are experimental, designs continue to evolve, and the overall direction may change as new ideas are explored. The project should be considered a work in progress and the beginning of a much larger journey rather than a finished product.
 
-Published to GHCR as `ghcr.io/isputnikdotnet/isputnik.home`. Minimal `docker-compose.yml`:
+## Current Progress
 
-```yaml
-services:
-  isputnik:
-    image: ghcr.io/isputnikdotnet/isputnik.home:latest
-    container_name: isputnik
-    restart: unless-stopped
-    ports:
-      - "4000:4000"
-    environment:
-      APP_URL: https://isputnik.example.com   # how you reach the app
-      COOKIE_SECURE: "true"                    # "true" when served over HTTPS
-    volumes:
-      - /path/to/appdata/isputnik:/config      # database, thumbnails, metadata
-      - /path/to/library:/media:ro             # your audiobook/ebook files (read-only)
-```
+The project currently includes a functional web interface for managing audiobook and ebook libraries. Existing features include library scanning, metadata management, cover artwork, authors, narrators, series organization, categories, tags, and search capabilities.
 
-On first run, open the app and create the setup admin.
+Users can stream content directly from the browser, track listening progress, create bookmarks, adjust playback speed, and resume playback across devices. Support for multiple libraries and user accounts has also been implemented, allowing content to be organized and shared within a family environment.
 
-### Key environment variables
+Additional work has been completed on mobile-friendly interfaces, Progressive Web App (PWA) support, offline listening, progress synchronization, QR code integration, and Docker-based deployment.
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `APP_URL` | `http://127.0.0.1:5173` | Public URL of the app (CORS / cookies) |
-| `COOKIE_SECURE` | `false` | Set `true` when served over HTTPS |
-| `PORT` | `4000` | Listen port |
-| `SESSION_DAYS` | `14` | Login session lifetime |
-| `INVITE_DAYS` | `7` | Invite link lifetime |
+Development is ongoing, with active work focused on improving the user experience, modernizing the interface, expanding mobile capabilities, and building the foundation for future modules beyond audiobooks and ebooks.
 
-All persistent state lives under `/config`; media is mounted read-only under `/media`.
+## Current Features
 
-## ⚠️ HTTPS is required for the app/offline features
+### Library Management
 
-The PWA — install prompt, offline app shell, offline downloads, and media controls —
-relies on a **service worker**, which browsers only run in a **secure context**: over
-**HTTPS**, or on `localhost` / `127.0.0.1`.
+* Audiobook and ebook library support
+* Multiple library support
+* Automatic library scanning
+* Metadata extraction and management
+* Cover artwork support
+* Authors, narrators, series, publishers, and categories
+* Tags and custom organization
+* Advanced search and filtering
 
-Reaching the server by **plain HTTP on a LAN IP** (e.g. `http://192.168.1.10:4000`)
-means the service worker won't register: no install, no offline. To use these features
-over the network, put the app behind TLS — a reverse proxy (Caddy, Nginx Proxy Manager,
-Traefik), a Cloudflare Tunnel, or Tailscale HTTPS all work — then set `COOKIE_SECURE: "true"`.
+### Reading & Listening
 
-### Example: HTTPS with Caddy
+* Built-in audiobook player
+* Built-in ebook reader
+* Resume playback and reading position
+* Listening progress tracking
+* Bookmarks
+* Playback speed controls
+* Chapter navigation
+* Mark books as finished or reset progress
 
-[Caddy](https://caddyserver.com) gets you automatic TLS with almost no config. Point a
-domain at your server and use a compose file like this:
+### User Experience
 
-```yaml
-services:
-  isputnik:
-    image: ghcr.io/isputnikdotnet/isputnik.home:latest
-    container_name: isputnik
-    restart: unless-stopped
-    environment:
-      APP_URL: https://isputnik.example.com
-      COOKIE_SECURE: "true"
-    volumes:
-      - /path/to/appdata/isputnik:/config
-      - /path/to/library:/media:ro
+* Modern web interface
+* Responsive design for desktop, tablet, and mobile devices
+* Progressive Web App (PWA) support
+* QR code integration for quick access
+* Dark and light theme support
+* Customizable library views
 
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    ports:
-      - "443:443"
-      - "80:80"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
+### Multi-User Features
 
-volumes:
-  caddy_data:
-```
+* Multiple user accounts
+* User groups and permissions
+* Shared and personal libraries
+* User profiles
+* Progress tracking per user
 
-`Caddyfile`:
+### Mobile & Offline
 
-```
-isputnik.example.com {
-    reverse_proxy isputnik:4000
-}
-```
+* Installable on Android and iPhone as a PWA
+* Offline listening support
+* Download books for offline use
+* Progress synchronization after reconnecting
 
-Caddy provisions a Let's Encrypt certificate automatically. For local-only setups,
-[Tailscale HTTPS](https://tailscale.com/kb/1153/enabling-https) or a
-[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
-give you a trusted certificate without exposing a port.
+### Administration
 
-## Install on your phone
+* Docker deployment
+* Library management tools
+* User management
+* Metadata management
+* Activity logging
+* Configuration through web interface
 
-### Android (Chrome)
-1. Open the app's **HTTPS** URL in Chrome.
-2. Tap the **Install** prompt the app shows, or use Chrome's menu (**⋮ → Install app** / **Add to Home screen**).
-3. Confirm. The icon lands on your home screen and opens full-screen.
+### In Development
 
-### iPhone / iPad (Safari)
-1. Open the app's **HTTPS** URL in Safari.
-2. Tap **Share → Add to Home Screen → Add**.
-3. **Launch it from the home-screen icon** (not a Safari tab) — iOS only grants offline
-   storage and background audio to the installed app, and a regular Safari tab can evict
-   downloads after a few days.
-
-## Offline listening
-
-1. Open a book and tap **Save offline** — its chapters download into the app.
-2. Manage what's stored under **User menu → Downloads** (storage meter + remove).
-3. Play with no connection — the player streams from local storage; your position is kept
-   locally and synced to the server when you're back online.
-
-## Local development
-
-```bash
-npm install
-npm run dev        # server (4000) + web (5173) together
-npm run build      # production build of both
-npm run typecheck
-```
-
-> Note: the service worker is disabled in `vite dev`. To exercise PWA/offline behaviour
-> locally, run `npm run build` then `npm run preview --workspace apps/web`.
-
-## Releases
-
-Pushing a `vX.Y.Z` git tag triggers the GitHub Actions workflow that builds and publishes
-the Docker image to GHCR (tagged with the version and `latest`).
+* Android companion application
+* Additional home server modules
+* Document management
+* Notes and personal knowledge features
+* Enhanced mobile experience
+* External library integrations
