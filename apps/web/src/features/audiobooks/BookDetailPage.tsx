@@ -10,7 +10,8 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { useDownload } from "../../offline/useDownload";
-import { isIos, isStandalone } from "../../pwa/platform";
+import { isStandalone } from "../../pwa/platform";
+import { InstallCta } from "../../pwa/InstallCta";
 import { formatBytes, formatDuration } from "../../shared/utils";
 import type { AudiobookBookDetail, BookSave, CategorySummary, CoverCandidate, MetadataCandidate, PlaybackProgress } from "./types";
 
@@ -688,7 +689,7 @@ function BookDetailView({
               <Heart size={16} fill={save?.saved ? "currentColor" : "none"} />
               <span>{saveAction ? "Saving..." : save?.saved ? "Favorited" : "Add to Favorites"}</span>
             </button>
-            {!isEbook && book.files.some((f) => f.status === "available") && (
+            {!isEbook && isStandalone() && book.files.some((f) => f.status === "available") && (
               <button
                 className={`secondary-button${offline.record?.state === "complete" ? " offline-saved" : ""}`}
                 onClick={() => {
@@ -789,10 +790,11 @@ function BookDetailView({
               )}
             </div>
           </div>
-          {!isEbook && isIos() && !isStandalone() && book.files.some((f) => f.status === "available") && offline.record?.state !== "complete" && (
-            <p className="offline-ios-hint">
-              Add iSputnik to your Home Screen (Share → “Add to Home Screen”) so offline downloads aren’t cleared by Safari.
-            </p>
+          {!isEbook && !isStandalone() && book.files.some((f) => f.status === "available") && (
+            <InstallCta
+              title="Download for offline"
+              subtitle="Install the app to save this book and listen without a connection."
+            />
           )}
           {saveError && <MessageBox tone="error" title="Favorites error">{saveError}</MessageBox>}
           {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PublicUser } from "../api";
+import { isStandalone } from "../pwa/platform";
 import { followRoute, navigate } from "../router";
 
 type DashboardActive = "home" | "audiobooks" | "ebooks" | "about" | "profile" | "control";
@@ -81,7 +82,9 @@ function userMenuLinks(): UserMenuLink[] {
   return [
     { label: "Shared with me", href: "/audiobooks/shared", icon: UsersRound },
     { label: "Favorites", href: "/audiobooks/saved", icon: Heart },
-    { label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud }
+    // Offline downloads only exist in the installed app, so only surface the
+    // Downloads screen there.
+    ...(isStandalone() ? [{ label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud }] : [])
   ];
 }
 
@@ -251,7 +254,7 @@ export function DashboardShell({
         </div>
 
         <footer className="home-footer">
-            <strong>v0.8.9</strong>
+            <strong>v0.8.10</strong>
           <span>&copy; 2026 iSputnik</span>
         </footer>
       </aside>

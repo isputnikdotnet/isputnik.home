@@ -336,6 +336,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.8.10",
+          label: "Cleaner install & offline",
+          changes: [
+            "Added an Install button on the sign-in and profile pages — one-tap on Android/desktop, with Add-to-Home-Screen steps on iOS.",
+            "Save offline and the Downloads screen now appear only in the installed app, where offline storage is reliable; in a browser tab you'll see a prompt to install instead.",
+            "Removed the pop-up install banner in favor of the explicit buttons."
+          ]
+        },
+        {
           version: "0.8.9",
           label: "Docs & release notes",
           changes: [
