@@ -41,8 +41,16 @@
   align-content: start;
   gap: 24px;
   width: 100%;
+  min-width: 0;
   min-height: calc(100vh - 56px);
   color: var(--ink);
+}
+
+/* Grid items default to min-width:auto and refuse to shrink below their
+   content's intrinsic width — which overflows the viewport on phones. Let them
+   shrink so the page always fits the screen. */
+.audiobook-main-page > * {
+  min-width: 0;
 }
 
 .audiobook-page-header {
@@ -717,7 +725,7 @@
 @media (max-width: 1180px) {
   .audiobook-page-header {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 18px;
   }
 
@@ -752,7 +760,7 @@
   .audiobook-page-actions,
   .audiobook-page-nav-row {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
   }
 
@@ -781,7 +789,8 @@
   }
 
   .audiobook-catalog.grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(102px, 1fr));
+    gap: 16px 12px;
   }
 }
 
