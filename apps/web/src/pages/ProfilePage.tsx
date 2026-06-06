@@ -4,7 +4,7 @@ import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
-import { InstallCta } from "../pwa/InstallCta";
+import { InstallCard } from "../pwa/InstallCard";
 
 function ThemeOption({
   icon,
@@ -87,7 +87,7 @@ export function ProfilePage({
           </button>
         </form>
 
-        <InstallCta
+        <InstallCard
           title="Install the mobile app"
           subtitle="Add iSputnik to your phone's home screen to listen offline and download books for the road."
         />

@@ -71,3 +71,134 @@
 .profile-area .install-cta {
   margin-top: 20px;
 }
+
+/* ---- Polished platform-aware install card (login + profile) ---- */
+.install-card {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 14px 34px var(--shadow);
+}
+
+.profile-area .install-card {
+  margin-top: 20px;
+}
+
+.install-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+}
+
+.install-card-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  color: var(--mint);
+  background: var(--active);
+}
+
+.install-card-text strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.install-card-text span {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.install-platform-list {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.install-platform {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  overflow: hidden;
+  background: var(--field);
+}
+
+.install-platform-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 13px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.install-platform-row:not(.static):hover {
+  background: var(--hover);
+}
+
+.install-platform-row.static {
+  cursor: default;
+}
+
+.install-platform-glyph {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+}
+
+.install-platform-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 650;
+  font-size: 0.92rem;
+}
+
+.install-platform-name span {
+  display: block;
+  font-weight: 400;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.install-platform-chev {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 0.18s ease;
+}
+
+.install-platform.open .install-platform-chev {
+  transform: rotate(180deg);
+}
+
+.install-platform-steps {
+  padding: 0 15px 14px 55px;
+}
+
+.install-platform-steps ol {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+
+.install-platform-steps li {
+  margin: 5px 0;
+}
+
+.install-inline-glyph {
+  vertical-align: -3px;
+  color: var(--mint);
+}

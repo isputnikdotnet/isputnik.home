@@ -336,6 +336,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.8.12",
+          label: "Polished install card",
+          changes: [
+            "The \"Install the mobile app\" card on the sign-in and profile pages now shows platform-specific guidance with iPhone and Android options and recognizable icons — a one-tap Install on Android/Chrome, or step-by-step \"Add to Home Screen\" instructions on iOS."
+          ]
+        },
+        {
           version: "0.8.11",
           label: "Clearer install prompt",
           changes: [
