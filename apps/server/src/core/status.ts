@@ -336,6 +336,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.8.11",
+          label: "Clearer install prompt",
+          changes: [
+            "The sign-in and profile pages now always show how to install the mobile app when you're in a browser — a one-tap Install button where the browser supports it, or step-by-step \"Add to Home Screen\" guidance otherwise."
+          ]
+        },
+        {
           version: "0.8.10",
           label: "Cleaner install & offline",
           changes: [

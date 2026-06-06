@@ -88,8 +88,8 @@ export function ProfilePage({
         </form>
 
         <InstallCta
-          title="Install the app"
-          subtitle="Add iSputnik to your home screen to listen offline and download books."
+          title="Install the mobile app"
+          subtitle="Add iSputnik to your phone's home screen to listen offline and download books for the road."
         />
       </section>
     </DashboardShell>
