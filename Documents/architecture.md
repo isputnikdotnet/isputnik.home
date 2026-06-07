@@ -30,17 +30,20 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 
 ## Implementation Status
 
-**Status snapshot: June 4, 2026**
+**Status snapshot: June 7, 2026**
 
 ### Completed
 
 - React + TypeScript frontend, Node.js + Fastify + TypeScript backend, SQLite database
 - Admin setup, email/password login, cookie sessions, invite-only registration, protected routes
-- App shell: shared left navigation across primary pages, profile dropdown, light/dark/system themes
+- App shell: shared left navigation on desktop, native-style bottom navigation for phone/PWA use, profile dropdown, light/dark/system themes
 - Control panel: user/role/session management, invite links, activity logs, system status, About
-- Digital Library infrastructure: storage containers, thumbnail configuration, audiobook library registration and scan
+- Digital Library infrastructure: storage containers, thumbnail configuration, audiobook and ebook library registration and scan
 
 - Audiobook playback — resume progress, per-user position bookmarks with notes, and a saved-books "My List"
+- PWA/offline listening — installable app shell, account-aware cache cleanup, durable downloaded-book metadata, offline player/detail fallback, and reconnect progress sync
+- Ebook reading — EPUB/PDF browsing and in-app reading using the shared Digital Library foundation
+- Collections and personal navigation — user-curated lists across media types, compact mobile icon navigation, and theme/profile/downloads pages outside the bottom tab bar
 - Genre model — fixed navigation **categories** (keyword-matched per scan with English default aliases) plus global, cross-type **tags**; admins can manage category mappings, promote scanned tags into keywords, create/rename/delete tags, remove unused tags, and instantly re-match existing books
 - Special Sections — group audiobook libraries under a master sidebar entry with their books hidden from the main grid, plus per-library overwrite-on-add for Author, Narrator, Description, Category, and Tags
 - Audiobook library Phase 3 — metadata lookup, sidecar import, expandable book details, and the tabbed manual metadata editor

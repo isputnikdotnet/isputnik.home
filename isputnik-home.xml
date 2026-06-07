@@ -6,7 +6,7 @@
   <Network>bridge</Network>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
-  <Overview>Private self-hosted family audiobook app. On first run, open the web UI to create an admin account.</Overview>
+  <Overview>Private self-hosted family media library for audiobooks and ebooks, with installable PWA and offline listening support. On first run, open the web UI to create an admin account.</Overview>
   <Category>MediaApp:Music</Category>
   <WebUI>http://[IP]:[PORT:4000]/</WebUI>
   <Icon>https://raw.githubusercontent.com/isputnikdotnet/isputnik.home/main/Assets/brand/isputnik-app-icon.png</Icon>

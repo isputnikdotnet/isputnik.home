@@ -793,6 +793,44 @@
     gap: 22px;
   }
 
+  .library-nav-tabs {
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .library-nav-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .library-nav-tab {
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-color: var(--line);
+    background: color-mix(in srgb, var(--surface-raised) 72%, transparent);
+  }
+
+  .library-nav-tab span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .library-nav-tab svg {
+    width: 19px;
+    height: 19px;
+  }
+
   .audiobook-page-actions,
   .audiobook-page-nav-row {
     display: grid;

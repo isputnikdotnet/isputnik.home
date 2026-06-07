@@ -47,6 +47,20 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
+            // Public app artwork/backgrounds are too large to precache, but once
+            // seen they should remain available for installed offline launches.
+            urlPattern: ({ request, url }) =>
+              request.destination === "image" &&
+              url.origin === self.location.origin &&
+              (url.pathname.startsWith("/static/") || url.pathname.startsWith("/Assets/")),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "isputnik-static-images",
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          {
             // Cover art rarely changes — serve from cache, refresh in background.
             urlPattern: /\/api\/library\/covers\//,
             handler: "CacheFirst",

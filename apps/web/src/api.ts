@@ -18,6 +18,20 @@ interface ApiErrorPayload {
   };
 }
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+export function isAccessOrMissingApiError(error: unknown): boolean {
+  return error instanceof ApiError && [401, 403, 404].includes(error.status);
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   if (options.body != null && !headers.has("Content-Type")) {
@@ -38,7 +52,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
           .join("; ")
       : "";
     const formMessage = payload.details?.formErrors?.join("; ") ?? "";
-    throw new Error(fieldMessage || formMessage || payload.error || "Request failed");
+    throw new ApiError(fieldMessage || formMessage || payload.error || "Request failed", response.status);
   }
 
   return response.json() as Promise<T>;

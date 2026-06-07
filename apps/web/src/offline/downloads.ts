@@ -55,6 +55,7 @@ export interface DownloadRecord {
   authors: string[];
   coverUrl: string | null;
   files: DownloadFileMeta[];
+  bookDetail?: AudiobookBookDetail;
   totalBytes: number;
   downloadedBytes: number;
   state: DownloadState;
@@ -154,6 +155,92 @@ export async function deleteDownload(bookId: string): Promise<void> {
   await tx.done;
 }
 
+function detailFromDownloadRecord(record: DownloadRecord): AudiobookBookDetail {
+  if (record.bookDetail) return record.bookDetail;
+
+  const durationSeconds = record.files.every((file) => file.durationSeconds != null)
+    ? record.files.reduce((sum, file) => sum + (file.durationSeconds ?? 0), 0)
+    : null;
+
+  return {
+    id: record.bookId,
+    libraryId: "offline",
+    libraryName: "Downloaded",
+    folderPath: "",
+    status: "ready",
+    title: record.title,
+    series: null,
+    seriesPosition: null,
+    authors: record.authors,
+    narrators: [],
+    category: null,
+    tags: [],
+    language: null,
+    fileCount: record.files.length,
+    totalSize: record.totalBytes,
+    durationSeconds,
+    coverUrl: record.coverUrl,
+    coverLargeUrl: record.coverUrl,
+    publisher: null,
+    asin: null,
+    saved: false,
+    discoveredAt: record.createdAt,
+    updatedAt: record.createdAt,
+    seriesId: null,
+    description: null,
+    yearPublished: null,
+    isbn: null,
+    openLibraryId: null,
+    metadataSource: "scan",
+    files: record.files.map((file, index) => ({
+      id: file.id,
+      relativePath: file.relativePath,
+      mimeType: file.mimeType,
+      trackNumber: index + 1,
+      chapterTitle: file.chapterTitle,
+      durationSeconds: file.durationSeconds,
+      size: file.size,
+      modifiedAt: null,
+      status: "available"
+    })),
+    documents: []
+  };
+}
+
+export async function getDownloadedBookDetail(bookId: string): Promise<AudiobookBookDetail | null> {
+  const record = await getDownload(bookId);
+  if (!record || record.state !== "complete") return null;
+  return detailFromDownloadRecord(record);
+}
+
+async function responseBlobWithProgress(
+  response: Response,
+  mimeType: string,
+  onBytes: (bytes: number) => void
+): Promise<Blob> {
+  if (!response.body) throw new Error("This browser could not stream the chapter.");
+
+  if ("TransformStream" in window) {
+    const stream = response.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        onBytes(chunk.byteLength);
+        controller.enqueue(chunk);
+      }
+    }));
+    return new Response(stream, { headers: { "Content-Type": mimeType } }).blob();
+  }
+
+  const reader = response.body.getReader();
+  const chunks: BlobPart[] = [];
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    onBytes(value.byteLength);
+  }
+  return new Blob(chunks, { type: mimeType });
+}
+
 /**
  * Download every available chapter of a book into local storage, reporting
  * progress (0–1). Streams each response so progress reflects bytes received.
@@ -179,6 +266,7 @@ export async function downloadBook(
     title: book.title,
     authors: book.authors,
     coverUrl: book.coverLargeUrl ?? book.coverUrl,
+    bookDetail: book,
     files: files.map((f) => ({
       id: f.id,
       relativePath: f.relativePath,
@@ -200,17 +288,11 @@ export async function downloadBook(
       const res = await fetch(`/api/library/books/${book.id}/stream/${file.id}`, { credentials: "include" });
       if (!res.ok || !res.body) throw new Error(`Couldn't download a chapter (status ${res.status}).`);
 
-      const reader = res.body.getReader();
-      const chunks: BlobPart[] = [];
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        downloaded += value.byteLength;
+      const mimeType = file.mimeType ?? "application/octet-stream";
+      const blob = await responseBlobWithProgress(res, mimeType, (bytes) => {
+        downloaded += bytes;
         onProgress?.(totalBytes > 0 ? Math.min(downloaded / totalBytes, 0.999) : 0);
-      }
-
-      const blob = new Blob(chunks, { type: file.mimeType ?? "application/octet-stream" });
+      });
       await database.put("files", { fileId: file.id, bookId: book.id, blob });
     }
 

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { api, type PublicUser } from "../../api";
+import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
@@ -10,6 +10,7 @@ import { EpubReader } from "./EpubReader";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { getDownloadedBookDetail } from "../../offline/downloads";
 import { useDownload } from "../../offline/useDownload";
 import { isStandalone } from "../../pwa/platform";
 import { formatBytes, formatDuration } from "../../shared/utils";
@@ -36,11 +37,25 @@ export function AudiobookBookPage({
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     setBook(null);
     setError("");
-    api<{ book: AudiobookBookDetail }>(`/api/library/books/${id}`)
-      .then((payload) => setBook(payload.book))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load details"));
+    const load = async () => {
+      try {
+        const payload = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${id}`);
+        if (!cancelled) setBook(payload.book);
+      } catch (err) {
+        const fallback = isAccessOrMissingApiError(err) ? null : await getDownloadedBookDetail(id);
+        if (cancelled) return;
+        if (fallback) {
+          setBook(fallback);
+        } else {
+          setError(err instanceof Error ? err.message : "Unable to load details");
+        }
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
   }, [id]);
 
   return (
@@ -699,4 +714,3 @@ function BookDetailView({
     </div>
   );
 }
-

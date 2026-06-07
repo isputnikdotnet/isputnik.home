@@ -336,6 +336,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.10.0",
+          label: "PWA navigation & offline reliability",
+          changes: [
+            "Phone and installed-PWA navigation now uses a native-style bottom tab bar: Home, Media, Downloads, Collections, and Profile.",
+            "Media remembers whether you last used Audiobooks or Ebooks, while personal library pages keep a compact icon-only navigation strip on phones.",
+            "Offline downloads now keep enough book metadata in IndexedDB to open downloaded details and the player even after API cache entries expire.",
+            "Private runtime caches are cleared on setup reset, logout, lost auth, and account switches; public app artwork is cached separately for offline launches."
+          ]
+        },
+        {
           version: "0.9.1",
           label: "Bookmarks & quick navigation",
           changes: [

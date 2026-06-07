@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { api, type PublicUser } from "../api";
 import { cacheCurrentUser, clearCachedUser, getCachedUser } from "../offline/downloads";
 import { flushProgressQueue } from "../offline/progress";
+import { clearPrivateRuntimeCaches } from "../pwa/cache";
 import { Shell } from "./Shell";
 import { useRoute, navigate } from "../router";
 import { InstallPage } from "../pages/InstallPage";
@@ -101,14 +102,20 @@ export function App() {
     }
     try { localStorage.setItem(DEFAULT_THEME_KEY, result.defaultTheme); } catch { /* private mode */ }
     if (result.requiresSetup) {
+      await clearPrivateRuntimeCaches().catch(() => {});
+      clearCachedUser();
       setSession((s) => ({ ...s, loading: false, requiresSetup: true, user: null, defaultTheme: result.defaultTheme }));
       return;
     }
     if (result.user) {
+      if (cached && cached.id !== result.user.id) {
+        await clearPrivateRuntimeCaches().catch(() => {});
+      }
       cacheCurrentUser(result.user);
       setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: result.user, defaultTheme: result.defaultTheme }));
     } else {
       // Server reachable but not authenticated — a genuine sign-out / expiry.
+      await clearPrivateRuntimeCaches().catch(() => {});
       clearCachedUser();
       setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: null, defaultTheme: result.defaultTheme }));
     }
@@ -176,6 +183,7 @@ export function App() {
 
   const logout = async () => {
     await api("/api/auth/logout", { method: "POST", body: "{}" }).catch(() => undefined);
+    await clearPrivateRuntimeCaches().catch(() => undefined);
     clearCachedUser();
     setSession((current) => ({ ...current, user: null }));
     navigate("/login");

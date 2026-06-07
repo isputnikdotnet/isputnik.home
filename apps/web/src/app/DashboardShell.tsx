@@ -10,6 +10,7 @@ import {
   Home,
   Image,
   Info,
+  Library,
   ListMusic,
   LogOut,
   Palette,
@@ -18,9 +19,12 @@ import {
   UserRound
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import packageInfo from "../../../../package.json";
 import type { PublicUser } from "../api";
 import { isStandalone } from "../pwa/platform";
 import { followRoute } from "../router";
+
+const APP_VERSION = packageInfo.version;
 
 type DashboardActive = "home" | "audiobooks" | "ebooks" | "about" | "profile" | "control";
 
@@ -40,10 +44,33 @@ interface DisabledMainNavLink {
 
 type MainNavItem = MainNavLink | DisabledMainNavLink;
 
+interface MobileNavItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  active: boolean;
+}
+
 interface UserMenuLink {
   label: string;
   href: string;
   icon: LucideIcon;
+}
+
+const LAST_MEDIA_HREF_KEY = "isputnik-mobile-media-href";
+
+function readLastMediaHref() {
+  try {
+    return localStorage.getItem(LAST_MEDIA_HREF_KEY) === "/ebooks" ? "/ebooks" : "/audiobooks";
+  } catch {
+    return "/audiobooks";
+  }
+}
+
+function mediaHrefForPath(path: string): string | null {
+  if (path.startsWith("/ebooks")) return "/ebooks";
+  if (path.startsWith("/audiobooks") && path !== "/audiobooks/downloads") return "/audiobooks";
+  return null;
 }
 
 function DashboardNavLink({ item }: { item: MainNavItem }) {
@@ -92,6 +119,44 @@ function userMenuLinks(): UserMenuLink[] {
   ];
 }
 
+function mobileNavItems(active: DashboardActive, currentPath: string, mediaHref: string): MobileNavItem[] {
+  const downloadsActive = currentPath === "/audiobooks/downloads";
+  const collectionsActive = currentPath === "/collections" || currentPath.startsWith("/collections/");
+  const mediaActive = (
+    currentPath.startsWith("/ebooks") ||
+    (currentPath.startsWith("/audiobooks") && !downloadsActive)
+  );
+
+  return [
+    { label: "Home", href: "/", icon: Home, active: active === "home" && currentPath === "/" },
+    { label: "Media", href: mediaHref, icon: Library, active: mediaActive },
+    { label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud, active: downloadsActive },
+    { label: "Collections", href: "/collections", icon: ListMusic, active: collectionsActive },
+    { label: "Profile", href: "/profile", icon: UserRound, active: active === "profile" }
+  ];
+}
+
+function MobileBottomNav({ items }: { items: MobileNavItem[] }) {
+  return (
+    <nav className="home-mobile-nav" aria-label="Primary app tabs">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <a
+            className={`home-mobile-nav-item${item.active ? " is-active" : ""}`}
+            href={item.href}
+            key={item.label}
+            onClick={(event) => followRoute(event, item.href)}
+          >
+            <Icon size={21} aria-hidden="true" />
+            <span>{item.label}</span>
+          </a>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function DashboardShell({
   active,
   user,
@@ -109,7 +174,16 @@ export function DashboardShell({
   const mainClasses = `home-main app-dashboard-main scene-page ${isControlPanel ? "control-scene" : "sputnik-scene"}`;
   const settingsHref = user.role === "admin" && !isControlPanel ? "/control/status" : "/profile";
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mediaHref, setMediaHref] = useState(readLastMediaHref);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const currentPath = window.location.pathname;
+
+  useEffect(() => {
+    const next = mediaHrefForPath(currentPath);
+    if (!next) return;
+    setMediaHref(next);
+    try { localStorage.setItem(LAST_MEDIA_HREF_KEY, next); } catch { /* private mode */ }
+  }, [currentPath]);
 
   useEffect(() => {
     if (!userMenuOpen) {
@@ -259,7 +333,7 @@ export function DashboardShell({
         </div>
 
         <footer className="home-footer">
-            <strong>v0.9.1</strong>
+          <strong>v{APP_VERSION}</strong>
           <span>&copy; 2026 iSputnik</span>
         </footer>
       </aside>
@@ -269,6 +343,8 @@ export function DashboardShell({
           {children}
         </div>
       </section>
+
+      {!isControlPanel && <MobileBottomNav items={mobileNavItems(active, currentPath, mediaHref)} />}
     </main>
   );
 }

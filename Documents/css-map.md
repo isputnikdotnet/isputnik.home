@@ -327,7 +327,7 @@ No new classes — only overrides for existing ones.
 
 | Breakpoint | What changes |
 |---|---|
-| `≤ 740 px` (mobile) | Auth page collapses to single column (hero hidden). Sidebar moves from left rail to a fixed bottom tab bar (64 px). Control Center nav stacks vertically. Audiobook grid switches to 3 fluid columns. Multi-column admin rows (users, invites, sessions) reflow to 1–2 columns. Status grid drops to 2 columns. Library layout stacks. |
+| `≤ 740 px` (mobile) | Auth page collapses to single column (hero hidden). Standard app sidebar moves to a fixed bottom tab bar for Home, Media, Downloads, Collections, and Profile. Personal/library secondary navigation becomes an icon-only horizontal strip. Control Center nav stacks vertically. Audiobook grid switches to 3 fluid columns. Multi-column admin rows (users, invites, sessions) reflow to 1–2 columns. Status grid drops to 2 columns. Library layout stacks. |
 | `741–1040 px` (tablet) | Auth page adjusts column proportions and reduces hero font size. |
 | `741 px+ and viewport height ≤ 780 px` (short landscape) | Auth page scrolls vertically instead of fitting viewport. |
 | `≤ 430 px` (small mobile) | Auth panel padding tightens. Theme switcher buttons stack vertically. Single-column for user rows, invite rows, session rows, and status grid. Log controls stack vertically. About stack collapses to 1 column. |

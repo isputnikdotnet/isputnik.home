@@ -38,6 +38,8 @@ export function LibraryNavTabs({ active }: { active: LibraryNavKey }) {
             key={tab.key}
             className={`library-nav-tab${active === tab.key ? " is-active" : ""}`}
             href={tab.href}
+            aria-label={tab.label}
+            title={tab.label}
             onClick={(event) => followRoute(event, tab.href)}
           >
             <Icon size={17} aria-hidden="true" />

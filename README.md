@@ -14,9 +14,9 @@ The project currently includes a functional web interface for managing audiobook
 
 Users can stream content directly from the browser, track listening progress, create bookmarks, adjust playback speed, and resume playback across devices. Support for multiple libraries and user accounts has also been implemented, allowing content to be organized and shared within a family environment.
 
-Additional work has been completed on mobile-friendly interfaces, Progressive Web App (PWA) support, offline listening, progress synchronization, QR code integration, and Docker-based deployment.
+Additional work has been completed on mobile-friendly interfaces, Progressive Web App (PWA) support, phone-style bottom navigation, offline listening, progress synchronization, QR code integration, and Docker-based deployment.
 
-Development is ongoing, with active work focused on improving the user experience, modernizing the interface, expanding mobile capabilities, and building the foundation for future modules beyond audiobooks and ebooks.
+Development is ongoing, with active work focused on improving the user experience, modernizing the interface, hardening offline behavior, and building the foundation for future modules beyond audiobooks and ebooks.
 
 ## Current Features
 
@@ -47,6 +47,8 @@ Development is ongoing, with active work focused on improving the user experienc
 * Modern web interface
 * Responsive design for desktop, tablet, and mobile devices
 * Progressive Web App (PWA) support
+* Phone-style PWA bottom navigation for Home, Media, Downloads, Collections, and Profile
+* Icon-only secondary navigation for personal library, profile, downloads, collections, and theme pages on phones
 * QR code integration for quick access
 * Dark and light theme support
 * Customizable library views
@@ -64,6 +66,8 @@ Development is ongoing, with active work focused on improving the user experienc
 * Installable on Android and iPhone as a PWA
 * Offline listening support
 * Download books for offline use
+* Downloaded books keep local metadata for offline detail and player fallback
+* Private runtime caches are cleared on logout and account switches
 * Progress synchronization after reconnecting
 
 ### Administration
@@ -81,5 +85,4 @@ Development is ongoing, with active work focused on improving the user experienc
 * Additional home server modules
 * Document management
 * Notes and personal knowledge features
-* Enhanced mobile experience
 * External library integrations

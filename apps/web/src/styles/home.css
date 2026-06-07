@@ -278,6 +278,10 @@
   font-weight: 650;
 }
 
+.home-mobile-nav {
+  display: none;
+}
+
 .home-main {
   min-width: 0;
   padding: 28px clamp(22px, 3.7vw, 48px) 30px;
@@ -940,6 +944,81 @@ a.home-overview-card:focus-visible {
   .home-header {
     display: grid;
     gap: 18px;
+  }
+}
+
+@media (max-width: 740px) {
+  .app-dashboard-shell:not(.home-control-shell) .home-sidebar {
+    display: none;
+  }
+
+  .app-dashboard-shell:not(.home-control-shell) .home-main {
+    padding: 18px 14px calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .app-dashboard-shell:not(.home-control-shell) .work-area {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .home-mobile-nav {
+    position: fixed;
+    z-index: 60;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    min-height: calc(72px + env(safe-area-inset-bottom));
+    padding: 8px max(8px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
+    border-top: 1px solid color-mix(in srgb, var(--home-line) 86%, transparent);
+    background: color-mix(in srgb, var(--home-panel-raised) 94%, transparent);
+    box-shadow: 0 -14px 34px color-mix(in srgb, var(--home-shadow-color) 68%, transparent);
+    backdrop-filter: blur(18px);
+  }
+
+  .home-mobile-nav-item {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 56px;
+    border-radius: 8px;
+    color: var(--home-muted);
+    font-size: 0.67rem;
+    font-weight: 760;
+    line-height: 1;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .home-mobile-nav-item svg {
+    color: var(--home-icon);
+  }
+
+  .home-mobile-nav-item span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-mobile-nav-item:hover,
+  .home-mobile-nav-item:focus-visible {
+    color: var(--home-ink);
+    background: var(--home-soft-strong);
+    outline: 0;
+  }
+
+  .home-mobile-nav-item.is-active {
+    color: var(--home-accent-strong);
+    background: var(--home-soft);
+  }
+
+  .home-mobile-nav-item.is-active svg {
+    color: var(--home-accent);
   }
 }
 

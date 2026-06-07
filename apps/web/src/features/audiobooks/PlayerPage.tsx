@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Download, Headphones, ListMusic, Menu, RotateCcw, SkipForward, X } from "lucide-react";
-import { api } from "../../api";
+import { api, isAccessOrMissingApiError } from "../../api";
+import { getDownloadedBookDetail } from "../../offline/downloads";
 import { AudioPlayer } from "./AudioPlayer";
 import type { AudiobookBookDetail, BookSave } from "./types";
 import type { CollectionDetail } from "../collections/types";
@@ -50,21 +51,35 @@ export function PlayerPage({ id }: { id: string }) {
 
   // Load the current book (re-runs each time we advance through the queue).
   useEffect(() => {
+    let cancelled = false;
     setBook(null);
     setError("");
     setSave(null);
     setNoteEditorOpen(false);
     // Keep the address bar pointed at the book actually playing so a refresh resumes here.
     window.history.replaceState(null, "", `/player/${currentId}${collectionId ? `?collection=${collectionId}` : ""}`);
-    api<{ book: AudiobookBookDetail }>(`/api/library/books/${currentId}`)
-      .then(({ book }) => {
+    const loadBook = async () => {
+      try {
+        const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${currentId}`);
+        if (cancelled) return;
         setBook(book);
-        document.title = `${book.title} — isputnik.home`;
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load audiobook"));
+        document.title = `${book.title} - isputnik.home`;
+      } catch (err) {
+        const fallback = isAccessOrMissingApiError(err) ? null : await getDownloadedBookDetail(currentId);
+        if (cancelled) return;
+        if (fallback) {
+          setBook(fallback);
+          document.title = `${fallback.title} - isputnik.home`;
+        } else {
+          setError(err instanceof Error ? err.message : "Unable to load audiobook");
+        }
+      }
+    };
+    void loadBook();
     api<{ save: BookSave }>(`/api/library/books/${currentId}/save`)
-      .then(({ save }) => setSave(save))
+      .then(({ save }) => { if (!cancelled) setSave(save); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [currentId, collectionId]);
 
   const queueIndex = queue.findIndex((entry) => entry.entityId === currentId);
