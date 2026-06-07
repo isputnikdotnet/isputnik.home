@@ -212,6 +212,10 @@
 /* ── Profile ────────────────────────────────────────────────────── */
 
 .profile-area {
+  width: min(100%, 1040px);
+}
+
+.profile-area > :not(.library-nav-tabs) {
   width: min(100%, 660px);
 }
 
