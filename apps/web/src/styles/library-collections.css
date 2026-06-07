@@ -20,8 +20,8 @@
   border-radius: 8px;
   color: var(--mint);
   background:
-    linear-gradient(155deg, rgba(134, 228, 216, 0.2), transparent 48%),
-    linear-gradient(25deg, rgba(94, 176, 216, 0.23), transparent 58%),
+    linear-gradient(155deg, color-mix(in srgb, var(--mint) 20%, transparent), transparent 48%),
+    linear-gradient(25deg, color-mix(in srgb, var(--blue) 23%, transparent), transparent 58%),
     var(--surface);
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.34);
 }
@@ -172,7 +172,7 @@
 
 .series-position-input:focus {
   border-color: var(--mint);
-  outline: 2px solid rgba(134, 228, 216, 0.18);
+  outline: 2px solid color-mix(in srgb, var(--mint) 24%, transparent);
 }
 
 .series-book-cover {
@@ -481,8 +481,8 @@
   overflow: hidden;
   color: var(--mint);
   background:
-    linear-gradient(155deg, rgba(134, 228, 216, 0.18), transparent 46%),
-    linear-gradient(25deg, rgba(94, 176, 216, 0.22), transparent 58%),
+    linear-gradient(155deg, color-mix(in srgb, var(--mint) 18%, transparent), transparent 46%),
+    linear-gradient(25deg, color-mix(in srgb, var(--blue) 22%, transparent), transparent 58%),
     var(--surface);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.52);
 }
@@ -580,7 +580,7 @@
 
 .collection-create-row input:focus {
   border-color: var(--mint);
-  outline: 2px solid rgba(134, 228, 216, 0.18);
+  outline: 2px solid color-mix(in srgb, var(--mint) 24%, transparent);
 }
 
 .collection-card {
@@ -599,8 +599,8 @@
   overflow: hidden;
   color: var(--mint);
   background:
-    linear-gradient(155deg, rgba(134, 228, 216, 0.18), transparent 46%),
-    linear-gradient(25deg, rgba(94, 176, 216, 0.22), transparent 58%),
+    linear-gradient(155deg, color-mix(in srgb, var(--mint) 18%, transparent), transparent 46%),
+    linear-gradient(25deg, color-mix(in srgb, var(--blue) 22%, transparent), transparent 58%),
     var(--surface);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.52);
 }

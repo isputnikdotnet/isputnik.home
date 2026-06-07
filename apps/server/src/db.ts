@@ -6,7 +6,9 @@ import { config } from "./config.js";
 import { CATEGORY_SEED, ALIAS_SEED } from "./categories-seed.js";
 
 export type Role = "admin" | "member";
-export type ThemePreference = "system" | "light" | "dark" | "plain-light" | "plain-dark";
+export const THEME_PREFERENCES = ["system", "light", "dark", "plain-light", "plain-dark", "expanse"] as const;
+export type ThemePreference = (typeof THEME_PREFERENCES)[number];
+const THEME_SQL_VALUES = THEME_PREFERENCES.map((theme) => `'${theme}'`).join(", ");
 
 export interface User {
   id: string;
@@ -77,7 +79,7 @@ db.exec(`
     password_hash TEXT NOT NULL,
     display_name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
-    theme TEXT NOT NULL DEFAULT 'dark' CHECK (theme IN ('system', 'light', 'dark', 'plain-light', 'plain-dark')),
+    theme TEXT NOT NULL DEFAULT 'dark' CHECK (theme IN (${THEME_SQL_VALUES})),
     protected_from_delete INTEGER NOT NULL DEFAULT 0 CHECK (protected_from_delete IN (0, 1)),
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -464,7 +466,7 @@ db.exec(`
 `);
 
 const usersTable = db.prepare("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'users'").get() as { sql: string } | undefined;
-if (usersTable?.sql && !usersTable.sql.includes("plain-light")) {
+if (usersTable?.sql && !usersTable.sql.includes("'expanse'")) {
   db.exec(`
     PRAGMA foreign_keys = OFF;
     BEGIN TRANSACTION;
@@ -475,7 +477,7 @@ if (usersTable?.sql && !usersTable.sql.includes("plain-light")) {
       password_hash TEXT NOT NULL,
       display_name TEXT NOT NULL,
       role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
-      theme TEXT NOT NULL DEFAULT 'dark' CHECK (theme IN ('system', 'light', 'dark', 'plain-light', 'plain-dark')),
+      theme TEXT NOT NULL DEFAULT 'dark' CHECK (theme IN (${THEME_SQL_VALUES})),
       protected_from_delete INTEGER NOT NULL DEFAULT 0 CHECK (protected_from_delete IN (0, 1)),
       is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -502,7 +504,7 @@ if (usersTable?.sql && !usersTable.sql.includes("plain-light")) {
       password_hash,
       display_name,
       role,
-      theme,
+      CASE WHEN theme = 'hard-orbit' THEN 'expanse' ELSE theme END,
       protected_from_delete,
       is_active,
       created_at,

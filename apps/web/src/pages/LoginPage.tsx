@@ -42,7 +42,7 @@ export function LoginPage({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
 
         <div className="login-qr">
           <div className="login-qr-code">
-            <QRCodeSVG value={window.location.href} size={128} bgColor="#ffffff" fgColor="#0f2238" />
+            <QRCodeSVG value={window.location.href} size={128} bgColor="#ffffff" fgColor="#031116" />
           </div>
           <span>Scan to open this page on another device</span>
         </div>

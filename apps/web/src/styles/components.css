@@ -36,7 +36,7 @@
 .invite-box input:focus,
 .invite-link input:focus {
   border-color: var(--mint);
-  outline: 3px solid rgba(134, 228, 216, 0.18);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
 }
 
 .field textarea {
@@ -101,7 +101,7 @@
   min-height: 44px;
   padding: 0 16px;
   border-radius: 7px;
-  color: #102238;
+  color: #031116;
   background: var(--gold);
   font-weight: 760;
 }
@@ -214,14 +214,14 @@
 
 .message-box.info {
   color: var(--blue);
-  border-color: rgba(94, 176, 216, 0.3);
-  background: rgba(47, 103, 145, 0.15);
+  border-color: color-mix(in srgb, var(--blue) 32%, transparent);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
 }
 
 .message-box.warning {
   color: var(--amber);
-  border-color: rgba(245, 159, 90, 0.3);
-  background: rgba(245, 159, 90, 0.13);
+  border-color: color-mix(in srgb, var(--amber) 32%, transparent);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
 }
 
 .message-box.error {
@@ -232,8 +232,8 @@
 
 .message-box.success {
   color: var(--success);
-  border-color: rgba(134, 228, 216, 0.28);
-  background: rgba(134, 228, 216, 0.1);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
 }
 
 .status {
@@ -753,7 +753,7 @@
 
 .invite-status.expired {
   color: var(--amber);
-  background: rgba(245, 159, 90, 0.13);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
 }
 
 .invite-status.used {
@@ -791,7 +791,7 @@
 
 .people-combobox-input-area:focus-within {
   border-color: var(--mint);
-  outline: 3px solid rgba(134, 228, 216, 0.18);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
 }
 
 .people-chip {

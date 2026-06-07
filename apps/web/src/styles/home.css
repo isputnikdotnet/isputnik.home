@@ -808,7 +808,7 @@ a.home-overview-card:focus-visible {
 
 .home-cover-summer {
   background-image:
-    linear-gradient(135deg, rgba(33, 150, 197, 0.16), rgba(245, 159, 90, 0.14)),
+    linear-gradient(135deg, color-mix(in srgb, var(--home-blue) 16%, transparent), color-mix(in srgb, var(--home-amber) 14%, transparent)),
     url("/Assets/categories/kids-teens-v1.png");
 }
 

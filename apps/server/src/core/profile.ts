@@ -1,11 +1,11 @@
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
-import { db, logActivity, publicUser, type User } from "../db.js";
+import { db, logActivity, publicUser, THEME_PREFERENCES, type User } from "../db.js";
 import { parseBody } from "./shared.js";
 
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
-  theme: z.enum(["system", "light", "dark", "plain-light", "plain-dark"])
+  theme: z.enum(THEME_PREFERENCES)
 });
 
 export async function profilePlugin(app: FastifyInstance) {

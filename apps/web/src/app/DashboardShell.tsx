@@ -104,6 +104,7 @@ export function DashboardShell({
   children: ReactNode;
 }) {
   const isControlPanel = active === "control";
+  const mainClasses = `home-main app-dashboard-main scene-page ${isControlPanel ? "control-scene" : "sputnik-scene"}`;
   const settingsHref = user.role === "admin" && !isControlPanel ? "/control/status" : "/profile";
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -261,7 +262,7 @@ export function DashboardShell({
         </footer>
       </aside>
 
-      <section className="home-main app-dashboard-main">
+      <section className={mainClasses}>
         <div className="dashboard-main">
           {children}
         </div>

@@ -14,7 +14,7 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  color: #102238;
+  color: #031116;
   background: var(--gold);
 }
 
@@ -32,6 +32,10 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
+}
+
+.home-main.scene-page {
+  min-height: 100vh;
 }
 
 .scene-page::before {
@@ -67,18 +71,16 @@
   background-image: url("../assets/backgrounds/retro-space-sputnik-scene-v1.png");
 }
 
-.audiobook-scene::before {
-  background-image: url("../assets/backgrounds/retro-space-audiobook-quiet-orbit-v1.png");
+.control-scene::before {
+  background-image: url("../assets/backgrounds/retro-space-background-v1.png");
 }
 
-/* Scene pages live inside .home-main, whose vertical padding (28px top + 30px
-   bottom) is the only chrome between them and the viewport — there is no longer
-   a 68px app header. Subtract that padding so the scene fills the page. */
+:root[data-theme="expanse"] .sputnik-scene::before {
+  background-image: url("../assets/backgrounds/expanse-belt-station-v1.png");
+}
 
-.about-scene,
-.audiobook-scene {
-  min-height: calc(100vh - 58px);
-  width: 100%;
+:root[data-theme="expanse"] .control-scene::before {
+  background-image: url("../assets/backgrounds/expanse-mars-drydock-v1.png");
 }
 
 .control-panel {

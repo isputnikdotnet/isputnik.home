@@ -1,6 +1,12 @@
 /* ── Control panel primary buttons ──────────────────────────────── */
 
-:root[data-theme="light"] .control-work,
+:root[data-theme="light"] .control-work {
+  --control-primary-button: #a85635;
+  --control-primary-button-hover: #93482e;
+  --control-primary-button-ink: #ffffff;
+  --control-primary-button-shadow: rgba(168, 86, 53, 0.18);
+}
+
 :root[data-theme="plain-light"] .control-work {
   --control-primary-button: #7c3aed;
   --control-primary-button-hover: #6d28d9;
@@ -278,7 +284,7 @@
 
 .setting-status.needs-attention {
   color: var(--amber);
-  background: rgba(245, 159, 90, 0.13);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
 }
 
 .storage-section {

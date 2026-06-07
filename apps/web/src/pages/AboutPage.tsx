@@ -16,7 +16,7 @@ export function AboutPage({ user, logout }: { user: PublicUser; logout: () => Pr
 
   return (
     <DashboardShell active="about" user={user} logout={logout}>
-      <section className="work-area scene-page sputnik-scene about-scene about-area">
+      <section className="work-area about-area">
         <p className="eyebrow">Application</p>
         <h1>About</h1>
         {error && <MessageBox tone="error" title="About error">{error}</MessageBox>}

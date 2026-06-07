@@ -80,7 +80,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
 
   return (
     <DashboardShell active="ebooks" user={user} logout={logout}>
-      <section className="work-area scene-page audiobook-scene audiobook-area">
+      <section className="work-area audiobook-area">
         <div className="section-head audiobook-head">
           <div>
             <p className="eyebrow">Digital Library</p>

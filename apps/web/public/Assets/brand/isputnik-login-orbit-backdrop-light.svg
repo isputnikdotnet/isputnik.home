@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">iSputnik login orbit backdrop for light themes</title>
+  <desc id="desc">A text-free retro space backdrop with Earth, Sputnik, stars, and orbit trails.</desc>
+  <defs>
+    <radialGradient id="earth" cx="42%" cy="34%" r="69%">
+      <stop offset="0" stop-color="#b7efe0"/>
+      <stop offset="0.52" stop-color="#4d9ca0"/>
+      <stop offset="1" stop-color="#18344d"/>
+    </radialGradient>
+    <linearGradient id="land" x1="124" y1="112" x2="354" y2="354" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f7e3a4"/>
+      <stop offset="1" stop-color="#d77b4b"/>
+    </linearGradient>
+    <linearGradient id="orbit" x1="56" y1="210" x2="470" y2="344" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8ed4c6"/>
+      <stop offset="0.54" stop-color="#f8e4a5"/>
+      <stop offset="1" stop-color="#d4573c"/>
+    </linearGradient>
+    <linearGradient id="satellite" x1="360" y1="118" x2="452" y2="206" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff0bd"/>
+      <stop offset="1" stop-color="#d95b3d"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="24" stdDeviation="22" flood-color="#050b15" flood-opacity="0.34"/>
+    </filter>
+    <clipPath id="earthClip">
+      <circle cx="246" cy="278" r="122"/>
+    </clipPath>
+  </defs>
+
+  <path d="M0 640c201-94 426-140 676-138 305 2 555-73 764-225" fill="none" stroke="#f8e4a5" stroke-width="2" opacity="0.22"/>
+  <path d="M0 708c223-76 451-107 684-92 279 19 531-20 756-116" fill="none" stroke="#8ed4c6" stroke-width="2" opacity="0.16"/>
+  <path d="M0 430c182-104 390-152 624-143 305 11 577-35 816-137" fill="none" stroke="#f8e4a5" stroke-width="1.6" opacity="0.15"/>
+
+  <g transform="translate(126 258)" filter="url(#shadow)">
+    <ellipse cx="246" cy="278" rx="204" ry="76" fill="none" stroke="#87cfc4" stroke-width="34" stroke-linecap="round" opacity="0.38" transform="rotate(-18 246 278)"/>
+    <ellipse cx="246" cy="278" rx="204" ry="76" fill="none" stroke="url(#orbit)" stroke-width="19" stroke-linecap="round" transform="rotate(-18 246 278)"/>
+
+    <circle cx="246" cy="278" r="122" fill="url(#earth)"/>
+    <g clip-path="url(#earthClip)">
+      <path d="M142 224c45-31 88-36 130-14 23 12 44 14 65 6 17-7 31-6 42 5 12 12 12 28 0 46-19 29-54 42-104 39-40-3-71 9-91 36-17 22-36 27-58 17-21-11-29-31-24-60 5-31 19-56 40-75Z" fill="url(#land)" opacity="0.9"/>
+      <path d="M201 156c24 9 45 24 61 43 14 16 12 31-5 43-17 12-39 11-66-2-25-12-39-29-42-52-2-18 15-29 52-32Z" fill="#f8e4a5" opacity="0.72"/>
+      <path d="M300 330c40-10 71-4 92 19 17 18 12 37-15 54-34 22-74 24-120 7-26-10-33-26-20-48 11-16 32-27 63-32Z" fill="#d77b4b" opacity="0.74"/>
+      <path d="M120 278c70 23 151 23 244 2" fill="none" stroke="#f8e4a5" stroke-width="4" opacity="0.22"/>
+      <path d="M246 156c-25 64-27 146-4 244" fill="none" stroke="#f8e4a5" stroke-width="4" opacity="0.18"/>
+    </g>
+    <circle cx="246" cy="278" r="122" fill="none" stroke="#f8e4a5" stroke-width="7" opacity="0.6"/>
+
+    <g transform="translate(404 143) rotate(-18)">
+      <circle cx="0" cy="0" r="35" fill="url(#satellite)"/>
+      <circle cx="0" cy="0" r="12" fill="#1b3a4f" opacity="0.24"/>
+      <path d="M-31 17-99 76M-16 31-54 116M17 30l47 92M31 15l108 36" fill="none" stroke="#f8e4a5" stroke-width="7" stroke-linecap="round"/>
+      <path d="M41-7c30-11 64-11 99 0" fill="none" stroke="#f8e4a5" stroke-width="5" stroke-linecap="round" opacity="0.86"/>
+    </g>
+  </g>
+
+  <g fill="#fff0bd" opacity="0.86">
+    <path d="m198 140 9 20 21 3-16 14 5 21-19-11-19 11 5-21-16-14 21-3Z"/>
+    <path d="m1125 154 11 24 26 3-19 17 6 26-24-14-23 14 6-26-20-17 26-3Z"/>
+    <path d="m1210 612 7 16 17 2-13 12 4 17-15-9-15 9 4-17-13-12 17-2Z"/>
+    <circle cx="975" cy="128" r="6"/>
+    <circle cx="1274" cy="322" r="4"/>
+    <circle cx="1098" cy="712" r="5"/>
+    <circle cx="312" cy="748" r="5"/>
+  </g>
+</svg>

@@ -1,42 +1,62 @@
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ink: #f6f4ee;
-  --muted: #c2cfca;
-  --line: rgba(255, 255, 255, 0.14);
-  --canvas: #0f2238;
-  --surface: #183a54;
-  --surface-raised: #214c5a;
-  --field: #102b42;
-  --hover: rgba(142, 212, 198, 0.11);
-  --active: rgba(142, 212, 198, 0.19);
-  --mint: #8ed4c6;
-  --gold: #fff0bd;
-  --amber: #d95b3d;
-  --rose: #ff9aa9;
-  --blue: #8acbe8;
-  --success: #86e4d8;
-  --shadow: rgba(3, 12, 21, 0.3);
+  --ink: #f4ead8;
+  --muted: #b8b5a1;
+  --line: rgba(232, 201, 142, 0.16);
+  --canvas: #031116;
+  --surface: #0d252c;
+  --surface-raised: #153640;
+  --field: #071b22;
+  --hover: rgba(191, 151, 92, 0.13);
+  --active: rgba(151, 184, 170, 0.2);
+  --mint: #9bbcaf;
+  --gold: #e8c98e;
+  --amber: #b85a36;
+  --rose: #d58a7d;
+  --blue: #8eb4bf;
+  --success: #90bd99;
+  --shadow: rgba(0, 7, 9, 0.42);
+}
+
+:root[data-theme="expanse"] {
+  color-scheme: dark;
+  --ink: #edf2f4;
+  --muted: #9fa9ad;
+  --line: rgba(164, 183, 188, 0.16);
+  --canvas: #04080c;
+  --surface: #0c141a;
+  --surface-raised: #141f27;
+  --field: #080d12;
+  --hover: rgba(221, 143, 66, 0.13);
+  --active: rgba(69, 190, 210, 0.18);
+  --mint: #45bed2;
+  --gold: #df9a55;
+  --amber: #c76638;
+  --rose: #d36c5f;
+  --blue: #7aa7c8;
+  --success: #7ecf90;
+  --shadow: rgba(0, 0, 0, 0.48);
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --ink: #0f2238;
-  --muted: #596c6d;
-  --line: rgba(15, 34, 56, 0.14);
-  --canvas: #f7f0df;
-  --surface: #fffaf0;
+  --ink: #17292b;
+  --muted: #68736b;
+  --line: rgba(42, 55, 48, 0.15);
+  --canvas: #eef1e7;
+  --surface: #fff9ee;
   --surface-raised: #ffffff;
-  --field: #ffffff;
-  --hover: #edf5ef;
-  --active: #ddefe9;
-  --mint: #2d746f;
-  --gold: #d7a04e;
-  --amber: #b74b35;
-  --rose: #b23b52;
-  --blue: #2f6791;
-  --success: #24725c;
-  --shadow: rgba(16, 34, 56, 0.12);
+  --field: #fffdf7;
+  --hover: #e9e5d6;
+  --active: #ddd8c6;
+  --mint: #3f716a;
+  --gold: #b88746;
+  --amber: #a85635;
+  --rose: #a94e48;
+  --blue: #496f76;
+  --success: #47715a;
+  --shadow: rgba(31, 35, 24, 0.13);
 }
 
 :root[data-theme="plain-dark"] {

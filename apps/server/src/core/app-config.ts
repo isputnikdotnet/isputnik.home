@@ -1,12 +1,11 @@
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
-import { db, logActivity, type ThemePreference } from "../db.js";
+import { db, logActivity, THEME_PREFERENCES, type ThemePreference } from "../db.js";
 import { parseBody } from "./shared.js";
 
 export const DEFAULT_THEME_KEY = "default_theme";
 
-const THEMES = ["system", "light", "dark", "plain-light", "plain-dark"] as const;
-const configSchema = z.object({ defaultTheme: z.enum(THEMES) });
+const configSchema = z.object({ defaultTheme: z.enum(THEME_PREFERENCES) });
 
 /** App-wide default theme used for the sign-in screen and new accounts. */
 export function getDefaultTheme(): ThemePreference {
@@ -14,7 +13,8 @@ export function getDefaultTheme(): ThemePreference {
     | { value: string }
     | undefined;
   const value = row?.value ?? "";
-  return (THEMES as readonly string[]).includes(value) ? (value as ThemePreference) : "dark";
+  if (value === "hard-orbit") return "expanse";
+  return (THEME_PREFERENCES as readonly string[]).includes(value) ? (value as ThemePreference) : "dark";
 }
 
 export async function appConfigPlugin(app: FastifyInstance) {

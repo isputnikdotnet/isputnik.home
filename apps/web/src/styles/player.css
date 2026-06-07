@@ -1,19 +1,19 @@
 .audio-player {
-  --player-panel-a: rgba(13, 28, 44, 0.96);
-  --player-panel-b: rgba(20, 44, 63, 0.92);
-  --player-panel-soft: rgba(7, 18, 31, 0.54);
-  --player-panel-muted: rgba(7, 18, 31, 0.42);
-  --player-field: rgba(17, 42, 64, 0.86);
-  --player-field-soft: rgba(17, 42, 64, 0.52);
-  --player-field-active: rgba(17, 42, 64, 0.72);
-  --player-track: rgba(5, 15, 27, 0.72);
-  --player-track-strong: rgba(5, 15, 27, 0.76);
+  --player-panel-a: rgba(9, 25, 30, 0.96);
+  --player-panel-b: rgba(15, 42, 48, 0.92);
+  --player-panel-soft: rgba(3, 17, 22, 0.54);
+  --player-panel-muted: rgba(3, 17, 22, 0.42);
+  --player-field: rgba(7, 27, 34, 0.86);
+  --player-field-soft: rgba(7, 27, 34, 0.52);
+  --player-field-active: rgba(7, 27, 34, 0.72);
+  --player-track: rgba(2, 12, 15, 0.72);
+  --player-track-strong: rgba(2, 12, 15, 0.76);
   --player-grid: rgba(255, 255, 255, 0.04);
   --player-line-soft: rgba(255, 255, 255, 0.09);
   --player-line-faint: rgba(255, 255, 255, 0.075);
   --player-shadow: rgba(2, 10, 19, 0.28);
-  --player-thumb-ring: #102238;
-  --player-primary-ink: #102238;
+  --player-thumb-ring: #031116;
+  --player-primary-ink: #031116;
   --player-primary-start: var(--gold);
   --player-primary-end: var(--amber);
   --player-primary-hover-start: color-mix(in srgb, var(--gold) 78%, white);
@@ -21,27 +21,50 @@
   --player-primary-glow: color-mix(in srgb, var(--amber) 24%, transparent);
 }
 
+:root[data-theme="expanse"] .audio-player {
+  --player-panel-a: rgba(8, 13, 18, 0.97);
+  --player-panel-b: rgba(20, 31, 39, 0.93);
+  --player-panel-soft: rgba(4, 8, 12, 0.6);
+  --player-panel-muted: rgba(4, 8, 12, 0.46);
+  --player-field: rgba(8, 13, 18, 0.9);
+  --player-field-soft: rgba(20, 31, 39, 0.58);
+  --player-field-active: rgba(69, 190, 210, 0.18);
+  --player-track: rgba(0, 0, 0, 0.62);
+  --player-track-strong: rgba(0, 0, 0, 0.72);
+  --player-grid: rgba(237, 242, 244, 0.035);
+  --player-line-soft: rgba(237, 242, 244, 0.1);
+  --player-line-faint: rgba(237, 242, 244, 0.075);
+  --player-shadow: rgba(0, 0, 0, 0.36);
+  --player-thumb-ring: #04080c;
+  --player-primary-ink: #04080c;
+  --player-primary-start: var(--gold);
+  --player-primary-end: var(--amber);
+  --player-primary-hover-start: color-mix(in srgb, var(--gold) 78%, white);
+  --player-primary-ring: color-mix(in srgb, var(--gold) 16%, transparent);
+  --player-primary-glow: color-mix(in srgb, var(--amber) 28%, transparent);
+}
+
 :root[data-theme="light"] .audio-player {
-  --player-panel-a: rgba(255, 252, 242, 0.94);
-  --player-panel-b: rgba(235, 244, 238, 0.9);
+  --player-panel-a: rgba(255, 249, 238, 0.94);
+  --player-panel-b: rgba(232, 238, 224, 0.9);
   --player-panel-soft: rgba(255, 255, 255, 0.76);
   --player-panel-muted: rgba(255, 255, 255, 0.64);
   --player-field: rgba(255, 255, 255, 0.92);
   --player-field-soft: rgba(255, 255, 255, 0.74);
-  --player-field-active: rgba(255, 246, 218, 0.88);
-  --player-track: rgba(16, 34, 56, 0.13);
-  --player-track-strong: rgba(16, 34, 56, 0.17);
-  --player-grid: rgba(16, 34, 56, 0.055);
-  --player-line-soft: rgba(16, 34, 56, 0.12);
-  --player-line-faint: rgba(16, 34, 56, 0.1);
-  --player-shadow: rgba(16, 34, 56, 0.13);
+  --player-field-active: rgba(243, 232, 202, 0.88);
+  --player-track: rgba(23, 41, 43, 0.13);
+  --player-track-strong: rgba(23, 41, 43, 0.17);
+  --player-grid: rgba(23, 41, 43, 0.055);
+  --player-line-soft: rgba(23, 41, 43, 0.12);
+  --player-line-faint: rgba(23, 41, 43, 0.1);
+  --player-shadow: rgba(31, 35, 24, 0.13);
   --player-thumb-ring: #ffffff;
-  --player-primary-ink: #102238;
-  --player-primary-start: #f3c75f;
-  --player-primary-end: #c96a34;
-  --player-primary-hover-start: #ffe39a;
-  --player-primary-ring: rgba(243, 199, 95, 0.18);
-  --player-primary-glow: rgba(201, 106, 52, 0.24);
+  --player-primary-ink: #031116;
+  --player-primary-start: var(--gold);
+  --player-primary-end: var(--amber);
+  --player-primary-hover-start: color-mix(in srgb, var(--gold) 76%, white);
+  --player-primary-ring: color-mix(in srgb, var(--gold) 18%, transparent);
+  --player-primary-glow: color-mix(in srgb, var(--amber) 24%, transparent);
 }
 
 :root[data-theme="plain-dark"] .audio-player {
@@ -923,7 +946,7 @@
   height: 60px;
   border: none;
   border-radius: 999px;
-  color: #102238;
+  color: #031116;
   background: var(--mint);
   box-shadow: 0 6px 20px color-mix(in srgb, var(--mint) 36%, transparent);
 }
@@ -1021,7 +1044,7 @@
 
 :root[data-theme="light"] .player-aux--popup,
 :root[data-theme="plain-light"] .player-aux--popup {
-  border-color: rgba(16, 34, 56, 0.1);
+  border-color: color-mix(in srgb, var(--ink) 10%, transparent);
 }
 
 /* Phone player (opened as a full tab on mobile): enlarge the cover so the
