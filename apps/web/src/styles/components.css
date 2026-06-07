@@ -116,6 +116,28 @@
   background: #6d28d9;
 }
 
+/* Mint-accented variant of the primary button, for actions that should read as
+   distinct from the default gold call-to-action (e.g. bulk "Add to series"). */
+.primary-button.accent-mint {
+  color: #03110f;
+  background: var(--mint);
+}
+
+.primary-button.accent-mint:hover:not(:disabled),
+.primary-button.accent-mint:focus-visible {
+  background: color-mix(in srgb, var(--mint) 86%, #000);
+}
+
+:root[data-theme="plain-light"] .primary-button.accent-mint:not(.danger) {
+  color: #03110f;
+  background: var(--mint);
+}
+
+:root[data-theme="plain-light"] .primary-button.accent-mint:not(.danger):hover:not(:disabled),
+:root[data-theme="plain-light"] .primary-button.accent-mint:not(.danger):focus-visible {
+  background: color-mix(in srgb, var(--mint) 86%, #000);
+}
+
 .primary-button:disabled {
   cursor: not-allowed;
   opacity: 0.7;

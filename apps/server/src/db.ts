@@ -535,6 +535,9 @@ const seriesColumns = db.prepare("PRAGMA table_info(series)").all() as { name: s
 if (!seriesColumns.some((column) => column.name === "description")) {
   db.exec("ALTER TABLE series ADD COLUMN description TEXT");
 }
+if (!seriesColumns.some((column) => column.name === "cover_storage_key")) {
+  db.exec("ALTER TABLE series ADD COLUMN cover_storage_key TEXT");
+}
 
 const libraryColumns = db.prepare("PRAGMA table_info(libraries)").all() as { name: string }[];
 if (!libraryColumns.some((column) => column.name === "owner_id")) {

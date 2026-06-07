@@ -154,6 +154,7 @@ export interface SeriesDetail {
   id: string;
   name: string;
   description: string | null;
+  coverUrl: string | null;
   libraryId: string;
   libraryName: string;
   books: {

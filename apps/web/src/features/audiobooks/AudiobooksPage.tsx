@@ -13,7 +13,7 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatDuration } from "../../shared/utils";
 import { Field } from "../../shared/Field";
-import type { AudiobookBook, AudiobookBookDetail, AudiobookLibrary, CategorySummary } from "./types";
+import type { AudiobookBook, AudiobookBookDetail, AudiobookLibrary, CategorySummary, SeriesSummary } from "./types";
 
 
 type AudiobookViewMode = "grid" | "list";
@@ -519,6 +519,130 @@ function BulkEditModal({
   );
 }
 
+// Bulk "Add to series": pick an existing series in the current library or create
+// a new one on the spot. Selected books are appended after the series' current
+// last position (the server handles ordering).
+function AddToSeriesModal({
+  libraryId,
+  count,
+  onClose,
+  onSubmit
+}: {
+  libraryId: string;
+  count: number;
+  onClose: () => void;
+  onSubmit: (target: { seriesId: string } | { newName: string }) => Promise<void>;
+}) {
+  const [series, setSeries] = useState<SeriesSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [seriesId, setSeriesId] = useState("");
+  const [newName, setNewName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    api<{ series: SeriesSummary[] }>(`/api/library/audiobook-libraries/${libraryId}/series`)
+      .then((payload) => {
+        setSeries(payload.series);
+        if (payload.series.length === 0) setMode("new");
+      })
+      .catch(() => setSeries([]))
+      .finally(() => setLoading(false));
+  }, [libraryId]);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const target = mode === "new"
+      ? (newName.trim() ? { newName: newName.trim() } : null)
+      : (seriesId ? { seriesId } : null);
+    if (!target) {
+      setError(mode === "new" ? "Enter a name for the new series." : "Choose a series.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await onSubmit(target);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to add to series");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onMouseDown={() => !saving && onClose()}>
+      <form
+        className="confirm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-series-title"
+        style={{ width: "min(100%, 480px)" }}
+        onSubmit={submit}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div>
+          <h2 id="add-series-title">Add {count} {count === 1 ? "book" : "books"} to series</h2>
+          <p className="muted">Selected books are appended to the end of the series. You can fine-tune the order afterwards on the series page.</p>
+        </div>
+
+        {loading ? (
+          <p className="management-empty">Loading series…</p>
+        ) : (
+          <>
+            {series.length > 0 && (
+              <div className="field" style={{ marginBottom: 12 }}>
+                <span>Series</span>
+                <select
+                  value={mode === "existing" ? seriesId : "__new__"}
+                  onChange={(event) => {
+                    if (event.target.value === "__new__") {
+                      setMode("new");
+                    } else {
+                      setMode("existing");
+                      setSeriesId(event.target.value);
+                    }
+                  }}
+                >
+                  <option value="">Choose a series…</option>
+                  {series.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name} ({item.bookCount})</option>
+                  ))}
+                  <option value="__new__">+ Create new series…</option>
+                </select>
+              </div>
+            )}
+
+            {mode === "new" && (
+              <div className="field" style={{ marginBottom: 12 }}>
+                <span>New series name</span>
+                <input
+                  autoFocus
+                  value={newName}
+                  onChange={(event) => setNewName(event.target.value)}
+                  placeholder="e.g. The Stormlight Archive"
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {error && <MessageBox tone="error" title="Unable to add">{error}</MessageBox>}
+
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button className="primary-button" type="submit" disabled={saving || loading}>
+            {saving ? "Adding…" : "Add to series"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export function AudiobooksPage({
   user,
   logout
@@ -540,6 +664,7 @@ export function AudiobooksPage({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [seriesModalOpen, setSeriesModalOpen] = useState(false);
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [bulkNotice, setBulkNotice] = useState("");
   // Per-tile actions that need page-level UI.
@@ -573,6 +698,33 @@ export function AudiobooksPage({
     setSelectionMode(false);
     setSelectedIds(new Set());
     setBulkOpen(false);
+    setSeriesModalOpen(false);
+  };
+
+  // Series live in a single library, so bulk "Add to series" is only offered
+  // when the catalog is scoped to one library (not the "All Libraries" view).
+  const canAddToSeries = canEditScope && selectedLibraryId !== "all";
+
+  const submitAddToSeries = async (target: { seriesId: string } | { newName: string }) => {
+    let seriesId: string;
+    if ("seriesId" in target) {
+      seriesId = target.seriesId;
+    } else {
+      const created = await api<{ series: { id: string } }>(
+        `/api/library/audiobook-libraries/${selectedLibraryId}/series`,
+        { method: "POST", body: JSON.stringify({ name: target.newName }) }
+      );
+      seriesId = created.series.id;
+    }
+    const result = await api<{ added: number; skipped: number }>(
+      `/api/library/series/${seriesId}/books`,
+      { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
+    );
+    const parts = [`Added ${result.added} ${result.added === 1 ? "book" : "books"} to series`];
+    if (result.skipped > 0) parts.push(`${result.skipped} already in series or skipped`);
+    setBulkNotice(parts.join(" · "));
+    cat.refresh();
+    exitSelection();
   };
 
   // Drop selection when the scope changes or selection is disallowed.
@@ -781,6 +933,16 @@ export function AudiobooksPage({
                   >
                     Edit metadata
                   </button>
+                  {canAddToSeries && (
+                    <button
+                      type="button"
+                      className="primary-button compact-button accent-mint"
+                      onClick={() => setSeriesModalOpen(true)}
+                      disabled={selectedIds.size === 0}
+                    >
+                      <Library size={15} aria-hidden="true" /> Add to series
+                    </button>
+                  )}
                   <button type="button" className="icon-button" onClick={exitSelection} aria-label="Cancel selection">
                     <X size={16} aria-hidden="true" />
                   </button>
@@ -826,6 +988,15 @@ export function AudiobooksPage({
             tagSuggestions={cat.facets.tags}
             onClose={() => setBulkOpen(false)}
             onSubmit={submitBulk}
+          />
+        )}
+
+        {seriesModalOpen && selectedLibraryId !== "all" && (
+          <AddToSeriesModal
+            libraryId={selectedLibraryId}
+            count={selectedIds.size}
+            onClose={() => setSeriesModalOpen(false)}
+            onSubmit={submitAddToSeries}
           />
         )}
 

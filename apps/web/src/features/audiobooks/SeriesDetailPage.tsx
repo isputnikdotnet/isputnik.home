@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, BookOpen, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Pencil, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { getReferrer, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import type { AudiobookBook, SeriesDetail } from "./types";
-
-const backTarget = () => getReferrer() ?? "/audiobooks";
-const backLabel = () => (getReferrer() ? "Back" : "Back to audiobooks");
 
 interface EditableBook {
   id: string;
@@ -41,6 +38,13 @@ export function SeriesDetailPage({
   const [editDescription, setEditDescription] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [removeCover, setRemoveCover] = useState(false);
+
+  useEffect(() => () => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+  }, [coverPreview]);
 
   useEffect(() => {
     setError("");
@@ -63,6 +67,7 @@ export function SeriesDetailPage({
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load series"));
   }, [seriesId]);
 
+  const backTo = getReferrer();
   const currentIds = new Set(books.map((b) => b.id));
   const availableBooks = libraryBooks.filter((b) => !currentIds.has(b.id));
 
@@ -124,9 +129,27 @@ export function SeriesDetailPage({
     }
   };
 
+  const chooseCover = (file: File) => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
+    setRemoveCover(false);
+  };
+
+  const clearCover = () => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    setCoverFile(null);
+    setCoverPreview(null);
+    setRemoveCover(true);
+  };
+
   const openEditModal = () => {
     setEditName(series?.name ?? "");
     setEditDescription(series?.description ?? "");
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    setCoverFile(null);
+    setCoverPreview(null);
+    setRemoveCover(false);
     setEditError("");
     setEditModalOpen(true);
   };
@@ -140,7 +163,30 @@ export function SeriesDetailPage({
         method: "PATCH",
         body: JSON.stringify({ name: editName.trim(), description: editDescription.trim() || null })
       });
-      setSeries((prev) => prev ? { ...prev, name: editName.trim(), description: editDescription.trim() || null } : prev);
+
+      let nextCoverUrl = series?.coverUrl ?? null;
+      if (coverFile) {
+        const res = await api<{ coverUrl: string }>(`/api/library/series/${seriesId}/cover`, {
+          method: "PUT",
+          headers: { "Content-Type": coverFile.type || "application/octet-stream" },
+          body: coverFile
+        });
+        nextCoverUrl = res.coverUrl;
+      } else if (removeCover && series?.coverUrl) {
+        await api(`/api/library/series/${seriesId}/cover`, { method: "DELETE" });
+        nextCoverUrl = null;
+      }
+
+      setSeries((prev) => prev ? {
+        ...prev,
+        name: editName.trim(),
+        description: editDescription.trim() || null,
+        coverUrl: nextCoverUrl
+      } : prev);
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
+      setCoverFile(null);
+      setCoverPreview(null);
+      setRemoveCover(false);
       setEditModalOpen(false);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Unable to save changes");
@@ -172,9 +218,9 @@ export function SeriesDetailPage({
     return (
       <DashboardShell active="audiobooks" user={user} logout={logout}>
         <section className="audiobook-main-page">
-          <button className="audiobook-back-button" type="button" onClick={() => navigate(backTarget())}>
+          <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/audiobooks/series")}>
             <ArrowLeft size={17} aria-hidden="true" />
-            <span>{backLabel()}</span>
+            <span>{backTo ? "Back" : "Back to series"}</span>
           </button>
           <MessageBox tone="error" title="Error">{error}</MessageBox>
         </section>
@@ -192,12 +238,20 @@ export function SeriesDetailPage({
     );
   }
 
+  // Compare the working list against the loaded baseline so we can surface a
+  // clear "unsaved changes" state — removing/adding a book or editing a position
+  // only mutates local state until the user saves.
+  const baselinePositions = new Map(series.books.map((b) => [b.id, b.seriesPosition?.toString() ?? ""]));
+  const isDirty =
+    books.length !== series.books.length ||
+    books.some((b) => !baselinePositions.has(b.id) || baselinePositions.get(b.id) !== b.position);
+
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTarget())}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/audiobooks/series")}>
           <ArrowLeft size={17} aria-hidden="true" />
-          <span>{backLabel()}</span>
+          <span>{backTo ? "Back" : "Back to series"}</span>
         </button>
 
         <div className="series-detail-head">
@@ -215,15 +269,21 @@ export function SeriesDetailPage({
           <button className="secondary-button" onClick={openAddModal}>
             <Plus size={16} /> Add books
           </button>
-          <button className="primary-button" onClick={saveBooks} disabled={saving}>
-            <Save size={16} /> {saving ? "Saving…" : "Save order"}
+          <button className="primary-button" onClick={saveBooks} disabled={saving || !isDirty}>
+            <Save size={16} /> {saving ? "Saving…" : "Save changes"}
           </button>
+          {isDirty && <span className="series-unsaved-badge">Unsaved changes</span>}
           <button className="secondary-button" onClick={() => setDeleteConfirm(true)} style={{ marginLeft: "auto" }}>
             <Trash2 size={16} /> Delete series
           </button>
         </div>
 
         {saveError && <MessageBox tone="error" title="Save error">{saveError}</MessageBox>}
+        {isDirty && !saveError && (
+          <MessageBox tone="info" title="Unsaved changes">
+            Your changes to this series aren't saved yet. Click "Save changes" to apply them.
+          </MessageBox>
+        )}
 
         {books.length === 0 ? (
           <div className="empty-state">
@@ -269,6 +329,38 @@ export function SeriesDetailPage({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
               <h2 style={{ margin: 0 }}>Edit series</h2>
               <button className="modal-close" onClick={() => setEditModalOpen(false)} aria-label="Close"><X size={18} /></button>
+            </div>
+
+            <div className="field" style={{ marginBottom: 12 }}>
+              <span>Cover</span>
+              <div className="series-cover-edit">
+                <div className="series-cover-preview" aria-hidden="true">
+                  {(coverPreview ?? (!removeCover ? series.coverUrl : null))
+                    ? <img src={coverPreview ?? series.coverUrl ?? ""} alt="" />
+                    : <BookOpen size={28} />}
+                </div>
+                <div className="series-cover-buttons">
+                  <label className="secondary-button compact-button">
+                    <Upload size={15} />
+                    <span>Upload cover</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) chooseCover(file);
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                  {(coverPreview ?? (!removeCover ? series.coverUrl : null)) && (
+                    <button type="button" className="secondary-button compact-button" onClick={clearCover}>
+                      <X size={15} /> Remove
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="field" style={{ marginBottom: 12 }}>

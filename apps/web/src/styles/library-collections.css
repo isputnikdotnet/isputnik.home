@@ -134,12 +134,63 @@
   margin: 0;
 }
 
+.series-cover-edit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.series-cover-preview {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 6px;
+  background: var(--active);
+  color: var(--mint);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.series-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.series-cover-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
 .series-detail-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 20px;
+}
+
+.series-unsaved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+}
+
+.series-unsaved-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
 }
 
 .series-book-list {
