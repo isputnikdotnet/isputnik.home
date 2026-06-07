@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ListMusic, Plus, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
+import { LibraryNavTabs } from "../audiobooks/LibraryNavTabs";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { NewCollectionModal } from "./NewCollectionModal";
@@ -29,6 +30,8 @@ export function CollectionsPage({
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="work-area audiobook-area">
+        <LibraryNavTabs active="collections" />
+
         <div className="section-head audiobook-head">
           <div>
             <p className="eyebrow">Digital Library</p>

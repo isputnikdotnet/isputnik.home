@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Heart, X } from "lucide-react";
+import { BookOpen, Heart, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
+import { LibraryNavTabs } from "./LibraryNavTabs";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatDuration } from "../../shared/utils";
@@ -40,6 +41,8 @@ export function MyListPage({
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="work-area audiobook-area">
+        <LibraryNavTabs active="saved" />
+
         <div className="section-head audiobook-head">
           <div>
             <p className="eyebrow">Digital Library</p>
@@ -92,7 +95,7 @@ export function MyListPage({
                     aria-label={`Remove ${book.title} from Favorites`}
                     title="Remove from Favorites"
                   >
-                    <X size={16} />
+                    <Trash2 size={16} />
                   </button>
                 </article>
               );

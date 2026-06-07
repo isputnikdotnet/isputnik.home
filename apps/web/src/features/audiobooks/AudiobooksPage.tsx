@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, Mic2, MoreVertical, Pencil, Play, RotateCcw, Search, Share2, Square, UserRound, X } from "lucide-react";
+import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, MoreVertical, Pencil, Play, RotateCcw, Search, Share2, Square, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import { DashboardShell } from "../../app/DashboardShell";
 import { ShareModal } from "../share/ShareModal";
+import { AddToCollectionModal } from "../collections/AddToCollectionModal";
+import { EditMetadataModal } from "./EditMetadataModal";
 import { PeopleCombobox } from "./PeopleCombobox";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatDuration } from "../../shared/utils";
 import { Field } from "../../shared/Field";
-import type { AudiobookBook, AudiobookLibrary, CategorySummary } from "./types";
+import type { AudiobookBook, AudiobookBookDetail, AudiobookLibrary, CategorySummary } from "./types";
 
 
 type AudiobookViewMode = "grid" | "list";
@@ -197,7 +199,8 @@ function CatalogBookCard({
   onToggleSelect,
   canEdit,
   onShare,
-  onEdit
+  onEdit,
+  onAddToCollection
 }: {
   book: AudiobookBook;
   viewMode: AudiobookViewMode;
@@ -207,6 +210,7 @@ function CatalogBookCard({
   canEdit: boolean;
   onShare: (book: AudiobookBook) => void;
   onEdit: (book: AudiobookBook) => void;
+  onAddToCollection: (book: AudiobookBook) => void;
 }) {
   const [fav, setFav] = useState(book.saved);
   const [favBusy, setFavBusy] = useState(false);
@@ -365,6 +369,9 @@ function CatalogBookCard({
               >
                 <Download size={15} aria-hidden="true" /> <span>Download</span>
               </a>
+              <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); onAddToCollection(book); }}>
+                <ListMusic size={15} aria-hidden="true" /> <span>Add to collection</span>
+              </button>
               <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); onShare(book); }}>
                 <Share2 size={15} aria-hidden="true" /> <span>Share</span>
               </button>
@@ -537,7 +544,11 @@ export function AudiobooksPage({
   const [bulkNotice, setBulkNotice] = useState("");
   // Per-tile actions that need page-level UI.
   const [shareBook, setShareBook] = useState<AudiobookBook | null>(null);
-  const [editBook, setEditBook] = useState<AudiobookBook | null>(null);
+  const [collectionBook, setCollectionBook] = useState<AudiobookBook | null>(null);
+  // The full metadata editor needs the book detail shape; fetch it on demand
+  // when a tile's "Edit metadata" is chosen.
+  const [editDetail, setEditDetail] = useState<AudiobookBookDetail | null>(null);
+  const [editLoadError, setEditLoadError] = useState("");
 
   const scope: CatalogScope = selectedLibraryId === "all" ? { kind: "all" } : { kind: "library", libraryId: selectedLibraryId };
   const cat = useAudiobookCatalog(scope, sort, "audiobooks:main");
@@ -590,10 +601,16 @@ export function AudiobooksPage({
     exitSelection();
   };
 
-  const submitSingleEdit = async (fields: Record<string, unknown>) => {
-    if (!editBook) return;
-    await runBulk([editBook.id], fields);
-    setEditBook(null);
+  // Open the same full metadata editor used on the book detail page. The grid
+  // only has the catalog shape, so fetch the detail before opening.
+  const openEditDetail = async (book: AudiobookBook) => {
+    setEditLoadError("");
+    try {
+      const payload = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${book.id}`);
+      setEditDetail(payload.book);
+    } catch (err) {
+      setEditLoadError(err instanceof Error ? err.message : "Unable to load book details");
+    }
   };
 
   useEffect(() => {
@@ -657,7 +674,7 @@ export function AudiobooksPage({
   const selectedLibraryLabel = selectedLibraryId === "all"
     ? "All Libraries"
     : libraries.find((library) => library.id === selectedLibraryId)?.name ?? "All Libraries";
-  const error = librariesError || cat.error;
+  const error = librariesError || cat.error || editLoadError;
 
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
@@ -790,7 +807,8 @@ export function AudiobooksPage({
                   onToggleSelect={toggleSelect}
                   canEdit={libraries.find((library) => library.id === book.libraryId)?.canWrite ?? false}
                   onShare={setShareBook}
-                  onEdit={setEditBook}
+                  onEdit={openEditDetail}
+                  onAddToCollection={setCollectionBook}
                 />
               ))}
               {!cat.loading && cat.books.length === 0 && <p className="management-empty">No audiobooks match this filter.</p>}
@@ -811,19 +829,24 @@ export function AudiobooksPage({
           />
         )}
 
-        {editBook && (
-          <BulkEditModal
-            count={1}
-            categories={categories}
-            peopleSuggestions={peopleSuggestions}
-            tagSuggestions={cat.facets.tags}
-            onClose={() => setEditBook(null)}
-            onSubmit={submitSingleEdit}
+        {editDetail && (
+          <EditMetadataModal
+            book={editDetail}
+            onBookUpdated={(updated) => { setEditDetail(updated); cat.refresh(); }}
+            onClose={() => setEditDetail(null)}
           />
         )}
 
         {shareBook && (
           <ShareModal bookId={shareBook.id} bookTitle={shareBook.title} onClose={() => setShareBook(null)} />
+        )}
+
+        {collectionBook && (
+          <AddToCollectionModal
+            entityId={collectionBook.id}
+            title={collectionBook.title}
+            onClose={() => setCollectionBook(null)}
+          />
         )}
       </section>
     </DashboardShell>

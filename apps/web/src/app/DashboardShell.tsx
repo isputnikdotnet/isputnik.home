@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  Bookmark,
   BookOpen,
   ChevronDown,
   DownloadCloud,
@@ -83,6 +84,7 @@ function userMenuLinks(): UserMenuLink[] {
   return [
     { label: "Shared with me", href: "/audiobooks/shared", icon: UsersRound },
     { label: "Favorites", href: "/audiobooks/saved", icon: Heart },
+    { label: "Bookmarks", href: "/audiobooks/bookmarks", icon: Bookmark },
     { label: "Collections", href: "/collections", icon: ListMusic },
     // Offline downloads only exist in the installed app, so only surface the
     // Downloads screen there.
@@ -257,7 +259,7 @@ export function DashboardShell({
         </div>
 
         <footer className="home-footer">
-            <strong>v0.9.0</strong>
+            <strong>v0.9.1</strong>
           <span>&copy; 2026 iSputnik</span>
         </footer>
       </aside>

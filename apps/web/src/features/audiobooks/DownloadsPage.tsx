@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BookOpen, DownloadCloud, HardDrive, Play, ShieldCheck, Trash2 } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
+import { LibraryNavTabs } from "./LibraryNavTabs";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes } from "../../shared/utils";
@@ -52,6 +53,8 @@ export function DownloadsPage({
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="work-area audiobook-area">
+        <LibraryNavTabs active="downloads" />
+
         <div className="section-head audiobook-head">
           <div>
             <p className="eyebrow">Digital Library</p>

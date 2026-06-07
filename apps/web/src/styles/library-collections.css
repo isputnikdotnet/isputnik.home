@@ -448,22 +448,29 @@
   border-color: color-mix(in srgb, var(--mint) 58%, var(--line));
 }
 
-.saved-audiobook-remove {
+.icon-button.danger.saved-audiobook-remove {
   position: absolute;
   top: 7px;
   right: 7px;
   z-index: 1;
-  min-width: 34px;
-  min-height: 34px;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--rose) 45%, transparent);
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
   color: #fff;
-  background: color-mix(in srgb, #101923 72%, var(--rose));
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
+  background: rgba(16, 25, 35, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: none;
 }
 
-.saved-audiobook-remove:hover {
-  background: color-mix(in srgb, var(--rose) 56%, #101923);
+.icon-button.danger.saved-audiobook-remove:hover {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--rose) 60%, transparent);
+  background: color-mix(in srgb, var(--rose) 70%, rgba(16, 25, 35, 0.55));
 }
 
 .saved-audiobook-remove:disabled {

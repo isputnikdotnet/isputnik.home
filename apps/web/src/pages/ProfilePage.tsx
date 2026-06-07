@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { UserRound } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
+import { LibraryNavTabs } from "../features/audiobooks/LibraryNavTabs";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
 import { InstallCard } from "../pwa/InstallCard";
@@ -40,6 +41,7 @@ export function ProfilePage({
   return (
     <DashboardShell active="profile" user={user} logout={logout}>
       <section className="work-area profile-area">
+        <LibraryNavTabs active="profile" />
         <p className="eyebrow">Profile</p>
         <h1>Your account</h1>
         <form className="profile-form" onSubmit={saveProfile}>

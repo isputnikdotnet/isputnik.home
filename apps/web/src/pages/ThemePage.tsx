@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
+import { LibraryNavTabs } from "../features/audiobooks/LibraryNavTabs";
 import { MessageBox } from "../shared/MessageBox";
 import { ThemePicker, type Theme } from "../shared/ThemePicker";
 
@@ -40,6 +41,7 @@ export function ThemePage({
   return (
     <DashboardShell active="profile" user={user} logout={logout}>
       <section className="work-area profile-area">
+        <LibraryNavTabs active="theme" />
         <p className="eyebrow">Settings</p>
         <h1>Appearance</h1>
         <p className="muted">Choose how iSputnik looks. Your choice is saved to your account and applies right away.</p>

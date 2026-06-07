@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BookOpen, Share2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
+import { LibraryNavTabs } from "./LibraryNavTabs";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 
@@ -33,6 +34,8 @@ export function SharedWithMePage({
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="work-area audiobook-area">
+        <LibraryNavTabs active="shared" />
+
         <div className="section-head audiobook-head">
           <div>
             <p className="eyebrow">Digital Library</p>

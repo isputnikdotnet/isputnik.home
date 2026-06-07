@@ -336,6 +336,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.9.1",
+          label: "Bookmarks & quick navigation",
+          changes: [
+            "New Bookmarks page — every spot you've saved while listening, gathered in one place under the user menu.",
+            "A navigation toolbar now sits on the personal pages (Favorites, Bookmarks, Collections, Shared with me, Theme, Profile), so you can jump between them without opening the menu each time.",
+            "Audiobook tiles: the ⋮ menu now includes \"Add to collection,\" and \"Edit metadata\" opens the full editor (the same one as the book page) instead of the bulk-overwrite dialog.",
+            "Polished the remove control on the Favorites and Bookmarks tiles."
+          ]
+        },
+        {
           version: "0.9.0",
           label: "Collections & themes",
           changes: [

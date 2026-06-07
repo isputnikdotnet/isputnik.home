@@ -98,6 +98,21 @@ export interface BookSave {
   note: string | null;
 }
 
+export interface SavedBookmark {
+  id: string;
+  bookId: string;
+  bookTitle: string;
+  bookAuthors: string[];
+  coverUrl: string | null;
+  fileId: string | null;
+  positionSeconds: number;
+  bookPositionSeconds: number | null;
+  label: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SavedBook {
   id: string;
   libraryId: string;
