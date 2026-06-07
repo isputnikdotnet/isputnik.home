@@ -82,6 +82,15 @@ export interface PlaybackProgress {
   completedAt: string | null;
 }
 
+export interface ReadingProgress {
+  documentId: string;
+  cfi: string;
+  percentComplete: number | null;
+  label: string | null;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
 export interface Bookmark {
   id: string;
   fileId: string | null;

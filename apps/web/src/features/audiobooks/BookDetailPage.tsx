@@ -14,7 +14,7 @@ import { getDownloadedBookDetail } from "../../offline/downloads";
 import { useDownload } from "../../offline/useDownload";
 import { isStandalone } from "../../pwa/platform";
 import { formatBytes, formatDuration } from "../../shared/utils";
-import type { AudiobookBookDetail, BookSave, PlaybackProgress } from "./types";
+import type { AudiobookBookDetail, BookSave, PlaybackProgress, ReadingProgress } from "./types";
 
 // Document formats we can render in the in-app reader overlay. Others (mobi,
 // azw3) get download-only — no in-browser renderer.
@@ -66,7 +66,9 @@ export function AudiobookBookPage({
           {book ? (
             <BookDetailView
               book={book}
+              userId={user.id}
               onBack={() => navigate(backTo)}
+              backLabel={active === "ebooks" ? "Back to ebooks" : "Back to audiobooks"}
               onBookUpdated={setBook}
             />
           ) : !error ? (
@@ -80,11 +82,15 @@ export function AudiobookBookPage({
 
 function BookDetailView({
   book,
+  userId,
   onBack,
+  backLabel,
   onBookUpdated
 }: {
   book: AudiobookBookDetail;
+  userId: string;
   onBack: () => void;
+  backLabel: string;
   onBookUpdated: (book: AudiobookBookDetail) => void;
 }) {
   const [progress, setProgress] = useState<PlaybackProgress | null>(null);
@@ -99,6 +105,7 @@ function BookDetailView({
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string } | null>(null);
+  const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
   const detailMenuRef = useRef<HTMLDivElement>(null);
   const offline = useDownload(book);
 
@@ -130,6 +137,10 @@ function BookDetailView({
 
   // An ebook (or any audio-less book): content is a document, not audio tracks.
   const isEbook = book.files.length === 0 && book.documents.length > 0;
+  const primaryReadableDoc = book.documents.find((doc) => VIEWABLE_DOC_FORMATS.has(doc.format)) ?? book.documents[0] ?? null;
+  const primaryReaderStorageKey = primaryReadableDoc
+    ? `isputnik:epub-progress:${userId}:${book.id}:${primaryReadableDoc.id}`
+    : "";
   const [progressAction, setProgressAction] = useState<"complete" | "reset" | "">("");
   const [progressActionError, setProgressActionError] = useState("");
 
@@ -138,7 +149,24 @@ function BookDetailView({
     setDescriptionExpanded(false);
     setDetailsExpanded(false);
     setDetailMenuOpen(false);
+    setReadingProgress(null);
   }, [book.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setReadingProgress(null);
+    if (!primaryReadableDoc || primaryReadableDoc.format !== "epub") {
+      return () => { cancelled = true; };
+    }
+
+    api<{ progress: ReadingProgress | null }>(
+      `/api/library/books/${book.id}/reading-progress?documentId=${encodeURIComponent(primaryReadableDoc.id)}`
+    )
+      .then((payload) => { if (!cancelled) setReadingProgress(payload.progress); })
+      .catch(() => { if (!cancelled) setReadingProgress(null); });
+
+    return () => { cancelled = true; };
+  }, [book.id, primaryReadableDoc?.id, primaryReadableDoc?.format]);
 
   useEffect(() => {
     const loadProgress = () => api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`)
@@ -168,7 +196,9 @@ function BookDetailView({
   // linear order). Accurate for sequential listening; an approximation if the
   // user jumped around.
   const currentFileIndex = progress?.fileId ? book.files.findIndex((f) => f.id === progress.fileId) : -1;
-  const bookFinished = progress?.completedAt != null || (progress?.percentComplete != null && progress.percentComplete >= 0.98);
+  const audioFinished = progress?.completedAt != null || (progress?.percentComplete != null && progress.percentComplete >= 0.98);
+  const readingFinished = readingProgress?.completedAt != null || (readingProgress?.percentComplete != null && readingProgress.percentComplete >= 0.98);
+  const bookFinished = isEbook ? readingFinished : audioFinished;
   const fileState = (index: number): "completed" | "in_progress" | "not_started" => {
     if (bookFinished) return "completed";
     if (currentFileIndex < 0) return "not_started";
@@ -200,8 +230,14 @@ function BookDetailView({
     setProgressAction("reset");
     setProgressActionError("");
     try {
-      await api(`/api/library/books/${book.id}/progress`, { method: "DELETE" });
-      setProgress(null);
+      if (isEbook && primaryReadableDoc?.format === "epub") {
+        await api(`/api/library/books/${book.id}/reading-progress?documentId=${encodeURIComponent(primaryReadableDoc.id)}`, { method: "DELETE" });
+        try { localStorage.removeItem(primaryReaderStorageKey); } catch { /* ignore */ }
+        setReadingProgress(null);
+      } else {
+        await api(`/api/library/books/${book.id}/progress`, { method: "DELETE" });
+        setProgress(null);
+      }
     } catch (err) {
       setProgressActionError(err instanceof Error ? err.message : "Unable to reset progress");
     } finally {
@@ -240,21 +276,26 @@ function BookDetailView({
   const documentFormat = book.documents[0]?.format.toUpperCase() ?? "";
   const formatValue = isEbook ? documentFormat : audioFormat || "Audio";
   const currentProgressFile = progress?.fileId ? book.files.find((file) => file.id === progress.fileId) : null;
-  const progressPercent = progress?.completedAt ? 100 : Math.round(Math.max(0, Math.min(1, progress?.percentComplete ?? 0)) * 100);
+  const progressPercent = isEbook
+    ? readingProgress?.completedAt ? 100 : Math.round(Math.max(0, Math.min(1, readingProgress?.percentComplete ?? 0)) * 100)
+    : progress?.completedAt ? 100 : Math.round(Math.max(0, Math.min(1, progress?.percentComplete ?? 0)) * 100);
   // "Started" covers any saved progress — even when the percentage is unknown
   // (a book whose total duration wasn't recorded) or rounds down to 0%.
-  const hasStarted = !bookFinished && progress != null
-    && ((progress.percentComplete ?? 0) > 0 || (progress.positionSeconds ?? 0) > 0 || progress.fileId != null);
-  const remainingSeconds = book.durationSeconds != null ? Math.max(0, Math.round(book.durationSeconds * (1 - progressPercent / 100))) : null;
+  const hasStarted = isEbook
+    ? !bookFinished && readingProgress != null && ((readingProgress.percentComplete ?? 0) > 0 || Boolean(readingProgress.cfi))
+    : !bookFinished && progress != null && ((progress.percentComplete ?? 0) > 0 || (progress.positionSeconds ?? 0) > 0 || progress.fileId != null);
+  const remainingSeconds = !isEbook && book.durationSeconds != null ? Math.max(0, Math.round(book.durationSeconds * (1 - progressPercent / 100))) : null;
   const progressTitle = isEbook ? "Reading Progress" : "Listening Progress";
   const progressActionLabel = isEbook
     ? (hasStarted ? "Continue Reading" : "Read")
     : bookFinished ? "Listen Again" : hasStarted ? "Continue Listening" : "Start Listening";
-  const progressLocation = progress?.completedAt
+  const progressLocation = bookFinished
     ? "Completed"
-    : currentProgressFile
-      ? currentProgressFile.chapterTitle || currentProgressFile.relativePath.split(/[\\/]/).at(-1) || currentProgressFile.relativePath
-      : hasStarted ? "In progress" : "Not started yet";
+    : isEbook
+      ? readingProgress?.label ?? (hasStarted ? "In progress" : "Not started yet")
+      : currentProgressFile
+        ? currentProgressFile.chapterTitle || currentProgressFile.relativePath.split(/[\\/]/).at(-1) || currentProgressFile.relativePath
+        : hasStarted ? "In progress" : "Not started yet";
 
   // Referrer so detail pages reached from here can offer "Back" to this book.
   const linkFrom = `?from=${encodeURIComponent(`/audiobooks/books/${book.id}`)}`;
@@ -326,7 +367,7 @@ function BookDetailView({
       <div className="book-detail-topbar">
         <button className="audiobook-back-button" type="button" onClick={onBack}>
           <ArrowLeft size={18} aria-hidden="true" />
-          <span>Back to audiobooks</span>
+          <span>{backLabel}</span>
         </button>
       </div>
 
@@ -423,7 +464,8 @@ function BookDetailView({
             {isEbook ? (
               <button
                 className="primary-button"
-                onClick={() => { const doc = book.documents[0]; if (doc) setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format }); }}
+                onClick={() => { const doc = primaryReadableDoc; if (doc) setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format }); }}
+                disabled={!primaryReadableDoc || !VIEWABLE_DOC_FORMATS.has(primaryReadableDoc.format)}
               >
                 <BookOpen size={16} />
                 <span>{progressActionLabel}</span>
@@ -503,7 +545,7 @@ function BookDetailView({
                       <span>{progressAction === "complete" ? "Saving..." : "Mark finished"}</span>
                     </button>
                   )}
-                  {!isEbook && (
+                  {(!isEbook || primaryReadableDoc?.format === "epub") && (
                     <button
                       type="button"
                       role="menuitem"
@@ -519,7 +561,7 @@ function BookDetailView({
                   )}
                   <a
                     role="menuitem"
-                    href={`/api/library/books/${book.id}/download`}
+                    href={isEbook && primaryReadableDoc ? `${primaryReadableDoc.url}?download` : `/api/library/books/${book.id}/download`}
                     download
                     onClick={() => setDetailMenuOpen(false)}
                   >
@@ -697,7 +739,18 @@ function BookDetailView({
             </div>
           </div>
           {viewerDoc.format === "epub"
-            ? <EpubReader url={viewerDoc.url} />
+            ? (
+              <EpubReader
+                bookId={book.id}
+                documentId={viewerDoc.id}
+                url={viewerDoc.url}
+                storageKey={`isputnik:epub-progress:${userId}:${book.id}:${viewerDoc.id}`}
+                initialProgress={viewerDoc.id === primaryReadableDoc?.id ? readingProgress : null}
+                onProgressChange={(next) => {
+                  if (next.documentId === primaryReadableDoc?.id) setReadingProgress(next);
+                }}
+              />
+            )
             : <iframe className="doc-viewer-frame" src={viewerDoc.url} title={viewerDoc.fileName} />}
         </div>,
         document.body

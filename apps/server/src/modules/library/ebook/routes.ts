@@ -119,6 +119,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
         books.folder_path,
         books.status,
         books.discovered_at,
+        books.updated_at,
         book_metadata.title,
         book_metadata.year_published,
         book_metadata.language,
@@ -128,7 +129,10 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
         (SELECT format FROM book_documents WHERE book_id = books.id AND status = 'available' LIMIT 1) AS format,
         (SELECT COUNT(*) FROM book_documents WHERE book_id = books.id AND status = 'available') AS file_count,
-        (SELECT COALESCE(SUM(size), 0) FROM book_documents WHERE book_id = books.id AND status = 'available') AS total_size
+        (SELECT COALESCE(SUM(size), 0) FROM book_documents WHERE book_id = books.id AND status = 'available') AS total_size,
+        (SELECT reading_progress.percent_complete FROM reading_progress WHERE reading_progress.book_id = books.id AND reading_progress.user_id = ? ORDER BY datetime(reading_progress.updated_at) DESC LIMIT 1) AS progress_percent,
+        (SELECT reading_progress.completed_at FROM reading_progress WHERE reading_progress.book_id = books.id AND reading_progress.user_id = ? ORDER BY datetime(reading_progress.updated_at) DESC LIMIT 1) AS progress_completed_at,
+        (SELECT book_saves.id IS NOT NULL FROM book_saves WHERE book_saves.book_id = books.id AND book_saves.user_id = ? LIMIT 1) AS saved
       FROM books
       LEFT JOIN book_metadata ON book_metadata.book_id = books.id
       LEFT JOIN categories ON categories.id = book_metadata.category_id
@@ -137,11 +141,12 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       WHERE books.library_id = ? AND books.deleted_at IS NULL
       GROUP BY books.id
       ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
-    `).all(id) as {
-      id: string; library_id: string; folder_path: string; status: string; discovered_at: string;
+    `).all(user.id, user.id, user.id, id) as {
+      id: string; library_id: string; folder_path: string; status: string; discovered_at: string; updated_at: string;
       title: string | null; year_published: number | null; language: string | null;
       cover_storage_key: string | null; category_key: string | null; category_name: string | null;
       author_names: string | null; format: string | null; file_count: number; total_size: number;
+      progress_percent: number | null; progress_completed_at: string | null; saved: number | null;
     }[];
 
     const tagsFor = db.prepare(`
@@ -176,7 +181,13 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
           coverLargeUrl: coverUrl ? coverUrl.replace("-cover.webp", "-cover-large.webp") : null,
           publisher: null,
           asin: null,
-          discoveredAt: row.discovered_at
+          progress: {
+            percentComplete: row.progress_percent,
+            completedAt: row.progress_completed_at
+          },
+          saved: Boolean(row.saved),
+          discoveredAt: row.discovered_at,
+          updatedAt: row.updated_at
         };
       })
     };

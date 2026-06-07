@@ -4,9 +4,43 @@ import { z } from "zod";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
-import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
+import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook } from "../shared/library-access.js";
 import { getAudiobookBookDetail, progressUpdateSchema, bulkMetadataSchema, BULK_METADATA_FIELDS, applyBulkMetadata, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
 import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
+
+const readingProgressSchema = z.object({
+  documentId: z.string().trim().min(1),
+  cfi: z.string().trim().min(1).max(2000),
+  percentComplete: z.number().min(0).max(1).nullable().optional(),
+  label: z.string().trim().max(300).nullable().optional()
+});
+
+function getReadableDocument(bookId: string, documentId: string, user: { id: string; role: string }) {
+  const row = db.prepare(`
+    SELECT
+      book_documents.id,
+      book_documents.status,
+      libraries.owner_id,
+      libraries.owner_type,
+      libraries.visibility
+    FROM book_documents
+    JOIN books ON books.id = book_documents.book_id
+    JOIN libraries ON libraries.id = books.library_id
+    WHERE book_documents.id = ?
+      AND book_documents.book_id = ?
+      AND books.deleted_at IS NULL
+  `).get(documentId, bookId) as {
+    id: string;
+    status: string;
+    owner_id: string | null;
+    owner_type: string | null;
+    visibility: string;
+  } | undefined;
+
+  if (!row || row.status !== "available") return null;
+  if (!canUserAccessBook(bookId, row, user.id, user.role)) return null;
+  return row;
+}
 
 export function registerBookRoutes(app: FastifyInstance) {
 
@@ -158,6 +192,93 @@ export function registerBookRoutes(app: FastifyInstance) {
           }
         : null
     });
+  });
+
+  app.get("/api/library/books/:id/reading-progress", { preHandler: app.authenticate }, async (request, reply) => {
+    const bookId = (request.params as { id: string }).id;
+    const documentId = ((request.query as { documentId?: string }).documentId ?? "").trim();
+    if (!documentId) {
+      reply.code(400).send({ error: "Document id is required" });
+      return;
+    }
+    const user = request.user!;
+    if (!getReadableDocument(bookId, documentId, user)) {
+      reply.code(404).send({ error: "Document not found" });
+      return;
+    }
+
+    const row = db.prepare(`
+      SELECT document_id, cfi, percent_complete, label, updated_at, completed_at
+      FROM reading_progress
+      WHERE book_id = ? AND document_id = ? AND user_id = ?
+    `).get(bookId, documentId, user.id) as {
+      document_id: string;
+      cfi: string;
+      percent_complete: number | null;
+      label: string | null;
+      updated_at: string;
+      completed_at: string | null;
+    } | undefined;
+
+    reply.send({
+      progress: row
+        ? {
+            documentId: row.document_id,
+            cfi: row.cfi,
+            percentComplete: row.percent_complete,
+            label: row.label,
+            updatedAt: row.updated_at,
+            completedAt: row.completed_at
+          }
+        : null
+    });
+  });
+
+  app.patch("/api/library/books/:id/reading-progress", { preHandler: app.authenticate }, async (request, reply) => {
+    const bookId = (request.params as { id: string }).id;
+    const parsed = parseBody(readingProgressSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid reading progress update", details: parsed.error });
+      return;
+    }
+
+    const user = request.user!;
+    if (!getReadableDocument(bookId, parsed.data.documentId, user)) {
+      reply.code(404).send({ error: "Document not found" });
+      return;
+    }
+
+    const percentComplete = parsed.data.percentComplete ?? null;
+    const completedAt = percentComplete != null && percentComplete >= 0.98 ? new Date().toISOString() : null;
+    db.prepare(`
+      INSERT INTO reading_progress (id, user_id, book_id, document_id, cfi, percent_complete, label, updated_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+      ON CONFLICT(user_id, book_id, document_id) DO UPDATE SET
+        cfi = excluded.cfi,
+        percent_complete = excluded.percent_complete,
+        label = excluded.label,
+        updated_at = CURRENT_TIMESTAMP,
+        completed_at = CASE WHEN excluded.completed_at IS NOT NULL THEN excluded.completed_at ELSE reading_progress.completed_at END
+    `).run(nanoid(16), user.id, bookId, parsed.data.documentId, parsed.data.cfi, percentComplete, parsed.data.label ?? null, completedAt);
+
+    reply.send({ updated: true });
+  });
+
+  app.delete("/api/library/books/:id/reading-progress", { preHandler: app.authenticate }, async (request, reply) => {
+    const bookId = (request.params as { id: string }).id;
+    const documentId = ((request.query as { documentId?: string }).documentId ?? "").trim();
+    if (!documentId) {
+      reply.code(400).send({ error: "Document id is required" });
+      return;
+    }
+    const user = request.user!;
+    if (!getReadableDocument(bookId, documentId, user)) {
+      reply.code(404).send({ error: "Document not found" });
+      return;
+    }
+    db.prepare("DELETE FROM reading_progress WHERE book_id = ? AND document_id = ? AND user_id = ?")
+      .run(bookId, documentId, user.id);
+    reply.send({ reset: true });
   });
 
 

@@ -314,6 +314,19 @@ db.exec(`
     UNIQUE (user_id, book_id)
   );
 
+  CREATE TABLE IF NOT EXISTS reading_progress (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    document_id TEXT NOT NULL REFERENCES book_documents(id) ON DELETE CASCADE,
+    cfi TEXT NOT NULL,
+    percent_complete REAL,
+    label TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT,
+    UNIQUE (user_id, book_id, document_id)
+  );
+
   CREATE TABLE IF NOT EXISTS book_bookmarks (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -429,6 +442,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_book_authors_author ON book_authors(author_id);
   CREATE INDEX IF NOT EXISTS idx_progress_user ON playback_progress(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_progress_book ON playback_progress(book_id);
+  CREATE INDEX IF NOT EXISTS idx_reading_progress_user ON reading_progress(user_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_reading_progress_book ON reading_progress(book_id);
   CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, run_at);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_book ON book_bookmarks(user_id, book_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_book ON book_bookmarks(book_id);

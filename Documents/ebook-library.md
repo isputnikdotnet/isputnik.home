@@ -39,10 +39,30 @@ The detail and document-serving endpoints are **shared** with audiobooks (`GET /
 
 The in-app reader is a full-screen overlay (portaled to `<body>`):
 - **PDF** — the browser's native PDF viewer in an iframe.
-- **EPUB** — `epub.js` paginated reader (`EpubReader.tsx`), fetched with credentials so the auth-gated endpoint works.
+- **EPUB** — `epub.js` paginated reader (`EpubReader.tsx`), fetched with credentials so the auth-gated endpoint works. The reader includes one-page/two-page layout control, page navigation, table-of-contents navigation with tolerant TOC href resolution for EPUB path variants, font-size controls, progress display, and CFI-based resume.
 - **MOBI / AZW3** — download-only; no in-browser renderer (would require server-side conversion).
 
 Because the reader is shared, an audiobook's bundled companion EPUB is readable the same way.
+
+### Reading progress
+
+EPUB reading progress is stored per user/book/document in `reading_progress`:
+
+```sql
+reading_progress
+id               TEXT PRIMARY KEY
+user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE
+book_id          TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE
+document_id      TEXT NOT NULL REFERENCES book_documents(id) ON DELETE CASCADE
+cfi              TEXT NOT NULL
+percent_complete REAL
+label            TEXT
+updated_at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+completed_at     TEXT
+UNIQUE(user_id, book_id, document_id)
+```
+
+The reader keeps a localStorage fallback for fast/offline-ish resume and syncs the current EPUB CFI to the server through `GET`/`PATCH`/`DELETE /api/library/books/:id/reading-progress?documentId=...`. Completion is set when progress reaches `0.98`, matching the audiobook convention.
 
 ---
 
@@ -57,6 +77,7 @@ Because the reader is shared, an audiobook's bundled companion EPUB is readable 
 | `DELETE` | `/api/library/ebook-libraries/:id` | admin | Delete the catalogue entry (files untouched). |
 
 Detail + reading reuse `/api/library/books/:id` and `/api/library/books/:id/documents/:docId`.
+Reading progress uses `/api/library/books/:id/reading-progress`.
 
 ---
 
@@ -69,6 +90,7 @@ Detail + reading reuse `/api/library/books/:id` and `/api/library/books/:id/docu
 
 - Backend scanner, EPUB metadata + cover extraction, library CRUD/rescan — **done**.
 - EPUB reader (`epub.js`) + PDF reader overlay — **done**.
+- EPUB reading progress and resume — **done**.
 - Control panel management (create/list/rescan/delete ebook libraries) — **done**.
 - User-facing `/ebooks` browse + ebook-aware detail page — **done**.
-- **Future:** reading-progress (EPUB CFI / PDF page), and lazy-loading the reader bundle.
+- **Future:** PDF page progress and lazy-loading the reader bundle.
