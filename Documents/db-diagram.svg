@@ -1,0 +1,1531 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2640" height="2380" viewBox="0 0 2640 2380" role="img" aria-labelledby="title desc">
+  <title id="title">iSputnik Home SQLite Database Diagram</title>
+  <desc id="desc">Entity relationship diagram generated from apps/server/src/db.ts. Solid lines are SQLite foreign keys; dashed lines are logical or polymorphic references.</desc>
+  <defs>
+    <filter id="shadow" x="-6%" y="-6%" width="112%" height="112%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.10" />
+    </filter>
+    <marker id="arrow-core" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb" />
+    </marker>
+    <marker id="arrow-audit" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c7771a" />
+    </marker>
+    <marker id="arrow-logical" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+    </marker>
+    <style><![CDATA[
+      text { font-family: "Segoe UI", Arial, sans-serif; }
+      .title { font-size: 34px; font-weight: 750; fill: #111827; }
+      .subtitle { font-size: 17px; fill: #4b5563; }
+      .legend { font-size: 15px; fill: #374151; }
+      .group-label { font-size: 17px; font-weight: 700; letter-spacing: 0; }
+      .table-title { font-size: 18px; font-weight: 750; fill: #ffffff; }
+      .col-name { font-size: 14.5px; font-weight: 650; fill: #111827; }
+      .col-type { font-size: 13px; fill: #475569; }
+      .col-meta { font-size: 12.5px; font-weight: 650; fill: #64748b; }
+      .fk-meta { fill: #2563eb; }
+      .logical-meta { fill: #64748b; }
+      .rel { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .rel.core, .rel.fk { stroke: #2563eb; stroke-width: 1.8; opacity: 0.42; }
+      .rel.audit { stroke: #c7771a; stroke-width: 1.5; opacity: 0.28; }
+      .rel.logical { stroke: #64748b; stroke-width: 1.7; stroke-dasharray: 8 8; opacity: 0.46; }
+      .note { font-size: 13.5px; fill: #475569; }
+    ]]></style>
+  </defs>
+  <rect x="0" y="0" width="2640" height="2380" fill="#f8fafc" />
+  <path d="M 0 80 H 2640" stroke="#e5e7eb" stroke-width="1" />
+  <text x="60" y="45" class="title">iSputnik Home SQLite Database Diagram</text>
+  <text x="60" y="70" class="subtitle">Current schema from apps/server/src/db.ts. PK/UQ/FK markers are shown in each table.</text>
+  <g transform="translate(1590 36)">
+    <path d="M 0 0 H 70" class="rel core" marker-end="url(#arrow-core)" />
+    <text x="86" y="5" class="legend">enforced SQLite FK</text>
+    <path d="M 300 0 H 370" class="rel audit" marker-end="url(#arrow-audit)" />
+    <text x="386" y="5" class="legend">user/audit FK</text>
+    <path d="M 560 0 H 630" class="rel logical" marker-end="url(#arrow-logical)" />
+    <text x="646" y="5" class="legend">logical or polymorphic</text>
+  </g>
+
+      <g>
+        <rect x="60" y="98" width="580" height="34" rx="8" fill="#e7eef5" stroke="#1f3a4d" stroke-width="1.2" />
+        <text x="78" y="120" class="group-label" fill="#1f3a4d">Identity &amp; Access</text>
+      </g>
+
+      <g>
+        <rect x="700" y="98" width="580" height="34" rx="8" fill="#e4f4f1" stroke="#0f766e" stroke-width="1.2" />
+        <text x="718" y="120" class="group-label" fill="#0f766e">Library Core</text>
+      </g>
+
+      <g>
+        <rect x="1340" y="98" width="580" height="34" rx="8" fill="#f0eaf7" stroke="#6f4a8e" stroke-width="1.2" />
+        <text x="1358" y="120" class="group-label" fill="#6f4a8e">Metadata &amp; Taxonomy</text>
+      </g>
+
+      <g>
+        <rect x="1980" y="98" width="580" height="34" rx="8" fill="#f7ede3" stroke="#9a5a24" stroke-width="1.2" />
+        <text x="1998" y="120" class="group-label" fill="#9a5a24">Reading, Sharing &amp; Lists</text>
+      </g>
+  <g id="relationships">
+    <path class="rel audit" d="M 350 446 C 350 459, 350 459, 350 472" marker-end="url(#arrow-audit)" />
+<path class="rel audit" d="M 350 446 C 350 598, 350 598, 350 750" marker-end="url(#arrow-audit)" />
+<path class="rel audit" d="M 350 446 C 350 737, 350 737, 350 1028" marker-end="url(#arrow-audit)" />
+<path class="rel fk" d="M 350 1170 C 350 1183, 350 1183, 350 1196" marker-end="url(#arrow-core)" />
+<path class="rel audit" d="M 350 446 C 350 821, 350 821, 350 1196" marker-end="url(#arrow-audit)" />
+<path class="rel audit" d="M 350 446 C 350 905, 350 905, 350 1364" marker-end="url(#arrow-audit)" />
+<path class="rel audit" d="M 350 446 C 350 1033, 350 1033, 350 1620" marker-end="url(#arrow-audit)" />
+<path class="rel audit" d="M 350 446 C 350 1117, 350 1117, 350 1788" marker-end="url(#arrow-audit)" />
+<path class="rel audit" d="M 640 298 C 670 298, 670 320, 700 320" marker-end="url(#arrow-audit)" />
+<path class="rel core" d="M 990 490 C 990 503, 990 503, 990 516" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1280 320 C 1310 320, 1310 254, 1340 254" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1280 320 C 1310 320, 1310 477, 1340 477" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1280 320 C 1310 320, 1310 656, 1340 656" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 990 490 C 990 1047, 1630 1047, 1630 1604" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 990 768 C 990 781, 990 781, 990 794" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 990 768 C 990 997, 990 997, 990 1226" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 990 768 C 990 1191, 990 1191, 990 1614" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1280 642 C 1310 642, 1310 813, 1340 813" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1630 358 C 1630 550, 1630 550, 1630 742" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 990 768 C 990 1259, 1630 1259, 1630 1750" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1630 1724 C 1630 1737, 1630 1737, 1630 1750" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1340 1003 C 1310 1003, 1310 997, 1280 997" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1630 1096 C 1630 1109, 1630 1109, 1630 1122" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1630 1432 C 1630 1445, 1630 1445, 1630 1458" marker-end="url(#arrow-core)" />
+<path class="rel audit" d="M 640 298 C 1310 298, 1310 276, 1980 276" marker-end="url(#arrow-audit)" />
+<path class="rel core" d="M 1280 642 C 1630 642, 1630 276, 1980 276" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1280 1407 C 1630 1407, 1630 276, 1980 276" marker-end="url(#arrow-core)" />
+<path class="rel audit" d="M 640 298 C 1310 298, 1310 554, 1980 554" marker-end="url(#arrow-audit)" />
+<path class="rel core" d="M 1280 642 C 1630 642, 1630 554, 1980 554" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1280 1751 C 1630 1751, 1630 554, 1980 554" marker-end="url(#arrow-core)" />
+<path class="rel audit" d="M 640 298 C 1310 298, 1310 843, 1980 843" marker-end="url(#arrow-audit)" />
+<path class="rel core" d="M 1280 642 C 1630 642, 1630 843, 1980 843" marker-end="url(#arrow-core)" />
+<path class="rel core" d="M 1280 1407 C 1630 1407, 1630 843, 1980 843" marker-end="url(#arrow-core)" />
+<path class="rel audit" d="M 640 298 C 1310 298, 1310 1099, 1980 1099" marker-end="url(#arrow-audit)" />
+<path class="rel core" d="M 1280 642 C 1630 642, 1630 1099, 1980 1099" marker-end="url(#arrow-core)" />
+<path class="rel audit" d="M 640 298 C 1310 298, 1310 1311, 1980 1311" marker-end="url(#arrow-audit)" />
+<path class="rel core" d="M 2270 1404 C 2270 1417, 2270 1417, 2270 1430" marker-end="url(#arrow-core)" />
+<path class="rel audit" d="M 640 298 C 1310 298, 1310 1768, 1980 1768" marker-end="url(#arrow-audit)" />
+<path class="rel audit" d="M 640 298 C 1310 298, 1310 2057, 1980 2057" marker-end="url(#arrow-audit)" />
+<path class="rel audit" d="M 350 446 C 350 1160, 1630 1160, 1630 1874" marker-end="url(#arrow-audit)" />
+<path class="rel logical" d="M 1340 477 C 1310 477, 1310 642, 1280 642" marker-end="url(#arrow-logical)" />
+<path class="rel logical" d="M 640 298 C 670 298, 670 320, 700 320" marker-end="url(#arrow-logical)" />
+<path class="rel logical" d="M 350 1028 C 350 759, 990 759, 990 490" marker-end="url(#arrow-logical)" />
+<path class="rel logical" d="M 990 768 C 990 1113, 1630 1113, 1630 1458" marker-end="url(#arrow-logical)" />
+<path class="rel logical" d="M 1280 642 C 1630 642, 1630 1523, 1980 1523" marker-end="url(#arrow-logical)" />
+<path class="rel logical" d="M 1280 642 C 1630 642, 1630 1768, 1980 1768" marker-end="url(#arrow-logical)" />
+<path class="rel logical" d="M 990 768 C 990 1344, 2270 1344, 2270 1920" marker-end="url(#arrow-logical)" />
+<path class="rel logical" d="M 990 490 C 990 1202, 990 1202, 990 1914" marker-end="url(#arrow-logical)" />
+<path class="rel logical" d="M 1630 358 C 1630 1116, 1630 1116, 1630 1874" marker-end="url(#arrow-logical)" />
+  </g>
+  <g id="tables">
+
+    <g class="table">
+      <rect x="60" y="150" width="580" height="296" rx="8" fill="#ffffff" stroke="#1f3a4d" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 68 150 H 632 Q 640 150 640 158 V 192 H 60 V 158 Q 60 150 68 150" fill="#1f3a4d" />
+      <text x="78" y="177" class="table-title">users</text>
+
+      <rect x="61" y="192" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="207" class="col-name">id</text>
+      <text x="342" y="207" class="col-type">TEXT</text>
+      <text x="622" y="207" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="61" y="214" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="229" class="col-name">email</text>
+      <text x="342" y="229" class="col-type">TEXT</text>
+      <text x="622" y="229" class="col-meta" text-anchor="end">UQ</text>
+
+      <rect x="61" y="236" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="251" class="col-name">password_hash</text>
+      <text x="342" y="251" class="col-type">TEXT</text>
+      <text x="622" y="251" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="258" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="273" class="col-name">display_name</text>
+      <text x="342" y="273" class="col-type">TEXT</text>
+      <text x="622" y="273" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="280" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="295" class="col-name">role</text>
+      <text x="342" y="295" class="col-type">TEXT</text>
+      <text x="622" y="295" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="302" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="317" class="col-name">theme</text>
+      <text x="342" y="317" class="col-type">TEXT</text>
+      <text x="622" y="317" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="324" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="339" class="col-name">protected_from_delete</text>
+      <text x="342" y="339" class="col-type">INTEGER</text>
+      <text x="622" y="339" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="346" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="361" class="col-name">is_active</text>
+      <text x="342" y="361" class="col-type">INTEGER</text>
+      <text x="622" y="361" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="368" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="383" class="col-name">created_at</text>
+      <text x="342" y="383" class="col-type">TEXT</text>
+      <text x="622" y="383" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="390" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="405" class="col-name">updated_at</text>
+      <text x="342" y="405" class="col-type">TEXT</text>
+      <text x="622" y="405" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="412" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="427" class="col-name">deleted_at</text>
+      <text x="342" y="427" class="col-type">TEXT</text>
+      <text x="622" y="427" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="60" y="472" width="580" height="252" rx="8" fill="#ffffff" stroke="#1f3a4d" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 68 472 H 632 Q 640 472 640 480 V 514 H 60 V 480 Q 60 472 68 472" fill="#1f3a4d" />
+      <text x="78" y="499" class="table-title">sessions</text>
+
+      <rect x="61" y="514" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="529" class="col-name">id</text>
+      <text x="342" y="529" class="col-type">TEXT</text>
+      <text x="622" y="529" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="61" y="536" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="551" class="col-name">token_hash</text>
+      <text x="342" y="551" class="col-type">TEXT</text>
+      <text x="622" y="551" class="col-meta" text-anchor="end">UQ</text>
+
+      <rect x="61" y="558" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="573" class="col-name">user_id</text>
+      <text x="342" y="573" class="col-type">TEXT</text>
+      <text x="622" y="573" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="61" y="580" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="595" class="col-name">created_at</text>
+      <text x="342" y="595" class="col-type">TEXT</text>
+      <text x="622" y="595" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="602" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="617" class="col-name">expires_at</text>
+      <text x="342" y="617" class="col-type">TEXT</text>
+      <text x="622" y="617" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="624" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="639" class="col-name">last_seen</text>
+      <text x="342" y="639" class="col-type">TEXT</text>
+      <text x="622" y="639" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="646" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="661" class="col-name">device_name</text>
+      <text x="342" y="661" class="col-type">TEXT</text>
+      <text x="622" y="661" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="668" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="683" class="col-name">ip_address</text>
+      <text x="342" y="683" class="col-type">TEXT</text>
+      <text x="622" y="683" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="690" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="705" class="col-name">revoked_at</text>
+      <text x="342" y="705" class="col-type">TEXT</text>
+      <text x="622" y="705" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="60" y="750" width="580" height="252" rx="8" fill="#ffffff" stroke="#1f3a4d" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 68 750 H 632 Q 640 750 640 758 V 792 H 60 V 758 Q 60 750 68 750" fill="#1f3a4d" />
+      <text x="78" y="777" class="table-title">invites</text>
+
+      <rect x="61" y="792" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="807" class="col-name">id</text>
+      <text x="342" y="807" class="col-type">TEXT</text>
+      <text x="622" y="807" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="61" y="814" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="829" class="col-name">token_hash</text>
+      <text x="342" y="829" class="col-type">TEXT</text>
+      <text x="622" y="829" class="col-meta" text-anchor="end">UQ</text>
+
+      <rect x="61" y="836" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="851" class="col-name">role</text>
+      <text x="342" y="851" class="col-type">TEXT</text>
+      <text x="622" y="851" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="858" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="873" class="col-name">created_by</text>
+      <text x="342" y="873" class="col-type">TEXT</text>
+      <text x="622" y="873" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="61" y="880" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="895" class="col-name">created_at</text>
+      <text x="342" y="895" class="col-type">TEXT</text>
+      <text x="622" y="895" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="902" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="917" class="col-name">expires_at</text>
+      <text x="342" y="917" class="col-type">TEXT</text>
+      <text x="622" y="917" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="924" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="939" class="col-name">used_at</text>
+      <text x="342" y="939" class="col-type">TEXT</text>
+      <text x="622" y="939" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="946" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="961" class="col-name">used_by</text>
+      <text x="342" y="961" class="col-type">TEXT</text>
+      <text x="622" y="961" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="61" y="968" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="983" class="col-name">revoked_at</text>
+      <text x="342" y="983" class="col-type">TEXT</text>
+      <text x="622" y="983" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="60" y="1028" width="580" height="142" rx="8" fill="#ffffff" stroke="#1f3a4d" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 68 1028 H 632 Q 640 1028 640 1036 V 1070 H 60 V 1036 Q 60 1028 68 1028" fill="#1f3a4d" />
+      <text x="78" y="1055" class="table-title">user_groups</text>
+
+      <rect x="61" y="1070" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1085" class="col-name">id</text>
+      <text x="342" y="1085" class="col-type">TEXT</text>
+      <text x="622" y="1085" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="61" y="1092" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1107" class="col-name">name</text>
+      <text x="342" y="1107" class="col-type">TEXT</text>
+      <text x="622" y="1107" class="col-meta" text-anchor="end">UQ</text>
+
+      <rect x="61" y="1114" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1129" class="col-name">created_by</text>
+      <text x="342" y="1129" class="col-type">TEXT</text>
+      <text x="622" y="1129" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="61" y="1136" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1151" class="col-name">created_at</text>
+      <text x="342" y="1151" class="col-type">TEXT</text>
+      <text x="622" y="1151" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="60" y="1196" width="580" height="142" rx="8" fill="#ffffff" stroke="#1f3a4d" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 68 1196 H 632 Q 640 1196 640 1204 V 1238 H 60 V 1204 Q 60 1196 68 1196" fill="#1f3a4d" />
+      <text x="78" y="1223" class="table-title">group_members</text>
+
+      <rect x="61" y="1238" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1253" class="col-name">group_id</text>
+      <text x="342" y="1253" class="col-type">TEXT</text>
+      <text x="622" y="1253" class="col-meta fk-meta" text-anchor="end">PK FK-&gt;user_groups</text>
+
+      <rect x="61" y="1260" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1275" class="col-name">user_id</text>
+      <text x="342" y="1275" class="col-type">TEXT</text>
+      <text x="622" y="1275" class="col-meta fk-meta" text-anchor="end">PK FK-&gt;users</text>
+
+      <rect x="61" y="1282" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1297" class="col-name">role</text>
+      <text x="342" y="1297" class="col-type">TEXT</text>
+      <text x="622" y="1297" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="1304" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1319" class="col-name">joined_at</text>
+      <text x="342" y="1319" class="col-type">TEXT</text>
+      <text x="622" y="1319" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="60" y="1364" width="580" height="230" rx="8" fill="#ffffff" stroke="#1f3a4d" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 68 1364 H 632 Q 640 1364 640 1372 V 1406 H 60 V 1372 Q 60 1364 68 1364" fill="#1f3a4d" />
+      <text x="78" y="1391" class="table-title">activity_logs</text>
+
+      <rect x="61" y="1406" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1421" class="col-name">id</text>
+      <text x="342" y="1421" class="col-type">TEXT</text>
+      <text x="622" y="1421" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="61" y="1428" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1443" class="col-name">event</text>
+      <text x="342" y="1443" class="col-type">TEXT</text>
+      <text x="622" y="1443" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="1450" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1465" class="col-name">actor_user_id</text>
+      <text x="342" y="1465" class="col-type">TEXT</text>
+      <text x="622" y="1465" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="61" y="1472" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1487" class="col-name">target_type</text>
+      <text x="342" y="1487" class="col-type">TEXT</text>
+      <text x="622" y="1487" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="1494" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1509" class="col-name">target_id</text>
+      <text x="342" y="1509" class="col-type">TEXT</text>
+      <text x="622" y="1509" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="1516" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1531" class="col-name">detail</text>
+      <text x="342" y="1531" class="col-type">TEXT</text>
+      <text x="622" y="1531" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="1538" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1553" class="col-name">ip_address</text>
+      <text x="342" y="1553" class="col-type">TEXT</text>
+      <text x="622" y="1553" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="1560" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1575" class="col-name">created_at</text>
+      <text x="342" y="1575" class="col-type">TEXT</text>
+      <text x="622" y="1575" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="60" y="1620" width="580" height="142" rx="8" fill="#ffffff" stroke="#1f3a4d" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 68 1620 H 632 Q 640 1620 640 1628 V 1662 H 60 V 1628 Q 60 1620 68 1620" fill="#1f3a4d" />
+      <text x="78" y="1647" class="table-title">app_settings</text>
+
+      <rect x="61" y="1662" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1677" class="col-name">key</text>
+      <text x="342" y="1677" class="col-type">TEXT</text>
+      <text x="622" y="1677" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="61" y="1684" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1699" class="col-name">value</text>
+      <text x="342" y="1699" class="col-type">TEXT</text>
+      <text x="622" y="1699" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="1706" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1721" class="col-name">updated_by</text>
+      <text x="342" y="1721" class="col-type">TEXT</text>
+      <text x="622" y="1721" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="61" y="1728" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1743" class="col-name">updated_at</text>
+      <text x="342" y="1743" class="col-type">TEXT</text>
+      <text x="622" y="1743" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="60" y="1788" width="580" height="186" rx="8" fill="#ffffff" stroke="#1f3a4d" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 68 1788 H 632 Q 640 1788 640 1796 V 1830 H 60 V 1796 Q 60 1788 68 1788" fill="#1f3a4d" />
+      <text x="78" y="1815" class="table-title">storage_roots</text>
+
+      <rect x="61" y="1830" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1845" class="col-name">id</text>
+      <text x="342" y="1845" class="col-type">TEXT</text>
+      <text x="622" y="1845" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="61" y="1852" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1867" class="col-name">name</text>
+      <text x="342" y="1867" class="col-type">TEXT</text>
+      <text x="622" y="1867" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="1874" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1889" class="col-name">path</text>
+      <text x="342" y="1889" class="col-type">TEXT</text>
+      <text x="622" y="1889" class="col-meta" text-anchor="end">UQ</text>
+
+      <rect x="61" y="1896" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1911" class="col-name">created_by</text>
+      <text x="342" y="1911" class="col-type">TEXT</text>
+      <text x="622" y="1911" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="61" y="1918" width="578" height="22" fill="#ffffff" />
+      <text x="78" y="1933" class="col-name">created_at</text>
+      <text x="342" y="1933" class="col-type">TEXT</text>
+      <text x="622" y="1933" class="col-meta" text-anchor="end"></text>
+
+      <rect x="61" y="1940" width="578" height="22" fill="#f8fafc" />
+      <text x="78" y="1955" class="col-name">updated_at</text>
+      <text x="342" y="1955" class="col-type">TEXT</text>
+      <text x="622" y="1955" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="700" y="150" width="580" height="340" rx="8" fill="#ffffff" stroke="#0f766e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 708 150 H 1272 Q 1280 150 1280 158 V 192 H 700 V 158 Q 700 150 708 150" fill="#0f766e" />
+      <text x="718" y="177" class="table-title">libraries</text>
+
+      <rect x="701" y="192" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="207" class="col-name">id</text>
+      <text x="982" y="207" class="col-type">TEXT</text>
+      <text x="1262" y="207" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="701" y="214" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="229" class="col-name">name</text>
+      <text x="982" y="229" class="col-type">TEXT</text>
+      <text x="1262" y="229" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="236" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="251" class="col-name">type</text>
+      <text x="982" y="251" class="col-type">TEXT</text>
+      <text x="1262" y="251" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="258" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="273" class="col-name">source_path</text>
+      <text x="982" y="273" class="col-type">TEXT</text>
+      <text x="1262" y="273" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="280" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="295" class="col-name">settings_json</text>
+      <text x="982" y="295" class="col-type">TEXT</text>
+      <text x="1262" y="295" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="302" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="317" class="col-name">scan_status</text>
+      <text x="982" y="317" class="col-type">TEXT</text>
+      <text x="1262" y="317" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="324" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="339" class="col-name">last_scanned_at</text>
+      <text x="982" y="339" class="col-type">TEXT</text>
+      <text x="1262" y="339" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="346" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="361" class="col-name">created_by</text>
+      <text x="982" y="361" class="col-type">TEXT</text>
+      <text x="1262" y="361" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="701" y="368" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="383" class="col-name">created_at</text>
+      <text x="982" y="383" class="col-type">TEXT</text>
+      <text x="1262" y="383" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="390" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="405" class="col-name">updated_at</text>
+      <text x="982" y="405" class="col-type">TEXT</text>
+      <text x="1262" y="405" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="412" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="427" class="col-name">owner_id</text>
+      <text x="982" y="427" class="col-type">TEXT</text>
+      <text x="1262" y="427" class="col-meta logical-meta" text-anchor="end">LOGICAL</text>
+
+      <rect x="701" y="434" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="449" class="col-name">owner_type</text>
+      <text x="982" y="449" class="col-type">TEXT</text>
+      <text x="1262" y="449" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="456" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="471" class="col-name">visibility</text>
+      <text x="982" y="471" class="col-type">TEXT</text>
+      <text x="1262" y="471" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="700" y="516" width="580" height="252" rx="8" fill="#ffffff" stroke="#0f766e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 708 516 H 1272 Q 1280 516 1280 524 V 558 H 700 V 524 Q 700 516 708 516" fill="#0f766e" />
+      <text x="718" y="543" class="table-title">books</text>
+
+      <rect x="701" y="558" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="573" class="col-name">id</text>
+      <text x="982" y="573" class="col-type">TEXT</text>
+      <text x="1262" y="573" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="701" y="580" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="595" class="col-name">library_id</text>
+      <text x="982" y="595" class="col-type">TEXT</text>
+      <text x="1262" y="595" class="col-meta fk-meta" text-anchor="end">FK-&gt;libraries</text>
+
+      <rect x="701" y="602" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="617" class="col-name">folder_path</text>
+      <text x="982" y="617" class="col-type">TEXT</text>
+      <text x="1262" y="617" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="624" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="639" class="col-name">series_id</text>
+      <text x="982" y="639" class="col-type">TEXT</text>
+      <text x="1262" y="639" class="col-meta logical-meta" text-anchor="end">LOGICAL-&gt;series</text>
+
+      <rect x="701" y="646" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="661" class="col-name">series_position</text>
+      <text x="982" y="661" class="col-type">REAL</text>
+      <text x="1262" y="661" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="668" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="683" class="col-name">status</text>
+      <text x="982" y="683" class="col-type">TEXT</text>
+      <text x="1262" y="683" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="690" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="705" class="col-name">discovered_at</text>
+      <text x="982" y="705" class="col-type">TEXT</text>
+      <text x="1262" y="705" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="712" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="727" class="col-name">updated_at</text>
+      <text x="982" y="727" class="col-type">TEXT</text>
+      <text x="1262" y="727" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="734" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="749" class="col-name">deleted_at</text>
+      <text x="982" y="749" class="col-type">TEXT</text>
+      <text x="1262" y="749" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="700" y="794" width="580" height="406" rx="8" fill="#ffffff" stroke="#0f766e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 708 794 H 1272 Q 1280 794 1280 802 V 836 H 700 V 802 Q 700 794 708 794" fill="#0f766e" />
+      <text x="718" y="821" class="table-title">book_metadata</text>
+
+      <rect x="701" y="836" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="851" class="col-name">id</text>
+      <text x="982" y="851" class="col-type">TEXT</text>
+      <text x="1262" y="851" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="701" y="858" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="873" class="col-name">book_id</text>
+      <text x="982" y="873" class="col-type">TEXT</text>
+      <text x="1262" y="873" class="col-meta fk-meta" text-anchor="end">UQ FK-&gt;books</text>
+
+      <rect x="701" y="880" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="895" class="col-name">source</text>
+      <text x="982" y="895" class="col-type">TEXT</text>
+      <text x="1262" y="895" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="902" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="917" class="col-name">title</text>
+      <text x="982" y="917" class="col-type">TEXT</text>
+      <text x="1262" y="917" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="924" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="939" class="col-name">sort_title</text>
+      <text x="982" y="939" class="col-type">TEXT</text>
+      <text x="1262" y="939" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="946" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="961" class="col-name">description</text>
+      <text x="982" y="961" class="col-type">TEXT</text>
+      <text x="1262" y="961" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="968" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="983" class="col-name">year_published</text>
+      <text x="982" y="983" class="col-type">INTEGER</text>
+      <text x="1262" y="983" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="990" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1005" class="col-name">language</text>
+      <text x="982" y="1005" class="col-type">TEXT</text>
+      <text x="1262" y="1005" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1012" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1027" class="col-name">duration_seconds</text>
+      <text x="982" y="1027" class="col-type">INTEGER</text>
+      <text x="1262" y="1027" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1034" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1049" class="col-name">cover_storage_key</text>
+      <text x="982" y="1049" class="col-type">TEXT</text>
+      <text x="1262" y="1049" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1056" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1071" class="col-name">isbn</text>
+      <text x="982" y="1071" class="col-type">TEXT</text>
+      <text x="1262" y="1071" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1078" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1093" class="col-name">asin</text>
+      <text x="982" y="1093" class="col-type">TEXT</text>
+      <text x="1262" y="1093" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1100" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1115" class="col-name">publisher</text>
+      <text x="982" y="1115" class="col-type">TEXT</text>
+      <text x="1262" y="1115" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1122" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1137" class="col-name">openlibrary_id</text>
+      <text x="982" y="1137" class="col-type">TEXT</text>
+      <text x="1262" y="1137" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1144" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1159" class="col-name">category_id</text>
+      <text x="982" y="1159" class="col-type">TEXT</text>
+      <text x="1262" y="1159" class="col-meta fk-meta" text-anchor="end">FK-&gt;categories</text>
+
+      <rect x="701" y="1166" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1181" class="col-name">updated_at</text>
+      <text x="982" y="1181" class="col-type">TEXT</text>
+      <text x="1262" y="1181" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="700" y="1226" width="580" height="362" rx="8" fill="#ffffff" stroke="#0f766e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 708 1226 H 1272 Q 1280 1226 1280 1234 V 1268 H 700 V 1234 Q 700 1226 708 1226" fill="#0f766e" />
+      <text x="718" y="1253" class="table-title">book_files</text>
+
+      <rect x="701" y="1268" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1283" class="col-name">id</text>
+      <text x="982" y="1283" class="col-type">TEXT</text>
+      <text x="1262" y="1283" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="701" y="1290" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1305" class="col-name">book_id</text>
+      <text x="982" y="1305" class="col-type">TEXT</text>
+      <text x="1262" y="1305" class="col-meta fk-meta" text-anchor="end">FK-&gt;books</text>
+
+      <rect x="701" y="1312" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1327" class="col-name">relative_path</text>
+      <text x="982" y="1327" class="col-type">TEXT</text>
+      <text x="1262" y="1327" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1334" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1349" class="col-name">mime_type</text>
+      <text x="982" y="1349" class="col-type">TEXT</text>
+      <text x="1262" y="1349" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1356" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1371" class="col-name">track_number</text>
+      <text x="982" y="1371" class="col-type">INTEGER</text>
+      <text x="1262" y="1371" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1378" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1393" class="col-name">chapter_title</text>
+      <text x="982" y="1393" class="col-type">TEXT</text>
+      <text x="1262" y="1393" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1400" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1415" class="col-name">duration_seconds</text>
+      <text x="982" y="1415" class="col-type">INTEGER</text>
+      <text x="1262" y="1415" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1422" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1437" class="col-name">size</text>
+      <text x="982" y="1437" class="col-type">INTEGER</text>
+      <text x="1262" y="1437" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1444" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1459" class="col-name">modified_at</text>
+      <text x="982" y="1459" class="col-type">TEXT</text>
+      <text x="1262" y="1459" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1466" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1481" class="col-name">content_hash</text>
+      <text x="982" y="1481" class="col-type">TEXT</text>
+      <text x="1262" y="1481" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1488" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1503" class="col-name">status</text>
+      <text x="982" y="1503" class="col-type">TEXT</text>
+      <text x="1262" y="1503" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1510" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1525" class="col-name">discovered_at</text>
+      <text x="982" y="1525" class="col-type">TEXT</text>
+      <text x="1262" y="1525" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1532" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1547" class="col-name">updated_at</text>
+      <text x="982" y="1547" class="col-type">TEXT</text>
+      <text x="1262" y="1547" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1554" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1569" class="col-name">deleted_at</text>
+      <text x="982" y="1569" class="col-type">TEXT</text>
+      <text x="1262" y="1569" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="700" y="1614" width="580" height="274" rx="8" fill="#ffffff" stroke="#0f766e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 708 1614 H 1272 Q 1280 1614 1280 1622 V 1656 H 700 V 1622 Q 700 1614 708 1614" fill="#0f766e" />
+      <text x="718" y="1641" class="table-title">book_documents</text>
+
+      <rect x="701" y="1656" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1671" class="col-name">id</text>
+      <text x="982" y="1671" class="col-type">TEXT</text>
+      <text x="1262" y="1671" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="701" y="1678" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1693" class="col-name">book_id</text>
+      <text x="982" y="1693" class="col-type">TEXT</text>
+      <text x="1262" y="1693" class="col-meta fk-meta" text-anchor="end">FK-&gt;books</text>
+
+      <rect x="701" y="1700" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1715" class="col-name">relative_path</text>
+      <text x="982" y="1715" class="col-type">TEXT</text>
+      <text x="1262" y="1715" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1722" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1737" class="col-name">format</text>
+      <text x="982" y="1737" class="col-type">TEXT</text>
+      <text x="1262" y="1737" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1744" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1759" class="col-name">mime_type</text>
+      <text x="982" y="1759" class="col-type">TEXT</text>
+      <text x="1262" y="1759" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1766" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1781" class="col-name">size</text>
+      <text x="982" y="1781" class="col-type">INTEGER</text>
+      <text x="1262" y="1781" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1788" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1803" class="col-name">status</text>
+      <text x="982" y="1803" class="col-type">TEXT</text>
+      <text x="1262" y="1803" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1810" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1825" class="col-name">discovered_at</text>
+      <text x="982" y="1825" class="col-type">TEXT</text>
+      <text x="1262" y="1825" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1832" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1847" class="col-name">updated_at</text>
+      <text x="982" y="1847" class="col-type">TEXT</text>
+      <text x="1262" y="1847" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="1854" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1869" class="col-name">deleted_at</text>
+      <text x="982" y="1869" class="col-type">TEXT</text>
+      <text x="1262" y="1869" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="700" y="1914" width="580" height="340" rx="8" fill="#ffffff" stroke="#0f766e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 708 1914 H 1272 Q 1280 1914 1280 1922 V 1956 H 700 V 1922 Q 700 1914 708 1914" fill="#0f766e" />
+      <text x="718" y="1941" class="table-title">jobs</text>
+
+      <rect x="701" y="1956" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="1971" class="col-name">id</text>
+      <text x="982" y="1971" class="col-type">TEXT</text>
+      <text x="1262" y="1971" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="701" y="1978" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="1993" class="col-name">type</text>
+      <text x="982" y="1993" class="col-type">TEXT</text>
+      <text x="1262" y="1993" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2000" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="2015" class="col-name">payload</text>
+      <text x="982" y="2015" class="col-type">TEXT</text>
+      <text x="1262" y="2015" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2022" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="2037" class="col-name">status</text>
+      <text x="982" y="2037" class="col-type">TEXT</text>
+      <text x="1262" y="2037" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2044" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="2059" class="col-name">attempts</text>
+      <text x="982" y="2059" class="col-type">INTEGER</text>
+      <text x="1262" y="2059" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2066" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="2081" class="col-name">max_attempts</text>
+      <text x="982" y="2081" class="col-type">INTEGER</text>
+      <text x="1262" y="2081" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2088" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="2103" class="col-name">run_at</text>
+      <text x="982" y="2103" class="col-type">TEXT</text>
+      <text x="1262" y="2103" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2110" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="2125" class="col-name">locked_at</text>
+      <text x="982" y="2125" class="col-type">TEXT</text>
+      <text x="1262" y="2125" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2132" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="2147" class="col-name">locked_by</text>
+      <text x="982" y="2147" class="col-type">TEXT</text>
+      <text x="1262" y="2147" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2154" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="2169" class="col-name">created_at</text>
+      <text x="982" y="2169" class="col-type">TEXT</text>
+      <text x="1262" y="2169" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2176" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="2191" class="col-name">completed_at</text>
+      <text x="982" y="2191" class="col-type">TEXT</text>
+      <text x="1262" y="2191" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2198" width="578" height="22" fill="#f8fafc" />
+      <text x="718" y="2213" class="col-name">failed_at</text>
+      <text x="982" y="2213" class="col-type">TEXT</text>
+      <text x="1262" y="2213" class="col-meta" text-anchor="end"></text>
+
+      <rect x="701" y="2220" width="578" height="22" fill="#ffffff" />
+      <text x="718" y="2235" class="col-name">error</text>
+      <text x="982" y="2235" class="col-type">TEXT</text>
+      <text x="1262" y="2235" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="150" width="580" height="208" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 150 H 1912 Q 1920 150 1920 158 V 192 H 1340 V 158 Q 1340 150 1348 150" fill="#6f4a8e" />
+      <text x="1358" y="177" class="table-title">authors</text>
+
+      <rect x="1341" y="192" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="207" class="col-name">id</text>
+      <text x="1622" y="207" class="col-type">TEXT</text>
+      <text x="1902" y="207" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1341" y="214" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="229" class="col-name">library_id</text>
+      <text x="1622" y="229" class="col-type">TEXT</text>
+      <text x="1902" y="229" class="col-meta fk-meta" text-anchor="end">FK-&gt;libraries</text>
+
+      <rect x="1341" y="236" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="251" class="col-name">name</text>
+      <text x="1622" y="251" class="col-type">TEXT</text>
+      <text x="1902" y="251" class="col-meta" text-anchor="end">UQ per library</text>
+
+      <rect x="1341" y="258" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="273" class="col-name">sort_name</text>
+      <text x="1622" y="273" class="col-type">TEXT</text>
+      <text x="1902" y="273" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1341" y="280" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="295" class="col-name">bio</text>
+      <text x="1622" y="295" class="col-type">TEXT</text>
+      <text x="1902" y="295" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1341" y="302" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="317" class="col-name">cover_storage_key</text>
+      <text x="1622" y="317" class="col-type">TEXT</text>
+      <text x="1902" y="317" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1341" y="324" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="339" class="col-name">openlibrary_id</text>
+      <text x="1622" y="339" class="col-type">TEXT</text>
+      <text x="1902" y="339" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="384" width="580" height="186" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 384 H 1912 Q 1920 384 1920 392 V 426 H 1340 V 392 Q 1340 384 1348 384" fill="#6f4a8e" />
+      <text x="1358" y="411" class="table-title">series</text>
+
+      <rect x="1341" y="426" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="441" class="col-name">id</text>
+      <text x="1622" y="441" class="col-type">TEXT</text>
+      <text x="1902" y="441" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1341" y="448" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="463" class="col-name">library_id</text>
+      <text x="1622" y="463" class="col-type">TEXT</text>
+      <text x="1902" y="463" class="col-meta fk-meta" text-anchor="end">FK-&gt;libraries</text>
+
+      <rect x="1341" y="470" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="485" class="col-name">name</text>
+      <text x="1622" y="485" class="col-type">TEXT</text>
+      <text x="1902" y="485" class="col-meta" text-anchor="end">UQ per library</text>
+
+      <rect x="1341" y="492" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="507" class="col-name">sort_name</text>
+      <text x="1622" y="507" class="col-type">TEXT</text>
+      <text x="1902" y="507" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1341" y="514" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="529" class="col-name">description</text>
+      <text x="1622" y="529" class="col-type">TEXT</text>
+      <text x="1902" y="529" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1341" y="536" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="551" class="col-name">cover_storage_key</text>
+      <text x="1622" y="551" class="col-type">TEXT</text>
+      <text x="1902" y="551" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="596" width="580" height="120" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 596 H 1912 Q 1920 596 1920 604 V 638 H 1340 V 604 Q 1340 596 1348 596" fill="#6f4a8e" />
+      <text x="1358" y="623" class="table-title">narrators</text>
+
+      <rect x="1341" y="638" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="653" class="col-name">id</text>
+      <text x="1622" y="653" class="col-type">TEXT</text>
+      <text x="1902" y="653" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1341" y="660" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="675" class="col-name">library_id</text>
+      <text x="1622" y="675" class="col-type">TEXT</text>
+      <text x="1902" y="675" class="col-meta fk-meta" text-anchor="end">FK-&gt;libraries</text>
+
+      <rect x="1341" y="682" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="697" class="col-name">name</text>
+      <text x="1622" y="697" class="col-type">TEXT</text>
+      <text x="1902" y="697" class="col-meta" text-anchor="end">UQ per library</text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="742" width="580" height="142" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 742 H 1912 Q 1920 742 1920 750 V 784 H 1340 V 750 Q 1340 742 1348 742" fill="#6f4a8e" />
+      <text x="1358" y="769" class="table-title">book_authors</text>
+
+      <rect x="1341" y="784" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="799" class="col-name">book_id</text>
+      <text x="1622" y="799" class="col-type">TEXT</text>
+      <text x="1902" y="799" class="col-meta fk-meta" text-anchor="end">PK FK-&gt;books</text>
+
+      <rect x="1341" y="806" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="821" class="col-name">author_id</text>
+      <text x="1622" y="821" class="col-type">TEXT</text>
+      <text x="1902" y="821" class="col-meta fk-meta" text-anchor="end">PK FK-&gt;authors</text>
+
+      <rect x="1341" y="828" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="843" class="col-name">role</text>
+      <text x="1622" y="843" class="col-type">TEXT</text>
+      <text x="1902" y="843" class="col-meta" text-anchor="end">author/narrator</text>
+
+      <rect x="1341" y="850" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="865" class="col-name">sort_order</text>
+      <text x="1622" y="865" class="col-type">INTEGER</text>
+      <text x="1902" y="865" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="910" width="580" height="186" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 910 H 1912 Q 1920 910 1920 918 V 952 H 1340 V 918 Q 1340 910 1348 910" fill="#6f4a8e" />
+      <text x="1358" y="937" class="table-title">categories</text>
+
+      <rect x="1341" y="952" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="967" class="col-name">id</text>
+      <text x="1622" y="967" class="col-type">TEXT</text>
+      <text x="1902" y="967" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1341" y="974" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="989" class="col-name">key</text>
+      <text x="1622" y="989" class="col-type">TEXT</text>
+      <text x="1902" y="989" class="col-meta" text-anchor="end">UQ</text>
+
+      <rect x="1341" y="996" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1011" class="col-name">name</text>
+      <text x="1622" y="1011" class="col-type">TEXT</text>
+      <text x="1902" y="1011" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1341" y="1018" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1033" class="col-name">sort_order</text>
+      <text x="1622" y="1033" class="col-type">INTEGER</text>
+      <text x="1902" y="1033" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1341" y="1040" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1055" class="col-name">icon</text>
+      <text x="1622" y="1055" class="col-type">TEXT</text>
+      <text x="1902" y="1055" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1341" y="1062" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1077" class="col-name">image_storage_key</text>
+      <text x="1622" y="1077" class="col-type">TEXT</text>
+      <text x="1902" y="1077" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="1122" width="580" height="142" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 1122 H 1912 Q 1920 1122 1920 1130 V 1164 H 1340 V 1130 Q 1340 1122 1348 1122" fill="#6f4a8e" />
+      <text x="1358" y="1149" class="table-title">category_aliases</text>
+
+      <rect x="1341" y="1164" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1179" class="col-name">id</text>
+      <text x="1622" y="1179" class="col-type">TEXT</text>
+      <text x="1902" y="1179" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1341" y="1186" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1201" class="col-name">keyword</text>
+      <text x="1622" y="1201" class="col-type">TEXT</text>
+      <text x="1902" y="1201" class="col-meta" text-anchor="end">UQ</text>
+
+      <rect x="1341" y="1208" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1223" class="col-name">category_id</text>
+      <text x="1622" y="1223" class="col-type">TEXT</text>
+      <text x="1902" y="1223" class="col-meta fk-meta" text-anchor="end">FK-&gt;categories</text>
+
+      <rect x="1341" y="1230" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1245" class="col-name">priority</text>
+      <text x="1622" y="1245" class="col-type">INTEGER</text>
+      <text x="1902" y="1245" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="1290" width="580" height="142" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 1290 H 1912 Q 1920 1290 1920 1298 V 1332 H 1340 V 1298 Q 1340 1290 1348 1290" fill="#6f4a8e" />
+      <text x="1358" y="1317" class="table-title">tags</text>
+
+      <rect x="1341" y="1332" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1347" class="col-name">id</text>
+      <text x="1622" y="1347" class="col-type">TEXT</text>
+      <text x="1902" y="1347" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1341" y="1354" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1369" class="col-name">key</text>
+      <text x="1622" y="1369" class="col-type">TEXT</text>
+      <text x="1902" y="1369" class="col-meta" text-anchor="end">UQ</text>
+
+      <rect x="1341" y="1376" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1391" class="col-name">display_name</text>
+      <text x="1622" y="1391" class="col-type">TEXT</text>
+      <text x="1902" y="1391" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1341" y="1398" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1413" class="col-name">created_at</text>
+      <text x="1622" y="1413" class="col-type">TEXT</text>
+      <text x="1902" y="1413" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="1458" width="580" height="120" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 1458 H 1912 Q 1920 1458 1920 1466 V 1500 H 1340 V 1466 Q 1340 1458 1348 1458" fill="#6f4a8e" />
+      <text x="1358" y="1485" class="table-title">taggables</text>
+
+      <rect x="1341" y="1500" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1515" class="col-name">tag_id</text>
+      <text x="1622" y="1515" class="col-type">TEXT</text>
+      <text x="1902" y="1515" class="col-meta fk-meta" text-anchor="end">PK FK-&gt;tags</text>
+
+      <rect x="1341" y="1522" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1537" class="col-name">entity_type</text>
+      <text x="1622" y="1537" class="col-type">TEXT</text>
+      <text x="1902" y="1537" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1341" y="1544" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1559" class="col-name">entity_id</text>
+      <text x="1622" y="1559" class="col-type">TEXT</text>
+      <text x="1902" y="1559" class="col-meta logical-meta" text-anchor="end">PK LOGICAL</text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="1604" width="580" height="120" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 1604 H 1912 Q 1920 1604 1920 1612 V 1646 H 1340 V 1612 Q 1340 1604 1348 1604" fill="#6f4a8e" />
+      <text x="1358" y="1631" class="table-title">genres</text>
+
+      <rect x="1341" y="1646" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1661" class="col-name">id</text>
+      <text x="1622" y="1661" class="col-type">TEXT</text>
+      <text x="1902" y="1661" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1341" y="1668" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1683" class="col-name">library_id</text>
+      <text x="1622" y="1683" class="col-type">TEXT</text>
+      <text x="1902" y="1683" class="col-meta fk-meta" text-anchor="end">FK-&gt;libraries</text>
+
+      <rect x="1341" y="1690" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1705" class="col-name">name</text>
+      <text x="1622" y="1705" class="col-type">TEXT</text>
+      <text x="1902" y="1705" class="col-meta" text-anchor="end">UQ per library</text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="1750" width="580" height="98" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 1750 H 1912 Q 1920 1750 1920 1758 V 1792 H 1340 V 1758 Q 1340 1750 1348 1750" fill="#6f4a8e" />
+      <text x="1358" y="1777" class="table-title">book_genres</text>
+
+      <rect x="1341" y="1792" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1807" class="col-name">book_id</text>
+      <text x="1622" y="1807" class="col-type">TEXT</text>
+      <text x="1902" y="1807" class="col-meta fk-meta" text-anchor="end">PK FK-&gt;books</text>
+
+      <rect x="1341" y="1814" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1829" class="col-name">genre_id</text>
+      <text x="1622" y="1829" class="col-type">TEXT</text>
+      <text x="1902" y="1829" class="col-meta fk-meta" text-anchor="end">PK FK-&gt;genres</text>
+    </g>
+
+    <g class="table">
+      <rect x="1340" y="1874" width="580" height="164" rx="8" fill="#ffffff" stroke="#6f4a8e" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1348 1874 H 1912 Q 1920 1874 1920 1882 V 1916 H 1340 V 1882 Q 1340 1874 1348 1874" fill="#6f4a8e" />
+      <text x="1358" y="1901" class="table-title">person_aliases</text>
+
+      <rect x="1341" y="1916" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1931" class="col-name">id</text>
+      <text x="1622" y="1931" class="col-type">TEXT</text>
+      <text x="1902" y="1931" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1341" y="1938" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1953" class="col-name">alias</text>
+      <text x="1622" y="1953" class="col-type">TEXT</text>
+      <text x="1902" y="1953" class="col-meta" text-anchor="end">UQ</text>
+
+      <rect x="1341" y="1960" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="1975" class="col-name">canonical_name</text>
+      <text x="1622" y="1975" class="col-type">TEXT</text>
+      <text x="1902" y="1975" class="col-meta logical-meta" text-anchor="end">LOGICAL</text>
+
+      <rect x="1341" y="1982" width="578" height="22" fill="#f8fafc" />
+      <text x="1358" y="1997" class="col-name">created_by</text>
+      <text x="1622" y="1997" class="col-type">TEXT</text>
+      <text x="1902" y="1997" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="1341" y="2004" width="578" height="22" fill="#ffffff" />
+      <text x="1358" y="2019" class="col-name">created_at</text>
+      <text x="1622" y="2019" class="col-type">TEXT</text>
+      <text x="1902" y="2019" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1980" y="150" width="580" height="252" rx="8" fill="#ffffff" stroke="#9a5a24" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1988 150 H 2552 Q 2560 150 2560 158 V 192 H 1980 V 158 Q 1980 150 1988 150" fill="#9a5a24" />
+      <text x="1998" y="177" class="table-title">playback_progress</text>
+
+      <rect x="1981" y="192" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="207" class="col-name">id</text>
+      <text x="2262" y="207" class="col-type">TEXT</text>
+      <text x="2542" y="207" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1981" y="214" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="229" class="col-name">user_id</text>
+      <text x="2262" y="229" class="col-type">TEXT</text>
+      <text x="2542" y="229" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="1981" y="236" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="251" class="col-name">book_id</text>
+      <text x="2262" y="251" class="col-type">TEXT</text>
+      <text x="2542" y="251" class="col-meta fk-meta" text-anchor="end">FK-&gt;books</text>
+
+      <rect x="1981" y="258" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="273" class="col-name">current_file_id</text>
+      <text x="2262" y="273" class="col-type">TEXT</text>
+      <text x="2542" y="273" class="col-meta fk-meta" text-anchor="end">FK-&gt;book_files</text>
+
+      <rect x="1981" y="280" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="295" class="col-name">position_seconds</text>
+      <text x="2262" y="295" class="col-type">INTEGER</text>
+      <text x="2542" y="295" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="302" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="317" class="col-name">duration_seconds</text>
+      <text x="2262" y="317" class="col-type">INTEGER</text>
+      <text x="2542" y="317" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="324" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="339" class="col-name">percent_complete</text>
+      <text x="2262" y="339" class="col-type">REAL</text>
+      <text x="2542" y="339" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="346" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="361" class="col-name">updated_at</text>
+      <text x="2262" y="361" class="col-type">TEXT</text>
+      <text x="2542" y="361" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="368" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="383" class="col-name">completed_at</text>
+      <text x="2262" y="383" class="col-type">TEXT</text>
+      <text x="2542" y="383" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1980" y="428" width="580" height="252" rx="8" fill="#ffffff" stroke="#9a5a24" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1988 428 H 2552 Q 2560 428 2560 436 V 470 H 1980 V 436 Q 1980 428 1988 428" fill="#9a5a24" />
+      <text x="1998" y="455" class="table-title">reading_progress</text>
+
+      <rect x="1981" y="470" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="485" class="col-name">id</text>
+      <text x="2262" y="485" class="col-type">TEXT</text>
+      <text x="2542" y="485" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1981" y="492" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="507" class="col-name">user_id</text>
+      <text x="2262" y="507" class="col-type">TEXT</text>
+      <text x="2542" y="507" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="1981" y="514" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="529" class="col-name">book_id</text>
+      <text x="2262" y="529" class="col-type">TEXT</text>
+      <text x="2542" y="529" class="col-meta fk-meta" text-anchor="end">FK-&gt;books</text>
+
+      <rect x="1981" y="536" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="551" class="col-name">document_id</text>
+      <text x="2262" y="551" class="col-type">TEXT</text>
+      <text x="2542" y="551" class="col-meta fk-meta" text-anchor="end">FK-&gt;book_documents</text>
+
+      <rect x="1981" y="558" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="573" class="col-name">cfi</text>
+      <text x="2262" y="573" class="col-type">TEXT</text>
+      <text x="2542" y="573" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="580" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="595" class="col-name">percent_complete</text>
+      <text x="2262" y="595" class="col-type">REAL</text>
+      <text x="2542" y="595" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="602" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="617" class="col-name">label</text>
+      <text x="2262" y="617" class="col-type">TEXT</text>
+      <text x="2542" y="617" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="624" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="639" class="col-name">updated_at</text>
+      <text x="2262" y="639" class="col-type">TEXT</text>
+      <text x="2542" y="639" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="646" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="661" class="col-name">completed_at</text>
+      <text x="2262" y="661" class="col-type">TEXT</text>
+      <text x="2542" y="661" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1980" y="706" width="580" height="274" rx="8" fill="#ffffff" stroke="#9a5a24" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1988 706 H 2552 Q 2560 706 2560 714 V 748 H 1980 V 714 Q 1980 706 1988 706" fill="#9a5a24" />
+      <text x="1998" y="733" class="table-title">book_bookmarks</text>
+
+      <rect x="1981" y="748" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="763" class="col-name">id</text>
+      <text x="2262" y="763" class="col-type">TEXT</text>
+      <text x="2542" y="763" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1981" y="770" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="785" class="col-name">user_id</text>
+      <text x="2262" y="785" class="col-type">TEXT</text>
+      <text x="2542" y="785" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="1981" y="792" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="807" class="col-name">book_id</text>
+      <text x="2262" y="807" class="col-type">TEXT</text>
+      <text x="2542" y="807" class="col-meta fk-meta" text-anchor="end">FK-&gt;books</text>
+
+      <rect x="1981" y="814" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="829" class="col-name">file_id</text>
+      <text x="2262" y="829" class="col-type">TEXT</text>
+      <text x="2542" y="829" class="col-meta fk-meta" text-anchor="end">FK-&gt;book_files</text>
+
+      <rect x="1981" y="836" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="851" class="col-name">position_seconds</text>
+      <text x="2262" y="851" class="col-type">INTEGER</text>
+      <text x="2542" y="851" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="858" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="873" class="col-name">book_position_seconds</text>
+      <text x="2262" y="873" class="col-type">INTEGER</text>
+      <text x="2542" y="873" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="880" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="895" class="col-name">label</text>
+      <text x="2262" y="895" class="col-type">TEXT</text>
+      <text x="2542" y="895" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="902" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="917" class="col-name">note</text>
+      <text x="2262" y="917" class="col-type">TEXT</text>
+      <text x="2542" y="917" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="924" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="939" class="col-name">created_at</text>
+      <text x="2262" y="939" class="col-type">TEXT</text>
+      <text x="2542" y="939" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="946" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="961" class="col-name">updated_at</text>
+      <text x="2262" y="961" class="col-type">TEXT</text>
+      <text x="2542" y="961" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1980" y="1006" width="580" height="186" rx="8" fill="#ffffff" stroke="#9a5a24" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1988 1006 H 2552 Q 2560 1006 2560 1014 V 1048 H 1980 V 1014 Q 1980 1006 1988 1006" fill="#9a5a24" />
+      <text x="1998" y="1033" class="table-title">book_saves</text>
+
+      <rect x="1981" y="1048" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1063" class="col-name">id</text>
+      <text x="2262" y="1063" class="col-type">TEXT</text>
+      <text x="2542" y="1063" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1981" y="1070" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1085" class="col-name">user_id</text>
+      <text x="2262" y="1085" class="col-type">TEXT</text>
+      <text x="2542" y="1085" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="1981" y="1092" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1107" class="col-name">book_id</text>
+      <text x="2262" y="1107" class="col-type">TEXT</text>
+      <text x="2542" y="1107" class="col-meta fk-meta" text-anchor="end">FK-&gt;books</text>
+
+      <rect x="1981" y="1114" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1129" class="col-name">note</text>
+      <text x="2262" y="1129" class="col-type">TEXT</text>
+      <text x="2542" y="1129" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="1136" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1151" class="col-name">created_at</text>
+      <text x="2262" y="1151" class="col-type">TEXT</text>
+      <text x="2542" y="1151" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="1158" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1173" class="col-name">updated_at</text>
+      <text x="2262" y="1173" class="col-type">TEXT</text>
+      <text x="2542" y="1173" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1980" y="1218" width="580" height="186" rx="8" fill="#ffffff" stroke="#9a5a24" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1988 1218 H 2552 Q 2560 1218 2560 1226 V 1260 H 1980 V 1226 Q 1980 1218 1988 1218" fill="#9a5a24" />
+      <text x="1998" y="1245" class="table-title">collections</text>
+
+      <rect x="1981" y="1260" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1275" class="col-name">id</text>
+      <text x="2262" y="1275" class="col-type">TEXT</text>
+      <text x="2542" y="1275" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1981" y="1282" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1297" class="col-name">user_id</text>
+      <text x="2262" y="1297" class="col-type">TEXT</text>
+      <text x="2542" y="1297" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="1981" y="1304" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1319" class="col-name">name</text>
+      <text x="2262" y="1319" class="col-type">TEXT</text>
+      <text x="2542" y="1319" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="1326" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1341" class="col-name">description</text>
+      <text x="2262" y="1341" class="col-type">TEXT</text>
+      <text x="2542" y="1341" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="1348" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1363" class="col-name">created_at</text>
+      <text x="2262" y="1363" class="col-type">TEXT</text>
+      <text x="2542" y="1363" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="1370" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1385" class="col-name">updated_at</text>
+      <text x="2262" y="1385" class="col-type">TEXT</text>
+      <text x="2542" y="1385" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1980" y="1430" width="580" height="186" rx="8" fill="#ffffff" stroke="#9a5a24" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1988 1430 H 2552 Q 2560 1430 2560 1438 V 1472 H 1980 V 1438 Q 1980 1430 1988 1430" fill="#9a5a24" />
+      <text x="1998" y="1457" class="table-title">collection_items</text>
+
+      <rect x="1981" y="1472" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1487" class="col-name">id</text>
+      <text x="2262" y="1487" class="col-type">TEXT</text>
+      <text x="2542" y="1487" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1981" y="1494" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1509" class="col-name">collection_id</text>
+      <text x="2262" y="1509" class="col-type">TEXT</text>
+      <text x="2542" y="1509" class="col-meta fk-meta" text-anchor="end">FK-&gt;collections</text>
+
+      <rect x="1981" y="1516" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1531" class="col-name">entity_type</text>
+      <text x="2262" y="1531" class="col-type">TEXT</text>
+      <text x="2542" y="1531" class="col-meta logical-meta" text-anchor="end">LOGICAL</text>
+
+      <rect x="1981" y="1538" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1553" class="col-name">entity_id</text>
+      <text x="2262" y="1553" class="col-type">TEXT</text>
+      <text x="2542" y="1553" class="col-meta logical-meta" text-anchor="end">LOGICAL</text>
+
+      <rect x="1981" y="1560" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1575" class="col-name">position</text>
+      <text x="2262" y="1575" class="col-type">REAL</text>
+      <text x="2542" y="1575" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="1582" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1597" class="col-name">added_at</text>
+      <text x="2262" y="1597" class="col-type">TEXT</text>
+      <text x="2542" y="1597" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1980" y="1642" width="580" height="252" rx="8" fill="#ffffff" stroke="#9a5a24" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1988 1642 H 2552 Q 2560 1642 2560 1650 V 1684 H 1980 V 1650 Q 1980 1642 1988 1642" fill="#9a5a24" />
+      <text x="1998" y="1669" class="table-title">shares</text>
+
+      <rect x="1981" y="1684" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1699" class="col-name">id</text>
+      <text x="2262" y="1699" class="col-type">TEXT</text>
+      <text x="2542" y="1699" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1981" y="1706" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1721" class="col-name">module</text>
+      <text x="2262" y="1721" class="col-type">TEXT</text>
+      <text x="2542" y="1721" class="col-meta logical-meta" text-anchor="end">LOGICAL</text>
+
+      <rect x="1981" y="1728" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1743" class="col-name">resource_id</text>
+      <text x="2262" y="1743" class="col-type">TEXT</text>
+      <text x="2542" y="1743" class="col-meta logical-meta" text-anchor="end">LOGICAL</text>
+
+      <rect x="1981" y="1750" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1765" class="col-name">user_id</text>
+      <text x="2262" y="1765" class="col-type">TEXT</text>
+      <text x="2542" y="1765" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="1981" y="1772" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1787" class="col-name">permission</text>
+      <text x="2262" y="1787" class="col-type">TEXT</text>
+      <text x="2542" y="1787" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="1794" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1809" class="col-name">created_by</text>
+      <text x="2262" y="1809" class="col-type">TEXT</text>
+      <text x="2542" y="1809" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="1981" y="1816" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1831" class="col-name">created_at</text>
+      <text x="2262" y="1831" class="col-type">TEXT</text>
+      <text x="2542" y="1831" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="1838" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1853" class="col-name">expires_at</text>
+      <text x="2262" y="1853" class="col-type">TEXT</text>
+      <text x="2542" y="1853" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="1860" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1875" class="col-name">revoked_at</text>
+      <text x="2262" y="1875" class="col-type">TEXT</text>
+      <text x="2542" y="1875" class="col-meta" text-anchor="end"></text>
+    </g>
+
+    <g class="table">
+      <rect x="1980" y="1920" width="580" height="274" rx="8" fill="#ffffff" stroke="#9a5a24" stroke-width="1.6" filter="url(#shadow)" />
+      <path d="M 1988 1920 H 2552 Q 2560 1920 2560 1928 V 1962 H 1980 V 1928 Q 1980 1920 1988 1920" fill="#9a5a24" />
+      <text x="1998" y="1947" class="table-title">share_links</text>
+
+      <rect x="1981" y="1962" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="1977" class="col-name">id</text>
+      <text x="2262" y="1977" class="col-type">TEXT</text>
+      <text x="2542" y="1977" class="col-meta" text-anchor="end">PK</text>
+
+      <rect x="1981" y="1984" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="1999" class="col-name">module</text>
+      <text x="2262" y="1999" class="col-type">TEXT</text>
+      <text x="2542" y="1999" class="col-meta logical-meta" text-anchor="end">LOGICAL</text>
+
+      <rect x="1981" y="2006" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="2021" class="col-name">resource_id</text>
+      <text x="2262" y="2021" class="col-type">TEXT</text>
+      <text x="2542" y="2021" class="col-meta logical-meta" text-anchor="end">LOGICAL</text>
+
+      <rect x="1981" y="2028" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="2043" class="col-name">token_hash</text>
+      <text x="2262" y="2043" class="col-type">TEXT</text>
+      <text x="2542" y="2043" class="col-meta" text-anchor="end">UQ</text>
+
+      <rect x="1981" y="2050" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="2065" class="col-name">permission</text>
+      <text x="2262" y="2065" class="col-type">TEXT</text>
+      <text x="2542" y="2065" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="2072" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="2087" class="col-name">label</text>
+      <text x="2262" y="2087" class="col-type">TEXT</text>
+      <text x="2542" y="2087" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="2094" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="2109" class="col-name">expires_at</text>
+      <text x="2262" y="2109" class="col-type">TEXT</text>
+      <text x="2542" y="2109" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="2116" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="2131" class="col-name">created_by</text>
+      <text x="2262" y="2131" class="col-type">TEXT</text>
+      <text x="2542" y="2131" class="col-meta fk-meta" text-anchor="end">FK-&gt;users</text>
+
+      <rect x="1981" y="2138" width="578" height="22" fill="#ffffff" />
+      <text x="1998" y="2153" class="col-name">created_at</text>
+      <text x="2262" y="2153" class="col-type">TEXT</text>
+      <text x="2542" y="2153" class="col-meta" text-anchor="end"></text>
+
+      <rect x="1981" y="2160" width="578" height="22" fill="#f8fafc" />
+      <text x="1998" y="2175" class="col-name">revoked_at</text>
+      <text x="2262" y="2175" class="col-type">TEXT</text>
+      <text x="2542" y="2175" class="col-meta" text-anchor="end"></text>
+    </g>
+  </g>
+  <text x="60" y="2346" class="note">Notes: taggables.entity_id, collection_items.entity_id, shares.resource_id, share_links.resource_id, libraries.owner_id, and books.series_id are logical/polymorphic links rather than enforced SQLite foreign keys.</text>
+</svg>

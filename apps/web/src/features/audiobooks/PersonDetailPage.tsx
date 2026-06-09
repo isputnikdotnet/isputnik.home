@@ -70,6 +70,8 @@ export function PersonDetailPage({
         method: "POST",
         body: JSON.stringify({ from: personName, into: mergeTarget })
       });
+      setMergeOpen(false);
+      setMerging(false);
       navigate(`/audiobooks/${navActive}/${encodeURIComponent(mergeTarget)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Merge failed");
