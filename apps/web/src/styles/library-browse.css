@@ -438,7 +438,7 @@
 }
 
 .audiobook-catalog.grid {
-  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(241px, 1fr));
 }
 
 .audiobook-catalog.list {
@@ -458,6 +458,7 @@
 
 .audiobook-catalog-card:hover .audiobook-catalog-cover,
 .audiobook-catalog-card:focus-within .audiobook-catalog-cover {
+  border-radius: 10px 10px 0 0;
   transform: translateY(-6px) scale(1.12);
   box-shadow: 0 22px 42px rgba(0, 0, 0, 0.58);
 }
@@ -514,7 +515,7 @@
   border: 1px solid var(--line);
   border-radius: 10px;
   box-shadow: var(--audiobook-soft-shadow);
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-radius 0.16s ease;
   color: var(--mint);
   background:
     linear-gradient(155deg, color-mix(in srgb, var(--mint) 22%, transparent), transparent 46%),
@@ -537,7 +538,8 @@
   width: 100%;
   height: 100%;
   border-radius: inherit;
-  object-fit: cover;
+  object-fit: contain;
+  background: #070b0f;
 }
 
 .audiobook-catalog-cover > strong {
@@ -642,7 +644,7 @@
 /* Hover/focus cover actions, Prime/Netflix-style */
 .audiobook-catalog-actions {
   position: absolute;
-  top: 100%;
+  top: calc(100% - 1px);
   right: -1px;
   left: -1px;
   z-index: 3;
@@ -896,7 +898,7 @@
   }
 
   .audiobook-catalog.grid {
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(207px, 1fr));
   }
 
   .audiobook-catalog-action-row {
@@ -980,7 +982,7 @@
   }
 
   .audiobook-catalog.grid {
-    grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
     gap: 22px 14px;
   }
 

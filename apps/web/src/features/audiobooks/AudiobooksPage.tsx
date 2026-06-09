@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, Pencil, Play, RotateCcw, Search, Share2, Square, UserRound, X } from "lucide-react";
+import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, Pencil, Play, RotateCcw, Search, Square, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import { DashboardShell } from "../../app/DashboardShell";
-import { ShareModal } from "../share/ShareModal";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { PeopleCombobox } from "./PeopleCombobox";
@@ -198,7 +197,6 @@ function CatalogBookCard({
   selected,
   onToggleSelect,
   canEdit,
-  onShare,
   onEdit,
   onAddToCollection
 }: {
@@ -208,7 +206,6 @@ function CatalogBookCard({
   selected: boolean;
   onToggleSelect: (id: string) => void;
   canEdit: boolean;
-  onShare: (book: AudiobookBook) => void;
   onEdit: (book: AudiobookBook) => void;
   onAddToCollection: (book: AudiobookBook) => void;
 }) {
@@ -350,16 +347,6 @@ function CatalogBookCard({
                 >
                   <ListMusic size={16} aria-hidden="true" />
                   <span>Add to Collection</span>
-                </button>
-                <button
-                  className="audiobook-catalog-action"
-                  type="button"
-                  onClick={(event) => { event.stopPropagation(); onShare(book); }}
-                  aria-label="Share"
-                  title="Share"
-                >
-                  <Share2 size={16} aria-hidden="true" />
-                  <span>Share</span>
                 </button>
                 {canEdit && (
                   <button
@@ -681,7 +668,6 @@ export function AudiobooksPage({
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [bulkNotice, setBulkNotice] = useState("");
   // Per-tile actions that need page-level UI.
-  const [shareBook, setShareBook] = useState<AudiobookBook | null>(null);
   const [collectionBook, setCollectionBook] = useState<AudiobookBook | null>(null);
   // The full metadata editor needs the book detail shape; fetch it on demand
   // when a tile's "Edit metadata" is chosen.
@@ -981,7 +967,6 @@ export function AudiobooksPage({
                   selected={selectedIds.has(book.id)}
                   onToggleSelect={toggleSelect}
                   canEdit={libraries.find((library) => library.id === book.libraryId)?.canWrite ?? false}
-                  onShare={setShareBook}
                   onEdit={openEditDetail}
                   onAddToCollection={setCollectionBook}
                 />
@@ -1019,10 +1004,6 @@ export function AudiobooksPage({
             onBookUpdated={(updated) => { setEditDetail(updated); cat.refresh(); }}
             onClose={() => setEditDetail(null)}
           />
-        )}
-
-        {shareBook && (
-          <ShareModal bookId={shareBook.id} bookTitle={shareBook.title} onClose={() => setShareBook(null)} />
         )}
 
         {collectionBook && (
