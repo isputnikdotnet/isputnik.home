@@ -336,6 +336,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.10.1",
+          label: "Audiobook library polish",
+          changes: [
+            "Audiobook tiles now use a larger cover-first layout with an expanded hover panel for play, favorite, download, collection, share, and admin actions.",
+            "Book details have icon-first action controls, refreshed tag pills, and progress actions grouped directly inside the listening progress card.",
+            "Library and sort dropdowns on the audiobook page stack options vertically again after the tile menu redesign."
+          ]
+        },
+        {
           version: "0.10.0",
           label: "PWA navigation & offline reliability",
           changes: [

@@ -170,6 +170,27 @@
     font-size: 1.55rem;
   }
 
+  .book-detail-actions {
+    gap: 10px;
+  }
+
+  .book-detail-icon-action {
+    width: 42px;
+    height: 42px;
+  }
+
+  .book-progress-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .book-progress-action + .book-progress-action {
+    margin-top: 12px;
+    padding-top: 12px;
+    padding-left: 6px;
+    border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+    border-left: 0;
+  }
+
   .book-detail-tabs {
     gap: 22px;
     overflow-x: auto;

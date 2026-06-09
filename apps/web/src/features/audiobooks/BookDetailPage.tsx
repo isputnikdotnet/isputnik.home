@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, Pencil, Play, RotateCcw, Share2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
@@ -100,13 +100,11 @@ function BookDetailView({
   const [save, setSave] = useState<BookSave | null>(null);
   const [saveAction, setSaveAction] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string } | null>(null);
   const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
-  const detailMenuRef = useRef<HTMLDivElement>(null);
   const offline = useDownload(book);
 
   // Close the full-screen reader on Escape.
@@ -116,24 +114,6 @@ function BookDetailView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [viewerDoc]);
-
-  useEffect(() => {
-    if (!detailMenuOpen) return;
-    const close = (event: MouseEvent) => {
-      if (detailMenuRef.current && !detailMenuRef.current.contains(event.target as Node)) {
-        setDetailMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") setDetailMenuOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [detailMenuOpen]);
 
   // An ebook (or any audio-less book): content is a document, not audio tracks.
   const isEbook = book.files.length === 0 && book.documents.length > 0;
@@ -148,7 +128,6 @@ function BookDetailView({
     setActiveBookTab("description");
     setDescriptionExpanded(false);
     setDetailsExpanded(false);
-    setDetailMenuOpen(false);
     setReadingProgress(null);
   }, [book.id]);
 
@@ -387,7 +366,7 @@ function BookDetailView({
             <section className="book-tags book-tags-under-cover" aria-label="Tags">
               {book.category && (
                 <button
-                  className="book-tag-chip"
+                  className="book-tag-chip book-tag-chip-category"
                   type="button"
                   onClick={() => navigate(`/audiobooks/categories/${book.category?.key}${linkFrom}`)}
                 >
@@ -396,10 +375,10 @@ function BookDetailView({
               )}
               {book.tags.map((tag) => (
                 <button
-                  className="book-tag-chip"
+                  className="book-tag-chip book-tag-chip-tag"
                   key={tag}
                   type="button"
-                  onClick={() => navigate(`/audiobooks/tags/${encodeURIComponent(tag)}`)}
+                  onClick={() => navigate(`/audiobooks/tags/${encodeURIComponent(tag)}${linkFrom}`)}
                 >
                   {tag}
                 </button>
@@ -459,7 +438,6 @@ function BookDetailView({
               )}
             </div>
           )}
-
           <div className="book-detail-actions">
             {isEbook ? (
               <button
@@ -479,13 +457,21 @@ function BookDetailView({
                 <span>{progressActionLabel}</span>
               </button>
             )}
-            <button className="secondary-button" onClick={toggleSave} disabled={saveAction} aria-pressed={save?.saved ?? false}>
-              <Heart size={16} fill={save?.saved ? "currentColor" : "none"} />
-              <span>{saveAction ? "Saving..." : save?.saved ? "Favorited" : "Add to Favorites"}</span>
+            <button
+              className={`book-detail-icon-action${save?.saved ? " on" : ""}`}
+              type="button"
+              onClick={toggleSave}
+              disabled={saveAction}
+              aria-pressed={save?.saved ?? false}
+              aria-label={saveAction ? "Saving favorite" : save?.saved ? "Remove from favorites" : "Add to favorites"}
+              title={saveAction ? "Saving..." : save?.saved ? "Favorited" : "Add to favorites"}
+            >
+              <Heart size={18} fill={save?.saved ? "currentColor" : "none"} />
             </button>
             {!isEbook && isStandalone() && book.files.some((f) => f.status === "available") && (
               <button
-                className={`secondary-button${offline.record?.state === "complete" ? " offline-saved" : ""}`}
+                className={`book-detail-icon-action${offline.record?.state === "complete" ? " offline-saved" : ""}`}
+                type="button"
                 onClick={() => {
                   if (offline.busy) return;
                   if (offline.record?.state === "complete") {
@@ -496,103 +482,53 @@ function BookDetailView({
                 }}
                 disabled={offline.busy}
                 aria-label={offline.record?.state === "complete" ? "Remove offline download" : "Save for offline listening"}
+                title={offline.record?.state === "complete" ? "Saved offline" : offline.busy ? `Downloading ${Math.round(offline.progress * 100)}%` : "Save offline"}
               >
                 {offline.record?.state === "complete" ? (
-                  <><CheckCircle2 size={16} /><span>Saved offline</span></>
+                  <CheckCircle2 size={18} />
                 ) : offline.busy ? (
-                  <><Download size={16} /><span>Downloading {Math.round(offline.progress * 100)}%</span></>
+                  <Download size={18} />
                 ) : (
-                  <><Download size={16} /><span>Save offline</span></>
+                  <Download size={18} />
                 )}
               </button>
             )}
-            <div className="book-detail-menu-wrap" ref={detailMenuRef}>
-              <button
-                className="secondary-button book-detail-more-action"
-                type="button"
-                onClick={() => setDetailMenuOpen((open) => !open)}
-                aria-expanded={detailMenuOpen}
-                aria-haspopup="menu"
-                aria-label="More options"
-                title="More options"
-              >
-                <MoreHorizontal size={17} />
-              </button>
-              {detailMenuOpen && (
-                <div className="book-detail-action-menu" role="menu" aria-label="Book actions">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMetadataModalOpen(true);
-                      setDetailMenuOpen(false);
-                    }}
-                  >
-                    <Pencil size={17} aria-hidden="true" />
-                    <span>Edit metadata</span>
-                  </button>
-                  {!isEbook && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setDetailMenuOpen(false);
-                        void markBookFinished();
-                      }}
-                      disabled={progressAction !== ""}
-                    >
-                      <CheckCircle2 size={17} aria-hidden="true" />
-                      <span>{progressAction === "complete" ? "Saving..." : "Mark finished"}</span>
-                    </button>
-                  )}
-                  {(!isEbook || primaryReadableDoc?.format === "epub") && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setDetailMenuOpen(false);
-                        void resetProgress();
-                      }}
-                      disabled={progressAction !== ""}
-                    >
-                      <RotateCcw size={17} aria-hidden="true" />
-                      <span>{progressAction === "reset" ? "Resetting..." : "Reset progress"}</span>
-                    </button>
-                  )}
-                  <a
-                    role="menuitem"
-                    href={isEbook && primaryReadableDoc ? `${primaryReadableDoc.url}?download` : `/api/library/books/${book.id}/download`}
-                    download
-                    onClick={() => setDetailMenuOpen(false)}
-                  >
-                    <Download size={17} aria-hidden="true" />
-                    <span>Download</span>
-                  </a>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setAddToCollectionOpen(true);
-                      setDetailMenuOpen(false);
-                    }}
-                  >
-                    <ListMusic size={17} aria-hidden="true" />
-                    <span>Add to collection</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setShareModalOpen(true);
-                      setDetailMenuOpen(false);
-                    }}
-                  >
-                    <Share2 size={17} aria-hidden="true" />
-                    <span>Share</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              className="book-detail-icon-action"
+              type="button"
+              onClick={() => setMetadataModalOpen(true)}
+              aria-label="Edit metadata"
+              title="Edit metadata"
+            >
+              <Pencil size={18} />
+            </button>
+            <a
+              className="book-detail-icon-action"
+              href={isEbook && primaryReadableDoc ? `${primaryReadableDoc.url}?download` : `/api/library/books/${book.id}/download`}
+              download
+              aria-label="Download"
+              title="Download"
+            >
+              <Download size={18} />
+            </a>
+            <button
+              className="book-detail-icon-action"
+              type="button"
+              onClick={() => setAddToCollectionOpen(true)}
+              aria-label="Add to collection"
+              title="Add to collection"
+            >
+              <ListMusic size={18} />
+            </button>
+            <button
+              className="book-detail-icon-action"
+              type="button"
+              onClick={() => setShareModalOpen(true)}
+              aria-label="Share"
+              title="Share"
+            >
+              <Share2 size={18} />
+            </button>
           </div>
           {saveError && <MessageBox tone="error" title="Favorites error">{saveError}</MessageBox>}
           {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
@@ -610,6 +546,42 @@ function BookDetailView({
               <span>{progressLocation}</span>
               {remainingSeconds != null && !progress?.completedAt && <span>{formatDuration(remainingSeconds)} left</span>}
             </div>
+            {(!isEbook || primaryReadableDoc?.format === "epub") && (
+              <div className="book-progress-actions">
+                {!isEbook && (
+                  <button
+                    className="book-progress-action"
+                    type="button"
+                    onClick={() => { void markBookFinished(); }}
+                    disabled={progressAction !== ""}
+                    aria-label={progressAction === "complete" ? "Saving finished status" : "Mark finished"}
+                  >
+                    <span className="book-progress-action-icon">
+                      <CheckCircle2 size={18} />
+                    </span>
+                    <span>
+                      <strong>{progressAction === "complete" ? "Saving..." : bookFinished ? "Marked as finished" : "Mark as finished"}</strong>
+                      <small>{bookFinished ? "You reached the end" : "Set progress to the end"}</small>
+                    </span>
+                  </button>
+                )}
+                <button
+                  className="book-progress-action"
+                  type="button"
+                  onClick={() => { void resetProgress(); }}
+                  disabled={progressAction !== ""}
+                  aria-label={progressAction === "reset" ? "Resetting progress" : "Reset progress"}
+                >
+                  <span className="book-progress-action-icon">
+                    <RotateCcw size={18} />
+                  </span>
+                  <span>
+                    <strong>{progressAction === "reset" ? "Resetting..." : "Reset progress"}</strong>
+                    <small>{isEbook ? "Start reading from the beginning" : "Start listening from the beginning"}</small>
+                  </span>
+                </button>
+              </div>
+            )}
           </section>
         </div>
       </div>

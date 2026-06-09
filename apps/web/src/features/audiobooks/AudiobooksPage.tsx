@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, MoreVertical, Pencil, Play, RotateCcw, Search, Share2, Square, UserRound, X } from "lucide-react";
+import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, Pencil, Play, RotateCcw, Search, Share2, Square, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
@@ -216,21 +216,10 @@ function CatalogBookCard({
   const [favBusy, setFavBusy] = useState(false);
   const [status, setStatus] = useState<BookStatus>(() => initialStatus(book));
   const [statusBusy, setStatusBusy] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const rootRef = useRef<HTMLElement>(null);
 
   // Re-seed from the server shape when the catalog refreshes.
   useEffect(() => { setFav(book.saved); }, [book.saved]);
   useEffect(() => { setStatus(initialStatus(book)); }, [book.progress?.completedAt, book.progress?.percentComplete]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setMenuOpen(false);
-    };
-    window.addEventListener("mousedown", close);
-    return () => window.removeEventListener("mousedown", close);
-  }, [menuOpen]);
 
   const activate = () => {
     if (selectionMode) onToggleSelect(book.id);
@@ -253,7 +242,6 @@ function CatalogBookCard({
   };
 
   const toggleFinished = async () => {
-    setMenuOpen(false);
     if (statusBusy) return;
     const wasFinished = status === "finished";
     setStatus(wasFinished ? "none" : "finished");
@@ -276,8 +264,7 @@ function CatalogBookCard({
 
   return (
     <article
-      ref={rootRef}
-      className={`audiobook-catalog-card ${viewMode}${selectionMode ? " selectable" : ""}${selected ? " selected" : ""}${menuOpen ? " menu-open" : ""}`}
+      className={`audiobook-catalog-card ${viewMode}${selectionMode ? " selectable" : ""}${selected ? " selected" : ""}`}
     >
       <div
         className="audiobook-catalog-cover"
@@ -286,7 +273,10 @@ function CatalogBookCard({
         aria-pressed={selectionMode ? selected : undefined}
         aria-label={selectionMode ? `Select ${book.title}` : `Open ${book.title}`}
         onClick={activate}
-        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); } }}
+        onKeyDown={(event) => {
+          if (event.currentTarget !== event.target) return;
+          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); }
+        }}
       >
         {book.coverUrl ? (
           <img src={book.coverUrl} alt="" />
@@ -306,27 +296,101 @@ function CatalogBookCard({
               <span className="audiobook-catalog-finished" title="Finished"><Check size={14} /></span>
             )}
             {status === "in_progress" && percent > 0 && (
-              <span className="audiobook-catalog-progress"><i style={{ width: `${percent}%` }} /></span>
+              <>
+                <span className="audiobook-catalog-pct" title={`${percent}% listened`}>
+                  <Play size={9} fill="currentColor" aria-hidden="true" />{percent}%
+                </span>
+                <span className="audiobook-catalog-progress" aria-hidden="true">
+                  <span style={{ width: `${percent}%` }} />
+                </span>
+              </>
             )}
-            <button
-              className={`audiobook-catalog-fav${fav ? " on" : ""}`}
-              type="button"
-              onClick={(event) => { event.stopPropagation(); toggleFav(); }}
-              aria-pressed={fav}
-              aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-              title={fav ? "Favorited" : "Add to favorites"}
-            >
-              <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
-            </button>
-            <button
-              className="audiobook-catalog-play"
-              type="button"
-              onClick={(event) => { event.stopPropagation(); openPlayer(book.id); }}
-              aria-label={`Play ${book.title}`}
-              title="Play"
-            >
-              <Play size={18} fill="currentColor" aria-hidden="true" />
-            </button>
+            <div className="audiobook-catalog-actions" aria-label={`Actions for ${book.title}`}>
+              <div className="audiobook-catalog-action-row">
+                <button
+                  className={`audiobook-catalog-action${fav ? " on" : ""}`}
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); toggleFav(); }}
+                  aria-pressed={fav}
+                  aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+                  title={fav ? "Favorited" : "Add to favorites"}
+                  disabled={favBusy}
+                >
+                  <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
+                  <span>{fav ? "Favorited" : "Favorite"}</span>
+                </button>
+                <button
+                  className="audiobook-catalog-action"
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); void toggleFinished(); }}
+                  disabled={statusBusy}
+                  aria-label={status === "finished" ? "Mark unfinished" : "Mark finished"}
+                  title={status === "finished" ? "Mark unfinished" : "Mark finished"}
+                >
+                  {status === "finished" ? <RotateCcw size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
+                  <span>{status === "finished" ? "Mark Unplayed" : "Mark as Played"}</span>
+                </button>
+                <a
+                  className="audiobook-catalog-action"
+                  href={`/api/library/books/${book.id}/download`}
+                  download
+                  onClick={(event) => event.stopPropagation()}
+                  aria-label={`Download ${book.title}`}
+                  title="Download"
+                >
+                  <Download size={16} aria-hidden="true" />
+                  <span>Download</span>
+                </a>
+                <button
+                  className="audiobook-catalog-action"
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); onAddToCollection(book); }}
+                  aria-label="Add to collection"
+                  title="Add to collection"
+                >
+                  <ListMusic size={16} aria-hidden="true" />
+                  <span>Add to Collection</span>
+                </button>
+                <button
+                  className="audiobook-catalog-action"
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); onShare(book); }}
+                  aria-label="Share"
+                  title="Share"
+                >
+                  <Share2 size={16} aria-hidden="true" />
+                  <span>Share</span>
+                </button>
+                {canEdit && (
+                  <button
+                    className="audiobook-catalog-action admin"
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); onEdit(book); }}
+                    aria-label="Edit metadata"
+                    title="Edit metadata"
+                  >
+                    <Pencil size={16} aria-hidden="true" />
+                    <span>Edit Details</span>
+                  </button>
+                )}
+              </div>
+              <div className="audiobook-catalog-hover-info">
+                <div className="audiobook-catalog-hover-text">
+                  <strong>{book.title}</strong>
+                  <small>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</small>
+                  {metaParts.length > 0 && <span>{metaParts.join(" · ")}</span>}
+                </div>
+                <button
+                  className="audiobook-catalog-action primary"
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); openPlayer(book.id); }}
+                  aria-label={`Play ${book.title}`}
+                  title="Play"
+                >
+                  <Play size={22} fill="currentColor" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
           </>
         )}
       </div>
@@ -336,57 +400,6 @@ function CatalogBookCard({
         <small>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</small>
         {metaParts.length > 0 && <span className="audiobook-catalog-meta">{metaParts.join(" · ")}</span>}
       </div>
-
-      {!selectionMode && (
-        <>
-          <button
-            className="audiobook-catalog-menu"
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            aria-label={`More options for ${book.title}`}
-            onClick={(event) => { event.stopPropagation(); setMenuOpen((open) => !open); }}
-          >
-            <MoreVertical size={18} aria-hidden="true" />
-          </button>
-          {menuOpen && (
-            <div className="audiobook-card-menu" role="menu" aria-label={`Actions for ${book.title}`}>
-              <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); openPlayer(book.id); }}>
-                <Play size={15} aria-hidden="true" /> <span>Play</span>
-              </button>
-              <button role="menuitem" type="button" onClick={toggleFinished} disabled={statusBusy}>
-                {status === "finished"
-                  ? <><RotateCcw size={15} aria-hidden="true" /> <span>Mark unfinished</span></>
-                  : <><CheckCircle2 size={15} aria-hidden="true" /> <span>Mark finished</span></>}
-              </button>
-              <hr />
-              <a
-                role="menuitem"
-                className="audiobook-card-menu-link"
-                href={`/api/library/books/${book.id}/download`}
-                download
-                onClick={() => setMenuOpen(false)}
-              >
-                <Download size={15} aria-hidden="true" /> <span>Download</span>
-              </a>
-              <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); onAddToCollection(book); }}>
-                <ListMusic size={15} aria-hidden="true" /> <span>Add to collection</span>
-              </button>
-              <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); onShare(book); }}>
-                <Share2 size={15} aria-hidden="true" /> <span>Share</span>
-              </button>
-              {canEdit && (
-                <>
-                  <hr />
-                  <button role="menuitem" type="button" className="admin" onClick={() => { setMenuOpen(false); onEdit(book); }}>
-                    <Pencil size={15} aria-hidden="true" /> <span>Edit metadata</span>
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </>
-      )}
     </article>
   );
 }
