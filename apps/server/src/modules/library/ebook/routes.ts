@@ -3,7 +3,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { canUserAccessLibrary } from "../shared/library-access.js";
+import { canUserAccessLibrary, validateLibraryOwner, libraryCapabilities, type LibraryCapabilities } from "../shared/library-access.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { validateLibrarySource } from "../audiobook/scanner.js";
@@ -31,7 +31,7 @@ interface EbookLibraryRow {
   book_count: number;
 }
 
-function publicEbookLibrary(row: EbookLibraryRow, includeSourcePath: boolean) {
+function publicEbookLibrary(row: EbookLibraryRow, includeSourcePath: boolean, caps: LibraryCapabilities) {
   return {
     id: row.id,
     name: row.name,
@@ -41,6 +41,14 @@ function publicEbookLibrary(row: EbookLibraryRow, includeSourcePath: boolean) {
     ownerId: row.owner_id,
     ownerType: row.owner_type,
     visibility: row.visibility,
+    // Effective role + capabilities for the requesting user (UI gating only).
+    myRole: caps.role,
+    canWrite: caps.canEdit,
+    canDownload: caps.canDownload,
+    canUpload: caps.canUpload,
+    canCurate: caps.canCurate,
+    canManageMembers: caps.canManageMembers,
+    canManageLibrary: caps.canManageLibrary,
     bookCount: row.book_count
   };
 }
@@ -64,6 +72,13 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     const ownerId = parsed.data.ownerId ?? null;
     const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
     const visibility = parsed.data.visibility ?? "public";
+
+    const ownerError = validateLibraryOwner(ownerId, ownerType, "ebook");
+    if (ownerError) {
+      reply.code(ownerError.status).send({ error: ownerError.error });
+      return;
+    }
+
     const libraryId = nanoid(16);
     const settings = { default_language: parsed.data.defaultLanguage };
 
@@ -99,7 +114,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     `).all() as EbookLibraryRow[];
 
     const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
-    return { libraries: accessible.map((row) => publicEbookLibrary(row, user.role === "admin")) };
+    return { libraries: accessible.map((row) => publicEbookLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))) };
   });
 
   app.get("/api/library/ebook-libraries/:id/books", { preHandler: app.authenticate }, async (request, reply) => {
@@ -224,8 +239,8 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
 
     db.transaction(() => {
       db.prepare("DELETE FROM taggables WHERE entity_type = 'book' AND entity_id IN (SELECT id FROM books WHERE library_id = ?)").run(id);
-      deleteSharesForLibrary(id);
-      deleteCollectionItemsForLibrary(id);
+      deleteSharesForLibrary("ebook", id);
+      deleteCollectionItemsForLibrary("ebook", id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();
 

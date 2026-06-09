@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { Plus, RefreshCw, Pencil, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, Users } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate } from "../../../shared/utils";
 import type { AudiobookLibrary } from "../../audiobooks/types";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
+import { LibraryMembersModal } from "./LibraryMembersModal";
 
 export function LibrariesSection() {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
@@ -24,6 +25,7 @@ export function LibrariesSection() {
   const [rescanSkipSidecar, setRescanSkipSidecar] = useState(false);
   const [rescanEncoding, setRescanEncoding] = useState("auto");
   const [rescanRunning, setRescanRunning] = useState(false);
+  const [membersLibrary, setMembersLibrary] = useState<AudiobookLibrary | null>(null);
   const [deleteConfirmLibrary, setDeleteConfirmLibrary] = useState<AudiobookLibrary | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -295,6 +297,13 @@ export function LibrariesSection() {
                       <div className="row-actions">
                         <button
                           className="icon-button"
+                          title="Manage members & roles"
+                          onClick={() => setMembersLibrary(library)}
+                        >
+                          <Users size={15} />
+                        </button>
+                        <button
+                          className="icon-button"
                           title="Edit library"
                           onClick={() => openEdit(library)}
                         >
@@ -495,6 +504,15 @@ export function LibrariesSection() {
         </div>
         );
       })()}
+
+      {membersLibrary && (
+        <LibraryMembersModal
+          library={membersLibrary}
+          users={users}
+          groups={groups}
+          onClose={() => setMembersLibrary(null)}
+        />
+      )}
 
       {rescanTarget && (
         <div className="modal-backdrop" onMouseDown={() => !rescanRunning && setRescanTarget(null)}>

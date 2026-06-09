@@ -1,10 +1,18 @@
+export type LibraryRole = "viewer" | "subscriber" | "contributor" | "curator" | "admin";
+
 export interface AudiobookLibrary {
   id: string;
   name: string;
   type: "audiobook";
   sourcePath?: string;
   ignoreSidecar: boolean;
+  myRole: LibraryRole | null;
   canWrite: boolean;
+  canDownload: boolean;
+  canUpload: boolean;
+  canCurate: boolean;
+  canManageMembers: boolean;
+  canManageLibrary: boolean;
   scanStatus: "idle" | "scanning" | "error";
   lastScannedAt: string | null;
   ownerId: string | null;
@@ -15,6 +23,35 @@ export interface AudiobookLibrary {
   bookCount: number;
   fileCount: number;
 }
+
+// Per-book capability flags returned alongside a book detail, derived from the
+// caller's role on the book's library. Used to gate edit/download/share buttons.
+export interface BookCapabilities {
+  canEdit: boolean;
+  canDownload: boolean;
+  canCurate: boolean;
+  canShare: boolean;
+}
+
+export interface LibraryMember {
+  subjectType: "user" | "group";
+  subjectId: string;
+  role: LibraryRole;
+  name: string;
+  email: string | null;
+  missing: boolean;
+  createdAt: string;
+}
+
+// Library roles, weakest → strongest, with the capabilities each unlocks. Used to
+// render the role picker and explain each option in the members UI.
+export const LIBRARY_ROLE_OPTIONS: { value: LibraryRole; label: string; summary: string }[] = [
+  { value: "viewer", label: "Viewer", summary: "View / read in-app" },
+  { value: "subscriber", label: "Subscriber", summary: "View + download" },
+  { value: "contributor", label: "Contributor", summary: "View, download, upload, edit items" },
+  { value: "curator", label: "Curator", summary: "All content + manage series/structure" },
+  { value: "admin", label: "Library Admin", summary: "Full control incl. members & settings" }
+];
 
 export interface AudiobookBook {
   id: string;

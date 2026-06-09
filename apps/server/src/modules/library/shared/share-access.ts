@@ -32,13 +32,14 @@ export function deleteSharesForResource(module: string, resourceId: string) {
 
 // Delete shares for every book in a library — used before a library is hard
 // deleted (its books cascade away, but their shares would otherwise orphan).
-export function deleteSharesForLibrary(libraryId: string) {
+// module identifies the share namespace for this library type (e.g. "audiobook").
+export function deleteSharesForLibrary(module: string, libraryId: string) {
   db.prepare(
-    "DELETE FROM share_links WHERE module = 'audiobook' AND resource_id IN (SELECT id FROM books WHERE library_id = ?)"
-  ).run(libraryId);
+    "DELETE FROM share_links WHERE module = ? AND resource_id IN (SELECT id FROM books WHERE library_id = ?)"
+  ).run(module, libraryId);
   db.prepare(
-    "DELETE FROM shares WHERE module = 'audiobook' AND resource_id IN (SELECT id FROM books WHERE library_id = ?)"
-  ).run(libraryId);
+    "DELETE FROM shares WHERE module = ? AND resource_id IN (SELECT id FROM books WHERE library_id = ?)"
+  ).run(module, libraryId);
 }
 
 // True when an active (non-revoked, non-expired) user-to-user share grants this

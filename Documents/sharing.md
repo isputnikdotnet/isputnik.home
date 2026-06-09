@@ -182,6 +182,7 @@ The owner shares an item with a **specific registered user**, who then accesses 
 | **Recipient** | A specific user account (`shares.user_id`). |
 | **Capabilities** | **Full.** Stream, download, plus the recipient's own progress, bookmarks, and saves — all the normal per-user features, because they are signed in as themselves. |
 | **Grant** | `permission = 'read'`. The share adds *visibility* of one item; it never grants edit rights or exposes the rest of the owner's library. |
+| **Who can share** | Requires the `curate` capability on the item's library (Curator / Library Admin / owner / app-admin) — see [`library-sharing.md`](library-sharing.md#interaction-with-item-level-shares). Mere view/download access is not enough to re-share. |
 | **Expiry** | Optional — may be permanent (`expires_at = NULL`) since access is gated to a real account; revocable any time via `revoked_at`. |
 | **Logging** | `share.granted` / `share.revoked`. Ongoing access is ordinary authenticated activity, already covered by existing logs. |
 
@@ -210,7 +211,7 @@ What actually shipped for audiobooks, and where it lives.
 
 **Server**
 
-- `share-access.ts` ([`apps/server/src/modules/library/shared/`](../apps/server/src/modules/library/shared/share-access.ts)) — the resolver: `resolveShareLink(token)`, `userHasItemShare(module, resourceId, userId)`, plus cleanup helpers `deleteSharesForResource()` and `deleteSharesForLibrary()`.
+- `share-access.ts` ([`apps/server/src/modules/library/shared/`](../apps/server/src/modules/library/shared/share-access.ts)) — the resolver: `resolveShareLink(token)`, `userHasItemShare(module, resourceId, userId)`, plus cleanup helpers `deleteSharesForResource(module, resourceId)` and `deleteSharesForLibrary(module, libraryId)`.
 - `shares.ts` ([`apps/server/src/modules/library/audiobook/`](../apps/server/src/modules/library/audiobook/shares.ts)) — all share routes (owner + public), registered in that module's `index.ts`.
 - `library-access.ts` gained `canUserAccessBook()` = library access **OR** active user share. Wired into the authenticated stream + download endpoints in `stream.ts`.
 - Tables `shares` and `share_links` are created in `db.ts` via `CREATE TABLE IF NOT EXISTS` (no migration needed).
@@ -227,7 +228,7 @@ What actually shipped for audiobooks, and where it lives.
 | `GET` | `/api/shared-with-me` | signed-in | Items shared *to* the caller. |
 | `GET` | `/api/share/:token` · `/cover` · `/stream/:fileId` · `/download` | public | Guest resolve, cover, per-file stream (range), ZIP download. Logs `share.accessed` / `share.downloaded`. |
 
-**Cleanup** — shares are polymorphic (no FK), so module code removes them: `deleteSharesForLibrary()` runs in the library hard-delete transaction (`routes.ts`), and `deleteSharesForResource()` runs when the scanner soft-deletes a book whose files vanished (`scanner.ts`).
+**Cleanup** — shares are polymorphic (no FK), so module code removes them, passing its own `module` namespace: `deleteSharesForLibrary(module, libraryId)` runs in the library hard-delete transaction (`routes.ts`), and `deleteSharesForResource(module, resourceId)` runs when the scanner soft-deletes a book whose files vanished (`scanner.ts`).
 
 **Web**
 

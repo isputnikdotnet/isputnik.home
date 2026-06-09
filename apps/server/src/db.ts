@@ -384,6 +384,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
   CREATE INDEX IF NOT EXISTS idx_group_members_user  ON group_members(user_id);
 
+  -- Per-library role grants. subject_id is polymorphic (a user or a group, no FK),
+  -- so app code resolves/cleans it (see library-access.ts resolveLibraryRole). The
+  -- library owner and app-admins are implicit Library Admins and are NOT stored here.
+  CREATE TABLE IF NOT EXISTS library_members (
+    library_id   TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    subject_type TEXT NOT NULL CHECK (subject_type IN ('user', 'group')),
+    subject_id   TEXT NOT NULL,
+    role         TEXT NOT NULL CHECK (role IN ('viewer', 'subscriber', 'contributor', 'curator', 'admin')),
+    created_by   TEXT REFERENCES users(id),
+    created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (library_id, subject_type, subject_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_library_members_subject ON library_members(subject_type, subject_id);
+
   -- Item-level sharing, module-agnostic via (module, resource_id). See Documents/sharing.md.
   -- User-to-user shares: grant a specific account read access to one item.
   CREATE TABLE IF NOT EXISTS shares (
@@ -417,6 +431,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_shares_user          ON shares(user_id);
   CREATE INDEX IF NOT EXISTS idx_share_links_token    ON share_links(token_hash);
   CREATE INDEX IF NOT EXISTS idx_share_links_resource ON share_links(module, resource_id);
+  -- "My shares" listing filters module + created_by + revoked_at, ordered by created_at.
+  CREATE INDEX IF NOT EXISTS idx_share_links_owner    ON share_links(module, created_by, revoked_at, created_at);
 
   -- Author/narrator name aliases. Merging a person records a variant -> canonical
   -- mapping; the scanner resolves names through this before creating author rows,
@@ -447,6 +463,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, run_at);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_book ON book_bookmarks(user_id, book_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_book ON book_bookmarks(book_id);
+  CREATE INDEX IF NOT EXISTS idx_bookmarks_user_updated ON book_bookmarks(user_id, updated_at);
   CREATE INDEX IF NOT EXISTS idx_saves_user ON book_saves(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_saves_book ON book_saves(book_id);
 

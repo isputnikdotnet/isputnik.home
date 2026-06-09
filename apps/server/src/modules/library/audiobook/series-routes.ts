@@ -8,7 +8,7 @@ import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { sortTitle } from "./scanner.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
-import { getAccessibleLibrary, canUserWriteLibrary } from "../shared/library-access.js";
+import { getAccessibleLibrary, canUserCurateLibrary } from "../shared/library-access.js";
 
 async function writeSeriesCover(libraryId: string, seriesId: string, source: Buffer) {
   const storageKey = thumbnailStorageKey(libraryId, seriesId, `${seriesId}-series-cover.webp`);
@@ -84,8 +84,8 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
     const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
-    if (!library || !canUserWriteLibrary(library, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required." });
+    if (!library || !canUserCurateLibrary(library, user.id, user.role)) {
+      reply.code(403).send({ error: "Curator access required to manage series." });
       return;
     }
 
@@ -183,8 +183,8 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
-    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required." });
+    if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Curator access required to manage series." });
       return;
     }
 
@@ -216,8 +216,8 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
-    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required." });
+    if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Curator access required to manage series." });
       return;
     }
 
@@ -272,8 +272,8 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
-    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to change covers." });
+    if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Curator access required to change covers." });
       return;
     }
 
@@ -314,8 +314,8 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
-    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to change covers." });
+    if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Curator access required to change covers." });
       return;
     }
 
@@ -338,8 +338,8 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
-    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required." });
+    if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Curator access required to manage series." });
       return;
     }
 
@@ -363,8 +363,8 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
-    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required." });
+    if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Curator access required to manage series." });
       return;
     }
 

@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../db.js";
 import { parseBody } from "./shared.js";
+import { deleteLibraryMembersForSubject } from "../modules/library/shared/library-access.js";
 
 const groupSchema = z.object({
   name: z.string().trim().min(2).max(80)
@@ -103,7 +104,11 @@ export async function groupsPlugin(app: FastifyInstance) {
       return;
     }
 
-    db.prepare("DELETE FROM user_groups WHERE id = ?").run(id);
+    db.transaction(() => {
+      // Grants reference the group by id with no FK, so clear them before the group row goes.
+      deleteLibraryMembersForSubject("group", id);
+      db.prepare("DELETE FROM user_groups WHERE id = ?").run(id);
+    })();
     logActivity({
       event: "groups.deleted",
       actorUserId: request.user!.id,

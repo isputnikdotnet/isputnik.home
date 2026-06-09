@@ -12,7 +12,7 @@ import { config } from "../../../config.js";
 import { parseBody } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
-import { canUserAccessLibrary, getLibraryForBook } from "../shared/library-access.js";
+import { canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook } from "../shared/library-access.js";
 import { resolveShareLink } from "../shared/share-access.js";
 
 const MODULE = "audiobook";
@@ -30,13 +30,32 @@ const createUserShareSchema = z.object({
   expiresInDays: z.number().int().min(1).max(3650).optional()
 });
 
-// The book must exist and the caller must be able to access it (library owner,
-// group member, admin, or public). That access is what lets them re-share it.
-function getShareableBook(bookId: string, userId: string, userRole: string) {
+// Whether the caller may share a book. Sharing hands external/other-user access to
+// the files, so it requires the Curator+ "curate" capability — not mere view. We
+// distinguish "not_found" (book missing or no access at all — hide its existence)
+// from "forbidden" (can view but lacks the curate capability to re-share).
+type ShareableResult = { library: ReturnType<typeof getLibraryForBook> } | "not_found" | "forbidden";
+
+function getShareableBook(bookId: string, userId: string, userRole: string): ShareableResult {
   const library = getLibraryForBook(bookId);
-  if (!library) return null;
-  if (!canUserAccessLibrary(library, userId, userRole)) return null;
-  return library;
+  if (!library) return "not_found";
+  if (!canUserAccessLibrary(library, userId, userRole)) return "not_found";
+  if (!canUserCurateLibrary(library, userId, userRole)) return "forbidden";
+  return { library };
+}
+
+// Resolve sharing permission into a reply, or return true when allowed. Centralizes
+// the 404/403 split so every share route reports it the same way.
+function denyIfNotShareable(result: ShareableResult, reply: FastifyReply): boolean {
+  if (result === "not_found") {
+    reply.code(404).send({ error: "Audiobook not found" });
+    return true;
+  }
+  if (result === "forbidden") {
+    reply.code(403).send({ error: "Curator access required to share this book." });
+    return true;
+  }
+  return false;
 }
 
 interface ShareBookRow {
@@ -95,8 +114,7 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
     }
 
     const user = request.user!;
-    if (!getShareableBook(parsed.data.bookId, user.id, user.role)) {
-      reply.code(404).send({ error: "Audiobook not found" });
+    if (denyIfNotShareable(getShareableBook(parsed.data.bookId, user.id, user.role), reply)) {
       return;
     }
 
@@ -225,8 +243,7 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
       reply.code(400).send({ error: "You already have access to this book" });
       return;
     }
-    if (!getShareableBook(parsed.data.bookId, user.id, user.role)) {
-      reply.code(404).send({ error: "Audiobook not found" });
+    if (denyIfNotShareable(getShareableBook(parsed.data.bookId, user.id, user.role), reply)) {
       return;
     }
 
@@ -268,8 +285,7 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
       return;
     }
     const user = request.user!;
-    if (!getShareableBook(query.bookId, user.id, user.role)) {
-      reply.code(404).send({ error: "Audiobook not found" });
+    if (denyIfNotShareable(getShareableBook(query.bookId, user.id, user.role), reply)) {
       return;
     }
 

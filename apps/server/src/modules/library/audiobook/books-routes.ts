@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
-import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook } from "../shared/library-access.js";
+import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook, libraryCapabilities } from "../shared/library-access.js";
 import { getAudiobookBookDetail, progressUpdateSchema, bulkMetadataSchema, BULK_METADATA_FIELDS, applyBulkMetadata, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
 import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
 
@@ -157,13 +157,34 @@ export function registerBookRoutes(app: FastifyInstance) {
 
   app.get("/api/library/books/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    // Gate by book-level access (library role or an explicit share) — direct id
+    // fetches were previously open to any signed-in user.
+    const lib = getLibraryForBook(id);
+    if (!lib || !canUserAccessBook(id, lib, user.id, user.role)) {
+      reply.code(404).send({ error: "Audiobook not found" });
+      return;
+    }
+
     const book = getAudiobookBookDetail(id);
     if (!book) {
       reply.code(404).send({ error: "Audiobook not found" });
       return;
     }
 
-    reply.send({ book });
+    // Capability flags so the client can gate edit/download/share affordances.
+    // Sharing requires the curate capability (see shares.ts); server still enforces.
+    const caps = libraryCapabilities(lib, user.id, user.role);
+    reply.send({
+      book,
+      capabilities: {
+        canEdit: caps.canEdit,
+        canDownload: caps.canDownload,
+        canCurate: caps.canCurate,
+        canShare: caps.canCurate
+      }
+    });
   });
 
 

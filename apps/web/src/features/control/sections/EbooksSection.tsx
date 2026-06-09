@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Trash2, Users } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate } from "../../../shared/utils";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
+import { LibraryMembersModal } from "./LibraryMembersModal";
 
 interface EbookLibrary {
   id: string;
@@ -34,6 +35,7 @@ export function EbooksSection() {
   const [creating, setCreating] = useState(false);
 
   const [deleteConfirm, setDeleteConfirm] = useState<EbookLibrary | null>(null);
+  const [membersLibrary, setMembersLibrary] = useState<EbookLibrary | null>(null);
   const [rescanningId, setRescanningId] = useState("");
 
   const load = useCallback(async () => {
@@ -207,6 +209,9 @@ export function EbooksSection() {
                           <RefreshCw size={14} />
                           {library.scanStatus === "scanning" ? "Scanning..." : "Rescan"}
                         </button>
+                        <button className="icon-button" title="Manage members & roles" onClick={() => setMembersLibrary(library)}>
+                          <Users size={15} />
+                        </button>
                         <button className="icon-button danger" title="Delete library" onClick={() => setDeleteConfirm(library)}>
                           <Trash2 size={15} />
                         </button>
@@ -290,6 +295,15 @@ export function EbooksSection() {
             </form>
           </div>
         </div>
+      )}
+
+      {membersLibrary && (
+        <LibraryMembersModal
+          library={membersLibrary}
+          users={users}
+          groups={groups}
+          onClose={() => setMembersLibrary(null)}
+        />
       )}
 
       {deleteConfirm && (

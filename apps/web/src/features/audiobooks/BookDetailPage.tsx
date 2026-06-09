@@ -14,7 +14,17 @@ import { getDownloadedBookDetail } from "../../offline/downloads";
 import { useDownload } from "../../offline/useDownload";
 import { isStandalone } from "../../pwa/platform";
 import { formatBytes, formatDuration } from "../../shared/utils";
-import type { AudiobookBookDetail, BookSave, PlaybackProgress, ReadingProgress } from "./types";
+import type { AudiobookBookDetail, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress } from "./types";
+
+// Button gating is cosmetic — the server enforces every operation — so when we
+// can't determine capabilities we fail OPEN (show the full menu) rather than hide
+// actions from legitimate users. Used before the payload loads and as the fallback
+// when an online response omits capabilities (e.g. an older server).
+const FULL_CAPABILITIES: BookCapabilities = { canEdit: true, canDownload: true, canCurate: true, canShare: true };
+
+// Offline-downloaded books have no live capability payload. They were downloaded,
+// so allow re-download; editing/sharing need the server and stay off.
+const OFFLINE_CAPABILITIES: BookCapabilities = { canEdit: false, canDownload: true, canCurate: false, canShare: false };
 
 // Document formats we can render in the in-app reader overlay. Others (mobi,
 // azw3) get download-only — no in-browser renderer.
@@ -34,6 +44,7 @@ export function AudiobookBookPage({
   backTo?: string;
 }) {
   const [book, setBook] = useState<AudiobookBookDetail | null>(null);
+  const [capabilities, setCapabilities] = useState<BookCapabilities>(FULL_CAPABILITIES);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -42,13 +53,18 @@ export function AudiobookBookPage({
     setError("");
     const load = async () => {
       try {
-        const payload = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${id}`);
-        if (!cancelled) setBook(payload.book);
+        const payload = await api<{ book: AudiobookBookDetail; capabilities?: BookCapabilities }>(`/api/library/books/${id}`);
+        if (!cancelled) {
+          setBook(payload.book);
+          // Fail open if the server didn't send capabilities (older server / other path).
+          setCapabilities(payload.capabilities ?? FULL_CAPABILITIES);
+        }
       } catch (err) {
         const fallback = isAccessOrMissingApiError(err) ? null : await getDownloadedBookDetail(id);
         if (cancelled) return;
         if (fallback) {
           setBook(fallback);
+          setCapabilities(OFFLINE_CAPABILITIES);
         } else {
           setError(err instanceof Error ? err.message : "Unable to load details");
         }
@@ -66,6 +82,7 @@ export function AudiobookBookPage({
           {book ? (
             <BookDetailView
               book={book}
+              capabilities={capabilities}
               userId={user.id}
               onBack={() => navigate(backTo)}
               backLabel={active === "ebooks" ? "Back to ebooks" : "Back to audiobooks"}
@@ -82,12 +99,14 @@ export function AudiobookBookPage({
 
 function BookDetailView({
   book,
+  capabilities,
   userId,
   onBack,
   backLabel,
   onBookUpdated
 }: {
   book: AudiobookBookDetail;
+  capabilities: BookCapabilities;
   userId: string;
   onBack: () => void;
   backLabel: string;
@@ -468,7 +487,7 @@ function BookDetailView({
             >
               <Heart size={18} fill={save?.saved ? "currentColor" : "none"} />
             </button>
-            {!isEbook && isStandalone() && book.files.some((f) => f.status === "available") && (
+            {!isEbook && isStandalone() && capabilities.canDownload && book.files.some((f) => f.status === "available") && (
               <button
                 className={`book-detail-icon-action${offline.record?.state === "complete" ? " offline-saved" : ""}`}
                 type="button"
@@ -493,24 +512,28 @@ function BookDetailView({
                 )}
               </button>
             )}
-            <button
-              className="book-detail-icon-action"
-              type="button"
-              onClick={() => setMetadataModalOpen(true)}
-              aria-label="Edit metadata"
-              title="Edit metadata"
-            >
-              <Pencil size={18} />
-            </button>
-            <a
-              className="book-detail-icon-action"
-              href={isEbook && primaryReadableDoc ? `${primaryReadableDoc.url}?download` : `/api/library/books/${book.id}/download`}
-              download
-              aria-label="Download"
-              title="Download"
-            >
-              <Download size={18} />
-            </a>
+            {capabilities.canEdit && (
+              <button
+                className="book-detail-icon-action"
+                type="button"
+                onClick={() => setMetadataModalOpen(true)}
+                aria-label="Edit metadata"
+                title="Edit metadata"
+              >
+                <Pencil size={18} />
+              </button>
+            )}
+            {capabilities.canDownload && (
+              <a
+                className="book-detail-icon-action"
+                href={isEbook && primaryReadableDoc ? `${primaryReadableDoc.url}?download` : `/api/library/books/${book.id}/download`}
+                download
+                aria-label="Download"
+                title="Download"
+              >
+                <Download size={18} />
+              </a>
+            )}
             <button
               className="book-detail-icon-action"
               type="button"
@@ -520,15 +543,17 @@ function BookDetailView({
             >
               <ListMusic size={18} />
             </button>
-            <button
-              className="book-detail-icon-action"
-              type="button"
-              onClick={() => setShareModalOpen(true)}
-              aria-label="Share"
-              title="Share"
-            >
-              <Share2 size={18} />
-            </button>
+            {capabilities.canShare && (
+              <button
+                className="book-detail-icon-action"
+                type="button"
+                onClick={() => setShareModalOpen(true)}
+                aria-label="Share"
+                title="Share"
+              >
+                <Share2 size={18} />
+              </button>
+            )}
           </div>
           {saveError && <MessageBox tone="error" title="Favorites error">{saveError}</MessageBox>}
           {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}

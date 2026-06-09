@@ -336,6 +336,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.11.0",
+          label: "Library roles & permissions",
+          changes: [
+            "Libraries now support graduated roles you can grant to individual users or whole groups from Control Panel → Libraries / Ebooks → Members: Viewer (view only), Subscriber (view + download), Contributor (upload & edit items), Curator (manage series and structure), and Library Admin (full control including members and settings).",
+            "Viewing and downloading are now separate permissions. A public library still lets every signed-in person view and download, but granting a user or group a lower role — for example Viewer — limits them to in-app listening/reading with no file downloads.",
+            "Sharing a book (guest links and user-to-user shares) now requires the Curator role, and a book's Edit, Download, and Share buttons appear only when your role on that library allows them."
+          ]
+        },
+        {
           version: "0.10.1",
           label: "Audiobook library polish",
           changes: [

@@ -5,7 +5,7 @@ import { parseBody } from "../../../core/shared.js";
 import { audioExtensions, enqueueAudiobookScan, processAudiobookScanQueue, validateLibrarySource } from "./scanner.js";
 import { z } from "zod";
 import { audiobookLibrarySchema, publicAudiobookLibrary } from "./serializers.js";
-import { canUserAccessLibrary, canUserWriteLibrary } from "../shared/library-access.js";
+import { canUserAccessLibrary, validateLibraryOwner, libraryCapabilities } from "../shared/library-access.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import type { AudiobookLibraryRow } from "./types.js";
@@ -30,30 +30,10 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
     const visibility = parsed.data.visibility ?? "public";
 
-    if (ownerId && ownerType === "user") {
-      const ownerExists = db.prepare("SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1").get(ownerId);
-      if (!ownerExists) {
-        reply.code(400).send({ error: "Owner user not found." });
-        return;
-      }
-      const duplicate = db.prepare("SELECT id FROM libraries WHERE type = 'audiobook' AND owner_id = ? AND owner_type = 'user'").get(ownerId);
-      if (duplicate) {
-        reply.code(409).send({ error: "This user already has an audiobook library." });
-        return;
-      }
-    }
-
-    if (ownerId && ownerType === "group") {
-      const groupExists = db.prepare("SELECT id FROM user_groups WHERE id = ?").get(ownerId);
-      if (!groupExists) {
-        reply.code(400).send({ error: "Owner group not found." });
-        return;
-      }
-      const duplicate = db.prepare("SELECT id FROM libraries WHERE type = 'audiobook' AND owner_id = ? AND owner_type = 'group'").get(ownerId);
-      if (duplicate) {
-        reply.code(409).send({ error: "This group already has an audiobook library." });
-        return;
-      }
+    const ownerError = validateLibraryOwner(ownerId, ownerType, "audiobook");
+    if (ownerError) {
+      reply.code(ownerError.status).send({ error: ownerError.error });
+      return;
     }
 
     const libraryId = nanoid(16);
@@ -105,7 +85,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
 
     return {
       libraries: accessible.map((row) =>
-        publicAudiobookLibrary(row, user.role === "admin", canUserWriteLibrary(row, user.id, user.role)))
+        publicAudiobookLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role)))
     };
   });
 
@@ -136,34 +116,10 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     const ownerId = parsed.data.ownerId ?? null;
     const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
 
-    if (ownerId && ownerType === "user") {
-      const ownerExists = db.prepare("SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1").get(ownerId);
-      if (!ownerExists) {
-        reply.code(400).send({ error: "Owner user not found." });
-        return;
-      }
-      const duplicate = db.prepare(
-        "SELECT id FROM libraries WHERE type = 'audiobook' AND owner_id = ? AND owner_type = 'user' AND id != ?"
-      ).get(ownerId, id);
-      if (duplicate) {
-        reply.code(409).send({ error: "This user already owns another audiobook library." });
-        return;
-      }
-    }
-
-    if (ownerId && ownerType === "group") {
-      const groupExists = db.prepare("SELECT id FROM user_groups WHERE id = ?").get(ownerId);
-      if (!groupExists) {
-        reply.code(400).send({ error: "Owner group not found." });
-        return;
-      }
-      const duplicate = db.prepare(
-        "SELECT id FROM libraries WHERE type = 'audiobook' AND owner_id = ? AND owner_type = 'group' AND id != ?"
-      ).get(ownerId, id);
-      if (duplicate) {
-        reply.code(409).send({ error: "This group already owns another audiobook library." });
-        return;
-      }
+    const ownerError = validateLibraryOwner(ownerId, ownerType, "audiobook", id);
+    if (ownerError) {
+      reply.code(ownerError.status).send({ error: ownerError.error });
+      return;
     }
 
     db.prepare(`
@@ -190,7 +146,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       GROUP BY libraries.id
     `).get(id) as AudiobookLibraryRow;
 
-    reply.send({ library: publicAudiobookLibrary(updated, true) });
+    reply.send({ library: publicAudiobookLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
   });
 
   app.delete("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -211,8 +167,8 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
           AND entity_id IN (SELECT id FROM books WHERE library_id = ?)
       `).run(id);
       // shares/share_links are polymorphic too — clean them up before the cascade.
-      deleteSharesForLibrary(id);
-      deleteCollectionItemsForLibrary(id);
+      deleteSharesForLibrary("audiobook", id);
+      deleteCollectionItemsForLibrary("audiobook", id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();
 

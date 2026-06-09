@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import archiver from "archiver";
 import { db } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
-import { canUserAccessBook } from "../shared/library-access.js";
+import { canUserAccessBook, canUserDownloadBook } from "../shared/library-access.js";
 
 function parseRangeHeader(header: string, totalSize: number) {
   const match = header.match(/^bytes=(\d*)-(\d*)$/);
@@ -28,6 +28,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
         book_files.mime_type,
         book_files.status,
         libraries.source_path,
+        libraries.id AS id,
         libraries.owner_id,
         libraries.owner_type,
         libraries.visibility
@@ -42,6 +43,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
       mime_type: string | null;
       status: string;
       source_path: string;
+      id: string;
       owner_id: string | null;
       owner_type: string | null;
       visibility: string;
@@ -101,12 +103,12 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     const { id } = request.params as { id: string };
 
     const meta = db.prepare(`
-      SELECT libraries.source_path, libraries.owner_id, libraries.owner_type, libraries.visibility, book_metadata.title
+      SELECT libraries.id AS library_id, libraries.source_path, libraries.owner_id, libraries.owner_type, libraries.visibility, book_metadata.title
       FROM books
       JOIN libraries ON libraries.id = books.library_id
       LEFT JOIN book_metadata ON book_metadata.book_id = books.id
       WHERE books.id = ? AND books.deleted_at IS NULL
-    `).get(id) as { source_path: string; owner_id: string | null; owner_type: string | null; visibility: string; title: string | null } | undefined;
+    `).get(id) as { library_id: string; source_path: string; owner_id: string | null; owner_type: string | null; visibility: string; title: string | null } | undefined;
 
     if (!meta) {
       reply.code(404).send({ error: "Book not found" });
@@ -114,8 +116,15 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     }
 
     const downloadUser = request.user!;
-    if (!canUserAccessBook(id, { owner_id: meta.owner_id, owner_type: meta.owner_type, visibility: meta.visibility }, downloadUser.id, downloadUser.role)) {
+    const downloadLibrary = { id: meta.library_id, owner_id: meta.owner_id, owner_type: meta.owner_type, visibility: meta.visibility };
+    // View is not enough to download — require the Subscriber+ download capability
+    // (or an explicit share). Distinguish "no access" (404) from "no download" (403).
+    if (!canUserAccessBook(id, downloadLibrary, downloadUser.id, downloadUser.role)) {
       reply.code(404).send({ error: "Book not found" });
+      return;
+    }
+    if (!canUserDownloadBook(id, downloadLibrary, downloadUser.id, downloadUser.role)) {
+      reply.code(403).send({ error: "You don't have permission to download from this library." });
       return;
     }
 
@@ -171,6 +180,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
         book_documents.mime_type,
         book_documents.status,
         libraries.source_path,
+        libraries.id AS id,
         libraries.owner_id,
         libraries.owner_type,
         libraries.visibility
@@ -185,6 +195,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
       mime_type: string | null;
       status: string;
       source_path: string;
+      id: string;
       owner_id: string | null;
       owner_type: string | null;
       visibility: string;
@@ -201,6 +212,12 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
       return;
     }
 
+    const wantsDownload = (request.query as { download?: string }).download != null;
+    if (wantsDownload && !canUserDownloadBook(id, row, user.id, user.role)) {
+      reply.code(403).send({ error: "You don't have permission to download from this library." });
+      return;
+    }
+
     const filePath = path.join(row.source_path, ...row.relative_path.split("/"));
     if (!pathIsInside(filePath, row.source_path) || !fs.existsSync(filePath)) {
       reply.code(404).send({ error: "Document not found" });
@@ -212,7 +229,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     const mimeType = row.mime_type ?? "application/octet-stream";
     const fileName = row.relative_path.split("/").pop() ?? "document";
     const asciiName = fileName.replace(/[^\x20-\x7E]/g, "_");
-    const disposition = (request.query as { download?: string }).download != null ? "attachment" : "inline";
+    const disposition = wantsDownload ? "attachment" : "inline";
     const rangeHeader = request.headers["range"];
     const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
 

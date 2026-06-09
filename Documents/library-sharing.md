@@ -2,6 +2,8 @@
 
 Libraries use an ownership model for access control. This is separate from the item-level `shares` table (see [`sharing.md`](sharing.md)), which handles sharing individual books, photos, and so on in later phases.
 
+> **Current model:** ownership/visibility (Phases 1–2 below) is the baseline, now extended by graduated **role grants** — see [Phase 4: Graduated Roles and Capabilities](#phase-4-graduated-roles-and-capabilities). The simple "owner edits, others read" rules in Phase 1 are superseded by the capability ladder there.
+
 ---
 
 ## Phase 1: Ownership and Visibility
@@ -97,6 +99,90 @@ Updated access resolution:
 3. **Group member** — `owner_type = 'group'` and user is in owner group → read; manager role → edit
 4. Public library — all active users, read-only
 5. Deny
+
+---
+
+## Phase 4: Graduated Roles and Capabilities
+
+Ownership/visibility is now the *baseline* layer; on top of it, libraries support fine-grained
+**role grants** to additional users and groups. Resolved in [`library-access.ts`](../apps/server/src/modules/library/shared/library-access.ts)
+(`resolveLibraryRole`), enforced per-capability across the library routes, and surfaced to the
+client via `myRole` + `canDownload`/`canUpload`/`canCurate`/… on each serialized library.
+
+### Roles → capabilities
+
+Each role grants its own capability plus every one below it (a strict ladder):
+
+| Capability | Viewer | Subscriber | Contributor | Curator | Library Admin |
+|---|:-:|:-:|:-:|:-:|:-:|
+| **view** (browse, stream/read in-app) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **download** (export files / ZIP / `?download`) | | ✓ | ✓ | ✓ | ✓ |
+| **upload** (add books/files — reserved) | | | ✓ | ✓ | ✓ |
+| **edit** (item metadata, covers, reset) | | | ✓ | ✓ | ✓ |
+| **curate** (series/structure management) | | | | ✓ | ✓ |
+| **manage members** (grant/revoke roles) | | | | | ✓ |
+| **manage library** (settings, owner, visibility, delete) | | | | | ✓ |
+
+`upload` is defined but not yet wired (no library upload endpoint exists yet).
+
+### Role resolution
+
+`resolveLibraryRole(library, userId, userRole)` returns the **strongest** applicable role, or null:
+
+1. App-admin → `admin`
+2. Owner user → `admin`; owning-group **manager** → `curator`, owning-group member → `subscriber`
+3. Explicit grants in `library_members` (matching the user, or any group the user belongs to)
+4. `visibility = 'public'` → `subscriber` (baseline: every signed-in user can view **and** download)
+5. None of the above → no access
+
+The owner and app-admins are implicit Library Admins and are **not** stored as grants.
+
+### Schema
+
+```sql
+CREATE TABLE library_members (
+  library_id   TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  subject_type TEXT NOT NULL CHECK (subject_type IN ('user', 'group')),
+  subject_id   TEXT NOT NULL,                       -- polymorphic, no FK
+  role         TEXT NOT NULL CHECK (role IN ('viewer','subscriber','contributor','curator','admin')),
+  created_by   TEXT REFERENCES users(id),
+  created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (library_id, subject_type, subject_id)
+);
+```
+
+`subject_id` has no FK (it points at either `users` or `user_groups`), so grants are cleaned up
+in app code via `deleteLibraryMembersForSubject()` when a group is deleted. Soft-deleted users'
+grants stay inert (they cannot sign in).
+
+### API
+
+`manage_members`-gated, in [`shared/members.ts`](../apps/server/src/modules/library/shared/members.ts):
+
+| Method | Route | Notes |
+|---|---|---|
+| `GET` | `/api/library/libraries/:id/members` | List grants (resolved names; `missing` flags deleted subjects). |
+| `POST` | `/api/library/libraries/:id/members` | Upsert `{ subjectType, subjectId, role }`. |
+| `DELETE` | `/api/library/libraries/:id/members/:subjectType/:subjectId` | Revoke a grant. |
+
+Managed from the Control Panel → Libraries / Ebooks rows via the **Members** (users) button,
+which opens `LibraryMembersModal`.
+
+### Interaction with item-level shares
+
+Item-level sharing (guest links + user-to-user shares, see [`sharing.md`](sharing.md)) is bounded
+by the new capability model:
+
+- **Creating or managing a share requires the `curate` capability** (Curator or Library Admin,
+  plus owner/app-admin). A Viewer/Subscriber/Contributor can *consume* a library but cannot hand
+  out external access — this closes the escalation where a non-downloader could mint a guest link
+  and download through it. Enforced in `getShareableBook()` ([`shares.ts`](../apps/server/src/modules/library/audiobook/shares.ts)),
+  which returns 404 (no access — existence hidden) vs 403 (can view, lacks curate).
+- **A share grants the recipient view + download** of that one book (matching the guest-page
+  behaviour: `permission = 'read'` = playback *and* file download). `canUserAccessBook` /
+  `canUserDownloadBook` therefore honour an active share as full single-book access.
+- The book-detail endpoint returns `capabilities` (`canEdit`/`canDownload`/`canShare`) so the
+  client hides the edit/download/share buttons a user can't use; the server still enforces each.
 
 ---
 

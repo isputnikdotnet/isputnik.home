@@ -7,10 +7,11 @@ export function deleteCollectionItemsForResource(entityType: string, entityId: s
   db.prepare("DELETE FROM collection_items WHERE entity_type = ? AND entity_id = ?").run(entityType, entityId);
 }
 
-// Drop every audiobook membership for books in a library before the library is
+// Drop every collection membership for books in a library before the library is
 // hard deleted (the books cascade away, but their collection items would orphan).
-export function deleteCollectionItemsForLibrary(libraryId: string) {
+// entityType identifies the collectable namespace for this library type.
+export function deleteCollectionItemsForLibrary(entityType: string, libraryId: string) {
   db.prepare(
-    "DELETE FROM collection_items WHERE entity_type = 'audiobook' AND entity_id IN (SELECT id FROM books WHERE library_id = ?)"
-  ).run(libraryId);
+    "DELETE FROM collection_items WHERE entity_type = ? AND entity_id IN (SELECT id FROM books WHERE library_id = ?)"
+  ).run(entityType, libraryId);
 }

@@ -1,18 +1,19 @@
 {
   "name": "isputnik-home",
   "private": true,
-  "version": "0.10.1",
+  "version": "0.11.0",
   "description": "Private self-hosted family media library.",
   "workspaces": [
     "apps/server",
     "apps/web"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace apps/server\" \"npm run dev --workspace apps/web\"",
+    "dev": "concurrently \"cross-env PORT=4000 npm run dev --workspace apps/server\" \"npm run dev --workspace apps/web\"",
     "build": "npm run build --workspace apps/server && npm run build --workspace apps/web",
     "typecheck": "npm run typecheck --workspace apps/server && npm run typecheck --workspace apps/web"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "cross-env": "^10.1.0"
   }
 }

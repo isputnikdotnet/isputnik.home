@@ -536,6 +536,31 @@
   width: min(100%, 620px);
 }
 
+.library-members-modal {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 680px);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.member-grant-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.member-grant-row select {
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .member-grant-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .manage-group-modal {
   display: grid;
   gap: 14px;
