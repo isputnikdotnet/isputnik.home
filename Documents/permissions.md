@@ -19,10 +19,11 @@ This proposal replaces all of that with **one simple idea used everywhere**:
 
 ## The four pieces
 
-1. **Users** — the accounts. Each has one global flag: `admin` or `member`.
-   `admin` is a super-user over the whole app. Nothing else changes here.
-2. **Groups** — named sets of users (e.g. *Family*, *Kids*). Plus **built-in system
-   groups** the app creates and protects — most importantly **Everyone**.
+1. **Users** — the accounts. No global role column: whether someone is a server admin
+   is decided by membership in the built-in **System Admins** group (see below).
+2. **Groups** — named sets of users (e.g. *Family*, *Kids*). Plus two **built-in,
+   undeletable system groups**: **Everyone** (public access) and **System Admins**
+   (server administrators).
 3. **Assignments** — the heart of it. Each row = *subject → role → object*.
    The subject is a user **or** a group. The object is a library today, and can be a
    collection or anything else later.
@@ -45,7 +46,8 @@ Three roles, each includes everything below it:
 | Download (export the file) | | ✓ | ✓ |
 | Edit metadata, organize, manage members & settings | | | ✓ |
 
-- **Global `admin`** (on the user) is above all of this — full access everywhere.
+- **Server admins** (members of System Admins) act as **manager** on every object —
+  *except* a private library they haven't been granted. See [Admins & built-in groups](#admins--built-in-groups).
 - **Manager** = full control of *one* object (the old "owner" / "Library Admin").
 - **Download is the role, not a separate switch.** "Public, view-only" vs "Public,
   with downloads" is simply whether **Everyone** is assigned `viewer` or `subscriber`.
@@ -71,9 +73,35 @@ automatically to whoever you pick when creating the library.
 - **Public** → the **Everyone** group is assigned a role (View only / View + download).
   Picking a specific owner is optional; if you do, they also get `manager`.
 - **Private** → you **must** pick an owner; that user is assigned `manager`. No Everyone
-  row, so only the owner (and global admins) can reach it until more assignments are added.
+  row, so only the owner (and anyone else granted) can reach it — **not even admins**,
+  until an admin explicitly *takes ownership* (see [Admins & built-in groups](#admins--built-in-groups)).
 
 ---
+
+## Admins & built-in groups
+
+The app creates two system groups that can't be deleted or renamed:
+
+- **Everyone** — a *virtual* group: it has no member rows; the check treats an
+  assignment to Everyone as matching any signed-in user. Used for public access.
+- **System Admins** — real membership. The original account is a **permanent** member;
+  it reuses the existing `protected_from_delete` flag, which now also means
+  *"can't be removed from System Admins."* Add other users here to make them admins.
+
+**There is no `users.role` column** — "is this person a server admin?" simply means
+"are they in System Admins?".
+
+**What an admin can do:** a System Admin acts as **manager on everything** — app
+settings, user/group management, and every public object — **with one exception:**
+
+> A **private library** (one with no Everyone grant) that the admin hasn't been granted
+> is **off-limits, even to admins**. This keeps a family member's private library
+> private from the server owner.
+
+To get in, an admin uses **Take ownership** — an admin-only action that adds a `manager`
+assignment (for the admin, or the System Admins group) on that library. It is **written
+to the activity log**, so reaching a private library is always a visible, deliberate
+step, never a silent peek.
 
 ## How a permission check works
 
@@ -85,9 +113,11 @@ can(user, object, action)
 
 ```mermaid
 flowchart TD
-    Start["can(user, object, action)?"] --> Admin{"user is global admin?"}
-    Admin -- yes --> Allow["allow"]
-    Admin -- no --> Gather["collect this user's assignments on the object:<br/>their own + their groups + Everyone"]
+    Start["can(user, object, action)?"] --> Admin{"in System Admins?"}
+    Admin -- yes --> Priv{"private library,<br/>no grant for this admin?"}
+    Priv -- yes --> DenyA["deny — use Take ownership"]
+    Priv -- no --> Allow["allow (acts as manager)"]
+    Admin -- no --> Gather["collect assignments on the object:<br/>own + groups + Everyone"]
     Gather --> Has{"any assignment?"}
     Has -- no --> Deny["deny"]
     Has -- yes --> Strong["take the strongest role"]
@@ -106,8 +136,8 @@ them to view-only.
 
 ```mermaid
 flowchart TD
-    U["users<br/>role: admin / member"]
-    G["groups<br/>kind: normal / system (Everyone)"]
+    U["users<br/>(no role column)"]
+    G["groups<br/>built-in: Everyone, System Admins"]
     GM["group_members<br/>group_id, user_id"]
     A["assignments<br/>subject → role → object"]
     O["objects<br/>library (collection, … later)"]
@@ -131,10 +161,11 @@ or deleted.
 ## Schema sketch
 
 ```sql
--- Accounts: the only GLOBAL role (super-user flag). Unchanged.
-users(id, …, role CHECK (role IN ('admin', 'member')));
+-- Accounts: no role column. Admin = membership in the System Admins group.
+-- protected_from_delete marks the seed admin (undeletable, can't leave System Admins).
+users(id, …, protected_from_delete);
 
--- Groups, including built-in system groups (Everyone).
+-- Groups, including the built-in system groups: Everyone + System Admins.
 groups(id, name, kind CHECK (kind IN ('normal', 'system')));
 group_members(group_id, user_id, PRIMARY KEY (group_id, user_id));
 
@@ -184,12 +215,13 @@ Replacing today's model with this proposal removes the overlap:
 | `shares` + `share_links` (two tables) | one merged **`shares`** table |
 | `shares.permission` / `share_links.permission` (read/edit/manage — only `read` used) | removed |
 | 5 library roles + 7 capabilities (`viewer…admin`, incl. unused `upload`/`contributor`/`curator`) | **3 roles** (`viewer`/`subscriber`/`manager`) |
+| `users.role` (`admin`/`member`) | membership in the **System Admins** group |
 | `resolveLibraryRole(...)` (library-only) | generic **`can(user, object, action)`** |
 
 Net: the access data goes from **4 join tables + several overlapping columns** to
-**`assignments` + `group_members` + one merged `shares`**, with `users.role` as the
-only standalone flag. Code-side, one `can()` replaces the library-specific resolver and
-the per-endpoint capability helpers.
+**`assignments` + `group_members` + one merged `shares`**, with no standalone role
+column — admin status comes from the System Admins group. Code-side, one `can()`
+replaces the library-specific resolver and the per-endpoint capability helpers.
 
 ---
 
@@ -202,8 +234,10 @@ the per-endpoint capability helpers.
 3. **Policy switches** — which, if any, do we actually need now beyond download-via-role?
 4. **Scope of the rollout** — generalize `object_type` immediately (collections, etc.),
    or ship libraries-only with the column ready for later?
-5. **Built-in groups** — just **Everyone**, or also an **Administrators** group instead
-   of the `users.role = 'admin'` flag? (Recommendation: keep the flag, add only Everyone.)
+5. **Take ownership** — when an admin takes over a private library, does the original
+   owner's `manager` grant stay, or get replaced? *(Decided: two built-in groups —
+   Everyone + System Admins; admin = System Admins membership, no `users.role`; private
+   libraries stay hidden from admins until taken over, which is logged.)*
 
 ---
 
