@@ -398,6 +398,23 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_library_members_subject ON library_members(subject_type, subject_id);
 
+  -- Unified access model (see Documents/permissions.md). One row = "this subject
+  -- (user or group) holds this role on this object". object_id/subject_id are
+  -- polymorphic (no FK); app code resolves and cleans them. Supersedes the owner_*
+  -- / visibility / public_role columns and library_members (kept during transition).
+  CREATE TABLE IF NOT EXISTS assignments (
+    subject_type TEXT NOT NULL CHECK (subject_type IN ('user', 'group')),
+    subject_id   TEXT NOT NULL,
+    object_type  TEXT NOT NULL,
+    object_id    TEXT NOT NULL,
+    role         TEXT NOT NULL CHECK (role IN ('viewer', 'member', 'contributor', 'manager', 'deny')),
+    created_by   TEXT REFERENCES users(id),
+    created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (subject_type, subject_id, object_type, object_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_assignments_object  ON assignments(object_type, object_id);
+  CREATE INDEX IF NOT EXISTS idx_assignments_subject ON assignments(subject_type, subject_id);
+
   -- Item-level sharing, module-agnostic via (module, resource_id). See Documents/sharing.md.
   -- User-to-user shares: grant a specific account read access to one item.
   CREATE TABLE IF NOT EXISTS shares (
@@ -586,10 +603,53 @@ if (!libraryColumns.some((column) => column.name === "visibility")) {
 if (!libraryColumns.some((column) => column.name === "public_role")) {
   db.exec("ALTER TABLE libraries ADD COLUMN public_role TEXT NOT NULL DEFAULT 'subscriber' CHECK (public_role IN ('viewer', 'subscriber'))");
 }
+// Per-library mode + write policies (see Documents/permissions.md). JSON blob:
+// { mode: 'managed'|'external', allowUpload, allowDelete, allowedExtensions, maxUploadMB }.
+if (!libraryColumns.some((column) => column.name === "policy_json")) {
+  db.exec("ALTER TABLE libraries ADD COLUMN policy_json TEXT NOT NULL DEFAULT '{}'");
+}
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_libraries_owner      ON libraries(owner_id);
   CREATE INDEX IF NOT EXISTS idx_libraries_visibility ON libraries(visibility);
 `);
+
+// System/built-in groups marker (Everyone, System Admins). 'normal' for user groups.
+const groupColumns = db.prepare("PRAGMA table_info(user_groups)").all() as { name: string }[];
+if (!groupColumns.some((column) => column.name === "kind")) {
+  db.exec("ALTER TABLE user_groups ADD COLUMN kind TEXT NOT NULL DEFAULT 'normal' CHECK (kind IN ('normal', 'system'))");
+}
+
+// One-time backfill of the unified assignments table from the legacy owner/visibility/
+// public_role columns + library_members. Runs only while assignments is still empty, so
+// it never resurrects grants an admin later removed. Legacy columns stay until cleanup.
+const assignmentsEmpty = (db.prepare("SELECT COUNT(*) AS n FROM assignments").get() as { n: number }).n === 0;
+const haveLibraries = (db.prepare("SELECT COUNT(*) AS n FROM libraries").get() as { n: number }).n > 0;
+if (assignmentsEmpty && haveLibraries) {
+  db.exec(`
+    -- public library -> Everyone gets the baseline role (subscriber becomes 'member')
+    INSERT OR IGNORE INTO assignments (subject_type, subject_id, object_type, object_id, role)
+    SELECT 'group', 'grp-everyone', 'library', id,
+           CASE WHEN public_role = 'viewer' THEN 'viewer' ELSE 'member' END
+    FROM libraries WHERE visibility = 'public';
+
+    -- owner (user or group) -> manager
+    INSERT OR IGNORE INTO assignments (subject_type, subject_id, object_type, object_id, role)
+    SELECT owner_type, owner_id, 'library', id, 'manager'
+    FROM libraries WHERE owner_id IS NOT NULL AND owner_type IS NOT NULL;
+
+    -- explicit grants -> assignments, mapping the old 5-role set onto the new 4
+    INSERT OR IGNORE INTO assignments (subject_type, subject_id, object_type, object_id, role, created_by, created_at)
+    SELECT subject_type, subject_id, 'library', library_id,
+           CASE role
+             WHEN 'subscriber' THEN 'member'
+             WHEN 'curator'    THEN 'contributor'
+             WHEN 'admin'      THEN 'manager'
+             ELSE role
+           END,
+           created_by, created_at
+    FROM library_members;
+  `);
+}
 
 // The "special libraries" / sections feature was removed. Drop its table and
 // strip the deprecated section_id / overrides keys from each library's settings.
