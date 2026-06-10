@@ -1,5 +1,12 @@
 # Sharing and Permissions
 
+> ℹ️ **Note.** Role-based *access* now lives in the unified assignments model —
+> see **[`permissions.md`](permissions.md)**. This document covers item-level **shares**
+> (guest links + user-to-user shares), which remain a separate mechanism. The
+> `shares.permission` / `share_links.permission` tiers are vestigial (only `read` is
+> used); merging the two share tables and dropping the permission column is a planned
+> follow-up.
+
 A single sharing model is reused across all modules — Digital Library, Notes, and any future module. This keeps sharing behaviour consistent everywhere and avoids duplicating permission logic.
 
 ---

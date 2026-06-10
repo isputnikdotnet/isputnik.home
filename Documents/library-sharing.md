@@ -1,5 +1,11 @@
 # Library Access and Sharing
 
+> ⚠️ **Superseded.** Library access is now the unified **`assignments`** model — one
+> `can(user, object, action)` engine over a single grants table, with built-in groups
+> (Everyone / System Admins), per-library mode/policy, and roles
+> viewer/member/contributor/manager (+ deny). See **[`permissions.md`](permissions.md)**.
+> The owner/visibility/role-grant model described below is historical.
+
 Libraries use an ownership model for access control. This is separate from the item-level `shares` table (see [`sharing.md`](sharing.md)), which handles sharing individual books, photos, and so on in later phases.
 
 > **Current model:** ownership/visibility (Phases 1–2 below) is the baseline, now extended by graduated **role grants** — see [Phase 4: Graduated Roles and Capabilities](#phase-4-graduated-roles-and-capabilities). The simple "owner edits, others read" rules in Phase 1 are superseded by the capability ladder there.

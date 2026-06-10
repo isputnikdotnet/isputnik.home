@@ -384,24 +384,11 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
   CREATE INDEX IF NOT EXISTS idx_group_members_user  ON group_members(user_id);
 
-  -- Per-library role grants. subject_id is polymorphic (a user or a group, no FK),
-  -- so app code resolves/cleans it (see library-access.ts resolveLibraryRole). The
-  -- library owner and app-admins are implicit Library Admins and are NOT stored here.
-  CREATE TABLE IF NOT EXISTS library_members (
-    library_id   TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
-    subject_type TEXT NOT NULL CHECK (subject_type IN ('user', 'group')),
-    subject_id   TEXT NOT NULL,
-    role         TEXT NOT NULL CHECK (role IN ('viewer', 'subscriber', 'contributor', 'curator', 'admin')),
-    created_by   TEXT REFERENCES users(id),
-    created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (library_id, subject_type, subject_id)
-  );
-  CREATE INDEX IF NOT EXISTS idx_library_members_subject ON library_members(subject_type, subject_id);
 
   -- Unified access model (see Documents/permissions.md). One row = "this subject
   -- (user or group) holds this role on this object". object_id/subject_id are
-  -- polymorphic (no FK); app code resolves and cleans them. Supersedes the owner_*
-  -- / visibility / public_role columns and library_members (kept during transition).
+  -- polymorphic (no FK); app code resolves and cleans them. The library owner is just
+  -- a 'manager' row; public access is the Everyone group's row.
   CREATE TABLE IF NOT EXISTS assignments (
     subject_type TEXT NOT NULL CHECK (subject_type IN ('user', 'group')),
     subject_id   TEXT NOT NULL,
@@ -619,37 +606,9 @@ if (!groupColumns.some((column) => column.name === "kind")) {
   db.exec("ALTER TABLE user_groups ADD COLUMN kind TEXT NOT NULL DEFAULT 'normal' CHECK (kind IN ('normal', 'system'))");
 }
 
-// One-time backfill of the unified assignments table from the legacy owner/visibility/
-// public_role columns + library_members. Runs only while assignments is still empty, so
-// it never resurrects grants an admin later removed. Legacy columns stay until cleanup.
-const assignmentsEmpty = (db.prepare("SELECT COUNT(*) AS n FROM assignments").get() as { n: number }).n === 0;
-const haveLibraries = (db.prepare("SELECT COUNT(*) AS n FROM libraries").get() as { n: number }).n > 0;
-if (assignmentsEmpty && haveLibraries) {
-  db.exec(`
-    -- public library -> Everyone gets the baseline role (subscriber becomes 'member')
-    INSERT OR IGNORE INTO assignments (subject_type, subject_id, object_type, object_id, role)
-    SELECT 'group', 'grp-everyone', 'library', id,
-           CASE WHEN public_role = 'viewer' THEN 'viewer' ELSE 'member' END
-    FROM libraries WHERE visibility = 'public';
-
-    -- owner (user or group) -> manager
-    INSERT OR IGNORE INTO assignments (subject_type, subject_id, object_type, object_id, role)
-    SELECT owner_type, owner_id, 'library', id, 'manager'
-    FROM libraries WHERE owner_id IS NOT NULL AND owner_type IS NOT NULL;
-
-    -- explicit grants -> assignments, mapping the old 5-role set onto the new 4
-    INSERT OR IGNORE INTO assignments (subject_type, subject_id, object_type, object_id, role, created_by, created_at)
-    SELECT subject_type, subject_id, 'library', library_id,
-           CASE role
-             WHEN 'subscriber' THEN 'member'
-             WHEN 'curator'    THEN 'contributor'
-             WHEN 'admin'      THEN 'manager'
-             ELSE role
-           END,
-           created_by, created_at
-    FROM library_members;
-  `);
-}
+// library_members was superseded by the unified `assignments` table; its data was
+// backfilled into assignments in an earlier build. Drop the leftover table.
+db.exec("DROP TABLE IF EXISTS library_members");
 
 // The "special libraries" / sections feature was removed. Drop its table and
 // strip the deprecated section_id / overrides keys from each library's settings.

@@ -95,9 +95,8 @@ export function libraryCapabilities(library: LibraryRoleInput, userId: string, u
   };
 }
 
-// Cleanup when a user/group is deleted. Cleans both the legacy table and assignments.
+// Cleanup when a user/group is deleted — removes all their library assignments.
 export function deleteLibraryMembersForSubject(subjectType: "user" | "group", subjectId: string) {
-  db.prepare("DELETE FROM library_members WHERE subject_type = ? AND subject_id = ?").run(subjectType, subjectId);
   deleteAssignmentsForSubject(subjectType, subjectId);
 }
 
