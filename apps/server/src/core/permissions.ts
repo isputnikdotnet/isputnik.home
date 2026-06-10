@@ -180,3 +180,12 @@ export function deleteAssignmentsForSubject(subjectType: "user" | "group", subje
 export function deleteAssignmentsForObject(objectType: string, objectId: string): void {
   db.prepare("DELETE FROM assignments WHERE object_type = ? AND object_id = ?").run(objectType, objectId);
 }
+
+// The role the Everyone group holds on an object, or null when it has none (= the
+// object is private). This is the source of truth for "public access".
+export function getEveryoneRole(objectType: string, objectId: string): ObjectRole | null {
+  const row = db.prepare(
+    "SELECT role FROM assignments WHERE subject_type = 'group' AND subject_id = ? AND object_type = ? AND object_id = ? AND role != 'deny'"
+  ).get(EVERYONE_GROUP_ID, objectType, objectId) as { role: ObjectRole } | undefined;
+  return row?.role ?? null;
+}

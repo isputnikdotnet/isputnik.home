@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { canUserAccessLibrary, validateLibraryOwner, libraryCapabilities, setLibraryAccess, deleteLibraryAccess, type LibraryCapabilities } from "../shared/library-access.js";
+import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { validateLibrarySource } from "../audiobook/scanner.js";
@@ -16,7 +17,8 @@ const ebookLibrarySchema = z.object({
   ownerId: z.string().trim().nullable().optional(),
   ownerType: z.enum(["user", "group"]).nullable().optional(),
   visibility: z.enum(["private", "public"]).optional(),
-  publicRole: z.enum(["viewer", "subscriber"]).default("subscriber")
+  publicRole: z.enum(["viewer", "member", "contributor"]).default("member"),
+  mode: z.enum(["managed", "external"]).default("managed")
 });
 
 interface EbookLibraryRow {
@@ -29,11 +31,14 @@ interface EbookLibraryRow {
   owner_type: "user" | "group" | null;
   visibility: "private" | "public";
   public_role: "viewer" | "subscriber" | null;
+  policy_json: string;
   created_at: string;
   book_count: number;
 }
 
 function publicEbookLibrary(row: EbookLibraryRow, includeSourcePath: boolean, caps: LibraryCapabilities) {
+  const everyoneRole = getEveryoneRole("library", row.id);
+  const policy = parsePolicy(row.policy_json);
   return {
     id: row.id,
     name: row.name,
@@ -42,8 +47,9 @@ function publicEbookLibrary(row: EbookLibraryRow, includeSourcePath: boolean, ca
     lastScannedAt: row.last_scanned_at,
     ownerId: row.owner_id,
     ownerType: row.owner_type,
-    visibility: row.visibility,
-    publicRole: row.public_role ?? "subscriber",
+    visibility: everyoneRole ? "public" : "private",
+    publicRole: everyoneRole ?? "member",
+    mode: policy.mode ?? "managed",
     // Effective role + capabilities for the requesting user (UI gating only).
     myRole: caps.role,
     canWrite: caps.canEdit,
@@ -75,7 +81,9 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     const ownerId = parsed.data.ownerId ?? null;
     const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
     const visibility = parsed.data.visibility ?? "public";
-    const publicRole = parsed.data.publicRole ?? "subscriber";
+    const publicRole = parsed.data.publicRole ?? "member";
+    const legacyPublicRole = publicRole === "viewer" ? "viewer" : "subscriber";
+    const policyJson = JSON.stringify({ mode: parsed.data.mode ?? "managed" });
 
     const ownerError = validateLibraryOwner(ownerId, ownerType, "ebook");
     if (ownerError) {
@@ -87,9 +95,9 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     const settings = { default_language: parsed.data.defaultLanguage };
 
     db.prepare(`
-      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role)
-      VALUES (?, ?, 'ebook', ?, ?, ?, ?, ?, ?, ?)
-    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility, publicRole);
+      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role, policy_json)
+      VALUES (?, ?, 'ebook', ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility, legacyPublicRole, policyJson);
 
     setLibraryAccess(libraryId, { visibility, publicRole, ownerType, ownerId, createdBy: request.user!.id });
 
@@ -119,8 +127,9 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       ORDER BY datetime(libraries.created_at) DESC
     `).all() as EbookLibraryRow[];
 
-    const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
-    return { libraries: accessible.map((row) => publicEbookLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))) };
+    const manageAll = (request.query as { manage?: string }).manage != null && user.role === "admin";
+    const visible = manageAll ? rows : rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
+    return { libraries: visible.map((row) => publicEbookLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))) };
   });
 
   app.get("/api/library/ebook-libraries/:id/books", { preHandler: app.authenticate }, async (request, reply) => {

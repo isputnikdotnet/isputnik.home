@@ -166,4 +166,34 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
 
     reply.send({ revoked: true });
   });
+
+  // Take ownership — admin-only escape hatch for a private library the admin can't
+  // otherwise reach. Adds a manager grant for the admin and logs it, so access to a
+  // private library is always a visible, deliberate act. See Documents/permissions.md.
+  app.post("/api/library/libraries/:id/take-ownership", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const library = db.prepare("SELECT id, name FROM libraries WHERE id = ?").get(id) as LibraryRow | undefined;
+    if (!library) {
+      reply.code(404).send({ error: "Library not found" });
+      return;
+    }
+
+    db.prepare(`
+      INSERT INTO assignments (subject_type, subject_id, object_type, object_id, role, created_by)
+      VALUES ('user', ?, 'library', ?, 'manager', ?)
+      ON CONFLICT (subject_type, subject_id, object_type, object_id) DO UPDATE SET role = 'manager'
+    `).run(user.id, id, user.id);
+
+    logActivity({
+      event: "library.ownership.taken",
+      actorUserId: user.id,
+      targetType: "library",
+      targetId: id,
+      detail: `Took ownership (manager) of library "${library.name}".`,
+      ipAddress: request.ip
+    });
+
+    reply.send({ ok: true });
+  });
 }

@@ -108,12 +108,13 @@ export function deleteLibraryMembersForSubject(subjectType: "user" | "group", su
 // old 'subscriber' onto the new 'member'.
 export function setLibraryAccess(libraryId: string, opts: {
   visibility: "public" | "private";
-  publicRole?: "viewer" | "subscriber" | "member" | null;
+  publicRole?: "viewer" | "member" | "contributor" | "subscriber" | null;
   ownerType?: "user" | "group" | null;
   ownerId?: string | null;
   createdBy: string;
 }): void {
-  const everyoneRole: ObjectRole = opts.publicRole === "viewer" ? "viewer" : "member";
+  const everyoneRole: ObjectRole =
+    opts.publicRole === "viewer" ? "viewer" : opts.publicRole === "contributor" ? "contributor" : "member";
   if (opts.visibility === "public") {
     db.prepare(`
       INSERT INTO assignments (subject_type, subject_id, object_type, object_id, role, created_by)

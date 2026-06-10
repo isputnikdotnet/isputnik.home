@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AudiobookLibraryRow } from "./types.js";
 import type { LibraryCapabilities } from "../shared/library-access.js";
+import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
 
 export const audiobookLibrarySchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -11,13 +12,18 @@ export const audiobookLibrarySchema = z.object({
   ownerType: z.enum(["user", "group"]).nullable().optional(),
   visibility: z.enum(["private", "public"]).default("public"),
   // Baseline role for all signed-in users when the library is public.
-  publicRole: z.enum(["viewer", "subscriber"]).default("subscriber")
+  publicRole: z.enum(["viewer", "member", "contributor"]).default("member"),
+  // Library mode: managed (writable) or external/read-only (e.g. a Plex/ABS folder).
+  mode: z.enum(["managed", "external"]).default("managed")
 });
 
 export function publicAudiobookLibrary(row: AudiobookLibraryRow, includeSourcePath: boolean, caps: LibraryCapabilities) {
   const settings = JSON.parse(row.settings_json || "{}") as {
     ignore_sidecar?: boolean;
   };
+  // Public access is the Everyone assignment (source of truth), not the legacy column.
+  const everyoneRole = getEveryoneRole("library", row.id);
+  const policy = parsePolicy(row.policy_json);
   return {
     id: row.id,
     name: row.name,
@@ -37,8 +43,9 @@ export function publicAudiobookLibrary(row: AudiobookLibraryRow, includeSourcePa
     lastScannedAt: row.last_scanned_at,
     ownerId: row.owner_id,
     ownerType: row.owner_type ?? null,
-    visibility: row.visibility ?? "public",
-    publicRole: row.public_role ?? "subscriber",
+    visibility: everyoneRole ? "public" : "private",
+    publicRole: everyoneRole ?? "member",
+    mode: policy.mode ?? "managed",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     bookCount: row.book_count,

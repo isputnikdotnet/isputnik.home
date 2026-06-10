@@ -29,7 +29,11 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     const ownerId = parsed.data.ownerId ?? null;
     const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
     const visibility = parsed.data.visibility ?? "public";
-    const publicRole = parsed.data.publicRole ?? "subscriber";
+    const publicRole = parsed.data.publicRole ?? "member";
+    // Legacy public_role column only allows viewer/subscriber; map for its CHECK while
+    // assignments hold the real value. Mode -> policy_json.
+    const legacyPublicRole = publicRole === "viewer" ? "viewer" : "subscriber";
+    const policyJson = JSON.stringify({ mode: parsed.data.mode ?? "managed" });
 
     const ownerError = validateLibraryOwner(ownerId, ownerType, "audiobook");
     if (ownerError) {
@@ -48,9 +52,9 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     };
 
     db.prepare(`
-      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role)
-      VALUES (?, ?, 'audiobook', ?, ?, ?, ?, ?, ?, ?)
-    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility, publicRole);
+      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role, policy_json)
+      VALUES (?, ?, 'audiobook', ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility, legacyPublicRole, policyJson);
 
     // Unified access model: Everyone grant (if public) + owner as manager.
     setLibraryAccess(libraryId, { visibility, publicRole, ownerType, ownerId, createdBy: request.user!.id });
@@ -85,10 +89,14 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       ORDER BY datetime(libraries.created_at) DESC
     `).all() as AudiobookLibraryRow[];
 
-    const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
+    // Control Panel passes ?manage=1: admins then see ALL libraries (to administer the
+    // system), even private ones they can't access — those show with no caps + a
+    // take-ownership action. The default (consumer) view shows only accessible libraries.
+    const manageAll = (request.query as { manage?: string }).manage != null && user.role === "admin";
+    const visible = manageAll ? rows : rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
 
     return {
-      libraries: accessible.map((row) =>
+      libraries: visible.map((row) =>
         publicAudiobookLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role)))
     };
   });
@@ -98,7 +106,8 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     ownerId: z.string().trim().min(1).max(64).nullable().optional(),
     ownerType: z.enum(["user", "group"]).nullable().optional(),
     visibility: z.enum(["private", "public"]),
-    publicRole: z.enum(["viewer", "subscriber"]).default("subscriber")
+    publicRole: z.enum(["viewer", "member", "contributor"]).default("member"),
+    mode: z.enum(["managed", "external"]).default("managed")
   });
 
   app.patch("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -127,11 +136,13 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       return;
     }
 
+    const legacyPublicRole = parsed.data.publicRole === "viewer" ? "viewer" : "subscriber";
+    const policyJson = JSON.stringify({ mode: parsed.data.mode ?? "managed" });
     db.prepare(`
       UPDATE libraries
-      SET name = ?, owner_id = ?, owner_type = ?, visibility = ?, public_role = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP
+      SET name = ?, owner_id = ?, owner_type = ?, visibility = ?, public_role = ?, policy_json = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(parsed.data.name, ownerId, ownerType, parsed.data.visibility, parsed.data.publicRole ?? "subscriber", JSON.stringify(settings), id);
+    `).run(parsed.data.name, ownerId, ownerType, parsed.data.visibility, legacyPublicRole, policyJson, JSON.stringify(settings), id);
 
     // Re-sync the Everyone + owner assignments with the new visibility/owner.
     setLibraryAccess(id, { visibility: parsed.data.visibility, publicRole: parsed.data.publicRole, ownerType, ownerId, createdBy: request.user!.id });
