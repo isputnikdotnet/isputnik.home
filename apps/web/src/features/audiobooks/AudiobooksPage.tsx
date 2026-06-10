@@ -197,6 +197,7 @@ function CatalogBookCard({
   selected,
   onToggleSelect,
   canEdit,
+  canDownload,
   onEdit,
   onAddToCollection
 }: {
@@ -206,6 +207,7 @@ function CatalogBookCard({
   selected: boolean;
   onToggleSelect: (id: string) => void;
   canEdit: boolean;
+  canDownload: boolean;
   onEdit: (book: AudiobookBook) => void;
   onAddToCollection: (book: AudiobookBook) => void;
 }) {
@@ -327,17 +329,19 @@ function CatalogBookCard({
                   {status === "finished" ? <RotateCcw size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
                   <span>{status === "finished" ? "Mark Unplayed" : "Mark as Played"}</span>
                 </button>
-                <a
-                  className="audiobook-catalog-action"
-                  href={`/api/library/books/${book.id}/download`}
-                  download
-                  onClick={(event) => event.stopPropagation()}
-                  aria-label={`Download ${book.title}`}
-                  title="Download"
-                >
-                  <Download size={16} aria-hidden="true" />
-                  <span>Download</span>
-                </a>
+                {canDownload && (
+                  <a
+                    className="audiobook-catalog-action"
+                    href={`/api/library/books/${book.id}/download`}
+                    download
+                    onClick={(event) => event.stopPropagation()}
+                    aria-label={`Download ${book.title}`}
+                    title="Download"
+                  >
+                    <Download size={16} aria-hidden="true" />
+                    <span>Download</span>
+                  </a>
+                )}
                 <button
                   className="audiobook-catalog-action"
                   type="button"
@@ -967,6 +971,7 @@ export function AudiobooksPage({
                   selected={selectedIds.has(book.id)}
                   onToggleSelect={toggleSelect}
                   canEdit={libraries.find((library) => library.id === book.libraryId)?.canWrite ?? false}
+                  canDownload={libraries.find((library) => library.id === book.libraryId)?.canDownload ?? false}
                   onEdit={openEditDetail}
                   onAddToCollection={setCollectionBook}
                 />

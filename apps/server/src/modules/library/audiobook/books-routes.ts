@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
-import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook, libraryCapabilities } from "../shared/library-access.js";
+import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook, canUserDownloadBook, libraryCapabilities } from "../shared/library-access.js";
 import { getAudiobookBookDetail, progressUpdateSchema, bulkMetadataSchema, BULK_METADATA_FIELDS, applyBulkMetadata, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
 import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
 
@@ -180,7 +180,8 @@ export function registerBookRoutes(app: FastifyInstance) {
       book,
       capabilities: {
         canEdit: caps.canEdit,
-        canDownload: caps.canDownload,
+        // Download also covers a user-share of this single book (no library role needed).
+        canDownload: canUserDownloadBook(id, lib, user.id, user.role),
         canCurate: caps.canCurate,
         canShare: caps.canCurate
       }
