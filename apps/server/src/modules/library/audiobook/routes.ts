@@ -5,7 +5,7 @@ import { parseBody } from "../../../core/shared.js";
 import { audioExtensions, enqueueAudiobookScan, processAudiobookScanQueue, validateLibrarySource } from "./scanner.js";
 import { z } from "zod";
 import { audiobookLibrarySchema, publicAudiobookLibrary } from "./serializers.js";
-import { canUserAccessLibrary, validateLibraryOwner, libraryCapabilities } from "../shared/library-access.js";
+import { canUserAccessLibrary, validateLibraryOwner, libraryCapabilities, setLibraryAccess, deleteLibraryAccess } from "../shared/library-access.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import type { AudiobookLibraryRow } from "./types.js";
@@ -51,6 +51,9 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role)
       VALUES (?, ?, 'audiobook', ?, ?, ?, ?, ?, ?, ?)
     `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility, publicRole);
+
+    // Unified access model: Everyone grant (if public) + owner as manager.
+    setLibraryAccess(libraryId, { visibility, publicRole, ownerType, ownerId, createdBy: request.user!.id });
 
     const jobId = enqueueAudiobookScan(libraryId);
     void processAudiobookScanQueue();
@@ -130,6 +133,9 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       WHERE id = ?
     `).run(parsed.data.name, ownerId, ownerType, parsed.data.visibility, parsed.data.publicRole ?? "subscriber", JSON.stringify(settings), id);
 
+    // Re-sync the Everyone + owner assignments with the new visibility/owner.
+    setLibraryAccess(id, { visibility: parsed.data.visibility, publicRole: parsed.data.publicRole, ownerType, ownerId, createdBy: request.user!.id });
+
     logActivity({
       event: "library.audiobook.updated",
       actorUserId: request.user!.id,
@@ -171,6 +177,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       // shares/share_links are polymorphic too — clean them up before the cascade.
       deleteSharesForLibrary("audiobook", id);
       deleteCollectionItemsForLibrary("audiobook", id);
+      deleteLibraryAccess(id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();
 

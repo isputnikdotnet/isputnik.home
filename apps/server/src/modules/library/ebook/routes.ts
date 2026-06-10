@@ -3,7 +3,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { canUserAccessLibrary, validateLibraryOwner, libraryCapabilities, type LibraryCapabilities } from "../shared/library-access.js";
+import { canUserAccessLibrary, validateLibraryOwner, libraryCapabilities, setLibraryAccess, deleteLibraryAccess, type LibraryCapabilities } from "../shared/library-access.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { validateLibrarySource } from "../audiobook/scanner.js";
@@ -90,6 +90,8 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role)
       VALUES (?, ?, 'ebook', ?, ?, ?, ?, ?, ?, ?)
     `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility, publicRole);
+
+    setLibraryAccess(libraryId, { visibility, publicRole, ownerType, ownerId, createdBy: request.user!.id });
 
     const jobId = enqueueEbookScan(libraryId);
     void processEbookScanQueue();
@@ -245,6 +247,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       db.prepare("DELETE FROM taggables WHERE entity_type = 'book' AND entity_id IN (SELECT id FROM books WHERE library_id = ?)").run(id);
       deleteSharesForLibrary("ebook", id);
       deleteCollectionItemsForLibrary("ebook", id);
+      deleteLibraryAccess(id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();
 

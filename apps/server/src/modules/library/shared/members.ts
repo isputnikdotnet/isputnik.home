@@ -2,37 +2,33 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import {
-  LIBRARY_ROLES,
-  canUserManageLibraryMembers,
-  type LibraryRole
-} from "./library-access.js";
+import { canUserManageLibraryMembers } from "./library-access.js";
+import { EVERYONE_GROUP_ID } from "../../../core/permissions.js";
+
+// Roles grantable to a specific user/group on a library. `deny` is an explicit block;
+// `member` = view+download. The Everyone baseline (public access) is managed via the
+// library's public setting, not here. See Documents/permissions.md.
+const GRANTABLE_ROLES = ["viewer", "member", "contributor", "manager", "deny"] as const;
+type GrantRole = (typeof GRANTABLE_ROLES)[number];
 
 interface LibraryRow {
   id: string;
   name: string;
-  owner_id: string | null;
-  owner_type: "user" | "group" | null;
-  visibility: "private" | "public";
 }
 
 const grantSchema = z.object({
   subjectType: z.enum(["user", "group"]),
   subjectId: z.string().trim().min(1).max(64),
-  role: z.enum(LIBRARY_ROLES as unknown as [LibraryRole, ...LibraryRole[]])
+  role: z.enum(GRANTABLE_ROLES as unknown as [GrantRole, ...GrantRole[]])
 });
 
-// Per-library role grants. The library owner and app-admins are implicit Library
-// Admins (resolved in code), so they never appear here — this manages the
-// *additional* users/groups granted a role. See Documents/library-sharing.md.
+// Per-library role assignments. The Everyone baseline and the owner's implicit manager
+// grant are managed elsewhere; this manages the *additional* users/groups.
 export async function libraryMembersPlugin(app: FastifyInstance) {
-  // Load the library and verify the caller may manage its members.
   function loadManageable(libraryId: string, userId: string, userRole: string): LibraryRow | null {
-    const library = db.prepare(
-      "SELECT id, name, owner_id, owner_type, visibility FROM libraries WHERE id = ?"
-    ).get(libraryId) as LibraryRow | undefined;
+    const library = db.prepare("SELECT id, name FROM libraries WHERE id = ?").get(libraryId) as LibraryRow | undefined;
     if (!library) return null;
-    if (!canUserManageLibraryMembers(library, userId, userRole)) return null;
+    if (!canUserManageLibraryMembers({ id: library.id }, userId, userRole)) return null;
     return library;
   }
 
@@ -45,28 +41,31 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
       return;
     }
 
+    // Exclude the Everyone grant — that's the library's public baseline, shown/managed
+    // through the library's public-access setting, not the members list.
     const rows = db.prepare(`
       SELECT
-        lm.subject_type,
-        lm.subject_id,
-        lm.role,
-        lm.created_at,
-        CASE lm.subject_type WHEN 'user' THEN u.display_name ELSE g.name END AS name,
-        CASE lm.subject_type WHEN 'user' THEN u.email ELSE NULL END AS email,
+        a.subject_type,
+        a.subject_id,
+        a.role,
+        a.created_at,
+        CASE a.subject_type WHEN 'user' THEN u.display_name ELSE g.name END AS name,
+        CASE a.subject_type WHEN 'user' THEN u.email ELSE NULL END AS email,
         CASE
-          WHEN lm.subject_type = 'user' AND u.id IS NULL THEN 1
-          WHEN lm.subject_type = 'group' AND g.id IS NULL THEN 1
+          WHEN a.subject_type = 'user' AND u.id IS NULL THEN 1
+          WHEN a.subject_type = 'group' AND g.id IS NULL THEN 1
           ELSE 0
         END AS missing
-      FROM library_members lm
-      LEFT JOIN users u ON lm.subject_type = 'user' AND u.id = lm.subject_id
-      LEFT JOIN user_groups g ON lm.subject_type = 'group' AND g.id = lm.subject_id
-      WHERE lm.library_id = ?
-      ORDER BY lm.subject_type, name COLLATE NOCASE
-    `).all(id) as {
+      FROM assignments a
+      LEFT JOIN users u ON a.subject_type = 'user' AND u.id = a.subject_id
+      LEFT JOIN user_groups g ON a.subject_type = 'group' AND g.id = a.subject_id
+      WHERE a.object_type = 'library' AND a.object_id = ?
+        AND NOT (a.subject_type = 'group' AND a.subject_id = ?)
+      ORDER BY a.subject_type, name COLLATE NOCASE
+    `).all(id, EVERYONE_GROUP_ID) as {
       subject_type: "user" | "group";
       subject_id: string;
-      role: LibraryRole;
+      role: GrantRole;
       created_at: string;
       name: string | null;
       email: string | null;
@@ -117,11 +116,11 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
     }
 
     db.prepare(`
-      INSERT INTO library_members (library_id, subject_type, subject_id, role, created_by)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT (library_id, subject_type, subject_id)
+      INSERT INTO assignments (subject_type, subject_id, object_type, object_id, role, created_by)
+      VALUES (?, ?, 'library', ?, ?, ?)
+      ON CONFLICT (subject_type, subject_id, object_type, object_id)
       DO UPDATE SET role = excluded.role, created_by = excluded.created_by
-    `).run(id, subjectType, subjectId, role, user.id);
+    `).run(subjectType, subjectId, id, role, user.id);
 
     logActivity({
       event: "library.member.granted",
@@ -149,7 +148,7 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
     }
 
     const result = db.prepare(
-      "DELETE FROM library_members WHERE library_id = ? AND subject_type = ? AND subject_id = ?"
+      "DELETE FROM assignments WHERE object_type = 'library' AND object_id = ? AND subject_type = ? AND subject_id = ?"
     ).run(id, subjectType, subjectId);
     if (result.changes === 0) {
       reply.code(404).send({ error: "Grant not found." });
