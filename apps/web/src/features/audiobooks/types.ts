@@ -1,4 +1,8 @@
-export type LibraryRole = "viewer" | "subscriber" | "contributor" | "curator" | "admin";
+// Per-object roles. `deny` is an explicit block, not a tier. See permissions.md.
+export type LibraryRole = "viewer" | "member" | "contributor" | "manager" | "deny";
+// Roles the public (Everyone) can hold on a library — never manager/deny.
+export type PublicRole = "viewer" | "member" | "contributor";
+export type LibraryMode = "managed" | "external";
 
 export interface AudiobookLibrary {
   id: string;
@@ -18,7 +22,8 @@ export interface AudiobookLibrary {
   ownerId: string | null;
   ownerType: "user" | "group" | null;
   visibility: "private" | "public";
-  publicRole: "viewer" | "subscriber";
+  publicRole: PublicRole;
+  mode: LibraryMode;
   createdAt: string;
   updatedAt: string;
   bookCount: number;
@@ -44,14 +49,20 @@ export interface LibraryMember {
   createdAt: string;
 }
 
-// Library roles, weakest → strongest, with the capabilities each unlocks. Used to
-// render the role picker and explain each option in the members UI.
+// Roles grantable to a user/group in the members UI, plus the explicit Deny block.
 export const LIBRARY_ROLE_OPTIONS: { value: LibraryRole; label: string; summary: string }[] = [
   { value: "viewer", label: "Viewer", summary: "View / read in-app" },
-  { value: "subscriber", label: "Subscriber", summary: "View + download" },
-  { value: "contributor", label: "Contributor", summary: "View, download, upload, edit items" },
-  { value: "curator", label: "Curator", summary: "All content + manage series/structure" },
-  { value: "admin", label: "Library Admin", summary: "Full control incl. members & settings" }
+  { value: "member", label: "Member", summary: "View + download" },
+  { value: "contributor", label: "Contributor", summary: "+ add / edit content" },
+  { value: "manager", label: "Manager", summary: "Full control: members & settings" },
+  { value: "deny", label: "Deny (block)", summary: "No access — overrides every grant" }
+];
+
+// Public-access choices for a library's Everyone baseline (no manager/deny).
+export const PUBLIC_ROLE_OPTIONS: { value: PublicRole; label: string }[] = [
+  { value: "viewer", label: "View only (no downloads)" },
+  { value: "member", label: "View + download" },
+  { value: "contributor", label: "Everyone can add / edit content" }
 ];
 
 export interface AudiobookBook {

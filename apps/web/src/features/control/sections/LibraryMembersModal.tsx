@@ -24,7 +24,7 @@ export function LibraryMembersModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [subject, setSubject] = useState("");
-  const [role, setRole] = useState<LibraryRole>("subscriber");
+  const [role, setRole] = useState<LibraryRole>("member");
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -66,7 +66,7 @@ export function LibraryMembersModal({
         body: JSON.stringify({ subjectType, subjectId, role })
       });
       setSubject("");
-      setRole("subscriber");
+      setRole("member");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to grant role");
@@ -101,9 +101,9 @@ export function LibraryMembersModal({
       >
         <h2 id="library-members-title">Members — {library.name}</h2>
         <p className="muted" style={{ fontSize: "0.82rem", lineHeight: 1.4 }}>
-          Grant additional users or groups a role on this library. The owner and app admins
-          always have full access and are not listed here. Public libraries already grant every
-          signed-in user the Subscriber role.
+          Grant additional users or groups a role on this library — or <strong>Deny</strong> to block
+          one. The owner and app admins always have full access and aren't listed here. Public access
+          (the Everyone baseline) is set on the library itself, not here.
         </p>
 
         <div className="member-grant-row">

@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { Plus, RefreshCw, Trash2, Users } from "lucide-react";
+import { Plus, RefreshCw, Trash2, Users, KeyRound } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate } from "../../../shared/utils";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
+import type { PublicRole, LibraryMode } from "../../audiobooks/types";
+import { PUBLIC_ROLE_OPTIONS } from "../../audiobooks/types";
 import { LibraryMembersModal } from "./LibraryMembersModal";
 
 interface EbookLibrary {
@@ -15,6 +17,7 @@ interface EbookLibrary {
   ownerId: string | null;
   ownerType: "user" | "group" | null;
   visibility: "public" | "private";
+  canManageLibrary: boolean;
   bookCount: number;
 }
 
@@ -29,7 +32,8 @@ export function EbooksSection() {
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
-  const [publicRole, setPublicRole] = useState<"viewer" | "subscriber">("subscriber");
+  const [publicRole, setPublicRole] = useState<PublicRole>("member");
+  const [mode, setMode] = useState<LibraryMode>("managed");
   const [ownerId, setOwnerId] = useState("");
   const [selectedRootId, setSelectedRootId] = useState("");
   const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
@@ -41,7 +45,7 @@ export function EbooksSection() {
 
   const load = useCallback(async () => {
     const [librariesPayload, settingsPayload, rootsPayload, usersPayload, groupsPayload] = await Promise.all([
-      api<{ libraries: EbookLibrary[] }>("/api/library/ebook-libraries"),
+      api<{ libraries: EbookLibrary[] }>("/api/library/ebook-libraries?manage=1"),
       api<{ settings: LibrarySettings }>("/api/library/settings"),
       api<{ roots: StorageRoot[] }>("/api/storage/roots"),
       api<{ users: ManagedUser[] }>("/api/users"),
@@ -78,7 +82,8 @@ export function EbooksSection() {
   const openCreate = () => {
     setName("");
     setVisibility("public");
-    setPublicRole("subscriber");
+    setPublicRole("member");
+    setMode("managed");
     setOwnerId("");
     setStorageBrowse(null);
     setError("");
@@ -105,6 +110,7 @@ export function EbooksSection() {
           defaultLanguage: "en",
           visibility,
           publicRole,
+          mode,
           ownerId: ownerId || null,
           ownerType
         })
@@ -128,6 +134,16 @@ export function EbooksSection() {
       setError(err instanceof Error ? err.message : "Unable to rescan");
     } finally {
       setRescanningId("");
+    }
+  };
+
+  const takeOwnership = async (library: EbookLibrary) => {
+    setError("");
+    try {
+      await api(`/api/library/libraries/${library.id}/take-ownership`, { method: "POST", body: "{}" });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to take ownership");
     }
   };
 
@@ -203,21 +219,33 @@ export function EbooksSection() {
                     <td><span className={`status-badge ${library.scanStatus}`}>{library.scanStatus}</span></td>
                     <td className="col-actions">
                       <div className="row-actions">
-                        <button
-                          className="secondary-button compact-button rescan-library-button"
-                          disabled={library.scanStatus === "scanning" || rescanningId === library.id}
-                          onClick={() => rescan(library.id)}
-                          title={library.scanStatus === "scanning" ? "Scan already in progress" : "Rescan library"}
-                        >
-                          <RefreshCw size={14} />
-                          {library.scanStatus === "scanning" ? "Scanning..." : "Rescan"}
-                        </button>
-                        <button className="icon-button" title="Manage members & roles" onClick={() => setMembersLibrary(library)}>
-                          <Users size={15} />
-                        </button>
-                        <button className="icon-button danger" title="Delete library" onClick={() => setDeleteConfirm(library)}>
-                          <Trash2 size={15} />
-                        </button>
+                        {library.canManageLibrary ? (
+                          <>
+                            <button
+                              className="secondary-button compact-button rescan-library-button"
+                              disabled={library.scanStatus === "scanning" || rescanningId === library.id}
+                              onClick={() => rescan(library.id)}
+                              title={library.scanStatus === "scanning" ? "Scan already in progress" : "Rescan library"}
+                            >
+                              <RefreshCw size={14} />
+                              {library.scanStatus === "scanning" ? "Scanning..." : "Rescan"}
+                            </button>
+                            <button className="icon-button" title="Manage members & roles" onClick={() => setMembersLibrary(library)}>
+                              <Users size={15} />
+                            </button>
+                            <button className="icon-button danger" title="Delete library" onClick={() => setDeleteConfirm(library)}>
+                              <Trash2 size={15} />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            className="secondary-button compact-button"
+                            title="Private library owned by someone else. Take ownership to manage it (logged)."
+                            onClick={() => takeOwnership(library)}
+                          >
+                            <KeyRound size={14} /> Take ownership
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -278,12 +306,18 @@ export function EbooksSection() {
                 {visibility === "public" && (
                   <label className="field">
                     <span>Public access</span>
-                    <select value={publicRole} onChange={(e) => setPublicRole(e.target.value as "viewer" | "subscriber")}>
-                      <option value="subscriber">View + download</option>
-                      <option value="viewer">View only (no downloads)</option>
+                    <select value={publicRole} onChange={(e) => setPublicRole(e.target.value as PublicRole)}>
+                      {PUBLIC_ROLE_OPTIONS.map((o) => <option value={o.value} key={o.value}>{o.label}</option>)}
                     </select>
                   </label>
                 )}
+                <label className="field">
+                  <span>Mode</span>
+                  <select value={mode} onChange={(e) => setMode(e.target.value as LibraryMode)}>
+                    <option value="managed">Managed — this app owns the files</option>
+                    <option value="external">External (read-only)</option>
+                  </select>
+                </label>
                 <label className="field">
                   <span>Owner (optional)</span>
                   <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { Plus, RefreshCw, Pencil, Trash2, Users } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, Users, KeyRound } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate } from "../../../shared/utils";
-import type { AudiobookLibrary } from "../../audiobooks/types";
+import type { AudiobookLibrary, PublicRole, LibraryMode } from "../../audiobooks/types";
+import { PUBLIC_ROLE_OPTIONS } from "../../audiobooks/types";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
 import { LibraryMembersModal } from "./LibraryMembersModal";
 
@@ -18,7 +19,8 @@ export function LibrariesSection() {
   const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
   const [libraryName, setLibraryName] = useState("");
   const [libraryVisibility, setLibraryVisibility] = useState<"public" | "private">("public");
-  const [libraryPublicRole, setLibraryPublicRole] = useState<"viewer" | "subscriber">("subscriber");
+  const [libraryPublicRole, setLibraryPublicRole] = useState<PublicRole>("member");
+  const [libraryMode, setLibraryMode] = useState<LibraryMode>("managed");
   const [libraryIgnoreSidecar, setLibraryIgnoreSidecar] = useState(false);
   const [libraryOwnerId, setLibraryOwnerId] = useState("");
   const [libraryOwnerType, setLibraryOwnerType] = useState<"user" | "group" | "">("");
@@ -34,7 +36,8 @@ export function LibrariesSection() {
   const [editingLibrary, setEditingLibrary] = useState<AudiobookLibrary | null>(null);
   const [editName, setEditName] = useState("");
   const [editVisibility, setEditVisibility] = useState<"public" | "private">("public");
-  const [editPublicRole, setEditPublicRole] = useState<"viewer" | "subscriber">("subscriber");
+  const [editPublicRole, setEditPublicRole] = useState<PublicRole>("member");
+  const [editMode, setEditMode] = useState<LibraryMode>("managed");
   const [editOwnerId, setEditOwnerId] = useState("");
   const [editOwnerType, setEditOwnerType] = useState<"user" | "group" | "">("");
   const [saving, setSaving] = useState(false);
@@ -54,7 +57,7 @@ export function LibrariesSection() {
   const loadLibraries = useCallback(async () => {
     await loadStorage();
     const [librariesPayload, usersPayload, groupsPayload] = await Promise.all([
-      api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries"),
+      api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries?manage=1"),
       api<{ users: ManagedUser[] }>("/api/users"),
       api<{ groups: ManagedGroup[] }>("/api/groups")
     ]);
@@ -121,6 +124,7 @@ export function LibrariesSection() {
           ignoreSidecar: libraryIgnoreSidecar,
           visibility: libraryVisibility,
           publicRole: libraryPublicRole,
+          mode: libraryMode,
           ownerId: libraryOwnerId || null,
           ownerType: libraryOwnerType || null
         })
@@ -128,7 +132,8 @@ export function LibrariesSection() {
       setCreateLibraryOpen(false);
       setLibraryName("");
       setLibraryVisibility("public");
-      setLibraryPublicRole("subscriber");
+      setLibraryPublicRole("member");
+      setLibraryMode("managed");
       setLibraryIgnoreSidecar(false);
       setLibraryOwnerId("");
       setLibraryOwnerType("");
@@ -145,10 +150,21 @@ export function LibrariesSection() {
     setEditingLibrary(library);
     setEditName(library.name);
     setEditVisibility(library.visibility);
-    setEditPublicRole(library.publicRole ?? "subscriber");
+    setEditPublicRole(library.publicRole ?? "member");
+    setEditMode(library.mode ?? "managed");
     setEditOwnerId(library.ownerId ?? "");
     setEditOwnerType(library.ownerType ?? "");
     setError("");
+  };
+
+  const takeOwnership = async (library: AudiobookLibrary) => {
+    setError("");
+    try {
+      await api(`/api/library/libraries/${library.id}/take-ownership`, { method: "POST", body: "{}" });
+      await loadLibraries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to take ownership");
+    }
   };
 
   const saveEdit = async (event: FormEvent) => {
@@ -163,6 +179,7 @@ export function LibrariesSection() {
           name: editName,
           visibility: editVisibility,
           publicRole: editPublicRole,
+          mode: editMode,
           ownerId: editOwnerId || null,
           ownerType: editOwnerType || null
         })
@@ -301,36 +318,49 @@ export function LibrariesSection() {
                     </td>
                     <td className="col-actions">
                       <div className="row-actions">
-                        <button
-                          className="icon-button"
-                          title="Manage members & roles"
-                          onClick={() => setMembersLibrary(library)}
-                        >
-                          <Users size={15} />
-                        </button>
-                        <button
-                          className="icon-button"
-                          title="Edit library"
-                          onClick={() => openEdit(library)}
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          className="secondary-button compact-button rescan-library-button"
-                          disabled={library.scanStatus === "scanning"}
-                          onClick={() => openRescan(library)}
-                          title={library.scanStatus === "scanning" ? "Scan already in progress" : "Rescan library"}
-                        >
-                          <RefreshCw size={14} />
-                          {library.scanStatus === "scanning" ? "Scanning..." : "Rescan"}
-                        </button>
-                        <button
-                          className="icon-button danger"
-                          title="Delete library"
-                          onClick={() => setDeleteConfirmLibrary(library)}
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {library.canManageLibrary ? (
+                          <>
+                            <button
+                              className="icon-button"
+                              title="Manage members & roles"
+                              onClick={() => setMembersLibrary(library)}
+                            >
+                              <Users size={15} />
+                            </button>
+                            <button
+                              className="icon-button"
+                              title="Edit library"
+                              onClick={() => openEdit(library)}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              className="secondary-button compact-button rescan-library-button"
+                              disabled={library.scanStatus === "scanning"}
+                              onClick={() => openRescan(library)}
+                              title={library.scanStatus === "scanning" ? "Scan already in progress" : "Rescan library"}
+                            >
+                              <RefreshCw size={14} />
+                              {library.scanStatus === "scanning" ? "Scanning..." : "Rescan"}
+                            </button>
+                            <button
+                              className="icon-button danger"
+                              title="Delete library"
+                              onClick={() => setDeleteConfirmLibrary(library)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </>
+                        ) : (
+                          // Private library this admin can't access — take ownership (logged) to manage it.
+                          <button
+                            className="secondary-button compact-button"
+                            title="This private library is owned by someone else. Take ownership to manage it (logged)."
+                            onClick={() => takeOwnership(library)}
+                          >
+                            <KeyRound size={14} /> Take ownership
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -428,12 +458,18 @@ export function LibrariesSection() {
                 {libraryVisibility === "public" && (
                   <label className="field">
                     <span>Public access</span>
-                    <select value={libraryPublicRole} onChange={(event) => setLibraryPublicRole(event.target.value as "viewer" | "subscriber")}>
-                      <option value="subscriber">View + download</option>
-                      <option value="viewer">View only (no downloads)</option>
+                    <select value={libraryPublicRole} onChange={(event) => setLibraryPublicRole(event.target.value as PublicRole)}>
+                      {PUBLIC_ROLE_OPTIONS.map((o) => <option value={o.value} key={o.value}>{o.label}</option>)}
                     </select>
                   </label>
                 )}
+                <label className="field">
+                  <span>Mode</span>
+                  <select value={libraryMode} onChange={(event) => setLibraryMode(event.target.value as LibraryMode)}>
+                    <option value="managed">Managed — this app owns the files</option>
+                    <option value="external">External (read-only) — managed by Plex/Audiobookshelf</option>
+                  </select>
+                </label>
               </>
             )}
 
@@ -657,12 +693,18 @@ export function LibrariesSection() {
             {editVisibility === "public" && (
               <label className="field">
                 <span>Public access</span>
-                <select value={editPublicRole} onChange={(event) => setEditPublicRole(event.target.value as "viewer" | "subscriber")}>
-                  <option value="subscriber">View + download</option>
-                  <option value="viewer">View only (no downloads)</option>
+                <select value={editPublicRole} onChange={(event) => setEditPublicRole(event.target.value as PublicRole)}>
+                  {PUBLIC_ROLE_OPTIONS.map((o) => <option value={o.value} key={o.value}>{o.label}</option>)}
                 </select>
               </label>
             )}
+            <label className="field">
+              <span>Mode</span>
+              <select value={editMode} onChange={(event) => setEditMode(event.target.value as LibraryMode)}>
+                <option value="managed">Managed — this app owns the files</option>
+                <option value="external">External (read-only) — managed by Plex/Audiobookshelf</option>
+              </select>
+            </label>
             {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
             <div className="modal-actions">
               <button className="secondary-button" type="button" onClick={() => setEditingLibrary(null)} disabled={saving} autoFocus>
