@@ -1,26 +1,11 @@
-import { z } from "zod";
 import type { AudiobookLibraryRow } from "./types.js";
 import type { LibraryCapabilities } from "../shared/library-access.js";
 import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
+import { coreLibraryCreateSchema, serializeLibrarySettingsForAdmin } from "../shared/library-crud.js";
 
-export const audiobookLibrarySchema = z.object({
-  name: z.string().trim().min(2).max(120),
-  sourcePath: z.string().trim().min(1).max(1000),
-  defaultLanguage: z.string().trim().min(2).max(12).default("en"),
-  ignoreSidecar: z.boolean().default(false),
-  ownerId: z.string().trim().min(1).max(64).nullable().optional(),
-  ownerType: z.enum(["user", "group"]).nullable().optional(),
-  visibility: z.enum(["private", "public"]).default("public"),
-  // Baseline role for all signed-in users when the library is public.
-  publicRole: z.enum(["viewer", "member", "contributor"]).default("member"),
-  // Library mode: managed (writable) or external/read-only (e.g. a Plex/ABS folder).
-  mode: z.enum(["managed", "external"]).default("managed")
-});
+export const audiobookLibrarySchema = coreLibraryCreateSchema;
 
 export function publicAudiobookLibrary(row: AudiobookLibraryRow, includeSourcePath: boolean, caps: LibraryCapabilities) {
-  const settings = JSON.parse(row.settings_json || "{}") as {
-    ignore_sidecar?: boolean;
-  };
   // Public access is the Everyone assignment (source of truth), not the legacy column.
   const everyoneRole = getEveryoneRole("library", row.id);
   const policy = parsePolicy(row.policy_json);
@@ -29,7 +14,8 @@ export function publicAudiobookLibrary(row: AudiobookLibraryRow, includeSourcePa
     name: row.name,
     type: row.type,
     sourcePath: includeSourcePath ? row.source_path : undefined,
-    ignoreSidecar: settings.ignore_sidecar === true,
+    // Scan/upload settings, exposed only on the admin (manage) view.
+    settings: includeSourcePath ? serializeLibrarySettingsForAdmin("audiobook", row.settings_json, row.policy_json) : undefined,
     // The requesting user's effective role + capabilities on this library, used by
     // the client to gate download/edit/curate/manage UI. Server still enforces each.
     myRole: caps.role,

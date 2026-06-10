@@ -580,6 +580,104 @@
   color: inherit;
 }
 
+/* ── Library scan/upload editors ───────────────────────────────── */
+
+.extension-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.extension-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.extension-chip button {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.extension-chip button:hover {
+  color: inherit;
+}
+
+.extension-add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.extension-add-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.scan-source-list {
+  display: grid;
+  gap: 8px;
+}
+
+.scan-source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.scan-source-row.disabled .scan-source-copy {
+  opacity: 0.55;
+}
+
+.scan-source-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.scan-source-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.scan-source-copy small {
+  color: var(--muted);
+}
+
+.scan-source-order {
+  display: grid;
+  gap: 2px;
+}
+
+.scan-source-order button {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  background: none;
+  border-radius: 4px;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.scan-source-order button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .create-invite-modal .created-invite {
   margin: 18px 0 22px;
 }

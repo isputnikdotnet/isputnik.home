@@ -50,22 +50,71 @@ The scanner treats each leaf folder containing audio files as one book. The pare
 
 ## Library Settings
 
-Stored in `libraries.settings_json` when a library is created:
+Stored in `libraries.settings_json`. The base shape is shared by every library type
+(see `shared/library-settings.ts`); audiobooks add their own keys on top. Settings are
+normalized on read (`normalizeLibrarySettings`), so missing fields always fall back to
+the type defaults — older rows never break a scan.
 
 | Setting | Default | Description |
 |---|---|---|
-| `folder_structure` | `author_book` | Expected layout hint: `author_book`, `flat`, or `series_author_book` |
 | `default_language` | `en` | Fallback when no language tag is found |
-| `show_narrator` | `true` | Display narrator prominently in the UI |
-| `supported_extensions` | see below | Audio formats to include during scan |
-| `cover_filenames` | `cover,folder,artwork` | Image filenames to recognise as folder cover art (if none match, the largest image file in the folder is used as fallback) |
-| `ignore_sidecar` | `false` | When `true`, `metadata.json` files in book folders are ignored during all scans |
+| `scan_extensions` | see below | Dotless, lowercase file extensions to include during scan. **The same list is the upload extension policy** — one list for both. User-editable per library (create wizard / edit modal), with a "Reset to defaults" action |
+| `scan_sources` | see below | Ordered list of metadata sources, `{ id, enabled }`. Position = priority: index 0 wins per field. See "Scan metadata sources" below |
+| `show_narrator` | `true` | (audiobook) Display narrator prominently in the UI |
+| `cover_filenames` | `cover,folder,artwork` | (audiobook) Image filenames to recognise as folder cover art (if none match, the largest image file in the folder is used as fallback) |
 
-Default supported extensions:
+Default `scan_extensions` (audiobook):
 
 ```json
 ["m4b", "m4a", "mp3", "flac", "ogg", "opus", "aac", "wav", "wave"]
 ```
+
+Default `scan_sources` (audiobook — reproduces the pre-0.13 behavior exactly):
+
+```json
+[
+  { "id": "metadata_files",   "enabled": true  },
+  { "id": "file_metadata",    "enabled": true  },
+  { "id": "folder_structure", "enabled": false }
+]
+```
+
+Per-upload size limit (`maxUploadMB`) lives in `libraries.policy_json` next to `mode`
+(see `permissions.md`); it is exposed in the same create/edit UI.
+
+---
+
+## Scan Metadata Sources
+
+Sources are defined once in a server-side registry (`shared/metadata-sources.ts`) —
+id, label, description, applicable library types, default enablement — and exposed to
+the web app through `GET /api/library/settings` (`metadataSources` + `typeDefaults`),
+so the UI never duplicates them. **Adding a new source = one registry entry + an
+extractor in the relevant scanner.**
+
+| Source | Applies to | What it provides |
+|---|---|---|
+| `metadata_files` | audiobook | `metadata.json` sidecars next to the book files (native + Audiobookshelf formats) |
+| `file_metadata` | audiobook, ebook | Embedded metadata: audio tags / EPUB details. Also gates embedded-cover extraction and tag-based disc/track ordering and chapter titles |
+| `folder_structure` | audiobook | **Grouping + names.** When enabled, each *top-level folder* under the library root becomes one book and every audio file anywhere beneath it becomes a track of that book; folder names supply book titles and file names supply track titles at this source's priority position |
+
+How the scanner uses them (`prepareBookScan`):
+
+1. Each enabled source produces a metadata *candidate* (title, authors, narrators,
+   description, year, language, genres, series, isbn/asin/publisher).
+2. Candidates are merged **first-wins in list order** — the first source that provides
+   a field keeps it.
+3. Folder/file-name *fallback hints* (book title from folder name, author from parent
+   folder, library default language) are always applied last, regardless of sources.
+4. Disabling every source therefore yields pure folder/file-name records.
+
+`folder_structure` is the only source that also changes grouping: `walkAudiobookFiles`
+switches from "folder containing audio = book (disc subfolders collapse)" to
+"top-level folder = book, recurse everything". Disc-named subfolders (`CD 1`, …) still
+provide track-ordering hints in both modes.
+
+Manual metadata (`book_metadata.source = 'manual'`) still beats everything and is
+never overwritten by any source.
 
 ---
 
@@ -329,44 +378,51 @@ The scan runs asynchronously through the SQLite job queue. Create and rescan req
 
 ### Rescan options
 
-`POST /api/library/audiobook-libraries/:id/rescan` accepts an optional body `{ skipSidecar?, tagEncoding? }`, carried through the job payload into `scanAudiobookLibrary` → `prepareBookScan`. The admin sets these per run from the Rescan dialog; they are **not** persisted to library settings (the corrected metadata is written to the DB, so the fix sticks regardless).
+`POST /api/library/audiobook-libraries/:id/rescan` accepts an optional body `{ sources?, tagEncoding? }`, carried through the job payload into `scanAudiobookLibrary` → `prepareBookScan`. The single-book rescan (`POST /api/library/books/:id/rescan`) takes the same shape. The Rescan dialog pre-fills the editor from the library's persisted `scan_sources`; changes there are **one-shot overrides for that run only** — edit the library to change the persisted defaults.
 
-- **`skipSidecar`** — ignore `metadata.json` sidecars for this run and re-derive from audio tags (a per-run form of the `ignore_sidecar` setting).
+- **`sources`** — full override of the library's `scan_sources` (same `{ id, enabled }[]` ordered shape). The old `skipSidecar` flag is gone; it is equivalent to disabling `metadata_files` in the override.
 - **`tagEncoding`** — one of `windows-1251`, `windows-1250`, `windows-1252`, `koi8-r`. Repairs mojibake: tag text whose bytes are really a legacy charset but were decoded as Latin-1 (e.g. `Ðàíåå` → `Ранее`). `repairEncoding()` re-encodes the string to Latin-1 bytes and decodes with the chosen charset (Node `TextDecoder`, no dependency). Strings already containing characters above U+00FF (correct UTF-8) and plain ASCII are left untouched; manual-source metadata and ISBN/ASIN are never altered.
 
 Either option **forces a full metadata re-read** (bypassing the unchanged-files fast path) so the correction is actually applied and stored. A plain rescan with no options keeps the fast path.
 
 ```
-Admin registers library (name, source_path, defaultLanguage, ignoreSidecar?)
-  → validateLibrarySource:
-      - path must be absolute
-      - directory must exist
-      - must fall inside a registered storage root
-      - must not overlap with THUMBNAIL_PATH
-  → INSERT libraries record (settings_json includes ignore_sidecar flag)
+Admin registers library (core fields + scanExtensions?, scanSources?, maxUploadMB?)
+  → createLibraryRecord (shared/library-crud.ts, same helper for every library type):
+      validateLibrarySource:
+        - path must be absolute
+        - directory must exist
+        - must fall inside a registered storage root
+        - must not overlap with THUMBNAIL_PATH
+      build settings_json from type defaults + input (scan_extensions, scan_sources)
+      build policy_json ({ mode, maxUploadMB? })
+      INSERT libraries record, seed access assignments, log activity
   → enqueueAudiobookScan(libraryId) → INSERT jobs row, return immediately
 
 scanAudiobookLibrary (runs in background worker):
   → SET scan_status = 'scanning'
-  → walkAudiobookFiles(rootPath):
+  → resolveScanConfig: effective sources = rescan override ?? settings.scan_sources;
+      groupingMode = folder_structure enabled ? top_level_folder : folder_hierarchy
+  → walkAudiobookFiles(rootPath, settings, groupingMode):
       async recursive walk (fs.promises.readdir), skip symlinks outside root
-      collect audio files grouped by parent folder
+      collect audio files grouped by book folder (parent folder, or top-level
+      folder when groupingMode = top_level_folder)
       return Map<folderAbsPath, files[]>
 
   → process up to 4 book folders concurrently:
 
       [per book folder]
       fingerprint check (size + modified_at for all files):
-        if all files unchanged AND book already in DB AND no sidecar → skip, reuse existing data
+        if all files unchanged AND book already in DB AND no sidecar
+        AND no rescan override → skip, reuse existing data
 
       otherwise:
         parse all files in parallel (Promise.all):
           first file  → full parse (book metadata + cover extraction)
           other files → parse for duration, track number, chapter title
 
-        if settings.ignore_sidecar = false AND metadata.json present in folder:
-          read sidecar → overrides title, authors, narrators, description, year,
-                         language, genre strings, series, isbn, asin, publisher
+        build one metadata candidate per enabled source
+        merge candidates first-wins in scan_sources order
+        apply folder/file-name fallback hints last
 
         resolve cover:
           1. named file match: cover.jpg / folder.png / artwork.webp (or cover_filenames setting)
@@ -449,19 +505,23 @@ What a merge does (admin only, `POST /api/library/people/merge`):
 
 ## Metadata Sources and Priority
 
-Metadata is resolved in this order. Each level overrides the previous except `source = 'manual'` which is never overwritten.
+Scan-time priority among `metadata_files`, `file_metadata`, and `folder_structure` is
+**user-configurable per library** — the ordered `scan_sources` list, first source
+providing a field wins (see "Scan Metadata Sources" above). The default order
+reproduces the historical behavior: sidecar > audio tags > folder/file-name hints.
 
-| Priority | Source | Phase | What it provides |
-|---|---|---|---|
-| 1 (lowest) | Folder and filename patterns | Phase 1 ✓ | Title (folder name), author (parent folder) |
-| 2 | Embedded audio tags — first file | Phase 2 | Title, authors, narrators, year, genre, description |
-| 3 | Sidecar `metadata.json` in source folder | Phase 3 ✓ | Any field — import from Audiobookshelf or hand-written |
-| 4 | Metadata lookup — user-triggered | Phase 3 ✓ | Any field from iTunes, OpenLibrary, or FantLab |
-| 5 (highest) | Manual user edits in app | Phase 3 UI ✓ | Any field — permanent, survives rescans |
+Outside the scan, the overall hierarchy is unchanged:
 
-Sources 1–3 run automatically during scan. Source 4 is user-triggered per book. Source 5 is set when a user edits a field directly.
+| Priority | Source | What it provides |
+|---|---|---|
+| 1 (lowest) | Folder and filename fallback hints — always on | Title (folder name), author (parent folder) |
+| 2 | Enabled `scan_sources`, merged in their configured order | Any scanned field |
+| 3 | Metadata lookup — user-triggered | Any field from iTunes, OpenLibrary, or FantLab |
+| 4 (highest) | Manual user edits in app | Any field — permanent, survives rescans |
 
-When `book_metadata.source = 'manual'`, all automatic sources (1–4) skip that book entirely on rescans.
+Sources 1–2 run automatically during scan. Source 3 is user-triggered per book. Source 4 is set when a user edits a field directly.
+
+When `book_metadata.source = 'manual'`, all automatic sources skip that book entirely on rescans.
 
 ---
 

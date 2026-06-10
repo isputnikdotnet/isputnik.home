@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
+import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook, canUserDownloadBook, libraryCapabilities } from "../shared/library-access.js";
 import { getAudiobookBookDetail, progressUpdateSchema, bulkMetadataSchema, BULK_METADATA_FIELDS, applyBulkMetadata, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
 import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
@@ -409,7 +410,11 @@ export function registerBookRoutes(app: FastifyInstance) {
 
 
   const rescanBookSchema = z.object({
-    skipSidecar: z.boolean().optional(),
+    // One-shot override of the library's persisted scan_sources for this book only.
+    sources: z.array(z.object({
+      id: z.enum(METADATA_SOURCE_IDS),
+      enabled: z.boolean()
+    })).max(20).optional(),
     tagEncoding: z.enum(["windows-1251", "windows-1250", "windows-1252", "koi8-r"]).optional()
   });
 

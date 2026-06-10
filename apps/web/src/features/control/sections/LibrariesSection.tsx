@@ -1,17 +1,24 @@
-import { useState, useEffect, useCallback, type FormEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
 import { Plus, RefreshCw, Pencil, Trash2, Users, KeyRound } from "lucide-react";
 import { api } from "../../../api";
-import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate } from "../../../shared/utils";
-import type { AudiobookLibrary, PublicRole, LibraryMode } from "../../audiobooks/types";
-import { PUBLIC_ROLE_OPTIONS } from "../../audiobooks/types";
+import type { AudiobookLibrary, PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults } from "../../audiobooks/types";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
+import { LibraryCoreFields } from "../libraries/LibraryCoreFields";
+import { ExtensionsEditor } from "../libraries/ExtensionsEditor";
+import { ScanSourcesEditor } from "../libraries/ScanSourcesEditor";
+import { UploadSettingsFields } from "../libraries/UploadSettingsFields";
+import { SourceFolderPicker } from "../libraries/SourceFolderPicker";
 import { LibraryMembersModal } from "./LibraryMembersModal";
+
+const LIBRARY_TYPE = "audiobook";
 
 export function LibrariesSection() {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
+  const [metadataSources, setMetadataSources] = useState<MetadataSourceInfo[]>([]);
+  const [typeDefaults, setTypeDefaults] = useState<Record<string, LibraryTypeDefaults>>({});
   const [storageRoots, setStorageRoots] = useState<StorageRoot[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
@@ -21,11 +28,13 @@ export function LibrariesSection() {
   const [libraryVisibility, setLibraryVisibility] = useState<"public" | "private">("public");
   const [libraryPublicRole, setLibraryPublicRole] = useState<PublicRole>("member");
   const [libraryMode, setLibraryMode] = useState<LibraryMode>("managed");
-  const [libraryIgnoreSidecar, setLibraryIgnoreSidecar] = useState(false);
   const [libraryOwnerId, setLibraryOwnerId] = useState("");
   const [libraryOwnerType, setLibraryOwnerType] = useState<"user" | "group" | "">("");
+  const [libraryExtensions, setLibraryExtensions] = useState<string[]>([]);
+  const [librarySources, setLibrarySources] = useState<ScanSource[]>([]);
+  const [libraryMaxUploadMB, setLibraryMaxUploadMB] = useState("");
   const [rescanTarget, setRescanTarget] = useState<AudiobookLibrary | null>(null);
-  const [rescanSkipSidecar, setRescanSkipSidecar] = useState(false);
+  const [rescanSources, setRescanSources] = useState<ScanSource[]>([]);
   const [rescanEncoding, setRescanEncoding] = useState("auto");
   const [rescanRunning, setRescanRunning] = useState(false);
   const [membersLibrary, setMembersLibrary] = useState<AudiobookLibrary | null>(null);
@@ -40,13 +49,32 @@ export function LibrariesSection() {
   const [editMode, setEditMode] = useState<LibraryMode>("managed");
   const [editOwnerId, setEditOwnerId] = useState("");
   const [editOwnerType, setEditOwnerType] = useState<"user" | "group" | "">("");
+  const [editExtensions, setEditExtensions] = useState<string[]>([]);
+  const [editSources, setEditSources] = useState<ScanSource[]>([]);
+  const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [saving, setSaving] = useState(false);
   const [wizardStep, setWizardStep] = useState(0);
   const [error, setError] = useState("");
 
+  const typeSourceInfo = useMemo(
+    () => metadataSources.filter((source) => source.appliesTo.includes(LIBRARY_TYPE)),
+    [metadataSources]
+  );
+  const defaults = typeDefaults[LIBRARY_TYPE];
+  const defaultSources = useMemo<ScanSource[]>(
+    () => defaults?.sources ?? typeSourceInfo.map((source) => ({ id: source.id, enabled: source.defaultEnabled })),
+    [defaults, typeSourceInfo]
+  );
+
   const loadStorage = useCallback(async () => {
-    const settingsPayload = await api<{ settings: LibrarySettings }>("/api/library/settings");
+    const settingsPayload = await api<{
+      settings: LibrarySettings;
+      metadataSources?: MetadataSourceInfo[];
+      typeDefaults?: Record<string, LibraryTypeDefaults>;
+    }>("/api/library/settings");
     setLibrarySettings(settingsPayload.settings);
+    setMetadataSources(settingsPayload.metadataSources ?? []);
+    setTypeDefaults(settingsPayload.typeDefaults ?? {});
 
     const rootsPayload = await api<{ roots: StorageRoot[] }>("/api/storage/roots");
     setStorageRoots(rootsPayload.roots);
@@ -105,6 +133,11 @@ export function LibrariesSection() {
     setStorageBrowse(payload);
   };
 
+  const maxUploadValue = (raw: string) => {
+    const value = Number.parseInt(raw, 10);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  };
+
   const createLibrary = async (event: FormEvent) => {
     event.preventDefault();
     if (!storageBrowse?.selectedPath) {
@@ -121,12 +154,14 @@ export function LibrariesSection() {
           name: libraryName,
           sourcePath: storageBrowse.selectedPath,
           defaultLanguage: "en",
-          ignoreSidecar: libraryIgnoreSidecar,
           visibility: libraryVisibility,
           publicRole: libraryPublicRole,
           mode: libraryMode,
           ownerId: libraryOwnerId || null,
-          ownerType: libraryOwnerType || null
+          ownerType: libraryOwnerType || null,
+          scanExtensions: libraryExtensions,
+          scanSources: librarySources,
+          maxUploadMB: maxUploadValue(libraryMaxUploadMB)
         })
       });
       setCreateLibraryOpen(false);
@@ -134,9 +169,9 @@ export function LibrariesSection() {
       setLibraryVisibility("public");
       setLibraryPublicRole("member");
       setLibraryMode("managed");
-      setLibraryIgnoreSidecar(false);
       setLibraryOwnerId("");
       setLibraryOwnerType("");
+      setLibraryMaxUploadMB("");
       setStorageBrowse(null);
       await loadLibraries();
     } catch (err) {
@@ -154,6 +189,9 @@ export function LibrariesSection() {
     setEditMode(library.mode ?? "managed");
     setEditOwnerId(library.ownerId ?? "");
     setEditOwnerType(library.ownerType ?? "");
+    setEditExtensions(library.settings?.scanExtensions ?? defaults?.extensions ?? []);
+    setEditSources(library.settings?.scanSources ?? defaultSources);
+    setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setError("");
   };
 
@@ -181,7 +219,10 @@ export function LibrariesSection() {
           publicRole: editPublicRole,
           mode: editMode,
           ownerId: editOwnerId || null,
-          ownerType: editOwnerType || null
+          ownerType: editOwnerType || null,
+          scanExtensions: editExtensions,
+          scanSources: editSources,
+          maxUploadMB: maxUploadValue(editMaxUploadMB)
         })
       });
       setEditingLibrary(null);
@@ -195,7 +236,7 @@ export function LibrariesSection() {
 
   const openRescan = (library: AudiobookLibrary) => {
     setRescanTarget(library);
-    setRescanSkipSidecar(library.ignoreSidecar);
+    setRescanSources(library.settings?.scanSources ?? defaultSources);
     setRescanEncoding("auto");
     setError("");
   };
@@ -208,7 +249,7 @@ export function LibrariesSection() {
       await api(`/api/library/audiobook-libraries/${rescanTarget.id}/rescan`, {
         method: "POST",
         body: JSON.stringify({
-          skipSidecar: rescanSkipSidecar,
+          sources: rescanSources,
           tagEncoding: rescanEncoding === "auto" ? undefined : rescanEncoding
         })
       });
@@ -239,6 +280,9 @@ export function LibrariesSection() {
   const openCreateLibrary = () => {
     setError("");
     setWizardStep(0);
+    setLibraryExtensions(defaults?.extensions ?? []);
+    setLibrarySources(defaultSources);
+    setLibraryMaxUploadMB("");
     setCreateLibraryOpen(true);
     const rootId = selectedRootId || storageRoots[0]?.id || "";
     if (rootId) {
@@ -372,12 +416,13 @@ export function LibrariesSection() {
       )}
 
       {createLibraryOpen && (() => {
-        const steps: ("details" | "source")[] = ["details", "source"];
+        const steps: ("details" | "scanning" | "source")[] = ["details", "scanning", "source"];
         const lastStep = steps.length - 1;
         const current = Math.min(wizardStep, lastStep);
         const stepKey = steps[current];
         const stepTitles: Record<typeof steps[number], string> = {
           details: "Details",
+          scanning: "Scanning & upload",
           source: "Source folder"
         };
         const canLeaveDetails = libraryName.trim().length >= 2;
@@ -386,6 +431,10 @@ export function LibrariesSection() {
         const goNext = () => {
           if (stepKey === "details" && !canLeaveDetails) {
             setError("Enter a library name (at least 2 characters) to continue.");
+            return;
+          }
+          if (stepKey === "scanning" && libraryExtensions.length === 0) {
+            setError("Add at least one file extension to scan.");
             return;
           }
           setError("");
@@ -417,117 +466,51 @@ export function LibrariesSection() {
             )}
 
             {stepKey === "details" && (
+              <LibraryCoreFields
+                name={libraryName}
+                onNameChange={setLibraryName}
+                ownerId={libraryOwnerId}
+                ownerType={libraryOwnerType}
+                onOwnerChange={(type, id) => { setLibraryOwnerType(type); setLibraryOwnerId(id); }}
+                visibility={libraryVisibility}
+                onVisibilityChange={setLibraryVisibility}
+                publicRole={libraryPublicRole}
+                onPublicRoleChange={setLibraryPublicRole}
+                mode={libraryMode}
+                onModeChange={setLibraryMode}
+                users={users}
+                groups={groups}
+              />
+            )}
+
+            {stepKey === "scanning" && (
               <>
-                <Field label="Library name" value={libraryName} onChange={setLibraryName} />
-                <label className="field">
-                  <span>Owner</span>
-                  <select
-                    value={libraryOwnerId ? `${libraryOwnerType}:${libraryOwnerId}` : ""}
-                    onChange={(event) => {
-                      const val = event.target.value;
-                      if (!val) { setLibraryOwnerId(""); setLibraryOwnerType(""); return; }
-                      const [type, id] = val.split(":");
-                      setLibraryOwnerType(type as "user" | "group");
-                      setLibraryOwnerId(id);
-                    }}
-                  >
-                    <option value="">No owner (system library)</option>
-                    {users.length > 0 && (
-                      <optgroup label="Users">
-                        {users.map((user) => (
-                          <option value={`user:${user.id}`} key={user.id}>{user.displayName} ({user.email})</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {groups.length > 0 && (
-                      <optgroup label="Groups">
-                        {groups.map((group) => (
-                          <option value={`group:${group.id}`} key={group.id}>{group.name}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Visibility</span>
-                  <select value={libraryVisibility} onChange={(event) => setLibraryVisibility(event.target.value as "public" | "private")}>
-                    <option value="public">Public — all users can access</option>
-                    <option value="private">Private — owner and admins only</option>
-                  </select>
-                </label>
-                {libraryVisibility === "public" && (
-                  <label className="field">
-                    <span>Public access</span>
-                    <select value={libraryPublicRole} onChange={(event) => setLibraryPublicRole(event.target.value as PublicRole)}>
-                      {PUBLIC_ROLE_OPTIONS.map((o) => <option value={o.value} key={o.value}>{o.label}</option>)}
-                    </select>
-                  </label>
-                )}
-                <label className="field">
-                  <span>Mode</span>
-                  <select value={libraryMode} onChange={(event) => setLibraryMode(event.target.value as LibraryMode)}>
-                    <option value="managed">Managed — this app owns the files</option>
-                    <option value="external">External (read-only) — managed by Plex/Audiobookshelf</option>
-                  </select>
-                </label>
+                <ScanSourcesEditor
+                  sources={librarySources}
+                  onChange={setLibrarySources}
+                  sourceInfo={typeSourceInfo}
+                />
+                <ExtensionsEditor
+                  extensions={libraryExtensions}
+                  onChange={setLibraryExtensions}
+                  defaults={defaults?.extensions ?? []}
+                />
+                <UploadSettingsFields
+                  maxUploadMB={libraryMaxUploadMB}
+                  onChange={setLibraryMaxUploadMB}
+                  mode={libraryMode}
+                />
               </>
             )}
 
             {stepKey === "source" && (
-              <>
-                <label className="field">
-                  <span>Container</span>
-                  <select
-                    value={selectedRootId}
-                    onChange={(event) => browseStorageRoot(event.target.value).catch((err) => setError(err instanceof Error ? err.message : "Unable to browse storage container"))}
-                    required
-                  >
-                    {storageRoots.map((root) => (
-                      <option value={root.id} key={root.id}>{root.name}</option>
-                    ))}
-                  </select>
-                </label>
-                {storageBrowse && (
-                  <section className="folder-browser" aria-label="Library folder browser">
-                    <div className="folder-browser-head">
-                      <div>
-                        <strong>{storageBrowse.currentPath || storageBrowse.root.name}</strong>
-                        <span>{storageBrowse.selectedPath}</span>
-                      </div>
-                      {storageBrowse.parentPath !== null && (
-                        <button
-                          className="secondary-button compact-button"
-                          type="button"
-                          onClick={() => browseStorageRoot(storageBrowse.root.id, storageBrowse.parentPath ?? "")}
-                        >
-                          Up
-                        </button>
-                      )}
-                    </div>
-                    <div className="folder-list">
-                      {storageBrowse.entries.map((entry) => (
-                        <button
-                          className="folder-row"
-                          type="button"
-                          key={entry.relativePath}
-                          onClick={() => browseStorageRoot(storageBrowse.root.id, entry.relativePath)}
-                        >
-                          {entry.name}
-                        </button>
-                      ))}
-                      {storageBrowse.entries.length === 0 && <p className="management-empty">No child folders found. The current folder can still be used.</p>}
-                    </div>
-                  </section>
-                )}
-                <label className="field-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={libraryIgnoreSidecar}
-                    onChange={(event) => setLibraryIgnoreSidecar(event.target.checked)}
-                  />
-                  <span>Do not read metadata.json files</span>
-                </label>
-              </>
+              <SourceFolderPicker
+                storageRoots={storageRoots}
+                selectedRootId={selectedRootId}
+                storageBrowse={storageBrowse}
+                onBrowse={browseStorageRoot}
+                onError={setError}
+              />
             )}
 
             {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
@@ -576,14 +559,14 @@ export function LibrariesSection() {
           >
             <h2 id="rescan-library-title">Rescan "{rescanTarget.name}"</h2>
             <p>Re-index this library from disk. Your files are never modified, and manually edited metadata is kept.</p>
-            <label className="field-checkbox">
-              <input
-                type="checkbox"
-                checked={rescanSkipSidecar}
-                onChange={(event) => setRescanSkipSidecar(event.target.checked)}
-              />
-              <span>Skip metadata.json sidecar files (read tags only)</span>
-            </label>
+            <ScanSourcesEditor
+              sources={rescanSources}
+              onChange={setRescanSources}
+              sourceInfo={typeSourceInfo}
+            />
+            <p className="muted" style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>
+              These choices apply to this scan only — edit the library to change its defaults.
+            </p>
             <label className="field">
               <span>Tag text encoding</span>
               <select value={rescanEncoding} onChange={(event) => setRescanEncoding(event.target.value)}>
@@ -653,64 +636,42 @@ export function LibrariesSection() {
             onMouseDown={(event) => event.stopPropagation()}
           >
             <h2 id="edit-library-title">Edit library</h2>
-            <Field label="Library name" value={editName} onChange={setEditName} />
-            <label className="field">
-              <span>Owner</span>
-              <select
-                value={editOwnerId ? `${editOwnerType}:${editOwnerId}` : ""}
-                onChange={(event) => {
-                  const val = event.target.value;
-                  if (!val) { setEditOwnerId(""); setEditOwnerType(""); return; }
-                  const [type, id] = val.split(":");
-                  setEditOwnerType(type as "user" | "group");
-                  setEditOwnerId(id);
-                }}
-              >
-                <option value="">No owner (system library)</option>
-                {users.length > 0 && (
-                  <optgroup label="Users">
-                    {users.map((user) => (
-                      <option value={`user:${user.id}`} key={user.id}>{user.displayName} ({user.email})</option>
-                    ))}
-                  </optgroup>
-                )}
-                {groups.length > 0 && (
-                  <optgroup label="Groups">
-                    {groups.map((group) => (
-                      <option value={`group:${group.id}`} key={group.id}>{group.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </label>
-            <label className="field">
-              <span>Visibility</span>
-              <select value={editVisibility} onChange={(event) => setEditVisibility(event.target.value as "public" | "private")}>
-                <option value="public">Public — all users can access</option>
-                <option value="private">Private — owner and admins only</option>
-              </select>
-            </label>
-            {editVisibility === "public" && (
-              <label className="field">
-                <span>Public access</span>
-                <select value={editPublicRole} onChange={(event) => setEditPublicRole(event.target.value as PublicRole)}>
-                  {PUBLIC_ROLE_OPTIONS.map((o) => <option value={o.value} key={o.value}>{o.label}</option>)}
-                </select>
-              </label>
-            )}
-            <label className="field">
-              <span>Mode</span>
-              <select value={editMode} onChange={(event) => setEditMode(event.target.value as LibraryMode)}>
-                <option value="managed">Managed — this app owns the files</option>
-                <option value="external">External (read-only) — managed by Plex/Audiobookshelf</option>
-              </select>
-            </label>
+            <LibraryCoreFields
+              name={editName}
+              onNameChange={setEditName}
+              ownerId={editOwnerId}
+              ownerType={editOwnerType}
+              onOwnerChange={(type, id) => { setEditOwnerType(type); setEditOwnerId(id); }}
+              visibility={editVisibility}
+              onVisibilityChange={setEditVisibility}
+              publicRole={editPublicRole}
+              onPublicRoleChange={setEditPublicRole}
+              mode={editMode}
+              onModeChange={setEditMode}
+              users={users}
+              groups={groups}
+            />
+            <ScanSourcesEditor
+              sources={editSources}
+              onChange={setEditSources}
+              sourceInfo={typeSourceInfo}
+            />
+            <ExtensionsEditor
+              extensions={editExtensions}
+              onChange={setEditExtensions}
+              defaults={defaults?.extensions ?? []}
+            />
+            <UploadSettingsFields
+              maxUploadMB={editMaxUploadMB}
+              onChange={setEditMaxUploadMB}
+              mode={editMode}
+            />
             {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
             <div className="modal-actions">
               <button className="secondary-button" type="button" onClick={() => setEditingLibrary(null)} disabled={saving} autoFocus>
                 Cancel
               </button>
-              <button className="primary-button" disabled={saving || !editName.trim()}>
+              <button className="primary-button" disabled={saving || !editName.trim() || editExtensions.length === 0}>
                 {saving ? "Saving..." : "Save changes"}
               </button>
             </div>

@@ -4,12 +4,43 @@ export type LibraryRole = "viewer" | "member" | "contributor" | "manager" | "den
 export type PublicRole = "viewer" | "member" | "contributor";
 export type LibraryMode = "managed" | "external";
 
+// Scan metadata sources — ordered by priority (index 0 wins per field). Mirrors the
+// server registry exposed via GET /api/library/settings.
+export type MetadataSourceId = "file_metadata" | "metadata_files" | "folder_structure";
+
+export interface ScanSource {
+  id: MetadataSourceId;
+  enabled: boolean;
+}
+
+export interface MetadataSourceInfo {
+  id: MetadataSourceId;
+  label: string;
+  description: string;
+  appliesTo: string[];
+  defaultEnabled: boolean;
+  affectsGrouping?: boolean;
+}
+
+export interface LibraryTypeDefaults {
+  extensions: string[];
+  sources: ScanSource[];
+}
+
+// Scan/upload settings exposed to admins on the manage view.
+export interface AdminLibrarySettings {
+  defaultLanguage: string | null;
+  scanExtensions: string[];
+  scanSources: ScanSource[];
+  maxUploadMB: number | null;
+}
+
 export interface AudiobookLibrary {
   id: string;
   name: string;
   type: "audiobook";
   sourcePath?: string;
-  ignoreSidecar: boolean;
+  settings?: AdminLibrarySettings;
   myRole: LibraryRole | null;
   canWrite: boolean;
   canDownload: boolean;

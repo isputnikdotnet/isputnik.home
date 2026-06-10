@@ -1,11 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { audioExtensions, enqueueAudiobookScan, processAudiobookScanQueue, validateLibrarySource } from "./scanner.js";
+import { enqueueAudiobookScan, processAudiobookScanQueue } from "./scanner.js";
 import { z } from "zod";
 import { audiobookLibrarySchema, publicAudiobookLibrary } from "./serializers.js";
-import { canUserAccessLibrary, validateLibraryOwner, libraryCapabilities, setLibraryAccess, deleteLibraryAccess } from "../shared/library-access.js";
+import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
+import { coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
+import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import type { AudiobookLibraryRow } from "./types.js";
@@ -18,60 +19,25 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       return;
     }
 
-    let sourcePath: string;
-    try {
-      sourcePath = validateLibrarySource(parsed.data.sourcePath);
-    } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Invalid audiobook source path" });
+    const result = createLibraryRecord({
+      type: "audiobook",
+      data: parsed.data,
+      userId: request.user!.id,
+      ip: request.ip,
+      extraSettings: {
+        show_narrator: true,
+        cover_filenames: ["cover", "folder", "artwork"]
+      }
+    });
+    if ("error" in result) {
+      reply.code(result.status).send({ error: result.error });
       return;
     }
 
-    const ownerId = parsed.data.ownerId ?? null;
-    const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
-    const visibility = parsed.data.visibility ?? "public";
-    const publicRole = parsed.data.publicRole ?? "member";
-    // Legacy public_role column only allows viewer/subscriber; map for its CHECK while
-    // assignments hold the real value. Mode -> policy_json.
-    const legacyPublicRole = publicRole === "viewer" ? "viewer" : "subscriber";
-    const policyJson = JSON.stringify({ mode: parsed.data.mode ?? "managed" });
-
-    const ownerError = validateLibraryOwner(ownerId, ownerType, "audiobook");
-    if (ownerError) {
-      reply.code(ownerError.status).send({ error: ownerError.error });
-      return;
-    }
-
-    const libraryId = nanoid(16);
-    const settings = {
-      folder_structure: "author_book",
-      default_language: parsed.data.defaultLanguage,
-      ignore_sidecar: parsed.data.ignoreSidecar || undefined,
-      show_narrator: true,
-      supported_extensions: Array.from(audioExtensions).map((extension) => extension.slice(1)),
-      cover_filenames: ["cover", "folder", "artwork"]
-    };
-
-    db.prepare(`
-      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role, policy_json)
-      VALUES (?, ?, 'audiobook', ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility, legacyPublicRole, policyJson);
-
-    // Unified access model: Everyone grant (if public) + owner as manager.
-    setLibraryAccess(libraryId, { visibility, publicRole, ownerType, ownerId, createdBy: request.user!.id });
-
-    const jobId = enqueueAudiobookScan(libraryId);
+    const jobId = enqueueAudiobookScan(result.libraryId);
     void processAudiobookScanQueue();
 
-    logActivity({
-      event: "library.audiobook.created",
-      actorUserId: request.user!.id,
-      targetType: "library",
-      targetId: libraryId,
-      detail: `Created audiobook library "${parsed.data.name}" and queued a scan.`,
-      ipAddress: request.ip
-    });
-
-    reply.code(201).send({ library: { id: libraryId }, job: { id: jobId, type: "SCAN_AUDIOBOOK_LIBRARY" } });
+    reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_AUDIOBOOK_LIBRARY" } });
   });
 
   app.get("/api/library/audiobook-libraries", { preHandler: app.authenticate }, async (request) => {
@@ -101,60 +67,26 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     };
   });
 
-  const audiobookLibraryUpdateSchema = z.object({
-    name: z.string().trim().min(2).max(120),
-    ownerId: z.string().trim().min(1).max(64).nullable().optional(),
-    ownerType: z.enum(["user", "group"]).nullable().optional(),
-    visibility: z.enum(["private", "public"]),
-    publicRole: z.enum(["viewer", "member", "contributor"]).default("member"),
-    mode: z.enum(["managed", "external"]).default("managed")
-  });
-
   app.patch("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const existing = db.prepare("SELECT id, name, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
-      .get(id) as { id: string; name: string; settings_json: string } | undefined;
-    if (!existing) {
-      reply.code(404).send({ error: "Audiobook library not found" });
-      return;
-    }
 
-    const parsed = parseBody(audiobookLibraryUpdateSchema, request.body);
+    const parsed = parseBody(coreLibraryUpdateSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid library details", details: parsed.error });
       return;
     }
 
-    const settings = JSON.parse(existing.settings_json || "{}");
-
-    const ownerId = parsed.data.ownerId ?? null;
-    const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
-
-    const ownerError = validateLibraryOwner(ownerId, ownerType, "audiobook", id);
-    if (ownerError) {
-      reply.code(ownerError.status).send({ error: ownerError.error });
+    const result = updateLibraryRecord({
+      type: "audiobook",
+      id,
+      data: parsed.data,
+      userId: request.user!.id,
+      ip: request.ip
+    });
+    if ("error" in result) {
+      reply.code(result.status).send({ error: result.error });
       return;
     }
-
-    const legacyPublicRole = parsed.data.publicRole === "viewer" ? "viewer" : "subscriber";
-    const policyJson = JSON.stringify({ mode: parsed.data.mode ?? "managed" });
-    db.prepare(`
-      UPDATE libraries
-      SET name = ?, owner_id = ?, owner_type = ?, visibility = ?, public_role = ?, policy_json = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(parsed.data.name, ownerId, ownerType, parsed.data.visibility, legacyPublicRole, policyJson, JSON.stringify(settings), id);
-
-    // Re-sync the Everyone + owner assignments with the new visibility/owner.
-    setLibraryAccess(id, { visibility: parsed.data.visibility, publicRole: parsed.data.publicRole, ownerType, ownerId, createdBy: request.user!.id });
-
-    logActivity({
-      event: "library.audiobook.updated",
-      actorUserId: request.user!.id,
-      targetType: "library",
-      targetId: id,
-      detail: `Updated audiobook library "${parsed.data.name}".`,
-      ipAddress: request.ip
-    });
 
     const updated = db.prepare(`
       SELECT libraries.*, COUNT(DISTINCT books.id) AS book_count, COUNT(book_files.id) AS file_count
@@ -205,7 +137,11 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
   });
 
   const rescanOptionsSchema = z.object({
-    skipSidecar: z.boolean().optional(),
+    // One-shot override of the library's persisted scan_sources for this run only.
+    sources: z.array(z.object({
+      id: z.enum(METADATA_SOURCE_IDS),
+      enabled: z.boolean()
+    })).max(20).optional(),
     tagEncoding: z.enum(["windows-1251", "windows-1250", "windows-1252", "koi8-r"]).optional()
   });
 
@@ -227,7 +163,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     const jobId = enqueueAudiobookScan(id, parsed.data);
     void processAudiobookScanQueue();
     const detailParts = [
-      parsed.data.skipSidecar ? "skipping metadata.json" : null,
+      parsed.data.sources ? `sources ${parsed.data.sources.filter((s) => s.enabled).map((s) => s.id).join(" > ") || "none"}` : null,
       parsed.data.tagEncoding ? `tag encoding ${parsed.data.tagEncoding}` : null
     ].filter(Boolean);
     logActivity({

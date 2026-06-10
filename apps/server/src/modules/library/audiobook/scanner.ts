@@ -4,14 +4,22 @@ import { parseFile, type IAudioMetadata } from "music-metadata";
 import { nanoid } from "nanoid";
 import sharp from "sharp";
 import { db } from "../../../db.js";
-import { normaliseRelativePath, findStorageRootForPath } from "../shared/storage-roots.js";
-import { getConfiguredThumbnailPath, thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
+import { normaliseRelativePath } from "../shared/storage-roots.js";
+import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { deleteSharesForResource } from "../shared/share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
+import { validateLibrarySource } from "../shared/library-source.js";
+import {
+  normalizeLibrarySettings,
+  normalizeScanSources,
+  sourceEnabled,
+  type BaseLibrarySettings,
+  type ScanSourceConfig
+} from "../shared/library-settings.js";
+import type { MetadataSourceId } from "../shared/metadata-sources.js";
 import { matchCategoryId, setEntityTags } from "./categorize.js";
 
-const legacyAudioExtensions = new Set([".m4b", ".m4a", ".mp3", ".flac", ".ogg", ".opus", ".aac"]);
-export const audioExtensions = new Set([...legacyAudioExtensions, ".wav", ".wave"]);
+export { validateLibrarySource };
 
 // Companion documents bundled with an audiobook (e.g. a PDF supplement or the
 // ebook edition). Collected during scan but never treated as audio tracks.
@@ -28,8 +36,36 @@ const scanJobType = "SCAN_AUDIOBOOK_LIBRARY";
 export type TagEncoding = "windows-1251" | "windows-1250" | "windows-1252" | "koi8-r";
 
 export interface ScanOptions {
-  skipSidecar?: boolean;
+  // One-shot override of the library's persisted scan_sources (rescan dialog).
+  sources?: ScanSourceConfig[];
   tagEncoding?: TagEncoding;
+}
+
+// How files are grouped into books. folder_hierarchy: the folder containing the audio
+// files is the book (disc subfolders collapse into the parent). top_level_folder: each
+// immediate child folder of the library root is one book holding everything beneath it.
+type GroupingMode = "folder_hierarchy" | "top_level_folder";
+
+interface EffectiveScanConfig {
+  settings: AudiobookSettings;
+  // Enabled sources in priority order (index 0 wins per metadata field).
+  sources: ScanSourceConfig[];
+  groupingMode: GroupingMode;
+  // True when rescan options force a fresh metadata read even for unchanged files.
+  forceReread: boolean;
+  tagEncoding?: TagEncoding;
+}
+
+function resolveScanConfig(settingsJson: string, options: ScanOptions): EffectiveScanConfig {
+  const settings = normalizeLibrarySettings("audiobook", settingsJson) as unknown as AudiobookSettings;
+  const sources = options.sources ? normalizeScanSources("audiobook", options.sources) : settings.scan_sources;
+  return {
+    settings,
+    sources,
+    groupingMode: sourceEnabled(sources, "folder_structure") ? "top_level_folder" : "folder_hierarchy",
+    forceReread: options.sources != null || options.tagEncoding != null,
+    tagEncoding: options.tagEncoding
+  };
 }
 
 /**
@@ -65,11 +101,8 @@ function repairList(values: string[], encoding: TagEncoding | undefined): string
   return values.map((value) => repairEncoding(value, encoding) ?? value);
 }
 
-interface AudiobookSettings {
-  default_language?: string;
-  supported_extensions?: string[];
+interface AudiobookSettings extends BaseLibrarySettings {
   cover_filenames?: string[];
-  ignore_sidecar?: boolean;
 }
 
 interface AudioFileEntry {
@@ -168,33 +201,9 @@ export function trackNumberFromFileName(fileName: string, fallback: number) {
   return match ? Number(match[1]) : fallback;
 }
 
-function normaliseSettings(settingsJson: string): AudiobookSettings {
-  try {
-    return JSON.parse(settingsJson || "{}") as AudiobookSettings;
-  } catch {
-    return {};
-  }
-}
-
-function supportedAudioExtensions(settings: AudiobookSettings) {
-  if (!settings.supported_extensions?.length) {
-    return audioExtensions;
-  }
-
-  const extensions = new Set(settings.supported_extensions.map((extension) => {
-    const normalised = extension.trim().toLowerCase();
-    return normalised.startsWith(".") ? normalised : `.${normalised}`;
-  }));
-
-  const isLegacyDefault = extensions.size === legacyAudioExtensions.size
-    && Array.from(extensions).every((extension) => legacyAudioExtensions.has(extension));
-  if (isLegacyDefault) {
-    for (const extension of audioExtensions) {
-      extensions.add(extension);
-    }
-  }
-
-  return extensions;
+// Dotted extension set for path.extname comparisons, from the dotless settings list.
+function scanExtensionSet(settings: AudiobookSettings) {
+  return new Set(settings.scan_extensions.map((extension) => `.${extension}`));
 }
 
 function discNumberFromFolderName(folderName: string) {
@@ -574,34 +583,8 @@ async function generateCover(libraryId: string, bookId: string, folderPath: stri
   return null;
 }
 
-export function validateLibrarySource(sourcePath: string) {
-  const resolved = path.resolve(sourcePath);
-  const thumbnailPath = getConfiguredThumbnailPath();
-
-  if (!path.isAbsolute(resolved)) {
-    throw new Error("Use an absolute server path for the audiobook source.");
-  }
-
-  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
-    throw new Error("Audiobook source path must be an existing directory.");
-  }
-
-  const realSource = fs.realpathSync(resolved);
-  const allowedRoot = findStorageRootForPath(realSource);
-  if (!allowedRoot) {
-    throw new Error("Choose a folder inside a configured Digital Library container.");
-  }
-
-  const realThumbnailRoot = fs.realpathSync(thumbnailPath);
-  if (realSource === realThumbnailRoot || realSource.startsWith(`${realThumbnailRoot}${path.sep}`)) {
-    throw new Error("Audiobook source path cannot be inside thumbnail storage.");
-  }
-
-  return realSource;
-}
-
-export async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings = {}) {
-  const extensions = supportedAudioExtensions(settings);
+export async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings, groupingMode: GroupingMode = "folder_hierarchy") {
+  const extensions = scanExtensionSet(settings);
   const filesByBookFolder = new Map<string, AudioFileEntry[]>();
 
   const walk = async (currentPath: string): Promise<void> => {
@@ -636,8 +619,16 @@ export async function walkAudiobookFiles(rootPath: string, settings: AudiobookSe
 
       const folderPath = path.dirname(absolutePath);
       const discHint = discNumberFromFolderName(path.basename(folderPath));
-      const bookFolderPath = discHint ? path.dirname(folderPath) : folderPath;
       const relativePath = normaliseRelativePath(path.relative(rootPath, absolutePath));
+      let bookFolderPath: string;
+      if (groupingMode === "top_level_folder") {
+        // The first path segment under the root is the book; files directly in the
+        // root group under the root itself.
+        const topSegment = relativePath.split("/")[0];
+        bookFolderPath = relativePath.includes("/") ? path.join(rootPath, topSegment) : rootPath;
+      } else {
+        bookFolderPath = discHint ? path.dirname(folderPath) : folderPath;
+      }
 
       let stat: fs.Stats;
       try {
@@ -656,8 +647,8 @@ export async function walkAudiobookFiles(rootPath: string, settings: AudiobookSe
   return filesByBookFolder;
 }
 
-function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, settings: AudiobookSettings): AudioFileEntry[] {
-  const extensions = supportedAudioExtensions(settings);
+function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, settings: AudiobookSettings, groupingMode: GroupingMode = "folder_hierarchy"): AudioFileEntry[] {
+  const extensions = scanExtensionSet(settings);
   const files: AudioFileEntry[] = [];
 
   const scanDir = (dir: string, discHint: number | null) => {
@@ -665,7 +656,9 @@ function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, setti
       const absolutePath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         const hint = discNumberFromFolderName(entry.name);
-        if (hint !== null) {
+        // top_level_folder: every nested folder belongs to this book, not just
+        // disc-named ones (disc names still provide track-ordering hints).
+        if (hint !== null || groupingMode === "top_level_folder") {
           scanDir(absolutePath, hint);
         }
         continue;
@@ -750,14 +743,46 @@ function repairSidecar(sidecar: SidecarMetadata | null, encoding: TagEncoding | 
   };
 }
 
+// Per-source metadata candidate. Merged first-wins in scan_sources priority order;
+// null/empty fields fall through to the next source.
+interface SourceCandidate {
+  title?: string | null;
+  description?: string | null;
+  year?: number | null;
+  language?: string | null;
+  isbn?: string | null;
+  asin?: string | null;
+  publisher?: string | null;
+  authors?: string[];
+  narrators?: string[];
+  genres?: string[];
+  seriesName?: string | null;
+  seriesPosition?: number | null;
+}
+
+function mergeCandidate(target: SourceCandidate, candidate: SourceCandidate) {
+  target.title = target.title ?? candidate.title ?? null;
+  target.description = target.description ?? candidate.description ?? null;
+  target.year = target.year ?? candidate.year ?? null;
+  target.language = target.language || candidate.language || null;
+  target.isbn = target.isbn ?? candidate.isbn ?? null;
+  target.asin = target.asin ?? candidate.asin ?? null;
+  target.publisher = target.publisher ?? candidate.publisher ?? null;
+  target.seriesName = target.seriesName ?? candidate.seriesName ?? null;
+  target.seriesPosition = target.seriesPosition ?? candidate.seriesPosition ?? null;
+  if (!target.authors?.length && candidate.authors?.length) target.authors = candidate.authors;
+  if (!target.narrators?.length && candidate.narrators?.length) target.narrators = candidate.narrators;
+  if (!target.genres?.length && candidate.genres?.length) target.genres = candidate.genres;
+}
+
 async function prepareBookScan(
   libraryId: string,
   rootPath: string,
-  settings: AudiobookSettings,
+  config: EffectiveScanConfig,
   folderAbsolutePath: string,
-  files: AudioFileEntry[],
-  options: ScanOptions = {}
+  files: AudioFileEntry[]
 ): Promise<PreparedBookScan> {
+  const { settings, sources, tagEncoding: enc, forceReread } = config;
   const folderPath = normaliseRelativePath(path.relative(rootPath, folderAbsolutePath)) || ".";
   const existingBook = db.prepare("SELECT id FROM books WHERE library_id = ? AND folder_path = ?")
     .get(libraryId, folderPath) as { id: string } | undefined;
@@ -766,13 +791,15 @@ async function prepareBookScan(
     .get(bookId) as { source: "scan" | "manual"; cover_storage_key: string | null } | undefined;
   const manualMetadata = metadataRow?.source === "manual";
   const titleHint = path.basename(folderAbsolutePath);
-  const authorHint = path.basename(path.dirname(folderAbsolutePath));
-  const enc = options.tagEncoding;
-  const skipSidecar = manualMetadata || settings.ignore_sidecar || options.skipSidecar;
-  const sidecar = repairSidecar(skipSidecar ? null : readSidecarMetadata(folderAbsolutePath), enc);
-  // Rescan options force a fresh metadata read even when files are unchanged, so the
-  // encoding fix / sidecar skip actually re-derive and overwrite the stored values.
-  const forceReread = Boolean(options.tagEncoding) || Boolean(options.skipSidecar);
+  // In top-level grouping the parent of every book folder is the library root, which
+  // is not an author name; same when the book is the root itself.
+  const authorHint = config.groupingMode === "top_level_folder" || folderPath === "."
+    ? null
+    : path.basename(path.dirname(folderAbsolutePath));
+  const fileMetaEnabled = sourceEnabled(sources, "file_metadata");
+  const sidecar = sourceEnabled(sources, "metadata_files") && !manualMetadata
+    ? repairSidecar(readSidecarMetadata(folderAbsolutePath), enc)
+    : null;
 
   const filesWithFallbackOrder = files
     .sort((left, right) => {
@@ -815,42 +842,85 @@ async function prepareBookScan(
     }
   }
 
-  // Parse all files in parallel: first file gets cover extraction, rest skip it
+  // Parse all files in parallel even when file metadata is disabled — durations and
+  // format info still come from here. Only descriptive tag fields are gated below.
+  // First file gets cover extraction, rest skip it.
   const parsedMetadata = await Promise.all(
     filesWithFallbackOrder.map((file, index) =>
-      safeParseAudio(file.absolutePath, index === 0 && !manualMetadata)
+      safeParseAudio(file.absolutePath, index === 0 && !manualMetadata && fileMetaEnabled)
     )
   );
 
   const firstMetadata = parsedMetadata[0] ?? null;
   const common = firstMetadata?.common;
-  const title = stringValue(common?.album)
-    || stringValue(common?.title)
-    || firstNativeString(firstMetadata, ["album", "title"])
-    || titleHint;
-  const authors = splitNames([
-    ...(common?.albumartists ?? []),
-    common?.albumartist,
-    ...(common?.artists ?? []),
-    common?.artist
-  ]);
-  const narrators = splitNames(common?.composer ?? []);
-  const genres = splitTagValues(common?.genre ?? []);
-  const seriesName = stringValue(common?.grouping) || firstNativeString(firstMetadata, ["series", "SERIES"]) || null;
-  const seriesPosition = numberFromTag(firstNativeString(firstMetadata, ["series-part", "series_part", "PART"]));
-  const isbn = firstNativeString(firstMetadata, ["isbn", "ISBN"]);
-  const asin = common?.asin ?? firstNativeString(firstMetadata, ["asin", "audible_asin", "AUDIBLE_ASIN"]);
-  const publisher = primaryPublisher(firstMetadata);
-  const coverStorageKey = manualMetadata ? null : await generateCover(libraryId, bookId, folderAbsolutePath, settings, firstMetadata);
-  const sidecarAuthors = sidecarArray(sidecar?.authors);
-  const sidecarNarrators = sidecarArray(sidecar?.narrators);
-  const sidecarGenres = sidecarArray(sidecar?.genres);
+
+  // One metadata candidate per enabled source; merged below in priority order.
+  const candidates = new Map<MetadataSourceId, SourceCandidate>();
+
+  if (sidecar) {
+    candidates.set("metadata_files", {
+      title: sidecar.title?.trim() || null,
+      description: sidecar.description ?? null,
+      year: sidecar.yearPublished ?? sidecar.year ?? null,
+      language: sidecar.language ?? null,
+      isbn: sidecar.isbn ?? null,
+      asin: sidecar.asin ?? null,
+      publisher: sidecar.publisher ?? null,
+      authors: sidecarArray(sidecar.authors),
+      narrators: sidecarArray(sidecar.narrators),
+      genres: sidecarArray(sidecar.genres),
+      seriesName: sidecar.seriesName ?? sidecar.series ?? null,
+      seriesPosition: sidecar.seriesPosition ?? null
+    });
+  }
+
+  if (fileMetaEnabled) {
+    const tagTitle = stringValue(common?.album)
+      || stringValue(common?.title)
+      || firstNativeString(firstMetadata, ["album", "title"]);
+    candidates.set("file_metadata", {
+      title: repairEncoding(tagTitle, enc),
+      description: repairEncoding(firstComment(firstMetadata), enc),
+      year: yearFromMetadata(firstMetadata),
+      language: common?.language ?? null,
+      isbn: firstNativeString(firstMetadata, ["isbn", "ISBN"]),
+      asin: common?.asin ?? firstNativeString(firstMetadata, ["asin", "audible_asin", "AUDIBLE_ASIN"]),
+      publisher: repairEncoding(primaryPublisher(firstMetadata), enc),
+      authors: repairList(splitNames([
+        ...(common?.albumartists ?? []),
+        common?.albumartist,
+        ...(common?.artists ?? []),
+        common?.artist
+      ]), enc),
+      narrators: repairList(splitNames(common?.composer ?? []), enc),
+      genres: repairList(splitTagValues(common?.genre ?? []), enc),
+      seriesName: repairEncoding(stringValue(common?.grouping) || firstNativeString(firstMetadata, ["series", "SERIES"]), enc),
+      seriesPosition: numberFromTag(firstNativeString(firstMetadata, ["series-part", "series_part", "PART"]))
+    });
+  }
+
+  if (sourceEnabled(sources, "folder_structure")) {
+    // Folder names supply the book title; per-track titles come from file names
+    // (handled in the chapter-title pick below).
+    candidates.set("folder_structure", { title: titleHint });
+  }
+
+  const merged: SourceCandidate = {};
+  for (const source of sources) {
+    if (!source.enabled) continue;
+    const candidate = candidates.get(source.id);
+    if (candidate) mergeCandidate(merged, candidate);
+  }
+
+  const coverStorageKey = manualMetadata
+    ? null
+    : await generateCover(libraryId, bookId, folderAbsolutePath, settings, fileMetaEnabled ? firstMetadata : null);
 
   const fileSortData = filesWithFallbackOrder.map((file, index) => {
     const metadata = parsedMetadata[index];
     const extension = path.extname(file.fileName).toLowerCase();
-    const discNumber = metadata?.common.disk.no ?? file.discHint ?? 0;
-    const taggedTrack = metadata?.common.track.no ?? null;
+    const discNumber = (fileMetaEnabled ? metadata?.common.disk.no : null) ?? file.discHint ?? 0;
+    const taggedTrack = fileMetaEnabled ? metadata?.common.track.no ?? null : null;
     return {
       file,
       metadata,
@@ -859,6 +929,17 @@ async function prepareBookScan(
       sortTrack: taggedTrack ?? trackNumberFromFileName(file.fileName, index + 1)
     };
   });
+
+  // Chapter titles obey the same source priority: tag title (file_metadata) vs file
+  // name (folder_structure); file name is also the always-on fallback.
+  const pickChapterTitle = (tagTitle: string | null, fileNameTitle: string) => {
+    for (const source of sources) {
+      if (!source.enabled) continue;
+      if (source.id === "file_metadata" && tagTitle) return tagTitle;
+      if (source.id === "folder_structure") return fileNameTitle;
+    }
+    return fileNameTitle;
+  };
 
   const preparedFiles = fileSortData
     .sort((left, right) => (
@@ -870,7 +951,10 @@ async function prepareBookScan(
       relativePath: item.file.relativePath,
       mimeType: mimeFromExtension(item.extension),
       trackNumber: index + 1,
-      chapterTitle: repairEncoding(item.metadata?.common.title?.trim() || null, enc) || path.basename(item.file.fileName, item.extension),
+      chapterTitle: pickChapterTitle(
+        fileMetaEnabled ? repairEncoding(item.metadata?.common.title?.trim() || null, enc) : null,
+        path.basename(item.file.fileName, item.extension)
+      ),
       durationSeconds: item.metadata?.format.duration ? Math.round(item.metadata.format.duration) : null,
       size: item.file.stat.size,
       modifiedAt: item.file.stat.mtime.toISOString(),
@@ -878,35 +962,33 @@ async function prepareBookScan(
     }));
   const totalDuration = preparedFiles.reduce((total, file) => total + (file.durationSeconds ?? 0), 0);
 
-  const scannedDescription = sidecar?.description ?? repairEncoding(firstComment(firstMetadata), enc);
-  const scannedAuthors = sidecarAuthors.length > 0 ? sidecarAuthors : (authors.length > 0 ? repairList(authors, enc) : [authorHint]);
-  const scannedNarrators = sidecarNarrators.length > 0 ? sidecarNarrators : repairList(narrators, enc);
-  const scannedGenres = sidecarGenres.length > 0 ? sidecarGenres : repairList(genres, enc);
+  const title = merged.title || titleHint;
+  const scannedAuthors = merged.authors?.length ? merged.authors : (authorHint ? [authorHint] : []);
 
   return {
     bookId,
     folderAbsolutePath,
     folderPath,
     manualMetadata,
-    title: sidecar?.title?.trim() || repairEncoding(title, enc) || titleHint,
-    sortTitle: sortTitle(sidecar?.title?.trim() || repairEncoding(title, enc) || titleHint),
-    description: scannedDescription,
-    yearPublished: sidecar?.yearPublished ?? sidecar?.year ?? yearFromMetadata(firstMetadata),
-    language: sidecar?.language || common?.language || settings.default_language || "en",
+    title,
+    sortTitle: sortTitle(title),
+    description: merged.description ?? null,
+    yearPublished: merged.year ?? null,
+    language: merged.language || settings.default_language || "en",
     durationSeconds: totalDuration > 0 ? totalDuration : null,
     coverStorageKey,
-    isbn: sidecar?.isbn ?? isbn,
-    asin: sidecar?.asin ?? asin,
-    publisher: sidecar?.publisher ?? repairEncoding(publisher, enc),
+    isbn: merged.isbn ?? null,
+    asin: merged.asin ?? null,
+    publisher: merged.publisher ?? null,
     authors: scannedAuthors,
-    narrators: scannedNarrators,
+    narrators: merged.narrators ?? [],
     // Always split genres on comma/semicolon into separate tags. Sidecars can
     // deliver a single array element holding a combined string (e.g. "Diets,
     // Nutrition & Healthy Eating, Alternative & Complementary Medicine"), which
     // sidecarArray leaves intact; splitTagValues breaks it apart (keeping "&").
-    genres: splitTagValues(scannedGenres),
-    seriesName: sidecar?.seriesName ?? sidecar?.series ?? repairEncoding(seriesName, enc),
-    seriesPosition: sidecar?.seriesPosition ?? seriesPosition,
+    genres: splitTagValues(merged.genres ?? []),
+    seriesName: merged.seriesName ?? null,
+    seriesPosition: merged.seriesPosition ?? null,
     skipMetadataUpdate: false,
     files: preparedFiles,
     documents: readBookFolderDocuments(rootPath, folderAbsolutePath)
@@ -1082,10 +1164,10 @@ export async function scanAudiobookLibrary(libraryId: string, jobId: string | nu
   }
 
   const rootPath = validateLibrarySource(library.source_path);
-  const settings = normaliseSettings(library.settings_json);
+  const config = resolveScanConfig(library.settings_json, options);
   db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
 
-  const filesByFolder = await walkAudiobookFiles(rootPath, settings);
+  const filesByFolder = await walkAudiobookFiles(rootPath, config.settings, config.groupingMode);
   const entries = [...filesByFolder.entries()];
   const booksTotal = entries.length;
   const foundFolders = new Set<string>();
@@ -1125,7 +1207,7 @@ export async function scanAudiobookLibrary(libraryId: string, jobId: string | nu
 
       const [folderAbsolutePath, files] = entries[i];
       try {
-        const book = await prepareBookScan(libraryId, rootPath, settings, folderAbsolutePath, files, options);
+        const book = await prepareBookScan(libraryId, rootPath, config, folderAbsolutePath, files);
         db.transaction(() => writeBookScan(libraryId, book))();
         foundFolders.add(book.folderPath);
         discoveredBooks += 1;
@@ -1192,19 +1274,19 @@ export async function rescanSingleBook(bookId: string, options: ScanOptions = {}
   }
 
   const rootPath = validateLibrarySource(row.source_path);
-  const settings = normaliseSettings(row.settings_json);
+  const config = resolveScanConfig(row.settings_json, options);
   const folderAbsolutePath = path.join(rootPath, row.folder_path);
 
   if (!fs.existsSync(folderAbsolutePath)) {
     return null;
   }
 
-  const files = readBookFolderFiles(rootPath, folderAbsolutePath, settings);
+  const files = readBookFolderFiles(rootPath, folderAbsolutePath, config.settings, config.groupingMode);
   if (files.length === 0) {
     return null;
   }
 
-  const book = await prepareBookScan(row.library_id, rootPath, settings, folderAbsolutePath, files, options);
+  const book = await prepareBookScan(row.library_id, rootPath, config, folderAbsolutePath, files);
   db.transaction(() => writeBookScan(row.library_id, book))();
   return book.bookId;
 }

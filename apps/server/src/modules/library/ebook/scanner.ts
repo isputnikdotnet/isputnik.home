@@ -7,7 +7,7 @@ import { db } from "../../../db.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { matchCategoryId, setEntityTags } from "../audiobook/categorize.js";
-import { validateLibrarySource } from "../audiobook/scanner.js";
+import { validateLibrarySource } from "../shared/library-source.js";
 
 const scanJobType = "SCAN_EBOOK_LIBRARY";
 

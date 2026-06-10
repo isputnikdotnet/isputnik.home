@@ -4,6 +4,9 @@ import { db, logActivity } from "../../db.js";
 import { config } from "../../config.js";
 import { parseBody } from "../../core/shared.js";
 import { thumbnailPathSettingKey, configuredThumbnailPathValue, validateThumbnailPath } from "./shared/thumbnail.js";
+import { METADATA_SOURCES } from "./shared/metadata-sources.js";
+import { LIBRARY_TYPE_DEFAULTS, defaultScanSources } from "./shared/library-settings.js";
+import { LIBRARY_TYPES } from "./shared/library-types.js";
 
 const librarySettingsSchema = z.object({
   thumbnailPath: z.string().trim().min(1).max(1000)
@@ -30,7 +33,14 @@ export async function librarySettingsPlugin(app: FastifyInstance) {
         thumbnailPathReady,
         thumbnailPathError,
         fromEnvironment: Boolean(config.thumbnailPath)
-      }
+      },
+      // Scan-source registry + per-type defaults so the web app renders the
+      // create/edit/rescan editors without duplicating labels or default lists.
+      metadataSources: METADATA_SOURCES,
+      typeDefaults: Object.fromEntries(LIBRARY_TYPES.map((type) => [type, {
+        extensions: LIBRARY_TYPE_DEFAULTS[type]?.extensions ?? [],
+        sources: defaultScanSources(type)
+      }]))
     };
   });
 

@@ -254,10 +254,14 @@ library row, alongside the existing `settings_json`:
   "mode": "external",            // or "managed"
   "allowUpload": false,          // forced false when mode = external
   "allowDelete": false,          // subsumes the old "disable file deletion" idea
-  "allowedExtensions": ["mp3", "m4b", "epub", "pdf"],
-  "maxUploadMB": 1024
+  "maxUploadMB": 1024            // per-upload size limit; absent = no limit
 }
 ```
+
+Since 0.13, the upload **extension** policy is not a separate list: a library's
+`settings_json.scan_extensions` is the single extension list used for both scanning
+and (future) upload validation. The legacy `allowedExtensions` key is still accepted
+by `LibraryPolicy` but is no longer written.
 
 Same philosophy as roles — **values in data, meaning in code**: adding a new policy (say
 "max total library size") is just a new key, **no column and no migration**. The app

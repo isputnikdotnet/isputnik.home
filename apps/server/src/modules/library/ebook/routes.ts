@@ -7,7 +7,7 @@ import { canUserAccessLibrary, validateLibraryOwner, libraryCapabilities, setLib
 import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
-import { validateLibrarySource } from "../audiobook/scanner.js";
+import { validateLibrarySource } from "../shared/library-source.js";
 import { enqueueEbookScan, processEbookScanQueue } from "./scanner.js";
 
 const ebookLibrarySchema = z.object({
