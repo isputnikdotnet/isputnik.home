@@ -1,36 +1,24 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { canUserAccessLibrary, validateLibraryOwner, libraryCapabilities, setLibraryAccess, deleteLibraryAccess, type LibraryCapabilities } from "../shared/library-access.js";
+import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess, type LibraryCapabilities } from "../shared/library-access.js";
 import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
-import { validateLibrarySource } from "../shared/library-source.js";
+import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord, serializeLibrarySettingsForAdmin } from "../shared/library-crud.js";
+import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { enqueueEbookScan, processEbookScanQueue } from "./scanner.js";
-
-const ebookLibrarySchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  sourcePath: z.string().trim().min(1),
-  defaultLanguage: z.string().trim().max(20).optional(),
-  ownerId: z.string().trim().nullable().optional(),
-  ownerType: z.enum(["user", "group"]).nullable().optional(),
-  visibility: z.enum(["private", "public"]).optional(),
-  publicRole: z.enum(["viewer", "member", "contributor"]).default("member"),
-  mode: z.enum(["managed", "external"]).default("managed")
-});
 
 interface EbookLibraryRow {
   id: string;
   name: string;
   source_path: string;
+  settings_json: string;
   scan_status: string;
   last_scanned_at: string | null;
   owner_id: string | null;
   owner_type: "user" | "group" | null;
-  visibility: "private" | "public";
-  public_role: "viewer" | "subscriber" | null;
   policy_json: string;
   created_at: string;
   book_count: number;
@@ -43,6 +31,8 @@ function publicEbookLibrary(row: EbookLibraryRow, includeSourcePath: boolean, ca
     id: row.id,
     name: row.name,
     sourcePath: includeSourcePath ? row.source_path : undefined,
+    // Scan/upload settings, exposed only on the admin (manage) view.
+    settings: includeSourcePath ? serializeLibrarySettingsForAdmin("ebook", row.settings_json, row.policy_json) : undefined,
     scanStatus: row.scan_status,
     lastScannedAt: row.last_scanned_at,
     ownerId: row.owner_id,
@@ -62,81 +52,79 @@ function publicEbookLibrary(row: EbookLibraryRow, includeSourcePath: boolean, ca
   };
 }
 
+const EBOOK_LIBRARY_LIST_SQL = `
+  SELECT libraries.*, COUNT(DISTINCT books.id) AS book_count
+  FROM libraries
+  LEFT JOIN books ON books.library_id = libraries.id AND books.deleted_at IS NULL
+  WHERE libraries.type = 'ebook' %WHERE%
+  GROUP BY libraries.id
+  ORDER BY datetime(libraries.created_at) DESC
+`;
+
 export async function ebookRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/ebook-libraries", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const parsed = parseBody(ebookLibrarySchema, request.body);
+    const parsed = parseBody(coreLibraryCreateSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid ebook library details", details: parsed.error });
       return;
     }
 
-    let sourcePath: string;
-    try {
-      sourcePath = validateLibrarySource(parsed.data.sourcePath);
-    } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Invalid source path" });
+    const result = createLibraryRecord({
+      type: "ebook",
+      data: parsed.data,
+      userId: request.user!.id,
+      ip: request.ip
+    });
+    if ("error" in result) {
+      reply.code(result.status).send({ error: result.error });
       return;
     }
 
-    const ownerId = parsed.data.ownerId ?? null;
-    const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
-    const visibility = parsed.data.visibility ?? "public";
-    const publicRole = parsed.data.publicRole ?? "member";
-    const legacyPublicRole = publicRole === "viewer" ? "viewer" : "subscriber";
-    const policyJson = JSON.stringify({ mode: parsed.data.mode ?? "managed" });
-
-    const ownerError = validateLibraryOwner(ownerId, ownerType, "ebook");
-    if (ownerError) {
-      reply.code(ownerError.status).send({ error: ownerError.error });
-      return;
-    }
-
-    const libraryId = nanoid(16);
-    const settings = { default_language: parsed.data.defaultLanguage };
-
-    db.prepare(`
-      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role, policy_json)
-      VALUES (?, ?, 'ebook', ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility, legacyPublicRole, policyJson);
-
-    setLibraryAccess(libraryId, { visibility, publicRole, ownerType, ownerId, createdBy: request.user!.id });
-
-    const jobId = enqueueEbookScan(libraryId);
+    const jobId = enqueueEbookScan(result.libraryId);
     void processEbookScanQueue();
 
-    logActivity({
-      event: "library.ebook.created",
-      actorUserId: request.user!.id,
-      targetType: "library",
-      targetId: libraryId,
-      detail: `Created ebook library "${parsed.data.name}" and queued a scan.`,
-      ipAddress: request.ip
-    });
-
-    reply.code(201).send({ library: { id: libraryId }, job: { id: jobId, type: "SCAN_EBOOK_LIBRARY" } });
+    reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_EBOOK_LIBRARY" } });
   });
 
   app.get("/api/library/ebook-libraries", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
-    const rows = db.prepare(`
-      SELECT libraries.*, COUNT(DISTINCT books.id) AS book_count
-      FROM libraries
-      LEFT JOIN books ON books.library_id = libraries.id AND books.deleted_at IS NULL
-      WHERE libraries.type = 'ebook'
-      GROUP BY libraries.id
-      ORDER BY datetime(libraries.created_at) DESC
-    `).all() as EbookLibraryRow[];
+    const rows = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "")).all() as EbookLibraryRow[];
 
     const manageAll = (request.query as { manage?: string }).manage != null && user.role === "admin";
     const visible = manageAll ? rows : rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
     return { libraries: visible.map((row) => publicEbookLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))) };
   });
 
+  app.patch("/api/library/ebook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+
+    const parsed = parseBody(coreLibraryUpdateSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid library details", details: parsed.error });
+      return;
+    }
+
+    const result = updateLibraryRecord({
+      type: "ebook",
+      id,
+      data: parsed.data,
+      userId: request.user!.id,
+      ip: request.ip
+    });
+    if ("error" in result) {
+      reply.code(result.status).send({ error: result.error });
+      return;
+    }
+
+    const updated = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as EbookLibraryRow;
+    reply.send({ library: publicEbookLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
+  });
+
   app.get("/api/library/ebook-libraries/:id/books", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
-    const library = db.prepare("SELECT id, owner_id, owner_type, visibility FROM libraries WHERE id = ? AND type = 'ebook'")
-      .get(id) as { id: string; owner_id: string | null; owner_type: string | null; visibility: string } | undefined;
+    const library = db.prepare("SELECT id FROM libraries WHERE id = ? AND type = 'ebook'")
+      .get(id) as { id: string } | undefined;
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
       reply.code(404).send({ error: "Ebook library not found" });
       return;
@@ -223,6 +211,14 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     };
   });
 
+  const rescanOptionsSchema = z.object({
+    // One-shot override of the library's persisted scan_sources for this run only.
+    sources: z.array(z.object({
+      id: z.enum(METADATA_SOURCE_IDS),
+      enabled: z.boolean()
+    })).max(20).optional()
+  });
+
   app.post("/api/library/ebook-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const exists = db.prepare("SELECT id FROM libraries WHERE id = ? AND type = 'ebook'").get(id);
@@ -230,7 +226,14 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       reply.code(404).send({ error: "Ebook library not found" });
       return;
     }
-    const jobId = enqueueEbookScan(id);
+
+    const parsed = parseBody(rescanOptionsSchema, request.body ?? {});
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
+      return;
+    }
+
+    const jobId = enqueueEbookScan(id, parsed.data);
     void processEbookScanQueue();
     logActivity({
       event: "library.ebook.rescan",

@@ -286,8 +286,8 @@ Replacing today's model with this proposal removes the overlap:
 
 | Today | Becomes |
 |---|---|
-| `libraries.owner_id` / `owner_type` columns | a `manager` **assignment** |
-| `libraries.visibility` + `libraries.public_role` | presence/role of the **Everyone** assignment |
+| `libraries.owner_id` / `owner_type` columns | a `manager` **assignment** (columns kept for the one-library-per-owner rule and owner display) |
+| `libraries.visibility` + `libraries.public_role` | presence/role of the **Everyone** assignment — **columns dropped in 0.13** |
 | `library_members` table | the generic **`assignments`** table (`object_type = 'library'`) |
 | `group_members.role` (member / manager) | plain membership (role not needed for libraries) |
 | `shares` + `share_links` (two tables) | one merged **`shares`** table |

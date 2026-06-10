@@ -1,22 +1,31 @@
-import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { Plus, RefreshCw, Trash2, Users, KeyRound } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
+import { Plus, RefreshCw, Pencil, Trash2, Users, KeyRound } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate } from "../../../shared/utils";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
-import type { PublicRole, LibraryMode } from "../../audiobooks/types";
-import { PUBLIC_ROLE_OPTIONS } from "../../audiobooks/types";
+import type { PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults, AdminLibrarySettings } from "../../audiobooks/types";
+import { LibraryCoreFields } from "../libraries/LibraryCoreFields";
+import { ExtensionsEditor } from "../libraries/ExtensionsEditor";
+import { ScanSourcesEditor } from "../libraries/ScanSourcesEditor";
+import { UploadSettingsFields } from "../libraries/UploadSettingsFields";
+import { SourceFolderPicker } from "../libraries/SourceFolderPicker";
 import { LibraryMembersModal } from "./LibraryMembersModal";
+
+const LIBRARY_TYPE = "ebook";
 
 interface EbookLibrary {
   id: string;
   name: string;
   sourcePath: string | null;
+  settings?: AdminLibrarySettings;
   scanStatus: string;
   lastScannedAt: string | null;
   ownerId: string | null;
   ownerType: "user" | "group" | null;
   visibility: "public" | "private";
+  publicRole: PublicRole;
+  mode: LibraryMode;
   canManageLibrary: boolean;
   bookCount: number;
 }
@@ -24,6 +33,8 @@ interface EbookLibrary {
 export function EbooksSection() {
   const [libraries, setLibraries] = useState<EbookLibrary[]>([]);
   const [settings, setSettings] = useState<LibrarySettings | null>(null);
+  const [metadataSources, setMetadataSources] = useState<MetadataSourceInfo[]>([]);
+  const [typeDefaults, setTypeDefaults] = useState<Record<string, LibraryTypeDefaults>>({});
   const [storageRoots, setStorageRoots] = useState<StorageRoot[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
@@ -35,24 +46,56 @@ export function EbooksSection() {
   const [publicRole, setPublicRole] = useState<PublicRole>("member");
   const [mode, setMode] = useState<LibraryMode>("managed");
   const [ownerId, setOwnerId] = useState("");
+  const [ownerType, setOwnerType] = useState<"user" | "group" | "">("");
+  const [extensions, setExtensions] = useState<string[]>([]);
+  const [scanSources, setScanSources] = useState<ScanSource[]>([]);
+  const [maxUploadMB, setMaxUploadMB] = useState("");
   const [selectedRootId, setSelectedRootId] = useState("");
   const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
   const [creating, setCreating] = useState(false);
+
+  const [editing, setEditing] = useState<EbookLibrary | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editVisibility, setEditVisibility] = useState<"public" | "private">("public");
+  const [editPublicRole, setEditPublicRole] = useState<PublicRole>("member");
+  const [editMode, setEditMode] = useState<LibraryMode>("managed");
+  const [editOwnerId, setEditOwnerId] = useState("");
+  const [editOwnerType, setEditOwnerType] = useState<"user" | "group" | "">("");
+  const [editExtensions, setEditExtensions] = useState<string[]>([]);
+  const [editScanSources, setEditScanSources] = useState<ScanSource[]>([]);
+  const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const [deleteConfirm, setDeleteConfirm] = useState<EbookLibrary | null>(null);
   const [membersLibrary, setMembersLibrary] = useState<EbookLibrary | null>(null);
   const [rescanningId, setRescanningId] = useState("");
 
+  const typeSourceInfo = useMemo(
+    () => metadataSources.filter((source) => source.appliesTo.includes(LIBRARY_TYPE)),
+    [metadataSources]
+  );
+  const defaults = typeDefaults[LIBRARY_TYPE];
+  const defaultSources = useMemo<ScanSource[]>(
+    () => defaults?.sources ?? typeSourceInfo.map((source) => ({ id: source.id, enabled: source.defaultEnabled })),
+    [defaults, typeSourceInfo]
+  );
+
   const load = useCallback(async () => {
     const [librariesPayload, settingsPayload, rootsPayload, usersPayload, groupsPayload] = await Promise.all([
       api<{ libraries: EbookLibrary[] }>("/api/library/ebook-libraries?manage=1"),
-      api<{ settings: LibrarySettings }>("/api/library/settings"),
+      api<{
+        settings: LibrarySettings;
+        metadataSources?: MetadataSourceInfo[];
+        typeDefaults?: Record<string, LibraryTypeDefaults>;
+      }>("/api/library/settings"),
       api<{ roots: StorageRoot[] }>("/api/storage/roots"),
       api<{ users: ManagedUser[] }>("/api/users"),
       api<{ groups: ManagedGroup[] }>("/api/groups")
     ]);
     setLibraries(librariesPayload.libraries);
     setSettings(settingsPayload.settings);
+    setMetadataSources(settingsPayload.metadataSources ?? []);
+    setTypeDefaults(settingsPayload.typeDefaults ?? {});
     setStorageRoots(rootsPayload.roots);
     setSelectedRootId((current) => current || rootsPayload.roots[0]?.id || "");
     setUsers(usersPayload.users);
@@ -79,12 +122,21 @@ export function EbooksSection() {
     setStorageBrowse(payload);
   };
 
+  const maxUploadValue = (raw: string) => {
+    const value = Number.parseInt(raw, 10);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  };
+
   const openCreate = () => {
     setName("");
     setVisibility("public");
     setPublicRole("member");
     setMode("managed");
     setOwnerId("");
+    setOwnerType("");
+    setExtensions(defaults?.extensions ?? []);
+    setScanSources(defaultSources);
+    setMaxUploadMB("");
     setStorageBrowse(null);
     setError("");
     setCreateOpen(true);
@@ -101,7 +153,6 @@ export function EbooksSection() {
     setCreating(true);
     setError("");
     try {
-      const ownerType = ownerId ? (users.some((u) => u.id === ownerId) ? "user" : "group") : null;
       await api("/api/library/ebook-libraries", {
         method: "POST",
         body: JSON.stringify({
@@ -112,7 +163,10 @@ export function EbooksSection() {
           publicRole,
           mode,
           ownerId: ownerId || null,
-          ownerType
+          ownerType: ownerType || null,
+          scanExtensions: extensions,
+          scanSources,
+          maxUploadMB: maxUploadValue(maxUploadMB)
         })
       });
       setCreateOpen(false);
@@ -121,6 +175,49 @@ export function EbooksSection() {
       setError(err instanceof Error ? err.message : "Unable to add ebook library");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const openEdit = (library: EbookLibrary) => {
+    setEditing(library);
+    setEditName(library.name);
+    setEditVisibility(library.visibility);
+    setEditPublicRole(library.publicRole ?? "member");
+    setEditMode(library.mode ?? "managed");
+    setEditOwnerId(library.ownerId ?? "");
+    setEditOwnerType(library.ownerType ?? "");
+    setEditExtensions(library.settings?.scanExtensions ?? defaults?.extensions ?? []);
+    setEditScanSources(library.settings?.scanSources ?? defaultSources);
+    setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
+    setError("");
+  };
+
+  const saveEdit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editing) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/library/ebook-libraries/${editing.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: editName,
+          visibility: editVisibility,
+          publicRole: editPublicRole,
+          mode: editMode,
+          ownerId: editOwnerId || null,
+          ownerType: editOwnerType || null,
+          scanExtensions: editExtensions,
+          scanSources: editScanSources,
+          maxUploadMB: maxUploadValue(editMaxUploadMB)
+        })
+      });
+      setEditing(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save changes");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -159,7 +256,7 @@ export function EbooksSection() {
   };
 
   const ready = Boolean(settings?.thumbnailPathReady) && storageRoots.length > 0;
-  const canSubmit = Boolean(storageBrowse?.selectedPath) && Boolean(name.trim()) && ready;
+  const canSubmit = Boolean(storageBrowse?.selectedPath) && name.trim().length >= 2 && extensions.length > 0 && ready;
 
   return (
     <>
@@ -221,6 +318,12 @@ export function EbooksSection() {
                       <div className="row-actions">
                         {library.canManageLibrary ? (
                           <>
+                            <button className="icon-button" title="Manage members & roles" onClick={() => setMembersLibrary(library)}>
+                              <Users size={15} />
+                            </button>
+                            <button className="icon-button" title="Edit library" onClick={() => openEdit(library)}>
+                              <Pencil size={15} />
+                            </button>
                             <button
                               className="secondary-button compact-button rescan-library-button"
                               disabled={library.scanStatus === "scanning" || rescanningId === library.id}
@@ -229,9 +332,6 @@ export function EbooksSection() {
                             >
                               <RefreshCw size={14} />
                               {library.scanStatus === "scanning" ? "Scanning..." : "Rescan"}
-                            </button>
-                            <button className="icon-button" title="Manage members & roles" onClick={() => setMembersLibrary(library)}>
-                              <Users size={15} />
                             </button>
                             <button className="icon-button danger" title="Delete library" onClick={() => setDeleteConfirm(library)}>
                               <Trash2 size={15} />
@@ -258,88 +358,90 @@ export function EbooksSection() {
 
       {createOpen && (
         <div className="modal-backdrop" onMouseDown={() => !creating && setCreateOpen(false)}>
-          <div className="metadata-modal create-library-modal" role="dialog" aria-modal="true" aria-label="Add ebook library" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="modal-header"><h2>Add ebook library</h2></div>
-            <form className="modal-tab-content" onSubmit={createLibrary}>
-              <label className="field">
-                <span>Name</span>
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Family Ebooks" autoFocus required />
-              </label>
+          <form
+            className="confirm-modal create-library-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add ebook library"
+            onSubmit={createLibrary}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h2>Add ebook library</h2>
+            <LibraryCoreFields
+              name={name}
+              onNameChange={setName}
+              ownerId={ownerId}
+              ownerType={ownerType}
+              onOwnerChange={(type, id) => { setOwnerType(type); setOwnerId(id); }}
+              visibility={visibility}
+              onVisibilityChange={setVisibility}
+              publicRole={publicRole}
+              onPublicRoleChange={setPublicRole}
+              mode={mode}
+              onModeChange={setMode}
+              users={users}
+              groups={groups}
+            />
+            <ScanSourcesEditor sources={scanSources} onChange={setScanSources} sourceInfo={typeSourceInfo} />
+            <ExtensionsEditor extensions={extensions} onChange={setExtensions} defaults={defaults?.extensions ?? []} />
+            <UploadSettingsFields maxUploadMB={maxUploadMB} onChange={setMaxUploadMB} mode={mode} />
+            <SourceFolderPicker
+              storageRoots={storageRoots}
+              selectedRootId={selectedRootId}
+              storageBrowse={storageBrowse}
+              onBrowse={browse}
+              onError={setError}
+            />
 
-              <label className="field">
-                <span>Container</span>
-                <select value={selectedRootId} onChange={(e) => browse(e.target.value).catch((err) => setError(err instanceof Error ? err.message : "Unable to browse container"))} required>
-                  {storageRoots.map((root) => <option value={root.id} key={root.id}>{root.name}</option>)}
-                </select>
-              </label>
+            {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
 
-              {storageBrowse && (
-                <section className="folder-browser" aria-label="Library folder browser">
-                  <div className="folder-browser-head">
-                    <div>
-                      <strong>{storageBrowse.currentPath || storageBrowse.root.name}</strong>
-                      <span>{storageBrowse.selectedPath}</span>
-                    </div>
-                    {storageBrowse.parentPath !== null && (
-                      <button className="secondary-button compact-button" type="button" onClick={() => browse(storageBrowse.root.id, storageBrowse.parentPath ?? "")}>Up</button>
-                    )}
-                  </div>
-                  <div className="folder-list">
-                    {storageBrowse.entries.map((entry) => (
-                      <button className="folder-row" type="button" key={entry.relativePath} onClick={() => browse(storageBrowse.root.id, entry.relativePath)}>
-                        {entry.name}
-                      </button>
-                    ))}
-                    {storageBrowse.entries.length === 0 && <p className="management-empty">No child folders. The current folder can still be used.</p>}
-                  </div>
-                </section>
-              )}
+            <div className="modal-actions">
+              <button className="secondary-button" type="button" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</button>
+              <button className="primary-button" type="submit" disabled={creating || !canSubmit}>{creating ? "Scanning…" : "Add and scan"}</button>
+            </div>
+          </form>
+        </div>
+      )}
 
-              <div className="override-grid">
-                <label className="field">
-                  <span>Visibility</span>
-                  <select value={visibility} onChange={(e) => setVisibility(e.target.value as "public" | "private")}>
-                    <option value="public">Public — all users</option>
-                    <option value="private">Private — owner and admins</option>
-                  </select>
-                </label>
-                {visibility === "public" && (
-                  <label className="field">
-                    <span>Public access</span>
-                    <select value={publicRole} onChange={(e) => setPublicRole(e.target.value as PublicRole)}>
-                      {PUBLIC_ROLE_OPTIONS.map((o) => <option value={o.value} key={o.value}>{o.label}</option>)}
-                    </select>
-                  </label>
-                )}
-                <label className="field">
-                  <span>Mode</span>
-                  <select value={mode} onChange={(e) => setMode(e.target.value as LibraryMode)}>
-                    <option value="managed">Managed — this app owns the files</option>
-                    <option value="external">External (read-only)</option>
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Owner (optional)</span>
-                  <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
-                    <option value="">No owner</option>
-                    <optgroup label="Users">
-                      {users.map((u) => <option key={u.id} value={u.id}>{u.displayName}</option>)}
-                    </optgroup>
-                    <optgroup label="Groups">
-                      {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                    </optgroup>
-                  </select>
-                </label>
-              </div>
-
-              {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
-
-              <div className="modal-actions">
-                <button className="secondary-button" type="button" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</button>
-                <button className="primary-button" type="submit" disabled={creating || !canSubmit}>{creating ? "Scanning…" : "Add and scan"}</button>
-              </div>
-            </form>
-          </div>
+      {editing && (
+        <div className="modal-backdrop" onMouseDown={() => !saving && setEditing(null)}>
+          <form
+            className="confirm-modal edit-library-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-ebook-library-title"
+            onSubmit={saveEdit}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="edit-ebook-library-title">Edit library</h2>
+            <LibraryCoreFields
+              name={editName}
+              onNameChange={setEditName}
+              ownerId={editOwnerId}
+              ownerType={editOwnerType}
+              onOwnerChange={(type, id) => { setEditOwnerType(type); setEditOwnerId(id); }}
+              visibility={editVisibility}
+              onVisibilityChange={setEditVisibility}
+              publicRole={editPublicRole}
+              onPublicRoleChange={setEditPublicRole}
+              mode={editMode}
+              onModeChange={setEditMode}
+              users={users}
+              groups={groups}
+            />
+            <ScanSourcesEditor sources={editScanSources} onChange={setEditScanSources} sourceInfo={typeSourceInfo} />
+            <ExtensionsEditor extensions={editExtensions} onChange={setEditExtensions} defaults={defaults?.extensions ?? []} />
+            <UploadSettingsFields maxUploadMB={editMaxUploadMB} onChange={setEditMaxUploadMB} mode={editMode} />
+            {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+            <div className="modal-actions">
+              <button className="secondary-button" type="button" onClick={() => setEditing(null)} disabled={saving} autoFocus>
+                Cancel
+              </button>
+              <button className="primary-button" disabled={saving || editName.trim().length < 2 || editExtensions.length === 0}>
+                {saving ? "Saving..." : "Save changes"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

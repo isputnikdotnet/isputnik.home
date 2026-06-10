@@ -194,25 +194,11 @@ db.exec(`
     UNIQUE (library_id, name)
   );
 
-  CREATE TABLE IF NOT EXISTS narrators (
-    id TEXT PRIMARY KEY,
-    library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    UNIQUE (library_id, name)
-  );
-
   CREATE TABLE IF NOT EXISTS series (
     id TEXT PRIMARY KEY,
     library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     sort_name TEXT,
-    UNIQUE (library_id, name)
-  );
-
-  CREATE TABLE IF NOT EXISTS genres (
-    id TEXT PRIMARY KEY,
-    library_id TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
     UNIQUE (library_id, name)
   );
 
@@ -222,12 +208,6 @@ db.exec(`
     role TEXT NOT NULL DEFAULT 'author' CHECK (role IN ('author', 'narrator')),
     sort_order INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (book_id, author_id, role)
-  );
-
-  CREATE TABLE IF NOT EXISTS book_genres (
-    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-    genre_id TEXT NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
-    PRIMARY KEY (book_id, genre_id)
   );
 
   -- Fixed, app-defined navigation categories (audiobook-specific). Seeded below.
@@ -582,23 +562,21 @@ if (!libraryColumns.some((column) => column.name === "owner_id")) {
 if (!libraryColumns.some((column) => column.name === "owner_type")) {
   db.exec("ALTER TABLE libraries ADD COLUMN owner_type TEXT CHECK (owner_type IN ('user', 'group'))");
 }
-if (!libraryColumns.some((column) => column.name === "visibility")) {
-  db.exec("ALTER TABLE libraries ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('private', 'public'))");
-}
-// The baseline role granted to every signed-in user when the library is public —
-// 'viewer' (view only) or 'subscriber' (view + download). Ignored when private.
-if (!libraryColumns.some((column) => column.name === "public_role")) {
-  db.exec("ALTER TABLE libraries ADD COLUMN public_role TEXT NOT NULL DEFAULT 'subscriber' CHECK (public_role IN ('viewer', 'subscriber'))");
-}
 // Per-library mode + write policies (see Documents/permissions.md). JSON blob:
-// { mode: 'managed'|'external', allowUpload, allowDelete, allowedExtensions, maxUploadMB }.
+// { mode: 'managed'|'external', allowUpload, allowDelete, maxUploadMB }.
 if (!libraryColumns.some((column) => column.name === "policy_json")) {
   db.exec("ALTER TABLE libraries ADD COLUMN policy_json TEXT NOT NULL DEFAULT '{}'");
 }
-db.exec(`
-  CREATE INDEX IF NOT EXISTS idx_libraries_owner      ON libraries(owner_id);
-  CREATE INDEX IF NOT EXISTS idx_libraries_visibility ON libraries(visibility);
-`);
+// Legacy access columns superseded by the unified `assignments` table — visibility is
+// the presence of an Everyone grant, public_role is that grant's role. Drop them.
+if (libraryColumns.some((column) => column.name === "visibility")) {
+  db.exec("DROP INDEX IF EXISTS idx_libraries_visibility");
+  db.exec("ALTER TABLE libraries DROP COLUMN visibility");
+}
+if (libraryColumns.some((column) => column.name === "public_role")) {
+  db.exec("ALTER TABLE libraries DROP COLUMN public_role");
+}
+db.exec("CREATE INDEX IF NOT EXISTS idx_libraries_owner ON libraries(owner_id)");
 
 // System/built-in groups marker (Everyone, System Admins). 'normal' for user groups.
 const groupColumns = db.prepare("PRAGMA table_info(user_groups)").all() as { name: string }[];
@@ -609,6 +587,12 @@ if (!groupColumns.some((column) => column.name === "kind")) {
 // library_members was superseded by the unified `assignments` table; its data was
 // backfilled into assignments in an earlier build. Drop the leftover table.
 db.exec("DROP TABLE IF EXISTS library_members");
+
+// Deprecated taxonomy tables — scans write categories/tags instead, and narrators
+// live in `authors` with book_authors.role = 'narrator'. Never read by the app.
+db.exec("DROP TABLE IF EXISTS book_genres");
+db.exec("DROP TABLE IF EXISTS genres");
+db.exec("DROP TABLE IF EXISTS narrators");
 
 // The "special libraries" / sections feature was removed. Drop its table and
 // strip the deprecated section_id / overrides keys from each library's settings.

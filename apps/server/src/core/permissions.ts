@@ -122,7 +122,7 @@ export function parsePolicy(policyJson: string | null | undefined): LibraryPolic
 
 // Policies only gate write actions that touch source files. Reads, downloads, and
 // metadata edits (app DB only) are never blocked by policy.
-export function policyAllows(policy: LibraryPolicy, action: LibraryAction): boolean {
+function policyAllows(policy: LibraryPolicy, action: LibraryAction): boolean {
   if (action !== "upload" && action !== "delete") return true;
   if ((policy.mode ?? "managed") === "external") return false; // external = read-only
   if (action === "upload" && policy.allowUpload === false) return false;

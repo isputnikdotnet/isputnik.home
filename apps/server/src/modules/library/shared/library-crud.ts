@@ -66,12 +66,6 @@ function resolveOwner(data: { ownerId?: string | null; ownerType?: "user" | "gro
   return { ownerId, ownerType };
 }
 
-// Legacy public_role column only allows viewer/subscriber; map for its CHECK while
-// assignments hold the real value.
-function legacyPublicRole(publicRole: string): "viewer" | "subscriber" {
-  return publicRole === "viewer" ? "viewer" : "subscriber";
-}
-
 export function createLibraryRecord(opts: {
   type: LibraryType;
   data: CoreLibraryCreateInput;
@@ -107,12 +101,11 @@ export function createLibraryRecord(opts: {
 
   const libraryId = nanoid(16);
   db.prepare(`
-    INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role, policy_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, policy_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     libraryId, data.name, type, sourcePath, JSON.stringify(settings), opts.userId,
-    ownerId, ownerType, visibility, legacyPublicRole(publicRole),
-    buildPolicyJson(data.mode ?? "managed", data.maxUploadMB)
+    ownerId, ownerType, buildPolicyJson(data.mode ?? "managed", data.maxUploadMB)
   );
 
   // Unified access model: Everyone grant (if public) + owner as manager.
@@ -172,10 +165,10 @@ export function updateLibraryRecord(opts: {
 
   db.prepare(`
     UPDATE libraries
-    SET name = ?, owner_id = ?, owner_type = ?, visibility = ?, public_role = ?, policy_json = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP
+    SET name = ?, owner_id = ?, owner_type = ?, policy_json = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `).run(
-    data.name, ownerId, ownerType, visibility, legacyPublicRole(publicRole),
+    data.name, ownerId, ownerType,
     buildPolicyJson(data.mode ?? "managed", data.maxUploadMB), JSON.stringify(settings), id
   );
 

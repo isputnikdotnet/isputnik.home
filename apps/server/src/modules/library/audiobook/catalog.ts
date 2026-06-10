@@ -25,9 +25,6 @@ const placeholders = (n: number) => Array(n).fill("?").join(", ");
 
 interface LibraryRow {
   id: string;
-  owner_id: string | null;
-  owner_type: string | null;
-  visibility: string;
 }
 
 // Audiobook library ids the user can see for a scope:
@@ -39,7 +36,7 @@ export function resolveScopeLibraryIds(
   libraryId?: string
 ): string[] {
   const rows = db.prepare(
-    "SELECT id, owner_id, owner_type, visibility FROM libraries WHERE type = 'audiobook'"
+    "SELECT id FROM libraries WHERE type = 'audiobook'"
   ).all() as LibraryRow[];
 
   return rows

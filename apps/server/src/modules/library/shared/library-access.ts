@@ -23,11 +23,9 @@ const asUser = (userId: string, userRole: string): AuthUser => ({ id: userId, ro
 
 export interface LibraryRoleInput {
   id?: string;
-  // Legacy columns, kept optional so existing callers type-check; unused for resolution.
+  // Extra row fields callers may carry; unused for resolution (assignments only).
   owner_id?: string | null;
   owner_type?: string | null;
-  visibility?: string;
-  public_role?: string | null;
   policy_json?: string | null;
 }
 
@@ -35,8 +33,6 @@ export interface LibraryAccessRow {
   id: string;
   owner_id: string | null;
   owner_type: "user" | "group" | null;
-  visibility: "private" | "public";
-  public_role: "viewer" | "subscriber" | null;
   policy_json: string;
   type: string;
 }
@@ -62,7 +58,7 @@ export function accessibleLibraryIds(userId: string, userRole: string, type?: st
 export function canUserWriteLibrary(library: LibraryRoleInput, userId: string, userRole: string): boolean {
   return allows(library, userId, userRole, "edit");
 }
-export function canUserDownloadLibrary(library: LibraryRoleInput, userId: string, userRole: string): boolean {
+function canUserDownloadLibrary(library: LibraryRoleInput, userId: string, userRole: string): boolean {
   return allows(library, userId, userRole, "download");
 }
 // "Curate" (series/structure) folds into the Contributor "edit" capability now.
@@ -188,7 +184,7 @@ export function getAccessibleLibrary(
   const typeClause = type ? "AND type = ?" : "";
   const params = type ? [id, type] : [id];
   const library = db.prepare(`
-    SELECT id, owner_id, owner_type, visibility, public_role, policy_json, type
+    SELECT id, owner_id, owner_type, policy_json, type
     FROM libraries
     WHERE id = ? ${typeClause}
   `).get(...params) as LibraryAccessRow | undefined;
@@ -213,8 +209,7 @@ export function canUserDownloadBook(bookId: string, library: LibraryRoleInput, u
 
 export function getLibraryForBook(bookId: string): LibraryAccessRow | null {
   return db.prepare(`
-    SELECT libraries.id, libraries.owner_id, libraries.owner_type, libraries.visibility,
-           libraries.public_role, libraries.policy_json, libraries.type
+    SELECT libraries.id, libraries.owner_id, libraries.owner_type, libraries.policy_json, libraries.type
     FROM books
     JOIN libraries ON libraries.id = books.library_id
     WHERE books.id = ? AND books.deleted_at IS NULL

@@ -76,7 +76,7 @@ function resolveScanConfig(settingsJson: string, options: ScanOptions): Effectiv
  * Strings that already contain characters above U+00FF were decoded correctly (e.g. real UTF-8
  * Cyrillic) and are left untouched. Plain ASCII passes through unchanged either way.
  */
-export function repairEncoding(value: string | null | undefined, encoding: TagEncoding | undefined): string | null {
+function repairEncoding(value: string | null | undefined, encoding: TagEncoding | undefined): string | null {
   if (value == null) {
     return null;
   }
@@ -180,7 +180,7 @@ export function sortTitle(value: unknown): string {
   return String(value ?? "").replace(/^(the|a|an)\s+/i, "").trim();
 }
 
-export function mimeFromExtension(extension: string) {
+function mimeFromExtension(extension: string) {
   return {
     ".aac": "audio/aac",
     ".flac": "audio/flac",
@@ -194,7 +194,7 @@ export function mimeFromExtension(extension: string) {
   }[extension] ?? "application/octet-stream";
 }
 
-export function trackNumberFromFileName(fileName: string, fallback: number) {
+function trackNumberFromFileName(fileName: string, fallback: number) {
   const match = fileName.match(/^(\d{1,4})(?:\D|$)/);
   return match ? Number(match[1]) : fallback;
 }
@@ -581,7 +581,7 @@ async function generateCover(libraryId: string, bookId: string, folderPath: stri
   return null;
 }
 
-export async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings, groupingMode: GroupingMode = "folder_hierarchy") {
+async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings, groupingMode: GroupingMode = "folder_hierarchy") {
   const extensions = scanExtensionSet(settings);
   const filesByBookFolder = new Map<string, AudioFileEntry[]>();
 
@@ -1154,7 +1154,7 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
   }
 }
 
-export async function scanAudiobookLibrary(libraryId: string, jobId: string | null = null, options: ScanOptions = {}) {
+async function scanAudiobookLibrary(libraryId: string, jobId: string | null = null, options: ScanOptions = {}) {
   const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'audiobook'")
     .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
   if (!library) {

@@ -8,6 +8,12 @@ import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { matchCategoryId, setEntityTags } from "../audiobook/categorize.js";
 import { validateLibrarySource } from "../shared/library-source.js";
+import {
+  normalizeLibrarySettings,
+  normalizeScanSources,
+  sourceEnabled,
+  type ScanSourceConfig
+} from "../shared/library-settings.js";
 
 const scanJobType = "SCAN_EBOOK_LIBRARY";
 
@@ -15,10 +21,10 @@ const ebookMimeTypes: Record<string, string> = {
   ".epub": "application/epub+zip",
   ".pdf": "application/pdf"
 };
-export const ebookExtensions = new Set(Object.keys(ebookMimeTypes));
 
-export interface EbookSettings {
-  default_language?: string;
+export interface EbookScanOptions {
+  // One-shot override of the library's persisted scan_sources (rescan).
+  sources?: ScanSourceConfig[];
 }
 
 interface EbookFileEntry {
@@ -167,7 +173,7 @@ async function generateEbookCover(libraryId: string, bookId: string, source: Buf
 
 // ── Filesystem walk ──
 
-function walkEbookFiles(rootPath: string): EbookFileEntry[] {
+function walkEbookFiles(rootPath: string, extensions: Set<string>): EbookFileEntry[] {
   const files: EbookFileEntry[] = [];
   const walk = (dir: string) => {
     let entries: fs.Dirent[];
@@ -186,7 +192,7 @@ function walkEbookFiles(rootPath: string): EbookFileEntry[] {
       if (entry.isDirectory()) { walk(absolutePath); continue; }
       if (!entry.isFile()) continue;
       const extension = path.extname(entry.name).toLowerCase();
-      if (!ebookExtensions.has(extension)) continue;
+      if (!extensions.has(extension)) continue;
       let size = 0;
       try { size = fs.statSync(absolutePath).size; } catch { continue; }
       files.push({
@@ -204,14 +210,17 @@ function walkEbookFiles(rootPath: string): EbookFileEntry[] {
 
 // ── Scan ──
 
-export async function scanEbookLibrary(libraryId: string) {
+async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {}) {
   const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
     .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
   if (!library) throw new Error("Ebook library not found.");
 
-  const settings = JSON.parse(library.settings_json || "{}") as EbookSettings;
+  const settings = normalizeLibrarySettings("ebook", library.settings_json);
+  const sources = options.sources ? normalizeScanSources("ebook", options.sources) : settings.scan_sources;
+  // file_metadata gates EPUB OPF extraction; off = filename-derived records only.
+  const fileMetaEnabled = sourceEnabled(sources, "file_metadata");
   const rootPath = validateLibrarySource(library.source_path);
-  const files = walkEbookFiles(rootPath);
+  const files = walkEbookFiles(rootPath, new Set(settings.scan_extensions.map((extension) => `.${extension}`)));
   const seenPaths = new Set<string>();
 
   for (const file of files) {
@@ -224,7 +233,7 @@ export async function scanEbookLibrary(libraryId: string) {
     const manual = metaRow?.source === "manual";
     const bookId = existing?.id ?? nanoid(16);
 
-    const meta = file.extension === ".epub"
+    const meta = fileMetaEnabled && file.extension === ".epub"
       ? (extractEpubMetadata(file.absolutePath) ?? pdfMetadata(file))
       : pdfMetadata(file);
     const title = meta.title || path.basename(file.fileName, file.extension);
@@ -276,7 +285,7 @@ export async function scanEbookLibrary(libraryId: string) {
         ON CONFLICT(book_id, relative_path) DO UPDATE SET
           format = excluded.format, mime_type = excluded.mime_type, size = excluded.size,
           status = 'available', deleted_at = NULL, updated_at = CURRENT_TIMESTAMP
-      `).run(nanoid(16), bookId, file.relativePath, file.extension.slice(1), ebookMimeTypes[file.extension], file.size);
+      `).run(nanoid(16), bookId, file.relativePath, file.extension.slice(1), ebookMimeTypes[file.extension] ?? "application/octet-stream", file.size);
     })();
   }
 
@@ -297,11 +306,11 @@ export async function scanEbookLibrary(libraryId: string) {
 
 // ── Job queue (mirrors the audiobook scan worker) ──
 
-export function enqueueEbookScan(libraryId: string): string {
+export function enqueueEbookScan(libraryId: string, options: EbookScanOptions = {}): string {
   const jobId = nanoid(16);
   db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
   db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
-    .run(jobId, scanJobType, JSON.stringify({ libraryId }));
+    .run(jobId, scanJobType, JSON.stringify({ libraryId, options }));
   return jobId;
 }
 
@@ -328,9 +337,9 @@ export async function processEbookScanQueue() {
       `).run(process.pid.toString(), job.id);
       if (claim.changes === 0) continue;
 
-      const payload = JSON.parse(job.payload) as { libraryId: string };
+      const payload = JSON.parse(job.payload) as { libraryId: string; options?: EbookScanOptions };
       try {
-        const result = await scanEbookLibrary(payload.libraryId);
+        const result = await scanEbookLibrary(payload.libraryId, payload.options ?? {});
         db.prepare(`
           UPDATE jobs SET status = 'completed', payload = ?, completed_at = CURRENT_TIMESTAMP, locked_at = NULL, locked_by = NULL
           WHERE id = ?

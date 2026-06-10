@@ -8,8 +8,6 @@ export interface AudiobookLibraryRow {
   last_scanned_at: string | null;
   owner_id: string | null;
   owner_type: "user" | "group" | null;
-  visibility: "private" | "public";
-  public_role: "viewer" | "subscriber" | null;
   policy_json: string;
   created_at: string;
   updated_at: string;

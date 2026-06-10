@@ -12,7 +12,7 @@ import { pathIsInside } from "../shared/storage-roots.js";
 import { setEntityTags, addEntityTags } from "./categorize.js";
 import { type AudiobookBookRow, type BookFileRow } from "./types.js";
 
-export function largeCoverUrl(storageKey: string | null) {
+function largeCoverUrl(storageKey: string | null) {
   if (!storageKey) {
     return null;
   }
@@ -25,7 +25,7 @@ export const progressUpdateSchema = z.object({
   positionSeconds: z.number().int().min(0)
 });
 
-export const metadataCandidateSchema = z.object({
+const metadataCandidateSchema = z.object({
   title: z.string().trim().min(1),
   subtitle: z.string().trim().optional(),
   authors: z.array(z.string().trim().min(1)).default([]),
@@ -67,11 +67,11 @@ export const manualMetadataSchema = z.object({
   seriesPosition: z.number().min(0).nullable().optional()
 });
 
-export function splitGroupConcat(value: string | null) {
+function splitGroupConcat(value: string | null) {
   return value ? value.split(",").map((item) => item.trim()).filter(Boolean) : [];
 }
 
-export function uniqueValues(values: string[]) {
+function uniqueValues(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
 
@@ -81,7 +81,7 @@ export function upsertAuthor(libraryId: string, name: string) {
   return db.prepare("SELECT id FROM authors WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
 }
 
-export function replaceBookPeople(bookId: string, libraryId: string, role: "author" | "narrator", names: string[]) {
+function replaceBookPeople(bookId: string, libraryId: string, role: "author" | "narrator", names: string[]) {
   db.prepare("DELETE FROM book_authors WHERE book_id = ? AND role = ?").run(bookId, role);
   uniqueValues(names).forEach((name, index) => {
     const author = upsertAuthor(libraryId, name);
@@ -111,7 +111,7 @@ export function categoryImageUrl(imageStorageKey: string | null) {
   return imageStorageKey ? `/api/library/covers/${imageStorageKey}` : null;
 }
 
-export function categoryPayload(categoryId: string | null) {
+function categoryPayload(categoryId: string | null) {
   if (!categoryId) {
     return null;
   }
@@ -119,7 +119,7 @@ export function categoryPayload(categoryId: string | null) {
   return row ? { key: row.key, name: row.name, icon: row.icon, imageUrl: categoryImageUrl(row.image_storage_key) } : null;
 }
 
-export function bookTags(bookId: string): string[] {
+function bookTags(bookId: string): string[] {
   const rows = db.prepare(`
     SELECT tags.display_name AS name
     FROM taggables
@@ -130,10 +130,10 @@ export function bookTags(bookId: string): string[] {
   return rows.map((r) => r.name);
 }
 
-export const MAX_COVER_BYTES = 10 * 1024 * 1024;
-export const COVER_FETCH_TIMEOUT_MS = 10_000;
+const MAX_COVER_BYTES = 10 * 1024 * 1024;
+const COVER_FETCH_TIMEOUT_MS = 10_000;
 
-export function isBlockedAddress(address: string) {
+function isBlockedAddress(address: string) {
   // Block loopback, link-local, and private ranges to prevent SSRF into the
   // local network or cloud metadata endpoints (e.g. 169.254.169.254).
   const v4 = address.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
@@ -154,7 +154,7 @@ export function isBlockedAddress(address: string) {
   return false;
 }
 
-export async function downloadCover(url: string) {
+async function downloadCover(url: string) {
   const parsed = new URL(url);
   if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new Error("Unsupported cover URL.");
@@ -275,7 +275,7 @@ export function updateBookCover(bookId: string, coverStorageKey: string) {
   return getAudiobookBookDetail(bookId);
 }
 
-export function getBookForMetadata(bookId: string) {
+function getBookForMetadata(bookId: string) {
   return db.prepare(`
     SELECT
       books.id,
@@ -317,7 +317,7 @@ export function getBookForMetadata(bookId: string) {
   } | undefined;
 }
 
-export function exportBookMetadata(bookId: string) {
+function exportBookMetadata(bookId: string) {
   const book = getBookForMetadata(bookId);
   if (!book) {
     return;
