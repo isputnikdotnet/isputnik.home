@@ -7,3 +7,7 @@ dist/
 
 # Runtime data: SQLite DB, WAL/SHM, backups, uploaded media — never sync to remote
 data/
+
+# Personal scratch notes under Documents — keep local only (case-insensitive)
+Documents/notes/
+Documents/Notes/
