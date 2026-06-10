@@ -336,6 +336,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.13.0",
+          label: "Library scanning options & unified creation",
+          changes: [
+            "Adding an audiobook library is now a three-step wizard — Details, Scanning & upload, Source folder — and every scanning option you set there can be changed later from the Edit dialog.",
+            "Metadata sources are now a prioritized list you control: \"Metadata files in folders\" (metadata.json), \"File metadata\" (embedded tags), and the new \"Folder structure\" can each be turned on or off and reordered — when two sources provide the same field, the higher one wins. The Rescan dialog is pre-filled with the library's saved sources and lets you override them for a single run.",
+            "New \"Folder structure\" scan mode: each top-level folder under the library root becomes one book and every audio file beneath it becomes a track — ideal for collections organized by folder rather than by tags.",
+            "Each library now has an editable file-extension list (pre-filled with sensible defaults per library type) that controls what gets scanned, and the same list will govern uploads; a per-upload size limit can also be set per library."
+          ]
+        },
+        {
           version: "0.12.0",
           label: "Unified permissions & library modes",
           changes: [
