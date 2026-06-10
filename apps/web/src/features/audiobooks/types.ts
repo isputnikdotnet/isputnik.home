@@ -18,6 +18,7 @@ export interface AudiobookLibrary {
   ownerId: string | null;
   ownerType: "user" | "group" | null;
   visibility: "private" | "public";
+  publicRole: "viewer" | "subscriber";
   createdAt: string;
   updatedAt: string;
   bookCount: number;

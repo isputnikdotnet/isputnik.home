@@ -29,6 +29,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     const ownerId = parsed.data.ownerId ?? null;
     const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
     const visibility = parsed.data.visibility ?? "public";
+    const publicRole = parsed.data.publicRole ?? "subscriber";
 
     const ownerError = validateLibraryOwner(ownerId, ownerType, "audiobook");
     if (ownerError) {
@@ -47,9 +48,9 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     };
 
     db.prepare(`
-      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility)
-      VALUES (?, ?, 'audiobook', ?, ?, ?, ?, ?, ?)
-    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility);
+      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role)
+      VALUES (?, ?, 'audiobook', ?, ?, ?, ?, ?, ?, ?)
+    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility, publicRole);
 
     const jobId = enqueueAudiobookScan(libraryId);
     void processAudiobookScanQueue();
@@ -93,7 +94,8 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     name: z.string().trim().min(2).max(120),
     ownerId: z.string().trim().min(1).max(64).nullable().optional(),
     ownerType: z.enum(["user", "group"]).nullable().optional(),
-    visibility: z.enum(["private", "public"])
+    visibility: z.enum(["private", "public"]),
+    publicRole: z.enum(["viewer", "subscriber"]).default("subscriber")
   });
 
   app.patch("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -124,9 +126,9 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
 
     db.prepare(`
       UPDATE libraries
-      SET name = ?, owner_id = ?, owner_type = ?, visibility = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP
+      SET name = ?, owner_id = ?, owner_type = ?, visibility = ?, public_role = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(parsed.data.name, ownerId, ownerType, parsed.data.visibility, JSON.stringify(settings), id);
+    `).run(parsed.data.name, ownerId, ownerType, parsed.data.visibility, parsed.data.publicRole ?? "subscriber", JSON.stringify(settings), id);
 
     logActivity({
       event: "library.audiobook.updated",

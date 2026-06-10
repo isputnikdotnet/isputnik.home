@@ -18,6 +18,7 @@ export function LibrariesSection() {
   const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
   const [libraryName, setLibraryName] = useState("");
   const [libraryVisibility, setLibraryVisibility] = useState<"public" | "private">("public");
+  const [libraryPublicRole, setLibraryPublicRole] = useState<"viewer" | "subscriber">("subscriber");
   const [libraryIgnoreSidecar, setLibraryIgnoreSidecar] = useState(false);
   const [libraryOwnerId, setLibraryOwnerId] = useState("");
   const [libraryOwnerType, setLibraryOwnerType] = useState<"user" | "group" | "">("");
@@ -33,6 +34,7 @@ export function LibrariesSection() {
   const [editingLibrary, setEditingLibrary] = useState<AudiobookLibrary | null>(null);
   const [editName, setEditName] = useState("");
   const [editVisibility, setEditVisibility] = useState<"public" | "private">("public");
+  const [editPublicRole, setEditPublicRole] = useState<"viewer" | "subscriber">("subscriber");
   const [editOwnerId, setEditOwnerId] = useState("");
   const [editOwnerType, setEditOwnerType] = useState<"user" | "group" | "">("");
   const [saving, setSaving] = useState(false);
@@ -118,6 +120,7 @@ export function LibrariesSection() {
           defaultLanguage: "en",
           ignoreSidecar: libraryIgnoreSidecar,
           visibility: libraryVisibility,
+          publicRole: libraryPublicRole,
           ownerId: libraryOwnerId || null,
           ownerType: libraryOwnerType || null
         })
@@ -125,6 +128,7 @@ export function LibrariesSection() {
       setCreateLibraryOpen(false);
       setLibraryName("");
       setLibraryVisibility("public");
+      setLibraryPublicRole("subscriber");
       setLibraryIgnoreSidecar(false);
       setLibraryOwnerId("");
       setLibraryOwnerType("");
@@ -141,6 +145,7 @@ export function LibrariesSection() {
     setEditingLibrary(library);
     setEditName(library.name);
     setEditVisibility(library.visibility);
+    setEditPublicRole(library.publicRole ?? "subscriber");
     setEditOwnerId(library.ownerId ?? "");
     setEditOwnerType(library.ownerType ?? "");
     setError("");
@@ -157,6 +162,7 @@ export function LibrariesSection() {
         body: JSON.stringify({
           name: editName,
           visibility: editVisibility,
+          publicRole: editPublicRole,
           ownerId: editOwnerId || null,
           ownerType: editOwnerType || null
         })
@@ -419,6 +425,15 @@ export function LibrariesSection() {
                     <option value="private">Private — owner and admins only</option>
                   </select>
                 </label>
+                {libraryVisibility === "public" && (
+                  <label className="field">
+                    <span>Public access</span>
+                    <select value={libraryPublicRole} onChange={(event) => setLibraryPublicRole(event.target.value as "viewer" | "subscriber")}>
+                      <option value="subscriber">View + download</option>
+                      <option value="viewer">View only (no downloads)</option>
+                    </select>
+                  </label>
+                )}
               </>
             )}
 
@@ -639,6 +654,15 @@ export function LibrariesSection() {
                 <option value="private">Private — owner and admins only</option>
               </select>
             </label>
+            {editVisibility === "public" && (
+              <label className="field">
+                <span>Public access</span>
+                <select value={editPublicRole} onChange={(event) => setEditPublicRole(event.target.value as "viewer" | "subscriber")}>
+                  <option value="subscriber">View + download</option>
+                  <option value="viewer">View only (no downloads)</option>
+                </select>
+              </label>
+            )}
             {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
             <div className="modal-actions">
               <button className="secondary-button" type="button" onClick={() => setEditingLibrary(null)} disabled={saving} autoFocus>

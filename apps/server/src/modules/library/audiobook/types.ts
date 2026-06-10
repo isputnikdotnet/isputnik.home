@@ -9,6 +9,7 @@ export interface AudiobookLibraryRow {
   owner_id: string | null;
   owner_type: "user" | "group" | null;
   visibility: "private" | "public";
+  public_role: "viewer" | "subscriber" | null;
   created_at: string;
   updated_at: string;
   book_count: number;

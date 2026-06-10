@@ -581,6 +581,11 @@ if (!libraryColumns.some((column) => column.name === "owner_type")) {
 if (!libraryColumns.some((column) => column.name === "visibility")) {
   db.exec("ALTER TABLE libraries ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('private', 'public'))");
 }
+// The baseline role granted to every signed-in user when the library is public —
+// 'viewer' (view only) or 'subscriber' (view + download). Ignored when private.
+if (!libraryColumns.some((column) => column.name === "public_role")) {
+  db.exec("ALTER TABLE libraries ADD COLUMN public_role TEXT NOT NULL DEFAULT 'subscriber' CHECK (public_role IN ('viewer', 'subscriber'))");
+}
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_libraries_owner      ON libraries(owner_id);
   CREATE INDEX IF NOT EXISTS idx_libraries_visibility ON libraries(visibility);

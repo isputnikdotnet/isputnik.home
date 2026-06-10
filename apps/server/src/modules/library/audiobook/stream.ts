@@ -31,7 +31,8 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
         libraries.id AS id,
         libraries.owner_id,
         libraries.owner_type,
-        libraries.visibility
+        libraries.visibility,
+        libraries.public_role
       FROM book_files
       JOIN books ON books.id = book_files.book_id
       JOIN libraries ON libraries.id = books.library_id
@@ -47,6 +48,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
       owner_id: string | null;
       owner_type: string | null;
       visibility: string;
+      public_role: string | null;
     } | undefined;
 
     if (!row || row.status !== "available") {
@@ -103,12 +105,12 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     const { id } = request.params as { id: string };
 
     const meta = db.prepare(`
-      SELECT libraries.id AS library_id, libraries.source_path, libraries.owner_id, libraries.owner_type, libraries.visibility, book_metadata.title
+      SELECT libraries.id AS library_id, libraries.source_path, libraries.owner_id, libraries.owner_type, libraries.visibility, libraries.public_role, book_metadata.title
       FROM books
       JOIN libraries ON libraries.id = books.library_id
       LEFT JOIN book_metadata ON book_metadata.book_id = books.id
       WHERE books.id = ? AND books.deleted_at IS NULL
-    `).get(id) as { library_id: string; source_path: string; owner_id: string | null; owner_type: string | null; visibility: string; title: string | null } | undefined;
+    `).get(id) as { library_id: string; source_path: string; owner_id: string | null; owner_type: string | null; visibility: string; public_role: string | null; title: string | null } | undefined;
 
     if (!meta) {
       reply.code(404).send({ error: "Book not found" });
@@ -116,7 +118,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     }
 
     const downloadUser = request.user!;
-    const downloadLibrary = { id: meta.library_id, owner_id: meta.owner_id, owner_type: meta.owner_type, visibility: meta.visibility };
+    const downloadLibrary = { id: meta.library_id, owner_id: meta.owner_id, owner_type: meta.owner_type, visibility: meta.visibility, public_role: meta.public_role };
     // View is not enough to download — require the Subscriber+ download capability
     // (or an explicit share). Distinguish "no access" (404) from "no download" (403).
     if (!canUserAccessBook(id, downloadLibrary, downloadUser.id, downloadUser.role)) {
@@ -183,7 +185,8 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
         libraries.id AS id,
         libraries.owner_id,
         libraries.owner_type,
-        libraries.visibility
+        libraries.visibility,
+        libraries.public_role
       FROM book_documents
       JOIN books ON books.id = book_documents.book_id
       JOIN libraries ON libraries.id = books.library_id
@@ -199,6 +202,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
       owner_id: string | null;
       owner_type: string | null;
       visibility: string;
+      public_role: string | null;
     } | undefined;
 
     if (!row || row.status !== "available") {

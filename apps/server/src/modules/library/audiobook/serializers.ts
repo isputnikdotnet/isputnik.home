@@ -9,7 +9,9 @@ export const audiobookLibrarySchema = z.object({
   ignoreSidecar: z.boolean().default(false),
   ownerId: z.string().trim().min(1).max(64).nullable().optional(),
   ownerType: z.enum(["user", "group"]).nullable().optional(),
-  visibility: z.enum(["private", "public"]).default("public")
+  visibility: z.enum(["private", "public"]).default("public"),
+  // Baseline role for all signed-in users when the library is public.
+  publicRole: z.enum(["viewer", "subscriber"]).default("subscriber")
 });
 
 export function publicAudiobookLibrary(row: AudiobookLibraryRow, includeSourcePath: boolean, caps: LibraryCapabilities) {
@@ -36,6 +38,7 @@ export function publicAudiobookLibrary(row: AudiobookLibraryRow, includeSourcePa
     ownerId: row.owner_id,
     ownerType: row.owner_type ?? null,
     visibility: row.visibility ?? "public",
+    publicRole: row.public_role ?? "subscriber",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     bookCount: row.book_count,

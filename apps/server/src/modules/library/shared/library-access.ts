@@ -47,6 +47,9 @@ interface LibraryRoleInput {
   owner_id: string | null;
   owner_type: string | null;
   visibility: string;
+  // The role granted to all signed-in users on a public library ('viewer' or
+  // 'subscriber'). Defaults to 'subscriber' when absent for back-compat.
+  public_role?: string | null;
 }
 
 // Resolve the effective role a user holds on a library, or null for no access.
@@ -91,7 +94,9 @@ export function resolveLibraryRole(
     return explicit.reduce((best, role) => (ROLE_RANK[role] > ROLE_RANK[best] ? role : best));
   }
 
-  if (library.visibility === "public") return "subscriber";
+  if (library.visibility === "public") {
+    return library.public_role === "viewer" ? "viewer" : "subscriber";
+  }
   return null;
 }
 
@@ -100,6 +105,7 @@ export interface LibraryAccessRow {
   owner_id: string | null;
   owner_type: "user" | "group" | null;
   visibility: "private" | "public";
+  public_role: "viewer" | "subscriber" | null;
   type: string;
 }
 
@@ -229,7 +235,7 @@ export function getAccessibleLibrary(
   const typeClause = type ? "AND type = ?" : "";
   const params = type ? [id, type] : [id];
   const library = db.prepare(`
-    SELECT id, owner_id, owner_type, visibility, type
+    SELECT id, owner_id, owner_type, visibility, public_role, type
     FROM libraries
     WHERE id = ? ${typeClause}
   `).get(...params) as LibraryAccessRow | undefined;
@@ -265,7 +271,7 @@ export function canUserDownloadBook(
 
 export function getLibraryForBook(bookId: string): LibraryAccessRow | null {
   return db.prepare(`
-    SELECT libraries.id, libraries.owner_id, libraries.owner_type, libraries.visibility, libraries.type
+    SELECT libraries.id, libraries.owner_id, libraries.owner_type, libraries.visibility, libraries.public_role, libraries.type
     FROM books
     JOIN libraries ON libraries.id = books.library_id
     WHERE books.id = ? AND books.deleted_at IS NULL

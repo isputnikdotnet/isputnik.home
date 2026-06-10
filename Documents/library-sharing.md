@@ -127,15 +127,15 @@ Each role grants its own capability plus every one below it (a strict ladder):
 
 ### Role resolution
 
-`resolveLibraryRole(library, userId, userRole)` returns the **strongest** applicable role, or null:
+`resolveLibraryRole(library, userId, userRole)` returns the effective role, or null:
 
-1. App-admin → `admin`
-2. Owner user → `admin`; owning-group **manager** → `curator`, owning-group member → `subscriber`
-3. Explicit grants in `library_members` (matching the user, or any group the user belongs to)
-4. `visibility = 'public'` → `subscriber` (baseline: every signed-in user can view **and** download)
-5. None of the above → no access
+1. App-admin → `admin`.
+2. Collect **explicit assignments**: ownership (user owner → `admin`; owning-group **manager** → `curator`, member → `subscriber`) and `library_members` grants matching the user or any group they belong to.
+3. If any explicit assignment exists → return the **strongest** of them. Explicit assignments are **authoritative and override the public baseline**, so an admin can cap a user/group *below* public (e.g. grant `viewer` on a public library to make a group view-only).
+4. Otherwise, if `visibility = 'public'` → the library's **`public_role`** baseline (`subscriber` = view + download, the default; or `viewer` = view only). This applies only to users with no explicit assignment.
+5. None of the above → no access.
 
-The owner and app-admins are implicit Library Admins and are **not** stored as grants.
+The owner and app-admins are implicit Library Admins and are **not** stored as grants. `public_role` is set per library from the "Public access" control on the create/edit form.
 
 ### Schema
 

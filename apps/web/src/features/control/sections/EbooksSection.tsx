@@ -29,6 +29,7 @@ export function EbooksSection() {
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [publicRole, setPublicRole] = useState<"viewer" | "subscriber">("subscriber");
   const [ownerId, setOwnerId] = useState("");
   const [selectedRootId, setSelectedRootId] = useState("");
   const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
@@ -77,6 +78,7 @@ export function EbooksSection() {
   const openCreate = () => {
     setName("");
     setVisibility("public");
+    setPublicRole("subscriber");
     setOwnerId("");
     setStorageBrowse(null);
     setError("");
@@ -102,6 +104,7 @@ export function EbooksSection() {
           sourcePath: storageBrowse.selectedPath,
           defaultLanguage: "en",
           visibility,
+          publicRole,
           ownerId: ownerId || null,
           ownerType
         })
@@ -272,6 +275,15 @@ export function EbooksSection() {
                     <option value="private">Private — owner and admins</option>
                   </select>
                 </label>
+                {visibility === "public" && (
+                  <label className="field">
+                    <span>Public access</span>
+                    <select value={publicRole} onChange={(e) => setPublicRole(e.target.value as "viewer" | "subscriber")}>
+                      <option value="subscriber">View + download</option>
+                      <option value="viewer">View only (no downloads)</option>
+                    </select>
+                  </label>
+                )}
                 <label className="field">
                   <span>Owner (optional)</span>
                   <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>

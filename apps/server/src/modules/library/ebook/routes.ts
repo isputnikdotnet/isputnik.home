@@ -15,7 +15,8 @@ const ebookLibrarySchema = z.object({
   defaultLanguage: z.string().trim().max(20).optional(),
   ownerId: z.string().trim().nullable().optional(),
   ownerType: z.enum(["user", "group"]).nullable().optional(),
-  visibility: z.enum(["private", "public"]).optional()
+  visibility: z.enum(["private", "public"]).optional(),
+  publicRole: z.enum(["viewer", "subscriber"]).default("subscriber")
 });
 
 interface EbookLibraryRow {
@@ -27,6 +28,7 @@ interface EbookLibraryRow {
   owner_id: string | null;
   owner_type: "user" | "group" | null;
   visibility: "private" | "public";
+  public_role: "viewer" | "subscriber" | null;
   created_at: string;
   book_count: number;
 }
@@ -41,6 +43,7 @@ function publicEbookLibrary(row: EbookLibraryRow, includeSourcePath: boolean, ca
     ownerId: row.owner_id,
     ownerType: row.owner_type,
     visibility: row.visibility,
+    publicRole: row.public_role ?? "subscriber",
     // Effective role + capabilities for the requesting user (UI gating only).
     myRole: caps.role,
     canWrite: caps.canEdit,
@@ -72,6 +75,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     const ownerId = parsed.data.ownerId ?? null;
     const ownerType = ownerId ? (parsed.data.ownerType ?? "user") : null;
     const visibility = parsed.data.visibility ?? "public";
+    const publicRole = parsed.data.publicRole ?? "subscriber";
 
     const ownerError = validateLibraryOwner(ownerId, ownerType, "ebook");
     if (ownerError) {
@@ -83,9 +87,9 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     const settings = { default_language: parsed.data.defaultLanguage };
 
     db.prepare(`
-      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility)
-      VALUES (?, ?, 'ebook', ?, ?, ?, ?, ?, ?)
-    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility);
+      INSERT INTO libraries (id, name, type, source_path, settings_json, created_by, owner_id, owner_type, visibility, public_role)
+      VALUES (?, ?, 'ebook', ?, ?, ?, ?, ?, ?, ?)
+    `).run(libraryId, parsed.data.name, sourcePath, JSON.stringify(settings), request.user!.id, ownerId, ownerType, visibility, publicRole);
 
     const jobId = enqueueEbookScan(libraryId);
     void processEbookScanQueue();
