@@ -336,6 +336,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.12.0",
+          label: "Unified permissions & library modes",
+          changes: [
+            "Library access was rebuilt on one model: every user or group is granted a role on a library — Viewer (view), Member (view + download), Contributor (add/edit content), or Manager (full control) — plus an explicit Deny that blocks someone outright. Public access is just the built-in \"Everyone\" group's role.",
+            "New library Mode: choose Managed (this app owns the files) or External / read-only — point the app at a folder managed by Plex or Audiobookshelf and use it purely as a viewer/streamer, with no risk of writing to it.",
+            "Private libraries are now hidden even from admins until they explicitly Take ownership (a logged action) from the Control Panel, so a household member's private library stays private.",
+            "Under the hood, one permission engine (can-user-do-this) now governs all library access, replacing several overlapping mechanisms — simpler and ready to extend to other content types."
+          ]
+        },
+        {
           version: "0.11.0",
           label: "Library roles & permissions",
           changes: [

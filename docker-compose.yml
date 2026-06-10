@@ -16,7 +16,9 @@ services:
     volumes:
       # App config, database, thumbnails (use appdata on Unraid)
       - /mnt/user/appdata/isputnik:/config
-      # Primary media library (required) — read-only
+      # Primary media library (required). Mount :ro and set the library's Mode to
+      # "External (read-only)" in the app when it's managed by Plex/Audiobookshelf,
+      # so this app only views/streams it and never writes to it.
       - /path/to/library:/media:ro
       # Optional additional libraries — uncomment and set paths as needed
       # - /path/to/library2:/media2:ro
