@@ -118,7 +118,9 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
       ORDER BY datetime(book_saves.updated_at) DESC
     `).all(user.id) as SavedBookRow[];
 
-    const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
+    // row.id is the BOOK id — access must resolve by the library id, since the
+    // unified permission engine looks up assignments for object 'library'.
+    const accessible = rows.filter((row) => canUserAccessLibrary({ id: row.library_id }, user.id, user.role));
 
     reply.send({
       books: accessible.map((row) => ({
