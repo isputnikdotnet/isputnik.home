@@ -872,13 +872,6 @@
   text-align: right;
 }
 
-.player-time-remaining {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-align: center;
-}
-
 /* Popup controls */
 .player-controls--popup {
   gap: 8px;

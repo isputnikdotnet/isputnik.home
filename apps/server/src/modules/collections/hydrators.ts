@@ -30,9 +30,7 @@ type Hydrator = (entityIds: string[], user: RequestUser) => Map<string, Hydrated
 interface AudiobookRow {
   id: string;
   folder_path: string;
-  owner_id: string | null;
-  owner_type: string | null;
-  visibility: string;
+  library_id: string;
   title: string | null;
   duration_seconds: number | null;
   cover_storage_key: string | null;
@@ -53,9 +51,7 @@ const hydrateAudiobooks: Hydrator = (entityIds, user) => {
     SELECT
       books.id,
       books.folder_path,
-      libraries.owner_id,
-      libraries.owner_type,
-      libraries.visibility,
+      books.library_id,
       book_metadata.title,
       book_metadata.duration_seconds,
       book_metadata.cover_storage_key,
@@ -74,7 +70,8 @@ const hydrateAudiobooks: Hydrator = (entityIds, user) => {
   `).all(...entityIds) as AudiobookRow[];
 
   for (const row of rows) {
-    if (!canUserAccessBook(row.id, row, user.id, user.role)) continue;
+    // row.id is the BOOK id — access resolves by the library id.
+    if (!canUserAccessBook(row.id, { id: row.library_id }, user.id, user.role)) continue;
     const authors = splitNames(row.author_names);
     result.set(row.id, {
       available: true,

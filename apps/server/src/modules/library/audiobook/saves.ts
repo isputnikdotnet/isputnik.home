@@ -4,7 +4,7 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { getLibraryForBook, canUserAccessLibrary } from "../shared/library-access.js";
+import { getLibraryForBook, canUserAccessLibrary, accessibleLibraryIds } from "../shared/library-access.js";
 
 const saveSchema = z.object({
   note: z.string().trim().max(2000).nullable().optional()
@@ -14,9 +14,6 @@ interface SavedBookRow {
   id: string;
   library_id: string;
   folder_path: string;
-  owner_id: string | null;
-  owner_type: string | null;
-  visibility: string;
   series_name: string | null;
   series_position: number | null;
   title: string | null;
@@ -91,9 +88,6 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
         books.id,
         books.library_id,
         books.folder_path,
-        libraries.owner_id,
-        libraries.owner_type,
-        libraries.visibility,
         series.name AS series_name,
         books.series_position,
         book_metadata.title,
@@ -118,9 +112,9 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
       ORDER BY datetime(book_saves.updated_at) DESC
     `).all(user.id) as SavedBookRow[];
 
-    // row.id is the BOOK id — access must resolve by the library id, since the
-    // unified permission engine looks up assignments for object 'library'.
-    const accessible = rows.filter((row) => canUserAccessLibrary({ id: row.library_id }, user.id, user.role));
+    // row.id is the BOOK id — access resolves by library id, precomputed once.
+    const allowed = accessibleLibraryIds(user.id, user.role, "audiobook");
+    const accessible = rows.filter((row) => allowed.has(row.library_id));
 
     reply.send({
       books: accessible.map((row) => ({

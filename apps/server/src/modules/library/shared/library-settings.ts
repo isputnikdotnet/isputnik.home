@@ -92,8 +92,3 @@ export function normalizeLibrarySettings(type: LibraryType, settingsJson: string
 export function sourceEnabled(sources: ScanSourceConfig[], id: MetadataSourceId): boolean {
   return sources.some((source) => source.id === id && source.enabled);
 }
-
-// Enabled sources in priority order (index 0 = highest).
-export function enabledSources(sources: ScanSourceConfig[]): MetadataSourceId[] {
-  return sources.filter((source) => source.enabled).map((source) => source.id);
-}

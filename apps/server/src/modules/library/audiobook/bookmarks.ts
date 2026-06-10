@@ -4,7 +4,8 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { getLibraryForBook, canUserAccessBook, canUserAccessLibrary } from "../shared/library-access.js";
+import { getLibraryForBook, canUserAccessBook, canUserAccessLibrary, accessibleLibraryIds } from "../shared/library-access.js";
+import { userHasItemShare } from "../shared/share-access.js";
 
 interface BookmarkRow {
   id: string;
@@ -23,9 +24,6 @@ interface BookmarkWithBookRow extends BookmarkRow {
   book_id: string;
   library_id: string;
   folder_path: string;
-  owner_id: string | null;
-  owner_type: string | null;
-  visibility: string;
   title: string | null;
   cover_storage_key: string | null;
   author_names: string | null;
@@ -91,9 +89,6 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
         bm.updated_at,
         books.library_id,
         books.folder_path,
-        libraries.owner_id,
-        libraries.owner_type,
-        libraries.visibility,
         book_metadata.title,
         book_metadata.cover_storage_key,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names
@@ -108,7 +103,11 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
       ORDER BY datetime(bm.updated_at) DESC
     `).all(user.id) as BookmarkWithBookRow[];
 
-    const accessible = rows.filter((row) => canUserAccessBook(row.book_id, row, user.id, user.role));
+    // Library access precomputed once; per-item shares still grant access to a
+    // single book inside an otherwise inaccessible library.
+    const allowed = accessibleLibraryIds(user.id, user.role, "audiobook");
+    const accessible = rows.filter((row) =>
+      allowed.has(row.library_id) || userHasItemShare("audiobook", row.book_id, user.id));
 
     reply.send({
       bookmarks: accessible.map((row) => ({

@@ -13,7 +13,7 @@ import {
   normalizeLibrarySettings,
   normalizeScanSources,
   sourceEnabled,
-  type BaseLibrarySettings,
+  type AudiobookLibrarySettings,
   type ScanSourceConfig
 } from "../shared/library-settings.js";
 import type { MetadataSourceId } from "../shared/metadata-sources.js";
@@ -101,9 +101,7 @@ function repairList(values: string[], encoding: TagEncoding | undefined): string
   return values.map((value) => repairEncoding(value, encoding) ?? value);
 }
 
-interface AudiobookSettings extends BaseLibrarySettings {
-  cover_filenames?: string[];
-}
+type AudiobookSettings = AudiobookLibrarySettings;
 
 interface AudioFileEntry {
   absolutePath: string;

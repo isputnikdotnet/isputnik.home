@@ -41,10 +41,6 @@ export interface LibraryAccessRow {
   type: string;
 }
 
-export function resolveLibraryRole(library: LibraryRoleInput, userId: string, userRole: string): LibraryRole | null {
-  return library.id ? resolveObjectRole("library", library.id, asUser(userId, userRole)) : null;
-}
-
 function allows(library: LibraryRoleInput, userId: string, userRole: string, action: LibraryAction): boolean {
   if (!library.id) return false;
   return coreRoleAllows(resolveObjectRole("library", library.id, asUser(userId, userRole)), action);
@@ -52,6 +48,16 @@ function allows(library: LibraryRoleInput, userId: string, userRole: string, act
 
 export function canUserAccessLibrary(library: LibraryRoleInput, userId: string, userRole: string): boolean {
   return library.id ? resolveObjectRole("library", library.id, asUser(userId, userRole)) !== null : false;
+}
+
+// Library ids the user can access, resolved once. Use this to filter per-book result
+// rows instead of calling canUserAccessLibrary per row — role resolution costs two
+// queries per call, and there are only a handful of libraries.
+export function accessibleLibraryIds(userId: string, userRole: string, type?: string): Set<string> {
+  const rows = (type
+    ? db.prepare("SELECT id FROM libraries WHERE type = ?").all(type)
+    : db.prepare("SELECT id FROM libraries").all()) as { id: string }[];
+  return new Set(rows.filter((row) => canUserAccessLibrary(row, userId, userRole)).map((row) => row.id));
 }
 export function canUserWriteLibrary(library: LibraryRoleInput, userId: string, userRole: string): boolean {
   return allows(library, userId, userRole, "edit");

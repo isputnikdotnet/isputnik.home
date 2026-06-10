@@ -1,8 +1,3 @@
-.theme-switcher button:hover {
-  color: var(--ink);
-  background: var(--hover);
-}
-
 .dashboard-main {
   min-width: 0;
 }

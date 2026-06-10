@@ -21,9 +21,7 @@ function getReadableDocument(bookId: string, documentId: string, user: { id: str
     SELECT
       book_documents.id,
       book_documents.status,
-      libraries.owner_id,
-      libraries.owner_type,
-      libraries.visibility
+      libraries.id AS library_id
     FROM book_documents
     JOIN books ON books.id = book_documents.book_id
     JOIN libraries ON libraries.id = books.library_id
@@ -33,13 +31,12 @@ function getReadableDocument(bookId: string, documentId: string, user: { id: str
   `).get(documentId, bookId) as {
     id: string;
     status: string;
-    owner_id: string | null;
-    owner_type: string | null;
-    visibility: string;
+    library_id: string;
   } | undefined;
 
   if (!row || row.status !== "available") return null;
-  if (!canUserAccessBook(bookId, row, user.id, user.role)) return null;
+  // row.id is the DOCUMENT id — access resolves by the library id.
+  if (!canUserAccessBook(bookId, { id: row.library_id }, user.id, user.role)) return null;
   return row;
 }
 

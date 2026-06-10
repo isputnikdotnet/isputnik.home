@@ -82,11 +82,6 @@
 .danger-button,
 .icon-button,
 .text-button,
-.theme-switcher button {
-  border: 0;
-  cursor: pointer;
-}
-
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -395,11 +390,6 @@
 
 .icon-button:hover {
   background: var(--hover);
-}
-
-.icon-button.with-label {
-  padding-inline: 14px;
-  font-weight: 760;
 }
 
 .icon-button.danger {
@@ -865,7 +855,7 @@
   overflow-y: auto;
 }
 
-/* ── Count badge (shared by .book-files-count and .count-badge) ── */
+/* ── Count badge ────────────────────────────────────────────────── */
 
 .count-badge {
   display: inline-flex;
@@ -1029,12 +1019,3 @@
   width: 100%;
 }
 
-/* ── Series fields in metadata edit grid ────────────────────────── */
-
-.metadata-field-series-name {
-  grid-column: span 3;
-}
-
-.metadata-field-series-pos {
-  grid-column: span 1;
-}
