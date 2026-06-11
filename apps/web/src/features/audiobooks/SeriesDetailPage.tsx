@@ -4,6 +4,9 @@ import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { getReferrer, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { Modal } from "../../shared/Modal";
+import { Button } from "../../shared/Button";
 import type { AudiobookBook, SeriesDetail } from "./types";
 
 interface EditableBook {
@@ -324,13 +327,12 @@ export function SeriesDetailPage({
       </section>
 
       {editModalOpen && (
-        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setEditModalOpen(false); }}>
-          <div className="confirm-modal" role="dialog" aria-modal="true" aria-label="Edit series" style={{ width: "min(100%, 520px)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <h2 style={{ margin: 0 }}>Edit series</h2>
-              <button className="modal-close" onClick={() => setEditModalOpen(false)} aria-label="Close"><X size={18} /></button>
-            </div>
-
+        <Modal
+          title="Edit series"
+          style={{ width: "min(100%, 520px)" }}
+          busy={editSaving}
+          onClose={() => setEditModalOpen(false)}
+        >
             <div className="field" style={{ marginBottom: 12 }}>
               <span>Cover</span>
               <div className="series-cover-edit">
@@ -386,40 +388,36 @@ export function SeriesDetailPage({
             {editError && <MessageBox tone="error" title="Error">{editError}</MessageBox>}
 
             <div className="modal-actions" style={{ marginTop: 16 }}>
-              <button className="secondary-button" onClick={() => setEditModalOpen(false)} disabled={editSaving}>Cancel</button>
-              <button className="primary-button" onClick={saveEdit} disabled={editSaving || !editName.trim()}>
+              <Button variant="secondary" onClick={() => setEditModalOpen(false)} disabled={editSaving}>Cancel</Button>
+              <Button variant="primary" onClick={saveEdit} disabled={editSaving || !editName.trim()}>
                 {editSaving ? "Saving…" : "Save changes"}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {deleteConfirm && (
-        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirm(false); }}>
-          <div className="confirm-modal" role="dialog" aria-modal="true" aria-label="Delete series">
-            <h2>Delete "{series.name}"?</h2>
-            <p>This will remove the series and unlink all its books. The books themselves will not be deleted.</p>
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setDeleteConfirm(false)} disabled={deleting}>
-                Cancel
-              </button>
-              <button className="danger-button" onClick={deleteSeries} disabled={deleting}>
-                <Trash2 size={16} /> {deleting ? "Deleting…" : "Yes, delete series"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={`Delete "${series.name}"?`}
+          confirmLabel="Yes, delete series"
+          busyLabel="Deleting…"
+          confirmIcon={<Trash2 size={16} />}
+          danger
+          busy={deleting}
+          onConfirm={deleteSeries}
+          onCancel={() => setDeleteConfirm(false)}
+        >
+          This will remove the series and unlink all its books. The books themselves will not be deleted.
+        </ConfirmDialog>
       )}
 
       {addModalOpen && (
-        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setAddModalOpen(false); }}>
-          <div className="series-add-modal" role="dialog" aria-modal="true" aria-label="Add books">
-            <div className="modal-header">
-              <h2>Add books to series</h2>
-              <button className="modal-close" onClick={() => setAddModalOpen(false)} aria-label="Close"><X size={18} /></button>
-            </div>
-
+        <Modal
+          variant="panel"
+          title="Add books to series"
+          surfaceClassName="series-add-modal"
+          onClose={() => setAddModalOpen(false)}
+        >
             <div className="series-add-list">
               {availableBooks.length === 0 ? (
                 <p className="management-empty">All books in this library are already in the series.</p>
@@ -445,17 +443,16 @@ export function SeriesDetailPage({
             </div>
 
             <div className="modal-actions" style={{ padding: "12px 16px 16px" }}>
-              <button className="secondary-button" onClick={() => setAddModalOpen(false)}>Cancel</button>
-              <button
-                className="primary-button"
+              <Button variant="secondary" onClick={() => setAddModalOpen(false)}>Cancel</Button>
+              <Button
+                variant="primary"
                 onClick={confirmAddBooks}
                 disabled={selectedIds.size === 0}
               >
                 Add {selectedIds.size > 0 ? `${selectedIds.size} ` : ""}selected
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </DashboardShell>
   );

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Check, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
+import { Modal } from "../../shared/Modal";
+import { Button } from "../../shared/Button";
 import type { AudiobookBook } from "./types";
 
 // A book row in the grids — the list type plus the libraryName the pages attach.
@@ -236,12 +238,7 @@ export function FilterButton({
         {count > 0 && <span className="filter-badge">{count}</span>}
       </button>
       {open && (
-        <div className="modal-backdrop" onMouseDown={() => setOpen(false)}>
-          <div className="filter-modal" role="dialog" aria-modal="true" aria-label="Filters" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="filter-modal-head">
-              <h2>Filters</h2>
-              <button className="modal-close" onClick={() => setOpen(false)} aria-label="Close"><X size={18} /></button>
-            </div>
+        <Modal variant="panel" title="Filters" surfaceClassName="filter-modal" onClose={() => setOpen(false)}>
             <div className="filter-modal-body">
               {FACET_ORDER.map((facet) => {
                 const options = facet.fixed ?? (facets[facet.key as keyof FacetOptions] ?? []).map((v) => ({ value: v, label: v }));
@@ -258,13 +255,12 @@ export function FilterButton({
               })}
             </div>
             <div className="filter-modal-foot">
-              <button className="secondary-button" onClick={() => onChange(EMPTY_FILTERS)} disabled={count === 0}>
+              <Button variant="secondary" onClick={() => onChange(EMPTY_FILTERS)} disabled={count === 0}>
                 Clear all
-              </button>
-              <button className="primary-button" onClick={() => setOpen(false)}>Done</button>
+              </Button>
+              <Button variant="primary" onClick={() => setOpen(false)}>Done</Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

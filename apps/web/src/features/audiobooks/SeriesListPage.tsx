@@ -4,6 +4,8 @@ import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { Modal } from "../../shared/Modal";
+import { Button } from "../../shared/Button";
 import type { AudiobookLibrary, SeriesSummary } from "./types";
 
 export function SeriesListPage({
@@ -147,13 +149,7 @@ export function SeriesListPage({
       </section>
 
       {modalOpen && (
-        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setModalOpen(false); }}>
-          <div className="confirm-modal" role="dialog" aria-modal="true" aria-label="New Series">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <h2 style={{ margin: 0 }}>New Series</h2>
-              <button className="modal-close" onClick={() => setModalOpen(false)} aria-label="Close"><X size={18} /></button>
-            </div>
-
+        <Modal title="New Series" busy={creating} onClose={() => setModalOpen(false)}>
             <div className="field" style={{ marginBottom: 12 }}>
               <span>Series name</span>
               <input
@@ -188,17 +184,16 @@ export function SeriesListPage({
             {createError && <MessageBox tone="error" title="Error">{createError}</MessageBox>}
 
             <div className="modal-actions" style={{ marginTop: 16 }}>
-              <button className="secondary-button" onClick={() => setModalOpen(false)}>Cancel</button>
-              <button
-                className="primary-button"
+              <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
+              <Button
+                variant="primary"
                 onClick={createSeries}
                 disabled={creating || !newName.trim()}
               >
                 {creating ? "Creating…" : "Create Series"}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </DashboardShell>
   );

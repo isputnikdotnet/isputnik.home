@@ -3,6 +3,8 @@ import { Plus } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
+import { Modal } from "../../../shared/Modal";
+import { Button } from "../../../shared/Button";
 import type { LibrarySettings, StorageRoot } from "../types";
 
 export function StorageSection() {
@@ -204,68 +206,48 @@ export function StorageSection() {
       </section>
 
       {editThumbnailPathOpen && (
-        <div className="modal-backdrop" onMouseDown={() => !savingLibrarySettings && setEditThumbnailPathOpen(false)}>
-          <form
-            className="confirm-modal edit-thumbnail-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-thumbnail-title"
-            onSubmit={saveLibrarySettings}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="edit-thumbnail-title">Edit thumbnail storage</h2>
+        <Modal
+          title="Edit thumbnail storage"
+          className="edit-thumbnail-modal"
+          busy={savingLibrarySettings}
+          onClose={() => setEditThumbnailPathOpen(false)}
+          onSubmit={saveLibrarySettings}
+        >
             <p>Choose a writable folder for generated covers and previews. In Docker, use the container path.</p>
             <Field label="Thumbnail path" value={thumbnailPathInput} onChange={setThumbnailPathInput} />
             {error && <MessageBox tone="error" title="Unable to save path">{error}</MessageBox>}
             <div className="modal-actions">
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => setEditThumbnailPathOpen(false)}
-                disabled={savingLibrarySettings}
-                autoFocus
-              >
+              <Button variant="secondary" onClick={() => setEditThumbnailPathOpen(false)} disabled={savingLibrarySettings} autoFocus>
                 Cancel
-              </button>
-              <button className="primary-button" disabled={savingLibrarySettings}>
+              </Button>
+              <Button variant="primary" type="submit" disabled={savingLibrarySettings}>
                 {savingLibrarySettings ? "Saving..." : "Save path"}
-              </button>
+              </Button>
             </div>
-          </form>
-        </div>
+        </Modal>
       )}
 
       {createStorageRootOpen && (
-        <div className="modal-backdrop" onMouseDown={() => !savingStorageRoot && setCreateStorageRootOpen(false)}>
-          <form
-            className="confirm-modal create-storage-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-storage-title"
-            onSubmit={createStorageRoot}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="create-storage-title">Add storage container</h2>
+        <Modal
+          title="Add storage container"
+          className="create-storage-modal"
+          busy={savingStorageRoot}
+          onClose={() => setCreateStorageRootOpen(false)}
+          onSubmit={createStorageRoot}
+        >
             <p>Choose an existing server folder that libraries are allowed to scan. In Docker, use the container path.</p>
             <Field label="Container name" value={rootNameInput} onChange={setRootNameInput} />
             <Field label="Container path" value={rootPathInput} onChange={setRootPathInput} />
             {error && <MessageBox tone="error" title="Unable to add container">{error}</MessageBox>}
             <div className="modal-actions">
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => setCreateStorageRootOpen(false)}
-                disabled={savingStorageRoot}
-                autoFocus
-              >
+              <Button variant="secondary" onClick={() => setCreateStorageRootOpen(false)} disabled={savingStorageRoot} autoFocus>
                 Cancel
-              </button>
-              <button className="primary-button" disabled={savingStorageRoot}>
+              </Button>
+              <Button variant="primary" type="submit" disabled={savingStorageRoot}>
                 {savingStorageRoot ? "Saving..." : "Save container"}
-              </button>
+              </Button>
             </div>
-          </form>
-        </div>
+        </Modal>
       )}
     </>
   );

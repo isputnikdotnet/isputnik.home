@@ -3,6 +3,7 @@ import { BookOpen, CheckCircle2, Pencil, RotateCcw, Save, Search, Upload, X } fr
 import { api } from "../../api";
 import { PeopleCombobox } from "./PeopleCombobox";
 import { MessageBox } from "../../shared/MessageBox";
+import { Modal } from "../../shared/Modal";
 import { formatBytes } from "../../shared/utils";
 import type { AudiobookBookDetail, CategorySummary, CoverCandidate, MetadataCandidate } from "./types";
 
@@ -287,20 +288,15 @@ export function EditMetadataModal({
   );
 
   return (
-    <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) closeMetadataModal(); }}>
-      <div className="metadata-modal book-metadata-modal" role="dialog" aria-modal="true" aria-label="Edit Metadata">
-        <div className="modal-header book-metadata-header">
-          <div className="book-metadata-title">
-            <span className="book-metadata-title-icon" aria-hidden="true">
-              <Pencil size={22} />
-            </span>
-            <h2>Edit Metadata</h2>
-          </div>
-          <button className="modal-close" onClick={closeMetadataModal} aria-label="Close">
-            <X size={22} />
-          </button>
-        </div>
-
+    <Modal
+      variant="panel"
+      title="Edit Metadata"
+      icon={<Pencil size={22} />}
+      className="book-metadata-modal"
+      headerClassName="book-metadata-header"
+      busy={editSaving || resetting}
+      onClose={closeMetadataModal}
+    >
         <div className="modal-tabs book-metadata-tabs">
           <button className={`modal-tab${activeMetadataTab === "edit" ? " active" : ""}`} onClick={() => setActiveMetadataTab("edit")}>
             Metadata
@@ -571,8 +567,7 @@ export function EditMetadataModal({
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

@@ -3,6 +3,8 @@ import { Plus, Trash2, UserMinus, ShieldCheck, User } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
+import { Modal } from "../../../shared/Modal";
+import { Button } from "../../../shared/Button";
 import type { ManagedGroup, GroupMember, ManagedUser } from "../types";
 
 export function GroupsSection() {
@@ -183,37 +185,29 @@ export function GroupsSection() {
       )}
 
       {createOpen && (
-        <div className="modal-backdrop" onMouseDown={() => !creating && setCreateOpen(false)}>
-          <form
-            className="confirm-modal create-group-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-group-title"
-            onSubmit={createGroup}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="create-group-title">New group</h2>
+        <Modal
+          title="New group"
+          className="create-group-modal"
+          busy={creating}
+          onClose={() => setCreateOpen(false)}
+          onSubmit={createGroup}
+        >
             <Field label="Group name" value={newGroupName} onChange={setNewGroupName} />
             {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
             <div className="modal-actions">
-              <button className="secondary-button" type="button" onClick={() => setCreateOpen(false)} disabled={creating} autoFocus>Cancel</button>
-              <button className="primary-button" disabled={creating || !newGroupName.trim()}>{creating ? "Creating..." : "Create group"}</button>
+              <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating} autoFocus>Cancel</Button>
+              <Button variant="primary" type="submit" disabled={creating || !newGroupName.trim()}>{creating ? "Creating..." : "Create group"}</Button>
             </div>
-          </form>
-        </div>
+        </Modal>
       )}
 
       {managingGroup && (
-        <div className="modal-backdrop" onMouseDown={() => !memberWorking && setManagingGroup(null)}>
-          <div
-            className="confirm-modal manage-group-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="manage-group-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="manage-group-title">{managingGroup.name}</h2>
-
+        <Modal
+          title={managingGroup.name}
+          className="manage-group-modal"
+          busy={memberWorking}
+          onClose={() => setManagingGroup(null)}
+        >
             {memberError && <MessageBox tone="error" title="Error">{memberError}</MessageBox>}
 
             {members.length === 0 ? (
@@ -286,10 +280,9 @@ export function GroupsSection() {
             )}
 
             <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setManagingGroup(null)} autoFocus>Close</button>
+              <Button variant="secondary" onClick={() => setManagingGroup(null)} autoFocus>Close</Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

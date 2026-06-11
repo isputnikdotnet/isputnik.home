@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api, type PublicUser } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import type { ManagedUser } from "../types";
 
 export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
@@ -18,21 +19,6 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
   useEffect(() => {
     loadUsers().catch((err) => setError(err instanceof Error ? err.message : "Unable to load users"));
   }, []);
-
-  useEffect(() => {
-    if (!pendingDelete) {
-      return;
-    }
-
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !deleting) {
-        setPendingDelete(null);
-      }
-    };
-
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [pendingDelete, deleting]);
 
   const changeRole = async (account: ManagedUser, role: "admin" | "member") => {
     setSavingRoleId(account.id);
@@ -115,26 +101,17 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       </div>
 
       {pendingDelete && (
-        <div className="modal-backdrop" onMouseDown={() => !deleting && setPendingDelete(null)}>
-          <section
-            className="confirm-modal"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-user-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="delete-user-title">Delete {pendingDelete.displayName}?</h2>
-            <p>This account will be deactivated and signed out on all devices.</p>
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setPendingDelete(null)} disabled={deleting} autoFocus>
-                Cancel
-              </button>
-              <button className="danger-button" onClick={deleteUser} disabled={deleting}>
-                {deleting ? "Deleting..." : "Delete user"}
-              </button>
-            </div>
-          </section>
-        </div>
+        <ConfirmDialog
+          title={`Delete ${pendingDelete.displayName}?`}
+          confirmLabel="Delete user"
+          busyLabel="Deleting..."
+          danger
+          busy={deleting}
+          onConfirm={deleteUser}
+          onCancel={() => setPendingDelete(null)}
+        >
+          This account will be deactivated and signed out on all devices.
+        </ConfirmDialog>
       )}
     </>
   );

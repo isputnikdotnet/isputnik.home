@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Save, Upload, UserRound, X } from "lucide-react";
+import { Save, Upload, UserRound } from "lucide-react";
 import { api } from "../../api";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { Modal } from "../../shared/Modal";
 
 type PersonProfile = {
   name: string;
@@ -110,18 +111,13 @@ export function PersonProfileModal({
   const currentPhotoUrl = uploadPreview ?? profile?.photoUrl ?? null;
 
   return (
-    <div
-      className="modal-backdrop"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    <Modal
+      variant="panel"
+      title={`${roleLabel}: ${personName}`}
+      className="person-modal"
+      busy={saving || uploading}
+      onClose={onClose}
     >
-      <div className="metadata-modal person-modal" role="dialog" aria-modal="true" aria-label={`Edit ${roleLabel}`}>
-        <div className="modal-header">
-          <h2>{roleLabel}: {personName}</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-
         <div className="modal-tabs">
           <button
             className={`modal-tab${tab === "profile" ? " active" : ""}`}
@@ -238,7 +234,6 @@ export function PersonProfileModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

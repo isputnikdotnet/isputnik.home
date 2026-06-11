@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react
 import { Plus, RefreshCw, Pencil, Trash2, Users, KeyRound } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { Modal } from "../../../shared/Modal";
+import { Button } from "../../../shared/Button";
 import { formatManagedDate } from "../../../shared/utils";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
 import type { PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults, AdminLibrarySettings } from "../../audiobooks/types";
@@ -357,16 +360,13 @@ export function EbooksSection() {
       )}
 
       {createOpen && (
-        <div className="modal-backdrop" onMouseDown={() => !creating && setCreateOpen(false)}>
-          <form
-            className="confirm-modal create-library-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Add ebook library"
-            onSubmit={createLibrary}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h2>Add ebook library</h2>
+        <Modal
+          title="Add ebook library"
+          className="create-library-modal"
+          busy={creating}
+          onClose={() => setCreateOpen(false)}
+          onSubmit={createLibrary}
+        >
             <LibraryCoreFields
               name={name}
               onNameChange={setName}
@@ -396,24 +396,20 @@ export function EbooksSection() {
             {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
 
             <div className="modal-actions">
-              <button className="secondary-button" type="button" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</button>
-              <button className="primary-button" type="submit" disabled={creating || !canSubmit}>{creating ? "Scanning…" : "Add and scan"}</button>
+              <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
+              <Button variant="primary" type="submit" disabled={creating || !canSubmit}>{creating ? "Scanning…" : "Add and scan"}</Button>
             </div>
-          </form>
-        </div>
+        </Modal>
       )}
 
       {editing && (
-        <div className="modal-backdrop" onMouseDown={() => !saving && setEditing(null)}>
-          <form
-            className="confirm-modal edit-library-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-ebook-library-title"
-            onSubmit={saveEdit}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="edit-ebook-library-title">Edit library</h2>
+        <Modal
+          title="Edit library"
+          className="edit-library-modal"
+          busy={saving}
+          onClose={() => setEditing(null)}
+          onSubmit={saveEdit}
+        >
             <LibraryCoreFields
               name={editName}
               onNameChange={setEditName}
@@ -434,15 +430,14 @@ export function EbooksSection() {
             <UploadSettingsFields maxUploadMB={editMaxUploadMB} onChange={setEditMaxUploadMB} mode={editMode} />
             {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
             <div className="modal-actions">
-              <button className="secondary-button" type="button" onClick={() => setEditing(null)} disabled={saving} autoFocus>
+              <Button variant="secondary" onClick={() => setEditing(null)} disabled={saving} autoFocus>
                 Cancel
-              </button>
-              <button className="primary-button" disabled={saving || editName.trim().length < 2 || editExtensions.length === 0}>
+              </Button>
+              <Button variant="primary" type="submit" disabled={saving || editName.trim().length < 2 || editExtensions.length === 0}>
                 {saving ? "Saving..." : "Save changes"}
-              </button>
+              </Button>
             </div>
-          </form>
-        </div>
+        </Modal>
       )}
 
       {membersLibrary && (
@@ -455,16 +450,15 @@ export function EbooksSection() {
       )}
 
       {deleteConfirm && (
-        <div className="modal-backdrop" onMouseDown={() => setDeleteConfirm(null)}>
-          <div className="confirm-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
-            <h2>Delete “{deleteConfirm.name}”?</h2>
-            <p>The catalogue entry and covers are removed. Files on disk are never touched.</p>
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setDeleteConfirm(null)}>Cancel</button>
-              <button className="danger-button" onClick={deleteLibrary}>Delete library</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={`Delete “${deleteConfirm.name}”?`}
+          confirmLabel="Delete library"
+          danger
+          onConfirm={deleteLibrary}
+          onCancel={() => setDeleteConfirm(null)}
+        >
+          The catalogue entry and covers are removed. Files on disk are never touched.
+        </ConfirmDialog>
       )}
     </>
   );

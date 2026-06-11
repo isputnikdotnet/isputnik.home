@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { ListMusic, X } from "lucide-react";
+import { ListMusic } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
+import { Modal } from "../../shared/Modal";
+import { Button } from "../../shared/Button";
 import type { CollectionSummary } from "./types";
 
 // Popup form for creating a collection. Returns the created collection so the
@@ -36,16 +38,14 @@ export function NewCollectionModal({
   };
 
   return (
-    <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="metadata-modal new-collection-modal" role="dialog" aria-modal="true" aria-label="New collection">
-        <div className="modal-header">
-          <div className="book-metadata-title">
-            <span className="book-metadata-title-icon" aria-hidden="true"><ListMusic size={20} /></span>
-            <h2>New collection</h2>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close"><X size={20} /></button>
-        </div>
-
+    <Modal
+      variant="panel"
+      title="New collection"
+      icon={<ListMusic size={20} />}
+      className="new-collection-modal"
+      busy={saving}
+      onClose={onClose}
+    >
         <form
           className="modal-tab-content new-collection-form"
           onSubmit={(e) => { e.preventDefault(); void submit(); }}
@@ -75,13 +75,12 @@ export function NewCollectionModal({
           </label>
 
           <div className="metadata-actions new-collection-actions">
-            <button type="button" className="secondary-button" onClick={onClose} disabled={saving}>Cancel</button>
-            <button type="submit" className="primary-button" disabled={saving || !name.trim()}>
+            <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={saving || !name.trim()}>
               {saving ? "Creating…" : "Create collection"}
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

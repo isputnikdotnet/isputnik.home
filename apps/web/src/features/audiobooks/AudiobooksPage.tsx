@@ -10,6 +10,8 @@ import { EditMetadataModal } from "./EditMetadataModal";
 import { PeopleCombobox } from "./PeopleCombobox";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { Modal } from "../../shared/Modal";
+import { Button } from "../../shared/Button";
 import { formatDuration } from "../../shared/utils";
 import { Field } from "../../shared/Field";
 import type { AudiobookBook, AudiobookBookDetail, AudiobookLibrary, CategorySummary, SeriesSummary } from "./types";
@@ -468,19 +470,14 @@ function BulkEditModal({
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={() => !saving && onClose()}>
-      <form
-        className="confirm-modal edit-library-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="bulk-edit-title"
-        onSubmit={submit}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div>
-          <h2 id="bulk-edit-title">Edit {count} {count === 1 ? "book" : "books"}</h2>
-          <p className="muted">Overwrites scanned metadata for every selected book. Leave a field blank to keep each book's current value. Tags replace existing tags.</p>
-        </div>
+    <Modal
+      title={`Edit ${count} ${count === 1 ? "book" : "books"}`}
+      className="edit-library-modal"
+      busy={saving}
+      onClose={onClose}
+      onSubmit={submit}
+    >
+        <p className="muted">Overwrites scanned metadata for every selected book. Leave a field blank to keep each book's current value. Tags replace existing tags.</p>
         <div className="override-grid">
           <div className="field">
             <span>Author</span>
@@ -511,15 +508,14 @@ function BulkEditModal({
         </div>
         {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
         <div className="modal-actions">
-          <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
-          </button>
-          <button className="primary-button" type="submit" disabled={saving}>
+          </Button>
+          <Button variant="primary" type="submit" disabled={saving}>
             {saving ? "Saving…" : `Overwrite ${count} ${count === 1 ? "book" : "books"}`}
-          </button>
+          </Button>
         </div>
-      </form>
-    </div>
+    </Modal>
   );
 }
 
@@ -576,20 +572,14 @@ function AddToSeriesModal({
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={() => !saving && onClose()}>
-      <form
-        className="confirm-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="add-series-title"
-        style={{ width: "min(100%, 480px)" }}
-        onSubmit={submit}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div>
-          <h2 id="add-series-title">Add {count} {count === 1 ? "book" : "books"} to series</h2>
-          <p className="muted">Selected books are appended to the end of the series. You can fine-tune the order afterwards on the series page.</p>
-        </div>
+    <Modal
+      title={`Add ${count} ${count === 1 ? "book" : "books"} to series`}
+      style={{ width: "min(100%, 480px)" }}
+      busy={saving}
+      onClose={onClose}
+      onSubmit={submit}
+    >
+        <p className="muted">Selected books are appended to the end of the series. You can fine-tune the order afterwards on the series page.</p>
 
         {loading ? (
           <p className="management-empty">Loading series…</p>
@@ -635,15 +625,14 @@ function AddToSeriesModal({
         {error && <MessageBox tone="error" title="Unable to add">{error}</MessageBox>}
 
         <div className="modal-actions">
-          <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
-          </button>
-          <button className="primary-button" type="submit" disabled={saving || loading}>
+          </Button>
+          <Button variant="primary" type="submit" disabled={saving || loading}>
             {saving ? "Adding…" : "Add to series"}
-          </button>
+          </Button>
         </div>
-      </form>
-    </div>
+    </Modal>
   );
 }
 

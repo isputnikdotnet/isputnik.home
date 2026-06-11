@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, Link2, Trash2, UserPlus, X } from "lucide-react";
+import { Check, Copy, Link2, Trash2, UserPlus } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
+import { Modal } from "../../shared/Modal";
 
 type Tab = "link" | "people";
 
@@ -145,13 +146,7 @@ export function ShareModal({
   const availableUsers = directory.filter((u) => !userShares.some((s) => s.userId === u.id));
 
   return (
-    <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="metadata-modal" role="dialog" aria-modal="true" aria-label={`Share ${bookTitle}`}>
-        <div className="modal-header">
-          <h2>Share “{bookTitle}”</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
-        </div>
-
+    <Modal variant="panel" title={`Share “${bookTitle}”`} onClose={onClose}>
         <div className="modal-tabs">
           <button className={`modal-tab${tab === "link" ? " active" : ""}`} onClick={() => setTab("link")}>
             Guest link
@@ -258,7 +253,6 @@ export function ShareModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

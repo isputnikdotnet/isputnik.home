@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, ListMusic, Plus, X } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
+import { Modal } from "../../shared/Modal";
 import type { CollectionSummary } from "./types";
 
 // Add or remove a single entity (an audiobook today) from the caller's
@@ -75,16 +76,13 @@ export function AddToCollectionModal({
   };
 
   return (
-    <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="metadata-modal add-to-collection-modal" role="dialog" aria-modal="true" aria-label="Add to collection">
-        <div className="modal-header">
-          <div className="book-metadata-title">
-            <span className="book-metadata-title-icon" aria-hidden="true"><ListMusic size={20} /></span>
-            <h2>Add to collection</h2>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close"><X size={20} /></button>
-        </div>
-
+    <Modal
+      variant="panel"
+      title="Add to collection"
+      icon={<ListMusic size={20} />}
+      className="add-to-collection-modal"
+      onClose={onClose}
+    >
         <div className="modal-tab-content">
           <p className="muted add-to-collection-subtitle">{title}</p>
 
@@ -119,7 +117,7 @@ export function AddToCollectionModal({
                 autoFocus
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") void createAndAdd(); if (e.key === "Escape") setCreating(false); }}
+                onKeyDown={(e) => { if (e.key === "Enter") void createAndAdd(); if (e.key === "Escape") { e.stopPropagation(); setCreating(false); } }}
                 placeholder="New collection name…"
                 maxLength={120}
               />
@@ -133,7 +131,6 @@ export function AddToCollectionModal({
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

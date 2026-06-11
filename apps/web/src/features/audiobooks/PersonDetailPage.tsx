@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, BookOpen, Merge, Pencil, Search, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Merge, Pencil, Search } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { getReferrer, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { Modal } from "../../shared/Modal";
+import { Button } from "../../shared/Button";
 import { formatDuration } from "../../shared/utils";
 import { PersonProfileModal } from "./PersonProfileModal";
 import type { AudiobookBook, AudiobookLibrary } from "./types";
@@ -158,12 +160,12 @@ export function PersonDetailPage({
       )}
 
       {mergeOpen && (
-        <div className="modal-backdrop" onMouseDown={() => !merging && setMergeOpen(false)}>
-          <div className="confirm-modal merge-modal" role="dialog" aria-modal="true" aria-label="Merge person" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Merge “{personName}”</h2>
-              <button className="modal-close" onClick={() => setMergeOpen(false)} aria-label="Close"><X size={18} /></button>
-            </div>
+        <Modal
+          title={`Merge “${personName}”`}
+          className="merge-modal"
+          busy={merging}
+          onClose={() => setMergeOpen(false)}
+        >
             <p>
               Pick the {roleLabel.toLowerCase()} to merge <strong>{personName}</strong> into. Their {personBooks.length} {personBooks.length === 1 ? "book moves" : "books move"} to
               the chosen name, and future scans will map “{personName}” there automatically.
@@ -191,13 +193,12 @@ export function PersonDetailPage({
               {filteredCandidates.length === 0 && <p className="facet-empty">No matches</p>}
             </div>
             <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setMergeOpen(false)} disabled={merging}>Cancel</button>
-              <button className="primary-button" onClick={runMerge} disabled={merging || !mergeTarget}>
+              <Button variant="secondary" onClick={() => setMergeOpen(false)} disabled={merging}>Cancel</Button>
+              <Button variant="primary" onClick={runMerge} disabled={merging || !mergeTarget}>
                 <Merge size={15} /> {merging ? "Merging…" : "Merge"}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </DashboardShell>
   );

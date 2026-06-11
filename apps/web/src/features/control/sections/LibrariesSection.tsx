@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react
 import { Plus, RefreshCw, Pencil, Trash2, Users, KeyRound } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { Modal } from "../../../shared/Modal";
+import { Button } from "../../../shared/Button";
 import { formatManagedDate } from "../../../shared/utils";
 import type { AudiobookLibrary, PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults } from "../../audiobooks/types";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
@@ -446,19 +449,14 @@ export function LibrariesSection() {
         };
 
         return (
-        <div className="modal-backdrop" onMouseDown={() => !creating && closeWizard()}>
-          <form
-            className="confirm-modal create-library-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-library-title"
-            onSubmit={onWizardSubmit}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div>
-              <h2 id="create-library-title">Add audiobook library</h2>
-              <p className="wizard-step-indicator">Step {current + 1} of {steps.length} — {stepTitles[stepKey]}</p>
-            </div>
+        <Modal
+          title="Add audiobook library"
+          className="create-library-modal"
+          busy={creating}
+          onClose={closeWizard}
+          onSubmit={onWizardSubmit}
+        >
+            <p className="wizard-step-indicator">Step {current + 1} of {steps.length} — {stepTitles[stepKey]}</p>
             {(!librarySettings?.thumbnailPathReady || storageRoots.length === 0) && (
               <MessageBox tone="warning" title="Thumbnail storage required">
                 Configure thumbnail storage and at least one Digital Library container first.
@@ -516,26 +514,24 @@ export function LibrariesSection() {
             {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
 
             <div className="modal-actions">
-              <button
-                className="secondary-button"
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={current > 0 ? () => setWizardStep(current - 1) : closeWizard}
                 disabled={creating}
               >
                 {current > 0 ? "Back" : "Cancel"}
-              </button>
+              </Button>
               {current < lastStep ? (
-                <button className="primary-button" type="submit">
+                <Button variant="primary" type="submit">
                   Next
-                </button>
+                </Button>
               ) : (
-                <button className="primary-button" type="submit" disabled={creating || !canSubmit}>
+                <Button variant="primary" type="submit" disabled={creating || !canSubmit}>
                   {creating ? "Scanning..." : "Add and scan"}
-                </button>
+                </Button>
               )}
             </div>
-          </form>
-        </div>
+        </Modal>
         );
       })()}
 
@@ -549,15 +545,12 @@ export function LibrariesSection() {
       )}
 
       {rescanTarget && (
-        <div className="modal-backdrop" onMouseDown={() => !rescanRunning && setRescanTarget(null)}>
-          <div
-            className="confirm-modal rescan-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="rescan-library-title"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h2 id="rescan-library-title">Rescan "{rescanTarget.name}"</h2>
+        <Modal
+          title={`Rescan "${rescanTarget.name}"`}
+          className="rescan-modal"
+          busy={rescanRunning}
+          onClose={() => setRescanTarget(null)}
+        >
             <p>Re-index this library from disk. Your files are never modified, and manually edited metadata is kept.</p>
             <ScanSourcesEditor
               sources={rescanSources}
@@ -584,58 +577,42 @@ export function LibrariesSection() {
             )}
             {error && <MessageBox tone="error" title="Rescan error">{error}</MessageBox>}
             <div className="modal-actions">
-              <button className="secondary-button" type="button" onClick={() => setRescanTarget(null)} disabled={rescanRunning} autoFocus>
+              <Button variant="secondary" onClick={() => setRescanTarget(null)} disabled={rescanRunning} autoFocus>
                 Cancel
-              </button>
-              <button className="primary-button" onClick={runRescan} disabled={rescanRunning}>
+              </Button>
+              <Button variant="primary" onClick={runRescan} disabled={rescanRunning}>
                 <RefreshCw size={15} /> {rescanRunning ? "Starting…" : "Start rescan"}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {deleteConfirmLibrary && (
-        <div className="modal-backdrop" onMouseDown={() => !deleting && setDeleteConfirmLibrary(null)}>
-          <div
-            className="confirm-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-library-title"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h2 id="delete-library-title">Delete "{deleteConfirmLibrary.name}"?</h2>
-            <p>This will remove the library and all its book records, metadata, series, and genres from the database.</p>
-            <p><strong>Your files on disk will not be touched.</strong> You can re-add this library at any time and it will be re-scanned from the same folder.</p>
-            {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
-            <div className="modal-actions">
-              <button
-                className="secondary-button"
-                onClick={() => setDeleteConfirmLibrary(null)}
-                disabled={deleting}
-                autoFocus
-              >
-                Cancel
-              </button>
-              <button className="danger-button" onClick={deleteLibrary} disabled={deleting}>
-                <Trash2 size={15} /> {deleting ? "Deleting…" : "Yes, delete library"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={`Delete "${deleteConfirmLibrary.name}"?`}
+          confirmLabel="Yes, delete library"
+          busyLabel="Deleting…"
+          confirmIcon={<Trash2 size={15} />}
+          danger
+          rich
+          busy={deleting}
+          error={error}
+          onConfirm={deleteLibrary}
+          onCancel={() => setDeleteConfirmLibrary(null)}
+        >
+          <p>This will remove the library and all its book records, metadata, series, and genres from the database.</p>
+          <p><strong>Your files on disk will not be touched.</strong> You can re-add this library at any time and it will be re-scanned from the same folder.</p>
+        </ConfirmDialog>
       )}
 
       {editingLibrary && (
-        <div className="modal-backdrop" onMouseDown={() => !saving && setEditingLibrary(null)}>
-          <form
-            className="confirm-modal edit-library-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-library-title"
-            onSubmit={saveEdit}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="edit-library-title">Edit library</h2>
+        <Modal
+          title="Edit library"
+          className="edit-library-modal"
+          busy={saving}
+          onClose={() => setEditingLibrary(null)}
+          onSubmit={saveEdit}
+        >
             <LibraryCoreFields
               name={editName}
               onNameChange={setEditName}
@@ -668,15 +645,14 @@ export function LibrariesSection() {
             />
             {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
             <div className="modal-actions">
-              <button className="secondary-button" type="button" onClick={() => setEditingLibrary(null)} disabled={saving} autoFocus>
+              <Button variant="secondary" onClick={() => setEditingLibrary(null)} disabled={saving} autoFocus>
                 Cancel
-              </button>
-              <button className="primary-button" disabled={saving || !editName.trim() || editExtensions.length === 0}>
+              </Button>
+              <Button variant="primary" type="submit" disabled={saving || !editName.trim() || editExtensions.length === 0}>
                 {saving ? "Saving..." : "Save changes"}
-              </button>
+              </Button>
             </div>
-          </form>
-        </div>
+        </Modal>
       )}
     </>
   );

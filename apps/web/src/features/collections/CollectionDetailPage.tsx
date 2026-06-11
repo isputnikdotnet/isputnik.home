@@ -4,6 +4,7 @@ import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatDuration } from "../../shared/utils";
 import type { CollectionDetail, CollectionItem } from "./types";
 
@@ -154,13 +155,16 @@ export function CollectionDetailPage({
             </div>
 
             {confirmDelete && (
-              <div className="metadata-reset-confirm">
-                <p>Delete “{collection.name}”? The books themselves are not affected.</p>
-                <div className="metadata-actions">
-                  <button className="primary-button" onClick={deleteCollection}>Yes, delete</button>
-                  <button className="secondary-button" onClick={() => setConfirmDelete(false)}>Cancel</button>
-                </div>
-              </div>
+              <ConfirmDialog
+                title={`Delete “${collection.name}”?`}
+                confirmLabel="Delete collection"
+                danger
+                busy={busy}
+                onConfirm={deleteCollection}
+                onCancel={() => setConfirmDelete(false)}
+              >
+                The books themselves are not affected.
+              </ConfirmDialog>
             )}
 
             {items.length === 0 ? (

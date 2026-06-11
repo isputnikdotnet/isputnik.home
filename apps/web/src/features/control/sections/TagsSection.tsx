@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { Check, Pencil, Trash2, X, Eraser, Search, Plus } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { Modal } from "../../../shared/Modal";
+import { Button } from "../../../shared/Button";
 
 interface ManageTag {
   id: string;
@@ -225,19 +228,16 @@ export function TagsSection() {
       )}
 
       {createOpen && (
-        <div className="modal-backdrop" onMouseDown={() => !creating && setCreateOpen(false)}>
-          <form
-            className="confirm-modal create-tag-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-tag-title"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void createTag();
-            }}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="create-tag-title">New tag</h2>
+        <Modal
+          title="New tag"
+          className="create-tag-modal"
+          busy={creating}
+          onClose={() => setCreateOpen(false)}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void createTag();
+          }}
+        >
             <label className="field">
               <span>Tag name</span>
               <input
@@ -250,33 +250,30 @@ export function TagsSection() {
             <p>New tags start unused and can be assigned from a book's metadata editor.</p>
             {error && <MessageBox tone="error" title="Unable to create tag">{error}</MessageBox>}
             <div className="modal-actions">
-              <button className="secondary-button" type="button" onClick={() => setCreateOpen(false)} disabled={creating}>
+              <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating}>
                 Cancel
-              </button>
-              <button className="primary-button" disabled={creating || !newTagName.trim()}>
+              </Button>
+              <Button variant="primary" type="submit" disabled={creating || !newTagName.trim()}>
                 <Plus size={15} aria-hidden="true" />
                 {creating ? "Creating…" : "Create tag"}
-              </button>
+              </Button>
             </div>
-          </form>
-        </div>
+        </Modal>
       )}
 
       {pendingDelete && (
-        <div className="modal-backdrop" onMouseDown={() => busyId === null && setPendingDelete(null)}>
-          <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-tag-title" onMouseDown={(e) => e.stopPropagation()}>
-            <h2 id="delete-tag-title">Delete "{pendingDelete.name}"?</h2>
-            <p>This removes the tag from {pendingDelete.bookCount} {pendingDelete.bookCount === 1 ? "book" : "books"}. Books and files are not affected.</p>
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setPendingDelete(null)} disabled={busyId !== null} autoFocus>
-                Cancel
-              </button>
-              <button className="danger-button" onClick={deleteTag} disabled={busyId !== null}>
-                <Trash2 size={15} /> {busyId === pendingDelete.id ? "Deleting…" : "Delete tag"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title={`Delete "${pendingDelete.name}"?`}
+          confirmLabel="Delete tag"
+          busyLabel="Deleting…"
+          confirmIcon={<Trash2 size={15} />}
+          danger
+          busy={busyId !== null}
+          onConfirm={deleteTag}
+          onCancel={() => setPendingDelete(null)}
+        >
+          This removes the tag from {pendingDelete.bookCount} {pendingDelete.bookCount === 1 ? "book" : "books"}. Books and files are not affected.
+        </ConfirmDialog>
       )}
     </>
   );

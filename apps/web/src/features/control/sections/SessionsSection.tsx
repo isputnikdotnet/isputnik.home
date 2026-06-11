@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedSession } from "../types";
 
@@ -89,26 +90,17 @@ export function SessionsSection() {
       </div>
 
       {pendingRevoke && (
-        <div className="modal-backdrop" onMouseDown={() => !revoking && setPendingRevoke(null)}>
-          <section
-            className="confirm-modal"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="revoke-session-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="revoke-session-title">Revoke session?</h2>
-            <p>{pendingRevoke.displayName} will need to sign in again on this device.</p>
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setPendingRevoke(null)} disabled={revoking} autoFocus>
-                Cancel
-              </button>
-              <button className="danger-button" onClick={revokeSession} disabled={revoking}>
-                {revoking ? "Revoking..." : "Revoke session"}
-              </button>
-            </div>
-          </section>
-        </div>
+        <ConfirmDialog
+          title="Revoke session?"
+          confirmLabel="Revoke session"
+          busyLabel="Revoking..."
+          danger
+          busy={revoking}
+          onConfirm={revokeSession}
+          onCancel={() => setPendingRevoke(null)}
+        >
+          {pendingRevoke.displayName} will need to sign in again on this device.
+        </ConfirmDialog>
       )}
     </>
   );

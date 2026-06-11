@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Archive, DatabaseBackup, Download, FlaskConical, Folder, Trash2, RotateCcw, Save } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 
 interface BackupFile {
@@ -253,54 +254,54 @@ export function BackupSection() {
       </div>
 
       {pendingDelete && (
-        <div className="modal-backdrop" onMouseDown={() => !deleting && setPendingDelete(null)}>
-          <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-backup-title" onMouseDown={(e) => e.stopPropagation()}>
-            <h2 id="delete-backup-title">Delete this backup?</h2>
-            <p><strong>{pendingDelete.name}</strong> ({formatBytes(pendingDelete.sizeBytes)}) will be permanently removed.</p>
-            {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setPendingDelete(null)} disabled={deleting} autoFocus>Cancel</button>
-              <button className="danger-button" onClick={deleteBackup} disabled={deleting}>
-                <Trash2 size={15} /> {deleting ? "Deleting…" : "Delete backup"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Delete this backup?"
+          confirmLabel="Delete backup"
+          busyLabel="Deleting…"
+          confirmIcon={<Trash2 size={15} />}
+          danger
+          busy={deleting}
+          error={error}
+          onConfirm={deleteBackup}
+          onCancel={() => setPendingDelete(null)}
+        >
+          <strong>{pendingDelete.name}</strong> ({formatBytes(pendingDelete.sizeBytes)}) will be permanently removed.
+        </ConfirmDialog>
       )}
 
       {pendingLoadTesting && (
-        <div className="modal-backdrop" onMouseDown={() => !loadingTesting && setPendingLoadTesting(false)}>
-          <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="load-testing-title" onMouseDown={(e) => e.stopPropagation()}>
-            <h2 id="load-testing-title">Load testing data?</h2>
-            <p>A full backup of your current library is created automatically first, so nothing is lost. Then the generated testing dataset (fake audiobooks and a known admin) replaces the current database the next time the server starts.</p>
-            <p><strong>You must restart the server to finish.</strong> After restart, sign in with <strong>test@test.com</strong> / <strong>test1234</strong>. To return to your real library later, restore the backup from the list below.</p>
-            <p className="muted">If you haven't generated it yet, run <code>npm run seed:testing --workspace apps/server</code> first.</p>
-            {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setPendingLoadTesting(false)} disabled={loadingTesting} autoFocus>Cancel</button>
-              <button className="primary-button" onClick={loadTestingData} disabled={loadingTesting}>
-                <FlaskConical size={15} /> {loadingTesting ? "Staging…" : "Stage testing data"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Load testing data?"
+          confirmLabel="Stage testing data"
+          busyLabel="Staging…"
+          confirmIcon={<FlaskConical size={15} />}
+          rich
+          busy={loadingTesting}
+          error={error}
+          onConfirm={loadTestingData}
+          onCancel={() => setPendingLoadTesting(false)}
+        >
+          <p>A full backup of your current library is created automatically first, so nothing is lost. Then the generated testing dataset (fake audiobooks and a known admin) replaces the current database the next time the server starts.</p>
+          <p><strong>You must restart the server to finish.</strong> After restart, sign in with <strong>test@test.com</strong> / <strong>test1234</strong>. To return to your real library later, restore the backup from the list below.</p>
+          <p className="muted">If you haven't generated it yet, run <code>npm run seed:testing --workspace apps/server</code> first.</p>
+        </ConfirmDialog>
       )}
 
       {pendingRestore && (
-        <div className="modal-backdrop" onMouseDown={() => !restoring && setPendingRestore(null)}>
-          <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="restore-backup-title" onMouseDown={(e) => e.stopPropagation()}>
-            <h2 id="restore-backup-title">Restore from this backup?</h2>
-            <p>Cover art from <strong>{pendingRestore.name}</strong> is restored immediately. The database is staged and replaces the current one the next time the server starts (the current database is saved as an automatic backup first).</p>
-            <p><strong>You must restart the server to finish</strong> — changes made since this backup will be lost.</p>
-            {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setPendingRestore(null)} disabled={restoring} autoFocus>Cancel</button>
-              <button className="primary-button" onClick={restoreBackup} disabled={restoring}>
-                <RotateCcw size={15} /> {restoring ? "Staging…" : "Stage restore"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Restore from this backup?"
+          confirmLabel="Stage restore"
+          busyLabel="Staging…"
+          confirmIcon={<RotateCcw size={15} />}
+          rich
+          busy={restoring}
+          error={error}
+          onConfirm={restoreBackup}
+          onCancel={() => setPendingRestore(null)}
+        >
+          <p>Cover art from <strong>{pendingRestore.name}</strong> is restored immediately. The database is staged and replaces the current one the next time the server starts (the current database is saved as an automatic backup first).</p>
+          <p><strong>You must restart the server to finish</strong> — changes made since this backup will be lost.</p>
+        </ConfirmDialog>
       )}
     </>
   );

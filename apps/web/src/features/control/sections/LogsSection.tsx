@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { formatManagedDate } from "../../../shared/utils";
 import type { LogEvent } from "../types";
 
@@ -199,26 +200,17 @@ export function LogsSection() {
       )}
 
       {pendingCleanup && (
-        <div className="modal-backdrop" onMouseDown={() => !deleting && setPendingCleanup(false)}>
-          <section
-            className="confirm-modal"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-logs-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="delete-logs-title">Delete old logs?</h2>
-            <p>All log entries older than {retentionDays} days will be permanently deleted.</p>
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setPendingCleanup(false)} disabled={deleting} autoFocus>
-                Cancel
-              </button>
-              <button className="danger-button" onClick={deleteOldLogs} disabled={deleting}>
-                {deleting ? "Deleting..." : "Delete logs"}
-              </button>
-            </div>
-          </section>
-        </div>
+        <ConfirmDialog
+          title="Delete old logs?"
+          confirmLabel="Delete logs"
+          busyLabel="Deleting..."
+          danger
+          busy={deleting}
+          onConfirm={deleteOldLogs}
+          onCancel={() => setPendingCleanup(false)}
+        >
+          All log entries older than {retentionDays} days will be permanently deleted.
+        </ConfirmDialog>
       )}
     </>
   );

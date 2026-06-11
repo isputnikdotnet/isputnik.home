@@ -10,6 +10,7 @@ import { EpubReader } from "./EpubReader";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { getDownloadedBookDetail } from "../../offline/downloads";
 import { useDownload } from "../../offline/useDownload";
 import { isStandalone } from "../../pwa/platform";
@@ -120,6 +121,7 @@ function BookDetailView({
   const [saveAction, setSaveAction] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
+  const [confirmRemoveDownload, setConfirmRemoveDownload] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string } | null>(null);
@@ -494,7 +496,7 @@ function BookDetailView({
                 onClick={() => {
                   if (offline.busy) return;
                   if (offline.record?.state === "complete") {
-                    if (window.confirm("Remove this downloaded book from this device?")) void offline.remove();
+                    setConfirmRemoveDownload(true);
                   } else {
                     void offline.start();
                   }
@@ -759,6 +761,18 @@ function BookDetailView({
           onBookUpdated={onBookUpdated}
           onClose={() => setMetadataModalOpen(false)}
         />
+      )}
+
+      {confirmRemoveDownload && (
+        <ConfirmDialog
+          title="Remove download?"
+          confirmLabel="Remove download"
+          danger
+          onConfirm={() => { setConfirmRemoveDownload(false); void offline.remove(); }}
+          onCancel={() => setConfirmRemoveDownload(false)}
+        >
+          This downloaded book is removed from this device. You can download it again at any time.
+        </ConfirmDialog>
       )}
 
     </div>

@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { Copy, UserPlus } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { Modal } from "../../../shared/Modal";
+import { Button } from "../../../shared/Button";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedInvite } from "../types";
 
@@ -22,22 +25,6 @@ export function InvitesSection() {
   useEffect(() => {
     loadInvites().catch((err) => setError(err instanceof Error ? err.message : "Unable to load invite links"));
   }, []);
-
-  useEffect(() => {
-    if (!pendingDelete && !createOpen) {
-      return;
-    }
-
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !deleting && !creating) {
-        setPendingDelete(null);
-        setCreateOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [pendingDelete, createOpen, deleting, creating]);
 
   const createInvite = async () => {
     setCreating(true);
@@ -129,15 +116,12 @@ export function InvitesSection() {
       </div>
 
       {createOpen && (
-        <div className="modal-backdrop" onMouseDown={() => !creating && setCreateOpen(false)}>
-          <section
-            className="confirm-modal create-invite-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-invite-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="create-invite-title">Create invite link</h2>
+        <Modal
+          title="Create invite link"
+          className="create-invite-modal"
+          busy={creating}
+          onClose={() => setCreateOpen(false)}
+        >
             {!inviteUrl ? (
               <p>A member invite link will be created and will expire in 7 days.</p>
             ) : (
@@ -154,45 +138,35 @@ export function InvitesSection() {
             {error && !inviteUrl && <MessageBox tone="error" title="Unable to create invite">{error}</MessageBox>}
             <div className="modal-actions">
               {!inviteUrl && (
-                <button className="secondary-button" onClick={() => setCreateOpen(false)} disabled={creating} autoFocus>
+                <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating} autoFocus>
                   Cancel
-                </button>
+                </Button>
               )}
               {inviteUrl ? (
-                <button className="primary-button" onClick={() => setCreateOpen(false)} autoFocus>
+                <Button variant="primary" onClick={() => setCreateOpen(false)} autoFocus>
                   Done
-                </button>
+                </Button>
               ) : (
-                <button className="primary-button" onClick={createInvite} disabled={creating}>
+                <Button variant="primary" onClick={createInvite} disabled={creating}>
                   {creating ? "Creating..." : "Create link"}
-                </button>
+                </Button>
               )}
             </div>
-          </section>
-        </div>
+        </Modal>
       )}
 
       {pendingDelete && (
-        <div className="modal-backdrop" onMouseDown={() => !deleting && setPendingDelete(null)}>
-          <section
-            className="confirm-modal"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="delete-invite-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <h2 id="delete-invite-title">Delete invite link?</h2>
-            <p>This invite link will no longer be usable.</p>
-            <div className="modal-actions">
-              <button className="secondary-button" onClick={() => setPendingDelete(null)} disabled={deleting} autoFocus>
-                Cancel
-              </button>
-              <button className="danger-button" onClick={deleteInvite} disabled={deleting}>
-                {deleting ? "Deleting..." : "Delete link"}
-              </button>
-            </div>
-          </section>
-        </div>
+        <ConfirmDialog
+          title="Delete invite link?"
+          confirmLabel="Delete link"
+          busyLabel="Deleting..."
+          danger
+          busy={deleting}
+          onConfirm={deleteInvite}
+          onCancel={() => setPendingDelete(null)}
+        >
+          This invite link will no longer be usable.
+        </ConfirmDialog>
       )}
     </>
   );

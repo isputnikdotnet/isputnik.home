@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Trash2, UserPlus } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { Modal } from "../../../shared/Modal";
+import { Button } from "../../../shared/Button";
 import { LIBRARY_ROLE_OPTIONS, type LibraryMember, type LibraryRole } from "../../audiobooks/types";
 import type { ManagedUser, ManagedGroup } from "../types";
 
@@ -44,14 +46,6 @@ export function LibraryMembersModal({
     load();
   }, [load]);
 
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !saving) onClose();
-    };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [onClose, saving]);
-
   const addGrant = async () => {
     if (!subject) {
       setError("Choose a user or group to grant a role.");
@@ -91,15 +85,12 @@ export function LibraryMembersModal({
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={() => !saving && onClose()}>
-      <div
-        className="confirm-modal library-members-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="library-members-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 id="library-members-title">Members — {library.name}</h2>
+    <Modal
+      title={`Members — ${library.name}`}
+      className="library-members-modal"
+      busy={saving}
+      onClose={onClose}
+    >
         <p className="muted" style={{ fontSize: "0.82rem", lineHeight: 1.4 }}>
           Grant additional users or groups a role on this library — or <strong>Deny</strong> to block
           one. The owner and app admins always have full access and aren't listed here. Public access
@@ -180,9 +171,8 @@ export function LibraryMembersModal({
         )}
 
         <div className="modal-actions">
-          <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>Close</button>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>Close</Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

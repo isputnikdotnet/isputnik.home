@@ -43,14 +43,12 @@
   overflow: hidden;
 }
 
-.filter-modal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 18px;
+/* The shared Modal header inside the filter surface keeps the old
+   filter-modal-head look (full padding + divider). */
+.filter-modal .modal-header {
+  padding: 12px 18px;
   border-bottom: 1px solid var(--line);
 }
-.filter-modal-head h2 { font-size: 1.1rem; margin: 0; }
 
 .filter-modal-body {
   flex: 1;

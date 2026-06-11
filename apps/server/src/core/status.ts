@@ -336,6 +336,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.14.0",
+          label: "Standardized dialogs, buttons & messages",
+          changes: [
+            "Every dialog in the app now uses one shared modal component, so they all look and behave the same: Escape and clicking outside close them, and closing is blocked while a save or delete is running.",
+            "Destructive actions got consistent confirmations — a question naming exactly what will be deleted, a note on what is not affected (your files on disk are never touched), and an explicit red Delete button instead of generic OK/Yes prompts.",
+            "Buttons follow one vocabulary everywhere: Add attaches something existing, Create makes something new, Remove detaches without deleting data, and Delete destroys — always behind a confirmation.",
+            "A new automated check (npm run check:ui) and a written UI convention guide keep future changes — human- or AI-written — on the same standard."
+          ]
+        },
+        {
           version: "0.13.0",
           label: "Library scanning options & unified creation",
           changes: [
