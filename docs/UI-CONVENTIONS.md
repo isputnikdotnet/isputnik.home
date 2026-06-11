@@ -31,11 +31,38 @@ All buttons render through `<Button>`. Variants map to the classes in
 Modifiers: `danger` (rose tint for destructive icon/text/secondary buttons),
 `compact` (42px height for toolbars/rows).
 
+Icon-only control borders/backgrounds are centralized in
+`apps/web/src/styles/tokens.css` as `--icon-control-*`. If a custom icon-only
+surface is unavoidable (for example player or book-detail controls), reuse those
+tokens instead of hard-coding a border.
+
 ```tsx
 <Button variant="primary" type="submit" disabled={saving}>
   {saving ? "Saving…" : "Save changes"}
 </Button>
 <Button variant="icon" danger title="Delete backup" onClick={...}><Trash2 size={15} /></Button>
+```
+
+### SelectMenu — `shared/SelectMenu.tsx`
+
+Use `<SelectMenu>` for dropdown option sets that should look like app controls
+rather than native browser selects. It owns the trigger, popover, selected check
+mark, Escape/outside-click dismissal, ARIA roles, and option icon layout. Do not
+hand-roll one-off dropdown buttons for filters or mode pickers.
+Menu items are borderless rows with shared hover/active states, matching the
+audiobook library selector.
+
+```tsx
+<SelectMenu
+  value={typeFilter}
+  label="Filter by library type"
+  onChange={setTypeFilter}
+  options={[
+    { value: "all", label: "All", icon: <LayoutGrid size={18} /> },
+    { value: "audiobook", label: "Audiobooks", icon: <Headphones size={18} /> },
+    { value: "ebook", label: "Ebooks", icon: <BookOpen size={18} /> }
+  ]}
+/>
 ```
 
 **Verb vocabulary** (keep it consistent):
@@ -61,9 +88,10 @@ Two variants:
 
 Key props: `title` (required — renders as the heading and labels the dialog),
 `busy` (blocks all dismissal while an async action runs), `onSubmit` (renders the
-dialog as a `<form>`), `icon`, `className` (appended), `surfaceClassName`
+dialog as a `<form>`), `icon` (optional title icon), `className` (appended), `surfaceClassName`
 (replaces the surface class for bespoke layout CSS — rare; see `BookFilter`),
-`headerClassName`, `alert` (alertdialog role — set automatically by ConfirmDialog).
+`headerClassName`, `headerAction` (optional header-level action such as Cancel),
+`alert` (alertdialog role — set automatically by ConfirmDialog).
 
 ```tsx
 <Modal title="New tag" busy={creating} onClose={close} onSubmit={submit}>

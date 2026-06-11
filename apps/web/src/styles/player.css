@@ -209,7 +209,7 @@
   gap: 8px;
   width: 42px;
   height: 42px;
-  border: 1px solid color-mix(in srgb, var(--mint) 28%, transparent);
+  border: 1px solid var(--icon-control-border);
   border-radius: 999px;
   color: var(--ink);
   background: var(--player-field);
@@ -224,7 +224,7 @@
 
 .player-btn:hover:not(:disabled),
 .player-btn:focus-visible {
-  border-color: color-mix(in srgb, var(--mint) 68%, transparent);
+  border-color: var(--icon-control-border-hover);
   color: var(--mint);
   background: color-mix(in srgb, var(--mint) 14%, transparent);
   transform: translateY(-1px);
@@ -913,7 +913,7 @@
   min-width: 0;
   padding: 0;
   border-radius: 999px;
-  border: 2px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  border: 2px solid var(--icon-control-border);
   background: color-mix(in srgb, var(--ink) 5%, transparent);
   color: var(--ink);
   box-shadow: none;
@@ -921,7 +921,7 @@
 
 .player-btn-circle:hover:not(:disabled),
 .player-btn-circle:focus-visible {
-  border-color: color-mix(in srgb, var(--ink) 35%, transparent);
+  border-color: var(--icon-control-border-hover);
   background: color-mix(in srgb, var(--ink) 10%, transparent);
   color: var(--ink);
   transform: none;

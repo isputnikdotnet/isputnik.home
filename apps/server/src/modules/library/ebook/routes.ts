@@ -11,9 +11,14 @@ import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { enqueueEbookScan, processEbookScanQueue } from "./scanner.js";
 
 const EBOOK_LIBRARY_LIST_SQL = `
-  SELECT libraries.*, COUNT(DISTINCT books.id) AS book_count
+  SELECT
+    libraries.*,
+    COUNT(DISTINCT books.id) AS book_count,
+    COUNT(book_documents.id) AS file_count,
+    COALESCE(SUM(COALESCE(book_documents.size, 0)), 0) AS total_size_bytes
   FROM libraries
   LEFT JOIN books ON books.library_id = libraries.id AND books.deleted_at IS NULL
+  LEFT JOIN book_documents ON book_documents.book_id = books.id AND book_documents.status = 'available' AND book_documents.deleted_at IS NULL
   WHERE libraries.type = 'ebook' %WHERE%
   GROUP BY libraries.id
   ORDER BY datetime(libraries.created_at) DESC

@@ -509,7 +509,7 @@
   min-width: 32px;
   min-height: 32px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-color: var(--icon-control-border);
   border-radius: 999px;
   color: #fff;
   background: rgba(16, 25, 35, 0.55);
@@ -520,7 +520,7 @@
 
 .icon-button.danger.saved-audiobook-remove:hover {
   color: #fff;
-  border-color: color-mix(in srgb, var(--rose) 60%, transparent);
+  border-color: color-mix(in srgb, var(--rose) 32%, transparent);
   background: color-mix(in srgb, var(--rose) 70%, rgba(16, 25, 35, 0.55));
 }
 

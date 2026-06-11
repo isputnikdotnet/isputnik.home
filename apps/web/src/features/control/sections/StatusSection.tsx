@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Activity, Clock3, Database, HardDrive, RefreshCw, ScrollText, Ticket, UsersRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../../api";
+import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate, formatBytes, formatUptime } from "../../../shared/utils";
 import type { DbInfo, SystemStatus } from "../types";
@@ -43,10 +44,10 @@ export function StatusSection() {
           <p className="eyebrow">System</p>
           <h1>Status</h1>
         </div>
-        <button className="secondary-button compact-button" onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh status"))}>
+        <Button variant="secondary" compact onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh status"))}>
           <RefreshCw size={15} aria-hidden="true" />
           Refresh
-        </button>
+        </Button>
       </div>
 
       {error && <MessageBox tone="error" title="Status error">{error}</MessageBox>}

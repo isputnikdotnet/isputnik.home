@@ -1,65 +1,167 @@
+import { useState } from "react";
+import { ChevronLeft, Folder, FolderOpen } from "lucide-react";
+import { api } from "../../../api";
+import { Button } from "../../../shared/Button";
+import { Modal } from "../../../shared/Modal";
 import type { StorageRoot, StorageBrowse } from "../types";
 
-// Storage-root container select + folder browser used by the create-library wizards.
+// Compact source-folder field for the create-library wizard. Browse opens a
+// separate picker so the details step stays scannable.
 export function SourceFolderPicker({
   storageRoots,
   selectedRootId,
   storageBrowse,
   onBrowse,
+  onRootChange,
   onError
 }: {
   storageRoots: StorageRoot[];
   selectedRootId: string;
   storageBrowse: StorageBrowse | null;
   onBrowse: (rootId: string, relativePath?: string) => Promise<void>;
+  onRootChange: (rootId: string) => void;
   onError: (message: string) => void;
 }) {
-  const browse = (rootId: string, relativePath = "") => {
-    onBrowse(rootId, relativePath).catch((err) =>
-      onError(err instanceof Error ? err.message : "Unable to browse storage container"));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [draftBrowse, setDraftBrowse] = useState<StorageBrowse | null>(null);
+  const [draftRootId, setDraftRootId] = useState(selectedRootId);
+  const [loading, setLoading] = useState(false);
+  const selectedRoot = storageRoots.find((root) => root.id === selectedRootId) ?? storageBrowse?.root ?? null;
+  const folderLabel = storageBrowse?.currentPath || "Choose a folder...";
+  const selectedPath = storageBrowse?.selectedPath ?? "";
+
+  const loadDraft = async (rootId: string, relativePath = "") => {
+    setLoading(true);
+    try {
+      const query = new URLSearchParams({ path: relativePath });
+      const payload = await api<StorageBrowse>(`/api/storage/roots/${rootId}/browse?${query}`);
+      setDraftRootId(rootId);
+      setDraftBrowse(payload);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Unable to browse storage container");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openPicker = () => {
+    setPickerOpen(true);
+    setDraftRootId(selectedRootId);
+    if (storageBrowse && storageBrowse.root.id === selectedRootId) {
+      setDraftBrowse(storageBrowse);
+      return;
+    }
+    if (selectedRootId) void loadDraft(selectedRootId);
+  };
+
+  const useCurrentFolder = async () => {
+    if (!draftBrowse) return;
+    setLoading(true);
+    try {
+      await onBrowse(draftBrowse.root.id, draftBrowse.currentPath);
+      setPickerOpen(false);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Unable to browse storage container");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <>
-      <label className="field">
-        <span>Container</span>
-        <select value={selectedRootId} onChange={(event) => browse(event.target.value)} required>
-          {storageRoots.map((root) => (
-            <option value={root.id} key={root.id}>{root.name}</option>
-          ))}
-        </select>
-      </label>
-      {storageBrowse && (
-        <section className="folder-browser" aria-label="Library folder browser">
-          <div className="folder-browser-head">
-            <div>
-              <strong>{storageBrowse.currentPath || storageBrowse.root.name}</strong>
-              <span>{storageBrowse.selectedPath}</span>
-            </div>
-            {storageBrowse.parentPath !== null && (
-              <button
-                className="secondary-button compact-button"
-                type="button"
-                onClick={() => browse(storageBrowse.root.id, storageBrowse.parentPath ?? "")}
-              >
-                Up
-              </button>
-            )}
-          </div>
-          <div className="folder-list">
-            {storageBrowse.entries.map((entry) => (
-              <button
-                className="folder-row"
-                type="button"
-                key={entry.relativePath}
-                onClick={() => browse(storageBrowse.root.id, entry.relativePath)}
-              >
-                {entry.name}
-              </button>
+      <div className="source-folder-grid">
+        <label className="field">
+          <span>Container</span>
+          <select value={selectedRootId} onChange={(event) => onRootChange(event.target.value)} required>
+            {storageRoots.map((root) => (
+              <option value={root.id} key={root.id}>{root.name}</option>
             ))}
-            {storageBrowse.entries.length === 0 && <p className="management-empty">No child folders found. The current folder can still be used.</p>}
+          </select>
+        </label>
+
+        <div className="field">
+          <span>Select folder</span>
+          <div className="source-folder-control">
+            <Folder size={19} aria-hidden="true" />
+            <span>{folderLabel}</span>
+            <Button variant="secondary" compact onClick={openPicker}>
+              Browse
+            </Button>
           </div>
+        </div>
+      </div>
+
+      {selectedRoot && (
+        <section className={`source-folder-summary${selectedPath ? "" : " pending"}`} aria-label="Selected storage container">
+          <strong>{selectedRoot.name}</strong>
+          <span>{selectedPath || "No library folder selected"}</span>
         </section>
+      )}
+
+      {pickerOpen && (
+        <Modal
+          title="Select library folder"
+          className="folder-picker-modal"
+          onClose={() => setPickerOpen(false)}
+        >
+          <p>Choose a folder inside an approved container.</p>
+
+          <label className="field">
+            <span>Container</span>
+            <select value={draftRootId} onChange={(event) => void loadDraft(event.target.value)} required>
+              {storageRoots.map((root) => (
+                <option value={root.id} key={root.id}>{root.name}</option>
+              ))}
+            </select>
+          </label>
+
+          {draftBrowse && (
+            <section className="folder-picker-browser" aria-label="Library folder browser">
+              <div className="folder-picker-head">
+                <div>
+                  <strong>{draftBrowse.currentPath || draftBrowse.root.name}</strong>
+                  <span>{draftBrowse.selectedPath}</span>
+                </div>
+                {draftBrowse.parentPath !== null && (
+                  <Button
+                    variant="secondary"
+                    compact
+                    onClick={() => void loadDraft(draftBrowse.root.id, draftBrowse.parentPath ?? "")}
+                  >
+                    <ChevronLeft size={16} aria-hidden="true" />
+                    <span>Up</span>
+                  </Button>
+                )}
+              </div>
+
+              <div className="folder-picker-list">
+                {draftBrowse.entries.map((entry) => (
+                  <Button
+                    variant="text"
+                    className="folder-picker-row"
+                    key={entry.relativePath}
+                    onClick={() => void loadDraft(draftBrowse.root.id, entry.relativePath)}
+                  >
+                    <FolderOpen size={17} aria-hidden="true" />
+                    <span>{entry.name}</span>
+                  </Button>
+                ))}
+                {draftBrowse.entries.length === 0 && (
+                  <p className="management-empty">No child folders found. The current folder can still be used.</p>
+                )}
+              </div>
+            </section>
+          )}
+
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setPickerOpen(false)} disabled={loading}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={() => void useCurrentFolder()} disabled={!draftBrowse || loading}>
+              {loading ? "Loading..." : "Use this folder"}
+            </Button>
+          </div>
+        </Modal>
       )}
     </>
   );

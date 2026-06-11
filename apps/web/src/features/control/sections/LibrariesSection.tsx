@@ -1,11 +1,26 @@
-import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
-import { Plus, RefreshCw, Pencil, Trash2, Users, KeyRound, Headphones, BookOpen } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, type FormEvent, type ReactNode } from "react";
+import {
+  Plus,
+  RefreshCw,
+  Pencil,
+  Trash2,
+  Users,
+  KeyRound,
+  Headphones,
+  BookOpen,
+  Info,
+  Search,
+  Folder,
+  LayoutGrid,
+  LibraryBig
+} from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
-import { formatManagedDate } from "../../../shared/utils";
+import { SelectMenu } from "../../../shared/SelectMenu";
+import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import type { AudiobookLibrary, PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults } from "../../audiobooks/types";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot } from "../types";
 import { LibraryCoreFields } from "../libraries/LibraryCoreFields";
@@ -35,6 +50,52 @@ const TYPE_FILTERS: { value: "all" | ManagedLibraryType; label: string }[] = [
   { value: "ebook", label: "Ebooks" }
 ];
 
+const MODE_LABEL: Record<LibraryMode, string> = {
+  managed: "Managed",
+  external: "External / read-only"
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  viewer: "Viewer",
+  member: "Member",
+  contributor: "Contributor",
+  manager: "Manager",
+  deny: "Denied"
+};
+
+const SCAN_STATUS_LABEL: Record<ManagedLibrary["scanStatus"], string> = {
+  idle: "Idle",
+  scanning: "Scanning",
+  error: "Error"
+};
+
+function formatCount(value: number | null | undefined) {
+  return value == null ? "—" : value.toLocaleString();
+}
+
+function formatLibrarySize(value: number | null | undefined) {
+  return value == null ? "—" : formatBytes(value);
+}
+
+function roleLabel(role: string | null | undefined) {
+  return role ? ROLE_LABEL[role] ?? role : "None";
+}
+
+function accessSummary(library: ManagedLibrary) {
+  return library.visibility === "public" ? "Public" : "Private";
+}
+
+function capabilityLabels(library: ManagedLibrary) {
+  return [
+    library.canDownload ? "Download" : null,
+    library.canWrite ? "Edit content" : null,
+    library.canUpload ? "Upload" : null,
+    library.canCurate ? "Curate" : null,
+    library.canManageMembers ? "Manage members" : null,
+    library.canManageLibrary ? "Manage settings" : null
+  ].filter(Boolean) as string[];
+}
+
 export function LibrariesSection() {
   const [libraries, setLibraries] = useState<ManagedLibrary[]>([]);
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
@@ -45,6 +106,8 @@ export function LibrariesSection() {
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
   const [selectedRootId, setSelectedRootId] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | ManagedLibraryType>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [infoLibrary, setInfoLibrary] = useState<ManagedLibrary | null>(null);
   const [rescanTarget, setRescanTarget] = useState<ManagedLibrary | null>(null);
   const [rescanSources, setRescanSources] = useState<ScanSource[]>([]);
   const [rescanEncoding, setRescanEncoding] = useState("");
@@ -236,19 +299,71 @@ export function LibrariesSection() {
     }
   };
 
+  const libraryOwnerLabel = useCallback(
+    (library: ManagedLibrary) => {
+      if (library.ownerType === "user") {
+        return users.find((user) => user.id === library.ownerId)?.displayName ?? "Unknown user";
+      }
+      if (library.ownerType === "group") {
+        const groupName = groups.find((group) => group.id === library.ownerId)?.name ?? "Unknown group";
+        return `${groupName} (group)`;
+      }
+      return "System library";
+    },
+    [groups, users]
+  );
+
+  const scanSourceSummary = useCallback(
+    (library: ManagedLibrary) => {
+      const sources = library.settings?.scanSources;
+      if (!sources?.length) return "Default";
+      const enabled = sources
+        .filter((source) => source.enabled)
+        .map((source) => metadataSources.find((info) => info.id === source.id)?.label ?? source.id);
+      return enabled.length ? enabled.join(" > ") : "None";
+    },
+    [metadataSources]
+  );
+
+  const extensionSummary = useCallback(
+    (library: ManagedLibrary) => {
+      const extensions = library.settings?.scanExtensions ?? typeDefaults[library.type]?.extensions ?? [];
+      return extensions.length ? extensions.join(", ") : "Not configured";
+    },
+    [typeDefaults]
+  );
+
   const visibleLibraries = useMemo(
-    () => (typeFilter === "all" ? libraries : libraries.filter((library) => library.type === typeFilter)),
-    [libraries, typeFilter]
+    () => {
+      const typeFiltered = typeFilter === "all" ? libraries : libraries.filter((library) => library.type === typeFilter);
+      const query = searchQuery.trim().toLowerCase();
+      if (!query) return typeFiltered;
+      return typeFiltered.filter((library) => [
+        library.name,
+        library.sourcePath ?? "",
+        TYPE_META[library.type].label,
+        libraryOwnerLabel(library),
+        accessSummary(library),
+        library.scanStatus
+      ].some((value) => value.toLowerCase().includes(query)));
+    },
+    [libraries, libraryOwnerLabel, searchQuery, typeFilter]
   );
 
   const setupReady = Boolean(librarySettings?.thumbnailPathReady) && storageRoots.length > 0;
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Digital Library</p>
-          <h1>Libraries</h1>
+      <div className="section-head library-section-head">
+        <div className="library-title-wrap">
+          <span className="library-page-icon" aria-hidden="true">
+            <LibraryBig size={30} />
+          </span>
+          <div className="library-heading-copy">
+            <p className="eyebrow">Digital Library</p>
+            <h1>Libraries</h1>
+            <p className="section-description">Manage your digital libraries and their content.</p>
+          </div>
         </div>
         <div className="row-actions">
           <Button
@@ -270,51 +385,75 @@ export function LibrariesSection() {
         </MessageBox>
       )}
 
-      <div className="library-type-filter" role="radiogroup" aria-label="Filter by library type">
-        {TYPE_FILTERS.map((option) => (
-          <Button
-            key={option.value}
-            compact
-            variant={typeFilter === option.value ? "primary" : "secondary"}
-            role="radio"
-            aria-checked={typeFilter === option.value}
-            onClick={() => setTypeFilter(option.value)}
-          >
-            {option.label}
-          </Button>
-        ))}
+      <div className="library-controls">
+        <SelectMenu
+          className="library-type-filter"
+          value={typeFilter}
+          label="Filter by library type"
+          onChange={setTypeFilter}
+          options={TYPE_FILTERS.map((option) => ({
+            ...option,
+            icon: option.value === "audiobook"
+              ? <Headphones size={18} />
+              : option.value === "ebook"
+                ? <BookOpen size={18} />
+                : <LayoutGrid size={18} />
+          }))}
+        />
+        <label className="search-field library-search">
+          <Search size={17} aria-hidden="true" />
+          <span className="sr-only">Search libraries</span>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search libraries..."
+          />
+        </label>
       </div>
 
       {visibleLibraries.length === 0 ? (
-        <p className="management-empty">No libraries configured.</p>
+        <p className="management-empty">
+          {libraries.length === 0 ? "No libraries configured." : "No libraries match these filters."}
+        </p>
       ) : (
-        <div className="datagrid-wrap">
-          <table className="datagrid">
+        <div className="datagrid-wrap library-table-wrap">
+          <table className="datagrid library-table">
             <thead>
               <tr>
                 <th>Library</th>
                 <th>Type</th>
-                <th>Visibility</th>
-                <th className="col-num">Books</th>
+                <th>Access</th>
                 <th className="col-num">Files</th>
-                <th className="col-scan">Last scanned</th>
-                <th>Status</th>
-                <th className="col-actions"></th>
+                <th className="col-num">Size</th>
+                <th className="col-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
               {visibleLibraries.map((library) => {
-                const ownerUser = library.ownerType === "user" ? users.find((u) => u.id === library.ownerId) : null;
-                const ownerGroup = library.ownerType === "group" ? groups.find((g) => g.id === library.ownerId) : null;
                 const TypeIcon = TYPE_META[library.type].icon;
                 return (
                   <tr key={library.id}>
                     <td>
-                      <div className="datagrid-primary">
-                        <strong>{library.name}</strong>
-                        <small>{library.sourcePath ?? "Source path hidden"}</small>
-                        {ownerUser && <small>Owner: {ownerUser.displayName}</small>}
-                        {ownerGroup && <small>Owner: {ownerGroup.name} (group)</small>}
+                      <div className="library-name-cell">
+                        <span className={`library-folder-icon ${library.type}`} aria-hidden="true">
+                          <Folder size={21} />
+                        </span>
+                        <div className="library-name-copy">
+                          <span className="library-name-line">
+                            <strong>{library.name}</strong>
+                            <Button
+                              variant="icon"
+                              compact
+                              className="library-info-button"
+                              title={`View ${library.name} details`}
+                              aria-label={`View ${library.name} details`}
+                              onClick={() => setInfoLibrary(library)}
+                            >
+                              <Info size={14} />
+                            </Button>
+                          </span>
+                          <small>{libraryOwnerLabel(library)}</small>
+                        </div>
                       </div>
                     </td>
                     <td>
@@ -323,18 +462,14 @@ export function LibrariesSection() {
                       </span>
                     </td>
                     <td>
-                      <span className={`status-badge ${library.visibility}`}>
-                        {library.visibility === "public" ? "Public" : "Private"}
+                      <span className="library-access-cell">
+                        <span className={`status-badge ${library.visibility}`}>
+                          {library.visibility === "public" ? "Public" : "Private"}
+                        </span>
                       </span>
                     </td>
-                    <td className="col-num datagrid-muted">{library.bookCount}</td>
-                    <td className="col-num datagrid-muted">{library.fileCount ?? "—"}</td>
-                    <td className="col-scan datagrid-muted">
-                      {library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : "Not yet"}
-                    </td>
-                    <td>
-                      <span className={`status-badge ${library.scanStatus}`}>{library.scanStatus}</span>
-                    </td>
+                    <td className="col-num datagrid-muted">{formatCount(library.fileCount)}</td>
+                    <td className="col-num datagrid-muted">{formatLibrarySize(library.totalSizeBytes)}</td>
                     <td className="col-actions">
                       <div className="row-actions">
                         {library.canManageLibrary ? (
@@ -342,6 +477,7 @@ export function LibrariesSection() {
                             <Button
                               variant="icon"
                               title="Manage members & roles"
+                              aria-label={`Manage ${library.name} members and roles`}
                               onClick={() => setMembersLibrary(library)}
                             >
                               <Users size={15} />
@@ -349,24 +485,26 @@ export function LibrariesSection() {
                             <Button
                               variant="icon"
                               title="Edit library"
+                              aria-label={`Edit ${library.name}`}
                               onClick={() => openEdit(library)}
                             >
                               <Pencil size={15} />
                             </Button>
                             <Button
-                              compact
+                              variant="icon"
                               className="rescan-library-button"
                               disabled={library.scanStatus === "scanning" || rescanningId === library.id}
                               onClick={() => startRescan(library)}
-                              title={library.scanStatus === "scanning" ? "Scan already in progress" : "Rescan library"}
+                              title={library.scanStatus === "scanning" ? "Scanning..." : "Rescan library"}
+                              aria-label={`${library.scanStatus === "scanning" ? "Scanning" : "Rescan"} ${library.name}`}
                             >
                               <RefreshCw size={14} />
-                              {library.scanStatus === "scanning" ? "Scanning..." : "Rescan"}
                             </Button>
                             <Button
                               variant="icon"
                               danger
                               title="Delete library"
+                              aria-label={`Delete ${library.name}`}
                               onClick={() => setDeleteConfirmLibrary(library)}
                             >
                               <Trash2 size={15} />
@@ -375,6 +513,7 @@ export function LibrariesSection() {
                         ) : (
                           // Private library this admin can't access — take ownership (logged) to manage it.
                           <Button
+                            variant="secondary"
                             compact
                             title="This private library is owned by someone else. Take ownership to manage it (logged)."
                             onClick={() => takeOwnership(library)}
@@ -417,6 +556,16 @@ export function LibrariesSection() {
         />
       )}
 
+      {infoLibrary && (
+        <LibraryDetailsModal
+          library={infoLibrary}
+          ownerLabel={libraryOwnerLabel(infoLibrary)}
+          scanSources={scanSourceSummary(infoLibrary)}
+          extensions={extensionSummary(infoLibrary)}
+          onClose={() => setInfoLibrary(null)}
+        />
+      )}
+
       {rescanTarget && (
         <Modal
           title={`Rescan "${rescanTarget.name}"`}
@@ -453,7 +602,7 @@ export function LibrariesSection() {
       {deleteConfirmLibrary && (
         <ConfirmDialog
           title={`Delete "${deleteConfirmLibrary.name}"?`}
-          confirmLabel="Yes, delete library"
+          confirmLabel="Delete library"
           busyLabel="Deleting…"
           confirmIcon={<Trash2 size={15} />}
           danger
@@ -521,5 +670,115 @@ export function LibrariesSection() {
         </Modal>
       )}
     </>
+  );
+}
+
+function LibraryDetailsModal({
+  library,
+  ownerLabel,
+  scanSources,
+  extensions,
+  onClose
+}: {
+  library: ManagedLibrary;
+  ownerLabel: string;
+  scanSources: string;
+  extensions: string;
+  onClose: () => void;
+}) {
+  const TypeIcon = TYPE_META[library.type].icon;
+  const capabilities = capabilityLabels(library);
+
+  return (
+    <Modal title={`${library.name} details`} className="library-info-modal" onClose={onClose}>
+      <div className="library-info-hero">
+        <span className={`library-type-icon ${library.type}`} aria-hidden="true">
+          <TypeIcon size={22} />
+        </span>
+        <div>
+          <strong>{library.name}</strong>
+          <span>{TYPE_META[library.type].label}</span>
+        </div>
+      </div>
+
+      <div className="library-info-grid">
+        <section className="library-info-section">
+          <h3>Library</h3>
+          <dl className="library-info-list">
+            <LibraryInfoRow label="Name">{library.name}</LibraryInfoRow>
+            <LibraryInfoRow label="Type">{TYPE_META[library.type].label}</LibraryInfoRow>
+            <LibraryInfoRow label="Path">
+              <code>{library.sourcePath ?? "Source path hidden"}</code>
+            </LibraryInfoRow>
+            <LibraryInfoRow label="Owner">{ownerLabel}</LibraryInfoRow>
+          </dl>
+        </section>
+
+        <section className="library-info-section">
+          <h3>Access</h3>
+          <dl className="library-info-list">
+            <LibraryInfoRow label="Access">{accessSummary(library)}</LibraryInfoRow>
+            <LibraryInfoRow label="Mode">{MODE_LABEL[library.mode ?? "managed"]}</LibraryInfoRow>
+            <LibraryInfoRow label="Your role">{roleLabel(library.myRole)}</LibraryInfoRow>
+            <LibraryInfoRow label="Capabilities">
+              {capabilities.length > 0 ? (
+                <span className="library-info-chips">
+                  {capabilities.map((capability) => (
+                    <span key={capability} className="library-info-chip">{capability}</span>
+                  ))}
+                </span>
+              ) : (
+                "None"
+              )}
+            </LibraryInfoRow>
+          </dl>
+        </section>
+
+        <section className="library-info-section">
+          <h3>Contents</h3>
+          <dl className="library-info-list">
+            <LibraryInfoRow label="Files">{formatCount(library.fileCount)}</LibraryInfoRow>
+            <LibraryInfoRow label="Size">{formatLibrarySize(library.totalSizeBytes)}</LibraryInfoRow>
+            <LibraryInfoRow label="Status">
+              <span className={`status-badge ${library.scanStatus}`}>{SCAN_STATUS_LABEL[library.scanStatus]}</span>
+            </LibraryInfoRow>
+            <LibraryInfoRow label="Last scanned">
+              {library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : "Not yet"}
+            </LibraryInfoRow>
+          </dl>
+        </section>
+
+        <section className="library-info-section">
+          <h3>Scanning</h3>
+          <dl className="library-info-list">
+            <LibraryInfoRow label="Sources">{scanSources}</LibraryInfoRow>
+            <LibraryInfoRow label="Extensions">{extensions}</LibraryInfoRow>
+            <LibraryInfoRow label="Upload limit">
+              {library.settings?.maxUploadMB != null ? `${library.settings.maxUploadMB} MB` : "No limit"}
+            </LibraryInfoRow>
+            {library.type === "audiobook" && (
+              <LibraryInfoRow label="Tag encoding">
+                {library.settings?.tagEncoding ?? "Library default"}
+              </LibraryInfoRow>
+            )}
+            <LibraryInfoRow label="Created">{formatManagedDate(library.createdAt)}</LibraryInfoRow>
+            <LibraryInfoRow label="Updated">{formatManagedDate(library.updatedAt)}</LibraryInfoRow>
+          </dl>
+        </section>
+      </div>
+
+      <div className="modal-actions">
+        <Button variant="secondary" onClick={onClose} autoFocus>Close</Button>
+      </div>
+    </Modal>
+  );
+}
+
+function LibraryInfoRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
   );
 }

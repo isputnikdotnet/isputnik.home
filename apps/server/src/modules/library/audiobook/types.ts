@@ -13,6 +13,7 @@ export interface AudiobookLibraryRow {
   updated_at: string;
   book_count: number;
   file_count: number;
+  total_size_bytes: number;
 }
 
 export interface AudiobookBookRow {

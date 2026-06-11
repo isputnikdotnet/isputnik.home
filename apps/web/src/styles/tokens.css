@@ -17,6 +17,13 @@
   --blue: #8eb4bf;
   --success: #90bd99;
   --shadow: rgba(0, 7, 9, 0.42);
+
+  /* Shared icon-only controls. Normal borders are intentionally quiet; tune here. */
+  --icon-control-border: transparent;
+  --icon-control-border-hover: color-mix(in srgb, var(--mint) 34%, transparent);
+  --icon-control-focus-ring: color-mix(in srgb, var(--mint) 24%, transparent);
+  --icon-control-bg: var(--surface-raised);
+  --icon-control-bg-hover: var(--hover);
 }
 
 :root[data-theme="expanse"] {

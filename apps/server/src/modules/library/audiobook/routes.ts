@@ -11,6 +11,20 @@ import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import type { AudiobookLibraryRow } from "./types.js";
 
+const AUDIOBOOK_LIBRARY_LIST_SQL = `
+  SELECT
+    libraries.*,
+    COUNT(DISTINCT books.id) AS book_count,
+    COUNT(book_files.id) AS file_count,
+    COALESCE(SUM(COALESCE(book_files.size, 0)), 0) AS total_size_bytes
+  FROM libraries
+  LEFT JOIN books ON books.library_id = libraries.id AND books.deleted_at IS NULL
+  LEFT JOIN book_files ON book_files.book_id = books.id AND book_files.status = 'available' AND book_files.deleted_at IS NULL
+  WHERE libraries.type = 'audiobook' %WHERE%
+  GROUP BY libraries.id
+  ORDER BY datetime(libraries.created_at) DESC
+`;
+
 export async function audiobookRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/audiobook-libraries", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(coreLibraryCreateSchema, request.body);
@@ -42,18 +56,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/audiobook-libraries", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
-    const rows = db.prepare(`
-      SELECT
-        libraries.*,
-        COUNT(DISTINCT books.id) AS book_count,
-        COUNT(book_files.id) AS file_count
-      FROM libraries
-      LEFT JOIN books ON books.library_id = libraries.id AND books.deleted_at IS NULL
-      LEFT JOIN book_files ON book_files.book_id = books.id AND book_files.status = 'available'
-      WHERE libraries.type = 'audiobook'
-      GROUP BY libraries.id
-      ORDER BY datetime(libraries.created_at) DESC
-    `).all() as AudiobookLibraryRow[];
+    const rows = db.prepare(AUDIOBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "")).all() as AudiobookLibraryRow[];
 
     // Control Panel passes ?manage=1: admins then see ALL libraries (to administer the
     // system), even private ones they can't access — those show with no caps + a
@@ -88,14 +91,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       return;
     }
 
-    const updated = db.prepare(`
-      SELECT libraries.*, COUNT(DISTINCT books.id) AS book_count, COUNT(book_files.id) AS file_count
-      FROM libraries
-      LEFT JOIN books ON books.library_id = libraries.id AND books.deleted_at IS NULL
-      LEFT JOIN book_files ON book_files.book_id = books.id AND book_files.status = 'available'
-      WHERE libraries.id = ?
-      GROUP BY libraries.id
-    `).get(id) as AudiobookLibraryRow;
+    const updated = db.prepare(AUDIOBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as AudiobookLibraryRow;
 
     reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
   });

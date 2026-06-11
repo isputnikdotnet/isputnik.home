@@ -19,8 +19,9 @@ export interface LibraryListRow {
   created_at: string;
   updated_at: string;
   book_count: number;
-  // Audiobook lists count audio files; types without per-item files omit this.
+  // Audiobooks count audio files; ebooks count available documents.
   file_count?: number;
+  total_size_bytes?: number | null;
 }
 
 export function publicLibrary(row: LibraryListRow, includeSourcePath: boolean, caps: LibraryCapabilities) {
@@ -53,6 +54,7 @@ export function publicLibrary(row: LibraryListRow, includeSourcePath: boolean, c
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     bookCount: row.book_count,
-    fileCount: row.file_count ?? null
+    fileCount: row.file_count ?? null,
+    totalSizeBytes: row.total_size_bytes ?? null
   };
 }

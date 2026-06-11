@@ -22,6 +22,7 @@ export function Modal({
   className,
   surfaceClassName,
   headerClassName,
+  headerAction,
   style,
   children
 }: {
@@ -39,6 +40,8 @@ export function Modal({
   surfaceClassName?: string;
   /** Extra class on the panel header row (e.g. "book-metadata-header"). */
   headerClassName?: string;
+  /** Optional action rendered in the modal header, such as a text Cancel button. */
+  headerAction?: React.ReactNode;
   style?: React.CSSProperties;
   children: React.ReactNode;
 }) {
@@ -72,18 +75,31 @@ export function Modal({
           {icon && <span className="book-metadata-title-icon" aria-hidden="true">{icon}</span>}
           <h2 id={titleId}>{title}</h2>
         </div>
-        <button
-          type="button"
-          className="modal-close"
-          onClick={onClose}
-          disabled={busy}
-          aria-label="Close"
-        >
-          <X size={20} />
-        </button>
+        <div className="modal-header-actions">
+          {headerAction}
+          <button
+            type="button"
+            className="modal-close"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
+        </div>
       </div>
     ) : (
-      <h2 id={titleId}>{title}</h2>
+      headerAction || icon ? (
+        <div className="modal-title-row">
+          <div className="modal-title-heading">
+            {icon && <span className="modal-title-icon" aria-hidden="true">{icon}</span>}
+            <h2 id={titleId}>{title}</h2>
+          </div>
+          <div className="modal-title-action">{headerAction}</div>
+        </div>
+      ) : (
+        <h2 id={titleId}>{title}</h2>
+      )
     );
 
   const body = (

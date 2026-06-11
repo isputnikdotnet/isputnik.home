@@ -12,6 +12,7 @@ export interface MetadataSourceDefinition {
   description: string;
   appliesTo: LibraryType[];
   defaultEnabled: boolean;
+  recommended?: boolean;
   // When enabled, this source also changes how files are grouped into books
   // (folder_structure: top-level folder = one book).
   affectsGrouping?: boolean;
@@ -19,23 +20,24 @@ export interface MetadataSourceDefinition {
 
 export const METADATA_SOURCES: MetadataSourceDefinition[] = [
   {
+    id: "file_metadata",
+    label: "File metadata",
+    description: "Scan files and extract embedded metadata (title, author, narrator, tags, etc.).",
+    appliesTo: ["audiobook", "ebook"],
+    defaultEnabled: true,
+    recommended: true
+  },
+  {
     id: "metadata_files",
-    label: "Metadata files in folders",
-    description: "Read metadata.json files placed next to the book files.",
+    label: "Folder metadata",
+    description: "Read and store metadata from folders (e.g., .json, .nfo).",
     appliesTo: ["audiobook"],
     defaultEnabled: true
   },
   {
-    id: "file_metadata",
-    label: "File metadata",
-    description: "Read embedded metadata such as audio tags or EPUB details.",
-    appliesTo: ["audiobook", "ebook"],
-    defaultEnabled: true
-  },
-  {
     id: "folder_structure",
-    label: "Folder structure",
-    description: "Each top-level folder becomes a book; every file beneath it becomes a track. Folder and file names supply titles.",
+    label: "Treat folder as book",
+    description: "Each folder will be treated as a book. All audio files inside will be grouped together, regardless of author.",
     appliesTo: ["audiobook"],
     defaultEnabled: false,
     affectsGrouping: true

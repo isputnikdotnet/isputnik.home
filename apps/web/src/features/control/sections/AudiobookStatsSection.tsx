@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { BookOpen, Clock3, HardDrive, Library, Mic2, RefreshCw, UserRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../../api";
+import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatBytes } from "../../../shared/utils";
 import type { PersonStatusStats, SystemStatus } from "../types";
@@ -73,10 +74,10 @@ export function AudiobookStatsSection() {
           <p className="eyebrow">Digital Library</p>
           <h1>Audiobook stats</h1>
         </div>
-        <button className="secondary-button compact-button" onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh stats"))}>
+        <Button variant="secondary" compact onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh stats"))}>
           <RefreshCw size={15} aria-hidden="true" />
           Refresh
-        </button>
+        </Button>
       </div>
 
       {error && <MessageBox tone="error" title="Stats error">{error}</MessageBox>}

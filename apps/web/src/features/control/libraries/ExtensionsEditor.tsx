@@ -5,11 +5,13 @@ import { X } from "lucide-react";
 export function ExtensionsEditor({
   extensions,
   onChange,
-  defaults
+  defaults,
+  label = "File extensions (scanning & upload)"
 }: {
   extensions: string[];
   onChange: (extensions: string[]) => void;
   defaults: string[];
+  label?: string;
 }) {
   const [draft, setDraft] = useState("");
 
@@ -24,7 +26,7 @@ export function ExtensionsEditor({
 
   return (
     <div className="field">
-      <span>File extensions (scanning &amp; upload)</span>
+      <span>{label}</span>
       <div className="extension-chips">
         {extensions.map((extension) => (
           <span className="extension-chip" key={extension}>

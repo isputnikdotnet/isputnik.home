@@ -8,6 +8,7 @@ export function Field({
   type = "text",
   minLength,
   autoComplete,
+  placeholder,
   required = true
 }: {
   label: string;
@@ -16,6 +17,7 @@ export function Field({
   type?: string;
   minLength?: number;
   autoComplete?: string;
+  placeholder?: string;
   required?: boolean;
 }) {
   const id = useMemo(() => label.toLowerCase().replace(/\s+/g, "-"), [label]);
@@ -33,6 +35,7 @@ export function Field({
           value={value}
           minLength={minLength}
           autoComplete={autoComplete}
+          placeholder={placeholder}
           onChange={(event) => onChange(event.target.value)}
           required={required}
         />

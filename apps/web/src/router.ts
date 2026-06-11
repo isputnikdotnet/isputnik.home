@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "about" | "libraries" | "librariesStats" | "media" | "otherMedia" | "storage" | "groups" | "jobs" | "backup" | "categories" | "tags" | "config";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "about" | "libraries" | "media" | "otherMedia" | "storage" | "groups" | "jobs" | "backup" | "categories" | "tags" | "config";
 
 export type Route =
   | { name: "install" }
@@ -173,6 +173,10 @@ export function getRoute(): Route {
     return { name: "control", section: "status" };
   }
 
+  if (["/control/status/audiobook-stats", "/control/status/stats", "/control/library/stats", "/control/libraries/stats"].includes(path)) {
+    return { name: "control", section: "statusStats" };
+  }
+
   if (path === "/control/storage") {
     return { name: "control", section: "storage" };
   }
@@ -188,10 +192,6 @@ export function getRoute(): Route {
 
   if (["/control/maintenance/backup", "/control/system/backup"].includes(path)) {
     return { name: "control", section: "backup" };
-  }
-
-  if (["/control/library/stats", "/control/libraries/stats"].includes(path)) {
-    return { name: "control", section: "librariesStats" };
   }
 
   if (["/control/library", "/control/libraries"].includes(path)) {

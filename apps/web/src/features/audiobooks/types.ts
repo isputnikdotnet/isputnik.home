@@ -19,6 +19,7 @@ export interface MetadataSourceInfo {
   description: string;
   appliesTo: string[];
   defaultEnabled: boolean;
+  recommended?: boolean;
   affectsGrouping?: boolean;
 }
 
@@ -62,6 +63,7 @@ export interface AudiobookLibrary {
   updatedAt: string;
   bookCount: number;
   fileCount: number;
+  totalSizeBytes: number | null;
 }
 
 // Per-book capability flags returned alongside a book detail, derived from the

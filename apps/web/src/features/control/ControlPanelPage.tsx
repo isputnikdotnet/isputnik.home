@@ -49,11 +49,11 @@ export function ControlPanelPage({
           {(section === "users" || section === "groups" || section === "invites" || section === "sessions") && <AccountsSection section={section} currentUser={user} />}
           {section === "logs"      && <LogsSection />}
           {(section === "jobs" || section === "backup") && <MaintenanceSection section={section} />}
-          {section === "status"    && <StatusSection />}
+          {(section === "status" || section === "statusStats") && <StatusControl section={section} />}
           {section === "config"    && <ConfigSection />}
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
-          {(section === "libraries" || section === "librariesStats") && <LibrariesControl section={section} />}
+          {section === "libraries" && <LibrariesSection />}
           {section === "media"     && <ComingSoonSection title="Gallery" blurb="Photo and video library types — albums, thumbnails, and streaming playback — are planned." />}
           {section === "otherMedia" && <ComingSoonSection title="Other Media" blurb="A flexible library type for media that isn't an audiobook, photo, or video is planned." />}
           {section === "categories" && categoryId !== undefined && <CategoryEditorPage categoryId={categoryId} />}
@@ -72,7 +72,7 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
 
       <div className="home-control-group">
         <p>Application</p>
-        <ControlNavLink icon={Activity} label="Status" href="/control/status" active={section === "status"} />
+        <ControlNavLink icon={Activity} label="Status" href="/control/status" active={["status", "statusStats"].includes(section)} />
         <ControlNavLink icon={Settings} label="Config" href="/control/config" active={section === "config"} />
         <ControlNavLink icon={Tags} label="Labels" href="/control/categories" active={section === "categories" || section === "tags"} />
         <ControlNavLink icon={ScrollText} label="Logs" href="/control/logs" active={section === "logs"} />
@@ -82,7 +82,7 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
       <div className="home-control-group">
         <p>Digital Library</p>
         <ControlNavLink icon={HardDrive} label="Storage" href="/control/storage" active={section === "storage"} />
-        <ControlNavLink icon={LibraryBig} label="Libraries" href="/control/libraries" active={["libraries", "librariesStats"].includes(section)} />
+        <ControlNavLink icon={LibraryBig} label="Libraries" href="/control/libraries" active={section === "libraries"} />
         <ControlNavLink icon={Image} label="Gallery" href="/control/media" active={section === "media"} soon />
         <ControlNavLink icon={FileStack} label="Other Media" href="/control/other-media" active={section === "otherMedia"} soon />
       </div>
@@ -128,7 +128,7 @@ interface ControlTab {
   soon?: boolean;
 }
 
-// Shared in-page tab bar for the grouped control sections (Audiobooks, Labels,
+// Shared in-page tab bar for the grouped control sections (Status, Labels,
 // Accounts, Maintenance). Each tab is a real link so it stays deep-linkable.
 function ControlTabs({ tabs }: { tabs: ControlTab[] }) {
   return (
@@ -150,15 +150,15 @@ function ControlTabs({ tabs }: { tabs: ControlTab[] }) {
   );
 }
 
-function LibrariesControl({ section }: { section: "libraries" | "librariesStats" }) {
+function StatusControl({ section }: { section: "status" | "statusStats" }) {
   return (
     <>
       <ControlTabs tabs={[
-        { label: "Libraries", href: "/control/libraries", active: section === "libraries" },
-        { label: "Audiobook stats", href: "/control/libraries/stats", active: section === "librariesStats" }
+        { label: "System", href: "/control/status", active: section === "status" },
+        { label: "Audiobook stats", href: "/control/status/audiobook-stats", active: section === "statusStats" }
       ]} />
-      {section === "libraries"      && <LibrariesSection />}
-      {section === "librariesStats" && <AudiobookStatsSection />}
+      {section === "status"      && <StatusSection />}
+      {section === "statusStats" && <AudiobookStatsSection />}
     </>
   );
 }
