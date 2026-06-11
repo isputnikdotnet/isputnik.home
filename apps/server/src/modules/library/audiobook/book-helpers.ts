@@ -462,12 +462,13 @@ export function updateManualMetadata(bookId: string, metadata: z.infer<typeof ma
     setEntityTags("book", bookId, metadata.tags);
   })();
 
+  // A book edited by hand owns its series too, so the scanner leaves it alone.
   if (metadata.series) {
     const series = upsertSeries(current.library_id, metadata.series);
-    db.prepare("UPDATE books SET series_id = ?, series_position = ? WHERE id = ?")
+    db.prepare("UPDATE books SET series_id = ?, series_position = ?, series_source = 'manual' WHERE id = ?")
       .run(series.id, metadata.seriesPosition ?? null, bookId);
   } else {
-    db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE id = ?").run(bookId);
+    db.prepare("UPDATE books SET series_id = NULL, series_position = NULL, series_source = 'manual' WHERE id = ?").run(bookId);
   }
 
   exportBookMetadata(bookId);

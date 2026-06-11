@@ -1,17 +1,16 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   ArrowRight,
   BookOpen,
   Check,
+  ChevronDown,
+  ChevronUp,
+  ClipboardList,
   FileText,
-  Globe2,
   Headphones,
-  Eye,
   Image as ImageIcon,
   LibraryBig,
-  Shield,
   SlidersHorizontal,
-  UserRound,
   X,
   Zap,
   type LucideIcon
@@ -29,6 +28,7 @@ import { ScanSourcesEditor } from "./ScanSourcesEditor";
 import { UploadSettingsFields } from "./UploadSettingsFields";
 import { SourceFolderPicker } from "./SourceFolderPicker";
 import { TagEncodingField } from "./TagEncodingField";
+import { LibraryAccessRows } from "./access-selects";
 
 type WizardLibraryType = "audiobook" | "ebook";
 type LibraryTypeChoice = WizardLibraryType | "gallery" | "files";
@@ -82,6 +82,38 @@ const STEP_TITLES: Record<StepKey, string> = {
   upload: "Upload",
   scanning: "Scanning"
 };
+
+// Roving-tabindex keyboard support for a radiogroup of cards (Arrow keys move and
+// select, Home/End jump to the ends), matching what native radios give for free.
+// Returns a prop getter to spread onto each selectable option button.
+function useRovingRadio<T extends string>(values: T[], value: T, onChange: (next: T) => void) {
+  const refs = useRef(new Map<T, HTMLButtonElement | null>());
+  const select = (next: T) => {
+    onChange(next);
+    refs.current.get(next)?.focus();
+  };
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    const delta = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1
+      : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1
+      : 0;
+    const index = Math.max(0, values.indexOf(value));
+    if (delta !== 0) {
+      event.preventDefault();
+      select(values[(index + delta + values.length) % values.length]);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      select(values[0]);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      select(values[values.length - 1]);
+    }
+  };
+  return (optionValue: T) => ({
+    ref: (el: HTMLButtonElement | null) => { refs.current.set(optionValue, el); },
+    tabIndex: optionValue === value ? 0 : -1,
+    onKeyDown
+  });
+}
 
 // One create wizard for every library type. "Quick" needs only a type, name, and
 // folder — everything else uses the type's recommended defaults. "Custom" adds the
@@ -160,6 +192,54 @@ export function LibraryWizard({
 
   const basicsReady = name.trim().length >= 2 && Boolean(storageBrowse?.selectedPath);
 
+  // Quick setup ignores anything tweaked in Custom and always applies the type's
+  // recommended defaults, so the "public, managed, standard formats" promise holds
+  // even if the user visited Custom, changed a setting, then switched back to Quick.
+  const quick = setupMode === "quick";
+  const effectiveVisibility: "public" | "private" = quick ? "public" : visibility;
+  const effectivePublicRole: PublicRole = quick ? "member" : publicRole;
+  const effectiveMode: LibraryMode = quick ? "managed" : mode;
+  const effectiveOwnerId = quick ? "" : ownerId;
+  const effectiveOwnerType: "user" | "group" | "" = quick ? "" : ownerType;
+  const effectiveExtensions = quick ? (defaults?.extensions ?? []) : extensions;
+  const effectiveSources = quick ? (defaults?.sources ?? []) : scanSources;
+  const effectiveMaxUploadMB = quick ? "" : maxUploadMB;
+  const effectiveTagEncoding = quick ? "" : tagEncoding;
+
+  const typeRoving = useRovingRadio<WizardLibraryType>(["audiobook", "ebook"], libraryType, pickType);
+  const setupRoving = useRovingRadio<SetupMode>(["quick", "custom"], setupMode, setSetupMode);
+
+  const ownerLabel = effectiveOwnerId
+    ? (effectiveOwnerType === "group"
+        ? groups.find((group) => group.id === effectiveOwnerId)?.name ?? "Unknown group"
+        : users.find((user) => user.id === effectiveOwnerId)?.displayName ?? "Unknown user")
+    : "System library";
+  const typeLabel = TYPE_OPTIONS.find((option) => option.type === libraryType)?.label ?? libraryType;
+  const reviewGlance = `${typeLabel} · ${effectiveVisibility === "public" ? "Public" : "Private"} · ${effectiveMode === "managed" ? "Managed" : "External"}`;
+  const reviewRows: { label: string; value: string }[] = [
+    { label: "Type", value: typeLabel },
+    { label: "Name", value: name.trim() || "—" },
+    { label: "Folder", value: storageBrowse?.selectedPath || "—" },
+    { label: "Setup", value: quick ? "Quick (recommended defaults)" : "Custom" },
+    {
+      label: "Visibility",
+      value: effectiveVisibility === "public"
+        ? `Public · ${PUBLIC_ROLE_OPTIONS.find((option) => option.value === effectivePublicRole)?.label ?? effectivePublicRole}`
+        : "Private — owner and admins only"
+    },
+    { label: "Mode", value: effectiveMode === "managed" ? "Managed" : "External (read-only)" },
+    { label: "Owner", value: ownerLabel },
+    { label: "Formats", value: effectiveExtensions.length ? effectiveExtensions.map((ext) => `.${ext}`).join(", ") : "—" },
+    {
+      label: "Scan sources",
+      value: effectiveSources.filter((source) => source.enabled)
+        .map((source) => typeSourceInfo.find((info) => info.id === source.id)?.label ?? source.id)
+        .join(" › ") || "None"
+    },
+    { label: "Upload limit", value: effectiveMaxUploadMB ? `${effectiveMaxUploadMB} MB` : "No limit" },
+    ...(libraryType === "audiobook" ? [{ label: "Tag encoding", value: effectiveTagEncoding || "Auto detect" }] : [])
+  ];
+
   const goNext = () => {
     if (stepKey === "basics" && !basicsReady) {
       setError(name.trim().length < 2
@@ -182,29 +262,28 @@ export function LibraryWizard({
         : "Browse and select a source folder for this library.");
       return;
     }
-    if (extensions.length === 0) {
+    if (effectiveExtensions.length === 0) {
       setError("Add at least one file extension to scan.");
       return;
     }
     setCreating(true);
     setError("");
     try {
-      const maxUpload = Number.parseInt(maxUploadMB, 10);
+      const maxUpload = Number.parseInt(effectiveMaxUploadMB, 10);
       await api(`/api/library/${libraryType}-libraries`, {
         method: "POST",
         body: JSON.stringify({
           name,
           sourcePath: storageBrowse!.selectedPath,
-          defaultLanguage: "en",
-          visibility,
-          publicRole,
-          mode,
-          ownerId: ownerId || null,
-          ownerType: ownerType || null,
-          scanExtensions: extensions,
-          scanSources,
+          visibility: effectiveVisibility,
+          publicRole: effectivePublicRole,
+          mode: effectiveMode,
+          ownerId: effectiveOwnerId || null,
+          ownerType: effectiveOwnerType || null,
+          scanExtensions: effectiveExtensions,
+          scanSources: effectiveSources,
           maxUploadMB: Number.isFinite(maxUpload) && maxUpload > 0 ? maxUpload : null,
-          tagEncoding: libraryType === "audiobook" && tagEncoding ? tagEncoding : null
+          tagEncoding: libraryType === "audiobook" && effectiveTagEncoding ? effectiveTagEncoding : null
         })
       });
       onCreated(libraryType);
@@ -240,16 +319,33 @@ export function LibraryWizard({
       }
     >
       <ol className="wizard-steps" aria-label="Setup steps">
-        {steps.map((key, index) => (
-          <li
-            key={key}
-            className={`wizard-step${index === current ? " active" : ""}${index < current ? " done" : ""}`}
-            aria-current={index === current ? "step" : undefined}
-          >
-            <span className="wizard-step-dot">{index < current ? <Check size={12} /> : index + 1}</span>
-            <span className="wizard-step-label">{STEP_TITLES[key]}</span>
-          </li>
-        ))}
+        {steps.map((key, index) => {
+          const done = index < current;
+          return (
+            <li
+              key={key}
+              className={`wizard-step${index === current ? " active" : ""}${done ? " done" : ""}`}
+              aria-current={index === current ? "step" : undefined}
+            >
+              {done ? (
+                <button
+                  type="button"
+                  className="wizard-step-jump"
+                  onClick={() => { setError(""); setStepIndex(index); }}
+                  title={`Back to ${STEP_TITLES[key]}`}
+                >
+                  <span className="wizard-step-dot"><Check size={12} /></span>
+                  <span className="wizard-step-label">{STEP_TITLES[key]}</span>
+                </button>
+              ) : (
+                <>
+                  <span className="wizard-step-dot">{index + 1}</span>
+                  <span className="wizard-step-label">{STEP_TITLES[key]}</span>
+                </>
+              )}
+            </li>
+          );
+        })}
       </ol>
 
       {stepKey === "type" && (
@@ -271,6 +367,7 @@ export function LibraryWizard({
                   aria-disabled={!available}
                   disabled={!available}
                   className={`library-type-option${selected ? " selected" : ""}${!available ? " disabled" : ""}`}
+                  {...(type === "audiobook" || type === "ebook" ? typeRoving(type) : { tabIndex: -1 })}
                   onClick={() => {
                     if (type === "audiobook" || type === "ebook") pickType(type);
                   }}
@@ -310,6 +407,7 @@ export function LibraryWizard({
                 role="radio"
                 aria-checked={setupMode === "quick"}
                 className={`setup-type-card${setupMode === "quick" ? " selected" : ""}`}
+                {...setupRoving("quick")}
                 onClick={() => setSetupMode("quick")}
               >
                 <span className="setup-type-icon" aria-hidden="true">
@@ -327,6 +425,7 @@ export function LibraryWizard({
                 role="radio"
                 aria-checked={setupMode === "custom"}
                 className={`setup-type-card${setupMode === "custom" ? " selected" : ""}`}
+                {...setupRoving("custom")}
                 onClick={() => setSetupMode("custom")}
               >
                 <span className="setup-type-icon" aria-hidden="true">
@@ -360,19 +459,22 @@ export function LibraryWizard({
       )}
 
       {stepKey === "access" && (
-        <WizardAccessFields
-          ownerId={ownerId}
-          ownerType={ownerType}
-          onOwnerChange={(type, id) => { setOwnerType(type); setOwnerId(id); }}
-          visibility={visibility}
-          onVisibilityChange={setVisibility}
-          publicRole={publicRole}
-          onPublicRoleChange={setPublicRole}
-          mode={mode}
-          onModeChange={setMode}
-          users={users}
-          groups={groups}
-        />
+        <section className="library-access-step">
+          <p>Configure access and ownership settings for this library.</p>
+          <LibraryAccessRows
+            ownerId={ownerId}
+            ownerType={ownerType}
+            onOwnerChange={(type, id) => { setOwnerType(type); setOwnerId(id); }}
+            visibility={visibility}
+            onVisibilityChange={setVisibility}
+            publicRole={publicRole}
+            onPublicRoleChange={setPublicRole}
+            mode={mode}
+            onModeChange={setMode}
+            users={users}
+            groups={groups}
+          />
+        </section>
       )}
 
       {stepKey === "upload" && (
@@ -404,6 +506,28 @@ export function LibraryWizard({
         </section>
       )}
 
+      {current === lastStep && (
+        <details className="wizard-review">
+          <summary>
+            <ClipboardList size={16} aria-hidden="true" />
+            <span className="wizard-review-title">Review</span>
+            <span className="wizard-review-glance">{reviewGlance}</span>
+            <span className="wizard-review-chevron" aria-hidden="true">
+              <ChevronDown size={16} className="wizard-review-chev-closed" />
+              <ChevronUp size={16} className="wizard-review-chev-open" />
+            </span>
+          </summary>
+          <dl>
+            {reviewRows.map((row) => (
+              <div key={row.label}>
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      )}
+
       {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
 
       <div className="modal-actions">
@@ -417,7 +541,7 @@ export function LibraryWizard({
           </Button>
         )}
         {(stepKey === "upload" || stepKey === "scanning") && (
-          <span className="library-wizard-footnote">You can review and change settings before the scan starts.</span>
+          <span className="library-wizard-footnote">Nothing is scanned until you choose Add and scan.</span>
         )}
         {current < lastStep ? (
           <Button variant="primary" type="submit">
@@ -434,125 +558,3 @@ export function LibraryWizard({
   );
 }
 
-function WizardAccessFields({
-  ownerId, ownerType, onOwnerChange,
-  visibility, onVisibilityChange,
-  publicRole, onPublicRoleChange,
-  mode, onModeChange,
-  users, groups
-}: {
-  ownerId: string;
-  ownerType: "user" | "group" | "";
-  onOwnerChange: (ownerType: "user" | "group" | "", ownerId: string) => void;
-  visibility: "public" | "private";
-  onVisibilityChange: (value: "public" | "private") => void;
-  publicRole: PublicRole;
-  onPublicRoleChange: (value: PublicRole) => void;
-  mode: LibraryMode;
-  onModeChange: (value: LibraryMode) => void;
-  users: ManagedUser[];
-  groups: ManagedGroup[];
-}) {
-  return (
-    <section className="library-access-step">
-      <p>Configure access and ownership settings for this library.</p>
-      <div className="library-access-list">
-        <AccessSettingRow
-          icon={UserRound}
-          title="Owner"
-          description="Select who owns this library."
-        >
-          <select
-            value={ownerId ? `${ownerType}:${ownerId}` : ""}
-            onChange={(event) => {
-              const val = event.target.value;
-              if (!val) { onOwnerChange("", ""); return; }
-              const [type, id] = val.split(":");
-              onOwnerChange(type as "user" | "group", id);
-            }}
-          >
-            <option value="">No owner (system library)</option>
-            {users.length > 0 && (
-              <optgroup label="Users">
-                {users.map((user) => (
-                  <option value={`user:${user.id}`} key={user.id}>{user.displayName} ({user.email})</option>
-                ))}
-              </optgroup>
-            )}
-            {groups.length > 0 && (
-              <optgroup label="Groups">
-                {groups.map((group) => (
-                  <option value={`group:${group.id}`} key={group.id}>{group.name}</option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-        </AccessSettingRow>
-
-        <AccessSettingRow
-          icon={Globe2}
-          title="Visibility"
-          description="Control who can see this library."
-        >
-          <select value={visibility} onChange={(event) => onVisibilityChange(event.target.value as "public" | "private")}>
-            <option value="public">Public — all users can access</option>
-            <option value="private">Private — owner and admins only</option>
-          </select>
-        </AccessSettingRow>
-
-        {visibility === "public" && (
-          <AccessSettingRow
-            icon={Eye}
-            title="Public access"
-            description="Choose what public users can do."
-          >
-            <select value={publicRole} onChange={(event) => onPublicRoleChange(event.target.value as PublicRole)}>
-              {PUBLIC_ROLE_OPTIONS.map((option) => (
-                <option value={option.value} key={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </AccessSettingRow>
-        )}
-
-        <AccessSettingRow
-          icon={Shield}
-          title="Mode"
-          description="Determines who manages the files."
-        >
-          <select value={mode} onChange={(event) => onModeChange(event.target.value as LibraryMode)}>
-            <option value="managed">Managed — this app owns the files</option>
-            <option value="external">External — read-only, managed outside this app</option>
-          </select>
-        </AccessSettingRow>
-      </div>
-    </section>
-  );
-}
-
-function AccessSettingRow({
-  icon: Icon,
-  title,
-  description,
-  children
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="library-access-row">
-      <span className="library-access-icon" aria-hidden="true">
-        <Icon size={28} />
-      </span>
-      <span className="library-access-copy">
-        <strong>{title}</strong>
-        <small>{description}</small>
-      </span>
-      <label className="library-access-control">
-        <span className="sr-only">{title}</span>
-        {children}
-      </label>
-    </div>
-  );
-}

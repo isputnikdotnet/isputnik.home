@@ -20,7 +20,9 @@
 .field select,
 .field textarea,
 .invite-box input,
-.invite-link input {
+.invite-link input,
+.member-field select,
+.member-role-control select {
   width: 100%;
   min-height: 46px;
   padding: 10px 12px;
@@ -34,7 +36,9 @@
 .field select:focus,
 .field textarea:focus,
 .invite-box input:focus,
-.invite-link input:focus {
+.invite-link input:focus,
+.member-field select:focus,
+.member-role-control select:focus {
   border-color: var(--mint);
   outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
 }
@@ -439,6 +443,13 @@
   gap: 10px;
 }
 
+/* Rescan holds the full scan-sources editor (rows with descriptions + reorder
+   controls), so it needs the same room as the edit dialog — not the narrow
+   confirm-card default that leaves the source rows cramped. */
+.confirm-modal.rescan-modal {
+  width: min(100%, 620px);
+}
+
 /* The rescan modal ends in form fields (checkbox + encoding select), so the
    action row needs breathing room — otherwise "Start rescan" hugs the dropdown. */
 .rescan-modal .modal-actions {
@@ -685,14 +696,12 @@
 }
 
 /* Cap tall forms (e.g. the add-library wizard) and keep the action bar in view. */
-.create-library-modal,
-.edit-library-modal {
+.create-library-modal {
   max-height: 88vh;
   overflow-y: auto;
 }
 
-.create-library-modal .modal-actions,
-.edit-library-modal .modal-actions {
+.create-library-modal .modal-actions {
   position: sticky;
   bottom: -24px;
   margin: 0 -24px -24px;
@@ -1105,6 +1114,113 @@
 .wizard-step.done .wizard-step-dot {
   color: #ffffff;
   background: var(--control-primary-button, var(--mint));
+}
+
+/* Completed steps become a button so users can jump straight back. */
+.wizard-step-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wizard-step-jump:hover .wizard-step-label,
+.wizard-step-jump:focus-visible .wizard-step-label {
+  text-decoration: underline;
+}
+
+/* Collapsible final-step recap of everything that will be created. */
+.wizard-review {
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.wizard-review > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.wizard-review > summary::-webkit-details-marker {
+  display: none;
+}
+
+.wizard-review > summary:hover {
+  color: var(--control-primary-button, var(--mint));
+}
+
+.wizard-review-glance {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wizard-review-chevron {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+/* Swap the caret by toggling display (transform is unreliable on these SVGs). */
+.wizard-review-chev-open {
+  display: none;
+}
+
+.wizard-review[open] .wizard-review-chev-closed {
+  display: none;
+}
+
+.wizard-review[open] .wizard-review-chev-open {
+  display: inline;
+}
+
+/* Setting display on a <details> child overrides the native collapse, so the grid
+   layout must be scoped to the open state and the closed state hidden explicitly. */
+.wizard-review:not([open]) dl {
+  display: none;
+}
+
+.wizard-review[open] dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 18px;
+  margin: 0;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.wizard-review dl > div {
+  display: contents;
+}
+
+.wizard-review dt {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.wizard-review dd {
+  margin: 0;
+  font-size: 0.9rem;
+  word-break: break-word;
 }
 
 .library-type-step {
@@ -1638,39 +1754,289 @@
 }
 
 .create-group-modal,
-.create-tag-modal,
-.edit-library-modal {
+.create-tag-modal {
   display: grid;
   gap: 16px;
 }
 
-.edit-library-modal {
-  width: min(100%, 620px);
+/* Edit library — tabbed panel (variant="panel" surface), like the metadata editor.
+   Fixed height so the modal stays one size across tabs; the tab body scrolls when a
+   tab's content is taller. Scoped with .metadata-modal to outrank the surface defaults. */
+.metadata-modal.edit-library-panel {
+  width: min(calc(100vw - 32px), 720px);
+  height: min(780px, calc(100vh - 40px));
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.edit-library-content {
+  align-content: start;
+}
+
+.edit-library-footer {
+  display: grid;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+}
+
+.edit-library-footer .modal-actions {
+  margin: 0;
 }
 
 .library-members-modal {
   display: grid;
-  gap: 16px;
-  width: min(100%, 680px);
+  gap: 18px;
+  width: min(100%, 760px);
   max-height: 88vh;
   overflow-y: auto;
 }
 
-.member-grant-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 8px;
-  align-items: end;
+/* Public / private banner */
+.member-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
 }
 
-.member-grant-row select {
+.member-banner.is-public {
+  border-color: color-mix(in srgb, var(--control-primary-button, var(--mint)) 30%, var(--line));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 6%, var(--surface-raised));
+}
+
+.member-banner-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--muted);
+}
+
+.member-banner.is-public .member-banner-icon {
+  background: var(--control-primary-button, var(--mint));
+}
+
+.member-banner-copy {
+  display: grid;
+  gap: 2px;
   min-width: 0;
 }
 
-@media (max-width: 560px) {
-  .member-grant-row {
+.member-banner-copy strong {
+  font-size: 0.98rem;
+}
+
+.member-banner-copy span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.member-banner-pill {
+  margin-left: auto;
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--hover);
+}
+
+.member-banner.is-public .member-banner-pill {
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 14%, transparent);
+}
+
+/* Sections */
+.member-section {
+  display: grid;
+  gap: 10px;
+}
+
+.member-section-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+/* Grant-access row */
+.member-grant {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 250px) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.member-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.member-field-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.member-field select {
+  width: 100%;
+  min-width: 0;
+  padding-left: 38px;
+}
+
+.member-grant .primary-button {
+  white-space: nowrap;
+}
+
+/* Members-with-access list */
+.member-rows {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.member-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(0, 260px) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.member-row:last-child {
+  border-bottom: 0;
+}
+
+.member-row-everyone {
+  background: var(--hover);
+}
+
+.member-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.member-avatar-neutral {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+}
+
+.member-identity {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.member-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-sub {
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-baseline-tag {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 14%, transparent);
+}
+
+/* Role dropdown with a leading colour dot */
+.member-role-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.member-role-dot {
+  position: absolute;
+  left: 12px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.member-role-control select {
+  width: 100%;
+  min-width: 0;
+  padding-left: 28px;
+}
+
+.member-role-control.is-locked select {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.member-noaccess {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-style: italic;
+}
+
+.member-empty {
+  margin: 0;
+  padding: 16px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  border-bottom: 1px solid var(--line);
+}
+
+@media (max-width: 600px) {
+  .member-grant {
     grid-template-columns: 1fr;
   }
+
+  .member-row {
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "avatar identity actions"
+      "avatar role role";
+    row-gap: 8px;
+  }
+
+  .member-row > .member-avatar { grid-area: avatar; align-self: start; }
+  .member-row > .member-identity { grid-area: identity; }
+  .member-row > .member-role-control,
+  .member-row > .member-noaccess { grid-area: role; }
+  .member-row > .icon-button { grid-area: actions; }
+  .member-avatar { width: 38px; height: 38px; }
 }
 
 .manage-group-modal {
@@ -1946,12 +2312,11 @@
 
 .scan-source-row {
   display: grid;
-  grid-template-columns: 22px 28px minmax(0, 1fr) 28px;
+  grid-template-columns: 22px 28px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
-  cursor: grab;
 }
 
 .scan-source-row:last-child {
@@ -2025,12 +2390,23 @@
   background: color-mix(in srgb, var(--mint) 14%, transparent);
 }
 
+.scan-source-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .scan-source-grip {
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--muted);
   opacity: 0.5;
+  cursor: grab;
+}
+
+.scan-source-row.scan-source-dragging .scan-source-grip {
+  cursor: grabbing;
 }
 
 .create-invite-modal .created-invite {

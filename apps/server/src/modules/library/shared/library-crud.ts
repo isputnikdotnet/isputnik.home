@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import type { LibraryType } from "./library-types.js";
 import { validateLibrarySource } from "./library-source.js";
+import { pathIsInside } from "./storage-roots.js";
 import { setLibraryAccess, validateLibraryOwner } from "./library-access.js";
 import {
   defaultScanExtensions,
@@ -70,6 +71,23 @@ function resolveOwner(data: { ownerId?: string | null; ownerType?: "user" | "gro
   return { ownerId, ownerType };
 }
 
+// Reject a source folder that overlaps an existing library — the same folder, or one
+// nested inside the other. Overlapping scans would index the same files twice. Source
+// paths are stored as realpaths (see validateLibrarySource); compare case-insensitively
+// on Windows so C:\Media and c:\media are recognised as the same folder.
+function findOverlappingLibrary(sourcePath: string): string | null {
+  const rows = db.prepare("SELECT name, source_path FROM libraries").all() as { name: string; source_path: string }[];
+  const norm = (p: string) => (process.platform === "win32" ? p.toLowerCase() : p);
+  const target = norm(sourcePath);
+  for (const row of rows) {
+    const existing = norm(row.source_path);
+    if (pathIsInside(target, existing) || pathIsInside(existing, target)) {
+      return row.name;
+    }
+  }
+  return null;
+}
+
 export function createLibraryRecord(opts: {
   type: LibraryType;
   data: CoreLibraryCreateInput;
@@ -85,6 +103,14 @@ export function createLibraryRecord(opts: {
     sourcePath = validateLibrarySource(data.sourcePath);
   } catch (err) {
     return { status: 400, error: err instanceof Error ? err.message : "Invalid library source path" };
+  }
+
+  const overlapping = findOverlappingLibrary(sourcePath);
+  if (overlapping) {
+    return {
+      status: 409,
+      error: `This folder overlaps the existing library "${overlapping}". Pick a folder that isn't already used by another library.`
+    };
   }
 
   const { ownerId, ownerType } = resolveOwner(data);

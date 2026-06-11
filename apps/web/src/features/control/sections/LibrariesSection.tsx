@@ -23,7 +23,8 @@ import { SelectMenu } from "../../../shared/SelectMenu";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import type { AudiobookLibrary, PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults } from "../../audiobooks/types";
 import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot } from "../types";
-import { LibraryCoreFields } from "../libraries/LibraryCoreFields";
+import { Field } from "../../../shared/Field";
+import { LibraryAccessRows } from "../libraries/access-selects";
 import { ExtensionsEditor } from "../libraries/ExtensionsEditor";
 import { ScanSourcesEditor } from "../libraries/ScanSourcesEditor";
 import { UploadSettingsFields } from "../libraries/UploadSettingsFields";
@@ -128,6 +129,7 @@ export function LibrariesSection() {
   const [editSources, setEditSources] = useState<ScanSource[]>([]);
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
+  const [editTab, setEditTab] = useState<"access" | "upload" | "scanning">("access");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -203,6 +205,7 @@ export function LibrariesSection() {
     setEditSources(library.settings?.scanSources ?? typeDefaults[library.type]?.sources ?? []);
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setEditTagEncoding(library.settings?.tagEncoding ?? "");
+    setEditTab("access");
     setError("");
   };
 
@@ -351,6 +354,7 @@ export function LibrariesSection() {
   );
 
   const setupReady = Boolean(librarySettings?.thumbnailPathReady) && storageRoots.length > 0;
+  const scanningLibraries = libraries.filter((library) => library.scanStatus === "scanning");
 
   return (
     <>
@@ -382,6 +386,13 @@ export function LibrariesSection() {
       {!setupReady && (
         <MessageBox tone="warning" title="Storage setup required">
           Configure thumbnail storage and at least one Digital Library container before adding libraries.
+        </MessageBox>
+      )}
+      {scanningLibraries.length > 0 && (
+        <MessageBox tone="info" title="Scan in progress">
+          {scanningLibraries.length === 1
+            ? `"${scanningLibraries[0].name}" is being scanned — file counts update automatically as it runs.`
+            : `${scanningLibraries.length} libraries are being scanned — file counts update automatically as they run.`}
         </MessageBox>
       )}
 
@@ -431,6 +442,7 @@ export function LibrariesSection() {
             <tbody>
               {visibleLibraries.map((library) => {
                 const TypeIcon = TYPE_META[library.type].icon;
+                const scanning = library.scanStatus === "scanning" || rescanningId === library.id;
                 return (
                   <tr key={library.id}>
                     <td>
@@ -493,12 +505,18 @@ export function LibrariesSection() {
                             <Button
                               variant="icon"
                               className="rescan-library-button"
-                              disabled={library.scanStatus === "scanning" || rescanningId === library.id}
+                              disabled={scanning}
                               onClick={() => startRescan(library)}
-                              title={library.scanStatus === "scanning" ? "Scanning..." : "Rescan library"}
-                              aria-label={`${library.scanStatus === "scanning" ? "Scanning" : "Rescan"} ${library.name}`}
+                              title={scanning ? "Scanning…" : "Rescan library"}
+                              aria-label={`${scanning ? "Scanning" : "Rescan"} ${library.name}`}
                             >
-                              <RefreshCw size={14} />
+                              {scanning ? (
+                                <span className="icon-spin" aria-hidden="true">
+                                  <RefreshCw size={14} />
+                                </span>
+                              ) : (
+                                <RefreshCw size={14} />
+                              )}
                             </Button>
                             <Button
                               variant="icon"
@@ -619,54 +637,87 @@ export function LibrariesSection() {
 
       {editingLibrary && (
         <Modal
+          variant="panel"
           title={`Edit ${TYPE_META[editingLibrary.type].label.toLowerCase()} library`}
-          className="edit-library-modal"
+          icon={<Pencil size={22} />}
+          className="edit-library-panel"
+          headerClassName="edit-library-header"
           busy={saving}
           onClose={() => setEditingLibrary(null)}
-          onSubmit={saveEdit}
         >
-            <LibraryCoreFields
-              name={editName}
-              onNameChange={setEditName}
-              ownerId={editOwnerId}
-              ownerType={editOwnerType}
-              onOwnerChange={(type, id) => { setEditOwnerType(type); setEditOwnerId(id); }}
-              visibility={editVisibility}
-              onVisibilityChange={setEditVisibility}
-              publicRole={editPublicRole}
-              onPublicRoleChange={setEditPublicRole}
-              mode={editMode}
-              onModeChange={setEditMode}
-              users={users}
-              groups={groups}
-            />
-            <ScanSourcesEditor
-              sources={editSources}
-              onChange={setEditSources}
-              sourceInfo={sourceInfoFor(editingLibrary.type)}
-            />
-            {editingLibrary.type === "audiobook" && (
-              <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
+          <div className="modal-tabs">
+            <button type="button" className={`modal-tab${editTab === "access" ? " active" : ""}`} onClick={() => setEditTab("access")}>
+              Access
+            </button>
+            <button type="button" className={`modal-tab${editTab === "upload" ? " active" : ""}`} onClick={() => setEditTab("upload")}>
+              Upload
+            </button>
+            <button type="button" className={`modal-tab${editTab === "scanning" ? " active" : ""}`} onClick={() => setEditTab("scanning")}>
+              Scanning
+            </button>
+          </div>
+
+          <form id="edit-library-form" className="modal-tab-content edit-library-content" onSubmit={saveEdit}>
+            {editTab === "access" && (
+              <>
+                <Field label="Library name" value={editName} onChange={setEditName} />
+                <LibraryAccessRows
+                  ownerId={editOwnerId}
+                  ownerType={editOwnerType}
+                  onOwnerChange={(type, id) => { setEditOwnerType(type); setEditOwnerId(id); }}
+                  visibility={editVisibility}
+                  onVisibilityChange={setEditVisibility}
+                  publicRole={editPublicRole}
+                  onPublicRoleChange={setEditPublicRole}
+                  mode={editMode}
+                  onModeChange={setEditMode}
+                  users={users}
+                  groups={groups}
+                />
+              </>
             )}
-            <ExtensionsEditor
-              extensions={editExtensions}
-              onChange={setEditExtensions}
-              defaults={typeDefaults[editingLibrary.type]?.extensions ?? []}
-            />
-            <UploadSettingsFields
-              maxUploadMB={editMaxUploadMB}
-              onChange={setEditMaxUploadMB}
-              mode={editMode}
-            />
+
+            {editTab === "upload" && (
+              <>
+                <ExtensionsEditor
+                  extensions={editExtensions}
+                  onChange={setEditExtensions}
+                  defaults={typeDefaults[editingLibrary.type]?.extensions ?? []}
+                  label="Supported file extensions (upload)"
+                />
+                <UploadSettingsFields
+                  maxUploadMB={editMaxUploadMB}
+                  onChange={setEditMaxUploadMB}
+                  mode={editMode}
+                />
+              </>
+            )}
+
+            {editTab === "scanning" && (
+              <>
+                <ScanSourcesEditor
+                  sources={editSources}
+                  onChange={setEditSources}
+                  sourceInfo={sourceInfoFor(editingLibrary.type)}
+                />
+                {editingLibrary.type === "audiobook" && (
+                  <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
+                )}
+              </>
+            )}
+          </form>
+
+          <div className="edit-library-footer">
             {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
             <div className="modal-actions">
-              <Button variant="secondary" onClick={() => setEditingLibrary(null)} disabled={saving} autoFocus>
+              <Button variant="secondary" onClick={() => setEditingLibrary(null)} disabled={saving}>
                 Cancel
               </Button>
-              <Button variant="primary" type="submit" disabled={saving || !editName.trim() || editExtensions.length === 0}>
-                {saving ? "Saving..." : "Save changes"}
+              <Button variant="primary" type="submit" form="edit-library-form" disabled={saving || !editName.trim() || editExtensions.length === 0}>
+                {saving ? "Saving…" : "Save changes"}
               </Button>
             </div>
+          </div>
         </Modal>
       )}
     </>

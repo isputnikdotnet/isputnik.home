@@ -336,6 +336,25 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.16.0",
+          label: "Members, library editing & scan status",
+          changes: [
+            "Editing a library is now a tabbed panel — Access, Upload, and Scanning — that matches the create wizard, replacing the old single long form.",
+            "Manage members & roles was rebuilt: a public/private banner up top, an avatar for each user and group, and a role dropdown on every row that changes a member's role in place. The Everyone baseline appears as its own row, managed from the library's public-access setting.",
+            "The Libraries page now shows a banner while any library is scanning, and each library's rescan button turns into a spinning, disabled indicator until its scan finishes.",
+            "Create-library wizard polish: Quick setup always applies its recommended defaults (even after a detour through Custom), the last step shows a collapsible review of everything that will be created, finished steps can be clicked to jump back, and scan-source order can now be changed with up/down buttons that work by keyboard and touch — not just mouse dragging.",
+            "Fixed a bug where rescanning a library emptied any series you had created by hand; books added to a series manually now stay put across rescans.",
+            "Adding a library now rejects a folder that overlaps an existing library (the same folder, or one nested inside another) so the same files are not scanned twice."
+          ]
+        },
+        {
+          version: "0.15.0",
+          label: "Create wizard: Upload & Scanning steps",
+          changes: [
+            "Creating a library in Custom mode gained dedicated Upload and Scanning steps — file extensions and the per-file upload limit, then the metadata sources and their priority order — and scan sources can be reordered by dragging."
+          ]
+        },
+        {
           version: "0.14.0",
           label: "Standardized dialogs, buttons & messages",
           changes: [

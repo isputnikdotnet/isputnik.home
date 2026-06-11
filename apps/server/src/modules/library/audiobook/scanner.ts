@@ -1077,12 +1077,19 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
   }
 
   if (!book.manualMetadata && !book.skipMetadataUpdate) {
-    if (book.seriesName) {
-      const series = upsertSeries(libraryId, book.seriesName);
-      db.prepare("UPDATE books SET series_id = ?, series_position = ? WHERE id = ?")
-        .run(series.id, book.seriesPosition, book.bookId);
-    } else {
-      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE id = ?").run(book.bookId);
+    // Series is auto-managed only when the user hasn't curated it by hand. A book
+    // pinned to a manual series (via the series UI) keeps it across rescans, even
+    // when the folder/tags carry no series of their own.
+    const seriesRow = db.prepare("SELECT series_source FROM books WHERE id = ?")
+      .get(book.bookId) as { series_source: string } | undefined;
+    if (seriesRow?.series_source !== "manual") {
+      if (book.seriesName) {
+        const series = upsertSeries(libraryId, book.seriesName);
+        db.prepare("UPDATE books SET series_id = ?, series_position = ? WHERE id = ?")
+          .run(series.id, book.seriesPosition, book.bookId);
+      } else {
+        db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE id = ?").run(book.bookId);
+      }
     }
 
     db.prepare("DELETE FROM book_authors WHERE book_id = ? AND role IN ('author', 'narrator')").run(book.bookId);

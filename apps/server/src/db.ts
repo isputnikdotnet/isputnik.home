@@ -157,6 +157,9 @@ db.exec(`
     folder_path TEXT NOT NULL,
     series_id TEXT,
     series_position REAL,
+    -- 'scan' = series auto-managed by the scanner; 'manual' = curated by a user and
+    -- left untouched by rescans (see writeBookScan / series routes).
+    series_source TEXT NOT NULL DEFAULT 'scan' CHECK (series_source IN ('scan', 'manual')),
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ready', 'error')),
     discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -545,6 +548,12 @@ if (!bookMetaColumns.some((column) => column.name === "publisher")) {
 }
 if (!bookMetaColumns.some((column) => column.name === "category_id")) {
   db.exec("ALTER TABLE book_metadata ADD COLUMN category_id TEXT REFERENCES categories(id)");
+}
+
+const bookColumns = db.prepare("PRAGMA table_info(books)").all() as { name: string }[];
+if (!bookColumns.some((column) => column.name === "series_source")) {
+  // Existing rows default to 'scan'; users re-pin manual series afterwards.
+  db.exec("ALTER TABLE books ADD COLUMN series_source TEXT NOT NULL DEFAULT 'scan'");
 }
 
 const seriesColumns = db.prepare("PRAGMA table_info(series)").all() as { name: string }[];

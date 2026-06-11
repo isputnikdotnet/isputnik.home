@@ -241,7 +241,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
 
     db.transaction(() => {
       const update = db.prepare(`
-        UPDATE books SET series_id = ?, series_position = ?
+        UPDATE books SET series_id = ?, series_position = ?, series_source = 'manual'
         WHERE id = ? AND library_id = ? AND deleted_at IS NULL
           AND (series_id IS NULL OR series_id != ?)
       `);
@@ -344,7 +344,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     }
 
     db.transaction(() => {
-      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE series_id = ?").run(id);
+      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL, series_source = 'scan' WHERE series_id = ?").run(id);
       db.prepare("DELETE FROM series WHERE id = ?").run(id);
     })();
 
@@ -380,9 +380,9 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const newBookIds = new Set(parsed.data.books.map((b) => b.bookId));
 
     db.transaction(() => {
-      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE series_id = ?").run(id);
+      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL, series_source = 'scan' WHERE series_id = ?").run(id);
       for (const { bookId, position } of parsed.data.books) {
-        db.prepare("UPDATE books SET series_id = ?, series_position = ? WHERE id = ? AND library_id = ?")
+        db.prepare("UPDATE books SET series_id = ?, series_position = ?, series_source = 'manual' WHERE id = ? AND library_id = ?")
           .run(id, position, bookId, row.library_id);
       }
     })();

@@ -268,6 +268,23 @@
   white-space: nowrap;
 }
 
+/* Busy spinner — wraps an icon in a <span> (CSS transform is unreliable applied
+   directly to the lucide <svg> here) and rotates it while a scan runs. */
+@keyframes icon-spin {
+  to { transform: rotate(360deg); }
+}
+
+.icon-spin {
+  display: inline-flex;
+  animation: icon-spin 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-spin {
+    animation-duration: 2.4s;
+  }
+}
+
 .setting-status {
   max-width: 220px;
   padding: 5px 8px;
