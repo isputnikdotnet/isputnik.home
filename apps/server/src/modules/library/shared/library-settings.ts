@@ -9,6 +9,16 @@ export interface ScanSourceConfig {
   enabled: boolean;
 }
 
+// Legacy charsets the tag-encoding repair supports (see repairEncoding in the
+// audiobook scanner). Stored per-library as settings.tag_encoding; a rescan can
+// override it for one run.
+export const TAG_ENCODINGS = ["windows-1251", "windows-1250", "windows-1252", "koi8-r"] as const;
+export type TagEncoding = typeof TAG_ENCODINGS[number];
+
+export function isTagEncoding(value: unknown): value is TagEncoding {
+  return typeof value === "string" && (TAG_ENCODINGS as readonly string[]).includes(value);
+}
+
 export interface BaseLibrarySettings {
   default_language?: string;
   // Dotless lowercase extensions, e.g. ["mp3", "m4b"]. Used for scan AND upload.
@@ -20,6 +30,8 @@ export interface BaseLibrarySettings {
 export interface AudiobookLibrarySettings extends BaseLibrarySettings {
   show_narrator?: boolean;
   cover_filenames?: string[];
+  // Default legacy charset for repairing mojibake in audio tags during scans.
+  tag_encoding?: TagEncoding;
 }
 
 export const LIBRARY_TYPE_DEFAULTS: Partial<Record<LibraryType, { extensions: string[] }>> = {
@@ -85,7 +97,8 @@ export function normalizeLibrarySettings(type: LibraryType, settingsJson: string
     ...raw,
     default_language: typeof raw.default_language === "string" && raw.default_language.trim() ? raw.default_language.trim() : undefined,
     scan_extensions: extensions.length > 0 ? extensions : defaultScanExtensions(type),
-    scan_sources: normalizeScanSources(type, raw.scan_sources)
+    scan_sources: normalizeScanSources(type, raw.scan_sources),
+    tag_encoding: isTagEncoding(raw.tag_encoding) ? raw.tag_encoding : undefined
   };
 }
 

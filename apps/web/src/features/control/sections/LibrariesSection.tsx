@@ -7,12 +7,13 @@ import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { formatManagedDate } from "../../../shared/utils";
 import type { AudiobookLibrary, PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults } from "../../audiobooks/types";
-import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
+import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot } from "../types";
 import { LibraryCoreFields } from "../libraries/LibraryCoreFields";
 import { ExtensionsEditor } from "../libraries/ExtensionsEditor";
 import { ScanSourcesEditor } from "../libraries/ScanSourcesEditor";
 import { UploadSettingsFields } from "../libraries/UploadSettingsFields";
-import { SourceFolderPicker } from "../libraries/SourceFolderPicker";
+import { TagEncodingField } from "../libraries/TagEncodingField";
+import { LibraryWizard } from "../libraries/LibraryWizard";
 import { LibraryMembersModal } from "./LibraryMembersModal";
 
 const LIBRARY_TYPE = "audiobook";
@@ -26,16 +27,6 @@ export function LibrariesSection() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
   const [selectedRootId, setSelectedRootId] = useState("");
-  const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
-  const [libraryName, setLibraryName] = useState("");
-  const [libraryVisibility, setLibraryVisibility] = useState<"public" | "private">("public");
-  const [libraryPublicRole, setLibraryPublicRole] = useState<PublicRole>("member");
-  const [libraryMode, setLibraryMode] = useState<LibraryMode>("managed");
-  const [libraryOwnerId, setLibraryOwnerId] = useState("");
-  const [libraryOwnerType, setLibraryOwnerType] = useState<"user" | "group" | "">("");
-  const [libraryExtensions, setLibraryExtensions] = useState<string[]>([]);
-  const [librarySources, setLibrarySources] = useState<ScanSource[]>([]);
-  const [libraryMaxUploadMB, setLibraryMaxUploadMB] = useState("");
   const [rescanTarget, setRescanTarget] = useState<AudiobookLibrary | null>(null);
   const [rescanSources, setRescanSources] = useState<ScanSource[]>([]);
   const [rescanEncoding, setRescanEncoding] = useState("auto");
@@ -55,8 +46,8 @@ export function LibrariesSection() {
   const [editExtensions, setEditExtensions] = useState<string[]>([]);
   const [editSources, setEditSources] = useState<ScanSource[]>([]);
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
+  const [editTagEncoding, setEditTagEncoding] = useState("");
   const [saving, setSaving] = useState(false);
-  const [wizardStep, setWizardStep] = useState(0);
   const [error, setError] = useState("");
 
   const typeSourceInfo = useMemo(
@@ -113,75 +104,9 @@ export function LibrariesSection() {
     return () => window.clearInterval(timer);
   }, [libraries, loadLibraries]);
 
-  useEffect(() => {
-    if (!createLibraryOpen) {
-      return;
-    }
-
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !creating) {
-        setCreateLibraryOpen(false);
-        setStorageBrowse(null);
-      }
-    };
-
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [createLibraryOpen, creating]);
-
-  const browseStorageRoot = async (rootId: string, relativePath = "") => {
-    const query = new URLSearchParams({ path: relativePath });
-    const payload = await api<StorageBrowse>(`/api/storage/roots/${rootId}/browse?${query}`);
-    setSelectedRootId(rootId);
-    setStorageBrowse(payload);
-  };
-
   const maxUploadValue = (raw: string) => {
     const value = Number.parseInt(raw, 10);
     return Number.isFinite(value) && value > 0 ? value : null;
-  };
-
-  const createLibrary = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!storageBrowse?.selectedPath) {
-      setError("Choose a storage container folder for this library.");
-      return;
-    }
-
-    setCreating(true);
-    setError("");
-    try {
-      await api<{ library: { id: string } }>("/api/library/audiobook-libraries", {
-        method: "POST",
-        body: JSON.stringify({
-          name: libraryName,
-          sourcePath: storageBrowse.selectedPath,
-          defaultLanguage: "en",
-          visibility: libraryVisibility,
-          publicRole: libraryPublicRole,
-          mode: libraryMode,
-          ownerId: libraryOwnerId || null,
-          ownerType: libraryOwnerType || null,
-          scanExtensions: libraryExtensions,
-          scanSources: librarySources,
-          maxUploadMB: maxUploadValue(libraryMaxUploadMB)
-        })
-      });
-      setCreateLibraryOpen(false);
-      setLibraryName("");
-      setLibraryVisibility("public");
-      setLibraryPublicRole("member");
-      setLibraryMode("managed");
-      setLibraryOwnerId("");
-      setLibraryOwnerType("");
-      setLibraryMaxUploadMB("");
-      setStorageBrowse(null);
-      await loadLibraries();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create audiobook library");
-    } finally {
-      setCreating(false);
-    }
   };
 
   const openEdit = (library: AudiobookLibrary) => {
@@ -195,6 +120,7 @@ export function LibrariesSection() {
     setEditExtensions(library.settings?.scanExtensions ?? defaults?.extensions ?? []);
     setEditSources(library.settings?.scanSources ?? defaultSources);
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
+    setEditTagEncoding(library.settings?.tagEncoding ?? "");
     setError("");
   };
 
@@ -225,7 +151,8 @@ export function LibrariesSection() {
           ownerType: editOwnerType || null,
           scanExtensions: editExtensions,
           scanSources: editSources,
-          maxUploadMB: maxUploadValue(editMaxUploadMB)
+          maxUploadMB: maxUploadValue(editMaxUploadMB),
+          tagEncoding: editTagEncoding || null
         })
       });
       setEditingLibrary(null);
@@ -240,7 +167,7 @@ export function LibrariesSection() {
   const openRescan = (library: AudiobookLibrary) => {
     setRescanTarget(library);
     setRescanSources(library.settings?.scanSources ?? defaultSources);
-    setRescanEncoding("auto");
+    setRescanEncoding(library.settings?.tagEncoding ?? "");
     setError("");
   };
 
@@ -253,7 +180,7 @@ export function LibrariesSection() {
         method: "POST",
         body: JSON.stringify({
           sources: rescanSources,
-          tagEncoding: rescanEncoding === "auto" ? undefined : rescanEncoding
+          tagEncoding: rescanEncoding || undefined
         })
       });
       setRescanTarget(null);
@@ -282,15 +209,7 @@ export function LibrariesSection() {
 
   const openCreateLibrary = () => {
     setError("");
-    setWizardStep(0);
-    setLibraryExtensions(defaults?.extensions ?? []);
-    setLibrarySources(defaultSources);
-    setLibraryMaxUploadMB("");
     setCreateLibraryOpen(true);
-    const rootId = selectedRootId || storageRoots[0]?.id || "";
-    if (rootId) {
-      browseStorageRoot(rootId).catch((err) => setError(err instanceof Error ? err.message : "Unable to browse storage container"));
-    }
   };
 
   return (
@@ -418,122 +337,21 @@ export function LibrariesSection() {
         </div>
       )}
 
-      {createLibraryOpen && (() => {
-        const steps: ("details" | "scanning" | "source")[] = ["details", "scanning", "source"];
-        const lastStep = steps.length - 1;
-        const current = Math.min(wizardStep, lastStep);
-        const stepKey = steps[current];
-        const stepTitles: Record<typeof steps[number], string> = {
-          details: "Details",
-          scanning: "Scanning & upload",
-          source: "Source folder"
-        };
-        const canLeaveDetails = libraryName.trim().length >= 2;
-        const canSubmit = Boolean(storageBrowse?.selectedPath) && Boolean(librarySettings?.thumbnailPathReady) && storageRoots.length > 0;
-        const closeWizard = () => { setCreateLibraryOpen(false); setStorageBrowse(null); };
-        const goNext = () => {
-          if (stepKey === "details" && !canLeaveDetails) {
-            setError("Enter a library name (at least 2 characters) to continue.");
-            return;
-          }
-          if (stepKey === "scanning" && libraryExtensions.length === 0) {
-            setError("Add at least one file extension to scan.");
-            return;
-          }
-          setError("");
-          setWizardStep(current + 1);
-        };
-        const onWizardSubmit = (event: FormEvent) => {
-          if (current < lastStep) { event.preventDefault(); goNext(); return; }
-          createLibrary(event);
-        };
-
-        return (
-        <Modal
-          title="Add audiobook library"
-          className="create-library-modal"
-          busy={creating}
-          onClose={closeWizard}
-          onSubmit={onWizardSubmit}
-        >
-            <p className="wizard-step-indicator">Step {current + 1} of {steps.length} — {stepTitles[stepKey]}</p>
-            {(!librarySettings?.thumbnailPathReady || storageRoots.length === 0) && (
-              <MessageBox tone="warning" title="Thumbnail storage required">
-                Configure thumbnail storage and at least one Digital Library container first.
-              </MessageBox>
-            )}
-
-            {stepKey === "details" && (
-              <LibraryCoreFields
-                name={libraryName}
-                onNameChange={setLibraryName}
-                ownerId={libraryOwnerId}
-                ownerType={libraryOwnerType}
-                onOwnerChange={(type, id) => { setLibraryOwnerType(type); setLibraryOwnerId(id); }}
-                visibility={libraryVisibility}
-                onVisibilityChange={setLibraryVisibility}
-                publicRole={libraryPublicRole}
-                onPublicRoleChange={setLibraryPublicRole}
-                mode={libraryMode}
-                onModeChange={setLibraryMode}
-                users={users}
-                groups={groups}
-              />
-            )}
-
-            {stepKey === "scanning" && (
-              <>
-                <ScanSourcesEditor
-                  sources={librarySources}
-                  onChange={setLibrarySources}
-                  sourceInfo={typeSourceInfo}
-                />
-                <ExtensionsEditor
-                  extensions={libraryExtensions}
-                  onChange={setLibraryExtensions}
-                  defaults={defaults?.extensions ?? []}
-                />
-                <UploadSettingsFields
-                  maxUploadMB={libraryMaxUploadMB}
-                  onChange={setLibraryMaxUploadMB}
-                  mode={libraryMode}
-                />
-              </>
-            )}
-
-            {stepKey === "source" && (
-              <SourceFolderPicker
-                storageRoots={storageRoots}
-                selectedRootId={selectedRootId}
-                storageBrowse={storageBrowse}
-                onBrowse={browseStorageRoot}
-                onError={setError}
-              />
-            )}
-
-            {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
-
-            <div className="modal-actions">
-              <Button
-                variant="secondary"
-                onClick={current > 0 ? () => setWizardStep(current - 1) : closeWizard}
-                disabled={creating}
-              >
-                {current > 0 ? "Back" : "Cancel"}
-              </Button>
-              {current < lastStep ? (
-                <Button variant="primary" type="submit">
-                  Next
-                </Button>
-              ) : (
-                <Button variant="primary" type="submit" disabled={creating || !canSubmit}>
-                  {creating ? "Scanning..." : "Add and scan"}
-                </Button>
-              )}
-            </div>
-        </Modal>
-        );
-      })()}
+      {createLibraryOpen && (
+        <LibraryWizard
+          initialType="audiobook"
+          users={users}
+          groups={groups}
+          storageRoots={storageRoots}
+          initialRootId={selectedRootId || storageRoots[0]?.id || ""}
+          metadataSources={metadataSources}
+          typeDefaults={typeDefaults}
+          onClose={() => setCreateLibraryOpen(false)}
+          onCreated={() => {
+            loadLibraries().catch((err) => setError(err instanceof Error ? err.message : "Unable to load libraries"));
+          }}
+        />
+      )}
 
       {membersLibrary && (
         <LibraryMembersModal
@@ -560,21 +378,11 @@ export function LibrariesSection() {
             <p className="muted" style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>
               These choices apply to this scan only — edit the library to change its defaults.
             </p>
-            <label className="field">
-              <span>Tag text encoding</span>
-              <select value={rescanEncoding} onChange={(event) => setRescanEncoding(event.target.value)}>
-                <option value="auto">Auto — leave tags as-is</option>
-                <option value="windows-1251">Windows-1251 (Cyrillic)</option>
-                <option value="windows-1250">Windows-1250 (Central European)</option>
-                <option value="windows-1252">Windows-1252 (Western European)</option>
-                <option value="koi8-r">KOI8-R (Cyrillic)</option>
-              </select>
-            </label>
-            {rescanEncoding !== "auto" && (
-              <p className="muted" style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>
-                Repairs garbled tag text (e.g. "Ðàíåå" → "Ранее") for files whose tags were saved in this legacy encoding. Correctly stored tags are left untouched.
-              </p>
-            )}
+            <TagEncodingField
+              value={rescanEncoding}
+              onChange={setRescanEncoding}
+              noneLabel="Library default — leave tags as-is"
+            />
             {error && <MessageBox tone="error" title="Rescan error">{error}</MessageBox>}
             <div className="modal-actions">
               <Button variant="secondary" onClick={() => setRescanTarget(null)} disabled={rescanRunning} autoFocus>
@@ -633,6 +441,7 @@ export function LibrariesSection() {
               onChange={setEditSources}
               sourceInfo={typeSourceInfo}
             />
+            <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
             <ExtensionsEditor
               extensions={editExtensions}
               onChange={setEditExtensions}

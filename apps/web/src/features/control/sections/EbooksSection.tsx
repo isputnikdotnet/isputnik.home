@@ -6,13 +6,13 @@ import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { formatManagedDate } from "../../../shared/utils";
-import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
+import type { LibrarySettings, ManagedUser, ManagedGroup, StorageRoot } from "../types";
 import type { PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults, AdminLibrarySettings } from "../../audiobooks/types";
 import { LibraryCoreFields } from "../libraries/LibraryCoreFields";
 import { ExtensionsEditor } from "../libraries/ExtensionsEditor";
 import { ScanSourcesEditor } from "../libraries/ScanSourcesEditor";
 import { UploadSettingsFields } from "../libraries/UploadSettingsFields";
-import { SourceFolderPicker } from "../libraries/SourceFolderPicker";
+import { LibraryWizard } from "../libraries/LibraryWizard";
 import { LibraryMembersModal } from "./LibraryMembersModal";
 
 const LIBRARY_TYPE = "ebook";
@@ -44,18 +44,7 @@ export function EbooksSection() {
   const [error, setError] = useState("");
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [visibility, setVisibility] = useState<"public" | "private">("public");
-  const [publicRole, setPublicRole] = useState<PublicRole>("member");
-  const [mode, setMode] = useState<LibraryMode>("managed");
-  const [ownerId, setOwnerId] = useState("");
-  const [ownerType, setOwnerType] = useState<"user" | "group" | "">("");
-  const [extensions, setExtensions] = useState<string[]>([]);
-  const [scanSources, setScanSources] = useState<ScanSource[]>([]);
-  const [maxUploadMB, setMaxUploadMB] = useState("");
   const [selectedRootId, setSelectedRootId] = useState("");
-  const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
-  const [creating, setCreating] = useState(false);
 
   const [editing, setEditing] = useState<EbookLibrary | null>(null);
   const [editName, setEditName] = useState("");
@@ -118,67 +107,14 @@ export function EbooksSection() {
     return () => window.clearInterval(timer);
   }, [libraries, load]);
 
-  const browse = async (rootId: string, relativePath = "") => {
-    const query = new URLSearchParams({ path: relativePath });
-    const payload = await api<StorageBrowse>(`/api/storage/roots/${rootId}/browse?${query}`);
-    setSelectedRootId(rootId);
-    setStorageBrowse(payload);
-  };
-
   const maxUploadValue = (raw: string) => {
     const value = Number.parseInt(raw, 10);
     return Number.isFinite(value) && value > 0 ? value : null;
   };
 
   const openCreate = () => {
-    setName("");
-    setVisibility("public");
-    setPublicRole("member");
-    setMode("managed");
-    setOwnerId("");
-    setOwnerType("");
-    setExtensions(defaults?.extensions ?? []);
-    setScanSources(defaultSources);
-    setMaxUploadMB("");
-    setStorageBrowse(null);
     setError("");
     setCreateOpen(true);
-    const rootId = selectedRootId || storageRoots[0]?.id || "";
-    if (rootId) browse(rootId).catch((err) => setError(err instanceof Error ? err.message : "Unable to browse container"));
-  };
-
-  const createLibrary = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!storageBrowse?.selectedPath) {
-      setError("Choose a folder for this library.");
-      return;
-    }
-    setCreating(true);
-    setError("");
-    try {
-      await api("/api/library/ebook-libraries", {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          sourcePath: storageBrowse.selectedPath,
-          defaultLanguage: "en",
-          visibility,
-          publicRole,
-          mode,
-          ownerId: ownerId || null,
-          ownerType: ownerType || null,
-          scanExtensions: extensions,
-          scanSources,
-          maxUploadMB: maxUploadValue(maxUploadMB)
-        })
-      });
-      setCreateOpen(false);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to add ebook library");
-    } finally {
-      setCreating(false);
-    }
   };
 
   const openEdit = (library: EbookLibrary) => {
@@ -259,7 +195,6 @@ export function EbooksSection() {
   };
 
   const ready = Boolean(settings?.thumbnailPathReady) && storageRoots.length > 0;
-  const canSubmit = Boolean(storageBrowse?.selectedPath) && name.trim().length >= 2 && extensions.length > 0 && ready;
 
   return (
     <>
@@ -360,46 +295,19 @@ export function EbooksSection() {
       )}
 
       {createOpen && (
-        <Modal
-          title="Add ebook library"
-          className="create-library-modal"
-          busy={creating}
+        <LibraryWizard
+          initialType="ebook"
+          users={users}
+          groups={groups}
+          storageRoots={storageRoots}
+          initialRootId={selectedRootId || storageRoots[0]?.id || ""}
+          metadataSources={metadataSources}
+          typeDefaults={typeDefaults}
           onClose={() => setCreateOpen(false)}
-          onSubmit={createLibrary}
-        >
-            <LibraryCoreFields
-              name={name}
-              onNameChange={setName}
-              ownerId={ownerId}
-              ownerType={ownerType}
-              onOwnerChange={(type, id) => { setOwnerType(type); setOwnerId(id); }}
-              visibility={visibility}
-              onVisibilityChange={setVisibility}
-              publicRole={publicRole}
-              onPublicRoleChange={setPublicRole}
-              mode={mode}
-              onModeChange={setMode}
-              users={users}
-              groups={groups}
-            />
-            <ScanSourcesEditor sources={scanSources} onChange={setScanSources} sourceInfo={typeSourceInfo} />
-            <ExtensionsEditor extensions={extensions} onChange={setExtensions} defaults={defaults?.extensions ?? []} />
-            <UploadSettingsFields maxUploadMB={maxUploadMB} onChange={setMaxUploadMB} mode={mode} />
-            <SourceFolderPicker
-              storageRoots={storageRoots}
-              selectedRootId={selectedRootId}
-              storageBrowse={storageBrowse}
-              onBrowse={browse}
-              onError={setError}
-            />
-
-            {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
-
-            <div className="modal-actions">
-              <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
-              <Button variant="primary" type="submit" disabled={creating || !canSubmit}>{creating ? "Scanning…" : "Add and scan"}</Button>
-            </div>
-        </Modal>
+          onCreated={() => {
+            load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load ebook libraries"));
+          }}
+        />
       )}
 
       {editing && (

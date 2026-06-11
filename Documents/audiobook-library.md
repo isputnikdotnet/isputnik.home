@@ -60,6 +60,7 @@ the type defaults — older rows never break a scan.
 | `default_language` | `en` | Fallback when no language tag is found |
 | `scan_extensions` | see below | Dotless, lowercase file extensions to include during scan. **The same list is the upload extension policy** — one list for both. User-editable per library (create wizard / edit modal), with a "Reset to defaults" action |
 | `scan_sources` | see below | Ordered list of metadata sources, `{ id, enabled }`. Position = priority: index 0 wins per field. See "Scan metadata sources" below |
+| `tag_encoding` | unset | (audiobook) Default legacy charset (`windows-1251`, `windows-1250`, `windows-1252`, `koi8-r`) for repairing mojibake in audio tags on every scan; a rescan can override it for one run |
 | `show_narrator` | `true` | (audiobook) Display narrator prominently in the UI |
 | `cover_filenames` | `cover,folder,artwork` | (audiobook) Image filenames to recognise as folder cover art (if none match, the largest image file in the folder is used as fallback) |
 
@@ -381,7 +382,7 @@ The scan runs asynchronously through the SQLite job queue. Create and rescan req
 `POST /api/library/audiobook-libraries/:id/rescan` accepts an optional body `{ sources?, tagEncoding? }`, carried through the job payload into `scanAudiobookLibrary` → `prepareBookScan`. The single-book rescan (`POST /api/library/books/:id/rescan`) takes the same shape. The Rescan dialog pre-fills the editor from the library's persisted `scan_sources`; changes there are **one-shot overrides for that run only** — edit the library to change the persisted defaults.
 
 - **`sources`** — full override of the library's `scan_sources` (same `{ id, enabled }[]` ordered shape). The old `skipSidecar` flag is gone; it is equivalent to disabling `metadata_files` in the override.
-- **`tagEncoding`** — one of `windows-1251`, `windows-1250`, `windows-1252`, `koi8-r`. Repairs mojibake: tag text whose bytes are really a legacy charset but were decoded as Latin-1 (e.g. `Ðàíåå` → `Ранее`). `repairEncoding()` re-encodes the string to Latin-1 bytes and decodes with the chosen charset (Node `TextDecoder`, no dependency). Strings already containing characters above U+00FF (correct UTF-8) and plain ASCII are left untouched; manual-source metadata and ISBN/ASIN are never altered.
+- **`tagEncoding`** — one of `windows-1251`, `windows-1250`, `windows-1252`, `koi8-r`. Repairs mojibake: tag text whose bytes are really a legacy charset but were decoded as Latin-1 (e.g. `Ðàíåå` → `Ранее`). `repairEncoding()` re-encodes the string to Latin-1 bytes and decodes with the chosen charset (Node `TextDecoder`, no dependency). Strings already containing characters above U+00FF (correct UTF-8) and plain ASCII are left untouched; manual-source metadata and ISBN/ASIN are never altered. When omitted, the library's persisted `settings.tag_encoding` (if any) applies; sending a value overrides it for this run.
 
 Either option **forces a full metadata re-read** (bypassing the unchanged-files fast path) so the correction is actually applied and stored. A plain rescan with no options keeps the fast path.
 

@@ -515,6 +515,104 @@
   font-weight: 600;
 }
 
+/* ── Create-library wizard ──────────────────────────────────────── */
+
+.wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wizard-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.wizard-step.active {
+  color: var(--ink);
+  border-color: var(--gold);
+}
+
+.wizard-step.done {
+  color: var(--ink);
+}
+
+.wizard-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--field);
+  border: 1px solid var(--line);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.wizard-step.active .wizard-step-dot {
+  color: #031116;
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+.wizard-step.done .wizard-step-dot {
+  color: var(--mint);
+  border-color: var(--mint);
+}
+
+.wizard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.wizard-card {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wizard-card:hover {
+  background: var(--hover);
+}
+
+.wizard-card.selected {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
+}
+
+.wizard-card svg {
+  color: var(--gold);
+}
+
+.wizard-card strong {
+  font-size: 0.92rem;
+}
+
+.wizard-card small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .create-group-modal,
 .create-tag-modal,
 .edit-library-modal {

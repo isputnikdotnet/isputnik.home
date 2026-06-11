@@ -14,7 +14,8 @@ import {
   normalizeScanSources,
   sourceEnabled,
   type AudiobookLibrarySettings,
-  type ScanSourceConfig
+  type ScanSourceConfig,
+  type TagEncoding
 } from "../shared/library-settings.js";
 import type { MetadataSourceId } from "../shared/metadata-sources.js";
 import { matchCategoryId, setEntityTags } from "./categorize.js";
@@ -33,7 +34,7 @@ const documentExtensions = new Set(Object.keys(documentMimeTypes));
 const imageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
 const scanJobType = "SCAN_AUDIOBOOK_LIBRARY";
 
-export type TagEncoding = "windows-1251" | "windows-1250" | "windows-1252" | "koi8-r";
+export type { TagEncoding };
 
 export interface ScanOptions {
   // One-shot override of the library's persisted scan_sources (rescan dialog).
@@ -64,7 +65,8 @@ function resolveScanConfig(settingsJson: string, options: ScanOptions): Effectiv
     sources,
     groupingMode: sourceEnabled(sources, "folder_structure") ? "top_level_folder" : "folder_hierarchy",
     forceReread: options.sources != null || options.tagEncoding != null,
-    tagEncoding: options.tagEncoding
+    // Rescan override wins; otherwise the library's persisted default encoding.
+    tagEncoding: options.tagEncoding ?? settings.tag_encoding
   };
 }
 

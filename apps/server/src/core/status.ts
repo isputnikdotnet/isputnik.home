@@ -342,7 +342,9 @@ export async function statusPlugin(app: FastifyInstance) {
             "Every dialog in the app now uses one shared modal component, so they all look and behave the same: Escape and clicking outside close them, and closing is blocked while a save or delete is running.",
             "Destructive actions got consistent confirmations — a question naming exactly what will be deleted, a note on what is not affected (your files on disk are never touched), and an explicit red Delete button instead of generic OK/Yes prompts.",
             "Buttons follow one vocabulary everywhere: Add attaches something existing, Create makes something new, Remove detaches without deleting data, and Delete destroys — always behind a confirmation.",
-            "A new automated check (npm run check:ui) and a written UI convention guide keep future changes — human- or AI-written — on the same standard."
+            "A new automated check (npm run check:ui) and a written UI convention guide keep future changes — human- or AI-written — on the same standard.",
+            "Adding a library was redesigned around one wizard for every library type: Quick create needs only a type, name, and folder (recommended defaults cover the rest), while Custom setup walks through Basics, Access, and Scanning & upload steps.",
+            "Tag text encoding is now a per-library setting: set it once (at creation or in Edit) and every scan repairs garbled legacy tags automatically — the Rescan dialog still allows a one-time override."
           ]
         },
         {

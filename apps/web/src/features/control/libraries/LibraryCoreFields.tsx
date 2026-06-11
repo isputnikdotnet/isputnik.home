@@ -3,18 +3,16 @@ import type { PublicRole, LibraryMode } from "../../audiobooks/types";
 import { PUBLIC_ROLE_OPTIONS } from "../../audiobooks/types";
 import type { ManagedUser, ManagedGroup } from "../types";
 
-// Core fields shared by every library type's create/edit forms:
-// name, owner, visibility, public role, and mode.
-export function LibraryCoreFields({
-  name, onNameChange,
+// Access fields shared by every library type: owner, visibility, public role, mode.
+// The create wizard renders these on their own step; edit dialogs use
+// LibraryCoreFields below, which adds the name field on top.
+export function LibraryAccessFields({
   ownerId, ownerType, onOwnerChange,
   visibility, onVisibilityChange,
   publicRole, onPublicRoleChange,
   mode, onModeChange,
   users, groups
 }: {
-  name: string;
-  onNameChange: (value: string) => void;
   ownerId: string;
   ownerType: "user" | "group" | "";
   onOwnerChange: (ownerType: "user" | "group" | "", ownerId: string) => void;
@@ -29,7 +27,6 @@ export function LibraryCoreFields({
 }) {
   return (
     <>
-      <Field label="Library name" value={name} onChange={onNameChange} />
       <label className="field">
         <span>Owner</span>
         <select
@@ -80,6 +77,22 @@ export function LibraryCoreFields({
           <option value="external">External (read-only) — managed by Plex/Audiobookshelf</option>
         </select>
       </label>
+    </>
+  );
+}
+
+// Name + access fields, used by the edit dialogs.
+export function LibraryCoreFields({
+  name, onNameChange,
+  ...accessProps
+}: {
+  name: string;
+  onNameChange: (value: string) => void;
+} & Parameters<typeof LibraryAccessFields>[0]) {
+  return (
+    <>
+      <Field label="Library name" value={name} onChange={onNameChange} />
+      <LibraryAccessFields {...accessProps} />
     </>
   );
 }

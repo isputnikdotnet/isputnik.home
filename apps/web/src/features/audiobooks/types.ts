@@ -27,12 +27,15 @@ export interface LibraryTypeDefaults {
   sources: ScanSource[];
 }
 
+export type TagEncoding = "windows-1251" | "windows-1250" | "windows-1252" | "koi8-r";
+
 // Scan/upload settings exposed to admins on the manage view.
 export interface AdminLibrarySettings {
   defaultLanguage: string | null;
   scanExtensions: string[];
   scanSources: ScanSource[];
   maxUploadMB: number | null;
+  tagEncoding: TagEncoding | null;
 }
 
 export interface AudiobookLibrary {

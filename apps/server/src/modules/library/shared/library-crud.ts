@@ -12,7 +12,9 @@ import {
   normalizeExtensions,
   normalizeLibrarySettings,
   normalizeScanSources,
-  type ScanSourceConfig
+  TAG_ENCODINGS,
+  type ScanSourceConfig,
+  type TagEncoding
 } from "./library-settings.js";
 import { METADATA_SOURCE_IDS } from "./metadata-sources.js";
 import { parsePolicy } from "../../../core/permissions.js";
@@ -38,7 +40,9 @@ export const coreLibraryCreateSchema = z.object({
   // One extension list for both scanning and upload policy.
   scanExtensions: z.array(extensionSchema).min(1).max(40).optional(),
   scanSources: scanSourcesSchema.optional(),
-  maxUploadMB: z.number().int().min(1).max(10240).nullable().optional()
+  maxUploadMB: z.number().int().min(1).max(10240).nullable().optional(),
+  // Default legacy charset for tag mojibake repair (audiobook); null clears it.
+  tagEncoding: z.enum(TAG_ENCODINGS).nullable().optional()
 });
 
 export const coreLibraryUpdateSchema = coreLibraryCreateSchema.omit({ sourcePath: true });
@@ -96,7 +100,8 @@ export function createLibraryRecord(opts: {
     ...(opts.extraSettings ?? {}),
     default_language: data.defaultLanguage ?? "en",
     scan_extensions: scanExtensions.length > 0 ? scanExtensions : defaultScanExtensions(type),
-    scan_sources: normalizeScanSources(type, data.scanSources)
+    scan_sources: normalizeScanSources(type, data.scanSources),
+    ...(data.tagEncoding ? { tag_encoding: data.tagEncoding } : {})
   };
 
   const libraryId = nanoid(16);
@@ -162,6 +167,13 @@ export function updateLibraryRecord(opts: {
   if (data.scanSources) {
     settings.scan_sources = normalizeScanSources(type, data.scanSources);
   }
+  if (data.tagEncoding !== undefined) {
+    if (data.tagEncoding === null) {
+      delete settings.tag_encoding;
+    } else {
+      settings.tag_encoding = data.tagEncoding;
+    }
+  }
 
   db.prepare(`
     UPDATE libraries
@@ -198,6 +210,7 @@ export interface AdminLibrarySettings {
   scanExtensions: string[];
   scanSources: ScanSourceConfig[];
   maxUploadMB: number | null;
+  tagEncoding: TagEncoding | null;
 }
 
 // Settings payload for admin views (create/edit/rescan dialogs in the Control Panel).
@@ -212,6 +225,7 @@ export function serializeLibrarySettingsForAdmin(
     defaultLanguage: settings.default_language ?? null,
     scanExtensions: settings.scan_extensions,
     scanSources: settings.scan_sources,
-    maxUploadMB: policy.maxUploadMB ?? null
+    maxUploadMB: policy.maxUploadMB ?? null,
+    tagEncoding: (settings as { tag_encoding?: TagEncoding }).tag_encoding ?? null
   };
 }
