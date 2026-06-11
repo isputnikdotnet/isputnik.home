@@ -169,21 +169,22 @@
     gap: 10px;
   }
 
+  .book-detail-primary-actions {
+    align-items: stretch;
+  }
+
+  .book-detail-primary-actions .primary-button,
+  .book-detail-primary-actions .secondary-button {
+    flex: 1 1 160px;
+  }
+
   .book-detail-icon-action {
     width: 42px;
     height: 42px;
   }
 
-  .book-progress-actions {
-    grid-template-columns: 1fr;
-  }
-
-  .book-progress-action + .book-progress-action {
-    margin-top: 12px;
-    padding-top: 12px;
-    padding-left: 6px;
-    border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-    border-left: 0;
+  .book-progress-inline {
+    gap: 8px 10px;
   }
 
   .book-detail-tabs {
