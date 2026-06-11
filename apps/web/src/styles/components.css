@@ -515,6 +515,23 @@
   font-weight: 600;
 }
 
+/* ── Unified Libraries page ─────────────────────────────────────── */
+
+.library-type-filter {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.library-type-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 /* ── Create-library wizard ──────────────────────────────────────── */
 
 .wizard-steps {

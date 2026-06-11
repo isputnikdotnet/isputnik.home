@@ -1,12 +1,30 @@
-import type { AudiobookLibraryRow } from "./types.js";
-import type { LibraryCapabilities } from "../shared/library-access.js";
+// One public shape for libraries of every type — consumed by the unified
+// Control Panel Libraries page and any per-type route that lists libraries.
+import type { LibraryType } from "./library-types.js";
+import type { LibraryCapabilities } from "./library-access.js";
 import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
-import { coreLibraryCreateSchema, serializeLibrarySettingsForAdmin } from "../shared/library-crud.js";
+import { serializeLibrarySettingsForAdmin } from "./library-crud.js";
 
-export const audiobookLibrarySchema = coreLibraryCreateSchema;
+export interface LibraryListRow {
+  id: string;
+  name: string;
+  type: string;
+  source_path: string;
+  settings_json: string;
+  scan_status: string;
+  last_scanned_at: string | null;
+  owner_id: string | null;
+  owner_type: "user" | "group" | null;
+  policy_json: string;
+  created_at: string;
+  updated_at: string;
+  book_count: number;
+  // Audiobook lists count audio files; types without per-item files omit this.
+  file_count?: number;
+}
 
-export function publicAudiobookLibrary(row: AudiobookLibraryRow, includeSourcePath: boolean, caps: LibraryCapabilities) {
-  // Public access is the Everyone assignment (source of truth), not the legacy column.
+export function publicLibrary(row: LibraryListRow, includeSourcePath: boolean, caps: LibraryCapabilities) {
+  // Public access is the Everyone assignment (source of truth), not a column.
   const everyoneRole = getEveryoneRole("library", row.id);
   const policy = parsePolicy(row.policy_json);
   return {
@@ -15,7 +33,7 @@ export function publicAudiobookLibrary(row: AudiobookLibraryRow, includeSourcePa
     type: row.type,
     sourcePath: includeSourcePath ? row.source_path : undefined,
     // Scan/upload settings, exposed only on the admin (manage) view.
-    settings: includeSourcePath ? serializeLibrarySettingsForAdmin("audiobook", row.settings_json, row.policy_json) : undefined,
+    settings: includeSourcePath ? serializeLibrarySettingsForAdmin(row.type as LibraryType, row.settings_json, row.policy_json) : undefined,
     // The requesting user's effective role + capabilities on this library, used by
     // the client to gate download/edit/curate/manage UI. Server still enforces each.
     myRole: caps.role,
@@ -35,6 +53,6 @@ export function publicAudiobookLibrary(row: AudiobookLibraryRow, includeSourcePa
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     bookCount: row.book_count,
-    fileCount: row.file_count
+    fileCount: row.file_count ?? null
   };
 }

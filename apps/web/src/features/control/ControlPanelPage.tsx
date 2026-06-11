@@ -4,12 +4,11 @@ import { followRoute } from "../../router";
 import type { ControlSection } from "../../router";
 import {
   Activity,
-  BookOpen,
   FileStack,
   HardDrive,
-  Headphones,
   Home,
   Image,
+  LibraryBig,
   ScrollText,
   Settings,
   Tags,
@@ -24,7 +23,6 @@ import { StatusSection } from "./sections/StatusSection";
 import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
-import { EbooksSection } from "./sections/EbooksSection";
 import { AudiobookStatsSection } from "./sections/AudiobookStatsSection";
 import { BackupSection } from "./sections/BackupSection";
 import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
@@ -55,8 +53,7 @@ export function ControlPanelPage({
           {section === "config"    && <ConfigSection />}
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
-          {(section === "libraries" || section === "librariesStats") && <AudiobooksControl section={section} />}
-          {section === "ebooks"    && <EbooksSection />}
+          {(section === "libraries" || section === "librariesStats") && <LibrariesControl section={section} />}
           {section === "media"     && <ComingSoonSection title="Gallery" blurb="Photo and video library types — albums, thumbnails, and streaming playback — are planned." />}
           {section === "otherMedia" && <ComingSoonSection title="Other Media" blurb="A flexible library type for media that isn't an audiobook, photo, or video is planned." />}
           {section === "categories" && categoryId !== undefined && <CategoryEditorPage categoryId={categoryId} />}
@@ -85,8 +82,7 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
       <div className="home-control-group">
         <p>Digital Library</p>
         <ControlNavLink icon={HardDrive} label="Storage" href="/control/storage" active={section === "storage"} />
-        <ControlNavLink icon={Headphones} label="Audiobooks" href="/control/libraries" active={["libraries", "librariesStats"].includes(section)} />
-        <ControlNavLink icon={BookOpen} label="Ebooks" href="/control/ebooks" active={section === "ebooks"} />
+        <ControlNavLink icon={LibraryBig} label="Libraries" href="/control/libraries" active={["libraries", "librariesStats"].includes(section)} />
         <ControlNavLink icon={Image} label="Gallery" href="/control/media" active={section === "media"} soon />
         <ControlNavLink icon={FileStack} label="Other Media" href="/control/other-media" active={section === "otherMedia"} soon />
       </div>
@@ -154,12 +150,12 @@ function ControlTabs({ tabs }: { tabs: ControlTab[] }) {
   );
 }
 
-function AudiobooksControl({ section }: { section: "libraries" | "librariesStats" }) {
+function LibrariesControl({ section }: { section: "libraries" | "librariesStats" }) {
   return (
     <>
       <ControlTabs tabs={[
-        { label: "Audiobooks", href: "/control/libraries", active: section === "libraries" },
-        { label: "Stats", href: "/control/libraries/stats", active: section === "librariesStats" }
+        { label: "Libraries", href: "/control/libraries", active: section === "libraries" },
+        { label: "Audiobook stats", href: "/control/libraries/stats", active: section === "librariesStats" }
       ]} />
       {section === "libraries"      && <LibrariesSection />}
       {section === "librariesStats" && <AudiobookStatsSection />}

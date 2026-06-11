@@ -2,55 +2,13 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess, type LibraryCapabilities } from "../shared/library-access.js";
-import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
+import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
+import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
-import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord, serializeLibrarySettingsForAdmin } from "../shared/library-crud.js";
+import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { enqueueEbookScan, processEbookScanQueue } from "./scanner.js";
-
-interface EbookLibraryRow {
-  id: string;
-  name: string;
-  source_path: string;
-  settings_json: string;
-  scan_status: string;
-  last_scanned_at: string | null;
-  owner_id: string | null;
-  owner_type: "user" | "group" | null;
-  policy_json: string;
-  created_at: string;
-  book_count: number;
-}
-
-function publicEbookLibrary(row: EbookLibraryRow, includeSourcePath: boolean, caps: LibraryCapabilities) {
-  const everyoneRole = getEveryoneRole("library", row.id);
-  const policy = parsePolicy(row.policy_json);
-  return {
-    id: row.id,
-    name: row.name,
-    sourcePath: includeSourcePath ? row.source_path : undefined,
-    // Scan/upload settings, exposed only on the admin (manage) view.
-    settings: includeSourcePath ? serializeLibrarySettingsForAdmin("ebook", row.settings_json, row.policy_json) : undefined,
-    scanStatus: row.scan_status,
-    lastScannedAt: row.last_scanned_at,
-    ownerId: row.owner_id,
-    ownerType: row.owner_type,
-    visibility: everyoneRole ? "public" : "private",
-    publicRole: everyoneRole ?? "member",
-    mode: policy.mode ?? "managed",
-    // Effective role + capabilities for the requesting user (UI gating only).
-    myRole: caps.role,
-    canWrite: caps.canEdit,
-    canDownload: caps.canDownload,
-    canUpload: caps.canUpload,
-    canCurate: caps.canCurate,
-    canManageMembers: caps.canManageMembers,
-    canManageLibrary: caps.canManageLibrary,
-    bookCount: row.book_count
-  };
-}
 
 const EBOOK_LIBRARY_LIST_SQL = `
   SELECT libraries.*, COUNT(DISTINCT books.id) AS book_count
@@ -88,11 +46,11 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/ebook-libraries", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
-    const rows = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "")).all() as EbookLibraryRow[];
+    const rows = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "")).all() as LibraryListRow[];
 
     const manageAll = (request.query as { manage?: string }).manage != null && user.role === "admin";
     const visible = manageAll ? rows : rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
-    return { libraries: visible.map((row) => publicEbookLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))) };
+    return { libraries: visible.map((row) => publicLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))) };
   });
 
   app.patch("/api/library/ebook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -116,8 +74,8 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       return;
     }
 
-    const updated = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as EbookLibraryRow;
-    reply.send({ library: publicEbookLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
+    const updated = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as LibraryListRow;
+    reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
   });
 
   app.get("/api/library/ebook-libraries/:id/books", { preHandler: app.authenticate }, async (request, reply) => {

@@ -3,9 +3,9 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { enqueueAudiobookScan, processAudiobookScanQueue } from "./scanner.js";
 import { z } from "zod";
-import { audiobookLibrarySchema, publicAudiobookLibrary } from "./serializers.js";
 import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
-import { coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
+import { publicLibrary } from "../shared/library-serializer.js";
+import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
@@ -13,7 +13,7 @@ import type { AudiobookLibraryRow } from "./types.js";
 
 export async function audiobookRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/audiobook-libraries", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const parsed = parseBody(audiobookLibrarySchema, request.body);
+    const parsed = parseBody(coreLibraryCreateSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid audiobook library details", details: parsed.error });
       return;
@@ -63,7 +63,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
 
     return {
       libraries: visible.map((row) =>
-        publicAudiobookLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role)))
+        publicLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role)))
     };
   });
 
@@ -97,7 +97,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       GROUP BY libraries.id
     `).get(id) as AudiobookLibraryRow;
 
-    reply.send({ library: publicAudiobookLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
+    reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
   });
 
   app.delete("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {

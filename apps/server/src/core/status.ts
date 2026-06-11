@@ -344,7 +344,8 @@ export async function statusPlugin(app: FastifyInstance) {
             "Buttons follow one vocabulary everywhere: Add attaches something existing, Create makes something new, Remove detaches without deleting data, and Delete destroys — always behind a confirmation.",
             "A new automated check (npm run check:ui) and a written UI convention guide keep future changes — human- or AI-written — on the same standard.",
             "Adding a library was redesigned around one wizard for every library type: Quick create needs only a type, name, and folder (recommended defaults cover the rest), while Custom setup walks through Basics, Access, and Scanning & upload steps.",
-            "Tag text encoding is now a per-library setting: set it once (at creation or in Edit) and every scan repairs garbled legacy tags automatically — the Rescan dialog still allows a one-time override."
+            "Tag text encoding is now a per-library setting: set it once (at creation or in Edit) and every scan repairs garbled legacy tags automatically — the Rescan dialog still allows a one-time override.",
+            "Audiobook and ebook libraries are now managed on one Libraries page in the Control Panel, with a type column and All / Audiobooks / Ebooks filter — the old separate sections (and their duplicated code) are gone."
           ]
         },
         {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
-import { Plus, RefreshCw, Pencil, Trash2, Users, KeyRound } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, Users, KeyRound, Headphones, BookOpen } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -16,10 +16,27 @@ import { TagEncodingField } from "../libraries/TagEncodingField";
 import { LibraryWizard } from "../libraries/LibraryWizard";
 import { LibraryMembersModal } from "./LibraryMembersModal";
 
-const LIBRARY_TYPE = "audiobook";
+type ManagedLibraryType = "audiobook" | "ebook";
+
+// One row shape for every library type (the server serializes them identically).
+interface ManagedLibrary extends Omit<AudiobookLibrary, "type" | "fileCount"> {
+  type: ManagedLibraryType;
+  fileCount: number | null;
+}
+
+const TYPE_META: Record<ManagedLibraryType, { label: string; icon: typeof Headphones }> = {
+  audiobook: { label: "Audiobooks", icon: Headphones },
+  ebook: { label: "Ebooks", icon: BookOpen }
+};
+
+const TYPE_FILTERS: { value: "all" | ManagedLibraryType; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "audiobook", label: "Audiobooks" },
+  { value: "ebook", label: "Ebooks" }
+];
 
 export function LibrariesSection() {
-  const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
+  const [libraries, setLibraries] = useState<ManagedLibrary[]>([]);
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
   const [metadataSources, setMetadataSources] = useState<MetadataSourceInfo[]>([]);
   const [typeDefaults, setTypeDefaults] = useState<Record<string, LibraryTypeDefaults>>({});
@@ -27,16 +44,17 @@ export function LibrariesSection() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
   const [selectedRootId, setSelectedRootId] = useState("");
-  const [rescanTarget, setRescanTarget] = useState<AudiobookLibrary | null>(null);
+  const [typeFilter, setTypeFilter] = useState<"all" | ManagedLibraryType>("all");
+  const [rescanTarget, setRescanTarget] = useState<ManagedLibrary | null>(null);
   const [rescanSources, setRescanSources] = useState<ScanSource[]>([]);
-  const [rescanEncoding, setRescanEncoding] = useState("auto");
+  const [rescanEncoding, setRescanEncoding] = useState("");
   const [rescanRunning, setRescanRunning] = useState(false);
-  const [membersLibrary, setMembersLibrary] = useState<AudiobookLibrary | null>(null);
-  const [deleteConfirmLibrary, setDeleteConfirmLibrary] = useState<AudiobookLibrary | null>(null);
+  const [rescanningId, setRescanningId] = useState("");
+  const [membersLibrary, setMembersLibrary] = useState<ManagedLibrary | null>(null);
+  const [deleteConfirmLibrary, setDeleteConfirmLibrary] = useState<ManagedLibrary | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [createLibraryOpen, setCreateLibraryOpen] = useState(false);
-  const [editingLibrary, setEditingLibrary] = useState<AudiobookLibrary | null>(null);
+  const [editingLibrary, setEditingLibrary] = useState<ManagedLibrary | null>(null);
   const [editName, setEditName] = useState("");
   const [editVisibility, setEditVisibility] = useState<"public" | "private">("public");
   const [editPublicRole, setEditPublicRole] = useState<PublicRole>("member");
@@ -50,14 +68,12 @@ export function LibrariesSection() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const typeSourceInfo = useMemo(
-    () => metadataSources.filter((source) => source.appliesTo.includes(LIBRARY_TYPE)),
+  // API prefix for a row's type-specific endpoints (rescan/PATCH/DELETE).
+  const apiBase = (library: ManagedLibrary) => `/api/library/${library.type}-libraries`;
+
+  const sourceInfoFor = useCallback(
+    (type: ManagedLibraryType) => metadataSources.filter((source) => source.appliesTo.includes(type)),
     [metadataSources]
-  );
-  const defaults = typeDefaults[LIBRARY_TYPE];
-  const defaultSources = useMemo<ScanSource[]>(
-    () => defaults?.sources ?? typeSourceInfo.map((source) => ({ id: source.id, enabled: source.defaultEnabled })),
-    [defaults, typeSourceInfo]
   );
 
   const loadStorage = useCallback(async () => {
@@ -73,17 +89,20 @@ export function LibrariesSection() {
     const rootsPayload = await api<{ roots: StorageRoot[] }>("/api/storage/roots");
     setStorageRoots(rootsPayload.roots);
     setSelectedRootId((current) => current || rootsPayload.roots[0]?.id || "");
-    return { settings: settingsPayload.settings, roots: rootsPayload.roots };
   }, []);
 
   const loadLibraries = useCallback(async () => {
     await loadStorage();
-    const [librariesPayload, usersPayload, groupsPayload] = await Promise.all([
-      api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries?manage=1"),
+    const [audiobooksPayload, ebooksPayload, usersPayload, groupsPayload] = await Promise.all([
+      api<{ libraries: ManagedLibrary[] }>("/api/library/audiobook-libraries?manage=1"),
+      api<{ libraries: ManagedLibrary[] }>("/api/library/ebook-libraries?manage=1"),
       api<{ users: ManagedUser[] }>("/api/users"),
       api<{ groups: ManagedGroup[] }>("/api/groups")
     ]);
-    setLibraries(librariesPayload.libraries);
+    setLibraries(
+      [...audiobooksPayload.libraries, ...ebooksPayload.libraries]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    );
     setUsers(usersPayload.users);
     setGroups(groupsPayload.groups);
   }, [loadStorage]);
@@ -109,7 +128,7 @@ export function LibrariesSection() {
     return Number.isFinite(value) && value > 0 ? value : null;
   };
 
-  const openEdit = (library: AudiobookLibrary) => {
+  const openEdit = (library: ManagedLibrary) => {
     setEditingLibrary(library);
     setEditName(library.name);
     setEditVisibility(library.visibility);
@@ -117,14 +136,14 @@ export function LibrariesSection() {
     setEditMode(library.mode ?? "managed");
     setEditOwnerId(library.ownerId ?? "");
     setEditOwnerType(library.ownerType ?? "");
-    setEditExtensions(library.settings?.scanExtensions ?? defaults?.extensions ?? []);
-    setEditSources(library.settings?.scanSources ?? defaultSources);
+    setEditExtensions(library.settings?.scanExtensions ?? typeDefaults[library.type]?.extensions ?? []);
+    setEditSources(library.settings?.scanSources ?? typeDefaults[library.type]?.sources ?? []);
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setEditTagEncoding(library.settings?.tagEncoding ?? "");
     setError("");
   };
 
-  const takeOwnership = async (library: AudiobookLibrary) => {
+  const takeOwnership = async (library: ManagedLibrary) => {
     setError("");
     try {
       await api(`/api/library/libraries/${library.id}/take-ownership`, { method: "POST", body: "{}" });
@@ -140,7 +159,7 @@ export function LibrariesSection() {
     setSaving(true);
     setError("");
     try {
-      await api(`/api/library/audiobook-libraries/${editingLibrary.id}`, {
+      await api(`${apiBase(editingLibrary)}/${editingLibrary.id}`, {
         method: "PATCH",
         body: JSON.stringify({
           name: editName,
@@ -152,7 +171,7 @@ export function LibrariesSection() {
           scanExtensions: editExtensions,
           scanSources: editSources,
           maxUploadMB: maxUploadValue(editMaxUploadMB),
-          tagEncoding: editTagEncoding || null
+          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null } : {})
         })
       });
       setEditingLibrary(null);
@@ -164,11 +183,21 @@ export function LibrariesSection() {
     }
   };
 
-  const openRescan = (library: AudiobookLibrary) => {
-    setRescanTarget(library);
-    setRescanSources(library.settings?.scanSources ?? defaultSources);
-    setRescanEncoding(library.settings?.tagEncoding ?? "");
+  // Audiobook rescans open the options dialog; other types run straight away.
+  const startRescan = (library: ManagedLibrary) => {
+    if (library.type === "audiobook") {
+      setRescanTarget(library);
+      setRescanSources(library.settings?.scanSources ?? typeDefaults.audiobook?.sources ?? []);
+      setRescanEncoding(library.settings?.tagEncoding ?? "");
+      setError("");
+      return;
+    }
+    setRescanningId(library.id);
     setError("");
+    api(`${apiBase(library)}/${library.id}/rescan`, { method: "POST", body: "{}" })
+      .then(() => loadLibraries())
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to rescan"))
+      .finally(() => setRescanningId(""));
   };
 
   const runRescan = async () => {
@@ -176,7 +205,7 @@ export function LibrariesSection() {
     setRescanRunning(true);
     setError("");
     try {
-      await api(`/api/library/audiobook-libraries/${rescanTarget.id}/rescan`, {
+      await api(`${apiBase(rescanTarget)}/${rescanTarget.id}/rescan`, {
         method: "POST",
         body: JSON.stringify({
           sources: rescanSources,
@@ -186,7 +215,7 @@ export function LibrariesSection() {
       setRescanTarget(null);
       await loadLibraries();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to scan audiobook library");
+      setError(err instanceof Error ? err.message : "Unable to scan library");
     } finally {
       setRescanRunning(false);
     }
@@ -197,7 +226,7 @@ export function LibrariesSection() {
     setDeleting(true);
     setError("");
     try {
-      await api(`/api/library/audiobook-libraries/${deleteConfirmLibrary.id}`, { method: "DELETE" });
+      await api(`${apiBase(deleteConfirmLibrary)}/${deleteConfirmLibrary.id}`, { method: "DELETE" });
       setDeleteConfirmLibrary(null);
       await loadLibraries();
     } catch (err) {
@@ -207,46 +236,64 @@ export function LibrariesSection() {
     }
   };
 
-  const openCreateLibrary = () => {
-    setError("");
-    setCreateLibraryOpen(true);
-  };
+  const visibleLibraries = useMemo(
+    () => (typeFilter === "all" ? libraries : libraries.filter((library) => library.type === typeFilter)),
+    [libraries, typeFilter]
+  );
+
+  const setupReady = Boolean(librarySettings?.thumbnailPathReady) && storageRoots.length > 0;
 
   return (
     <>
       <div className="section-head">
         <div>
           <p className="eyebrow">Digital Library</p>
-          <h1>Audiobooks</h1>
+          <h1>Libraries</h1>
         </div>
         <div className="row-actions">
-          <button
-            className="primary-button"
-            disabled={!librarySettings?.thumbnailPathReady || storageRoots.length === 0}
-            onClick={openCreateLibrary}
-            title="Add audiobook library"
+          <Button
+            variant="primary"
+            disabled={!setupReady}
+            onClick={() => { setError(""); setCreateLibraryOpen(true); }}
+            title="Add library"
           >
             <Plus size={18} />
             <span>Add library</span>
-          </button>
+          </Button>
         </div>
       </div>
 
-      {error && <MessageBox tone="error" title="Audiobook library error">{error}</MessageBox>}
-      {(!librarySettings?.thumbnailPathReady || storageRoots.length === 0) && (
+      {error && <MessageBox tone="error" title="Library error">{error}</MessageBox>}
+      {!setupReady && (
         <MessageBox tone="warning" title="Storage setup required">
           Configure thumbnail storage and at least one Digital Library container before adding libraries.
         </MessageBox>
       )}
 
-      {libraries.length === 0 ? (
-        <p className="management-empty">No audiobook libraries configured.</p>
+      <div className="library-type-filter" role="radiogroup" aria-label="Filter by library type">
+        {TYPE_FILTERS.map((option) => (
+          <Button
+            key={option.value}
+            compact
+            variant={typeFilter === option.value ? "primary" : "secondary"}
+            role="radio"
+            aria-checked={typeFilter === option.value}
+            onClick={() => setTypeFilter(option.value)}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+
+      {visibleLibraries.length === 0 ? (
+        <p className="management-empty">No libraries configured.</p>
       ) : (
         <div className="datagrid-wrap">
           <table className="datagrid">
             <thead>
               <tr>
                 <th>Library</th>
+                <th>Type</th>
                 <th>Visibility</th>
                 <th className="col-num">Books</th>
                 <th className="col-num">Files</th>
@@ -256,9 +303,10 @@ export function LibrariesSection() {
               </tr>
             </thead>
             <tbody>
-              {libraries.map((library) => {
+              {visibleLibraries.map((library) => {
                 const ownerUser = library.ownerType === "user" ? users.find((u) => u.id === library.ownerId) : null;
                 const ownerGroup = library.ownerType === "group" ? groups.find((g) => g.id === library.ownerId) : null;
+                const TypeIcon = TYPE_META[library.type].icon;
                 return (
                   <tr key={library.id}>
                     <td>
@@ -270,12 +318,17 @@ export function LibrariesSection() {
                       </div>
                     </td>
                     <td>
+                      <span className="library-type-cell">
+                        <TypeIcon size={14} aria-hidden="true" /> {TYPE_META[library.type].label}
+                      </span>
+                    </td>
+                    <td>
                       <span className={`status-badge ${library.visibility}`}>
                         {library.visibility === "public" ? "Public" : "Private"}
                       </span>
                     </td>
                     <td className="col-num datagrid-muted">{library.bookCount}</td>
-                    <td className="col-num datagrid-muted">{library.fileCount}</td>
+                    <td className="col-num datagrid-muted">{library.fileCount ?? "—"}</td>
                     <td className="col-scan datagrid-muted">
                       {library.lastScannedAt ? formatManagedDate(library.lastScannedAt) : "Not yet"}
                     </td>
@@ -286,46 +339,48 @@ export function LibrariesSection() {
                       <div className="row-actions">
                         {library.canManageLibrary ? (
                           <>
-                            <button
-                              className="icon-button"
+                            <Button
+                              variant="icon"
                               title="Manage members & roles"
                               onClick={() => setMembersLibrary(library)}
                             >
                               <Users size={15} />
-                            </button>
-                            <button
-                              className="icon-button"
+                            </Button>
+                            <Button
+                              variant="icon"
                               title="Edit library"
                               onClick={() => openEdit(library)}
                             >
                               <Pencil size={15} />
-                            </button>
-                            <button
-                              className="secondary-button compact-button rescan-library-button"
-                              disabled={library.scanStatus === "scanning"}
-                              onClick={() => openRescan(library)}
+                            </Button>
+                            <Button
+                              compact
+                              className="rescan-library-button"
+                              disabled={library.scanStatus === "scanning" || rescanningId === library.id}
+                              onClick={() => startRescan(library)}
                               title={library.scanStatus === "scanning" ? "Scan already in progress" : "Rescan library"}
                             >
                               <RefreshCw size={14} />
                               {library.scanStatus === "scanning" ? "Scanning..." : "Rescan"}
-                            </button>
-                            <button
-                              className="icon-button danger"
+                            </Button>
+                            <Button
+                              variant="icon"
+                              danger
                               title="Delete library"
                               onClick={() => setDeleteConfirmLibrary(library)}
                             >
                               <Trash2 size={15} />
-                            </button>
+                            </Button>
                           </>
                         ) : (
                           // Private library this admin can't access — take ownership (logged) to manage it.
-                          <button
-                            className="secondary-button compact-button"
+                          <Button
+                            compact
                             title="This private library is owned by someone else. Take ownership to manage it (logged)."
                             onClick={() => takeOwnership(library)}
                           >
                             <KeyRound size={14} /> Take ownership
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -339,7 +394,7 @@ export function LibrariesSection() {
 
       {createLibraryOpen && (
         <LibraryWizard
-          initialType="audiobook"
+          initialType={typeFilter === "ebook" ? "ebook" : "audiobook"}
           users={users}
           groups={groups}
           storageRoots={storageRoots}
@@ -373,7 +428,7 @@ export function LibrariesSection() {
             <ScanSourcesEditor
               sources={rescanSources}
               onChange={setRescanSources}
-              sourceInfo={typeSourceInfo}
+              sourceInfo={sourceInfoFor(rescanTarget.type)}
             />
             <p className="muted" style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>
               These choices apply to this scan only — edit the library to change its defaults.
@@ -415,7 +470,7 @@ export function LibrariesSection() {
 
       {editingLibrary && (
         <Modal
-          title="Edit library"
+          title={`Edit ${TYPE_META[editingLibrary.type].label.toLowerCase()} library`}
           className="edit-library-modal"
           busy={saving}
           onClose={() => setEditingLibrary(null)}
@@ -439,13 +494,15 @@ export function LibrariesSection() {
             <ScanSourcesEditor
               sources={editSources}
               onChange={setEditSources}
-              sourceInfo={typeSourceInfo}
+              sourceInfo={sourceInfoFor(editingLibrary.type)}
             />
-            <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
+            {editingLibrary.type === "audiobook" && (
+              <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
+            )}
             <ExtensionsEditor
               extensions={editExtensions}
               onChange={setEditExtensions}
-              defaults={defaults?.extensions ?? []}
+              defaults={typeDefaults[editingLibrary.type]?.extensions ?? []}
             />
             <UploadSettingsFields
               maxUploadMB={editMaxUploadMB}
