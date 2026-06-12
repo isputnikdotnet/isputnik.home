@@ -677,6 +677,30 @@
   min-width: 0;
 }
 
+.audiobook-catalog-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.audiobook-catalog-actions .audiobook-catalog-admin-menu {
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 8;
+  min-width: 188px;
+  text-shadow: none;
+}
+
+.audiobook-catalog-actions .audiobook-catalog-admin-menu button.danger {
+  color: var(--rose);
+}
+
+.audiobook-catalog-actions .audiobook-catalog-admin-menu button.danger:hover,
+.audiobook-catalog-actions .audiobook-catalog-admin-menu button.danger:focus-visible {
+  color: #fff;
+  background: color-mix(in srgb, var(--rose) 30%, var(--hover));
+}
+
 .audiobook-catalog-action {
   display: grid;
   place-items: center;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
@@ -194,6 +194,99 @@ function openPlayer(bookId: string) {
   window.open(`/player/${bookId}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes");
 }
 
+function CatalogAdminMenu({
+  book,
+  canEdit,
+  canDelete,
+  onEdit,
+  onDelete
+}: {
+  book: AudiobookBook;
+  canEdit: boolean;
+  canDelete: boolean;
+  onEdit: (book: AudiobookBook) => void;
+  onDelete: (book: AudiobookBook) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const close = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", dismiss);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", dismiss);
+    };
+  }, [open]);
+
+  if (!canEdit && !canDelete) return null;
+
+  return (
+    <div
+      ref={menuRef}
+      className="audiobook-catalog-menu-wrap"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <button
+        className="audiobook-catalog-action admin"
+        type="button"
+        onClick={() => setOpen((isOpen) => !isOpen)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`More actions for ${book.title}`}
+        title="More actions"
+      >
+        <MoreHorizontal size={16} aria-hidden="true" />
+        <span>More actions</span>
+      </button>
+      {open && (
+        <div
+          className="book-detail-action-menu book-progress-menu audiobook-catalog-admin-menu"
+          role="menu"
+          aria-label={`More actions for ${book.title}`}
+        >
+          {canEdit && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onEdit(book);
+              }}
+            >
+              <Pencil size={16} aria-hidden="true" />
+              <span>Edit details</span>
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              role="menuitem"
+              className="danger"
+              onClick={() => {
+                setOpen(false);
+                onDelete(book);
+              }}
+            >
+              <Trash2 size={16} aria-hidden="true" />
+              <span>Delete</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CatalogBookCard({
   book,
   viewMode,
@@ -360,30 +453,13 @@ function CatalogBookCard({
                   <ListMusic size={16} aria-hidden="true" />
                   <span>Add to Collection</span>
                 </button>
-                {canEdit && (
-                  <button
-                    className="audiobook-catalog-action admin"
-                    type="button"
-                    onClick={(event) => { event.stopPropagation(); onEdit(book); }}
-                    aria-label="Edit metadata"
-                    title="Edit metadata"
-                  >
-                    <Pencil size={16} aria-hidden="true" />
-                    <span>Edit Details</span>
-                  </button>
-                )}
-                {canDelete && (
-                  <button
-                    className="audiobook-catalog-action admin"
-                    type="button"
-                    onClick={(event) => { event.stopPropagation(); onDelete(book); }}
-                    aria-label={`Delete ${book.title}`}
-                    title="Delete audiobook"
-                  >
-                    <Trash2 size={16} aria-hidden="true" />
-                    <span>Delete</span>
-                  </button>
-                )}
+                <CatalogAdminMenu
+                  book={book}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
               </div>
               <div className="audiobook-catalog-hover-info">
                 <div className="audiobook-catalog-hover-text">
