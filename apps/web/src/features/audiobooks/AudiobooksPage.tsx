@@ -655,9 +655,9 @@ function AddToSeriesModal({
 }
 
 // Upload one audiobook: pick the target library (when more than one allows
-// uploads), optionally name the book's folder, then drop the audio files. All
-// files of one upload become a single book; the server scans it immediately and
-// the new title appears in the catalog when the modal closes.
+// uploads), optionally name the book, then drop the audio files — or a whole
+// book folder. All files of one upload become a single book; the server scans it
+// immediately and the new title appears in the catalog when the modal closes.
 function UploadBookModal({
   libraries,
   initialLibraryId,
@@ -676,14 +676,9 @@ function UploadBookModal({
   const [busy, setBusy] = useState(false);
   const library = libraries.find((item) => item.id === libraryId);
 
-  const folder = title.trim();
-  const endpoint = library
-    ? `/api/library/audiobook-libraries/${library.id}/books/upload${folder ? `?folder=${encodeURIComponent(folder)}` : ""}`
-    : "";
-
   return (
-    <Modal title="Upload audiobook" style={{ width: "min(100%, 540px)" }} busy={busy} onClose={onClose}>
-      <p className="muted">All files in one upload become a single audiobook (multi-part books: drop every track together). The book is scanned and appears in the catalog right away.</p>
+    <Modal title="Upload audiobook" className="book-upload-modal" busy={busy} onClose={onClose}>
+      <p className="muted">All files in one upload become a single audiobook (multi-part books: drop every track together, or the whole book folder). The book is scanned and appears in the catalog right away.</p>
 
       {libraries.length > 1 && (
         <label className="field" style={{ marginBottom: 12 }}>
@@ -697,7 +692,7 @@ function UploadBookModal({
       )}
 
       <label className="field" style={{ marginBottom: 12 }}>
-        <span>Title <span className="muted">(folder name — leave blank to use the file name)</span></span>
+        <span>Title <span className="muted">(leave blank to use the file or folder name)</span></span>
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
@@ -708,10 +703,15 @@ function UploadBookModal({
 
       {library && (
         <FileUpload
-          endpoint={endpoint}
+          endpoint={(batch) => {
+            const folder = title.trim() || batch.folderName || "";
+            return `/api/library/audiobook-libraries/${library.id}/books/upload${folder ? `?folder=${encodeURIComponent(folder)}` : ""}`;
+          }}
           accept={library.uploadExtensions}
           maxBytes={library.maxUploadMB != null ? library.maxUploadMB * 1024 * 1024 : null}
           multiple
+          folders
+          maxFiles={500} // mirrors MAX_BOOK_UPLOAD_FILES on the server
           hint={`Accepted: ${library.uploadExtensions.map((ext) => `.${ext}`).join(", ")}${library.maxUploadMB != null ? ` · up to ${library.maxUploadMB} MB per file` : ""}`}
           onUploaded={(response) => {
             const payload = response as { book?: AudiobookBookDetail };

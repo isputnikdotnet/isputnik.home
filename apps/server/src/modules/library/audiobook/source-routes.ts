@@ -16,7 +16,7 @@ import { canUserAccessLibrary, getLibraryForBook } from "../shared/library-acces
 import { validateLibrarySource } from "../shared/library-source.js";
 import { pathIsInside, normaliseRelativePath } from "../shared/storage-roots.js";
 import { thumbnailStorageKey, thumbnailAbsolutePath } from "../shared/thumbnail.js";
-import { normalizeLibrarySettings } from "../shared/library-settings.js";
+import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
 import { deleteSharesForResource } from "../shared/share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
 import { rescanSingleBook } from "./scanner.js";
@@ -188,9 +188,12 @@ export function registerSourceRoutes(app: FastifyInstance) {
 
     let received;
     try {
+      // Audio extensions plus the library's configured companion files (covers,
+      // metadata sidecars, documents), so a whole book folder uploads as-is. The
+      // scan below sorts out each kind.
       received = await receiveUploadBatch(
         request,
-        { accept: settings.scan_extensions, maxBytes },
+        { accept: uploadAcceptExtensions(settings), maxBytes },
         stagingDir,
         MAX_BOOK_UPLOAD_FILES
       );
@@ -198,6 +201,15 @@ export function registerSourceRoutes(app: FastifyInstance) {
       fs.rmSync(stagingDir, { recursive: true, force: true });
       const status = err instanceof UploadError ? err.statusCode : 400;
       reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
+      return;
+    }
+
+    // Companions alone make no book — there must be something to listen to.
+    const audioExtensions = new Set(settings.scan_extensions);
+    const firstAudio = received.find((file) => audioExtensions.has(file.extension));
+    if (!firstAudio) {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+      reply.code(400).send({ error: `Include at least one audio file (${settings.scan_extensions.map((ext) => `.${ext}`).join(", ")}).` });
       return;
     }
 
@@ -219,8 +231,9 @@ export function registerSourceRoutes(app: FastifyInstance) {
         fs.renameSync(file.tmpPath, path.join(stagingDir, name));
       }
 
+      // Fall back to the first AUDIO file's name — never "cover" or "metadata".
       const folderName = requestedFolder
-        ?? sanitizeFolderName(path.basename(received[0].filename, path.extname(received[0].filename)))
+        ?? sanitizeFolderName(path.basename(firstAudio.filename, path.extname(firstAudio.filename)))
         ?? `Audiobook ${new Date().toISOString().slice(0, 10)}`;
       const finalDir = path.join(root, folderName);
       if (fs.existsSync(finalDir)) {

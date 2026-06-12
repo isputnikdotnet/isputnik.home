@@ -15,7 +15,10 @@ import type { MultipartFile } from "@fastify/multipart";
 // @fastify/multipart is registered globally in index.ts; this just drives its
 // request.file() / request.files() streams with explicit, version-agnostic size
 // enforcement. The global registration allows one file per request; batch callers
-// (receiveUploadBatch) raise that per request.
+// (receiveUploadBatch) raise that per request. NOTE: the plugin defaults its
+// per-file size cap to fastify's bodyLimit (1 MiB) — far too small for media —
+// so both receivers lift it to Infinity and the policy's maxBytes check below is
+// the single point of size enforcement.
 
 export interface UploadPolicy {
   // Dotless, lowercase extensions, e.g. ["zip", "sqlite"]. Matched case-insensitively.
@@ -119,7 +122,7 @@ export async function receiveUpload(
     throw new UploadError("Expected a multipart/form-data upload.", 415);
   }
 
-  const part = await request.file();
+  const part = await request.file({ limits: { fileSize: Infinity } });
   if (!part) {
     throw new UploadError("No file was uploaded.", 400);
   }
@@ -143,7 +146,9 @@ export async function receiveUploadBatch(
 
   const received: ReceivedUpload[] = [];
   try {
-    for await (const part of request.files({ limits: { files: maxFiles, fields: 10 } })) {
+    // files: maxFiles + 1 lets the loop see the overflow part and raise the
+    // friendlier UploadError below instead of busboy's terse "reach files limit".
+    for await (const part of request.files({ limits: { files: maxFiles + 1, fields: 10, fileSize: Infinity } })) {
       if (received.length >= maxFiles) {
         part.file.resume();
         throw new UploadError(`Too many files — at most ${maxFiles} per upload.`, 413);
@@ -155,8 +160,12 @@ export async function receiveUploadBatch(
       fs.rmSync(file.tmpPath, { force: true });
     }
     if (err instanceof UploadError) throw err;
-    // @fastify/multipart raises FST_ERR-coded errors (e.g. files limit) — map to 400.
-    throw new UploadError(err instanceof Error ? err.message : "Upload failed.", 400);
+    // @fastify/multipart raises FST_*-coded errors that carry their own status.
+    const statusCode = (err as { statusCode?: unknown }).statusCode;
+    throw new UploadError(
+      err instanceof Error ? err.message : "Upload failed.",
+      typeof statusCode === "number" ? statusCode : 400
+    );
   }
 
   if (received.length === 0) {

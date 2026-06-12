@@ -1,6 +1,7 @@
 // Per-library settings stored in libraries.settings_json — shared shape across
 // library types plus per-type defaults. The extension list is the single source of
-// truth for both scanning and (future) upload validation.
+// truth for scanning; uploads accept it plus per-type companion files (see
+// uploadExtensionsForType below).
 import type { LibraryType } from "./library-types.js";
 import { sourcesForType, isMetadataSourceId, type MetadataSourceId } from "./metadata-sources.js";
 
@@ -21,8 +22,13 @@ export function isTagEncoding(value: unknown): value is TagEncoding {
 
 export interface BaseLibrarySettings {
   default_language?: string;
-  // Dotless lowercase extensions, e.g. ["mp3", "m4b"]. Used for scan AND upload.
+  // Dotless lowercase extensions, e.g. ["mp3", "m4b"]. Defines what the scanner
+  // treats as primary content (audio tracks / ebooks); uploads accept these too.
   scan_extensions: string[];
+  // Extra extensions accepted ONLY in uploads (covers, metadata sidecars,
+  // documents). Never scanned as primary content — the scanner has its own
+  // cover/document/sidecar handling. Configured per library like scan_extensions.
+  companion_extensions: string[];
   // Ordered by priority: index 0 = highest. First source providing a field wins.
   scan_sources: ScanSourceConfig[];
 }
@@ -41,10 +47,26 @@ export interface AudiobookLibrarySettings extends BaseLibrarySettings {
   progress_mode?: ProgressMode;
 }
 
-export const LIBRARY_TYPE_DEFAULTS: Partial<Record<LibraryType, { extensions: string[] }>> = {
-  audiobook: { extensions: ["m4b", "m4a", "mp3", "flac", "ogg", "opus", "aac", "wav", "wave"] },
-  ebook: { extensions: ["epub", "pdf"] }
+// Per-type defaults. `companions` seeds companion_extensions for new libraries
+// (and for existing ones that predate the setting): cover art, metadata sidecars
+// (metadata.json, .xml), and bundled documents for audiobooks.
+export const LIBRARY_TYPE_DEFAULTS: Partial<Record<LibraryType, { extensions: string[]; companions: string[] }>> = {
+  audiobook: {
+    extensions: ["m4b", "m4a", "mp3", "flac", "ogg", "opus", "aac", "wav", "wave"],
+    companions: ["png", "jpg", "jpeg", "webp", "xml", "json", "epub", "pdf"]
+  },
+  ebook: { extensions: ["epub", "pdf"], companions: ["png", "jpg", "jpeg", "webp", "xml", "json"] }
 };
+
+export function defaultCompanionExtensions(type: LibraryType): string[] {
+  return [...(LIBRARY_TYPE_DEFAULTS[type]?.companions ?? [])];
+}
+
+// Everything a library accepts in an upload: its scan extensions plus its
+// configured companion files.
+export function uploadAcceptExtensions(settings: BaseLibrarySettings): string[] {
+  return Array.from(new Set([...settings.scan_extensions, ...settings.companion_extensions]));
+}
 
 export function defaultScanSources(type: LibraryType): ScanSourceConfig[] {
   return sourcesForType(type).map((source) => ({ id: source.id, enabled: source.defaultEnabled }));
@@ -104,6 +126,11 @@ export function normalizeLibrarySettings(type: LibraryType, settingsJson: string
     ...raw,
     default_language: typeof raw.default_language === "string" && raw.default_language.trim() ? raw.default_language.trim() : undefined,
     scan_extensions: extensions.length > 0 ? extensions : defaultScanExtensions(type),
+    // Absent key (library predates the setting) → type defaults; an explicit
+    // empty list means "no companion files" and is respected.
+    companion_extensions: raw.companion_extensions === undefined
+      ? defaultCompanionExtensions(type)
+      : normalizeExtensions(raw.companion_extensions),
     scan_sources: normalizeScanSources(type, raw.scan_sources),
     tag_encoding: isTagEncoding(raw.tag_encoding) ? raw.tag_encoding : undefined,
     progress_mode: raw.progress_mode === "episodic" ? "episodic" : "linear"

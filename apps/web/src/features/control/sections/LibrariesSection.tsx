@@ -128,6 +128,7 @@ export function LibrariesSection() {
   const [editOwnerId, setEditOwnerId] = useState("");
   const [editOwnerType, setEditOwnerType] = useState<"user" | "group" | "">("");
   const [editExtensions, setEditExtensions] = useState<string[]>([]);
+  const [editCompanions, setEditCompanions] = useState<string[]>([]);
   const [editSources, setEditSources] = useState<ScanSource[]>([]);
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
@@ -205,6 +206,7 @@ export function LibrariesSection() {
     setEditOwnerId(library.ownerId ?? "");
     setEditOwnerType(library.ownerType ?? "");
     setEditExtensions(library.settings?.scanExtensions ?? typeDefaults[library.type]?.extensions ?? []);
+    setEditCompanions(library.settings?.companionExtensions ?? typeDefaults[library.type]?.companions ?? []);
     setEditSources(library.settings?.scanSources ?? typeDefaults[library.type]?.sources ?? []);
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setEditTagEncoding(library.settings?.tagEncoding ?? "");
@@ -244,6 +246,7 @@ export function LibrariesSection() {
           ownerId: editOwnerId || null,
           ownerType: editOwnerType || null,
           scanExtensions: editExtensions,
+          companionExtensions: editCompanions,
           scanSources: editSources,
           maxUploadMB: maxUploadValue(editMaxUploadMB),
           ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null, progressMode: editProgressMode } : {})
@@ -712,7 +715,14 @@ export function LibrariesSection() {
                   extensions={editExtensions}
                   onChange={setEditExtensions}
                   defaults={typeDefaults[editingLibrary.type]?.extensions ?? []}
-                  label="Supported file extensions (upload)"
+                  label="Supported file extensions (scanning & upload)"
+                />
+                <ExtensionsEditor
+                  extensions={editCompanions}
+                  onChange={setEditCompanions}
+                  defaults={typeDefaults[editingLibrary.type]?.companions ?? []}
+                  label="Companion files (upload only — covers, metadata, documents)"
+                  emptyHint="No companion files — uploads accept the formats above only."
                 />
                 <UploadSettingsFields
                   maxUploadMB={editMaxUploadMB}

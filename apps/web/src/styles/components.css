@@ -2535,6 +2535,13 @@
   font-size: 0.85rem;
 }
 
+.file-dropzone-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
 .file-upload-active {
   display: grid;
   gap: 8px;
@@ -2583,13 +2590,18 @@
   justify-content: flex-end;
 }
 
-/* The upload dialog is a touch wider than the confirm default, and the Close
+/* Upload dialogs are a touch wider than the confirm default, and the Close
    button needs room below the dropzone instead of hugging it. */
 .confirm-modal.backup-upload-modal {
   width: min(100%, 480px);
 }
 
-.backup-upload-modal .modal-actions {
+.confirm-modal.book-upload-modal {
+  width: min(100%, 540px);
+}
+
+.backup-upload-modal .modal-actions,
+.book-upload-modal .modal-actions {
   margin-top: 22px;
 }
 

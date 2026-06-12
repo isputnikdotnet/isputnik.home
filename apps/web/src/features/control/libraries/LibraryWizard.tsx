@@ -151,6 +151,7 @@ export function LibraryWizard({
   const [ownerId, setOwnerId] = useState("");
   const [ownerType, setOwnerType] = useState<"user" | "group" | "">("");
   const [extensions, setExtensions] = useState<string[]>(typeDefaults[initialType]?.extensions ?? []);
+  const [companions, setCompanions] = useState<string[]>(typeDefaults[initialType]?.companions ?? []);
   const [scanSources, setScanSources] = useState<ScanSource[]>(typeDefaults[initialType]?.sources ?? []);
   const [maxUploadMB, setMaxUploadMB] = useState("");
   const [tagEncoding, setTagEncoding] = useState("");
@@ -186,6 +187,7 @@ export function LibraryWizard({
     setLibraryType(type);
     // Scanning options follow the chosen type's defaults until the user edits them.
     setExtensions(typeDefaults[type]?.extensions ?? []);
+    setCompanions(typeDefaults[type]?.companions ?? []);
     setScanSources(typeDefaults[type]?.sources ?? []);
     setTagEncoding("");
   };
@@ -202,6 +204,7 @@ export function LibraryWizard({
   const effectiveOwnerId = quick ? "" : ownerId;
   const effectiveOwnerType: "user" | "group" | "" = quick ? "" : ownerType;
   const effectiveExtensions = quick ? (defaults?.extensions ?? []) : extensions;
+  const effectiveCompanions = quick ? (defaults?.companions ?? []) : companions;
   const effectiveSources = quick ? (defaults?.sources ?? []) : scanSources;
   const effectiveMaxUploadMB = quick ? "" : maxUploadMB;
   const effectiveTagEncoding = quick ? "" : tagEncoding;
@@ -230,6 +233,7 @@ export function LibraryWizard({
     { label: "Mode", value: effectiveMode === "managed" ? "Managed" : "External (read-only)" },
     { label: "Owner", value: ownerLabel },
     { label: "Formats", value: effectiveExtensions.length ? effectiveExtensions.map((ext) => `.${ext}`).join(", ") : "—" },
+    { label: "Companion files", value: effectiveCompanions.length ? effectiveCompanions.map((ext) => `.${ext}`).join(", ") : "None" },
     {
       label: "Scan sources",
       value: effectiveSources.filter((source) => source.enabled)
@@ -281,6 +285,7 @@ export function LibraryWizard({
           ownerId: effectiveOwnerId || null,
           ownerType: effectiveOwnerType || null,
           scanExtensions: effectiveExtensions,
+          companionExtensions: effectiveCompanions,
           scanSources: effectiveSources,
           maxUploadMB: Number.isFinite(maxUpload) && maxUpload > 0 ? maxUpload : null,
           tagEncoding: libraryType === "audiobook" && effectiveTagEncoding ? effectiveTagEncoding : null
@@ -487,7 +492,14 @@ export function LibraryWizard({
             extensions={extensions}
             onChange={setExtensions}
             defaults={defaults?.extensions ?? []}
-            label="Supported file extensions (upload)"
+            label="Supported file extensions (scanning & upload)"
+          />
+          <ExtensionsEditor
+            extensions={companions}
+            onChange={setCompanions}
+            defaults={defaults?.companions ?? []}
+            label="Companion files (upload only — covers, metadata, documents)"
+            emptyHint="No companion files — uploads accept the formats above only."
           />
           <UploadSettingsFields maxUploadMB={maxUploadMB} onChange={setMaxUploadMB} mode={mode} />
         </section>

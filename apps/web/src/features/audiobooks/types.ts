@@ -25,6 +25,8 @@ export interface MetadataSourceInfo {
 
 export interface LibraryTypeDefaults {
   extensions: string[];
+  // Default upload-only companion files (covers, sidecars, documents).
+  companions: string[];
   sources: ScanSource[];
 }
 
@@ -38,6 +40,9 @@ export type ProgressMode = "linear" | "episodic";
 export interface AdminLibrarySettings {
   defaultLanguage: string | null;
   scanExtensions: string[];
+  // Upload-only companion files (covers, sidecars, documents) — never scanned
+  // as primary content.
+  companionExtensions: string[];
   scanSources: ScanSource[];
   maxUploadMB: number | null;
   tagEncoding: TagEncoding | null;

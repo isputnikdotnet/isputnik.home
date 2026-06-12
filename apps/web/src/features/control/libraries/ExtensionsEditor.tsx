@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 
-// Editable file-extension list. One list serves both scanning and upload policy.
+// Editable file-extension list — used for the scan/upload formats and for the
+// upload-only companion files.
 export function ExtensionsEditor({
   extensions,
   onChange,
   defaults,
-  label = "File extensions (scanning & upload)"
+  label = "File extensions (scanning & upload)",
+  emptyHint = "No extensions — nothing will be scanned."
 }: {
   extensions: string[];
   onChange: (extensions: string[]) => void;
   defaults: string[];
   label?: string;
+  emptyHint?: string;
 }) {
   const [draft, setDraft] = useState("");
 
@@ -40,7 +43,7 @@ export function ExtensionsEditor({
             </button>
           </span>
         ))}
-        {extensions.length === 0 && <span className="muted">No extensions — nothing will be scanned.</span>}
+        {extensions.length === 0 && <span className="muted">{emptyHint}</span>}
       </div>
       <div className="extension-add-row">
         <input

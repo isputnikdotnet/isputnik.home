@@ -39,6 +39,7 @@ export async function librarySettingsPlugin(app: FastifyInstance) {
       metadataSources: METADATA_SOURCES,
       typeDefaults: Object.fromEntries(LIBRARY_TYPES.map((type) => [type, {
         extensions: LIBRARY_TYPE_DEFAULTS[type]?.extensions ?? [],
+        companions: LIBRARY_TYPE_DEFAULTS[type]?.companions ?? [],
         sources: defaultScanSources(type)
       }]))
     };

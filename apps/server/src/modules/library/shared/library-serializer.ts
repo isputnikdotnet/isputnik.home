@@ -4,7 +4,7 @@ import type { LibraryType } from "./library-types.js";
 import type { LibraryCapabilities } from "./library-access.js";
 import { getEveryoneRole, parsePolicy } from "../../../core/permissions.js";
 import { serializeLibrarySettingsForAdmin } from "./library-crud.js";
-import { normalizeLibrarySettings } from "./library-settings.js";
+import { normalizeLibrarySettings, uploadAcceptExtensions } from "./library-settings.js";
 
 export interface LibraryListRow {
   id: string;
@@ -47,8 +47,9 @@ export function publicLibrary(row: LibraryListRow, includeSourcePath: boolean, c
     canManageMembers: caps.canManageMembers,
     canManageLibrary: caps.canManageLibrary,
     // Upload constraints for the client-side dropzone (mirrors the server policy;
-    // harmless to expose to non-uploaders).
-    uploadExtensions: normalizeLibrarySettings(row.type as LibraryType, row.settings_json).scan_extensions,
+    // harmless to expose to non-uploaders). Scan extensions plus the library's
+    // configured companion files (covers, sidecars, documents).
+    uploadExtensions: uploadAcceptExtensions(normalizeLibrarySettings(row.type as LibraryType, row.settings_json)),
     maxUploadMB: policy.maxUploadMB ?? null,
     scanStatus: row.scan_status,
     lastScannedAt: row.last_scanned_at,

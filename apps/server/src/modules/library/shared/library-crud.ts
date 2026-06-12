@@ -9,6 +9,7 @@ import { validateLibrarySource } from "./library-source.js";
 import { pathIsInside } from "./storage-roots.js";
 import { setLibraryAccess, validateLibraryOwner } from "./library-access.js";
 import {
+  defaultCompanionExtensions,
   defaultScanExtensions,
   normalizeExtensions,
   normalizeLibrarySettings,
@@ -39,8 +40,10 @@ export const coreLibraryCreateSchema = z.object({
   publicRole: z.enum(["viewer", "member", "contributor"]).default("member"),
   // Library mode: managed (writable) or external/read-only (e.g. a Plex/ABS folder).
   mode: z.enum(["managed", "external"]).default("managed"),
-  // One extension list for both scanning and upload policy.
+  // Primary content extensions — what the scanner catalogues and uploads accept.
   scanExtensions: z.array(extensionSchema).min(1).max(40).optional(),
+  // Upload-only companion files (covers, sidecars, documents). Empty = none.
+  companionExtensions: z.array(extensionSchema).max(40).optional(),
   scanSources: scanSourcesSchema.optional(),
   maxUploadMB: z.number().int().min(1).max(10240).nullable().optional(),
   // Default legacy charset for tag mojibake repair (audiobook); null clears it.
@@ -129,6 +132,9 @@ export function createLibraryRecord(opts: {
     ...(opts.extraSettings ?? {}),
     default_language: data.defaultLanguage ?? "en",
     scan_extensions: scanExtensions.length > 0 ? scanExtensions : defaultScanExtensions(type),
+    companion_extensions: data.companionExtensions
+      ? normalizeExtensions(data.companionExtensions)
+      : defaultCompanionExtensions(type),
     scan_sources: normalizeScanSources(type, data.scanSources),
     ...(data.tagEncoding ? { tag_encoding: data.tagEncoding } : {}),
     ...(data.progressMode ? { progress_mode: data.progressMode } : {})
@@ -194,6 +200,10 @@ export function updateLibraryRecord(opts: {
     const extensions = normalizeExtensions(data.scanExtensions);
     if (extensions.length > 0) settings.scan_extensions = extensions;
   }
+  if (data.companionExtensions) {
+    // Empty list is a valid choice: uploads then accept scan extensions only.
+    settings.companion_extensions = normalizeExtensions(data.companionExtensions);
+  }
   if (data.scanSources) {
     settings.scan_sources = normalizeScanSources(type, data.scanSources);
   }
@@ -241,6 +251,7 @@ export function updateLibraryRecord(opts: {
 export interface AdminLibrarySettings {
   defaultLanguage: string | null;
   scanExtensions: string[];
+  companionExtensions: string[];
   scanSources: ScanSourceConfig[];
   maxUploadMB: number | null;
   tagEncoding: TagEncoding | null;
@@ -258,6 +269,7 @@ export function serializeLibrarySettingsForAdmin(
   return {
     defaultLanguage: settings.default_language ?? null,
     scanExtensions: settings.scan_extensions,
+    companionExtensions: settings.companion_extensions,
     scanSources: settings.scan_sources,
     maxUploadMB: policy.maxUploadMB ?? null,
     tagEncoding: (settings as { tag_encoding?: TagEncoding }).tag_encoding ?? null,
