@@ -8,6 +8,7 @@ import { z } from "zod";
 import { db, logActivity } from "../db.js";
 import { config } from "../config.js";
 import { parseBody } from "./shared.js";
+import { receiveUpload, UploadError } from "./uploads.js";
 
 // Database backups. A backup is a zip containing database.sqlite (a consistent
 // online snapshot) and, optionally, the thumbnail cache under thumbnails/ — those
@@ -79,6 +80,18 @@ function timestampName(ext: "zip" | "sqlite", date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   const stamp = `${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}${p(date.getSeconds())}`;
   return `${BACKUP_PREFIX}${stamp}.${ext}`;
+}
+
+// A timestamp name not already taken in the backup folder (uploads can collide with
+// an existing backup taken in the same second); step forward a second until free.
+function uniqueBackupName(ext: "zip" | "sqlite"): string {
+  let date = new Date();
+  let name = timestampName(ext, date);
+  while (fs.existsSync(path.join(config.backupPath, name))) {
+    date = new Date(date.getTime() + 1000);
+    name = timestampName(ext, date);
+  }
+  return name;
 }
 
 function listBackupFiles(): BackupFile[] {
@@ -350,50 +363,69 @@ export async function backupsPlugin(app: FastifyInstance) {
     reply.send({ staged: true, coversRestored });
   });
 
-  // Load the generated testing fixture over the live database. Like restore, the
-  // file is staged as "<dbPath>.restore" and swapped in by db.ts on next startup
-  // (db.ts also snapshots the current DB into backups first). Destructive on
-  // restart — intended for throwaway/testing environments.
-  app.post("/api/testing/load-database", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const fixture = config.testingDbPath;
-    if (!fs.existsSync(fixture)) {
-      reply.code(404).send({ error: "Testing database not found. Generate it first with: npm run seed:testing --workspace apps/server" });
-      return;
-    }
-    try {
-      assertValidSqlite(fixture);
-    } catch {
-      reply.code(400).send({ error: "Testing database is not a valid SQLite file. Re-run npm run seed:testing." });
-      return;
-    }
+  // Upload a backup file (.zip full backup, or .sqlite database-only) from the admin's
+  // computer. It streams to disk under the standard backup name so it joins the list
+  // and can be restored like any other. We confirm it is actually an isputnik backup
+  // before accepting it. Admin-only and uncapped — a trusted operator restoring a
+  // possibly-large full backup (DB + covers).
+  app.post("/api/backups/upload", { preHandler: app.requireAdmin }, async (request, reply) => {
+    ensureBackupDir();
 
-    // Safety first: take a full backup of the current library so nothing is lost,
-    // and only stage the testing DB if that backup succeeds.
-    let backupName: string;
+    let received;
     try {
-      const backup = await runBackup(request.user!.id, "manual");
-      backupName = backup.name;
+      received = await receiveUpload(request, { accept: ["zip", "sqlite"], maxBytes: null }, config.backupPath);
     } catch (err) {
-      reply.code(500).send({ error: `Could not back up the current library, so nothing was changed: ${err instanceof Error ? err.message : "backup failed"}` });
+      const status = err instanceof UploadError ? err.statusCode : 400;
+      reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
       return;
     }
 
+    // Reject anything that isn't a real isputnik backup before it joins the list.
     try {
-      fs.copyFileSync(fixture, `${config.dbPath}.restore`);
+      if (received.extension === "sqlite") {
+        assertValidSqlite(received.tmpPath);
+      } else {
+        const zip = new AdmZip(received.tmpPath);
+        const hasDb = zip.getEntries().some(
+          (entry) => !entry.isDirectory && (entry.entryName === "database.sqlite" || entry.entryName.endsWith("/database.sqlite"))
+        );
+        if (!hasDb) {
+          throw new Error("This zip is not an isputnik backup — it has no database.sqlite inside.");
+        }
+      }
     } catch (err) {
-      reply.code(500).send({ error: err instanceof Error ? err.message : "Failed to stage the testing database" });
+      fs.rmSync(received.tmpPath, { force: true });
+      reply.code(400).send({ error: err instanceof Error ? err.message : "Not a valid backup file." });
       return;
     }
 
+    const name = uniqueBackupName(received.extension as "zip" | "sqlite");
+    const destination = path.join(config.backupPath, name);
+    try {
+      fs.renameSync(received.tmpPath, destination);
+    } catch (err) {
+      fs.rmSync(received.tmpPath, { force: true });
+      reply.code(500).send({ error: err instanceof Error ? err.message : "Could not store the uploaded backup." });
+      return;
+    }
+
+    const stat = fs.statSync(destination);
     logActivity({
-      event: "testing.database_load_staged",
+      event: "backup.uploaded",
       actorUserId: request.user!.id,
-      targetType: "database",
-      targetId: "testing",
-      detail: `Backed up current library to "${backupName}" and staged the testing database; it replaces the current database on next restart.`,
+      targetType: "backup",
+      targetId: name,
+      detail: `Uploaded backup "${name}" (${stat.size} bytes) from "${received.filename}".`,
       ipAddress: request.ip
     });
-    reply.send({ staged: true, backupName });
+    reply.code(201).send({
+      backup: {
+        name,
+        sizeBytes: stat.size,
+        createdAt: stat.mtime.toISOString(),
+        kind: received.extension === "zip" ? "full" : "database"
+      }
+    });
   });
 
   app.addHook("onReady", async () => { rescheduleBackups(); });

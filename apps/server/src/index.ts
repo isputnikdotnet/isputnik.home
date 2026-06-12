@@ -1,6 +1,7 @@
 import fastify from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
@@ -18,6 +19,10 @@ await app.register(cors, {
   credentials: true
 });
 await app.register(cookie);
+// Generic file uploads. No global fileSize cap — each upload route enforces its
+// own size/extension policy while streaming (see core/uploads.ts). One file per
+// request; small text fields only (the file streams to disk, never to memory).
+await app.register(multipart, { limits: { files: 1, fields: 10, fieldSize: 100 * 1024 } });
 await registerAuthDecorators(app);
 await app.register(corePlugin);
 await app.register(libraryPlugin);

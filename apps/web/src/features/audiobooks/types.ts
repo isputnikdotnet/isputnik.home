@@ -1,4 +1,4 @@
-// Per-object roles. `deny` is an explicit block, not a tier. See permissions.md.
+// Per-object roles. `deny` is an explicit block, not a tier. See docs/permissions.md.
 export type LibraryRole = "viewer" | "member" | "contributor" | "manager" | "deny";
 // Roles the public (Everyone) can hold on a library — never manager/deny.
 export type PublicRole = "viewer" | "member" | "contributor";

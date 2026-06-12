@@ -228,4 +228,4 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 | [`auth.md`](auth.md) | Authentication detail — sessions, invite flow, future MFA |
 | [`sharing.md`](sharing.md) | Sharing model — general `shares` / `share_links` schema, access resolution |
 | [`library-sharing.md`](library-sharing.md) | Library access model — ownership, visibility, Phase 1 schema, roadmap |
-| [`testing-data.md`](testing-data.md) | Testing fixture — seed script and the "Load testing data" loader |
+| [`uploads.md`](uploads.md) | Upload process — end-to-end flow, streaming primitive, shared `FileUpload`, adding consumers |

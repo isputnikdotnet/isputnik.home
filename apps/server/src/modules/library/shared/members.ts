@@ -7,7 +7,7 @@ import { EVERYONE_GROUP_ID } from "../../../core/permissions.js";
 
 // Roles grantable to a specific user/group on a library. `deny` is an explicit block;
 // `member` = view+download. The Everyone baseline (public access) is managed via the
-// library's public setting, not here. See Documents/permissions.md.
+// library's public setting, not here. See docs/permissions.md.
 const GRANTABLE_ROLES = ["viewer", "member", "contributor", "manager", "deny"] as const;
 type GrantRole = (typeof GRANTABLE_ROLES)[number];
 
@@ -169,7 +169,7 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
 
   // Take ownership — admin-only escape hatch for a private library the admin can't
   // otherwise reach. Adds a manager grant for the admin and logs it, so access to a
-  // private library is always a visible, deliberate act. See Documents/permissions.md.
+  // private library is always a visible, deliberate act. See docs/permissions.md.
   app.post("/api/library/libraries/:id/take-ownership", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = request.user!;

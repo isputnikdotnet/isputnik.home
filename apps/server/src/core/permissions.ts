@@ -1,5 +1,5 @@
 // Unified access model — one mechanism for every object (libraries today,
-// collections/etc. later). See Documents/permissions.md.
+// collections/etc. later). See docs/permissions.md.
 //
 //   allowed(action) = roleAllows(user's role on object, action)
 //                     AND policyAllows(object policy, action)

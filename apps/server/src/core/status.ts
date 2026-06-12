@@ -336,6 +336,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.18.0",
+          label: "Upload a backup file",
+          changes: [
+            "The Backup screen can now take a backup file from your computer: click \"Upload backup\", then drop or pick a full .zip (database + cover art) or a database-only .sqlite. It's checked to be a real isputnik backup, added to the list, and restored like any backup made here — handy for moving a library between machines.",
+            "Under the hood this is a new shared upload component — drag-and-drop, a live progress bar, and files streamed straight to disk — that future upload spots (library media, and more) will reuse.",
+            "Removed the \"Load testing data\" maintenance tool and its generated sample database."
+          ]
+        },
+        {
           version: "0.17.1",
           label: "Track view polish & progress rings",
           changes: [

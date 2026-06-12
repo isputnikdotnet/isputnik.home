@@ -268,7 +268,7 @@ db.exec(`
   );
 
   -- Companion documents bundled with an audiobook (PDF/EPUB siblings in the book
-  -- folder). Assets of the book, not catalogued ebooks — see Documents/audiobook-library.md.
+  -- folder). Assets of the book, not catalogued ebooks — see docs/audiobook-library.md.
   CREATE TABLE IF NOT EXISTS book_documents (
     id            TEXT PRIMARY KEY,
     book_id       TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
@@ -383,7 +383,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_group_members_user  ON group_members(user_id);
 
 
-  -- Unified access model (see Documents/permissions.md). One row = "this subject
+  -- Unified access model (see docs/permissions.md). One row = "this subject
   -- (user or group) holds this role on this object". object_id/subject_id are
   -- polymorphic (no FK); app code resolves and cleans them. The library owner is just
   -- a 'manager' row; public access is the Everyone group's row.
@@ -400,7 +400,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_assignments_object  ON assignments(object_type, object_id);
   CREATE INDEX IF NOT EXISTS idx_assignments_subject ON assignments(subject_type, subject_id);
 
-  -- Item-level sharing, module-agnostic via (module, resource_id). See Documents/sharing.md.
+  -- Item-level sharing, module-agnostic via (module, resource_id). See docs/sharing.md.
   -- User-to-user shares: grant a specific account read access to one item.
   CREATE TABLE IF NOT EXISTS shares (
     id          TEXT PRIMARY KEY,
@@ -587,7 +587,7 @@ if (!libraryColumns.some((column) => column.name === "owner_id")) {
 if (!libraryColumns.some((column) => column.name === "owner_type")) {
   db.exec("ALTER TABLE libraries ADD COLUMN owner_type TEXT CHECK (owner_type IN ('user', 'group'))");
 }
-// Per-library mode + write policies (see Documents/permissions.md). JSON blob:
+// Per-library mode + write policies (see docs/permissions.md). JSON blob:
 // { mode: 'managed'|'external', allowUpload, allowDelete, maxUploadMB }.
 if (!libraryColumns.some((column) => column.name === "policy_json")) {
   db.exec("ALTER TABLE libraries ADD COLUMN policy_json TEXT NOT NULL DEFAULT '{}'");
