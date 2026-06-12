@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { getDownloadedFileUrl } from "../../offline/downloads";
 import { getLocalProgress, persistProgress } from "../../offline/progress";
 import { MessageBox } from "../../shared/MessageBox";
+import { ProgressRing } from "../../shared/ProgressRing";
 import type { AudiobookBookDetail, AudiobookFile, Bookmark as BookmarkEntry, PlaybackProgress } from "./types";
 
 export function formatTime(seconds: number) {
@@ -539,13 +540,12 @@ export function AudioPlayer({
         className={`player-chapter-item${index === fileIndex ? " active" : ""}${progress.percent >= 0.98 ? " complete" : ""}`}
         onClick={() => jumpToChapter(index)}
       >
-        <span className="player-chapter-item-num">{index + 1}</span>
+        <span className="player-chapter-item-num">
+          <ProgressRing progress={progress.percent} complete={progress.percent >= 0.98} center={index + 1} size={28} />
+        </span>
         <span className="player-chapter-item-main">
           <span className="player-chapter-item-title">
             {file.chapterTitle || file.relativePath.split("/").at(-1) || `Chapter ${index + 1}`}
-          </span>
-          <span className="player-chapter-progress">
-            <span style={{ width: `${Math.round(progress.percent * 100)}%` }} />
           </span>
         </span>
         {file.durationSeconds != null && (

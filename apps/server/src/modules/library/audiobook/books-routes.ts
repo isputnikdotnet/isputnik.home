@@ -446,6 +446,28 @@ export function registerBookRoutes(app: FastifyInstance) {
         completed_at = CURRENT_TIMESTAMP
     `).run(nanoid(16), userId, bookId, file.id, file.duration_seconds ?? totalDuration ?? 0, totalDuration);
 
+    // In episodic libraries "finished" means every episode is played — mark them all,
+    // not just the book-level cursor. (Linear libraries have no per-track state.)
+    const settingsRow = db.prepare(`
+      SELECT libraries.settings_json AS settings_json
+      FROM books
+      JOIN libraries ON libraries.id = books.library_id
+      WHERE books.id = ?
+    `).get(bookId) as { settings_json: string } | undefined;
+    if (normalizeLibrarySettings("audiobook", settingsRow?.settings_json).progress_mode === "episodic") {
+      db.prepare(`
+        INSERT INTO track_progress (id, user_id, book_id, file_id, position_seconds, duration_seconds, updated_at, completed_at)
+        SELECT lower(hex(randomblob(8))), ?, ?, bf.id, COALESCE(bf.duration_seconds, 0), bf.duration_seconds, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        FROM book_files bf
+        WHERE bf.book_id = ? AND bf.status = 'available'
+        ON CONFLICT(user_id, file_id) DO UPDATE SET
+          position_seconds = excluded.position_seconds,
+          duration_seconds = excluded.duration_seconds,
+          updated_at = CURRENT_TIMESTAMP,
+          completed_at = CURRENT_TIMESTAMP
+      `).run(userId, bookId, bookId);
+    }
+
     reply.send({ updated: true });
   });
 
@@ -454,6 +476,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     const bookId = (request.params as { id: string }).id;
     const userId = request.user!.id;
     db.prepare("DELETE FROM playback_progress WHERE book_id = ? AND user_id = ?").run(bookId, userId);
+    db.prepare("DELETE FROM track_progress WHERE book_id = ? AND user_id = ?").run(bookId, userId);
     reply.send({ reset: true });
   });
 

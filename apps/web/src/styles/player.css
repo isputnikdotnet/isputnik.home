@@ -485,14 +485,6 @@
   min-width: 0;
 }
 
-.player-chapter-progress {
-  position: relative;
-  height: 5px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--player-track);
-}
-
 .player-chapter-item-dur {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -1235,10 +1227,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ink);
-}
-
-.chapter-sheet-list .player-chapter-progress {
-  display: none;
 }
 
 .chapter-sheet-list .player-chapter-item-dur {

@@ -1,7 +1,7 @@
 {
   "name": "isputnik-home",
   "private": true,
-  "version": "0.17.0",
+  "version": "0.17.1",
   "description": "Private self-hosted family media library.",
   "workspaces": [
     "apps/server",

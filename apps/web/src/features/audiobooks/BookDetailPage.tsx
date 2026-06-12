@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, Circle, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
@@ -15,7 +15,8 @@ import { getDownloadedBookDetail } from "../../offline/downloads";
 import { useDownload } from "../../offline/useDownload";
 import { isStandalone } from "../../pwa/platform";
 import { formatBytes, formatDuration } from "../../shared/utils";
-import type { AudiobookBookDetail, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress, TrackProgress } from "./types";
+import { ProgressRing } from "../../shared/ProgressRing";
+import type { AudiobookBookDetail, AudiobookFile, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress, TrackProgress } from "./types";
 
 // Button gating is cosmetic — the server enforces every operation — so when we
 // can't determine capabilities we fail OPEN (show the full menu) rather than hide
@@ -98,6 +99,25 @@ export function AudiobookBookPage({
   );
 }
 
+// Episodic titles are usually "<number> <author> - <story>" (e.g. "121 Konan Dojl
+// Artur - Skvoz' pelenu"). Pull them apart so a row can show the story as the title
+// and the author as a byline; fall back to the raw name when it doesn't match.
+function parseEpisodeTitle(raw: string): { title: string; author: string | null; number: string | null } {
+  const withAuthor = raw.match(/^(\d+)\s+(.+?)\s+[-–—]\s+(.+)$/);
+  if (withAuthor) {
+    return { number: withAuthor[1], author: withAuthor[2].trim(), title: withAuthor[3].trim() };
+  }
+  const numberOnly = raw.match(/^(\d+)[.)\s-]+(.+)$/);
+  if (numberOnly) {
+    return { number: numberOnly[1], author: null, title: numberOnly[2].trim() };
+  }
+  const dashOnly = raw.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  if (dashOnly) {
+    return { number: null, author: dashOnly[1].trim(), title: dashOnly[2].trim() };
+  }
+  return { number: null, author: null, title: raw };
+}
+
 function BookDetailView({
   book,
   capabilities,
@@ -178,6 +198,47 @@ function BookDetailView({
       // best-effort; the next focus refresh reconciles with the server
     }
   };
+
+  const availableFiles = book.files.filter((file) => file.status === "available");
+  const playedCount = availableFiles.filter((file) => trackProgress[file.id]?.completedAt != null).length;
+  const allPlayed = availableFiles.length > 0 && playedCount === availableFiles.length;
+  // Resume an in-progress episode first, else the first with no completion, else
+  // (everything played) the very first — so the button always has a target.
+  const nextEpisode =
+    availableFiles.find((file) => {
+      const tp = trackProgress[file.id];
+      return tp != null && tp.completedAt == null && tp.positionSeconds > 0;
+    })
+    ?? availableFiles.find((file) => trackProgress[file.id]?.completedAt == null)
+    ?? availableFiles[0]
+    ?? null;
+
+  // Point the resume cursor at a file, then open the player (which resumes from that
+  // cursor). The popup is opened synchronously and redirected after the write so a
+  // popup blocker can't swallow it.
+  const playEpisode = (file: AudiobookFile) => {
+    const resumePos = trackProgress[file.id]?.positionSeconds ?? 0;
+    const win = window.open("", "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes");
+    const openPlayer = () => { if (win) win.location.href = `/player/${book.id}`; };
+    api(`/api/library/books/${book.id}/progress`, {
+      method: "PATCH",
+      body: JSON.stringify({ fileId: file.id, positionSeconds: resumePos })
+    })
+      .then(() => {
+        setProgress((prev) => ({
+          fileId: file.id,
+          positionSeconds: resumePos,
+          percentComplete: prev?.percentComplete ?? null,
+          completedAt: prev?.completedAt ?? null
+        }));
+        openPlayer();
+      })
+      .catch(openPlayer);
+  };
+
+  const playNextEpisode = () => {
+    if (nextEpisode) playEpisode(nextEpisode);
+  };
   const primaryReadableDoc = book.documents.find((doc) => VIEWABLE_DOC_FORMATS.has(doc.format)) ?? book.documents[0] ?? null;
   const canReadPrimaryDoc = Boolean(primaryReadableDoc && VIEWABLE_DOC_FORMATS.has(primaryReadableDoc.format));
   const primaryReaderStorageKey = primaryReadableDoc
@@ -244,7 +305,7 @@ function BookDetailView({
   // linear order). Accurate for sequential listening; an approximation if the
   // user jumped around.
   const currentFileIndex = progress?.fileId ? book.files.findIndex((f) => f.id === progress.fileId) : -1;
-  const audioFinished = progress?.completedAt != null;
+  const audioFinished = episodic ? allPlayed : progress?.completedAt != null;
   const readingFinished = readingProgress?.completedAt != null || (readingProgress?.percentComplete != null && readingProgress.percentComplete >= 0.98);
   const bookFinished = isEbook ? readingFinished : audioFinished;
   const fileState = (index: number): "completed" | "in_progress" | "not_started" => {
@@ -267,6 +328,12 @@ function BookDetailView({
         percentComplete: 1,
         completedAt: new Date().toISOString()
       });
+      if (episodic) {
+        const completedAt = new Date().toISOString();
+        setTrackProgress(Object.fromEntries(
+          availableFiles.map((f) => [f.id, { fileId: f.id, positionSeconds: f.durationSeconds ?? 0, completedAt }])
+        ));
+      }
     } catch (err) {
       setProgressActionError(err instanceof Error ? err.message : "Unable to mark book finished");
     } finally {
@@ -285,6 +352,7 @@ function BookDetailView({
       } else {
         await api(`/api/library/books/${book.id}/progress`, { method: "DELETE" });
         setProgress(null);
+        setTrackProgress({});
       }
     } catch (err) {
       setProgressActionError(err instanceof Error ? err.message : "Unable to reset progress");
@@ -330,7 +398,9 @@ function BookDetailView({
   // (a book whose total duration wasn't recorded) or rounds down to 0%.
   const hasStarted = isEbook
     ? !bookFinished && readingProgress != null && ((readingProgress.percentComplete ?? 0) > 0 || Boolean(readingProgress.cfi))
-    : !bookFinished && progress != null && ((progress.percentComplete ?? 0) > 0 || (progress.positionSeconds ?? 0) > 0 || progress.fileId != null);
+    : episodic
+      ? !bookFinished && (Object.keys(trackProgress).length > 0 || progress != null)
+      : !bookFinished && progress != null && ((progress.percentComplete ?? 0) > 0 || (progress.positionSeconds ?? 0) > 0 || progress.fileId != null);
   const remainingSeconds = !isEbook && book.durationSeconds != null ? Math.max(0, Math.round(book.durationSeconds * (1 - progressPercent / 100))) : null;
   const progressTitle = isEbook ? "Reading Progress" : "Listening Progress";
   const progressActionLabel = isEbook
@@ -670,15 +740,26 @@ function BookDetailView({
             </div>
             <div className="book-progress-inline" aria-label={progressTitle}>
               <Clock size={16} aria-hidden="true" />
-              <span>Progress: <strong>{progressPercent}%</strong></span>
+              {episodic ? (
+                <span><strong>{playedCount} / {availableFiles.length}</strong> played</span>
+              ) : (
+                <span>Progress: <strong>{progressPercent}%</strong></span>
+              )}
               <span aria-hidden="true">•</span>
               <span>{progressStatus}</span>
-              {remainingLabel && (
-                <>
-                  <span aria-hidden="true">•</span>
-                  <span>{remainingLabel}</span>
-                </>
-              )}
+              {episodic
+                ? !allPlayed && availableFiles.length - playedCount > 0 && (
+                    <>
+                      <span aria-hidden="true">•</span>
+                      <span>{availableFiles.length - playedCount} {availableFiles.length - playedCount === 1 ? "episode" : "episodes"} left</span>
+                    </>
+                  )
+                : remainingLabel && (
+                    <>
+                      <span aria-hidden="true">•</span>
+                      <span>{remainingLabel}</span>
+                    </>
+                  )}
             </div>
           </div>
           {saveError && <MessageBox tone="error" title="Favorites error">{saveError}</MessageBox>}
@@ -760,60 +841,78 @@ function BookDetailView({
               {!isEbook && (
                 <section className="book-files-section">
                   {episodic && (
-                    <p className="book-episode-count muted">
-                      {book.files.filter((f) => trackProgress[f.id]?.completedAt != null).length} / {book.files.length} played
-                    </p>
+                    <div className="book-episode-head">
+                      <span className="muted">{playedCount} / {availableFiles.length} played</span>
+                      {nextEpisode && (
+                        <button type="button" className="book-episode-play-next" onClick={playNextEpisode}>
+                          <Play size={14} aria-hidden="true" />
+                          {allPlayed ? "Play from start" : "Play next unplayed"}
+                        </button>
+                      )}
+                    </div>
                   )}
                   <div className="book-file-list">
                     {book.files.map((file, index) => {
                       const tp = trackProgress[file.id];
                       const played = tp?.completedAt != null;
-                      const isCurrent = episodic && progress?.fileId === file.id;
+                      const isCurrent = progress?.fileId === file.id;
                       const listened = isCurrent ? (progress?.positionSeconds ?? 0) : (tp?.positionSeconds ?? 0);
                       const dur = file.durationSeconds ?? 0;
                       const pct = dur > 0 ? Math.min(listened / dur, 1) : 0;
-                      const showProgress = episodic && !played && (isCurrent || listened > 0);
+                      const inProgress = episodic && !played && (isCurrent || listened > 0);
                       const state = fileState(index);
+                      const rawTitle = file.chapterTitle || file.relativePath.split(/[\\/]/).at(-1) || file.relativePath;
+                      const ep = episodic ? parseEpisodeTitle(rawTitle) : null;
+                      // In-progress rows show the resume time in the byline (the ring carries the
+                      // visual progress); other rows show the episode number.
+                      const detail = inProgress
+                        ? `${formatDuration(Math.floor(listened))}${dur > 0 ? ` / ${formatDuration(dur)}` : ""}`
+                        : ep?.number ? `#${ep.number}` : "";
+                      const bylineEl = (ep?.author || detail) ? (
+                        <small className="book-file-byline">
+                          {ep?.author}{ep?.author && detail ? " · " : ""}
+                          {detail ? (inProgress ? detail : <span className="book-file-epnum">{detail}</span>) : null}
+                        </small>
+                      ) : null;
+                      // Linear chapters drive their ring + subtitle from the book-level cursor
+                      // (fileState); the ring there is read-only.
+                      const linearPos = state === "in_progress" ? (progress?.positionSeconds ?? 0) : 0;
+                      const linearProgress = state === "completed" ? 1 : (state === "in_progress" && dur > 0 ? Math.min(linearPos / dur, 1) : 0);
+                      const subtitleEl = episodic
+                        ? bylineEl
+                        : state === "in_progress" && dur > 0
+                          ? <small className="book-file-byline">{formatDuration(Math.floor(linearPos))} / {formatDuration(dur)}</small>
+                          : null;
                       return (
                         <article className={`book-file-row${isCurrent ? " current" : ""}`} key={file.id}>
-                          <span>{isCurrent ? <Play size={13} aria-label="Now playing" /> : (file.trackNumber ?? "-")}</span>
+                          <span className="book-file-num">{file.trackNumber ?? index + 1}</span>
+                          <button
+                            type="button"
+                            className="book-file-play"
+                            onClick={() => playEpisode(file)}
+                            aria-label="Play"
+                            title="Play"
+                          >
+                            <Play size={15} />
+                          </button>
                           <div>
-                            <strong>{file.chapterTitle || file.relativePath.split(/[\\/]/).at(-1) || file.relativePath}</strong>
-                            {showProgress ? (
-                              <span className="book-file-progress-wrap">
-                                <small className="book-file-progress-label">
-                                  {isCurrent ? "Now playing · " : "Resume · "}
-                                  {formatDuration(Math.floor(listened))}{dur > 0 ? ` / ${formatDuration(dur)}` : " listened"}
-                                </small>
-                                {dur > 0 && (
-                                  <span className="book-file-progress"><span style={{ width: `${Math.round(pct * 100)}%` }} /></span>
-                                )}
-                              </span>
-                            ) : (
-                              <small>{file.relativePath}</small>
-                            )}
+                            <strong>{ep ? ep.title : rawTitle}</strong>
+                            {subtitleEl}
                           </div>
-                          {episodic ? (
-                            <button
-                              type="button"
-                              className={`book-file-played-toggle${played ? " played" : ""}`}
-                              onClick={() => markTrack(file.id, !played)}
-                              aria-pressed={played}
-                              title={played ? "Mark unplayed" : "Mark played"}
-                            >
-                              {played ? <><CheckCircle2 size={13} /> Played</> : <><Circle size={13} /> Mark played</>}
-                            </button>
-                          ) : (
-                            <span className={`book-file-status ${state}`}>
-                              {state === "completed" && (<><CheckCircle2 size={13} /> Done</>)}
-                              {state === "in_progress" && (<><span className="book-file-dot" /> Playing</>)}
-                              {state === "not_started" && "-"}
-                            </span>
-                          )}
                           <small>
                             {file.durationSeconds != null ? `${formatDuration(file.durationSeconds)} · ` : ""}
                             {formatBytes(file.size)}
                           </small>
+                          {episodic ? (
+                            <ProgressRing
+                              progress={pct}
+                              complete={played}
+                              onClick={() => markTrack(file.id, !played)}
+                              label={played ? "Mark unplayed" : "Mark played"}
+                            />
+                          ) : (
+                            <ProgressRing progress={linearProgress} complete={state === "completed"} />
+                          )}
                         </article>
                       );
                     })}

@@ -429,120 +429,72 @@
 
 .book-file-row {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto auto;
+  grid-template-columns: 28px auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--line);
 }
 
-.book-file-status {
-  display: inline-flex;
+.book-episode-head {
+  display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.book-file-status.completed {
-  color: var(--mint);
-}
-
-.book-file-status.in_progress {
-  color: var(--ink);
-}
-
-.book-file-status.not_started {
-  color: var(--muted);
-  opacity: 0.5;
-}
-
-/* Episodic libraries: per-track played/unplayed toggle + show-level count. */
-.book-file-played-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  font-size: 0.72rem;
-  font-weight: 650;
-  white-space: nowrap;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.book-file-played-toggle:hover {
-  border-color: var(--mint);
-  color: var(--ink);
-}
-
-.book-file-played-toggle.played {
-  color: var(--mint);
-  border-color: var(--mint);
-}
-
-.book-episode-count {
+  justify-content: space-between;
+  gap: 12px;
   margin: 0;
   padding: 8px 16px;
   font-size: 0.78rem;
   border-bottom: 1px solid var(--line);
 }
 
-/* Current (now-playing) episode + per-track resume position. */
+.book-episode-play-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-weight: 650;
+  color: var(--mint);
+  background: transparent;
+  border: 1px solid var(--mint);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.book-episode-play-next:hover {
+  opacity: 0.8;
+}
+
+/* Current (now-playing) chapter highlight. */
 .book-file-row.current {
   box-shadow: inset 3px 0 0 var(--mint);
-}
-
-.book-file-progress-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 3px;
-}
-
-.book-file-progress-label {
-  color: var(--muted);
-}
-
-.book-file-progress {
-  display: block;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.book-file-progress > span {
-  display: block;
-  height: 100%;
-  background: var(--mint);
-  border-radius: 999px;
-}
-
-.book-file-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--mint);
 }
 
 .book-file-row:last-child {
   border-bottom: none;
 }
 
-.book-file-row > span:first-child {
+.book-file-num {
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.book-file-play {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+}
+
+.book-file-play:hover {
+  border-color: var(--mint);
   color: var(--mint);
-  background: var(--active);
-  font-weight: 750;
-  font-size: 0.82rem;
 }
 
 .book-file-row div {
@@ -560,4 +512,8 @@
 
 .book-file-row small {
   color: var(--muted);
+}
+
+.book-file-epnum {
+  opacity: 0.7;
 }

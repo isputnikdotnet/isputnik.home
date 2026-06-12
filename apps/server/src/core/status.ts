@@ -336,6 +336,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.17.1",
+          label: "Track view polish & progress rings",
+          changes: [
+            "The track list on a book's page was reworked into a cleaner chapter/episode view: a play button on every row, tidied titles (the story name with the author as a byline for radio shows), and a circular progress ring — like the dial used for the context window in chat — that fills as you listen and shows a check when done. For episodic libraries the ring doubles as a played/unplayed toggle; for regular audiobooks it reflects your place, read-only.",
+            "The same ring now appears on each chapter in the player, so the player and the book page share one visual language.",
+            "Episodic fixes: \"Mark as finished\" and \"Reset\" now apply to every episode rather than just the last one, marking a track played fills its ring, and an episodic book's overall progress now reads \"X / N played\" instead of a misleading single-cursor percentage. A new \"Play next unplayed\" button jumps to the episode you're partway through, or the first one you haven't heard."
+          ]
+        },
+        {
           version: "0.17.0",
           label: "Episodic libraries & smarter progress",
           changes: [

@@ -3,6 +3,55 @@
   gap: 7px;
 }
 
+/* Circular progress indicator (shared/ProgressRing) — episode list + player chapters. */
+.progress-ring {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  line-height: 0;
+}
+
+.progress-ring svg {
+  display: block;
+}
+
+.progress-ring-track {
+  stroke: var(--line);
+}
+
+.progress-ring-arc {
+  stroke: var(--mint);
+}
+
+.progress-ring-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.progress-ring.complete .progress-ring-center {
+  color: var(--mint);
+}
+
+.progress-ring-button {
+  display: inline-flex;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  color: inherit;
+}
+
+.progress-ring-button:hover .progress-ring-track {
+  stroke: var(--muted);
+}
+
 .field-checkbox {
   display: flex;
   align-items: center;
