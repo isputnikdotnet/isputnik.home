@@ -289,7 +289,7 @@ Replacing today's model with this proposal removes the overlap:
 | `libraries.owner_id` / `owner_type` columns | a `manager` **assignment** (columns kept for the one-library-per-owner rule and owner display) |
 | `libraries.visibility` + `libraries.public_role` | presence/role of the **Everyone** assignment — **columns dropped in 0.13** |
 | `library_members` table | the generic **`assignments`** table (`object_type = 'library'`) |
-| `group_members.role` (member / manager) | plain membership (role not needed for libraries) |
+| `group_members.role` (member / manager) | plain membership; legacy column ignored by API/UI |
 | `shares` + `share_links` (two tables) | one merged **`shares`** table |
 | `shares.permission` / `share_links.permission` (read/edit/manage — only `read` used) | removed |
 | 5 library roles + 7 capabilities (`viewer…admin`, incl. unused `upload`/`curator`) | **4 roles** (`viewer`/`member`/`contributor`/`manager`) + a `deny` block |
@@ -305,18 +305,17 @@ replaces the library-specific resolver and the per-endpoint capability helpers.
 
 ## Open questions (to think about)
 
-1. **`group_members.role`** — drop it entirely, or keep a `manager` flag for *managing
-   the group itself* (who can add/remove members)?
-2. **Policy switches** — which, if any, do we actually need now beyond download-via-role?
-3. **Scope of the rollout** — generalize `object_type` immediately (collections, etc.),
+1. **Policy switches** — which, if any, do we actually need now beyond download-via-role?
+2. **Scope of the rollout** — generalize `object_type` immediately (collections, etc.),
    or ship libraries-only with the column ready for later?
-4. **Take ownership** — when an admin takes over a private library, does the original
+3. **Take ownership** — when an admin takes over a private library, does the original
    owner's `manager` grant stay, or get replaced?
 
 *Decided so far:* roles `viewer` / `member` / `contributor` / `manager` (+ `deny`);
 Everyone may be viewer/member/contributor but never manager; two built-in locked groups
 (Everyone + System Admins); admin = System Admins membership (no `users.role`); private
-libraries stay hidden from admins until they take ownership, which is logged.
+libraries stay hidden from admins until they take ownership, which is logged; group
+membership is plain membership, not member/manager inside the group.
 
 ---
 

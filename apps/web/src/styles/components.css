@@ -895,6 +895,249 @@
   white-space: nowrap;
 }
 
+/* ── Unified Users page ─────────────────────────────────────────── */
+
+.user-section-head {
+  align-items: flex-start;
+}
+
+.user-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.user-page-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  color: var(--control-primary-button, var(--blue));
+  background: color-mix(in srgb, var(--control-primary-button, var(--blue)) 10%, transparent);
+}
+
+.user-heading-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.user-controls-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.user-search {
+  width: min(100%, 340px);
+}
+
+.user-form-modal {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 520px);
+}
+
+.user-table-wrap {
+  overflow-x: hidden;
+}
+
+.user-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.user-table th,
+.user-table td {
+  overflow: hidden;
+  padding: 8px 10px;
+  text-overflow: ellipsis;
+}
+
+.user-table th:nth-child(1) { width: 39%; }
+.user-table th:nth-child(2) { width: 12%; }
+.user-table th:nth-child(3) { width: 13%; }
+.user-table th:nth-child(4) { width: 18%; }
+.user-table th:nth-child(5) { width: 18%; }
+
+.user-table .row-actions {
+  gap: 6px;
+}
+
+.user-table .col-actions {
+  overflow: visible;
+}
+
+.user-table .icon-button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 8px;
+}
+
+.user-account-cell {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.user-avatar-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.user-name-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* ── Unified admin management pages ─────────────────────────────── */
+
+.admin-section-head {
+  align-items: flex-start;
+}
+
+.admin-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-page-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 10%, transparent);
+}
+
+.admin-page-icon.groups {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.admin-page-icon.sessions {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.admin-page-icon.invites {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+}
+
+.admin-page-icon.storage {
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 10%, transparent);
+}
+
+.admin-page-icon.logs {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.admin-heading-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-controls-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.admin-search {
+  width: min(100%, 340px);
+}
+
+.admin-table-wrap {
+  overflow-x: hidden;
+}
+
+.admin-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.admin-table th,
+.admin-table td {
+  overflow: hidden;
+  padding: 8px 10px;
+  text-overflow: ellipsis;
+}
+
+.admin-table .row-actions {
+  gap: 6px;
+}
+
+.admin-table .col-actions {
+  overflow: visible;
+}
+
+.admin-table .icon-button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 8px;
+}
+
+.admin-table .secondary-button.compact-button {
+  min-height: 34px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.admin-name-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.session-device-cell {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.group-table th:nth-child(1) { width: 45%; }
+.group-table th:nth-child(2) { width: 14%; }
+.group-table th:nth-child(3) { width: 14%; }
+.group-table th:nth-child(4) { width: 27%; }
+
+.session-table th:nth-child(1) { width: 27%; }
+.session-table th:nth-child(2) { width: 31%; }
+.session-table th:nth-child(3) { width: 15%; }
+.session-table th:nth-child(4) { width: 15%; }
+.session-table th:nth-child(5) { width: 12%; }
+
+.invite-table th:nth-child(1) { width: 37%; }
+.invite-table th:nth-child(2) { width: 12%; }
+.invite-table th:nth-child(3) { width: 18%; }
+.invite-table th:nth-child(4) { width: 21%; }
+.invite-table th:nth-child(5) { width: 12%; }
+
 .library-name-cell {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
@@ -2682,6 +2925,42 @@
 .status-badge.private {
   color: var(--amber);
   background: color-mix(in srgb, var(--amber) 14%, transparent);
+}
+
+.status-badge.admin,
+.status-badge.protected {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.status-badge.member {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.status-badge.current {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.status-badge.manager {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.status-badge.active {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+}
+
+.status-badge.expired {
+  color: var(--muted);
+  background: var(--active);
+}
+
+.status-badge.used {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
 }
 
 .status-badge.scanning {

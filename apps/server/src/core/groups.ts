@@ -10,12 +10,7 @@ const groupSchema = z.object({
 });
 
 const memberSchema = z.object({
-  userId: z.string().trim().min(1),
-  role: z.enum(["member", "manager"]).default("member")
-});
-
-const roleSchema = z.object({
-  role: z.enum(["member", "manager"])
+  userId: z.string().trim().min(1)
 });
 
 interface GroupRow {
@@ -30,7 +25,6 @@ interface MemberRow {
   user_id: string;
   display_name: string;
   email: string;
-  role: "member" | "manager";
   joined_at: string;
 }
 
@@ -129,7 +123,7 @@ export async function groupsPlugin(app: FastifyInstance) {
     }
 
     const members = db.prepare(`
-      SELECT gm.user_id, u.display_name, u.email, gm.role, gm.joined_at
+      SELECT gm.user_id, u.display_name, u.email, gm.joined_at
       FROM group_members gm
       JOIN users u ON u.id = gm.user_id
       WHERE gm.group_id = ?
@@ -142,7 +136,6 @@ export async function groupsPlugin(app: FastifyInstance) {
         userId: m.user_id,
         displayName: m.display_name,
         email: m.email,
-        role: m.role,
         joinedAt: m.joined_at
       }))
     };
@@ -169,32 +162,14 @@ export async function groupsPlugin(app: FastifyInstance) {
     }
 
     try {
-      db.prepare("INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)")
-        .run(id, parsed.data.userId, parsed.data.role);
+      db.prepare("INSERT INTO group_members (group_id, user_id) VALUES (?, ?)")
+        .run(id, parsed.data.userId);
     } catch {
       reply.code(409).send({ error: "User is already a member of this group." });
       return;
     }
 
     reply.code(201).send({ ok: true });
-  });
-
-  app.patch("/api/groups/:id/members/:userId", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const { id, userId } = request.params as { id: string; userId: string };
-    const parsed = parseBody(roleSchema, request.body);
-    if (parsed.error) {
-      reply.code(400).send({ error: "Invalid role", details: parsed.error });
-      return;
-    }
-
-    const updated = db.prepare("UPDATE group_members SET role = ? WHERE group_id = ? AND user_id = ?")
-      .run(parsed.data.role, id, userId);
-    if (updated.changes === 0) {
-      reply.code(404).send({ error: "Member not found" });
-      return;
-    }
-
-    reply.send({ ok: true });
   });
 
   app.delete("/api/groups/:id/members/:userId", { preHandler: app.requireAdmin }, async (request, reply) => {

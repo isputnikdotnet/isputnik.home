@@ -285,6 +285,55 @@
     width: 100%;
   }
 
+  .user-controls-bar {
+    display: grid;
+  }
+
+  .user-search {
+    width: 100%;
+  }
+
+  .admin-controls-bar {
+    display: grid;
+  }
+
+  .admin-search {
+    width: 100%;
+  }
+
+  .group-table th:nth-child(3),
+  .group-table td:nth-child(3),
+  .session-table th:nth-child(4),
+  .session-table td:nth-child(4),
+  .invite-table th:nth-child(4),
+  .invite-table td:nth-child(4) {
+    display: none;
+  }
+
+  .group-table th:nth-child(1) { width: 52%; }
+  .group-table th:nth-child(2) { width: 16%; }
+  .group-table th:nth-child(4) { width: 32%; }
+
+  .session-table th:nth-child(1) { width: 34%; }
+  .session-table th:nth-child(2) { width: 36%; }
+  .session-table th:nth-child(3) { width: 17%; }
+  .session-table th:nth-child(5) { width: 13%; }
+
+  .invite-table th:nth-child(1) { width: 47%; }
+  .invite-table th:nth-child(2) { width: 18%; }
+  .invite-table th:nth-child(3) { width: 22%; }
+  .invite-table th:nth-child(5) { width: 13%; }
+
+  .user-table th:nth-child(4),
+  .user-table td:nth-child(4) {
+    display: none;
+  }
+
+  .user-table th:nth-child(1) { width: 49%; }
+  .user-table th:nth-child(2) { width: 15%; }
+  .user-table th:nth-child(3) { width: 14%; }
+  .user-table th:nth-child(5) { width: 22%; }
+
   .library-table th:nth-child(2),
   .library-table td:nth-child(2),
   .library-table th:nth-child(5),
@@ -392,6 +441,35 @@
   .library-table td:nth-child(4) {
     display: none;
   }
+
+  .user-table th:nth-child(3),
+  .user-table td:nth-child(3) {
+    display: none;
+  }
+
+  .group-table th:nth-child(2),
+  .group-table td:nth-child(2),
+  .session-table th:nth-child(3),
+  .session-table td:nth-child(3),
+  .invite-table th:nth-child(3),
+  .invite-table td:nth-child(3) {
+    display: none;
+  }
+
+  .group-table th:nth-child(1) { width: 62%; }
+  .group-table th:nth-child(4) { width: 38%; }
+
+  .session-table th:nth-child(1) { width: 43%; }
+  .session-table th:nth-child(2) { width: 39%; }
+  .session-table th:nth-child(5) { width: 18%; }
+
+  .invite-table th:nth-child(1) { width: 61%; }
+  .invite-table th:nth-child(2) { width: 21%; }
+  .invite-table th:nth-child(5) { width: 18%; }
+
+  .user-table th:nth-child(1) { width: 58%; }
+  .user-table th:nth-child(2) { width: 18%; }
+  .user-table th:nth-child(5) { width: 24%; }
 
   .library-table th:nth-child(1) { width: 56%; }
   .library-table th:nth-child(3) { width: 18%; }

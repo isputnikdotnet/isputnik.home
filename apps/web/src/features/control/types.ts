@@ -156,6 +156,5 @@ export interface GroupMember {
   userId: string;
   displayName: string;
   email: string;
-  role: "member" | "manager";
   joinedAt: string;
 }

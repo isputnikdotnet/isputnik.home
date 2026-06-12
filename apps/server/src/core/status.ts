@@ -336,6 +336,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.19.0",
+          label: "Control Panel management refresh",
+          changes: [
+            "The Control Panel management pages now share the same compact datagrid layout and page-icon headers across Libraries, Users, Groups, Invite links, Sessions, Storage, and Logs.",
+            "User management gained manual account creation, profile editing, and admin password changes, with password updates revoking the user's other active sessions.",
+            "Library Take ownership now asks for confirmation before granting manager access, and Groups now treats membership as plain membership so library roles remain the source of access control."
+          ]
+        },
+        {
           version: "0.18.0",
           label: "Upload a backup file",
           changes: [

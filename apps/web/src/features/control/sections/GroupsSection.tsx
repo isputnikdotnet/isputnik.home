@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { Plus, Trash2, UserMinus, ShieldCheck, User } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
+import { Plus, Search, Trash2, UserMinus, Users } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import type { ManagedGroup, GroupMember, ManagedUser } from "../types";
@@ -11,14 +12,17 @@ export function GroupsSection() {
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [error, setError] = useState("");
+  const [modalError, setModalError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ManagedGroup | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [managingGroup, setManagingGroup] = useState<ManagedGroup | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [addUserId, setAddUserId] = useState("");
-  const [addRole, setAddRole] = useState<"member" | "manager">("member");
   const [memberError, setMemberError] = useState("");
   const [memberWorking, setMemberWorking] = useState(false);
 
@@ -35,6 +39,28 @@ export function GroupsSection() {
     load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load groups"));
   }, [load]);
 
+  const visibleGroups = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return groups;
+    return groups.filter((group) => [
+      group.name,
+      `${group.memberCount} members`,
+      `${group.libraryCount} libraries`
+    ].some((value) => value.toLowerCase().includes(query)));
+  }, [groups, searchQuery]);
+
+  const nonMembers = useMemo(
+    () => users.filter((user) => !members.some((member) => member.userId === user.id)),
+    [members, users]
+  );
+
+  const openCreate = () => {
+    setError("");
+    setModalError("");
+    setNewGroupName("");
+    setCreateOpen(true);
+  };
+
   const loadMembers = async (group: ManagedGroup) => {
     const payload = await api<{ members: GroupMember[] }>(`/api/groups/${group.id}/members`);
     setMembers(payload.members);
@@ -46,26 +72,31 @@ export function GroupsSection() {
   const createGroup = async (event: FormEvent) => {
     event.preventDefault();
     setCreating(true);
-    setError("");
+    setModalError("");
     try {
       await api("/api/groups", { method: "POST", body: JSON.stringify({ name: newGroupName }) });
       setCreateOpen(false);
       setNewGroupName("");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create group");
+      setModalError(err instanceof Error ? err.message : "Unable to create group");
     } finally {
       setCreating(false);
     }
   };
 
-  const deleteGroup = async (group: ManagedGroup) => {
-    setError("");
+  const deleteGroup = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    setModalError("");
     try {
-      await api(`/api/groups/${group.id}`, { method: "DELETE" });
+      await api(`/api/groups/${pendingDelete.id}`, { method: "DELETE" });
+      setPendingDelete(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete group");
+      setModalError(err instanceof Error ? err.message : "Unable to delete group");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -77,7 +108,7 @@ export function GroupsSection() {
     try {
       await api(`/api/groups/${managingGroup.id}/members`, {
         method: "POST",
-        body: JSON.stringify({ userId: addUserId, role: addRole })
+        body: JSON.stringify({ userId: addUserId })
       });
       const payload = await api<{ members: GroupMember[] }>(`/api/groups/${managingGroup.id}/members`);
       setMembers(payload.members);
@@ -85,24 +116,6 @@ export function GroupsSection() {
       await load();
     } catch (err) {
       setMemberError(err instanceof Error ? err.message : "Unable to add member");
-    } finally {
-      setMemberWorking(false);
-    }
-  };
-
-  const changeRole = async (member: GroupMember, role: "member" | "manager") => {
-    if (!managingGroup) return;
-    setMemberWorking(true);
-    setMemberError("");
-    try {
-      await api(`/api/groups/${managingGroup.id}/members/${member.userId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ role })
-      });
-      const payload = await api<{ members: GroupMember[] }>(`/api/groups/${managingGroup.id}/members`);
-      setMembers(payload.members);
-    } catch (err) {
-      setMemberError(err instanceof Error ? err.message : "Unable to update role");
     } finally {
       setMemberWorking(false);
     }
@@ -124,57 +137,88 @@ export function GroupsSection() {
     }
   };
 
-  const nonMembers = users.filter((u) => !members.some((m) => m.userId === u.id));
-
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">User administration</p>
-          <h1>Groups</h1>
+      <div className="section-head admin-section-head">
+        <div className="admin-title-wrap">
+          <span className="admin-page-icon groups" aria-hidden="true">
+            <Users size={30} />
+          </span>
+          <div className="admin-heading-copy">
+            <p className="eyebrow">User administration</p>
+            <h1>Groups</h1>
+            <p className="section-description">Manage shared access groups and library membership.</p>
+          </div>
         </div>
-        <button className="primary-button" onClick={() => { setError(""); setCreateOpen(true); }}>
-          <Plus size={18} />
-          <span>New group</span>
-        </button>
+        <div className="row-actions">
+          <Button variant="primary" onClick={openCreate} title="New group">
+            <Plus size={18} />
+            <span>New group</span>
+          </Button>
+        </div>
       </div>
 
       {error && <MessageBox tone="error" title="Groups error">{error}</MessageBox>}
 
-      {groups.length === 0 ? (
-        <p className="management-empty">No groups configured.</p>
+      <div className="admin-controls-bar">
+        <label className="search-field admin-search">
+          <Search size={17} aria-hidden="true" />
+          <span className="sr-only">Search groups</span>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search groups..."
+          />
+        </label>
+      </div>
+
+      {visibleGroups.length === 0 ? (
+        <p className="management-empty">
+          {groups.length === 0 ? "No groups configured." : "No groups match this search."}
+        </p>
       ) : (
-        <div className="datagrid-wrap">
-          <table className="datagrid">
+        <div className="datagrid-wrap admin-table-wrap">
+          <table className="datagrid admin-table group-table">
             <thead>
               <tr>
-                <th>Name</th>
+                <th>Group</th>
                 <th className="col-num">Members</th>
                 <th className="col-num">Libraries</th>
-                <th className="col-actions"></th>
+                <th className="col-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {groups.map((group) => (
+              {visibleGroups.map((group) => (
                 <tr key={group.id}>
-                  <td><strong>{group.name}</strong></td>
-                  <td className="col-num datagrid-muted">{group.memberCount}</td>
-                  <td className="col-num datagrid-muted">{group.libraryCount}</td>
+                  <td>
+                    <div className="datagrid-primary">
+                      <strong>{group.name}</strong>
+                      <small>{group.memberCount} {group.memberCount === 1 ? "member" : "members"}</small>
+                    </div>
+                  </td>
+                  <td className="col-num datagrid-muted">{group.memberCount.toLocaleString()}</td>
+                  <td className="col-num datagrid-muted">{group.libraryCount.toLocaleString()}</td>
                   <td className="col-actions">
                     <div className="row-actions">
-                      <button
-                        className="secondary-button compact-button"
+                      <Button
+                        variant="secondary"
+                        compact
                         onClick={() => loadMembers(group).catch((err) => setError(err instanceof Error ? err.message : "Unable to load members"))}
                       >
                         Manage
-                      </button>
-                      <button
-                        className="icon-button danger"
+                      </Button>
+                      <Button
+                        variant="icon"
+                        danger
                         title="Delete group"
-                        onClick={() => deleteGroup(group)}
+                        aria-label={`Delete ${group.name}`}
+                        onClick={() => {
+                          setModalError("");
+                          setPendingDelete(group);
+                        }}
                       >
                         <Trash2 size={15} />
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -192,12 +236,16 @@ export function GroupsSection() {
           onClose={() => setCreateOpen(false)}
           onSubmit={createGroup}
         >
-            <Field label="Group name" value={newGroupName} onChange={setNewGroupName} />
-            {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
-            <div className="modal-actions">
-              <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating} autoFocus>Cancel</Button>
-              <Button variant="primary" type="submit" disabled={creating || !newGroupName.trim()}>{creating ? "Creating..." : "Create group"}</Button>
-            </div>
+          <Field label="Group name" value={newGroupName} onChange={setNewGroupName} />
+          {modalError && <MessageBox tone="error" title="Unable to create group">{modalError}</MessageBox>}
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating} autoFocus>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" disabled={creating || !newGroupName.trim()}>
+              {creating ? "Creating..." : "Create group"}
+            </Button>
+          </div>
         </Modal>
       )}
 
@@ -208,81 +256,88 @@ export function GroupsSection() {
           busy={memberWorking}
           onClose={() => setManagingGroup(null)}
         >
-            {memberError && <MessageBox tone="error" title="Error">{memberError}</MessageBox>}
+          {memberError && <MessageBox tone="error" title="Group members error">{memberError}</MessageBox>}
 
-            {members.length === 0 ? (
-              <p className="management-empty">No members yet.</p>
-            ) : (
-              <div className="datagrid-wrap">
-                <table className="datagrid">
-                  <thead>
-                    <tr>
-                      <th>Member</th>
-                      <th>Role</th>
-                      <th className="col-actions"></th>
+          {members.length === 0 ? (
+            <p className="management-empty">No members yet.</p>
+          ) : (
+            <div className="datagrid-wrap">
+              <table className="datagrid">
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th className="col-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {members.map((member) => (
+                    <tr key={member.userId}>
+                      <td>
+                        <div className="datagrid-primary">
+                          <strong>{member.displayName}</strong>
+                          <small>{member.email}</small>
+                        </div>
+                      </td>
+                      <td className="col-actions">
+                        <div className="row-actions">
+                          <Button
+                            variant="icon"
+                            danger
+                            title="Remove from group"
+                            aria-label={`Remove ${member.displayName} from group`}
+                            disabled={memberWorking}
+                            onClick={() => removeMember(member)}
+                          >
+                            <UserMinus size={15} />
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {members.map((member) => (
-                      <tr key={member.userId}>
-                        <td>
-                          <div className="datagrid-primary">
-                            <strong>{member.displayName}</strong>
-                            <small>{member.email}</small>
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`status-badge ${member.role}`}>{member.role}</span>
-                        </td>
-                        <td className="col-actions">
-                          <div className="row-actions">
-                            {member.role === "member" ? (
-                              <button className="icon-button" title="Promote to manager" disabled={memberWorking} onClick={() => changeRole(member, "manager")}>
-                                <ShieldCheck size={15} />
-                              </button>
-                            ) : (
-                              <button className="icon-button" title="Demote to member" disabled={memberWorking} onClick={() => changeRole(member, "member")}>
-                                <User size={15} />
-                              </button>
-                            )}
-                            <button className="icon-button danger" title="Remove from group" disabled={memberWorking} onClick={() => removeMember(member)}>
-                              <UserMinus size={15} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {nonMembers.length > 0 && (
-              <form className="add-member-form" onSubmit={addMember}>
-                <label className="field">
-                  <span>Add member</span>
-                  <select value={addUserId} onChange={(e) => setAddUserId(e.target.value)} required>
-                    <option value="">Select user…</option>
-                    {nonMembers.map((u) => (
-                      <option value={u.id} key={u.id}>{u.displayName} ({u.email})</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Role</span>
-                  <select value={addRole} onChange={(e) => setAddRole(e.target.value as "member" | "manager")}>
-                    <option value="member">Member</option>
-                    <option value="manager">Manager</option>
-                  </select>
-                </label>
-                <button className="primary-button" disabled={memberWorking || !addUserId}>Add</button>
-              </form>
-            )}
-
-            <div className="modal-actions">
-              <Button variant="secondary" onClick={() => setManagingGroup(null)} autoFocus>Close</Button>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          )}
+
+          {nonMembers.length > 0 && (
+            <form className="add-member-form" onSubmit={addMember}>
+              <label className="field">
+                <span>Add member</span>
+                <select value={addUserId} onChange={(event) => setAddUserId(event.target.value)} required>
+                  <option value="">Select user...</option>
+                  {nonMembers.map((user) => (
+                    <option value={user.id} key={user.id}>{user.displayName} ({user.email})</option>
+                  ))}
+                </select>
+              </label>
+              <Button variant="primary" type="submit" disabled={memberWorking || !addUserId}>
+                Add member
+              </Button>
+            </form>
+          )}
+
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setManagingGroup(null)} autoFocus>Close</Button>
+          </div>
         </Modal>
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={`Delete "${pendingDelete.name}"?`}
+          confirmLabel="Delete group"
+          busyLabel="Deleting..."
+          confirmIcon={<Trash2 size={15} />}
+          danger
+          rich
+          busy={deleting}
+          error={modalError}
+          onConfirm={deleteGroup}
+          onCancel={() => setPendingDelete(null)}
+        >
+          <p>This will remove the group and its membership records.</p>
+          <p><strong>User accounts, libraries, and files are not deleted.</strong></p>
+        </ConfirmDialog>
       )}
     </>
   );

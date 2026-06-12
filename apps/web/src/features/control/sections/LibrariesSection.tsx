@@ -115,6 +115,8 @@ export function LibrariesSection() {
   const [rescanRunning, setRescanRunning] = useState(false);
   const [rescanningId, setRescanningId] = useState("");
   const [membersLibrary, setMembersLibrary] = useState<ManagedLibrary | null>(null);
+  const [takeOwnershipConfirmLibrary, setTakeOwnershipConfirmLibrary] = useState<ManagedLibrary | null>(null);
+  const [takingOwnership, setTakingOwnership] = useState(false);
   const [deleteConfirmLibrary, setDeleteConfirmLibrary] = useState<ManagedLibrary | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [createLibraryOpen, setCreateLibraryOpen] = useState(false);
@@ -211,13 +213,18 @@ export function LibrariesSection() {
     setError("");
   };
 
-  const takeOwnership = async (library: ManagedLibrary) => {
+  const takeOwnership = async () => {
+    if (!takeOwnershipConfirmLibrary) return;
+    setTakingOwnership(true);
     setError("");
     try {
-      await api(`/api/library/libraries/${library.id}/take-ownership`, { method: "POST", body: "{}" });
+      await api(`/api/library/libraries/${takeOwnershipConfirmLibrary.id}/take-ownership`, { method: "POST", body: "{}" });
+      setTakeOwnershipConfirmLibrary(null);
       await loadLibraries();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to take ownership");
+    } finally {
+      setTakingOwnership(false);
     }
   };
 
@@ -536,7 +543,10 @@ export function LibrariesSection() {
                             variant="secondary"
                             compact
                             title="This private library is owned by someone else. Take ownership to manage it (logged)."
-                            onClick={() => takeOwnership(library)}
+                            onClick={() => {
+                              setError("");
+                              setTakeOwnershipConfirmLibrary(library);
+                            }}
                           >
                             <KeyRound size={14} /> Take ownership
                           </Button>
@@ -634,6 +644,23 @@ export function LibrariesSection() {
         >
           <p>This will remove the library and all its book records, metadata, series, and genres from the database.</p>
           <p><strong>Your files on disk will not be touched.</strong> You can re-add this library at any time and it will be re-scanned from the same folder.</p>
+        </ConfirmDialog>
+      )}
+
+      {takeOwnershipConfirmLibrary && (
+        <ConfirmDialog
+          title={`Take ownership of "${takeOwnershipConfirmLibrary.name}"?`}
+          confirmLabel="Take ownership"
+          busyLabel="Taking ownership..."
+          confirmIcon={<KeyRound size={15} />}
+          rich
+          busy={takingOwnership}
+          error={error}
+          onConfirm={takeOwnership}
+          onCancel={() => setTakeOwnershipConfirmLibrary(null)}
+        >
+          <p>This will give you manager access so you can manage this private library. The action is logged for audit history.</p>
+          <p><strong>The library contents and existing owner are not deleted.</strong> Files on disk are not changed.</p>
         </ConfirmDialog>
       )}
 

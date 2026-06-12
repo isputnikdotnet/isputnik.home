@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
+import { FileText } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -102,10 +103,16 @@ export function LogsSection() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Management</p>
-          <h1>Logs</h1>
+      <div className="section-head admin-section-head">
+        <div className="admin-title-wrap">
+          <span className="admin-page-icon logs" aria-hidden="true">
+            <FileText size={30} />
+          </span>
+          <div className="admin-heading-copy">
+            <p className="eyebrow">Management</p>
+            <h1>Logs</h1>
+            <p className="section-description">Review activity history and clean up old records.</p>
+          </div>
         </div>
       </div>
 

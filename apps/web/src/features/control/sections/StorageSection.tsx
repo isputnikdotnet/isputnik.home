@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { Plus } from "lucide-react";
+import { HardDrive, Plus } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -103,10 +103,16 @@ export function StorageSection() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Application</p>
-          <h1>Storage</h1>
+      <div className="section-head admin-section-head">
+        <div className="admin-title-wrap">
+          <span className="admin-page-icon storage" aria-hidden="true">
+            <HardDrive size={30} />
+          </span>
+          <div className="admin-heading-copy">
+            <p className="eyebrow">Application</p>
+            <h1>Storage</h1>
+            <p className="section-description">Configure thumbnail storage and approved library containers.</p>
+          </div>
         </div>
       </div>
 
