@@ -5,6 +5,7 @@ import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
+import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook, canUserDownloadBook, libraryCapabilities } from "../shared/library-access.js";
 import { getAudiobookBookDetail, progressUpdateSchema, bulkMetadataSchema, BULK_METADATA_FIELDS, applyBulkMetadata, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
 import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
@@ -14,6 +15,10 @@ const readingProgressSchema = z.object({
   cfi: z.string().trim().min(1).max(2000),
   percentComplete: z.number().min(0).max(1).nullable().optional(),
   label: z.string().trim().max(300).nullable().optional()
+});
+
+const trackPlayedSchema = z.object({
+  played: z.boolean()
 });
 
 function getReadableDocument(bookId: string, documentId: string, user: { id: string; role: string }) {
@@ -322,12 +327,12 @@ export function registerBookRoutes(app: FastifyInstance) {
     `).get(fileId, bookId) as { before_seconds: number } | undefined;
 
     const currentFile = db.prepare(`
-      SELECT id
+      SELECT id, duration_seconds
       FROM book_files
       WHERE id = ?
         AND book_id = ?
         AND status = 'available'
-    `).get(fileId, bookId);
+    `).get(fileId, bookId) as { id: string; duration_seconds: number | null } | undefined;
     if (!currentFile) {
       reply.code(404).send({ error: "Audio file not found" });
       return;
@@ -337,7 +342,22 @@ export function registerBookRoutes(app: FastifyInstance) {
 
     const absoluteSeconds = (cumulative?.before_seconds ?? 0) + positionSeconds;
     const percentComplete = totalDuration ? Math.min(absoluteSeconds / totalDuration, 1) : null;
-    const isComplete = percentComplete !== null && percentComplete >= 0.98;
+
+    // Auto-finish only when the FINAL track is (nearly) played through — not when a
+    // forward jump parks the cursor deep in the book. A skip to the last track sits at
+    // position 0 of that track, so it won't trip this; the 2% slack forgives credits/silence.
+    const lastTrack = db.prepare(`
+      SELECT id, duration_seconds
+      FROM book_files
+      WHERE book_id = ? AND status = 'available'
+      ORDER BY track_number DESC, relative_path COLLATE NOCASE DESC
+      LIMIT 1
+    `).get(bookId) as { id: string; duration_seconds: number | null } | undefined;
+    const isComplete =
+      lastTrack?.id === fileId &&
+      lastTrack.duration_seconds != null &&
+      lastTrack.duration_seconds > 0 &&
+      positionSeconds >= lastTrack.duration_seconds * 0.98;
 
     db.prepare(`
       INSERT INTO playback_progress (id, user_id, book_id, current_file_id, position_seconds, duration_seconds, percent_complete, updated_at, completed_at)
@@ -359,6 +379,38 @@ export function registerBookRoutes(app: FastifyInstance) {
       percentComplete,
       isComplete ? new Date().toISOString() : null
     );
+
+    // Episodic libraries also track each track on its own, so skipping one never
+    // touches the others. A track counts as played once ~98% of its OWN duration is
+    // reached. (Linear libraries rely solely on the book-level cursor written above.)
+    const settingsRow = db.prepare(`
+      SELECT libraries.settings_json AS settings_json
+      FROM books
+      JOIN libraries ON libraries.id = books.library_id
+      WHERE books.id = ?
+    `).get(bookId) as { settings_json: string } | undefined;
+    const isEpisodic = normalizeLibrarySettings("audiobook", settingsRow?.settings_json).progress_mode === "episodic";
+    if (isEpisodic) {
+      const trackDuration = currentFile.duration_seconds;
+      const trackComplete = trackDuration != null && trackDuration > 0 && positionSeconds >= trackDuration * 0.98;
+      db.prepare(`
+        INSERT INTO track_progress (id, user_id, book_id, file_id, position_seconds, duration_seconds, updated_at, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+        ON CONFLICT(user_id, file_id) DO UPDATE SET
+          position_seconds = excluded.position_seconds,
+          duration_seconds = excluded.duration_seconds,
+          updated_at = CURRENT_TIMESTAMP,
+          completed_at = CASE WHEN excluded.completed_at IS NOT NULL THEN excluded.completed_at ELSE track_progress.completed_at END
+      `).run(
+        nanoid(16),
+        userId,
+        bookId,
+        fileId,
+        positionSeconds,
+        trackDuration,
+        trackComplete ? new Date().toISOString() : null
+      );
+    }
 
     reply.send({ updated: true });
   });
@@ -403,6 +455,65 @@ export function registerBookRoutes(app: FastifyInstance) {
     const userId = request.user!.id;
     db.prepare("DELETE FROM playback_progress WHERE book_id = ? AND user_id = ?").run(bookId, userId);
     reply.send({ reset: true });
+  });
+
+
+  // Per-track progress for episodic libraries — the user's played/position state for
+  // every track of a show. Linear libraries return an empty list (they use /progress).
+  app.get("/api/library/books/:id/tracks/progress", { preHandler: app.authenticate }, async (request, reply) => {
+    const bookId = (request.params as { id: string }).id;
+    const userId = request.user!.id;
+    const rows = db.prepare(`
+      SELECT file_id, position_seconds, completed_at
+      FROM track_progress
+      WHERE user_id = ? AND book_id = ?
+    `).all(userId, bookId) as { file_id: string; position_seconds: number; completed_at: string | null }[];
+    reply.send({
+      tracks: rows.map((row) => ({
+        fileId: row.file_id,
+        positionSeconds: row.position_seconds,
+        completedAt: row.completed_at
+      }))
+    });
+  });
+
+
+  // Explicitly mark one track played / unplayed (the episode-list toggle). "Unplayed"
+  // clears the row entirely, resetting position too.
+  app.put("/api/library/books/:id/tracks/:fileId/progress", { preHandler: app.authenticate }, async (request, reply) => {
+    const { id: bookId, fileId } = request.params as { id: string; fileId: string };
+    const userId = request.user!.id;
+    const parsed = parseBody(trackPlayedSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid track update", details: parsed.error });
+      return;
+    }
+
+    const file = db.prepare(`
+      SELECT duration_seconds
+      FROM book_files
+      WHERE id = ? AND book_id = ? AND status = 'available'
+    `).get(fileId, bookId) as { duration_seconds: number | null } | undefined;
+    if (!file) {
+      reply.code(404).send({ error: "Audio file not found" });
+      return;
+    }
+
+    if (parsed.data.played) {
+      db.prepare(`
+        INSERT INTO track_progress (id, user_id, book_id, file_id, position_seconds, duration_seconds, updated_at, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, file_id) DO UPDATE SET
+          position_seconds = excluded.position_seconds,
+          duration_seconds = excluded.duration_seconds,
+          updated_at = CURRENT_TIMESTAMP,
+          completed_at = CURRENT_TIMESTAMP
+      `).run(nanoid(16), userId, bookId, fileId, file.duration_seconds ?? 0, file.duration_seconds);
+    } else {
+      db.prepare("DELETE FROM track_progress WHERE user_id = ? AND file_id = ?").run(userId, fileId);
+    }
+
+    reply.send({ updated: true });
   });
 
 

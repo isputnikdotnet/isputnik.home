@@ -183,7 +183,7 @@ function AudiobookHeaderSort({ value, onChange }: { value: SortKey; onChange: (s
 type BookStatus = "finished" | "in_progress" | "none";
 
 function initialStatus(book: AudiobookBook): BookStatus {
-  if (book.progress?.completedAt != null || (book.progress?.percentComplete ?? 0) >= 0.98) return "finished";
+  if (book.progress?.completedAt != null) return "finished";
   if ((book.progress?.percentComplete ?? 0) > 0) return "in_progress";
   return "none";
 }

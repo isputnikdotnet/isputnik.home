@@ -27,11 +27,18 @@ export interface BaseLibrarySettings {
   scan_sources: ScanSourceConfig[];
 }
 
+// How playback progress is modelled. linear = one resume cursor for the whole book
+// (chapters of a single work). episodic = each track is an independent unit with its
+// own played/position state (radio shows, podcasts), so skipping one never touches
+// the others.
+export type ProgressMode = "linear" | "episodic";
+
 export interface AudiobookLibrarySettings extends BaseLibrarySettings {
   show_narrator?: boolean;
   cover_filenames?: string[];
   // Default legacy charset for repairing mojibake in audio tags during scans.
   tag_encoding?: TagEncoding;
+  progress_mode?: ProgressMode;
 }
 
 export const LIBRARY_TYPE_DEFAULTS: Partial<Record<LibraryType, { extensions: string[] }>> = {
@@ -98,7 +105,8 @@ export function normalizeLibrarySettings(type: LibraryType, settingsJson: string
     default_language: typeof raw.default_language === "string" && raw.default_language.trim() ? raw.default_language.trim() : undefined,
     scan_extensions: extensions.length > 0 ? extensions : defaultScanExtensions(type),
     scan_sources: normalizeScanSources(type, raw.scan_sources),
-    tag_encoding: isTagEncoding(raw.tag_encoding) ? raw.tag_encoding : undefined
+    tag_encoding: isTagEncoding(raw.tag_encoding) ? raw.tag_encoding : undefined,
+    progress_mode: raw.progress_mode === "episodic" ? "episodic" : "linear"
   };
 }
 

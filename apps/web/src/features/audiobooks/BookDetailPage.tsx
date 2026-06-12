@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, Circle, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
@@ -15,7 +15,7 @@ import { getDownloadedBookDetail } from "../../offline/downloads";
 import { useDownload } from "../../offline/useDownload";
 import { isStandalone } from "../../pwa/platform";
 import { formatBytes, formatDuration } from "../../shared/utils";
-import type { AudiobookBookDetail, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress } from "./types";
+import type { AudiobookBookDetail, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress, TrackProgress } from "./types";
 
 // Button gating is cosmetic — the server enforces every operation — so when we
 // can't determine capabilities we fail OPEN (show the full menu) rather than hide
@@ -114,6 +114,7 @@ function BookDetailView({
   onBookUpdated: (book: AudiobookBookDetail) => void;
 }) {
   const [progress, setProgress] = useState<PlaybackProgress | null>(null);
+  const [trackProgress, setTrackProgress] = useState<Record<string, TrackProgress>>({});
   const [activeBookTab, setActiveBookTab] = useState<"description" | "files">("description");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -160,6 +161,23 @@ function BookDetailView({
 
   // An ebook (or any audio-less book): content is a document, not audio tracks.
   const isEbook = book.files.length === 0 && book.documents.length > 0;
+  const episodic = book.progressMode === "episodic";
+  const markTrack = async (fileId: string, played: boolean) => {
+    try {
+      await api(`/api/library/books/${book.id}/tracks/${fileId}/progress`, {
+        method: "PUT",
+        body: JSON.stringify({ played })
+      });
+      setTrackProgress((prev) => {
+        const next = { ...prev };
+        if (played) next[fileId] = { fileId, positionSeconds: 0, completedAt: new Date().toISOString() };
+        else delete next[fileId];
+        return next;
+      });
+    } catch {
+      // best-effort; the next focus refresh reconciles with the server
+    }
+  };
   const primaryReadableDoc = book.documents.find((doc) => VIEWABLE_DOC_FORMATS.has(doc.format)) ?? book.documents[0] ?? null;
   const canReadPrimaryDoc = Boolean(primaryReadableDoc && VIEWABLE_DOC_FORMATS.has(primaryReadableDoc.format));
   const primaryReaderStorageKey = primaryReadableDoc
@@ -195,10 +213,17 @@ function BookDetailView({
     const loadProgress = () => api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`)
       .then((payload) => setProgress(payload.progress))
       .catch(() => setProgress(null));
+    const loadTracks = () => {
+      if (book.progressMode !== "episodic") return;
+      api<{ tracks: TrackProgress[] }>(`/api/library/books/${book.id}/tracks/progress`)
+        .then((payload) => setTrackProgress(Object.fromEntries(payload.tracks.map((track) => [track.fileId, track]))))
+        .catch(() => setTrackProgress({}));
+    };
     loadProgress();
+    loadTracks();
     // The player opens in a separate window, so refresh when this page regains
     // focus — returning after listening then reflects the latest position.
-    const onFocus = () => loadProgress();
+    const onFocus = () => { loadProgress(); loadTracks(); };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
     return () => {
@@ -219,7 +244,7 @@ function BookDetailView({
   // linear order). Accurate for sequential listening; an approximation if the
   // user jumped around.
   const currentFileIndex = progress?.fileId ? book.files.findIndex((f) => f.id === progress.fileId) : -1;
-  const audioFinished = progress?.completedAt != null || (progress?.percentComplete != null && progress.percentComplete >= 0.98);
+  const audioFinished = progress?.completedAt != null;
   const readingFinished = readingProgress?.completedAt != null || (readingProgress?.percentComplete != null && readingProgress.percentComplete >= 0.98);
   const bookFinished = isEbook ? readingFinished : audioFinished;
   const fileState = (index: number): "completed" | "in_progress" | "not_started" => {
@@ -734,21 +759,57 @@ function BookDetailView({
 
               {!isEbook && (
                 <section className="book-files-section">
+                  {episodic && (
+                    <p className="book-episode-count muted">
+                      {book.files.filter((f) => trackProgress[f.id]?.completedAt != null).length} / {book.files.length} played
+                    </p>
+                  )}
                   <div className="book-file-list">
                     {book.files.map((file, index) => {
+                      const tp = trackProgress[file.id];
+                      const played = tp?.completedAt != null;
+                      const isCurrent = episodic && progress?.fileId === file.id;
+                      const listened = isCurrent ? (progress?.positionSeconds ?? 0) : (tp?.positionSeconds ?? 0);
+                      const dur = file.durationSeconds ?? 0;
+                      const pct = dur > 0 ? Math.min(listened / dur, 1) : 0;
+                      const showProgress = episodic && !played && (isCurrent || listened > 0);
                       const state = fileState(index);
                       return (
-                        <article className="book-file-row" key={file.id}>
-                          <span>{file.trackNumber ?? "-"}</span>
+                        <article className={`book-file-row${isCurrent ? " current" : ""}`} key={file.id}>
+                          <span>{isCurrent ? <Play size={13} aria-label="Now playing" /> : (file.trackNumber ?? "-")}</span>
                           <div>
                             <strong>{file.chapterTitle || file.relativePath.split(/[\\/]/).at(-1) || file.relativePath}</strong>
-                            <small>{file.relativePath}</small>
+                            {showProgress ? (
+                              <span className="book-file-progress-wrap">
+                                <small className="book-file-progress-label">
+                                  {isCurrent ? "Now playing · " : "Resume · "}
+                                  {formatDuration(Math.floor(listened))}{dur > 0 ? ` / ${formatDuration(dur)}` : " listened"}
+                                </small>
+                                {dur > 0 && (
+                                  <span className="book-file-progress"><span style={{ width: `${Math.round(pct * 100)}%` }} /></span>
+                                )}
+                              </span>
+                            ) : (
+                              <small>{file.relativePath}</small>
+                            )}
                           </div>
-                          <span className={`book-file-status ${state}`}>
-                            {state === "completed" && (<><CheckCircle2 size={13} /> Done</>)}
-                            {state === "in_progress" && (<><span className="book-file-dot" /> Playing</>)}
-                            {state === "not_started" && "-"}
-                          </span>
+                          {episodic ? (
+                            <button
+                              type="button"
+                              className={`book-file-played-toggle${played ? " played" : ""}`}
+                              onClick={() => markTrack(file.id, !played)}
+                              aria-pressed={played}
+                              title={played ? "Mark unplayed" : "Mark played"}
+                            >
+                              {played ? <><CheckCircle2 size={13} /> Played</> : <><Circle size={13} /> Mark played</>}
+                            </button>
+                          ) : (
+                            <span className={`book-file-status ${state}`}>
+                              {state === "completed" && (<><CheckCircle2 size={13} /> Done</>)}
+                              {state === "in_progress" && (<><span className="book-file-dot" /> Playing</>)}
+                              {state === "not_started" && "-"}
+                            </span>
+                          )}
                           <small>
                             {file.durationSeconds != null ? `${formatDuration(file.durationSeconds)} · ` : ""}
                             {formatBytes(file.size)}

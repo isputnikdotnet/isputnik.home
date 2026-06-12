@@ -95,7 +95,7 @@ const CODE_LABELS: Record<string, string> = Object.fromEntries(
 
 export function bookStatus(book: FilterableBook): string {
   const p = book.progress;
-  const finished = p?.completedAt != null || (p?.percentComplete != null && p.percentComplete >= 0.98);
+  const finished = p?.completedAt != null;
   if (finished) return "finished";
   if (p?.percentComplete != null && p.percentComplete > 0) return "in_progress";
   return "not_started";

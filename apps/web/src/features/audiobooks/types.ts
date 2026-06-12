@@ -30,6 +30,10 @@ export interface LibraryTypeDefaults {
 
 export type TagEncoding = "windows-1251" | "windows-1250" | "windows-1252" | "koi8-r";
 
+// How playback progress is tracked: linear = one resume point for the whole book;
+// episodic = per-track played/position state (radio shows, podcasts).
+export type ProgressMode = "linear" | "episodic";
+
 // Scan/upload settings exposed to admins on the manage view.
 export interface AdminLibrarySettings {
   defaultLanguage: string | null;
@@ -37,6 +41,7 @@ export interface AdminLibrarySettings {
   scanSources: ScanSource[];
   maxUploadMB: number | null;
   tagEncoding: TagEncoding | null;
+  progressMode: ProgressMode;
 }
 
 export interface AudiobookLibrary {
@@ -150,6 +155,7 @@ export interface BookDocument {
 
 export interface AudiobookBookDetail extends AudiobookBook {
   libraryName: string;
+  progressMode: ProgressMode;
   seriesId: string | null;
   description: string | null;
   yearPublished: number | null;
@@ -164,6 +170,13 @@ export interface PlaybackProgress {
   fileId: string | null;
   positionSeconds: number;
   percentComplete: number | null;
+  completedAt: string | null;
+}
+
+// Per-track (per-episode) progress for episodic libraries.
+export interface TrackProgress {
+  fileId: string;
+  positionSeconds: number;
   completedAt: string | null;
 }
 

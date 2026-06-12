@@ -310,6 +310,21 @@ db.exec(`
     UNIQUE (user_id, book_id, document_id)
   );
 
+  -- Per-track (per-episode) progress for episodic libraries (radio shows, podcasts):
+  -- each track is an independent unit with its own played/position state, so skipping
+  -- one never affects the others. Linear audiobooks use playback_progress instead.
+  CREATE TABLE IF NOT EXISTS track_progress (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    file_id TEXT NOT NULL REFERENCES book_files(id) ON DELETE CASCADE,
+    position_seconds INTEGER NOT NULL DEFAULT 0,
+    duration_seconds INTEGER,
+    completed_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, file_id)
+  );
+
   CREATE TABLE IF NOT EXISTS book_bookmarks (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -447,6 +462,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_progress_book ON playback_progress(book_id);
   CREATE INDEX IF NOT EXISTS idx_reading_progress_user ON reading_progress(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_reading_progress_book ON reading_progress(book_id);
+  CREATE INDEX IF NOT EXISTS idx_track_progress_book ON track_progress(user_id, book_id);
   CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status, run_at);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_book ON book_bookmarks(user_id, book_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_book ON book_bookmarks(book_id);

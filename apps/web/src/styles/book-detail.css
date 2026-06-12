@@ -260,7 +260,7 @@
   outline: 0;
 }
 
-.book-detail-action-menu {
+.book-progress-menu {
   position: absolute;
   z-index: 12;
   top: calc(100% + 8px);
@@ -275,7 +275,7 @@
   box-shadow: 0 18px 40px var(--shadow);
 }
 
-.book-detail-action-menu button {
+.book-progress-menu button {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   align-items: center;
@@ -293,13 +293,13 @@
   cursor: pointer;
 }
 
-.book-detail-action-menu button:hover,
-.book-detail-action-menu button:focus-visible {
+.book-progress-menu button:hover,
+.book-progress-menu button:focus-visible {
   background: var(--hover);
   outline: 0;
 }
 
-.book-detail-action-menu button:disabled {
+.book-progress-menu button:disabled {
   cursor: not-allowed;
   color: var(--muted);
   opacity: 0.7;

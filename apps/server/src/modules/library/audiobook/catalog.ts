@@ -55,8 +55,8 @@ const ORDER_BY: Record<string, string> = {
 };
 
 const STATUS_SQL: Record<string, string> = {
-  finished: "(progress.completed_at IS NOT NULL OR progress.percent_complete >= 0.98)",
-  in_progress: "(progress.completed_at IS NULL AND progress.percent_complete > 0 AND progress.percent_complete < 0.98)",
+  finished: "(progress.completed_at IS NOT NULL)",
+  in_progress: "(progress.completed_at IS NULL AND progress.percent_complete > 0)",
   not_started: "(progress.completed_at IS NULL AND (progress.percent_complete IS NULL OR progress.percent_complete = 0))"
 };
 

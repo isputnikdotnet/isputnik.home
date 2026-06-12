@@ -129,6 +129,7 @@ export function LibrariesSection() {
   const [editSources, setEditSources] = useState<ScanSource[]>([]);
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
+  const [editProgressMode, setEditProgressMode] = useState<"linear" | "episodic">("linear");
   const [editTab, setEditTab] = useState<"access" | "upload" | "scanning">("access");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -205,6 +206,7 @@ export function LibrariesSection() {
     setEditSources(library.settings?.scanSources ?? typeDefaults[library.type]?.sources ?? []);
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setEditTagEncoding(library.settings?.tagEncoding ?? "");
+    setEditProgressMode(library.settings?.progressMode ?? "linear");
     setEditTab("access");
     setError("");
   };
@@ -237,7 +239,7 @@ export function LibrariesSection() {
           scanExtensions: editExtensions,
           scanSources: editSources,
           maxUploadMB: maxUploadValue(editMaxUploadMB),
-          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null } : {})
+          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null, progressMode: editProgressMode } : {})
         })
       });
       setEditingLibrary(null);
@@ -702,6 +704,18 @@ export function LibrariesSection() {
                 />
                 {editingLibrary.type === "audiobook" && (
                   <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
+                )}
+                {editingLibrary.type === "audiobook" && (
+                  <label className="field">
+                    <span>Progress tracking</span>
+                    <select value={editProgressMode} onChange={(event) => setEditProgressMode(event.target.value as "linear" | "episodic")}>
+                      <option value="linear">Audiobook — one resume point for the whole book</option>
+                      <option value="episodic">Episodic — track each track separately (radio shows, podcasts)</option>
+                    </select>
+                    <small className="muted">
+                      Episodic gives each track its own played/unplayed state, so skipping one never marks the others done.
+                    </small>
+                  </label>
                 )}
               </>
             )}

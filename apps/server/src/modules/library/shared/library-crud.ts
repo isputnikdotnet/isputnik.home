@@ -14,6 +14,7 @@ import {
   normalizeLibrarySettings,
   normalizeScanSources,
   TAG_ENCODINGS,
+  type ProgressMode,
   type ScanSourceConfig,
   type TagEncoding
 } from "./library-settings.js";
@@ -43,7 +44,9 @@ export const coreLibraryCreateSchema = z.object({
   scanSources: scanSourcesSchema.optional(),
   maxUploadMB: z.number().int().min(1).max(10240).nullable().optional(),
   // Default legacy charset for tag mojibake repair (audiobook); null clears it.
-  tagEncoding: z.enum(TAG_ENCODINGS).nullable().optional()
+  tagEncoding: z.enum(TAG_ENCODINGS).nullable().optional(),
+  // Progress model (audiobook): linear book cursor vs. per-episode tracking.
+  progressMode: z.enum(["linear", "episodic"]).optional()
 });
 
 export const coreLibraryUpdateSchema = coreLibraryCreateSchema.omit({ sourcePath: true });
@@ -127,7 +130,8 @@ export function createLibraryRecord(opts: {
     default_language: data.defaultLanguage ?? "en",
     scan_extensions: scanExtensions.length > 0 ? scanExtensions : defaultScanExtensions(type),
     scan_sources: normalizeScanSources(type, data.scanSources),
-    ...(data.tagEncoding ? { tag_encoding: data.tagEncoding } : {})
+    ...(data.tagEncoding ? { tag_encoding: data.tagEncoding } : {}),
+    ...(data.progressMode ? { progress_mode: data.progressMode } : {})
   };
 
   const libraryId = nanoid(16);
@@ -200,6 +204,9 @@ export function updateLibraryRecord(opts: {
       settings.tag_encoding = data.tagEncoding;
     }
   }
+  if (data.progressMode !== undefined) {
+    settings.progress_mode = data.progressMode;
+  }
 
   db.prepare(`
     UPDATE libraries
@@ -237,6 +244,7 @@ export interface AdminLibrarySettings {
   scanSources: ScanSourceConfig[];
   maxUploadMB: number | null;
   tagEncoding: TagEncoding | null;
+  progressMode: ProgressMode;
 }
 
 // Settings payload for admin views (create/edit/rescan dialogs in the Control Panel).
@@ -252,6 +260,7 @@ export function serializeLibrarySettingsForAdmin(
     scanExtensions: settings.scan_extensions,
     scanSources: settings.scan_sources,
     maxUploadMB: policy.maxUploadMB ?? null,
-    tagEncoding: (settings as { tag_encoding?: TagEncoding }).tag_encoding ?? null
+    tagEncoding: (settings as { tag_encoding?: TagEncoding }).tag_encoding ?? null,
+    progressMode: (settings as { progress_mode?: ProgressMode }).progress_mode ?? "linear"
   };
 }

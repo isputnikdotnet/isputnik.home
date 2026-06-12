@@ -336,6 +336,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.17.0",
+          label: "Episodic libraries & smarter progress",
+          changes: [
+            "New \"Episodic\" progress mode for radio shows, podcasts, and other collections of standalone episodes: each track is tracked on its own — a played/unplayed toggle on every episode, a \"now playing\" marker, and a per-episode resume position — so skipping one episode never marks the others done. Turn it on per library in Edit → Scanning → Progress tracking.",
+            "Fixed audiobooks being marked \"Finished\" just because you skipped or jumped ahead: a book now counts as finished only when you actually reach the end of its last track (or mark it finished yourself), so sampling the ending or skipping a chapter no longer completes the whole book."
+          ]
+        },
+        {
           version: "0.16.0",
           label: "Members, library editing & scan status",
           changes: [

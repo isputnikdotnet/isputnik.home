@@ -11,6 +11,7 @@ import { writeMetadataExport } from "../shared/metadata.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { setEntityTags, addEntityTags } from "./categorize.js";
 import { type AudiobookBookRow, type BookFileRow } from "./types.js";
+import { normalizeLibrarySettings } from "../shared/library-settings.js";
 
 function largeCoverUrl(storageKey: string | null) {
   if (!storageKey) {
@@ -542,6 +543,7 @@ export function getAudiobookBookDetail(id: string) {
       books.deleted_at,
       books.series_position,
       libraries.name AS library_name,
+      libraries.settings_json AS settings_json,
       series.name AS series_name,
       series.id AS series_id,
       book_metadata.title,
@@ -578,6 +580,7 @@ export function getAudiobookBookDetail(id: string) {
     GROUP BY books.id
   `).get(id) as (AudiobookBookRow & {
     library_name: string;
+    settings_json: string;
     series_name: string | null;
     series_id: string | null;
     series_position: number | null;
@@ -614,6 +617,7 @@ export function getAudiobookBookDetail(id: string) {
     id: book.id,
     libraryId: book.library_id,
     libraryName: book.library_name,
+    progressMode: normalizeLibrarySettings("audiobook", book.settings_json).progress_mode === "episodic" ? "episodic" : "linear",
     folderPath: book.folder_path,
     status: book.status,
     title: book.title ?? path.basename(book.folder_path),

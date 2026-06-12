@@ -166,6 +166,7 @@ function detailFromDownloadRecord(record: DownloadRecord): AudiobookBookDetail {
     id: record.bookId,
     libraryId: "offline",
     libraryName: "Downloaded",
+    progressMode: "linear",
     folderPath: "",
     status: "ready",
     title: record.title,

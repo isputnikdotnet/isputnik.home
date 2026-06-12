@@ -458,6 +458,70 @@
   opacity: 0.5;
 }
 
+/* Episodic libraries: per-track played/unplayed toggle + show-level count. */
+.book-file-played-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.book-file-played-toggle:hover {
+  border-color: var(--mint);
+  color: var(--ink);
+}
+
+.book-file-played-toggle.played {
+  color: var(--mint);
+  border-color: var(--mint);
+}
+
+.book-episode-count {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 0.78rem;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Current (now-playing) episode + per-track resume position. */
+.book-file-row.current {
+  box-shadow: inset 3px 0 0 var(--mint);
+}
+
+.book-file-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.book-file-progress-label {
+  color: var(--muted);
+}
+
+.book-file-progress {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.book-file-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--mint);
+  border-radius: 999px;
+}
+
 .book-file-dot {
   width: 8px;
   height: 8px;
