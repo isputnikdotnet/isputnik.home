@@ -75,6 +75,7 @@ export interface LibraryCapabilities {
   canDownload: boolean;
   canUpload: boolean;
   canEdit: boolean;
+  canDelete: boolean;
   canCurate: boolean;
   canManageMembers: boolean;
   canManageLibrary: boolean;
@@ -82,7 +83,7 @@ export interface LibraryCapabilities {
 
 export function libraryCapabilities(library: LibraryRoleInput, userId: string, userRole: string): LibraryCapabilities {
   if (!library.id) {
-    return { role: null, canView: false, canDownload: false, canUpload: false, canEdit: false, canCurate: false, canManageMembers: false, canManageLibrary: false };
+    return { role: null, canView: false, canDownload: false, canUpload: false, canEdit: false, canDelete: false, canCurate: false, canManageMembers: false, canManageLibrary: false };
   }
   const caps = coreLibraryCapabilities(asUser(userId, userRole), library.id, parsePolicy(library.policy_json));
   return {
@@ -91,6 +92,7 @@ export function libraryCapabilities(library: LibraryRoleInput, userId: string, u
     canDownload: caps.canDownload,
     canUpload: caps.canUpload,
     canEdit: caps.canEdit,
+    canDelete: caps.canDelete,
     canCurate: caps.canEdit,        // curate folded into contributor
     canManageMembers: caps.canManage,
     canManageLibrary: caps.canManage

@@ -10,6 +10,10 @@ import { formatBytes } from "./utils";
 // report upload progress). Modal-agnostic content: drop it inside a shared Modal,
 // or render it on a page. Each consumer passes its own endpoint + policy.
 //
+// With `multiple`, every picked/dropped file is sent in ONE multipart request
+// (repeated entries under the same field name) — one progress bar for the batch,
+// and the server treats the batch atomically (see core/uploads.ts).
+//
 // On success the parsed JSON response is handed to onUploaded; the consumer decides
 // what that means (close the dialog, refresh a list, …). onBusyChange lets a host
 // Modal block dismissal while bytes are in flight.
@@ -18,8 +22,10 @@ export interface FileUploadProps {
   endpoint: string;
   /** Allowed dotless, lowercase extensions, e.g. ["zip", "sqlite"]. */
   accept: string[];
-  /** Client-side size cap in bytes, or null for no limit (mirror the server policy). */
+  /** Client-side size cap in bytes per file, or null for no limit (mirror the server policy). */
   maxBytes?: number | null;
+  /** Allow picking several files, all uploaded in a single request. */
+  multiple?: boolean;
   /** Multipart field name; defaults to "file". */
   fieldName?: string;
   /** Helper text under the dropzone; defaults to the accepted-types list. */
@@ -48,6 +54,7 @@ export function FileUpload({
   endpoint,
   accept,
   maxBytes = null,
+  multiple = false,
   fieldName = "file",
   hint,
   onUploaded,
@@ -81,9 +88,11 @@ export function FileUpload({
     return "";
   };
 
-  const upload = (file: File) => {
+  const upload = (files: File[]) => {
     const form = new FormData();
-    form.append(fieldName, file, file.name);
+    for (const file of files) {
+      form.append(fieldName, file, file.name);
+    }
 
     const xhr = new XMLHttpRequest();
     xhrRef.current = xhr;
@@ -118,27 +127,31 @@ export function FileUpload({
     };
 
     setError("");
-    setActiveName(file.name);
+    setActiveName(files.length === 1
+      ? files[0].name
+      : `${files.length} files (${formatBytes(files.reduce((total, file) => total + file.size, 0))})`);
     setProgress(0);
     setBusy(true);
     xhr.send(form);
   };
 
-  const begin = (file: File) => {
-    const problem = validate(file);
-    if (problem) {
-      setError(problem);
-      return;
+  const begin = (picked: File[]) => {
+    const files = multiple ? picked : picked.slice(0, 1);
+    for (const file of files) {
+      const problem = validate(file);
+      if (problem) {
+        setError(files.length > 1 ? `${file.name}: ${problem}` : problem);
+        return;
+      }
     }
-    upload(file);
+    if (files.length > 0) upload(files);
   };
 
   const onDrop = (event: React.DragEvent) => {
     event.preventDefault();
     setDragging(false);
     if (uploading) return;
-    const file = event.dataTransfer.files?.[0];
-    if (file) begin(file);
+    begin(Array.from(event.dataTransfer.files ?? []));
   };
 
   return (
@@ -170,19 +183,20 @@ export function FileUpload({
             ref={inputRef}
             type="file"
             accept={acceptAttr}
+            multiple={multiple}
             hidden
             onChange={(event) => {
-              const file = event.target.files?.[0];
+              const files = Array.from(event.target.files ?? []);
               event.target.value = ""; // allow re-picking the same file
-              if (file) begin(file);
+              begin(files);
             }}
           />
           <span className="file-dropzone-icon" aria-hidden="true">
             <UploadCloud size={30} />
           </span>
-          <p className="file-dropzone-title">Drag a file here, or</p>
+          <p className="file-dropzone-title">{multiple ? "Drag files here, or" : "Drag a file here, or"}</p>
           <Button variant="secondary" compact onClick={() => inputRef.current?.click()}>
-            <FileUp size={16} /> Choose file
+            <FileUp size={16} /> {multiple ? "Choose files" : "Choose file"}
           </Button>
           <p className="file-dropzone-hint muted">{hint ?? `Accepted: ${acceptLabel}`}</p>
         </div>

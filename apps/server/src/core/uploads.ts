@@ -3,21 +3,24 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { nanoid } from "nanoid";
 import type { FastifyRequest } from "fastify";
+import type { MultipartFile } from "@fastify/multipart";
 
 // Generic, streaming file-upload primitive shared by every module that accepts
-// uploads (backups today; library media, etc. later). The defining rule: the file
-// is streamed straight to a temp file on disk and never buffered in memory, so a
-// 600 MB audiobook costs the same memory as a 1 KB note. Each caller supplies its
+// uploads (backups, library media). The defining rule: the file is streamed
+// straight to a temp file on disk and never buffered in memory, so a 600 MB
+// audiobook costs the same memory as a 1 KB note. Each caller supplies its
 // own policy (allowed extensions + max size); the route owns what happens to the
 // temp file afterwards (validate, move into place) and final cleanup.
 //
 // @fastify/multipart is registered globally in index.ts; this just drives its
-// request.file() stream with explicit, version-agnostic size enforcement.
+// request.file() / request.files() streams with explicit, version-agnostic size
+// enforcement. The global registration allows one file per request; batch callers
+// (receiveUploadBatch) raise that per request.
 
 export interface UploadPolicy {
   // Dotless, lowercase extensions, e.g. ["zip", "sqlite"]. Matched case-insensitively.
   accept: string[];
-  // Hard cap in bytes, or null for no limit (enforced while streaming).
+  // Hard cap in bytes per file, or null for no limit (enforced while streaming).
   maxBytes: number | null;
 }
 
@@ -47,36 +50,25 @@ function formatLimit(bytes: number): string {
   return mb >= 1 ? `${Math.round(mb)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-// Strip any path components and unusual characters so a client can't influence where
-// the file lands; the real destination name is chosen by the caller anyway.
+// Strip any path components and filesystem-hostile characters so a client can't
+// influence where the file lands. Unicode (Cyrillic titles, accents) is preserved —
+// audiobook track names become chapter titles, so mangling them matters.
 function sanitizeFilename(name: string): string {
-  const base = path.basename(name || "").replace(/[^\w.\- ]+/g, "_").trim();
+  const base = path.basename(name || "")
+    .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_")
+    .replace(/^[\s.]+|[\s.]+$/g, "");
   return base || "upload";
 }
 
-// Streams the single uploaded file into a temp file under destDir, enforcing the
-// policy. Resolves with the temp file's details; rejects with UploadError on a
-// policy violation (and always removes the partial temp file first).
-export async function receiveUpload(
-  request: FastifyRequest,
-  policy: UploadPolicy,
-  destDir: string
-): Promise<ReceivedUpload> {
-  if (!request.isMultipart()) {
-    throw new UploadError("Expected a multipart/form-data upload.", 415);
-  }
-
-  const part = await request.file();
-  if (!part) {
-    throw new UploadError("No file was uploaded.", 400);
-  }
-
+// Streams one multipart file part into a temp file under destDir, enforcing the
+// policy. Shared by the single and batch receivers.
+async function receivePart(part: MultipartFile, policy: UploadPolicy, destDir: string): Promise<ReceivedUpload> {
   const filename = sanitizeFilename(part.filename);
   const extension = path.extname(filename).slice(1).toLowerCase();
   const accept = policy.accept.map((ext) => ext.toLowerCase());
   if (!accept.includes(extension)) {
     part.file.resume(); // drain the stream so the request can complete cleanly
-    throw new UploadError(`Unsupported file type. Allowed: ${policy.accept.join(", ")}.`, 415);
+    throw new UploadError(`Unsupported file type "${filename}". Allowed: ${policy.accept.join(", ")}.`, 415);
   }
 
   fs.mkdirSync(destDir, { recursive: true });
@@ -97,7 +89,7 @@ export async function receiveUpload(
   } catch (err) {
     fs.rmSync(tmpPath, { force: true });
     if (tooLarge) {
-      throw new UploadError(`File is larger than the ${formatLimit(policy.maxBytes!)} limit.`, 413);
+      throw new UploadError(`"${filename}" is larger than the ${formatLimit(policy.maxBytes!)} limit.`, 413);
     }
     throw new UploadError(err instanceof Error ? err.message : "Upload failed.", 400);
   }
@@ -105,12 +97,70 @@ export async function receiveUpload(
   // destroy() can land after pipeline resolves on the last chunk — re-check.
   if (tooLarge) {
     fs.rmSync(tmpPath, { force: true });
-    throw new UploadError(`File is larger than the ${formatLimit(policy.maxBytes!)} limit.`, 413);
+    throw new UploadError(`"${filename}" is larger than the ${formatLimit(policy.maxBytes!)} limit.`, 413);
   }
   if (bytes === 0) {
     fs.rmSync(tmpPath, { force: true });
-    throw new UploadError("The uploaded file is empty.", 400);
+    throw new UploadError(`The uploaded file "${filename}" is empty.`, 400);
   }
 
   return { tmpPath, filename, extension, sizeBytes: bytes };
+}
+
+// Streams the single uploaded file into a temp file under destDir, enforcing the
+// policy. Resolves with the temp file's details; rejects with UploadError on a
+// policy violation (and always removes the partial temp file first).
+export async function receiveUpload(
+  request: FastifyRequest,
+  policy: UploadPolicy,
+  destDir: string
+): Promise<ReceivedUpload> {
+  if (!request.isMultipart()) {
+    throw new UploadError("Expected a multipart/form-data upload.", 415);
+  }
+
+  const part = await request.file();
+  if (!part) {
+    throw new UploadError("No file was uploaded.", 400);
+  }
+
+  return receivePart(part, policy, destDir);
+}
+
+// Streams every uploaded file of a multipart request into temp files under destDir
+// (overriding the global one-file-per-request limit for this request only). All-or-
+// nothing: any policy violation or stream failure removes every temp file already
+// written and rejects, so the caller never deals with a partial batch.
+export async function receiveUploadBatch(
+  request: FastifyRequest,
+  policy: UploadPolicy,
+  destDir: string,
+  maxFiles: number
+): Promise<ReceivedUpload[]> {
+  if (!request.isMultipart()) {
+    throw new UploadError("Expected a multipart/form-data upload.", 415);
+  }
+
+  const received: ReceivedUpload[] = [];
+  try {
+    for await (const part of request.files({ limits: { files: maxFiles, fields: 10 } })) {
+      if (received.length >= maxFiles) {
+        part.file.resume();
+        throw new UploadError(`Too many files — at most ${maxFiles} per upload.`, 413);
+      }
+      received.push(await receivePart(part, policy, destDir));
+    }
+  } catch (err) {
+    for (const file of received) {
+      fs.rmSync(file.tmpPath, { force: true });
+    }
+    if (err instanceof UploadError) throw err;
+    // @fastify/multipart raises FST_ERR-coded errors (e.g. files limit) — map to 400.
+    throw new UploadError(err instanceof Error ? err.message : "Upload failed.", 400);
+  }
+
+  if (received.length === 0) {
+    throw new UploadError("No files were uploaded.", 400);
+  }
+  return received;
 }

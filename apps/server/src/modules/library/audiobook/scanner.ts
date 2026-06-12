@@ -532,7 +532,7 @@ function findFolderCover(folderPath: string, settings: AudiobookSettings) {
   let fallback: { filePath: string; size: number } | null = null;
 
   for (const entry of fs.readdirSync(folderPath, { withFileTypes: true })) {
-    if (!entry.isFile()) continue;
+    if (!entry.isFile() || entry.name.startsWith(".")) continue; // skip ._cover.jpg junk
     const ext = path.extname(entry.name).toLowerCase();
     if (!imageExtensions.includes(ext)) continue;
     const filePath = path.join(folderPath, entry.name);
@@ -596,6 +596,9 @@ async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings,
     }
 
     await Promise.all(entries.map(async (entry) => {
+      // Hidden entries are never books or tracks: upload staging folders
+      // (.upload-*), macOS ._ resource forks, NAS metadata dirs, etc.
+      if (entry.name.startsWith(".")) return;
       const absolutePath = path.join(currentPath, entry.name);
 
       if (entry.isSymbolicLink()) {
@@ -653,6 +656,7 @@ function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, setti
 
   const scanDir = (dir: string, discHint: number | null) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) continue; // hidden entries (staging, ._junk)
       const absolutePath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         const hint = discNumberFromFolderName(entry.name);
@@ -694,6 +698,7 @@ function readBookFolderDocuments(rootPath: string, folderAbsolutePath: string): 
       return;
     }
     for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue; // hidden entries (staging, ._junk)
       const absolutePath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         scanDir(absolutePath);

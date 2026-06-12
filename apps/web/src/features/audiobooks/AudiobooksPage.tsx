@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, Pencil, Play, RotateCcw, Search, Square, UserRound, X } from "lucide-react";
+import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
@@ -12,6 +12,8 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
+import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { FileUpload } from "../../shared/FileUpload";
 import { formatDuration } from "../../shared/utils";
 import { Field } from "../../shared/Field";
 import type { AudiobookBook, AudiobookBookDetail, AudiobookLibrary, CategorySummary, SeriesSummary } from "./types";
@@ -200,8 +202,10 @@ function CatalogBookCard({
   onToggleSelect,
   canEdit,
   canDownload,
+  canDelete,
   onEdit,
-  onAddToCollection
+  onAddToCollection,
+  onDelete
 }: {
   book: AudiobookBook;
   viewMode: AudiobookViewMode;
@@ -210,8 +214,10 @@ function CatalogBookCard({
   onToggleSelect: (id: string) => void;
   canEdit: boolean;
   canDownload: boolean;
+  canDelete: boolean;
   onEdit: (book: AudiobookBook) => void;
   onAddToCollection: (book: AudiobookBook) => void;
+  onDelete: (book: AudiobookBook) => void;
 }) {
   const [fav, setFav] = useState(book.saved);
   const [favBusy, setFavBusy] = useState(false);
@@ -364,6 +370,18 @@ function CatalogBookCard({
                   >
                     <Pencil size={16} aria-hidden="true" />
                     <span>Edit Details</span>
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    className="audiobook-catalog-action admin"
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); onDelete(book); }}
+                    aria-label={`Delete ${book.title}`}
+                    title="Delete audiobook"
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                    <span>Delete</span>
                   </button>
                 )}
               </div>
@@ -636,6 +654,82 @@ function AddToSeriesModal({
   );
 }
 
+// Upload one audiobook: pick the target library (when more than one allows
+// uploads), optionally name the book's folder, then drop the audio files. All
+// files of one upload become a single book; the server scans it immediately and
+// the new title appears in the catalog when the modal closes.
+function UploadBookModal({
+  libraries,
+  initialLibraryId,
+  onClose,
+  onUploaded
+}: {
+  libraries: AudiobookLibrary[];
+  initialLibraryId: string;
+  onClose: () => void;
+  onUploaded: (book: AudiobookBookDetail | null, libraryName: string) => void;
+}) {
+  const [libraryId, setLibraryId] = useState(() => (
+    libraries.some((library) => library.id === initialLibraryId) ? initialLibraryId : libraries[0]?.id ?? ""
+  ));
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const library = libraries.find((item) => item.id === libraryId);
+
+  const folder = title.trim();
+  const endpoint = library
+    ? `/api/library/audiobook-libraries/${library.id}/books/upload${folder ? `?folder=${encodeURIComponent(folder)}` : ""}`
+    : "";
+
+  return (
+    <Modal title="Upload audiobook" style={{ width: "min(100%, 540px)" }} busy={busy} onClose={onClose}>
+      <p className="muted">All files in one upload become a single audiobook (multi-part books: drop every track together). The book is scanned and appears in the catalog right away.</p>
+
+      {libraries.length > 1 && (
+        <label className="field" style={{ marginBottom: 12 }}>
+          <span>Library</span>
+          <select value={libraryId} onChange={(event) => setLibraryId(event.target.value)} disabled={busy}>
+            {libraries.map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      <label className="field" style={{ marginBottom: 12 }}>
+        <span>Title <span className="muted">(folder name — leave blank to use the file name)</span></span>
+        <input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="e.g. The Martian"
+          disabled={busy}
+        />
+      </label>
+
+      {library && (
+        <FileUpload
+          endpoint={endpoint}
+          accept={library.uploadExtensions}
+          maxBytes={library.maxUploadMB != null ? library.maxUploadMB * 1024 * 1024 : null}
+          multiple
+          hint={`Accepted: ${library.uploadExtensions.map((ext) => `.${ext}`).join(", ")}${library.maxUploadMB != null ? ` · up to ${library.maxUploadMB} MB per file` : ""}`}
+          onUploaded={(response) => {
+            const payload = response as { book?: AudiobookBookDetail };
+            onUploaded(payload.book ?? null, library.name);
+          }}
+          onBusyChange={setBusy}
+        />
+      )}
+
+      <div className="modal-actions">
+        <Button variant="secondary" onClick={onClose} disabled={busy}>
+          Close
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 export function AudiobooksPage({
   user,
   logout
@@ -666,6 +760,12 @@ export function AudiobooksPage({
   // when a tile's "Edit metadata" is chosen.
   const [editDetail, setEditDetail] = useState<AudiobookBookDetail | null>(null);
   const [editLoadError, setEditLoadError] = useState("");
+  // Source-writing actions (policy-gated): upload new books, delete existing ones.
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AudiobookBook | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const scope: CatalogScope = selectedLibraryId === "all" ? { kind: "all" } : { kind: "library", libraryId: selectedLibraryId };
   const cat = useAudiobookCatalog(scope, sort, "audiobooks:main");
@@ -674,6 +774,13 @@ export function AudiobooksPage({
   const canEditScope = selectedLibraryId === "all"
     ? libraries.some((library) => library.canWrite)
     : libraries.find((library) => library.id === selectedLibraryId)?.canWrite ?? false;
+
+  // Libraries accepting uploads (drives the Upload button + modal choices) and
+  // whether anything in the current scope allows deleting source files.
+  const uploadLibraries = libraries.filter((library) => library.canUpload);
+  const canDeleteScope = selectedLibraryId === "all"
+    ? libraries.some((library) => library.canDelete)
+    : libraries.find((library) => library.id === selectedLibraryId)?.canDelete ?? false;
 
   // Existing authors/narrators in the current scope, for the bulk-edit comboboxes.
   const peopleSuggestions = Array.from(new Set([...cat.facets.authors, ...cat.facets.narrators]));
@@ -691,6 +798,7 @@ export function AudiobooksPage({
     setSelectedIds(new Set());
     setBulkOpen(false);
     setSeriesModalOpen(false);
+    setBulkDeleteOpen(false);
   };
 
   // Series live in a single library, so bulk "Add to series" is only offered
@@ -743,6 +851,50 @@ export function AudiobooksPage({
   const submitBulk = async (fields: Record<string, unknown>) => {
     await runBulk([...selectedIds], fields);
     exitSelection();
+  };
+
+  const handleUploaded = (book: AudiobookBookDetail | null, libraryName: string) => {
+    setUploadOpen(false);
+    setBulkNotice(book ? `Uploaded "${book.title}" to ${libraryName}` : `Upload to ${libraryName} complete`);
+    cat.refresh();
+  };
+
+  const confirmDeleteOne = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await api(`/api/library/books/${deleteTarget.id}`, { method: "DELETE" });
+      setBulkNotice(`Deleted "${deleteTarget.title}"`);
+      setDeleteTarget(null);
+      cat.refresh();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Unable to delete the audiobook");
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      const result = await api<{ deleted: number; forbidden: number; missing: number; failed: number; error?: string }>(
+        "/api/library/books/bulk-delete",
+        { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
+      );
+      const parts = [`Deleted ${result.deleted} ${result.deleted === 1 ? "book" : "books"}`];
+      if (result.forbidden > 0) parts.push(`${result.forbidden} skipped (no delete access)`);
+      if (result.missing > 0) parts.push(`${result.missing} not found`);
+      if (result.failed > 0) parts.push(`${result.failed} failed${result.error ? ` (${result.error})` : ""}`);
+      setBulkNotice(parts.join(" · "));
+      exitSelection();
+      cat.refresh();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Unable to delete the selected books");
+    } finally {
+      setDeleteBusy(false);
+    }
   };
 
   // Open the same full metadata editor used on the book detail page. The grid
@@ -833,6 +985,12 @@ export function AudiobooksPage({
             <>
               <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} />
               <AudiobookHeaderSort value={sort} onChange={setSort} />
+              {uploadLibraries.length > 0 && !selectionMode && (
+                <button type="button" className="secondary-button" onClick={() => { setUploadOpen(true); setBulkNotice(""); }}>
+                  <UploadCloud size={17} aria-hidden="true" />
+                  <span>Upload</span>
+                </button>
+              )}
               {canEditScope && !selectionMode && (
                 <button type="button" className="secondary-button" onClick={() => { setSelectionMode(true); setBulkNotice(""); }}>
                   <CheckSquare size={17} aria-hidden="true" />
@@ -844,7 +1002,7 @@ export function AudiobooksPage({
         />
 
         {error && <MessageBox tone="error" title="Audiobooks error">{error}</MessageBox>}
-        {bulkNotice && <MessageBox tone="success" title="Books updated">{bulkNotice}</MessageBox>}
+        {bulkNotice && <MessageBox tone="success" title="Library updated">{bulkNotice}</MessageBox>}
 
         {libraries.length === 0 ? (
           <div className="empty-state library-empty">
@@ -935,6 +1093,16 @@ export function AudiobooksPage({
                       <Library size={15} aria-hidden="true" /> Add to series
                     </button>
                   )}
+                  {canDeleteScope && (
+                    <button
+                      type="button"
+                      className="danger-button compact-button"
+                      onClick={() => { setDeleteError(""); setBulkDeleteOpen(true); }}
+                      disabled={selectedIds.size === 0}
+                    >
+                      <Trash2 size={15} aria-hidden="true" /> Delete
+                    </button>
+                  )}
                   <button type="button" className="icon-button" onClick={exitSelection} aria-label="Cancel selection">
                     <X size={16} aria-hidden="true" />
                   </button>
@@ -961,8 +1129,10 @@ export function AudiobooksPage({
                   onToggleSelect={toggleSelect}
                   canEdit={libraries.find((library) => library.id === book.libraryId)?.canWrite ?? false}
                   canDownload={libraries.find((library) => library.id === book.libraryId)?.canDownload ?? false}
+                  canDelete={libraries.find((library) => library.id === book.libraryId)?.canDelete ?? false}
                   onEdit={openEditDetail}
                   onAddToCollection={setCollectionBook}
+                  onDelete={(target) => { setDeleteError(""); setDeleteTarget(target); }}
                 />
               ))}
               {!cat.loading && cat.books.length === 0 && <p className="management-empty">No audiobooks match this filter.</p>}
@@ -990,6 +1160,49 @@ export function AudiobooksPage({
             onClose={() => setSeriesModalOpen(false)}
             onSubmit={submitAddToSeries}
           />
+        )}
+
+        {uploadOpen && uploadLibraries.length > 0 && (
+          <UploadBookModal
+            libraries={uploadLibraries}
+            initialLibraryId={selectedLibraryId}
+            onClose={() => setUploadOpen(false)}
+            onUploaded={handleUploaded}
+          />
+        )}
+
+        {deleteTarget && (
+          <ConfirmDialog
+            title={`Delete "${deleteTarget.title}"?`}
+            confirmLabel="Delete book"
+            busyLabel="Deleting…"
+            danger
+            busy={deleteBusy}
+            error={deleteError}
+            onConfirm={() => void confirmDeleteOne()}
+            onCancel={() => { if (!deleteBusy) setDeleteTarget(null); }}
+          >
+            Permanently deletes its {deleteTarget.fileCount === 1 ? "audio file" : `${formatCount(deleteTarget.fileCount)} audio files`} from
+            the library folder on disk, plus everyone's listening progress, bookmarks, favorites, shares and collection
+            entries for this book. This cannot be undone.
+          </ConfirmDialog>
+        )}
+
+        {bulkDeleteOpen && (
+          <ConfirmDialog
+            title={`Delete ${formatCount(selectedIds.size)} ${selectedIds.size === 1 ? "book" : "books"}?`}
+            confirmLabel={`Delete ${formatCount(selectedIds.size)} ${selectedIds.size === 1 ? "book" : "books"}`}
+            busyLabel="Deleting…"
+            danger
+            busy={deleteBusy}
+            error={deleteError}
+            onConfirm={() => void confirmBulkDelete()}
+            onCancel={() => { if (!deleteBusy) setBulkDeleteOpen(false); }}
+          >
+            Permanently deletes the selected books' audio files from the library folder on disk, plus everyone's
+            listening progress, bookmarks, favorites, shares and collection entries for them. Books you lack delete
+            access to are skipped. This cannot be undone.
+          </ConfirmDialog>
         )}
 
         {editDetail && (

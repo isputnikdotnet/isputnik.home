@@ -54,9 +54,13 @@ export interface AudiobookLibrary {
   canWrite: boolean;
   canDownload: boolean;
   canUpload: boolean;
+  canDelete: boolean;
   canCurate: boolean;
   canManageMembers: boolean;
   canManageLibrary: boolean;
+  // Upload constraints mirrored from the server policy, for the dropzone.
+  uploadExtensions: string[];
+  maxUploadMB: number | null;
   scanStatus: "idle" | "scanning" | "error";
   lastScannedAt: string | null;
   ownerId: string | null;
