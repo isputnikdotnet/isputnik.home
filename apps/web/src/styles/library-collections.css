@@ -358,6 +358,13 @@
   border-radius: 50%;
   background: var(--active);
   color: var(--mint);
+  overflow: hidden;
+}
+
+.person-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .person-card-body {
@@ -393,6 +400,22 @@
 
 .person-detail-head h1 {
   margin: 0;
+}
+
+.person-detail-avatar {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+/* Wikipedia extracts end with a "Source: …" line — keep the line break. */
+.person-bio {
+  margin: 12px 0 0;
+  max-width: 72ch;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  white-space: pre-line;
 }
 
 /* ── Person profile modal ────────────────────────────────────────── */
@@ -438,6 +461,13 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Online photo candidates reuse the cover-candidate tiles; the tab centers
+   its children, so the grid must claim the full row itself. */
+.person-photo-candidates {
+  width: 100%;
+  justify-self: stretch;
 }
 
 .person-book-count {

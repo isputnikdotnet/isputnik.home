@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import dns from "node:dns/promises";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../../../db.js";
@@ -12,6 +11,7 @@ import { pathIsInside } from "../shared/storage-roots.js";
 import { setEntityTags, addEntityTags } from "./categorize.js";
 import { type AudiobookBookRow, type BookFileRow } from "./types.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
+import { downloadImage } from "../shared/remote-image.js";
 
 function largeCoverUrl(storageKey: string | null) {
   if (!storageKey) {
@@ -39,7 +39,7 @@ const metadataCandidateSchema = z.object({
   asin: z.string().trim().optional(),
   genres: z.array(z.string().trim().min(1)).optional(),
   language: z.string().trim().optional(),
-  source: z.enum(["itunes", "openlibrary", "fantlab"])
+  source: z.enum(["itunes", "openlibrary", "fantlab", "librivox"])
 });
 
 export const metadataMatchSchema = z.object({
@@ -129,82 +129,6 @@ function bookTags(bookId: string): string[] {
     ORDER BY tags.display_name COLLATE NOCASE
   `).all(bookId) as { name: string }[];
   return rows.map((r) => r.name);
-}
-
-const MAX_COVER_BYTES = 10 * 1024 * 1024;
-const COVER_FETCH_TIMEOUT_MS = 10_000;
-
-function isBlockedAddress(address: string) {
-  // Block loopback, link-local, and private ranges to prevent SSRF into the
-  // local network or cloud metadata endpoints (e.g. 169.254.169.254).
-  const v4 = address.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])];
-    if (a === 127 || a === 10 || a === 0) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-    return false;
-  }
-
-  const normalized = address.toLowerCase().replace(/^\[|\]$/g, "");
-  if (normalized === "::1" || normalized === "::") return true;
-  if (normalized.startsWith("fe80") || normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  if (normalized.startsWith("::ffff:")) return isBlockedAddress(normalized.slice(7));
-  return false;
-}
-
-async function downloadCover(url: string) {
-  const parsed = new URL(url);
-  if (!["http:", "https:"].includes(parsed.protocol)) {
-    throw new Error("Unsupported cover URL.");
-  }
-
-  const { address } = await dns.lookup(parsed.hostname);
-  if (isBlockedAddress(address)) {
-    throw new Error("Cover URL resolves to a disallowed address.");
-  }
-
-  const response = await fetch(parsed, {
-    redirect: "error",
-    signal: AbortSignal.timeout(COVER_FETCH_TIMEOUT_MS)
-  });
-  if (!response.ok) {
-    throw new Error("Unable to download cover.");
-  }
-
-  const declaredSize = Number(response.headers.get("content-length") ?? 0);
-  if (declaredSize > MAX_COVER_BYTES) {
-    throw new Error("Cover image is too large.");
-  }
-
-  // Enforce the cap while reading — Content-Length may be absent or untruthful.
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for await (const chunk of streamFromResponse(response)) {
-    total += chunk.byteLength;
-    if (total > MAX_COVER_BYTES) {
-      throw new Error("Cover image is too large.");
-    }
-    chunks.push(chunk);
-  }
-
-  return Buffer.concat(chunks);
-}
-
-export async function* streamFromResponse(response: Response): AsyncGenerator<Uint8Array> {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    const buffer = new Uint8Array(await response.arrayBuffer());
-    if (buffer.byteLength > 0) yield buffer;
-    return;
-  }
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) yield value;
-  }
 }
 
 export const coverImageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
@@ -350,7 +274,7 @@ export async function applyMetadataCandidate(bookId: string, candidate: Metadata
 
   let coverStorageKey = current.cover_storage_key;
   if (updateCover && candidate.coverUrl) {
-    const cover = await downloadCover(candidate.coverUrl);
+    const cover = await downloadImage(candidate.coverUrl);
     coverStorageKey = await writeCoverImages(current.library_id, bookId, cover);
   }
 

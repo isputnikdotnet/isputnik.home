@@ -17,6 +17,7 @@ export function PersonListPage({
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
+  const [photos, setPhotos] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
@@ -32,6 +33,9 @@ export function PersonListPage({
         await Promise.all(payload.libraries.map((lib) => loadBooks(lib.id)));
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load data"));
+    api<{ photos: Record<string, string> }>("/api/library/people/photos")
+      .then((payload) => setPhotos(payload.photos))
+      .catch(() => {}); // avatars are decoration — the list works without them
   }, [loadBooks]);
 
   const allBooks = libraries.flatMap((lib) => booksByLibrary[lib.id] ?? []);
@@ -97,7 +101,11 @@ export function PersonListPage({
                 onClick={() => navigate(`${detailBase}/${encodeURIComponent(person.name)}`)}
               >
                 <div className="person-avatar" aria-hidden="true">
-                  <UserRound size={26} />
+                  {photos[person.name] ? (
+                    <img src={photos[person.name]} alt="" />
+                  ) : (
+                    <UserRound size={26} />
+                  )}
                 </div>
                 <div className="person-card-body">
                   <strong>{person.name}</strong>

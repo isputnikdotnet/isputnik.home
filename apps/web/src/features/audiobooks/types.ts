@@ -6,7 +6,7 @@ export type LibraryMode = "managed" | "external";
 
 // Scan metadata sources — ordered by priority (index 0 wins per field). Mirrors the
 // server registry exposed via GET /api/library/settings.
-export type MetadataSourceId = "file_metadata" | "metadata_files" | "folder_structure";
+export type MetadataSourceId = "file_metadata" | "metadata_files" | "folder_structure" | "online_metadata";
 
 export interface ScanSource {
   id: MetadataSourceId;

@@ -18,6 +18,8 @@ import {
   type TagEncoding
 } from "../shared/library-settings.js";
 import type { MetadataSourceId } from "../shared/metadata-sources.js";
+import { downloadImage } from "../shared/remote-image.js";
+import { enrichLibraryAuthors, lookupOnlineBookMetadata } from "./enrich.js";
 import { matchCategoryId, setEntityTags } from "./categorize.js";
 
 export { validateLibrarySource };
@@ -792,9 +794,10 @@ async function prepareBookScan(
   const existingBook = db.prepare("SELECT id FROM books WHERE library_id = ? AND folder_path = ?")
     .get(libraryId, folderPath) as { id: string } | undefined;
   const bookId = existingBook?.id ?? nanoid(16);
-  const metadataRow = db.prepare("SELECT source, cover_storage_key FROM book_metadata WHERE book_id = ?")
-    .get(bookId) as { source: "scan" | "manual"; cover_storage_key: string | null } | undefined;
+  const metadataRow = db.prepare("SELECT source, cover_storage_key, description FROM book_metadata WHERE book_id = ?")
+    .get(bookId) as { source: "scan" | "manual"; cover_storage_key: string | null; description: string | null } | undefined;
   const manualMetadata = metadataRow?.source === "manual";
+  const onlineEnabled = sourceEnabled(sources, "online_metadata") && !manualMetadata;
   const titleHint = path.basename(folderAbsolutePath);
   // In top-level grouping the parent of every book folder is the library root, which
   // is not an author name; same when the book is the root itself.
@@ -812,7 +815,16 @@ async function prepareBookScan(
       return discCompare || left.relativePath.localeCompare(right.relativePath, undefined, { numeric: true });
     });
 
-  if (existingBook && metadataRow && !sidecar && !forceReread) {
+  // Online lookup re-opens unchanged books that still have gaps it could fill;
+  // everything else keeps the cheap fast path.
+  let onlineGaps = false;
+  if (onlineEnabled && existingBook && metadataRow) {
+    const narratorCount = (db.prepare("SELECT COUNT(*) AS n FROM book_authors WHERE book_id = ? AND role = 'narrator'")
+      .get(bookId) as { n: number }).n;
+    onlineGaps = !metadataRow.cover_storage_key || !metadataRow.description || narratorCount === 0;
+  }
+
+  if (existingBook && metadataRow && !sidecar && !forceReread && !onlineGaps) {
     const existingFiles = db.prepare(`
       SELECT relative_path, mime_type, track_number, chapter_title, duration_seconds, size, modified_at, content_hash
       FROM book_files
@@ -917,9 +929,41 @@ async function prepareBookScan(
     if (candidate) mergeCandidate(merged, candidate);
   }
 
-  const coverStorageKey = manualMetadata
+  let coverStorageKey = manualMetadata
     ? null
     : await generateCover(libraryId, bookId, folderAbsolutePath, settings, fileMetaEnabled ? firstMetadata : null);
+
+  // Online lookup (optional source): fill what the local sources left empty.
+  // Never overwrites a locally found value, never runs for manual metadata.
+  if (onlineEnabled) {
+    const hasCover = Boolean(coverStorageKey ?? metadataRow?.cover_storage_key);
+    if (!merged.narrators?.length || !merged.description || !hasCover) {
+      const lookupAuthors = merged.authors?.length ? merged.authors : (authorHint ? [authorHint] : []);
+      const online = await lookupOnlineBookMetadata({
+        title: merged.title || titleHint,
+        authors: lookupAuthors,
+        needCover: !hasCover
+      }).catch(() => null);
+      if (online) {
+        if (!merged.narrators?.length && online.narrators?.length) merged.narrators = online.narrators;
+        if (!merged.description && online.description) merged.description = online.description;
+        // Author names only when nothing local hints at one — a folder-derived
+        // name must stay authoritative so same-folder books share one person.
+        if (!merged.authors?.length && !authorHint && online.authors.length) merged.authors = online.authors;
+        if (merged.year == null && online.year != null) merged.year = online.year;
+        if (!merged.language && online.language) merged.language = online.language;
+        if (!merged.genres?.length && online.genres?.length) merged.genres = online.genres;
+        if (!merged.publisher && online.publisher) merged.publisher = online.publisher;
+        if (!hasCover && online.coverUrl) {
+          try {
+            coverStorageKey = await writeCoverImages(libraryId, bookId, await downloadImage(online.coverUrl));
+          } catch {
+            // cover stays empty; the text fields above still apply
+          }
+        }
+      }
+    }
+  }
 
   const fileSortData = filesWithFallbackOrder.map((file, index) => {
     const metadata = parsedMetadata[index];
@@ -1270,7 +1314,31 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
     `).run(libraryId);
   })();
 
-  return { discoveredBooks, discoveredFiles, bookErrors };
+  // Author photos & bios, after books are committed and visible. Best-effort —
+  // a network failure here never fails the scan.
+  let authorsEnriched = 0;
+  if (sourceEnabled(config.sources, "online_metadata")) {
+    try {
+      const result = await enrichLibraryAuthors(libraryId, {
+        shouldCancel: jobId
+          ? () => (db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as { status: string } | undefined)?.status === "failed"
+          : undefined,
+        onProgress: jobId
+          ? (processed, total) => {
+            db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(
+              JSON.stringify({ libraryId, progress: { booksProcessed, booksTotal, authorsProcessed: processed, authorsTotal: total } }),
+              jobId
+            );
+          }
+          : undefined
+      });
+      authorsEnriched = result.updated;
+    } catch {
+      // ignore — enrichment retries on the next scan
+    }
+  }
+
+  return { discoveredBooks, discoveredFiles, bookErrors, authorsEnriched };
 }
 
 export async function rescanSingleBook(bookId: string, options: ScanOptions = {}) {
@@ -1300,6 +1368,15 @@ export async function rescanSingleBook(bookId: string, options: ScanOptions = {}
 
   const book = await prepareBookScan(row.library_id, rootPath, config, folderAbsolutePath, files);
   db.transaction(() => writeBookScan(row.library_id, book))();
+
+  if (sourceEnabled(config.sources, "online_metadata")) {
+    try {
+      await enrichLibraryAuthors(row.library_id, { bookId: book.bookId });
+    } catch {
+      // best-effort, like the full-library pass
+    }
+  }
+
   return book.bookId;
 }
 

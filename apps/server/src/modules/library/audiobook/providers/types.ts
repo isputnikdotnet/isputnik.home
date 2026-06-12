@@ -1,4 +1,4 @@
-export type MetadataProvider = "itunes" | "openlibrary" | "fantlab";
+export type MetadataProvider = "itunes" | "openlibrary" | "fantlab" | "librivox";
 
 export interface MetadataCandidate {
   title: string;
@@ -13,6 +13,12 @@ export interface MetadataCandidate {
   asin?: string;
   genres?: string[];
   language?: string;
+  // archive.org item identifier (LibriVox results) — lets scan enrichment
+  // upgrade the tile thumbnail in coverUrl to the item's full-size cover art.
+  archiveId?: string;
+  // LibriVox catalogue id — present on author-search results, which are slim
+  // (no narrators); fetchLibrivoxById(id) returns the full record.
+  librivoxId?: string;
   source: MetadataProvider;
 }
 

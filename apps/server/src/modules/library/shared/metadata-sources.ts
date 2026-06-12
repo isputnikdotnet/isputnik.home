@@ -3,7 +3,7 @@
 // Adding a new source = one entry here + an extractor in the relevant scanner(s).
 import type { LibraryType } from "./library-types.js";
 
-export const METADATA_SOURCE_IDS = ["file_metadata", "metadata_files", "folder_structure"] as const;
+export const METADATA_SOURCE_IDS = ["file_metadata", "metadata_files", "folder_structure", "online_metadata"] as const;
 export type MetadataSourceId = typeof METADATA_SOURCE_IDS[number];
 
 export interface MetadataSourceDefinition {
@@ -41,6 +41,13 @@ export const METADATA_SOURCES: MetadataSourceDefinition[] = [
     appliesTo: ["audiobook"],
     defaultEnabled: false,
     affectsGrouping: true
+  },
+  {
+    id: "online_metadata",
+    label: "Online lookup",
+    description: "Look up missing details on the internet (LibriVox, Open Library): narrator, cover art, description, and author photos & bios. Only fills in what other sources left empty. Needs internet access and slows the scan down.",
+    appliesTo: ["audiobook"],
+    defaultEnabled: false
   }
 ];
 

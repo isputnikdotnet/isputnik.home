@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, BookOpen, Merge, Pencil, Search } from "lucide-react";
+import { ArrowLeft, BookOpen, Merge, Pencil, Search, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { getReferrer, navigate } from "../../router";
@@ -23,6 +23,7 @@ export function PersonDetailPage({
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
+  const [profile, setProfile] = useState<{ bio: string | null; photoUrl: string | null } | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeTarget, setMergeTarget] = useState("");
@@ -35,6 +36,19 @@ export function PersonDetailPage({
     setBooksByLibrary((current) => ({ ...current, [libraryId]: payload.books }));
   }, []);
 
+  // Photo + bio for the page header; re-fetched after the profile modal closes
+  // so edits show up immediately.
+  const loadProfile = useCallback(async () => {
+    try {
+      const payload = await api<{ person: { bio: string | null; photoUrl: string | null } | null }>(
+        `/api/library/people/by-name?name=${encodeURIComponent(personName)}`
+      );
+      setProfile(payload.person ?? null);
+    } catch {
+      setProfile(null); // header degrades to the placeholder icon
+    }
+  }, [personName]);
+
   useEffect(() => {
     api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
       .then(async (payload) => {
@@ -42,7 +56,8 @@ export function PersonDetailPage({
         await Promise.all(payload.libraries.map((lib) => loadBooks(lib.id)));
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load data"));
-  }, [personName, loadBooks]);
+    void loadProfile();
+  }, [personName, loadBooks, loadProfile]);
 
   const allBooks = libraries.flatMap((lib) =>
     (booksByLibrary[lib.id] ?? []).map((book) => ({ ...book, libraryName: lib.name }))
@@ -92,6 +107,13 @@ export function PersonDetailPage({
           <div>
             <p className="eyebrow">{roleLabel}</p>
             <div className="person-detail-head">
+              <div className="person-avatar person-detail-avatar" aria-hidden="true">
+                {profile?.photoUrl ? (
+                  <img src={profile.photoUrl} alt="" />
+                ) : (
+                  <UserRound size={30} />
+                )}
+              </div>
               <h1>{personName}</h1>
               <button
                 className="icon-button"
@@ -110,6 +132,7 @@ export function PersonDetailPage({
                 </button>
               )}
             </div>
+            {profile?.bio && <p className="person-bio">{profile.bio}</p>}
           </div>
         </div>
 
@@ -155,7 +178,10 @@ export function PersonDetailPage({
         <PersonProfileModal
           personName={personName}
           role={role}
-          onClose={() => setProfileModalOpen(false)}
+          onClose={() => {
+            setProfileModalOpen(false);
+            void loadProfile();
+          }}
         />
       )}
 

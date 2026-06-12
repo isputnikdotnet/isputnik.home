@@ -23,7 +23,7 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const searchQuery = (query.q || book.title).trim();
     const author = query.author?.trim() ?? "";
     const provider = (query.provider || "all") as MetadataProvider | "all";
-    if (!["all", "itunes", "openlibrary", "fantlab"].includes(provider)) {
+    if (!["all", "itunes", "openlibrary", "fantlab", "librivox"].includes(provider)) {
       reply.code(400).send({ error: "Unsupported metadata provider" });
       return;
     }

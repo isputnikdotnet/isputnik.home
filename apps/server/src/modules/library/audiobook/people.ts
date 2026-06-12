@@ -6,6 +6,8 @@ import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
+import { normalizeLibrarySettings } from "../shared/library-settings.js";
+import { enrichPerson, lookupPersonPhotoCandidates, removeStoredPhotos, writePersonPhoto } from "./enrich.js";
 
 type AuthorRow = {
   id: string;
@@ -25,6 +27,21 @@ const personProfileSchema = z.object({
   sortName: z.string().trim().max(240).nullable().optional()
 });
 
+// Wikipedia language hints for a person: the default languages of the
+// libraries they appear in (e.g. ru Wikipedia for a Russian library), then
+// English.
+function personLookupLanguages(name: string) {
+  const rows = db.prepare(`
+    SELECT DISTINCT libraries.settings_json AS settings_json
+    FROM libraries
+    JOIN authors ON authors.library_id = libraries.id
+    WHERE authors.name = ?
+  `).all(name) as { settings_json: string }[];
+  return rows
+    .map((row) => normalizeLibrarySettings("audiobook", row.settings_json).default_language)
+    .filter((lang): lang is string => Boolean(lang));
+}
+
 export async function audiobookPeoplePlugin(app: FastifyInstance) {
   app.get("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
@@ -43,6 +60,24 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
         ? { name: row.name, sortName: row.sort_name, bio: row.bio, photoUrl: photoUrl(row.cover_storage_key) }
         : null
     });
+  });
+
+  // Photos for all people that have one, keyed by name — lets the authors/
+  // narrators list pages show avatars without a request per person.
+  app.get("/api/library/people/photos", { preHandler: app.authenticate }, async (_request, reply) => {
+    const rows = db.prepare(`
+      SELECT name, cover_storage_key
+      FROM authors
+      WHERE cover_storage_key IS NOT NULL
+      ORDER BY rowid ASC
+    `).all() as { name: string; cover_storage_key: string }[];
+
+    // First row per name wins, matching the by-name endpoints.
+    const photos: Record<string, string> = {};
+    for (const row of rows) {
+      photos[row.name] ??= `/api/library/covers/${row.cover_storage_key}`;
+    }
+    reply.send({ photos });
   });
 
   app.patch("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {
@@ -66,6 +101,99 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     );
 
     reply.send({ updated: true });
+  });
+
+  // Look the person up online (Wikipedia, then Open Library) and fill their
+  // biography and photo — empty fields only; existing data is never replaced.
+  app.post("/api/library/people/by-name/enrich", { preHandler: app.authenticate }, async (request, reply) => {
+    const name = String((request.query as { name?: string }).name ?? "").trim();
+    if (!name) {
+      reply.code(400).send({ error: "Name is required" });
+      return;
+    }
+
+    const exists = db.prepare("SELECT 1 FROM authors WHERE name = ? LIMIT 1").get(name);
+    if (!exists) {
+      reply.code(404).send({ error: "Person not found" });
+      return;
+    }
+
+    try {
+      const { updatedBio, updatedPhoto, result } = await enrichPerson(name, personLookupLanguages(name));
+      const row = db.prepare(`
+        SELECT id, name, sort_name, bio, cover_storage_key
+        FROM authors WHERE name = ? ORDER BY rowid ASC LIMIT 1
+      `).get(name) as AuthorRow | undefined;
+
+      reply.send({
+        found: Boolean(result),
+        updatedBio,
+        updatedPhoto,
+        source: result?.source ?? null,
+        person: row
+          ? { name: row.name, sortName: row.sort_name, bio: row.bio, photoUrl: photoUrl(row.cover_storage_key) }
+          : null
+      });
+    } catch {
+      reply.code(502).send({ error: "Online lookup failed. Check the server's internet access and try again." });
+    }
+  });
+
+  // Photo candidates the user can pick from (Wikipedia per language, Open
+  // Library author records). Lookup only — nothing is applied here.
+  app.get("/api/library/people/by-name/photo-candidates", { preHandler: app.authenticate }, async (request, reply) => {
+    const name = String((request.query as { name?: string }).name ?? "").trim();
+    if (!name) {
+      reply.code(400).send({ error: "Name is required" });
+      return;
+    }
+
+    const exists = db.prepare("SELECT 1 FROM authors WHERE name = ? LIMIT 1").get(name);
+    if (!exists) {
+      reply.code(404).send({ error: "Person not found" });
+      return;
+    }
+
+    try {
+      const candidates = await lookupPersonPhotoCandidates(name, personLookupLanguages(name));
+      reply.send({ candidates });
+    } catch {
+      reply.code(502).send({ error: "Online lookup failed. Check the server's internet access and try again." });
+    }
+  });
+
+  // Apply a picked candidate: download (SSRF-guarded), normalise to webp, and
+  // set it as the person's photo — an explicit choice, so it replaces any
+  // existing photo.
+  app.post("/api/library/people/by-name/photo-from-url", { preHandler: app.authenticate }, async (request, reply) => {
+    const name = String((request.query as { name?: string }).name ?? "").trim();
+    if (!name) {
+      reply.code(400).send({ error: "Name is required" });
+      return;
+    }
+
+    const parsed = parseBody(z.object({ url: z.string().trim().url().max(2000) }), request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid photo URL", details: parsed.error });
+      return;
+    }
+
+    const rows = db.prepare(
+      "SELECT id, cover_storage_key FROM authors WHERE name = ? ORDER BY rowid ASC"
+    ).all(name) as { id: string; cover_storage_key: string | null }[];
+    if (rows.length === 0) {
+      reply.code(404).send({ error: "Person not found" });
+      return;
+    }
+
+    try {
+      const storageKey = await writePersonPhoto(rows[0].id, parsed.data.url);
+      db.prepare("UPDATE authors SET cover_storage_key = ? WHERE name = ?").run(storageKey, name);
+      removeStoredPhotos(rows.map((row) => row.cover_storage_key).filter((key) => key !== storageKey));
+      reply.send({ updated: true, photoUrl: `/api/library/covers/${storageKey}` });
+    } catch (err) {
+      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to download the photo." });
+    }
   });
 
   // Merge one person into another: record a variant -> canonical alias (so it
@@ -161,22 +289,24 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       return;
     }
 
-    const firstAuthor = db.prepare(
-      "SELECT id FROM authors WHERE name = ? ORDER BY rowid ASC LIMIT 1"
-    ).get(name) as { id: string } | undefined;
+    const authorRows = db.prepare(
+      "SELECT id, cover_storage_key FROM authors WHERE name = ? ORDER BY rowid ASC"
+    ).all(name) as { id: string; cover_storage_key: string | null }[];
 
-    if (!firstAuthor) {
+    if (authorRows.length === 0) {
       reply.code(404).send({ error: "Person not found" });
       return;
     }
 
     const ext = contentType === "image/png" ? ".png" : contentType === "image/webp" ? ".webp" : ".jpg";
-    const storageKey = thumbnailStorageKey("people", firstAuthor.id, `${firstAuthor.id}-photo${ext}`);
+    // Versioned file name so the replaced photo isn't masked by browser cache.
+    const storageKey = thumbnailStorageKey("people", authorRows[0].id, `${authorRows[0].id}-photo-${Date.now()}${ext}`);
     const absolutePath = thumbnailAbsolutePath(storageKey);
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, body as Buffer);
 
     db.prepare("UPDATE authors SET cover_storage_key = ? WHERE name = ?").run(storageKey, name);
+    removeStoredPhotos(authorRows.map((row) => row.cover_storage_key).filter((key) => key !== storageKey));
 
     reply.send({ updated: true, photoUrl: `/api/library/covers/${storageKey}` });
   });

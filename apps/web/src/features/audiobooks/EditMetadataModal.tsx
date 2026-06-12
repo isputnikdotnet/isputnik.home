@@ -500,6 +500,7 @@ export function EditMetadataModal({
                   <option value="itunes">iTunes</option>
                   <option value="openlibrary">Open Library</option>
                   <option value="fantlab">FantLab</option>
+                  <option value="librivox">LibriVox</option>
                 </select>
                 <label className="search-field">
                   <Search size={17} aria-hidden="true" />

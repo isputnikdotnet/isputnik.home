@@ -580,6 +580,13 @@ if (!seriesColumns.some((column) => column.name === "cover_storage_key")) {
   db.exec("ALTER TABLE series ADD COLUMN cover_storage_key TEXT");
 }
 
+// When the online-lookup scan source last tried to fetch this person's photo/bio
+// — successful or not — so unknown names aren't re-queried on every scan.
+const authorColumns = db.prepare("PRAGMA table_info(authors)").all() as { name: string }[];
+if (!authorColumns.some((column) => column.name === "enriched_at")) {
+  db.exec("ALTER TABLE authors ADD COLUMN enriched_at TEXT");
+}
+
 const libraryColumns = db.prepare("PRAGMA table_info(libraries)").all() as { name: string }[];
 if (!libraryColumns.some((column) => column.name === "owner_id")) {
   db.exec("ALTER TABLE libraries ADD COLUMN owner_id TEXT");

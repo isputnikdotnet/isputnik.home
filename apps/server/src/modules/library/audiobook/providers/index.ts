@@ -1,5 +1,6 @@
 import { searchFantlab } from "./fantlab.js";
 import { searchItunes } from "./itunes.js";
+import { searchLibrivox } from "./librivox.js";
 import { searchOpenLibrary } from "./open-library.js";
 import type { MetadataCandidate, MetadataProvider, MetadataSearchInput } from "./types.js";
 
@@ -12,6 +13,9 @@ export async function searchMetadataProvider(provider: MetadataProvider, input: 
   if (provider === "openlibrary") {
     return searchOpenLibrary(input);
   }
+  if (provider === "librivox") {
+    return searchLibrivox(input);
+  }
   return searchFantlab(input);
 }
 
@@ -19,7 +23,8 @@ export async function searchAllMetadataProviders(input: MetadataSearchInput): Pr
   const results = await Promise.allSettled([
     searchItunes(input),
     searchOpenLibrary(input),
-    searchFantlab(input)
+    searchFantlab(input),
+    searchLibrivox(input)
   ]);
   return results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
 }

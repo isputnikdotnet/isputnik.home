@@ -76,7 +76,8 @@ Default `scan_sources` (audiobook — reproduces the pre-0.13 behavior exactly):
 [
   { "id": "metadata_files",   "enabled": true  },
   { "id": "file_metadata",    "enabled": true  },
-  { "id": "folder_structure", "enabled": false }
+  { "id": "folder_structure", "enabled": false },
+  { "id": "online_metadata",  "enabled": false }
 ]
 ```
 
@@ -98,6 +99,7 @@ extractor in the relevant scanner.**
 | `metadata_files` | audiobook | `metadata.json` sidecars next to the book files (native + Audiobookshelf formats) |
 | `file_metadata` | audiobook, ebook | Embedded metadata: audio tags / EPUB details. Also gates embedded-cover extraction and tag-based disc/track ordering and chapter titles |
 | `folder_structure` | audiobook | **Grouping + names.** When enabled, each *top-level folder* under the library root becomes one book and every audio file anywhere beneath it becomes a track of that book; folder names supply book titles and file names supply track titles at this source's priority position |
+| `online_metadata` | audiobook | **Internet lookup, gap-fill only** (off by default). For books still missing narrator, description, or cover after the local sources merge, queries LibriVox (narrators from section readers, description, genres, year; cover from the archive.org item) and falls back to Open Library. After the scan it also fetches missing author/narrator photos & bios from Wikipedia (library language first, then English) with an Open Library fallback. See "Online lookup" below |
 
 How the scanner uses them (`prepareBookScan`):
 
@@ -116,6 +118,48 @@ provide track-ordering hints in both modes.
 
 Manual metadata (`book_metadata.source = 'manual'`) still beats everything and is
 never overwritten by any source.
+
+### Online lookup (`online_metadata`)
+
+Implemented in `audiobook/enrich.ts` + `providers/librivox.ts`; opt-in per
+library (or one-shot via the Rescan dialog). Unlike the other sources it is
+**gap-fill only**: it runs after the local merge and writes only fields that
+are still empty, so a tagged narrator or folder cover always wins. Behavior
+notes:
+
+- **Matching is conservative.** LibriVox title search is exact-match, so the
+  scanner tries the title as-is, without bracketed rip noise, and without a
+  leading article, then falls back to listing the author's catalogue and
+  scoring titles locally (Open Library after that). A candidate is accepted
+  only on a normalized title match, and — when the book has any local author —
+  an author-name overlap; with no local author a strong title match is
+  required. No acceptable match = the book is simply left as scanned.
+- **Author names are never replaced** by online data when a folder-derived
+  author hint exists, so books under one author folder keep mapping to one
+  person.
+- **Unchanged books with gaps are re-checked.** The scanner's fast path
+  (skip unchanged books) is bypassed when the source is enabled and the book
+  still lacks narrator, description, or cover — a plain Scan keeps trying to
+  fill them. Books with all three present keep the fast path.
+- **People enrichment** runs after the books are committed: authors/narrators
+  missing a photo or bio are looked up on Wikipedia (REST summary; library
+  `default_language` wiki first, then English, with an occupation-word guard on
+  English pages) and Open Library authors as fallback. Only empty fields are
+  filled; bios carry a `Source: …` attribution line. Every attempt stamps
+  `authors.enriched_at`, and names that yielded nothing are not retried for 30
+  days (max 100 people per scan run). The person profile modal also has a
+  "Find online" button (`POST /api/library/people/by-name/enrich`) that runs
+  the same lookup on demand for one person, and the Photo tab offers a
+  candidate picker: `GET …/photo-candidates` lists photos found online (one
+  per Wikipedia language + matching Open Library author records, with a
+  disambiguating hint), and `POST …/photo-from-url` applies the chosen one —
+  an explicit choice, so unlike enrichment it replaces an existing photo.
+- **Politeness/safety:** all lookups go through one serialized queue with a
+  250 ms gap and 12 s timeouts; cover/photo downloads use the SSRF-guarded
+  redirect-checking fetch in `shared/remote-image.ts`.
+
+LibriVox is also available as a provider in the manual metadata search
+(`librivox`), next to iTunes/Open Library/FantLab.
 
 ---
 
