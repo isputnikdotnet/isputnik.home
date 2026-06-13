@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import { createPortal } from "react-dom";
 import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
-import { FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
+import { activeFilterCount, FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import { DashboardShell } from "../../app/DashboardShell";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
@@ -941,11 +941,11 @@ export function AudiobooksPage({
     setDeleteError("");
     try {
       await api(`/api/library/books/${deleteTarget.id}`, { method: "DELETE" });
-      setBulkNotice(`Deleted "${deleteTarget.title}"`);
+      setBulkNotice(`Moved "${deleteTarget.title}" to the Recycle Bin`);
       setDeleteTarget(null);
       cat.refresh();
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Unable to delete the audiobook");
+      setDeleteError(err instanceof Error ? err.message : "Unable to move the audiobook to the Recycle Bin");
     } finally {
       setDeleteBusy(false);
     }
@@ -959,7 +959,7 @@ export function AudiobooksPage({
         "/api/library/books/bulk-delete",
         { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
       );
-      const parts = [`Deleted ${result.deleted} ${result.deleted === 1 ? "book" : "books"}`];
+      const parts = [`Moved ${result.deleted} ${result.deleted === 1 ? "book" : "books"} to the Recycle Bin`];
       if (result.forbidden > 0) parts.push(`${result.forbidden} skipped (no delete access)`);
       if (result.missing > 0) parts.push(`${result.missing} not found`);
       if (result.failed > 0) parts.push(`${result.failed} failed${result.error ? ` (${result.error})` : ""}`);
@@ -967,7 +967,7 @@ export function AudiobooksPage({
       exitSelection();
       cat.refresh();
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Unable to delete the selected books");
+      setDeleteError(err instanceof Error ? err.message : "Unable to move the selected books to the Recycle Bin");
     } finally {
       setDeleteBusy(false);
     }
@@ -1043,9 +1043,23 @@ export function AudiobooksPage({
     };
   }, [libraryMenuOpen]);
 
+  const selectedLibrary = selectedLibraryId === "all"
+    ? null
+    : libraries.find((library) => library.id === selectedLibraryId) ?? null;
   const selectedLibraryLabel = selectedLibraryId === "all"
     ? "All Libraries"
-    : libraries.find((library) => library.id === selectedLibraryId)?.name ?? "All Libraries";
+    : selectedLibrary?.name ?? "All Libraries";
+  const selectedScopeBookCount = selectedLibraryId === "all"
+    ? libraries.reduce((sum, library) => sum + library.bookCount, 0)
+    : selectedLibrary?.bookCount ?? 0;
+  const hasActiveCatalogQuery = cat.search.trim().length > 0 || activeFilterCount(cat.filters) > 0;
+  const emptyCatalogMessage = selectedScopeBookCount === 0
+    ? selectedLibraryId === "all"
+      ? "No audiobooks in your libraries yet."
+      : `No audiobooks in ${selectedLibraryLabel} yet.`
+    : hasActiveCatalogQuery
+      ? "No audiobooks match this search or filter."
+      : "No audiobooks to show.";
   const error = librariesError || cat.error || editLoadError;
 
   return (
@@ -1211,7 +1225,7 @@ export function AudiobooksPage({
                   onDelete={(target) => { setDeleteError(""); setDeleteTarget(target); }}
                 />
               ))}
-              {!cat.loading && cat.books.length === 0 && <p className="management-empty">No audiobooks match this filter.</p>}
+              {!cat.loading && cat.books.length === 0 && <p className="management-empty">{emptyCatalogMessage}</p>}
             </div>
 
             <CatalogTail hasMore={cat.hasMore} loadingMore={cat.loadingMore} loadMore={cat.loadMore} sentinelRef={cat.sentinelRef} />
@@ -1249,35 +1263,32 @@ export function AudiobooksPage({
 
         {deleteTarget && (
           <ConfirmDialog
-            title={`Delete "${deleteTarget.title}"?`}
-            confirmLabel="Delete book"
-            busyLabel="Deleting…"
-            danger
+            title={`Move "${deleteTarget.title}" to the Recycle Bin?`}
+            confirmLabel="Move to Recycle Bin"
+            busyLabel="Moving…"
             busy={deleteBusy}
             error={deleteError}
             onConfirm={() => void confirmDeleteOne()}
             onCancel={() => { if (!deleteBusy) setDeleteTarget(null); }}
           >
-            Permanently deletes its {deleteTarget.fileCount === 1 ? "audio file" : `${formatCount(deleteTarget.fileCount)} audio files`} from
-            the library folder on disk, plus everyone's listening progress, bookmarks, favorites, shares and collection
-            entries for this book. This cannot be undone.
+            Its {deleteTarget.fileCount === 1 ? "audio file" : `${formatCount(deleteTarget.fileCount)} audio files`} move
+            into the Recycle Bin and the book leaves the library for everyone (any shares stop working). You can restore
+            it from the Recycle Bin, or delete it permanently from there.
           </ConfirmDialog>
         )}
 
         {bulkDeleteOpen && (
           <ConfirmDialog
-            title={`Delete ${formatCount(selectedIds.size)} ${selectedIds.size === 1 ? "book" : "books"}?`}
-            confirmLabel={`Delete ${formatCount(selectedIds.size)} ${selectedIds.size === 1 ? "book" : "books"}`}
-            busyLabel="Deleting…"
-            danger
+            title={`Move ${formatCount(selectedIds.size)} ${selectedIds.size === 1 ? "book" : "books"} to the Recycle Bin?`}
+            confirmLabel={`Move ${formatCount(selectedIds.size)} ${selectedIds.size === 1 ? "book" : "books"}`}
+            busyLabel="Moving…"
             busy={deleteBusy}
             error={deleteError}
             onConfirm={() => void confirmBulkDelete()}
             onCancel={() => { if (!deleteBusy) setBulkDeleteOpen(false); }}
           >
-            Permanently deletes the selected books' audio files from the library folder on disk, plus everyone's
-            listening progress, bookmarks, favorites, shares and collection entries for them. Books you lack delete
-            access to are skipped. This cannot be undone.
+            The selected books move into the Recycle Bin and leave the library for everyone. Books you lack delete
+            access to are skipped. You can restore them from the Recycle Bin anytime.
           </ConfirmDialog>
         )}
 

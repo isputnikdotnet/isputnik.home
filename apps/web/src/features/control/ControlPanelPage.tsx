@@ -12,6 +12,7 @@ import {
   ScrollText,
   Settings,
   Tags,
+  Trash2,
   UsersRound,
   Wrench
 } from "lucide-react";
@@ -30,6 +31,7 @@ import { TagsSection } from "./sections/TagsSection";
 import { GroupsSection } from "./sections/GroupsSection";
 import { JobsSection } from "./sections/JobsSection";
 import { ConfigSection } from "./sections/ConfigSection";
+import { RecycleBinSection } from "./sections/RecycleBinSection";
 
 export function ControlPanelPage({
   section,
@@ -54,6 +56,7 @@ export function ControlPanelPage({
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
           {section === "libraries" && <LibrariesSection />}
+          {section === "recycleBin" && <RecycleBinSection />}
           {section === "media"     && <ComingSoonSection title="Gallery" blurb="Photo and video library types — albums, thumbnails, and streaming playback — are planned." />}
           {section === "otherMedia" && <ComingSoonSection title="Other Media" blurb="A flexible library type for media that isn't an audiobook, photo, or video is planned." />}
           {section === "categories" && categoryId !== undefined && <CategoryEditorPage categoryId={categoryId} />}
@@ -83,6 +86,7 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
         <p>Digital Library</p>
         <ControlNavLink icon={HardDrive} label="Storage" href="/control/storage" active={section === "storage"} />
         <ControlNavLink icon={LibraryBig} label="Libraries" href="/control/libraries" active={section === "libraries"} />
+        <ControlNavLink icon={Trash2} label="Recycle Bin" href="/control/recycle-bin" active={section === "recycleBin"} />
         <ControlNavLink icon={Image} label="Gallery" href="/control/media" active={section === "media"} soon />
         <ControlNavLink icon={FileStack} label="Other Media" href="/control/other-media" active={section === "otherMedia"} soon />
       </div>

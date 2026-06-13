@@ -1,24 +1,18 @@
-// Routes that WRITE TO THE LIBRARY SOURCE on disk — upload new books and delete
-// existing ones. These are the two policy-gated actions in the permission model
-// (see core/permissions.ts): "upload" needs contributor+, "delete" needs manager+,
-// and both are refused outright on external (read-only) libraries or when the
-// library policy disables them.
+// Routes that WRITE NEW FILES TO THE LIBRARY SOURCE on disk — uploading audiobooks.
+// Uploading is policy-gated (see core/permissions.ts): it needs contributor+ and is
+// refused on external (read-only) libraries or when the library policy disables it.
+// Deleting (now: moving to the Recycle Bin) lives in shared/trash-routes.ts.
 import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
-import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
 import { receiveUploadBatch, UploadError } from "../../../core/uploads.js";
 import { can, parsePolicy } from "../../../core/permissions.js";
-import { canUserAccessLibrary, getLibraryForBook } from "../shared/library-access.js";
+import { canUserAccessLibrary } from "../shared/library-access.js";
 import { validateLibrarySource } from "../shared/library-source.js";
-import { pathIsInside, normaliseRelativePath } from "../shared/storage-roots.js";
-import { thumbnailStorageKey, thumbnailAbsolutePath } from "../shared/thumbnail.js";
+import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
-import { deleteSharesForResource } from "../shared/share-access.js";
-import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
 import { rescanSingleBook } from "./scanner.js";
 import { getAudiobookBookDetail } from "./book-helpers.js";
 
@@ -49,98 +43,6 @@ interface UploadLibraryRow {
   source_path: string;
   settings_json: string;
   policy_json: string;
-}
-
-interface BookDeleteRow {
-  id: string;
-  folder_path: string;
-  library_id: string;
-  library_name: string;
-  source_path: string;
-  title: string;
-  cover_storage_key: string | null;
-  file_count: number;
-}
-
-function loadBookForDelete(bookId: string): BookDeleteRow | undefined {
-  return db.prepare(`
-    SELECT
-      books.id,
-      books.folder_path,
-      books.library_id,
-      libraries.name AS library_name,
-      libraries.source_path,
-      COALESCE(book_metadata.title, books.folder_path) AS title,
-      book_metadata.cover_storage_key,
-      (SELECT COUNT(*) FROM book_files WHERE book_files.book_id = books.id AND book_files.deleted_at IS NULL) AS file_count
-    FROM books
-    JOIN libraries ON libraries.id = books.library_id
-    LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-    WHERE books.id = ? AND books.deleted_at IS NULL
-  `).get(bookId) as BookDeleteRow | undefined;
-}
-
-// Remove the book's audio/companion files from the library source. Books normally
-// own a folder (delete it whole); books grouped at the library root (".") own no
-// folder, so only their catalogued files are removed — never the root itself.
-function deleteBookSourceFiles(row: BookDeleteRow) {
-  const root = validateLibrarySource(row.source_path);
-  if (row.folder_path === ".") {
-    const files = db.prepare(`
-      SELECT relative_path FROM book_files WHERE book_id = ?
-      UNION
-      SELECT relative_path FROM book_documents WHERE book_id = ?
-    `).all(row.id, row.id) as { relative_path: string }[];
-    for (const file of files) {
-      const absolute = path.resolve(root, file.relative_path);
-      if (pathIsInside(absolute, root) && absolute !== root) {
-        fs.rmSync(absolute, { force: true });
-      }
-    }
-    return;
-  }
-
-  const target = path.resolve(root, row.folder_path);
-  if (!pathIsInside(target, root) || target === root) {
-    throw new Error("Refusing to delete outside the library folder.");
-  }
-  fs.rmSync(target, { recursive: true, force: true });
-}
-
-// Cover thumbnails live outside the source dir; remove the book's webp pair plus
-// whatever key metadata points at (manual covers). Best-effort — a missing
-// thumbnail store must not block the delete.
-function deleteBookCovers(row: BookDeleteRow) {
-  const keys = new Set([
-    thumbnailStorageKey(row.library_id, row.id, `${row.id}-cover.webp`),
-    thumbnailStorageKey(row.library_id, row.id, `${row.id}-cover-large.webp`)
-  ]);
-  if (row.cover_storage_key) keys.add(row.cover_storage_key);
-  for (const key of keys) {
-    try {
-      fs.rmSync(thumbnailAbsolutePath(key), { force: true });
-    } catch {
-      // thumbnail storage unconfigured or key invalid — nothing to remove
-    }
-  }
-}
-
-// DB teardown. FK cascades clear book_files/metadata/authors/documents/progress/
-// bookmarks/saves; the polymorphic tables (taggables, shares, collections) have no
-// FK to books and are cleaned explicitly — same list the library delete uses.
-function deleteBookRecord(bookId: string) {
-  db.transaction(() => {
-    db.prepare("DELETE FROM taggables WHERE entity_type = 'book' AND entity_id = ?").run(bookId);
-    deleteSharesForResource("audiobook", bookId);
-    deleteCollectionItemsForResource("audiobook", bookId);
-    db.prepare("DELETE FROM books WHERE id = ?").run(bookId);
-  })();
-}
-
-function deleteBookEverywhere(row: BookDeleteRow) {
-  deleteBookSourceFiles(row);
-  deleteBookCovers(row);
-  deleteBookRecord(row.id);
 }
 
 export function registerSourceRoutes(app: FastifyInstance) {
@@ -284,100 +186,5 @@ export function registerSourceRoutes(app: FastifyInstance) {
     });
 
     reply.code(201).send({ book: getAudiobookBookDetail(bookId), uploadedFiles: received.length });
-  });
-
-  // Permanently delete one audiobook: its folder on disk, its covers, and every
-  // DB trace (progress, bookmarks, saves, shares, collection entries) for all users.
-  app.delete("/api/library/books/:id", { preHandler: app.authenticate }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const user = request.user!;
-
-    const lib = getLibraryForBook(id);
-    if (!lib) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
-    }
-    if (!can(user, { objectType: "library", objectId: lib.id, policy: parsePolicy(lib.policy_json) }, "delete")) {
-      reply.code(403).send({ error: "Deleting books is not allowed in this library." });
-      return;
-    }
-
-    const row = loadBookForDelete(id);
-    if (!row) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
-    }
-
-    try {
-      deleteBookEverywhere(row);
-    } catch (err) {
-      reply.code(500).send({ error: err instanceof Error ? err.message : "Could not delete the audiobook." });
-      return;
-    }
-
-    logActivity({
-      event: "library.audiobook.book_deleted",
-      actorUserId: user.id,
-      targetType: "book",
-      targetId: id,
-      detail: `Deleted audiobook "${row.title}" (${row.file_count} file${row.file_count === 1 ? "" : "s"}) from library "${row.library_name}", including its files on disk.`,
-      ipAddress: request.ip
-    });
-
-    reply.send({ deleted: true });
-  });
-
-  const bulkDeleteSchema = z.object({
-    bookIds: z.array(z.string().trim().min(1)).min(1).max(200)
-  });
-
-  // Bulk delete (selection mode). Permission is checked per book's library —
-  // mirrors bulk-metadata: books the user can't delete are counted, not fatal.
-  app.post("/api/library/books/bulk-delete", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = parseBody(bulkDeleteSchema, request.body);
-    if (parsed.error) {
-      reply.code(400).send({ error: "Invalid bulk delete", details: parsed.error });
-      return;
-    }
-
-    const user = request.user!;
-    let deleted = 0;
-    let forbidden = 0;
-    let missing = 0;
-    let failed = 0;
-    let failure = "";
-
-    for (const bookId of parsed.data.bookIds) {
-      const lib = getLibraryForBook(bookId);
-      if (!lib) { missing += 1; continue; }
-      if (!can(user, { objectType: "library", objectId: lib.id, policy: parsePolicy(lib.policy_json) }, "delete")) {
-        forbidden += 1;
-        continue;
-      }
-      const row = loadBookForDelete(bookId);
-      if (!row) { missing += 1; continue; }
-      try {
-        deleteBookEverywhere(row);
-        deleted += 1;
-        logActivity({
-          event: "library.audiobook.book_deleted",
-          actorUserId: user.id,
-          targetType: "book",
-          targetId: bookId,
-          detail: `Deleted audiobook "${row.title}" (${row.file_count} file${row.file_count === 1 ? "" : "s"}) from library "${row.library_name}", including its files on disk.`,
-          ipAddress: request.ip
-        });
-      } catch (err) {
-        failed += 1;
-        if (!failure) failure = err instanceof Error ? err.message : "Delete failed";
-      }
-    }
-
-    if (deleted === 0 && forbidden > 0 && failed === 0) {
-      reply.code(403).send({ error: "Deleting books is not allowed in the selected libraries." });
-      return;
-    }
-
-    reply.send({ deleted, forbidden, missing, failed, ...(failure ? { error: failure } : {}) });
   });
 }

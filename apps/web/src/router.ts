@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "about" | "libraries" | "media" | "otherMedia" | "storage" | "groups" | "jobs" | "backup" | "categories" | "tags" | "config";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "about" | "libraries" | "media" | "otherMedia" | "storage" | "recycleBin" | "groups" | "jobs" | "backup" | "categories" | "tags" | "config";
 
 export type Route =
   | { name: "install" }
@@ -179,6 +179,10 @@ export function getRoute(): Route {
 
   if (path === "/control/storage") {
     return { name: "control", section: "storage" };
+  }
+
+  if (["/control/recycle-bin", "/control/trash"].includes(path)) {
+    return { name: "control", section: "recycleBin" };
   }
 
   if (path === "/control/config") {

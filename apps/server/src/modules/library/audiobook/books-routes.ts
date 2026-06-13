@@ -186,7 +186,10 @@ export function registerBookRoutes(app: FastifyInstance) {
         // Download also covers a user-share of this single book (no library role needed).
         canDownload: canUserDownloadBook(id, lib, user.id, user.role),
         canCurate: caps.canCurate,
-        canShare: caps.canCurate
+        canShare: caps.canCurate,
+        // Delete (move to Recycle Bin) needs manager+ on a managed library — same gate the
+        // delete endpoint enforces. Drives the detail-page Delete affordance for every type.
+        canDelete: caps.canDelete
       }
     });
   });

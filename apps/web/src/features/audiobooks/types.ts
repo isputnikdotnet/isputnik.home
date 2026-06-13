@@ -87,6 +87,7 @@ export interface BookCapabilities {
   canDownload: boolean;
   canCurate: boolean;
   canShare: boolean;
+  canDelete: boolean;
 }
 
 export interface LibraryMember {

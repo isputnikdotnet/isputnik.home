@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
@@ -22,11 +22,11 @@ import type { AudiobookBookDetail, AudiobookFile, BookCapabilities, BookSave, Pl
 // can't determine capabilities we fail OPEN (show the full menu) rather than hide
 // actions from legitimate users. Used before the payload loads and as the fallback
 // when an online response omits capabilities (e.g. an older server).
-const FULL_CAPABILITIES: BookCapabilities = { canEdit: true, canDownload: true, canCurate: true, canShare: true };
+const FULL_CAPABILITIES: BookCapabilities = { canEdit: true, canDownload: true, canCurate: true, canShare: true, canDelete: true };
 
 // Offline-downloaded books have no live capability payload. They were downloaded,
 // so allow re-download; editing/sharing need the server and stay off.
-const OFFLINE_CAPABILITIES: BookCapabilities = { canEdit: false, canDownload: true, canCurate: false, canShare: false };
+const OFFLINE_CAPABILITIES: BookCapabilities = { canEdit: false, canDownload: true, canCurate: false, canShare: false, canDelete: false };
 
 // Document formats we can render in the in-app reader overlay. Others (mobi,
 // azw3) get download-only — no in-browser renderer.
@@ -149,7 +149,24 @@ function BookDetailView({
   const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
   const [progressMenuOpen, setProgressMenuOpen] = useState(false);
   const progressMenuRef = useRef<HTMLDivElement>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const offline = useDownload(book);
+
+  // Move this item to the Recycle Bin, then return to the list (where it's now gone).
+  // Recoverable from Control Panel → Recycle Bin until it's purged. Shared by both types.
+  const moveToRecycleBin = async () => {
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await api(`/api/library/books/${book.id}`, { method: "DELETE" });
+      onBack();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Unable to move to the Recycle Bin");
+      setDeleteBusy(false);
+    }
+  };
 
   // Close the full-screen reader on Escape.
   useEffect(() => {
@@ -660,6 +677,17 @@ function BookDetailView({
                   <Share2 size={18} />
                 </button>
               )}
+              {capabilities.canDelete && (
+                <button
+                  className="book-detail-icon-action danger"
+                  type="button"
+                  onClick={() => { setDeleteError(""); setConfirmDelete(true); }}
+                  aria-label="Move to Recycle Bin"
+                  title="Move to Recycle Bin"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
             </div>
             <div className="book-detail-primary-actions">
               {isEbook ? (
@@ -981,6 +1009,22 @@ function BookDetailView({
           onCancel={() => setConfirmRemoveDownload(false)}
         >
           This downloaded book is removed from this device. You can download it again at any time.
+        </ConfirmDialog>
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title={`Move "${book.title}" to the Recycle Bin?`}
+          confirmLabel="Move to Recycle Bin"
+          busyLabel="Moving…"
+          busy={deleteBusy}
+          error={deleteError}
+          onConfirm={() => void moveToRecycleBin()}
+          onCancel={() => { if (!deleteBusy) setConfirmDelete(false); }}
+        >
+          {isEbook
+            ? "This ebook moves into the Recycle Bin and leaves the library for everyone. An administrator can restore it from Control Panel → Recycle Bin."
+            : "This audiobook moves into the Recycle Bin and leaves the library for everyone (any shares stop working). An administrator can restore it from Control Panel → Recycle Bin."}
         </ConfirmDialog>
       )}
 

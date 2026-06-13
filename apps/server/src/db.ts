@@ -498,6 +498,29 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_collections_user ON collections(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_collection_items_collection ON collection_items(collection_id, position);
   CREATE INDEX IF NOT EXISTS idx_collection_items_entity ON collection_items(entity_type, entity_id);
+
+  -- Recycle Bin. Deleting a catalogued item moves its files into the library's hidden
+  -- <source>/.trash/<token>/ folder (an instant same-volume rename the scanner ignores)
+  -- and removes the books row exactly as a hard delete would — so no "live" query has to
+  -- learn about trashed state. Everything needed to restore (origin path) or purge (source
+  -- root + trash path) is snapshotted here. library_id has NO FK: a library can be deleted
+  -- while its trashed items still need purging. See docs/recycle-bin.md.
+  CREATE TABLE IF NOT EXISTS trashed_items (
+    id           TEXT PRIMARY KEY,
+    library_id   TEXT NOT NULL,
+    library_type TEXT NOT NULL,
+    library_name TEXT NOT NULL,
+    source_path  TEXT NOT NULL,
+    title        TEXT NOT NULL,
+    origin_path  TEXT NOT NULL,
+    trash_path   TEXT NOT NULL,
+    file_count   INTEGER NOT NULL DEFAULT 0,
+    size_bytes   INTEGER NOT NULL DEFAULT 0,
+    trashed_by   TEXT REFERENCES users(id),
+    trashed_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_trashed_items_lib ON trashed_items(library_id);
+  CREATE INDEX IF NOT EXISTS idx_trashed_items_at  ON trashed_items(trashed_at);
 `);
 
 const usersTable = db.prepare("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'users'").get() as { sql: string } | undefined;

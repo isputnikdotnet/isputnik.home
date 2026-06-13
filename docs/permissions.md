@@ -322,3 +322,4 @@ membership is plain membership, not member/manager inside the group.
 ## Related documents
 - [`library-sharing.md`](library-sharing.md) — the current (to-be-replaced) library access model.
 - [`sharing.md`](sharing.md) — the current item-level share model.
+- [`recycle-bin.md`](recycle-bin.md) — soft delete + restore; the library `delete` capability now moves items to the Recycle Bin rather than erasing them.
