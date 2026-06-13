@@ -135,7 +135,7 @@ function BookDetailView({
 }) {
   const [progress, setProgress] = useState<PlaybackProgress | null>(null);
   const [trackProgress, setTrackProgress] = useState<Record<string, TrackProgress>>({});
-  const [activeBookTab, setActiveBookTab] = useState<"description" | "files">("description");
+  const [activeBookTab, setActiveBookTab] = useState<"description" | "chapters" | "files">("description");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [save, setSave] = useState<BookSave | null>(null);
@@ -233,17 +233,19 @@ function BookDetailView({
   // Point the resume cursor at a file, then open the player (which resumes from that
   // cursor). The popup is opened synchronously and redirected after the write so a
   // popup blocker can't swallow it.
-  const playEpisode = (file: AudiobookFile) => {
-    const resumePos = trackProgress[file.id]?.positionSeconds ?? 0;
+  // Point the resume cursor at a file + position, then open the player there. Used
+  // for whole files (episodes) and for jumping into a specific m4b chapter offset.
+  const playFrom = (fileId: string, positionSeconds: number) => {
+    const resumePos = Math.max(0, Math.floor(positionSeconds));
     const win = window.open("", "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes");
     const openPlayer = () => { if (win) win.location.href = `/player/${book.id}`; };
     api(`/api/library/books/${book.id}/progress`, {
       method: "PATCH",
-      body: JSON.stringify({ fileId: file.id, positionSeconds: resumePos })
+      body: JSON.stringify({ fileId, positionSeconds: resumePos })
     })
       .then(() => {
         setProgress((prev) => ({
-          fileId: file.id,
+          fileId,
           positionSeconds: resumePos,
           percentComplete: prev?.percentComplete ?? null,
           completedAt: prev?.completedAt ?? null
@@ -251,6 +253,10 @@ function BookDetailView({
         openPlayer();
       })
       .catch(openPlayer);
+  };
+
+  const playEpisode = (file: AudiobookFile) => {
+    playFrom(file.id, trackProgress[file.id]?.positionSeconds ?? 0);
   };
 
   const playNextEpisode = () => {
@@ -475,10 +481,42 @@ function BookDetailView({
   const moreDetailRows = detailRows.filter(
     (row) => !heroDetailRows.some((heroRow) => heroRow.label === row.label && heroRow.value === row.value)
   );
-  const detailTabs = [
+  // Embedded chapters (m4b/m4a) flattened across files for the Chapters tab. MP3
+  // books carry none, so the tab is hidden for them. End falls back to the next
+  // chapter's start, then the file's duration.
+  const bookChapters = book.files.flatMap((file) => {
+    const list = file.chapters ?? [];
+    return list.map((chapter, index) => {
+      const end = chapter.endSeconds ?? list[index + 1]?.startSeconds ?? file.durationSeconds ?? chapter.startSeconds;
+      return {
+        id: chapter.id,
+        fileId: file.id,
+        title: chapter.title,
+        startSeconds: chapter.startSeconds,
+        durationSeconds: Math.max(0, end - chapter.startSeconds)
+      };
+    });
+  });
+  const hasChapters = bookChapters.length > 0;
+
+  // Read-only progress for a chapter, derived from the playback cursor. Embedded
+  // chapters live in a single file, so the cursor's file matches in practice.
+  const chapterRing = (chapter: { fileId: string; startSeconds: number; durationSeconds: number }) => {
+    if (progress?.fileId !== chapter.fileId || chapter.durationSeconds <= 0) {
+      return { progress: 0, complete: false };
+    }
+    const pos = progress.positionSeconds ?? 0;
+    const end = chapter.startSeconds + chapter.durationSeconds;
+    if (pos >= end - 0.5) return { progress: 1, complete: true };
+    if (pos > chapter.startSeconds) return { progress: Math.min((pos - chapter.startSeconds) / chapter.durationSeconds, 1), complete: false };
+    return { progress: 0, complete: false };
+  };
+
+  const detailTabs: { id: "description" | "chapters" | "files"; label: string }[] = [
     { id: "description", label: "Description" },
+    ...(hasChapters ? [{ id: "chapters" as const, label: "Chapters" }] : []),
     { id: "files", label: "Files" }
-  ] as const;
+  ];
   const descriptionText = book.description?.trim() ?? "";
   const canExpandDescription = descriptionText.length > 420;
   const visibleDescription = canExpandDescription && !descriptionExpanded
@@ -831,6 +869,37 @@ function BookDetailView({
               ) : (
                 <p className="book-description muted">No description yet.</p>
               )}
+            </section>
+          )}
+
+          {activeBookTab === "chapters" && (
+            <section className="book-detail-files-tab">
+              <section className="book-files-section">
+                <div className="book-file-list">
+                  {bookChapters.map((chapter, index) => {
+                    const ring = chapterRing(chapter);
+                    return (
+                      <article className="book-file-row" key={chapter.id}>
+                        <span className="book-file-num">{index + 1}</span>
+                        <button
+                          type="button"
+                          className="book-file-play"
+                          onClick={() => playFrom(chapter.fileId, chapter.startSeconds)}
+                          aria-label="Play from this chapter"
+                          title="Play from this chapter"
+                        >
+                          <Play size={15} />
+                        </button>
+                        <div>
+                          <strong>{chapter.title}</strong>
+                        </div>
+                        <small>{chapter.durationSeconds > 0 ? formatDuration(chapter.durationSeconds) : ""}</small>
+                        <ProgressRing progress={ring.progress} complete={ring.complete} />
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
             </section>
           )}
 

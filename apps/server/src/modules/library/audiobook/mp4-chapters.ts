@@ -15,6 +15,11 @@ interface Atom {
 
 const MP4_CHAPTER_EXTENSIONS = new Set([".m4b", ".m4a", ".mp4", ".m4v"]);
 
+// A real chapter track has at most a few hundred entries. A wildly larger count means
+// a malformed/misread table; bail rather than allocate gigabytes (which would crash
+// the scan). Well clear of any genuine audiobook.
+const MAX_CHAPTER_SAMPLES = 100_000;
+
 export function isMp4ChapterContainer(extension: string): boolean {
   return MP4_CHAPTER_EXTENSIONS.has(extension.toLowerCase());
 }
@@ -168,10 +173,12 @@ class Mp4Reader {
 
   private sampleDurations(stts: Atom): number[] {
     const entryCount = this.read(stts.start + 4, 4).readUInt32BE(0);
+    if (entryCount > MAX_CHAPTER_SAMPLES) return [];
     const table = this.read(stts.start + 8, entryCount * 8);
     const durations: number[] = [];
     for (let i = 0; i < entryCount; i += 1) {
       const count = table.readUInt32BE(i * 8);
+      if (durations.length + count > MAX_CHAPTER_SAMPLES) return [];
       const duration = table.readUInt32BE(i * 8 + 4);
       for (let j = 0; j < count; j += 1) durations.push(duration);
     }
@@ -181,6 +188,7 @@ class Mp4Reader {
   private sampleSizes(stsz: Atom): number[] {
     const uniformSize = this.read(stsz.start + 4, 4).readUInt32BE(0);
     const sampleCount = this.read(stsz.start + 8, 4).readUInt32BE(0);
+    if (sampleCount > MAX_CHAPTER_SAMPLES) return [];
     if (uniformSize !== 0) return new Array(sampleCount).fill(uniformSize);
     const table = this.read(stsz.start + 12, sampleCount * 4);
     const sizes: number[] = [];
@@ -194,6 +202,7 @@ class Mp4Reader {
   private sampleOffsets(stsc: Atom | null, stco: Atom, sizes: number[]): number[] {
     const is64 = stco.type === "co64";
     const chunkCount = this.read(stco.start + 4, 4).readUInt32BE(0);
+    if (chunkCount > MAX_CHAPTER_SAMPLES) return [];
     const chunkTable = this.read(stco.start + 8, chunkCount * (is64 ? 8 : 4));
     const chunkOffsets: number[] = [];
     for (let i = 0; i < chunkCount; i += 1) {

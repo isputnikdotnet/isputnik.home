@@ -526,10 +526,7 @@ async function safeParseAudio(filePath: string, includeCover: boolean) {
     const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 15_000));
     const parse = parseFile(filePath, {
       duration: true,
-      skipCovers: !includeCover,
-      // Read embedded chapter markers (m4b `chap` tracks, MP3 ID3v2 CHAP/CTOC).
-      // Cheap — they live in the header/moov, not the audio payload.
-      includeChapters: true
+      skipCovers: !includeCover
     });
     return await Promise.race([parse, timeout]);
   } catch {
@@ -537,48 +534,21 @@ async function safeParseAudio(filePath: string, includeCover: boolean) {
   }
 }
 
-// Chapter timestamps arrive in two shapes: MP4/m4b reports raw time units that must
-// be divided by the chapter track's timeScale, while MP3 ID3v2 reports values that
-// music-metadata has already converted to seconds (timeScale undefined). Dividing
-// only when a timeScale is present handles both.
-function chapterSeconds(value: number, timeScale: number | undefined): number {
-  const seconds = timeScale && timeScale > 0 ? value / timeScale : value;
-  return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
-}
-
-// Normalise embedded chapters into per-file offsets. music-metadata is tried first
-// (it covers MP3 ID3v2 and MP4s laid out moov-first). It reads chapters in a single
-// forward pass, though, so it misses MP4 chapter tracks when `mdat` precedes `moov`
-// — the common Audible layout — which the random-access reader handles instead.
-function extractChapters(
-  filePath: string,
-  extension: string,
-  metadata: IAudioMetadata | null,
-  encoding: TagEncoding | undefined
-): PreparedChapter[] {
-  const fromMetadata = metadata?.format.chapters ?? [];
-  if (fromMetadata.length > 0) {
-    return fromMetadata
-      .map((chapter) => ({
-        title: repairEncoding(chapter.title?.trim() || null, encoding) ?? "",
-        startSeconds: chapterSeconds(chapter.start, chapter.timeScale),
-        endSeconds: chapter.end != null ? chapterSeconds(chapter.end, chapter.timeScale) : null
-      }))
-      .sort((left, right) => left.startSeconds - right.startSeconds);
-  }
-
-  if (isMp4ChapterContainer(extension)) {
-    return readMp4Chapters(filePath)
-      .map((chapter) => ({
-        title: repairEncoding(chapter.title?.trim() || null, encoding) ?? "",
-        startSeconds: chapter.startSeconds,
-        endSeconds: chapter.endSeconds
-      }))
-      .filter((chapter) => Number.isFinite(chapter.startSeconds))
-      .sort((left, right) => left.startSeconds - right.startSeconds);
-  }
-
-  return [];
+// Read embedded chapters from a single MP4 container (m4b/m4a). We parse the chapter
+// track ourselves (see mp4-chapters.ts) rather than via music-metadata: its
+// `includeChapters` pass can block the event loop for tens of seconds on some files
+// (e.g. certain home-made m4b), which froze scans of larger libraries. The caller
+// only invokes this for MP4 containers — MP3s are skipped entirely, since there each
+// file already is a chapter.
+function extractChapters(filePath: string, encoding: TagEncoding | undefined): PreparedChapter[] {
+  return readMp4Chapters(filePath)
+    .map((chapter) => ({
+      title: repairEncoding(chapter.title.trim() || null, encoding) ?? "",
+      startSeconds: chapter.startSeconds,
+      endSeconds: chapter.endSeconds
+    }))
+    .filter((chapter) => Number.isFinite(chapter.startSeconds))
+    .sort((left, right) => left.startSeconds - right.startSeconds);
 }
 
 
@@ -1079,7 +1049,11 @@ async function prepareBookScan(
       size: item.file.stat.size,
       modifiedAt: item.file.stat.mtime.toISOString(),
       contentHash: null,
-      chapters: extractChapters(item.file.absolutePath, item.extension, item.metadata, enc)
+      // Only MP4 containers carry embedded chapters worth reading; MP3 files are each
+      // their own chapter, so leave their chapter rows untouched (undefined = skip).
+      chapters: isMp4ChapterContainer(item.extension)
+        ? extractChapters(item.file.absolutePath, enc)
+        : undefined
     }));
   const totalDuration = preparedFiles.reduce((total, file) => total + (file.durationSeconds ?? 0), 0);
 
