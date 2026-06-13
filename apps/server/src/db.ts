@@ -267,6 +267,22 @@ db.exec(`
     UNIQUE (book_id, relative_path)
   );
 
+  -- Embedded chapter markers parsed from *within* a single audio file: m4b/MP4
+  -- chapter tracks and MP3 ID3v2 CHAP/CTOC frames. start_seconds/end_seconds are
+  -- offsets within the owning file. A file with no embedded chapters has no rows
+  -- here; the player then treats the whole file as one chapter, so the common
+  -- one-file-per-chapter audiobook keeps behaving exactly as before.
+  CREATE TABLE IF NOT EXISTS book_chapters (
+    id TEXT PRIMARY KEY,
+    book_file_id TEXT NOT NULL REFERENCES book_files(id) ON DELETE CASCADE,
+    ordinal INTEGER NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    start_seconds REAL NOT NULL,
+    end_seconds REAL,
+    UNIQUE (book_file_id, ordinal)
+  );
+  CREATE INDEX IF NOT EXISTS idx_book_chapters_file ON book_chapters(book_file_id);
+
   -- Companion documents bundled with an audiobook (PDF/EPUB siblings in the book
   -- folder). Assets of the book, not catalogued ebooks — see docs/audiobook-library.md.
   CREATE TABLE IF NOT EXISTS book_documents (

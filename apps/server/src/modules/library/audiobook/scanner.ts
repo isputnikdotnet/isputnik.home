@@ -21,6 +21,7 @@ import type { MetadataSourceId } from "../shared/metadata-sources.js";
 import { downloadImage } from "../shared/remote-image.js";
 import { enrichLibraryAuthors, lookupOnlineBookMetadata } from "./enrich.js";
 import { matchCategoryId, setEntityTags } from "./categorize.js";
+import { isMp4ChapterContainer, readMp4Chapters } from "./mp4-chapters.js";
 
 export { validateLibrarySource };
 
@@ -115,6 +116,14 @@ interface AudioFileEntry {
   discHint: number | null;
 }
 
+// One embedded chapter marker inside a single audio file; offsets are relative to
+// the start of that file.
+interface PreparedChapter {
+  title: string;
+  startSeconds: number;
+  endSeconds: number | null;
+}
+
 interface PreparedBookFile {
   relativePath: string;
   mimeType: string;
@@ -124,6 +133,9 @@ interface PreparedBookFile {
   size: number;
   modifiedAt: string;
   contentHash: string | null;
+  // Embedded chapters within this file. undefined = not re-parsed this scan (fast
+  // path) → leave existing rows untouched; [] = parsed and none were found.
+  chapters?: PreparedChapter[];
 }
 
 interface PreparedBookScan {
@@ -514,12 +526,59 @@ async function safeParseAudio(filePath: string, includeCover: boolean) {
     const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 15_000));
     const parse = parseFile(filePath, {
       duration: true,
-      skipCovers: !includeCover
+      skipCovers: !includeCover,
+      // Read embedded chapter markers (m4b `chap` tracks, MP3 ID3v2 CHAP/CTOC).
+      // Cheap — they live in the header/moov, not the audio payload.
+      includeChapters: true
     });
     return await Promise.race([parse, timeout]);
   } catch {
     return null;
   }
+}
+
+// Chapter timestamps arrive in two shapes: MP4/m4b reports raw time units that must
+// be divided by the chapter track's timeScale, while MP3 ID3v2 reports values that
+// music-metadata has already converted to seconds (timeScale undefined). Dividing
+// only when a timeScale is present handles both.
+function chapterSeconds(value: number, timeScale: number | undefined): number {
+  const seconds = timeScale && timeScale > 0 ? value / timeScale : value;
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+}
+
+// Normalise embedded chapters into per-file offsets. music-metadata is tried first
+// (it covers MP3 ID3v2 and MP4s laid out moov-first). It reads chapters in a single
+// forward pass, though, so it misses MP4 chapter tracks when `mdat` precedes `moov`
+// — the common Audible layout — which the random-access reader handles instead.
+function extractChapters(
+  filePath: string,
+  extension: string,
+  metadata: IAudioMetadata | null,
+  encoding: TagEncoding | undefined
+): PreparedChapter[] {
+  const fromMetadata = metadata?.format.chapters ?? [];
+  if (fromMetadata.length > 0) {
+    return fromMetadata
+      .map((chapter) => ({
+        title: repairEncoding(chapter.title?.trim() || null, encoding) ?? "",
+        startSeconds: chapterSeconds(chapter.start, chapter.timeScale),
+        endSeconds: chapter.end != null ? chapterSeconds(chapter.end, chapter.timeScale) : null
+      }))
+      .sort((left, right) => left.startSeconds - right.startSeconds);
+  }
+
+  if (isMp4ChapterContainer(extension)) {
+    return readMp4Chapters(filePath)
+      .map((chapter) => ({
+        title: repairEncoding(chapter.title?.trim() || null, encoding) ?? "",
+        startSeconds: chapter.startSeconds,
+        endSeconds: chapter.endSeconds
+      }))
+      .filter((chapter) => Number.isFinite(chapter.startSeconds))
+      .sort((left, right) => left.startSeconds - right.startSeconds);
+  }
+
+  return [];
 }
 
 
@@ -824,7 +883,19 @@ async function prepareBookScan(
     onlineGaps = !metadataRow.cover_storage_key || !metadataRow.description || narratorCount === 0;
   }
 
-  if (existingBook && metadataRow && !sidecar && !forceReread && !onlineGaps) {
+  // m4b/m4a books need one re-read to back-fill embedded chapters the first time
+  // this runs; the unchanged-file fast path would otherwise never parse them. Once
+  // rows exist the fast path resumes.
+  const chapterCapable = filesWithFallbackOrder.some((file) => isMp4ChapterContainer(path.extname(file.fileName)));
+  const chaptersMissing = chapterCapable && Boolean(existingBook)
+    && (db.prepare(`
+        SELECT COUNT(*) AS n
+        FROM book_chapters
+        JOIN book_files ON book_files.id = book_chapters.book_file_id
+        WHERE book_files.book_id = ?
+      `).get(bookId) as { n: number }).n === 0;
+
+  if (existingBook && metadataRow && !sidecar && !forceReread && !onlineGaps && !chaptersMissing) {
     const existingFiles = db.prepare(`
       SELECT relative_path, mime_type, track_number, chapter_title, duration_seconds, size, modified_at, content_hash
       FROM book_files
@@ -1007,7 +1078,8 @@ async function prepareBookScan(
       durationSeconds: item.metadata?.format.duration ? Math.round(item.metadata.format.duration) : null,
       size: item.file.stat.size,
       modifiedAt: item.file.stat.mtime.toISOString(),
-      contentHash: null
+      contentHash: null,
+      chapters: extractChapters(item.file.absolutePath, item.extension, item.metadata, enc)
     }));
   const totalDuration = preparedFiles.reduce((total, file) => total + (file.durationSeconds ?? 0), 0);
 
@@ -1193,6 +1265,22 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
       file.modifiedAt,
       file.contentHash
     );
+
+    // Re-sync embedded chapters for this file. undefined = not re-parsed this scan
+    // (fast path), so existing rows are left intact; otherwise replace them wholesale.
+    if (file.chapters !== undefined) {
+      const fileRow = db.prepare("SELECT id FROM book_files WHERE book_id = ? AND relative_path = ?")
+        .get(book.bookId, file.relativePath) as { id: string } | undefined;
+      if (fileRow) {
+        db.prepare("DELETE FROM book_chapters WHERE book_file_id = ?").run(fileRow.id);
+        file.chapters.forEach((chapter, ordinal) => {
+          db.prepare(`
+            INSERT INTO book_chapters (id, book_file_id, ordinal, title, start_seconds, end_seconds)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).run(nanoid(16), fileRow.id, ordinal, chapter.title, chapter.startSeconds, chapter.endSeconds);
+        });
+      }
+    }
   }
 
   // Companion documents — re-synced from disk on every scan, like book_files.

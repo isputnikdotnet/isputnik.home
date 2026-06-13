@@ -530,6 +530,29 @@ export function getAudiobookBookDetail(id: string) {
     ORDER BY track_number, relative_path COLLATE NOCASE
   `).all(id) as BookFileRow[];
 
+  // Embedded chapters (m4b / MP3 CHAP), grouped onto their owning file below. Most
+  // books have none, in which case this is empty and files carry no `chapters`.
+  const chapterRows = db.prepare(`
+    SELECT book_chapters.id, book_chapters.book_file_id, book_chapters.title,
+           book_chapters.start_seconds, book_chapters.end_seconds
+    FROM book_chapters
+    JOIN book_files ON book_files.id = book_chapters.book_file_id
+    WHERE book_files.book_id = ?
+    ORDER BY book_chapters.book_file_id, book_chapters.ordinal
+  `).all(id) as {
+    id: string;
+    book_file_id: string;
+    title: string;
+    start_seconds: number;
+    end_seconds: number | null;
+  }[];
+  const chaptersByFile = new Map<string, { id: string; title: string; startSeconds: number; endSeconds: number | null }[]>();
+  for (const row of chapterRows) {
+    const list = chaptersByFile.get(row.book_file_id) ?? [];
+    list.push({ id: row.id, title: row.title, startSeconds: row.start_seconds, endSeconds: row.end_seconds });
+    chaptersByFile.set(row.book_file_id, list);
+  }
+
   const documents = db.prepare(`
     SELECT id, relative_path, format, mime_type, size
     FROM book_documents
@@ -576,7 +599,8 @@ export function getAudiobookBookDetail(id: string) {
       durationSeconds: file.duration_seconds,
       size: file.size ?? 0,
       modifiedAt: file.modified_at,
-      status: file.status
+      status: file.status,
+      chapters: chaptersByFile.get(file.id)
     })),
     documents: documents.map((doc) => ({
       id: doc.id,

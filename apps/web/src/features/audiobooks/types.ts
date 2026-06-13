@@ -142,6 +142,15 @@ export interface AudiobookBook {
   updatedAt: string;
 }
 
+// An embedded chapter marker inside a single audio file (m4b `chap` track or MP3
+// ID3v2 CHAP/CTOC). Offsets are relative to the start of the file.
+export interface AudiobookChapter {
+  id: string;
+  title: string;
+  startSeconds: number;
+  endSeconds: number | null;
+}
+
 export interface AudiobookFile {
   id: string;
   relativePath: string;
@@ -152,6 +161,9 @@ export interface AudiobookFile {
   size: number;
   modifiedAt: string | null;
   status: "available" | "missing";
+  // Present only when the file carries embedded chapters; otherwise the whole
+  // file is treated as one chapter.
+  chapters?: AudiobookChapter[];
 }
 
 export interface BookDocument {

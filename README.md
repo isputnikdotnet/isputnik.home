@@ -1,5 +1,9 @@
 # About the Project
 
+> ⚠️ **Heavily under construction — not ready for prime time.**
+>
+> iSputnik.home is in active, rapid development. Features, database schema, APIs, and the UI change frequently — often with breaking changes and without migrations. Expect incomplete features, rough edges, and updates that may require starting from a clean slate. Don't rely on it for important data. This is an experimental personal project shared as a work in progress, not a stable release.
+
 iSputnik.home is an experimental self-hosted home server project created as a personal vision of what a modern family-oriented digital hub could be. The project is heavily assisted by AI and serves as both a learning experience and an exploration of new ideas in software design, automation, and media management.
 
 The inspiration for iSputnik.home comes from several excellent open-source projects, including Audiobookshelf, Immich, Paperless-ngx, and other self-hosted applications. Rather than replicating any single solution, the goal is to combine the best ideas from these projects into a unified platform tailored for personal and family use.

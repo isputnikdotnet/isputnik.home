@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bookmark, BookmarkPlus, CheckCircle2, ChevronDown, ChevronUp, Clock, FastForward, Heart, List, Pause, Pencil, PieChart, Play, Rewind, SkipBack, SkipForward, StickyNote, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { api } from "../../api";
 import { getDownloadedFileUrl } from "../../offline/downloads";
@@ -23,6 +23,18 @@ function formatTimeRemaining(seconds: number) {
 }
 
 const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
+
+// A navigable chapter, flattened across files. For multi-file books each file is
+// one chapter; for a single m4b/MP3 the file's embedded markers become many. Offsets
+// are within the owning file; bookStart is the cumulative position across all files.
+interface FlatChapter {
+  fileIndex: number;
+  fileId: string;
+  title: string;
+  startOffset: number;
+  endOffset: number;
+  bookStart: number;
+}
 
 export function AudioPlayer({
   book,
@@ -85,13 +97,71 @@ export function AudioPlayer({
 
   const currentFile: AudiobookFile | undefined = availableFiles[fileIndex];
 
-  const chapterProgressFor = (file: AudiobookFile, index: number) => {
-    const duration = file.durationSeconds ?? 0;
-    if (duration <= 0) return { seconds: 0, percent: index < fileIndex ? 1 : 0 };
-    if (index < fileIndex) return { seconds: duration, percent: 1 };
-    if (index > fileIndex) return { seconds: 0, percent: 0 };
-    const seconds = Math.max(0, Math.min(currentTime, duration));
-    return { seconds, percent: Math.min(seconds / duration, 1) };
+  // The navigable chapter list. Files with embedded chapters (m4b `chap`, MP3 CHAP)
+  // expand into one entry per marker; files without any contribute a single
+  // full-span chapter, so multi-file books behave exactly as before.
+  const chapters = useMemo<FlatChapter[]>(() => {
+    const files = book.files.filter((file) => file.status === "available");
+    const list: FlatChapter[] = [];
+    let base = 0; // cumulative book seconds at the start of the current file
+    files.forEach((file, index) => {
+      const fileDuration = file.durationSeconds ?? 0;
+      const embedded = (file.chapters ?? []).filter((chapter) => chapter.startSeconds >= 0);
+      if (embedded.length > 0) {
+        embedded.forEach((chapter, position) => {
+          const startOffset = Math.min(chapter.startSeconds, fileDuration || chapter.startSeconds);
+          // m4b chapters carry no end, so fall back to the next marker, then the file end.
+          const endOffset = chapter.endSeconds ?? embedded[position + 1]?.startSeconds ?? (fileDuration || startOffset);
+          list.push({
+            fileIndex: index,
+            fileId: file.id,
+            title: chapter.title || `Chapter ${list.length + 1}`,
+            startOffset,
+            endOffset,
+            bookStart: base + startOffset
+          });
+        });
+      } else {
+        list.push({
+          fileIndex: index,
+          fileId: file.id,
+          title: file.chapterTitle || file.relativePath.split("/").at(-1) || `Chapter ${index + 1}`,
+          startOffset: 0,
+          endOffset: fileDuration,
+          bookStart: base
+        });
+      }
+      base += fileDuration;
+    });
+    return list;
+  }, [book.files]);
+
+  // Active chapter = the last one in the current file whose start is at/under the
+  // playhead (a small tolerance avoids flicker right at a boundary).
+  const currentChapterIndex = useMemo(() => {
+    let pick = -1;
+    for (let i = 0; i < chapters.length; i += 1) {
+      const chapter = chapters[i];
+      if (chapter.fileIndex !== fileIndex) {
+        if (chapter.fileIndex > fileIndex) break;
+        continue;
+      }
+      if (pick === -1) pick = i; // first chapter in this file
+      if (currentTime + 0.25 >= chapter.startOffset) pick = i;
+      else break;
+    }
+    return pick;
+  }, [chapters, fileIndex, currentTime]);
+
+  const currentChapter = chapters[currentChapterIndex];
+
+  const chapterProgressFor = (chapter: FlatChapter, index: number) => {
+    const span = Math.max(0, chapter.endOffset - chapter.startOffset);
+    if (index < currentChapterIndex) return { seconds: span, percent: 1 };
+    if (index > currentChapterIndex) return { seconds: 0, percent: 0 };
+    if (span <= 0) return { seconds: 0, percent: 0 };
+    const seconds = Math.max(0, Math.min(currentTime - chapter.startOffset, span));
+    return { seconds, percent: Math.min(seconds / span, 1) };
   };
 
   // Always record locally (survives offline) and push to the server when possible;
@@ -106,7 +176,7 @@ export function AudioPlayer({
   const addBookmark = useCallback(async () => {
     if (!currentFile || !audioRef.current) return;
     const position = Math.floor(audioRef.current.currentTime);
-    const label = currentFile.chapterTitle || currentFile.relativePath.split("/").at(-1) || `Chapter ${fileIndex + 1}`;
+    const label = currentChapter?.title || currentFile.relativePath.split("/").at(-1) || `Chapter ${fileIndex + 1}`;
     try {
       const { bookmark } = await api<{ bookmark: BookmarkEntry }>(`/api/library/books/${book.id}/bookmarks`, {
         method: "POST",
@@ -122,7 +192,7 @@ export function AudioPlayer({
     } catch {
       setPlayerError("Unable to save bookmark.");
     }
-  }, [book.id, currentFile, fileIndex]);
+  }, [book.id, currentFile, currentChapter, fileIndex]);
 
   const saveBookmarkNote = useCallback(async (id: string, note: string) => {
     try {
@@ -186,11 +256,18 @@ export function AudioPlayer({
     }
   }, [fileIndex, playing]);
 
-  const jumpToChapter = useCallback((index: number) => {
+  // Seek to a chapter, switching files first when it lives in a different one.
+  const goToChapter = useCallback((index: number) => {
+    const chapter = chapters[index];
+    if (!chapter) return;
     if (audioRef.current && currentFile) saveProgress(currentFile, audioRef.current.currentTime);
-    seekTo(index, 0);
+    seekTo(chapter.fileIndex, chapter.startOffset);
+  }, [chapters, currentFile, saveProgress, seekTo]);
+
+  const jumpToChapter = useCallback((index: number) => {
+    goToChapter(index);
     setChaptersOpen(false);
-  }, [currentFile, saveProgress, seekTo]);
+  }, [goToChapter]);
 
   const jumpToBookmark = useCallback((bookmark: BookmarkEntry) => {
     const index = availableFiles.findIndex((f) => f.id === bookmark.fileId);
@@ -424,21 +501,21 @@ export function AudioPlayer({
 
   const goToPrev = () => {
     const audio = audioRef.current;
-    if (!audio) return;
-    if (currentTime > 3) {
-      audio.currentTime = 0;
-    } else if (fileIndex > 0) {
-      if (currentFile) saveProgress(currentFile, 0);
-      shouldAutoPlayRef.current = playing;
-      setFileIndex((prev) => prev - 1);
+    if (!audio || !currentChapter) return;
+    // Past the first few seconds of a chapter, "previous" restarts it; otherwise it
+    // steps to the previous chapter (which may live in the previous file).
+    if (audio.currentTime > currentChapter.startOffset + 3) {
+      seekTo(currentChapter.fileIndex, currentChapter.startOffset);
+    } else if (currentChapterIndex > 0) {
+      goToChapter(currentChapterIndex - 1);
+    } else {
+      seekTo(currentChapter.fileIndex, currentChapter.startOffset);
     }
   };
 
   const goToNext = () => {
-    if (fileIndex < availableFiles.length - 1) {
-      if (audioRef.current && currentFile) saveProgress(currentFile, audioRef.current.currentTime);
-      shouldAutoPlayRef.current = playing;
-      setFileIndex((prev) => prev + 1);
+    if (currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1) {
+      goToChapter(currentChapterIndex + 1);
     }
   };
 
@@ -487,20 +564,20 @@ export function AudioPlayer({
   // Publish "now playing" metadata (cover, chapter, author) per chapter.
   useEffect(() => {
     if (!("mediaSession" in navigator) || !currentFile) return;
-    const chapter = currentFile.chapterTitle || currentFile.relativePath.split("/").at(-1) || `Chapter ${fileIndex + 1}`;
+    const chapterTitle = currentChapter?.title || currentFile.relativePath.split("/").at(-1) || `Chapter ${fileIndex + 1}`;
     const cover = book.coverLargeUrl ?? book.coverUrl;
     const artwork = cover
       ? [{ src: new URL(cover, window.location.origin).href, sizes: "512x512", type: "image/jpeg" }]
       : [];
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: chapter,
+        title: chapterTitle,
         artist: book.authors.join(", ") || "Unknown author",
         album: book.title,
         artwork
       });
     } catch { /* unsupported metadata */ }
-  }, [book.id, fileIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [book.id, fileIndex, currentChapterIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Register OS media-control handlers once; they delegate through the ref.
   useEffect(() => {
@@ -532,27 +609,26 @@ export function AudioPlayer({
 
   if (availableFiles.length === 0) return null;
 
-  const chapterList = availableFiles.map((file, index) => {
-    const progress = chapterProgressFor(file, index);
+  const chapterList = chapters.map((chapter, index) => {
+    const progress = chapterProgressFor(chapter, index);
+    const span = Math.max(0, chapter.endOffset - chapter.startOffset);
     return (
       <button
-        key={file.id}
-        className={`player-chapter-item${index === fileIndex ? " active" : ""}${progress.percent >= 0.98 ? " complete" : ""}`}
+        key={`${chapter.fileId}-${index}`}
+        className={`player-chapter-item${index === currentChapterIndex ? " active" : ""}${progress.percent >= 0.98 ? " complete" : ""}`}
         onClick={() => jumpToChapter(index)}
       >
         <span className="player-chapter-item-num">
           <ProgressRing progress={progress.percent} complete={progress.percent >= 0.98} center={index + 1} size={28} />
         </span>
         <span className="player-chapter-item-main">
-          <span className="player-chapter-item-title">
-            {file.chapterTitle || file.relativePath.split("/").at(-1) || `Chapter ${index + 1}`}
-          </span>
+          <span className="player-chapter-item-title">{chapter.title}</span>
         </span>
-        {file.durationSeconds != null && (
+        {span > 0 && (
           <span className="player-chapter-item-dur">
             {progress.seconds > 0 && progress.percent < 0.98
-              ? `${formatTime(progress.seconds)} / ${formatTime(file.durationSeconds)}`
-              : formatTime(file.durationSeconds)}
+              ? `${formatTime(progress.seconds)} / ${formatTime(span)}`
+              : formatTime(span)}
           </span>
         )}
       </button>
@@ -663,8 +739,8 @@ export function AudioPlayer({
           )}
 
           <div className="player-popup-chapter">
-            <strong><Bookmark size={15} aria-hidden="true" /> Chapter {fileIndex + 1}</strong>
-            <span>{currentFile?.chapterTitle || currentFile?.relativePath.split("/").at(-1) || ""}</span>
+            <strong><Bookmark size={15} aria-hidden="true" /> Chapter {currentChapterIndex + 1}</strong>
+            <span>{currentChapter?.title || currentFile?.relativePath.split("/").at(-1) || ""}</span>
           </div>
 
           <div className="player-seek-popup">
@@ -691,7 +767,7 @@ export function AudioPlayer({
             <button
               className="player-btn player-btn-nav"
               onClick={goToPrev}
-              disabled={fileIndex === 0 && currentTime <= 3}
+              disabled={currentChapterIndex <= 0 && currentTime <= 3}
               aria-label="Previous chapter"
             >
               <SkipBack size={18} />
@@ -710,7 +786,7 @@ export function AudioPlayer({
             <button
               className="player-btn player-btn-nav"
               onClick={goToNext}
-              disabled={fileIndex >= availableFiles.length - 1}
+              disabled={currentChapterIndex >= chapters.length - 1}
               aria-label="Next chapter"
             >
               <SkipForward size={18} />
@@ -855,9 +931,9 @@ export function AudioPlayer({
       {audioEl}
 
       <div className="player-chapter">
-        <span className="player-chapter-index">{fileIndex + 1} / {availableFiles.length}</span>
+        <span className="player-chapter-index">{currentChapterIndex + 1} / {chapters.length}</span>
         <span className="player-chapter-title">
-          {currentFile?.chapterTitle || currentFile?.relativePath.split("/").at(-1) || ""}
+          {currentChapter?.title || currentFile?.relativePath.split("/").at(-1) || ""}
         </span>
       </div>
 
@@ -866,13 +942,13 @@ export function AudioPlayer({
           <Rewind size={17} />
           <span>30</span>
         </button>
-        <button className="player-btn" onClick={goToPrev} disabled={fileIndex === 0 && currentTime <= 3} aria-label="Previous chapter">
+        <button className="player-btn" onClick={goToPrev} disabled={currentChapterIndex <= 0 && currentTime <= 3} aria-label="Previous chapter">
           <SkipBack size={20} />
         </button>
         <button className="player-btn player-btn-primary" onClick={togglePlay} aria-label={playing ? "Pause" : "Play"}>
           {playing ? <Pause size={22} /> : <Play size={22} />}
         </button>
-        <button className="player-btn" onClick={goToNext} disabled={fileIndex >= availableFiles.length - 1} aria-label="Next chapter">
+        <button className="player-btn" onClick={goToNext} disabled={currentChapterIndex >= chapters.length - 1} aria-label="Next chapter">
           <SkipForward size={20} />
         </button>
         <button className="player-btn player-btn-skip" onClick={() => skip(30)} aria-label="Skip forward 30 seconds">
