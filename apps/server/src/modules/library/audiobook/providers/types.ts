@@ -1,4 +1,4 @@
-export type MetadataProvider = "itunes" | "openlibrary" | "fantlab" | "librivox";
+export type MetadataProvider = "itunes" | "openlibrary" | "fantlab" | "librivox" | "audible";
 
 export interface MetadataCandidate {
   title: string;

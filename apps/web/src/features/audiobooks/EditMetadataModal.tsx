@@ -619,6 +619,7 @@ export function EditMetadataModal({
                   aria-label="Metadata provider"
                 >
                   <option value="all">All providers</option>
+                  <option value="audible">Audible</option>
                   <option value="itunes">iTunes</option>
                   <option value="openlibrary">Open Library</option>
                   <option value="fantlab">FantLab</option>

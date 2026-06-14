@@ -1,3 +1,4 @@
+import { fetchAudibleByUrl, searchAudible } from "./audible.js";
 import { fetchFantlabByUrl, searchFantlab } from "./fantlab.js";
 import { fetchItunesByUrl, searchItunes } from "./itunes.js";
 import { fetchLibrivoxByUrl, searchLibrivox } from "./librivox.js";
@@ -17,11 +18,15 @@ export async function searchMetadataProvider(provider: MetadataProvider, input: 
   if (provider === "librivox") {
     return searchLibrivox(input);
   }
+  if (provider === "audible") {
+    return searchAudible(input);
+  }
   return searchFantlab(input);
 }
 
 export async function searchAllMetadataProviders(input: MetadataSearchInput): Promise<MetadataCandidate[]> {
   const results = await Promise.allSettled([
+    searchAudible(input),
     searchItunes(input),
     searchOpenLibrary(input),
     searchFantlab(input),
@@ -57,5 +62,8 @@ export async function fetchMetadataFromUrl(rawUrl: string): Promise<MetadataCand
   if (host === "librivox.org") {
     return fetchLibrivoxByUrl(rawUrl);
   }
-  throw new MetadataLinkError("Unsupported site. Paste a link from Open Library, Apple Books, FantLab, or LibriVox.");
+  if (host.startsWith("audible.") || host.endsWith(".audible.com")) {
+    return fetchAudibleByUrl(rawUrl);
+  }
+  throw new MetadataLinkError("Unsupported site. Paste a link from Audible, Open Library, Apple Books, FantLab, or LibriVox.");
 }

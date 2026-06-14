@@ -336,6 +336,76 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.26.0",
+          label: "Audible metadata provider",
+          changes: [
+            "Audible is now a metadata source in a book's Metadata Lookup — search it directly or as part of \"All providers\", or paste an Audible link. It's the richest source for audiobooks and the most reliable for the narrator, the Audible ASIN, and high-resolution cover art.",
+            "Audible results work everywhere a provider result does: the current-vs-result comparison, applying details, and the Cover tab's online cover search."
+          ]
+        },
+        {
+          version: "0.25.0",
+          label: "Lookup compare, paste-a-link & manual people",
+          changes: [
+            "Metadata Lookup can now expand any search result into a side-by-side comparison with the current book, so you can see exactly which fields — title, authors, narrators, year, description, cover and more — a result would change before you apply it.",
+            "Paste a book link from Open Library, Apple Books, FantLab, or LibriVox to pull metadata straight from that specific page instead of searching.",
+            "The Cover tab can search those same sources for cover art and apply just the cover, leaving the rest of the book's metadata untouched.",
+            "Author and narrator profiles get the same treatment: \"Find online\" now previews a current-vs-found comparison of the biography and photo (paste a Wikipedia or Open Library author link to target a specific page), and a new \"New author\" / \"New narrator\" button lets you add a person by hand."
+          ]
+        },
+        {
+          version: "0.24.1",
+          label: "m4b scan fix & chapters tab",
+          changes: [
+            "Fixed a scan that could hang on some m4b audiobooks while reading their embedded chapters.",
+            "The book details page gained a Chapters tab that lists a book's embedded chapters."
+          ]
+        },
+        {
+          version: "0.24.0",
+          label: "m4b chapter reading & navigation",
+          changes: [
+            "Embedded chapters inside m4b (and MP3) audiobooks are now read during the scan, so a single-file book shows its real chapter list instead of one long track.",
+            "The player and the book page let you jump between those chapters and show where you are within them."
+          ]
+        },
+        {
+          version: "0.23.0",
+          label: "Recycle bin & restore",
+          changes: [
+            "Deleting a catalogued audiobook or ebook is now a soft delete: its files move into a hidden per-library .trash folder and the item leaves the catalog, but it can be restored until you remove it for good.",
+            "A new Recycle Bin in the Control Panel lets you restore items, delete them permanently, or empty the bin, and deleted items auto-purge after 30 days (configurable).",
+            "Per-item delete now works for ebooks too, from the book detail page."
+          ]
+        },
+        {
+          version: "0.22.0",
+          label: "Online metadata lookup, LibriVox & author photos",
+          changes: [
+            "A new optional \"Online lookup\" scan source fills in missing narrator, description, cover, year, and genres from LibriVox (with an Open Library fallback) while scanning, and fetches author and narrator photos and bios from Wikipedia and Open Library.",
+            "LibriVox joined the manual metadata search, and person profiles gained a \"Find online\" button with a photo candidate picker.",
+            "Authors and narrators now show their photos and biographies on their list and detail pages."
+          ]
+        },
+        {
+          version: "0.21.0",
+          label: "Folder upload & companion files",
+          changes: [
+            "You can now upload a whole book folder (file picker or drag-and-drop): subfolders flatten into ordered track names, the folder name becomes the book title, and unrelated files are skipped just like a scan.",
+            "Companion files (covers, metadata sidecars, documents) are now a per-library setting you can edit in the create wizard and edit dialog; uploads accept your scan extensions plus the configured companions.",
+            "Fixed uploads being rejected over 1 MB, so real audiobooks and backups upload again — the library's maximum upload size is now the only limit."
+          ]
+        },
+        {
+          version: "0.20.0",
+          label: "Audiobook upload & delete",
+          changes: [
+            "Upload audiobooks straight from the Audiobooks page — multi-file, one book per upload — staged and then scanned in automatically.",
+            "Delete books from the catalog individually or in bulk, removing the folder on disk, its cover art, and all database rows.",
+            "Both are permission-gated (contributors can upload, managers can delete) and refused on external read-only libraries."
+          ]
+        },
+        {
           version: "0.19.0",
           label: "Control Panel management refresh",
           changes: [

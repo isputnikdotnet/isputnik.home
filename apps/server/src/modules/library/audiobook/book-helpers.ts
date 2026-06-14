@@ -39,7 +39,7 @@ const metadataCandidateSchema = z.object({
   asin: z.string().trim().optional(),
   genres: z.array(z.string().trim().min(1)).optional(),
   language: z.string().trim().optional(),
-  source: z.enum(["itunes", "openlibrary", "fantlab", "librivox"])
+  source: z.enum(["itunes", "openlibrary", "fantlab", "librivox", "audible"])
 });
 
 export const metadataMatchSchema = z.object({

@@ -676,21 +676,22 @@ A per-book feature that lets a user search external providers for metadata and a
 
 | Provider | Free | Key required | Covers | What it returns |
 |---|---|---|---|---|
+| **Audible** | ✓ | No | ✓ | Title, subtitle, author, **narrator**, publisher, year, description, **ASIN**, cover (US marketplace) |
 | **iTunes / Apple Books** | ✓ | No | ✓ | Title, author, narrator, year, description, genres, series |
 | **OpenLibrary** | ✓ | No | ✓ | Title, authors, year, description, ISBN |
 | **FantLab** | ✓ | No | ✓ | Russian title, original title, author, year, description, genre hints |
 | **LibriVox** | ✓ | No | ✓ | Title, author, narrator, year, description, genres (public-domain audiobooks) |
 
-Audible is a future addition — it requires either an unofficial API or scraping and adds deployment complexity.
-
-None of the providers require API keys.
+Audible uses its open app-facing catalogue API (`api.audible.com/1.0/catalog/products`, US/.com
+marketplace) — no official API or key, and the only provider that reliably returns the narrator
+and the Audible ASIN. None of the providers require API keys.
 
 ### User flow
 
 1. Open a book's detail page
 2. Open **More options**, then select **Edit metadata**
 3. Select the **Metadata Lookup** tab; search is pre-filled with the current title and author
-4. Adjust the query and select a provider — **or** paste a direct book link (Open Library, Apple Books, FantLab, or LibriVox) and **Fetch** to pull one specific edition
+4. Adjust the query and select a provider — **or** paste a direct book link (Audible, Open Library, Apple Books, FantLab, or LibriVox) and **Fetch** to pull one specific edition
 5. Results appear as cards showing: cover thumbnail, title, author(s), year, publisher
 6. Click **Details** on a result to expand a current-vs-result comparison; fields the result would change are flagged
 7. Choose whether to update details and cover
@@ -720,7 +721,7 @@ POST /api/library/books/:id/metadata-reset
      → { reset: bool, book: BookDetail }
 ```
 
-Implemented provider values: `itunes`, `openlibrary`, `fantlab`, `librivox`, and `all`.
+Implemented provider values: `audible`, `itunes`, `openlibrary`, `fantlab`, `librivox`, and `all`.
 
 When a result is applied, `book_metadata.source` is set to `manual`; future rescans preserve the selected metadata.
 
@@ -735,6 +736,7 @@ provider's by-URL parser (`fetch*ByUrl` in each provider module), returning the 
 |---|---|---|
 | `openlibrary.org` | `fetchOpenLibraryByUrl` | `/works/OL…W` or `/books/OL…M` → the record's `.json`; author names resolved from their `/authors/…` records |
 | `books.apple.com`, `itunes.apple.com`, `music.apple.com` | `fetchItunesByUrl` | item id (`?i=` or `/idNNN`) → the iTunes `lookup` API |
+| `audible.*` | `fetchAudibleByUrl` | the 10-char ASIN from the URL path → `…/catalog/products/{ASIN}` |
 | `fantlab.ru` | `fetchFantlabByUrl` | `/workNNNN` page → schema.org microdata (`itemprop` author/name/datePublished) + `og:`/altname tags |
 | `librivox.org` | `fetchLibrivoxByUrl` | the page 403s bots, so the title is recovered from the slug and run through the LibriVox JSON search API |
 
@@ -783,7 +785,7 @@ interface MetadataCandidate {
   asin?:        string
   genres?:      string[]
   language?:    string
-  source: "itunes" | "openlibrary" | "fantlab" | "librivox"
+  source: "audible" | "itunes" | "openlibrary" | "fantlab" | "librivox"
 }
 ```
 
