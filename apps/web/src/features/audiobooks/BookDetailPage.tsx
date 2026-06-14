@@ -453,7 +453,7 @@ function BookDetailView({
       label: "Category",
       value: book.category.name,
       icon: Bookmark,
-      links: [{ text: book.category.name, href: `/audiobooks/categories/${book.category.key}${linkFrom}` }]
+      links: [{ text: book.category.name, href: `/categories/${book.category.key}${linkFrom}` }]
     } : null,
     book.durationSeconds != null ? { label: isEbook ? "Length" : "Audio Length", value: formatDuration(book.durationSeconds), icon: Clock } : null,
     book.totalSize > 0 ? { label: "File Size", value: formatBytes(book.totalSize), icon: HardDrive } : null,
@@ -565,7 +565,7 @@ function BookDetailView({
                 <button
                   className="book-tag-chip book-tag-chip-category"
                   type="button"
-                  onClick={() => navigate(`/audiobooks/categories/${book.category?.key}${linkFrom}`)}
+                  onClick={() => navigate(`/categories/${book.category?.key}${linkFrom}`)}
                 >
                   {book.category.name}
                 </button>
@@ -575,7 +575,7 @@ function BookDetailView({
                   className="book-tag-chip book-tag-chip-tag"
                   key={tag}
                   type="button"
-                  onClick={() => navigate(`/audiobooks/tags/${encodeURIComponent(tag)}${linkFrom}`)}
+                  onClick={() => navigate(`/tags/${encodeURIComponent(tag)}${linkFrom}`)}
                 >
                   {tag}
                 </button>

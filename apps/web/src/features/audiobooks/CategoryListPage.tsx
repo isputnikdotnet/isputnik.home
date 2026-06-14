@@ -3,7 +3,7 @@ import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
-import { AudiobookPageHeader, AudiobookTabs } from "./AudiobooksPage";
+import { AudiobookPageHeader } from "./AudiobooksPage";
 import { CategoryIcon } from "./categoryIcons";
 import type { CategorySummary } from "./types";
 
@@ -24,7 +24,7 @@ export function CategoryListPage({
   }, []);
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell active="categories" user={user} logout={logout}>
       <section className="audiobook-main-page">
         <AudiobookPageHeader
           title="Categories"
@@ -33,16 +33,12 @@ export function CategoryListPage({
 
         {error && <MessageBox tone="error" title="Categories error">{error}</MessageBox>}
 
-        <div className="audiobook-page-nav-row">
-          <AudiobookTabs active="categories" />
-        </div>
-
         <div className="series-grid">
           {categories.map((category) => (
             <button
               key={category.key}
               className="series-card"
-              onClick={() => navigate(`/audiobooks/categories/${category.key}`)}
+              onClick={() => navigate(`/categories/${category.key}`)}
             >
               <div className="series-card-cover category-card-cover" aria-hidden="true">
                 {category.imageUrl ? (

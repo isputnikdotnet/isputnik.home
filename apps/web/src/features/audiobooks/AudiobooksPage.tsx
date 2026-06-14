@@ -29,7 +29,7 @@ export function AudiobookTabs({
   active,
   includeBooks = true
 }: {
-  active: "books" | "authors" | "narrators" | "series" | "categories";
+  active: "books" | "authors" | "narrators" | "series";
   includeBooks?: boolean;
 }) {
   const tabs = [

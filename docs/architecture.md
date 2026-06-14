@@ -225,6 +225,8 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 | [`audiobook-library.md`](audiobook-library.md) | Audiobook library type — scan pipeline, metadata, phases, schema |
 | [`audiobook-db.md`](audiobook-db.md) | Audiobook database ER diagram and table reference |
 | [`special-section.md`](special-section.md) | Special Sections — library grouping and per-library metadata overrides |
+| [`categories.md`](categories.md) | Categories — global genre taxonomy, scan matching, cross-type browse |
+| [`tags.md`](tags.md) | Tags — polymorphic labels, cross-type browse, admin management |
 | [`auth.md`](auth.md) | Authentication detail — sessions, invite flow, future MFA |
 | [`sharing.md`](sharing.md) | Sharing model — general `shares` / `share_links` schema, access resolution |
 | [`library-sharing.md`](library-sharing.md) | Library access model — ownership, visibility, Phase 1 schema, roadmap |

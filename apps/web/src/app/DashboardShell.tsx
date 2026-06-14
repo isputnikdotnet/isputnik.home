@@ -15,6 +15,8 @@ import {
   LogOut,
   Palette,
   Settings,
+  Shapes,
+  Tag,
   UsersRound,
   UserRound
 } from "lucide-react";
@@ -26,7 +28,7 @@ import { followRoute } from "../router";
 
 const APP_VERSION = packageInfo.version;
 
-type DashboardActive = "home" | "audiobooks" | "ebooks" | "about" | "profile" | "control";
+type DashboardActive = "home" | "audiobooks" | "ebooks" | "categories" | "tags" | "about" | "profile" | "control";
 
 interface MainNavLink {
   label: string;
@@ -113,6 +115,8 @@ function userMenuLinks(): UserMenuLink[] {
     { label: "Favorites", href: "/audiobooks/saved", icon: Heart },
     { label: "Bookmarks", href: "/audiobooks/bookmarks", icon: Bookmark },
     { label: "Collections", href: "/collections", icon: ListMusic },
+    { label: "Categories", href: "/categories", icon: Shapes },
+    { label: "Tags", href: "/tags", icon: Tag },
     // Offline downloads only exist in the installed app, so only surface the
     // Downloads screen there.
     ...(isStandalone() ? [{ label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud }] : [])
@@ -122,6 +126,7 @@ function userMenuLinks(): UserMenuLink[] {
 function mobileNavItems(active: DashboardActive, currentPath: string, mediaHref: string): MobileNavItem[] {
   const downloadsActive = currentPath === "/audiobooks/downloads";
   const collectionsActive = currentPath === "/collections" || currentPath.startsWith("/collections/");
+  const categoriesActive = currentPath === "/categories" || currentPath.startsWith("/categories/");
   const mediaActive = (
     currentPath.startsWith("/ebooks") ||
     (currentPath.startsWith("/audiobooks") && !downloadsActive)
@@ -132,6 +137,7 @@ function mobileNavItems(active: DashboardActive, currentPath: string, mediaHref:
     { label: "Media", href: mediaHref, icon: Library, active: mediaActive },
     { label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud, active: downloadsActive },
     { label: "Collections", href: "/collections", icon: ListMusic, active: collectionsActive },
+    { label: "Categories", href: "/categories", icon: Shapes, active: categoriesActive },
     { label: "Profile", href: "/profile", icon: UserRound, active: active === "profile" }
   ];
 }

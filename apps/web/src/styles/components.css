@@ -3206,3 +3206,45 @@
   width: 100%;
 }
 
+/* ── Media-type badge (shared/MediaKindBadge) ───────────────────────
+   Global audiobook-vs-ebook indicator for surfaces that mix both types
+   (home rows, the cross-type feed, category detail). A solid type-coloured pill
+   with a lighter ring and white text/icon, so it reads on any cover art. */
+.media-kind-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border: 1.5px solid transparent;
+  border-radius: 9px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: #fff;
+}
+
+/* Icon + text variant gets a touch more horizontal padding. */
+.media-kind-badge.labeled {
+  padding: 5px 9px 5px 7px;
+}
+
+.media-kind-badge.audiobook {
+  background: #21456e;
+  border-color: #6ea2d6;
+}
+
+.media-kind-badge.ebook {
+  background: #234d30;
+  border-color: #5da76d;
+}
+
+/* Pinned to the top-right of a cover/thumbnail. */
+.media-kind-badge.overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+}
+

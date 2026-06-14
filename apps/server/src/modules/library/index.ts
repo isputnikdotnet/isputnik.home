@@ -8,6 +8,8 @@ import { libraryMembersPlugin } from "./shared/members.js";
 import { registerTrashRoutes } from "./shared/trash-routes.js";
 import { startTrashPurgeWorker } from "./shared/trash.js";
 import { registerFeedRoutes } from "./feed.js";
+import { registerCategoryRoutes } from "./categories.js";
+import { registerTagRoutes } from "./tags.js";
 
 export async function libraryPlugin(app: FastifyInstance) {
   await app.register(librarySettingsPlugin);
@@ -20,6 +22,12 @@ export async function libraryPlugin(app: FastifyInstance) {
   // Cross-type routes live at the library level rather than inside one media
   // plugin: the home feeds (recent / continue across audiobooks + ebooks)…
   registerFeedRoutes(app);
+
+  // …the global Categories browse (one taxonomy across every book-like type)…
+  registerCategoryRoutes(app);
+
+  // …the global Tags browse (polymorphic taggables, cross-type)…
+  registerTagRoutes(app);
 
   // …and the Recycle Bin, whose sweeper auto-purges items past the retention window.
   registerTrashRoutes(app);

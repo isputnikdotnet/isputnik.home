@@ -25,9 +25,10 @@ export type Route =
   | { name: "audiobookNarratorDetail"; personName: string }
   | { name: "audiobookSeries" }
   | { name: "audiobookSeriesDetail"; seriesId: string }
-  | { name: "audiobookCategories" }
-  | { name: "audiobookCategoryDetail"; categoryKey: string }
-  | { name: "audiobookTagDetail"; tagName: string }
+  | { name: "categories" }
+  | { name: "categoryDetail"; categoryKey: string }
+  | { name: "tags" }
+  | { name: "tagDetail"; tagName: string }
   | { name: "control"; section: ControlSection }
   | { name: "controlCategoryEditor"; categoryId: string | null }
   | { name: "about" }
@@ -155,18 +156,24 @@ export function getRoute(): Route {
     return { name: "audiobookSeriesDetail", seriesId: audiobookSeriesDetailMatch[1] };
   }
 
-  if (path === "/audiobooks/categories") {
-    return { name: "audiobookCategories" };
+  // Global, cross-type Categories browse (audiobooks + ebooks).
+  if (path === "/categories") {
+    return { name: "categories" };
   }
 
-  const audiobookCategoryDetailMatch = path.match(/^\/audiobooks\/categories\/([^/]+)$/);
-  if (audiobookCategoryDetailMatch) {
-    return { name: "audiobookCategoryDetail", categoryKey: audiobookCategoryDetailMatch[1] };
+  const categoryDetailMatch = path.match(/^\/categories\/([^/]+)$/);
+  if (categoryDetailMatch) {
+    return { name: "categoryDetail", categoryKey: categoryDetailMatch[1] };
   }
 
-  const audiobookTagDetailMatch = path.match(/^\/audiobooks\/tags\/(.+)$/);
-  if (audiobookTagDetailMatch) {
-    return { name: "audiobookTagDetail", tagName: decodeURIComponent(audiobookTagDetailMatch[1]) };
+  // Global, cross-type Tags browse (audiobooks + ebooks).
+  if (path === "/tags") {
+    return { name: "tags" };
+  }
+
+  const tagDetailMatch = path.match(/^\/tags\/(.+)$/);
+  if (tagDetailMatch) {
+    return { name: "tagDetail", tagName: decodeURIComponent(tagDetailMatch[1]) };
   }
 
   if (["/control/accounts", "/control/users"].includes(path)) {

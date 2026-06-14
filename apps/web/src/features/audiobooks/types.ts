@@ -1,3 +1,5 @@
+import type { FeedItem } from "../library/feed";
+
 // Per-object roles. `deny` is an explicit block, not a tier. See docs/permissions.md.
 export type LibraryRole = "viewer" | "member" | "contributor" | "manager" | "deny";
 // Roles the public (Everyone) can hold on a library — never manager/deny.
@@ -315,12 +317,9 @@ export interface CategoryDetail {
   name: string;
   icon: string | null;
   imageUrl: string | null;
-  books: {
-    id: string;
-    title: string;
-    authors: string[];
-    coverUrl: string | null;
-  }[];
+  // Cross-type: the same FeedItem shape the home feeds use, so the detail page
+  // reuses FeedTile (media-type badge + correct per-type detail route).
+  books: FeedItem[];
 }
 
 export interface TagSummary {

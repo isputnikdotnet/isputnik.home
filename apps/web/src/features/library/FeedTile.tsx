@@ -1,11 +1,12 @@
 import { BookOpen, Headphones, Play } from "lucide-react";
 import { followRoute } from "../../router";
+import { MediaKindBadge } from "../../shared/MediaKindBadge";
 import { authorLine, feedHref, timeAgo, type FeedItem } from "./feed";
 
 // Reuses the Audiobooks catalog card (.audiobook-catalog-*) so home / recent /
 // continue tiles look identical to the main library. `progress` shows the
 // in-progress pill + bar; `added` appends "· 3 days ago" to the author line.
-export function FeedTile({ item, progress, added }: { item: FeedItem; progress?: boolean; added?: boolean }) {
+export function FeedTile({ item, progress, added, kindLabel }: { item: FeedItem; progress?: boolean; added?: boolean; kindLabel?: boolean }) {
   const href = feedHref(item);
   const percent = Math.round((item.percentComplete ?? 0) * 100);
   const meta = added
@@ -18,14 +19,16 @@ export function FeedTile({ item, progress, added }: { item: FeedItem; progress?:
         {item.coverUrl ? (
           <img src={item.coverUrl} alt="" loading="lazy" />
         ) : (
+          // No cover art — fall back to a media-type illustration so the tile
+          // still reads as an audiobook (headphones) or ebook (book).
           <>
-            <BookOpen size={34} aria-hidden="true" />
+            {item.kind === "ebook"
+              ? <BookOpen size={40} aria-hidden="true" />
+              : <Headphones size={40} aria-hidden="true" />}
             <strong>{item.title.slice(0, 2).toUpperCase()}</strong>
           </>
         )}
-        <span className={`home-tile-kind ${item.kind}`} title={item.kind === "ebook" ? "Ebook" : "Audiobook"}>
-          {item.kind === "ebook" ? <BookOpen size={13} aria-hidden="true" /> : <Headphones size={13} aria-hidden="true" />}
-        </span>
+        <MediaKindBadge kind={item.kind} overlay showLabel={kindLabel} />
         {progress && percent > 0 && (
           <>
             <span className="audiobook-catalog-pct" title={`${percent}% complete`}>

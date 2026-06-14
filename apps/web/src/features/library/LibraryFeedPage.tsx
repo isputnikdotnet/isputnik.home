@@ -78,7 +78,7 @@ export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: 
             {items === null
               ? Array.from({ length: 12 }).map((_, index) => <FeedTileSkeleton key={index} />)
               : items.map((item) => (
-                <FeedTile key={`${item.kind}-${item.id}`} item={item} progress={mode === "continue"} added={mode === "recent"} />
+                <FeedTile key={`${item.kind}-${item.id}`} item={item} progress={mode === "continue"} added={mode === "recent"} kindLabel />
               ))}
           </div>
         )}

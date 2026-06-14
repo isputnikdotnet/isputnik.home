@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
+import { BOOK_LIBRARY_TYPES } from "../shared/library-types.js";
 
 // Normalize a genre/tag string for matching and dedup: strip diacritics, lowercase,
 // unify separators, collapse whitespace.
@@ -68,18 +69,20 @@ export function addEntityTags(entityType: string, entityId: string, displayNames
   }
 }
 
-// Recompute the primary category of every non-manual audiobook from its existing tags
-// and the current alias table. Cheap (DB-only) — no file rescan. Returns rows changed.
+// Recompute the primary category of every non-manual book (any book-like library
+// type) from its existing tags and the current alias table. Cheap (DB-only) — no
+// file rescan. Returns rows changed.
 export function rematchAllCategories(): number {
+  const typePlaceholders = BOOK_LIBRARY_TYPES.map(() => "?").join(", ");
   const books = db.prepare(`
     SELECT books.id AS id, book_metadata.category_id AS category_id
     FROM books
     JOIN book_metadata ON book_metadata.book_id = books.id
     JOIN libraries ON libraries.id = books.library_id
     WHERE books.deleted_at IS NULL
-      AND libraries.type = 'audiobook'
+      AND libraries.type IN (${typePlaceholders})
       AND book_metadata.source != 'manual'
-  `).all() as { id: string; category_id: string | null }[];
+  `).all(...BOOK_LIBRARY_TYPES) as { id: string; category_id: string | null }[];
 
   const tagsFor = db.prepare(`
     SELECT tags.display_name AS name

@@ -6,6 +6,7 @@
 import type { FastifyInstance } from "fastify";
 import { db } from "../../db.js";
 import { accessibleLibraryIds } from "./shared/library-access.js";
+import { BOOK_LIBRARY_TYPES } from "./shared/library-types.js";
 
 export interface FeedItem {
   id: string;
@@ -18,7 +19,7 @@ export interface FeedItem {
   discoveredAt: string;
 }
 
-interface FeedRow {
+export interface FeedRow {
   id: string;
   kind: "audiobook" | "ebook";
   title: string | null;
@@ -32,9 +33,10 @@ interface FeedRow {
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
 
-// Columns + joins shared by both feeds; the per-feed query supplies `pct` and
-// `completed_at` (NULL for recent, the progress row for continue).
-const FEED_COLUMNS = `
+// Columns + joins shared by both feeds and the global category-detail query; the
+// caller supplies `pct` and `completed_at` (NULL for recent, the progress row for
+// continue / category detail).
+export const FEED_COLUMNS = `
   books.id,
   libraries.type AS kind,
   book_metadata.title AS title,
@@ -43,7 +45,7 @@ const FEED_COLUMNS = `
   book_metadata.cover_storage_key,
   GROUP_CONCAT(DISTINCT authors.name) AS author_names`;
 
-const FEED_JOINS = `
+export const FEED_JOINS = `
   FROM books
   JOIN libraries ON libraries.id = books.library_id
   LEFT JOIN book_metadata ON book_metadata.book_id = books.id
@@ -52,7 +54,7 @@ const FEED_JOINS = `
 
 // One progress row per book — the most-recent activity from either table. SQLite
 // returns the pct/completed_at from the MAX(updated_at) row (bare-column + max).
-const PROGRESS_CTE = `
+export const PROGRESS_CTE = `
   WITH prog AS (
     SELECT book_id, percent_complete AS pct, completed_at, MAX(updated_at) AS updated_at
     FROM playback_progress WHERE user_id = ? GROUP BY book_id
@@ -61,7 +63,7 @@ const PROGRESS_CTE = `
     FROM reading_progress WHERE user_id = ? GROUP BY book_id
   )`;
 
-function mapRow(row: FeedRow): FeedItem {
+export function mapRow(row: FeedRow): FeedItem {
   return {
     id: row.id,
     kind: row.kind,
@@ -74,16 +76,40 @@ function mapRow(row: FeedRow): FeedItem {
   };
 }
 
-function libraryIds(user: { id: string; role: string }): string[] {
-  return [
-    ...accessibleLibraryIds(user.id, user.role, "audiobook"),
-    ...accessibleLibraryIds(user.id, user.role, "ebook")
-  ];
+// Every library id of a book-like type the user can access (audiobooks + ebooks,
+// and any future BOOK_LIBRARY_TYPES). Shared by the feeds and the cross-type
+// category / tag browse.
+export function bookLibraryIds(user: { id: string; role: string }): string[] {
+  return BOOK_LIBRARY_TYPES.flatMap((type) => [...accessibleLibraryIds(user.id, user.role, type)]);
+}
+
+// Books of any book-like type matching an extra membership predicate, mapped to
+// the cross-type FeedItem shape (carrying `kind`). Powers the global category and
+// tag detail pages — the caller supplies the WHERE fragment + its bound args.
+export function crossTypeBooksByFilter(
+  userId: string,
+  libIds: string[],
+  filterSql: string,
+  filterArgs: unknown[]
+): FeedItem[] {
+  if (libIds.length === 0) return [];
+  const rows = db.prepare(`
+    ${PROGRESS_CTE}
+    SELECT ${FEED_COLUMNS}, prog.pct AS pct, prog.completed_at AS completed_at
+    ${FEED_JOINS}
+    LEFT JOIN prog ON prog.book_id = books.id
+    WHERE books.deleted_at IS NULL
+      AND books.library_id IN (${placeholders(libIds.length)})
+      AND ${filterSql}
+    GROUP BY books.id
+    ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE, books.id
+  `).all(userId, userId, ...libIds, ...filterArgs) as FeedRow[];
+  return rows.map(mapRow);
 }
 
 // Newest additions across audiobooks + ebooks.
 export function recentlyAdded(user: { id: string; role: string }, limit: number, offset: number): { items: FeedItem[]; total: number } {
-  const libIds = libraryIds(user);
+  const libIds = bookLibraryIds(user);
   if (libIds.length === 0) return { items: [], total: 0 };
   const inLibs = placeholders(libIds.length);
 
@@ -106,7 +132,7 @@ export function recentlyAdded(user: { id: string; role: string }, limit: number,
 
 // In-progress across audiobooks + ebooks, most-recent activity first.
 export function inProgress(user: { id: string; role: string }, limit: number, offset: number): { items: FeedItem[]; total: number } {
-  const libIds = libraryIds(user);
+  const libIds = bookLibraryIds(user);
   if (libIds.length === 0) return { items: [], total: 0 };
   const inLibs = placeholders(libIds.length);
   const where = `

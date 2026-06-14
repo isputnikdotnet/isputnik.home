@@ -481,23 +481,8 @@ a.home-overview-card:focus-visible {
   animation: home-pulse 1.3s ease-in-out infinite;
 }
 
-/* Audiobook vs ebook chip (top-right) — the rows mix both types. */
-.home-tile-kind {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  background: rgba(2, 8, 13, 0.6);
-  backdrop-filter: blur(4px);
-}
-
-.home-tile-kind.audiobook { color: var(--home-accent); }
-.home-tile-kind.ebook { color: var(--home-green); }
+/* The audiobook/ebook indicator is now the global shared/MediaKindBadge
+   component — see .media-kind-badge in components.css. */
 
 /* Unified feed page ("View all" target): the same tiles, but a normal wrapping,
    scrolling grid instead of the home's single clipped row. */
