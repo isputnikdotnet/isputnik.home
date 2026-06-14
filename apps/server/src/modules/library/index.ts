@@ -7,6 +7,7 @@ import { ebookPlugin } from "./ebook/index.js";
 import { libraryMembersPlugin } from "./shared/members.js";
 import { registerTrashRoutes } from "./shared/trash-routes.js";
 import { startTrashPurgeWorker } from "./shared/trash.js";
+import { registerFeedRoutes } from "./feed.js";
 
 export async function libraryPlugin(app: FastifyInstance) {
   await app.register(librarySettingsPlugin);
@@ -16,8 +17,11 @@ export async function libraryPlugin(app: FastifyInstance) {
   await app.register(audiobookPlugin);
   await app.register(ebookPlugin);
 
-  // Recycle Bin is cross-type, so its routes live at the library level rather than inside
-  // one media plugin. The sweeper auto-purges items past the retention window.
+  // Cross-type routes live at the library level rather than inside one media
+  // plugin: the home feeds (recent / continue across audiobooks + ebooks)…
+  registerFeedRoutes(app);
+
+  // …and the Recycle Bin, whose sweeper auto-purges items past the retention window.
   registerTrashRoutes(app);
   const stopPurgeWorker = startTrashPurgeWorker();
   app.addHook("onClose", async () => {

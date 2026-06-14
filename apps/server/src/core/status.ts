@@ -336,6 +336,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.27.0",
+          label: "Home dashboard: Continue & Recently added",
+          changes: [
+            "The home page now opens on your real library instead of placeholder tiles. A \"Continue listening & reading\" row gathers the audiobooks and ebooks you're partway through — most recently played or read first — and a \"Recently added\" row shows the newest titles, both spanning audiobooks and ebooks together.",
+            "A slim overview strip across the top links straight to your Audiobooks, Ebooks, in-progress books, and Favorites, each with a live count.",
+            "Each row's \"View all\" opens a full cross-library page — Recently added or Continue — that lists the latest items across the whole digital library, using the same cover tiles as the Audiobooks page."
+          ]
+        },
+        {
           version: "0.26.0",
           label: "Audible metadata provider",
           changes: [

@@ -6,6 +6,7 @@ export type Route =
   | { name: "install" }
   | { name: "login" }
   | { name: "home" }
+  | { name: "libraryFeed"; mode: "recent" | "continue" }
   | { name: "audiobooks" }
   | { name: "audiobookSaved" }
   | { name: "audiobookBookmarks" }
@@ -65,6 +66,15 @@ export function getRoute(): Route {
 
   if (path === "/ebooks") {
     return { name: "ebooks" };
+  }
+
+  // Cross-type home feeds behind the dashboard's "View all" links.
+  if (path === "/recent") {
+    return { name: "libraryFeed", mode: "recent" };
+  }
+
+  if (path === "/continue") {
+    return { name: "libraryFeed", mode: "continue" };
   }
 
   if (path === "/collections") {
