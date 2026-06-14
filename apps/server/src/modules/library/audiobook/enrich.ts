@@ -12,7 +12,7 @@ import { downloadImage, REMOTE_FETCH_USER_AGENT } from "../shared/remote-image.j
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { fetchLibrivoxById, resolveArchiveCoverUrl, searchLibrivox, searchLibrivoxByAuthor } from "./providers/librivox.js";
 import { searchOpenLibrary } from "./providers/open-library.js";
-import type { MetadataCandidate } from "./providers/types.js";
+import { MetadataLinkError, type MetadataCandidate } from "./providers/types.js";
 
 const REQUEST_TIMEOUT_MS = 12_000;
 // Pause between consecutive online lookups, shared across the whole process so
@@ -251,6 +251,69 @@ export async function lookupPersonInfo(name: string, languages: string[]): Promi
       }
     }
     return await lookupOpenLibraryPerson(name).catch(() => null);
+  });
+}
+
+// Resolve a single pasted person link to a bio + photo. Only the two person
+// sources are accepted (a deliberate boundary, mirroring the book custom-link
+// allowlist). Unlike the auto lookup, no occupation guard is applied — an
+// explicit link is a trusted choice.
+export async function lookupPersonByUrl(rawUrl: string): Promise<PersonLookupResult | null> {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new MetadataLinkError("Enter a valid link (including https://).");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new MetadataLinkError("Only http(s) links are supported.");
+  }
+  const host = url.hostname.toLowerCase();
+
+  return enqueueLookup(async () => {
+    if (host === "wikipedia.org" || host.endsWith(".wikipedia.org")) {
+      const lang = host.replace(/\.wikipedia\.org$/, "").split(".")[0] || "en";
+      const title = url.pathname.match(/\/wiki\/(.+)$/)?.[1];
+      if (!title) {
+        throw new MetadataLinkError("That doesn't look like a Wikipedia article link.");
+      }
+      const summary = await fetchJson<WikipediaSummary>(
+        `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(decodeURIComponent(title))}`
+      );
+      if (!summary || summary.type !== "standard" || !summary.extract) {
+        return null;
+      }
+      return {
+        bio: summary.extract,
+        photoUrl: summary.originalimage?.source ?? summary.thumbnail?.source ?? null,
+        source: "wikipedia",
+        sourceUrl: summary.content_urls?.desktop?.page ?? url.href
+      };
+    }
+
+    if (host === "openlibrary.org" || host === "www.openlibrary.org") {
+      const olid = url.pathname.match(/\/authors\/(OL\w+)/i)?.[1];
+      if (!olid) {
+        throw new MetadataLinkError("That doesn't look like an Open Library author link.");
+      }
+      const detail = await fetchJson<{ bio?: string | { value?: string } }>(
+        `https://openlibrary.org/authors/${olid}.json`
+      );
+      if (!detail) {
+        return null;
+      }
+      const bio = typeof detail.bio === "string" ? detail.bio : detail.bio?.value ?? null;
+      return {
+        bio: bio?.trim() || null,
+        // 404s (rather than a placeholder) when the author has no photo; the UI
+        // drops it on image-load error.
+        photoUrl: `https://covers.openlibrary.org/a/olid/${olid}-L.jpg?default=false`,
+        source: "openlibrary",
+        sourceUrl: `https://openlibrary.org/authors/${olid}`
+      };
+    }
+
+    throw new MetadataLinkError("Paste a Wikipedia or Open Library author link.");
   });
 }
 

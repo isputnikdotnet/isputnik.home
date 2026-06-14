@@ -7,6 +7,7 @@ import dns from "node:dns/promises";
 export const REMOTE_FETCH_USER_AGENT = "isputnik-home/1.0 (self-hosted family media library)";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_TEXT_BYTES = 3 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 3;
 
@@ -103,4 +104,58 @@ export async function downloadImage(url: string, options: { maxBytes?: number; t
   }
 
   throw new Error("Unable to download image.");
+}
+
+// SSRF-safe text/JSON fetch for user-supplied metadata links (Open Library /
+// Apple / FantLab / LibriVox book pages). Same per-hop address guard and
+// redirect handling as downloadImage; returns the decoded UTF-8 body, capped.
+export async function fetchTextFromUrl(
+  url: string,
+  options: { accept?: string; maxBytes?: number; timeoutMs?: number } = {}
+) {
+  const maxBytes = options.maxBytes ?? MAX_TEXT_BYTES;
+  const timeoutMs = options.timeoutMs ?? FETCH_TIMEOUT_MS;
+  let current = new URL(url);
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    await assertSafeUrl(current);
+
+    const response = await fetch(current, {
+      redirect: "manual",
+      headers: {
+        "user-agent": REMOTE_FETCH_USER_AGENT,
+        ...(options.accept ? { accept: options.accept } : {})
+      },
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      await response.body?.cancel().catch(() => {});
+      if (!location || hop === MAX_REDIRECTS) {
+        throw new Error("Unable to fetch URL.");
+      }
+      current = new URL(location, current);
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Request failed (${response.status}).`);
+    }
+
+    // Enforce the cap while reading — Content-Length may be absent or untruthful.
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for await (const chunk of streamFromResponse(response)) {
+      total += chunk.byteLength;
+      if (total > maxBytes) {
+        throw new Error("Response is too large.");
+      }
+      chunks.push(chunk);
+    }
+
+    return Buffer.concat(chunks).toString("utf8");
+  }
+
+  throw new Error("Unable to fetch URL.");
 }

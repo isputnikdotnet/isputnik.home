@@ -269,7 +269,7 @@ export interface MetadataCandidate {
   asin?: string;
   genres?: string[];
   language?: string;
-  source: "itunes" | "openlibrary" | "fantlab";
+  source: "itunes" | "openlibrary" | "fantlab" | "librivox";
 }
 
 export interface SeriesSummary {

@@ -27,3 +27,16 @@ export interface MetadataSearchInput {
   author?: string;
   limit?: number;
 }
+
+// Thrown when a user-supplied metadata link is malformed or points at an
+// unsupported host — a 400 (user-fixable), distinct from a provider fetch
+// failure (502). Lives here so both index.ts and the provider modules can
+// throw it without importing each other.
+export class MetadataLinkError extends Error {
+  status: number;
+  constructor(message: string, status = 400) {
+    super(message);
+    this.name = "MetadataLinkError";
+    this.status = status;
+  }
+}

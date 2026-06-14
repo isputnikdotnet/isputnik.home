@@ -52,6 +52,10 @@ export const coverSourceSchema = z.object({
   relativePath: z.string().trim().min(1).max(1000)
 });
 
+export const coverFromUrlSchema = z.object({
+  url: z.string().trim().url().max(2000)
+});
+
 export const manualMetadataSchema = z.object({
   title: z.string().trim().min(1).max(240),
   authors: z.array(z.string().trim().min(1).max(160)).default([]),

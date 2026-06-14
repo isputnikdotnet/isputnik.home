@@ -1,4 +1,4 @@
-import type { MetadataCandidate, MetadataSearchInput } from "./types.js";
+import { MetadataLinkError, type MetadataCandidate, type MetadataSearchInput } from "./types.js";
 
 const fantlabBaseUrl = "https://fantlab.ru";
 
@@ -68,20 +68,23 @@ async function fetchFantlabHtml(url: string) {
   return response.text();
 }
 
+function parseWorkPageDetail(html: string) {
+  const description = decodeHtml(matchFirst(html, /<meta\s+property="og:description"\s+content="([^"]*)"/i) ?? "");
+  const coverUrl = normaliseFantlabUrl(matchFirst(html, /<meta\s+property="og:image"\s+content="([^"]*)"/i));
+
+  // Original (non-Russian) title — shown on translated work pages
+  const rawOriginal =
+    matchFirst(html, /class="[^"]*altname[^"]*"[^>]*>([\s\S]*?)<\//i) ??
+    matchFirst(html, /class="[^"]*original-name[^"]*"[^>]*>([\s\S]*?)<\//i) ??
+    matchFirst(html, /Другие\s+названия[\s\S]*?<[^>]+>([\s\S]*?)<\//i);
+  const originalTitle = rawOriginal ? stripTags(rawOriginal).trim() || undefined : undefined;
+
+  return { description: description || undefined, coverUrl, originalTitle };
+}
+
 async function enrichFromWorkPage(relativeUrl: string) {
   try {
-    const html = await fetchFantlabHtml(normaliseFantlabUrl(relativeUrl)!);
-    const description = decodeHtml(matchFirst(html, /<meta\s+property="og:description"\s+content="([^"]*)"/i) ?? "");
-    const coverUrl = normaliseFantlabUrl(matchFirst(html, /<meta\s+property="og:image"\s+content="([^"]*)"/i));
-
-    // Original (non-Russian) title — shown on translated work pages
-    const rawOriginal =
-      matchFirst(html, /class="[^"]*altname[^"]*"[^>]*>([\s\S]*?)<\//i) ??
-      matchFirst(html, /class="[^"]*original-name[^"]*"[^>]*>([\s\S]*?)<\//i) ??
-      matchFirst(html, /Другие\s+названия[\s\S]*?<[^>]+>([\s\S]*?)<\//i);
-    const originalTitle = rawOriginal ? stripTags(rawOriginal).trim() || undefined : undefined;
-
-    return { description: description || undefined, coverUrl, originalTitle };
+    return parseWorkPageDetail(await fetchFantlabHtml(normaliseFantlabUrl(relativeUrl)!));
   } catch {
     return { description: undefined, coverUrl: undefined, originalTitle: undefined };
   }
@@ -116,4 +119,40 @@ export async function searchFantlab(input: MetadataSearchInput): Promise<Metadat
   }));
 
   return candidates.filter((candidate) => candidate.title);
+}
+
+// A single work page (https://fantlab.ru/workNNNN). Title/author/year come from
+// the page's schema.org microdata (work authors link to /autorN; comment
+// authors link to /userN, so the href guard excludes them); description, cover,
+// and original title reuse the same og:/altname parsing as search enrichment.
+export async function fetchFantlabByUrl(url: string): Promise<MetadataCandidate[]> {
+  const pathname = new URL(url).pathname;
+  if (!/^\/work\d+\/?$/.test(pathname)) {
+    throw new MetadataLinkError("That doesn't look like a FantLab work link (expected fantlab.ru/workNNNN).");
+  }
+
+  const html = await fetchFantlabHtml(`${fantlabBaseUrl}${pathname}`);
+  const ogTitle = decodeHtml(matchFirst(html, /<meta\s+property="og:title"\s+content="([^"]*)"/i) ?? "");
+  const title = ogTitle.match(/«([^»]+)»/)?.[1]?.trim()
+    || stripTags(matchFirst(html, /itemprop="name"[^>]*>([\s\S]*?)<\//i) ?? "");
+  if (!title) {
+    throw new MetadataLinkError("Could not read a title from that FantLab page.");
+  }
+
+  const authors = Array.from(html.matchAll(/itemprop="author"\s+href="\/autor\d+"[^>]*>([\s\S]*?)<\/a>/gi))
+    .map((match) => stripTags(match[1]).replace(/^[^\p{L}(]+/u, "").trim())
+    .filter(Boolean);
+  const year = matchFirst(html, /itemprop="datePublished"[^>]*>\s*(\d{4})/i);
+  const detail = parseWorkPageDetail(html);
+
+  return [{
+    title,
+    subtitle: detail.originalTitle,
+    authors: Array.from(new Set(authors)),
+    year: year ? Number(year) : undefined,
+    description: detail.description,
+    coverUrl: detail.coverUrl,
+    language: "ru",
+    source: "fantlab"
+  }];
 }

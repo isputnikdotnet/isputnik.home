@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, CheckCircle2, Pencil, RotateCcw, Save, Search, Upload, X } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronDown, ChevronUp, Link2, Pencil, RotateCcw, Save, Search, Upload, X } from "lucide-react";
 import { api } from "../../api";
 import { PeopleCombobox } from "./PeopleCombobox";
 import { MessageBox } from "../../shared/MessageBox";
@@ -31,7 +31,10 @@ export function EditMetadataModal({
   const [metadataResults, setMetadataResults] = useState<MetadataCandidate[]>([]);
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [applyingIndex, setApplyingIndex] = useState<number | null>(null);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [metadataError, setMetadataError] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkLoading, setLinkLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [resetError, setResetError] = useState("");
@@ -41,6 +44,11 @@ export function EditMetadataModal({
   const [coverLoading, setCoverLoading] = useState(false);
   const [coverSaving, setCoverSaving] = useState("");
   const [coverError, setCoverError] = useState("");
+  const [coverQuery, setCoverQuery] = useState(`${book.title} ${book.authors[0] ?? ""}`.trim());
+  // null = not searched yet; [] = searched, found nothing.
+  const [onlineCovers, setOnlineCovers] = useState<{ url: string; source: string }[] | null>(null);
+  const [onlineCoversLoading, setOnlineCoversLoading] = useState(false);
+  const [hiddenCoverUrls, setHiddenCoverUrls] = useState<Set<string>>(new Set());
   const [libraryPeople, setLibraryPeople] = useState<string[]>([]);
   const [librarySeries, setLibrarySeries] = useState<string[]>([]);
   const [libraryTags, setLibraryTags] = useState<string[]>([]);
@@ -116,6 +124,7 @@ export function EditMetadataModal({
   const searchMetadata = async () => {
     setMetadataLoading(true);
     setMetadataError("");
+    setExpandedIndex(null);
     try {
       const params = new URLSearchParams({
         q: metadataQuery || book.title,
@@ -127,6 +136,27 @@ export function EditMetadataModal({
       setMetadataError(err instanceof Error ? err.message : "Unable to search metadata");
     } finally {
       setMetadataLoading(false);
+    }
+  };
+
+  // Resolve a pasted book-page link (Open Library / Apple Books / FantLab /
+  // LibriVox) into the same results list the search populates.
+  const fetchFromLink = async () => {
+    const url = linkUrl.trim();
+    if (!url) {
+      return;
+    }
+    setLinkLoading(true);
+    setMetadataError("");
+    setExpandedIndex(null);
+    try {
+      const params = new URLSearchParams({ url });
+      const payload = await api<{ candidates: MetadataCandidate[] }>(`/api/library/books/${book.id}/metadata-from-url?${params}`);
+      setMetadataResults(payload.candidates);
+    } catch (err) {
+      setMetadataError(err instanceof Error ? err.message : "Unable to read metadata from that link");
+    } finally {
+      setLinkLoading(false);
     }
   };
 
@@ -234,6 +264,49 @@ export function EditMetadataModal({
       showUpdatedCover(payload.book);
     } catch (err) {
       setCoverError(err instanceof Error ? err.message : "Unable to upload cover");
+    } finally {
+      setCoverSaving("");
+    }
+  };
+
+  // Online cover picker (Cover tab): reuse the metadata search to gather cover
+  // art from every provider, then apply only the chosen image — no other
+  // metadata is touched.
+  const searchOnlineCovers = async () => {
+    setOnlineCoversLoading(true);
+    setCoverError("");
+    setHiddenCoverUrls(new Set());
+    try {
+      const params = new URLSearchParams({ q: coverQuery || book.title, provider: "all" });
+      const payload = await api<{ candidates: MetadataCandidate[] }>(`/api/library/books/${book.id}/metadata-search?${params}`);
+      const seen = new Set<string>();
+      const covers = payload.candidates
+        .filter((candidate) => candidate.coverUrl && !seen.has(candidate.coverUrl) && seen.add(candidate.coverUrl))
+        .map((candidate) => ({ url: candidate.coverUrl!, source: candidate.source }));
+      setOnlineCovers(covers);
+    } catch (err) {
+      setCoverError(err instanceof Error ? err.message : "Unable to search covers");
+    } finally {
+      setOnlineCoversLoading(false);
+    }
+  };
+
+  const hideOnlineCover = (url: string) => {
+    setHiddenCoverUrls((current) => new Set(current).add(url));
+  };
+
+  const applyOnlineCover = async (url: string) => {
+    setCoverSaving(url);
+    setCoverError("");
+    try {
+      const payload = await api<{ updated: boolean; book: AudiobookBookDetail }>(`/api/library/books/${book.id}/cover-from-url`, {
+        method: "POST",
+        body: JSON.stringify({ url })
+      });
+      showUpdatedCover(payload.book);
+    } catch (err) {
+      setCoverError(err instanceof Error ? err.message : "Unable to apply cover");
+      hideOnlineCover(url);
     } finally {
       setCoverSaving("");
     }
@@ -471,6 +544,55 @@ export function EditMetadataModal({
                 </section>
               </div>
 
+              <section className="cover-online-panel">
+                <div className="cover-picker-head">
+                  <div>
+                    <strong>Find covers online</strong>
+                    <span>iTunes · Open Library · FantLab · LibriVox</span>
+                  </div>
+                </div>
+                <div className="cover-online-search">
+                  <label className="search-field">
+                    <Search size={17} aria-hidden="true" />
+                    <input
+                      type="search"
+                      value={coverQuery}
+                      onChange={(event) => setCoverQuery(event.target.value)}
+                      onKeyDown={(event) => { if (event.key === "Enter") searchOnlineCovers(); }}
+                      placeholder="Search title or author"
+                      aria-label="Search online covers"
+                    />
+                  </label>
+                  <button className="primary-button metadata-search-button" onClick={searchOnlineCovers} disabled={onlineCoversLoading}>
+                    <Search size={16} />
+                    <span>{onlineCoversLoading ? "Searching..." : "Search"}</span>
+                  </button>
+                </div>
+
+                {onlineCovers !== null && (
+                  onlineCovers.filter((cover) => !hiddenCoverUrls.has(cover.url)).length > 0 ? (
+                    <div className="cover-candidate-grid">
+                      {onlineCovers
+                        .filter((cover) => !hiddenCoverUrls.has(cover.url))
+                        .map((cover) => (
+                          <button
+                            className="cover-candidate"
+                            key={cover.url}
+                            onClick={() => applyOnlineCover(cover.url)}
+                            disabled={Boolean(coverSaving)}
+                          >
+                            <img src={cover.url} alt="" onError={() => hideOnlineCover(cover.url)} />
+                            <span>{cover.source}</span>
+                            <strong>{coverSaving === cover.url ? "Applying..." : "Use this cover"}</strong>
+                          </button>
+                        ))}
+                    </div>
+                  ) : (
+                    !onlineCoversLoading && <p className="management-empty">No cover art found. Try a different title or author.</p>
+                  )
+                )}
+              </section>
+
               <label className="cover-upload-panel">
                 <Upload size={18} />
                 <span>{coverSaving === "upload" ? "Uploading..." : "Upload new cover"}</span>
@@ -529,6 +651,25 @@ export function EditMetadataModal({
                 </label>
               </div>
 
+              <div className="metadata-link-row">
+                <label className="search-field metadata-link-field">
+                  <Link2 size={16} aria-hidden="true" />
+                  <input
+                    type="url"
+                    value={linkUrl}
+                    onChange={(event) => setLinkUrl(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === "Enter") fetchFromLink(); }}
+                    placeholder="…or paste a book link"
+                    aria-label="Book metadata link"
+                  />
+                </label>
+                <button className="secondary-button metadata-search-button" onClick={fetchFromLink} disabled={linkLoading || !linkUrl.trim()}>
+                  <Link2 size={16} />
+                  <span>{linkLoading ? "Fetching..." : "Fetch"}</span>
+                </button>
+                <small className="metadata-link-hint">Pull metadata straight from an Open Library, Apple Books, FantLab, or LibriVox page.</small>
+              </div>
+
               {metadataError && <MessageBox tone="error" title="Metadata lookup error">{metadataError}</MessageBox>}
 
               <div className="metadata-results">
@@ -551,14 +692,25 @@ export function EditMetadataModal({
                       {candidate.subtitle && <em>{candidate.subtitle}</em>}
                       {candidate.description && <p>{candidate.description}</p>}
                     </div>
-                    <button
-                      className="primary-button compact-button metadata-apply-button"
-                      onClick={() => applyMetadata(candidate, index)}
-                      disabled={applyingIndex !== null}
-                    >
-                      <CheckCircle2 size={15} />
-                      <span>{applyingIndex === index ? "Applying..." : "Apply"}</span>
-                    </button>
+                    <div className="metadata-result-actions">
+                      <button
+                        className="primary-button compact-button metadata-apply-button"
+                        onClick={() => applyMetadata(candidate, index)}
+                        disabled={applyingIndex !== null}
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>{applyingIndex === index ? "Applying..." : "Apply"}</span>
+                      </button>
+                      <button
+                        className="secondary-button compact-button metadata-details-button"
+                        onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
+                        aria-expanded={expandedIndex === index}
+                      >
+                        {expandedIndex === index ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                        <span>Details</span>
+                      </button>
+                    </div>
+                    {expandedIndex === index && <ResultCompare book={book} candidate={candidate} />}
                   </article>
                 ))}
                 {!metadataLoading && metadataResults.length === 0 && (
@@ -569,6 +721,62 @@ export function EditMetadataModal({
           )}
         </div>
     </Modal>
+  );
+}
+
+// Side-by-side of the current book vs. a search/link result, so the user can see
+// exactly what applying it would change before committing. A field is flagged
+// "changes" when the result has a non-empty value that differs from the current
+// one — mirroring the gap-fill/overwrite rules in applyMetadataCandidate.
+function ResultCompare({ book, candidate }: { book: AudiobookBookDetail; candidate: MetadataCandidate }) {
+  const rows = [
+    { label: "Title", current: book.title, next: candidate.title },
+    { label: "Original title", current: "", next: candidate.subtitle ?? "" },
+    { label: "Authors", current: book.authors.join(", "), next: candidate.authors.join(", ") },
+    { label: "Narrators", current: book.narrators.join(", "), next: (candidate.narrators ?? []).join(", ") },
+    { label: "Year", current: book.yearPublished?.toString() ?? "", next: candidate.year?.toString() ?? "" },
+    { label: "Publisher", current: book.publisher ?? "", next: candidate.publisher ?? "" },
+    { label: "Language", current: book.language ?? "", next: candidate.language ?? "" },
+    { label: "ISBN", current: book.isbn ?? "", next: candidate.isbn ?? "" },
+    { label: "ASIN", current: book.asin ?? "", next: candidate.asin ?? "" },
+    { label: "Tags", current: book.tags.join(", "), next: (candidate.genres ?? []).join(", ") },
+    { label: "Description", current: book.description ?? "", next: candidate.description ?? "" }
+  ];
+
+  const changed = (current: string, next: string) => next.trim().length > 0 && next.trim() !== current.trim();
+  const visible = rows.filter((row) => row.current.trim() || row.next.trim());
+
+  return (
+    <div className="metadata-result-compare">
+      <div className="compare-row compare-head-row" aria-hidden="true">
+        <span></span>
+        <span>Current</span>
+        <span>From this result</span>
+      </div>
+      {visible.map((row) => (
+        <div className={`compare-row${changed(row.current, row.next) ? " changed" : ""}`} key={row.label}>
+          <span className="compare-label">{row.label}</span>
+          <span className="compare-current">{row.current || "—"}</span>
+          <span className="compare-next">
+            {row.next || "—"}
+            {changed(row.current, row.next) && <em className="compare-flag">changes</em>}
+          </span>
+        </div>
+      ))}
+      <div className="compare-row compare-cover-row">
+        <span className="compare-label">Cover</span>
+        <span className="compare-current">
+          <span className="compare-cover-frame">
+            {book.coverUrl ? <img src={book.coverLargeUrl ?? book.coverUrl} alt="" /> : <BookOpen size={20} />}
+          </span>
+        </span>
+        <span className="compare-next">
+          <span className="compare-cover-frame">
+            {candidate.coverUrl ? <img src={candidate.coverUrl} alt="" /> : <BookOpen size={20} />}
+          </span>
+        </span>
+      </div>
+    </div>
   );
 }
 

@@ -3,11 +3,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { searchAllMetadataProviders, searchMetadataProvider, type MetadataProvider } from "./providers/index.js";
+import { fetchMetadataFromUrl, MetadataLinkError, searchAllMetadataProviders, searchMetadataProvider, type MetadataProvider } from "./providers/index.js";
 import { rescanSingleBook, writeCoverImages } from "./scanner.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
-import { imageMimeType, coverImageExtensions, getBookCoverFolder, coverFilePathFromRelative, updateBookCover, applyMetadataCandidate, updateManualMetadata, getAudiobookBookDetail, metadataMatchSchema, coverSourceSchema, manualMetadataSchema } from "./book-helpers.js";
+import { downloadImage } from "../shared/remote-image.js";
+import { imageMimeType, coverImageExtensions, getBookCoverFolder, coverFilePathFromRelative, updateBookCover, applyMetadataCandidate, updateManualMetadata, getAudiobookBookDetail, metadataMatchSchema, coverSourceSchema, coverFromUrlSchema, manualMetadataSchema } from "./book-helpers.js";
 
 export function registerMetadataRoutes(app: FastifyInstance) {
 
@@ -40,6 +41,32 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       reply.send({ candidates });
     } catch (err) {
       reply.code(502).send({ error: err instanceof Error ? err.message : "Metadata provider search failed" });
+    }
+  });
+
+
+  app.get("/api/library/books/:id/metadata-from-url", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const book = getAudiobookBookDetail(id);
+    if (!book) {
+      reply.code(404).send({ error: "Audiobook not found" });
+      return;
+    }
+
+    const url = (request.query as { url?: string }).url?.trim();
+    if (!url) {
+      reply.code(400).send({ error: "A book link is required" });
+      return;
+    }
+
+    try {
+      const candidates = await fetchMetadataFromUrl(url);
+      reply.send({ candidates });
+    } catch (err) {
+      // MetadataLinkError = a bad/unsupported link (user-fixable); anything else
+      // is a provider fetch/parse failure.
+      const status = err instanceof MetadataLinkError ? err.status : 502;
+      reply.code(status).send({ error: err instanceof Error ? err.message : "Unable to read metadata from that link" });
     }
   });
 
@@ -180,6 +207,34 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       reply.send({ updated: true, book });
     } catch (err) {
       reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to apply cover" });
+    }
+  });
+
+
+  app.post("/api/library/books/:id/cover-from-url", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required to change covers." });
+      return;
+    }
+
+    const parsed = parseBody(coverFromUrlSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid cover link", details: parsed.error });
+      return;
+    }
+
+    try {
+      // SSRF-guarded download (same guard as provider cover/photo fetches), then
+      // store like any other cover — metadata is left untouched.
+      const image = await downloadImage(parsed.data.url);
+      const coverStorageKey = await writeCoverImages(lib.id, id, image);
+      const book = updateBookCover(id, coverStorageKey);
+      reply.send({ updated: true, book });
+    } catch (err) {
+      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to download that cover" });
     }
   });
 

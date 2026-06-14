@@ -421,7 +421,7 @@
 /* ── Person profile modal ────────────────────────────────────────── */
 
 .person-modal {
-  width: min(100%, 520px);
+  width: min(100%, 600px);
   height: auto;
   min-height: 0;
   max-height: calc(100vh - 48px);
@@ -430,6 +430,114 @@
 .person-profile-grid {
   display: grid;
   gap: 10px;
+}
+
+/* Online lookup: "Find online" + paste-a-link bar, and the compare panel. */
+.person-lookup {
+  display: grid;
+  gap: 12px;
+}
+
+.person-lookup-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.person-lookup-input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.person-compare {
+  display: grid;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.person-compare-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 760;
+}
+
+.person-compare-head a {
+  margin-left: auto;
+  color: var(--mint);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.person-compare-source-tag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--active);
+  color: var(--mint);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.person-compare-field {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.person-compare-label {
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.person-compare-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.person-compare-block {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+}
+
+.person-compare-block small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.person-compare-block p {
+  margin: 0;
+  max-height: 168px;
+  overflow: auto;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.person-compare-block.found p {
+  color: var(--fg);
+}
+
+.person-compare-photos {
+  display: flex;
+  gap: 18px;
+}
+
+@media (max-width: 560px) {
+  .person-compare-pair {
+    grid-template-columns: 1fr;
+  }
 }
 
 .person-photo-tab {

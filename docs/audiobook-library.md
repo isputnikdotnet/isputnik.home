@@ -147,13 +147,21 @@ notes:
   English pages) and Open Library authors as fallback. Only empty fields are
   filled; bios carry a `Source: …` attribution line. Every attempt stamps
   `authors.enriched_at`, and names that yielded nothing are not retried for 30
-  days (max 100 people per scan run). The person profile modal also has a
-  "Find online" button (`POST /api/library/people/by-name/enrich`) that runs
-  the same lookup on demand for one person, and the Photo tab offers a
-  candidate picker: `GET …/photo-candidates` lists photos found online (one
-  per Wikipedia language + matching Open Library author records, with a
-  disambiguating hint), and `POST …/photo-from-url` applies the chosen one —
-  an explicit choice, so unlike enrichment it replaces an existing photo.
+  days (max 100 people per scan run). The person profile modal mirrors the book
+  metadata lookup: **Find online** (by name) or a **pasted Wikipedia / Open
+  Library author link** runs `GET /api/library/people/by-name/lookup` (preview
+  only; `lookupPersonByUrl` for links, no occupation guard) and shows a
+  current-vs-found comparison of **bio and photo** — the user applies bio (fills
+  the field, persisted on Save) and/or photo (`POST …/photo-from-url`) from
+  there. The Photo tab additionally offers a multi-photo candidate picker
+  (`GET …/photo-candidates` → `POST …/photo-from-url`). The older auto-apply
+  `POST …/by-name/enrich` route remains available.
+- **Manual create.** `POST /api/library/people { name, libraryId, bio? }` (write
+  access to the library required; 409 on a duplicate name) creates a
+  library-scoped person from the **New author / New narrator** button on the
+  Authors/Narrators pages. Role isn't stored (it lives on `book_authors`), so the
+  row is a plain person: immediately a book-edit suggestion and reachable as a
+  profile, and shown on the browse page once a book credits them.
 - **Politeness/safety:** all lookups go through one serialized queue with a
   250 ms gap and 12 s timeouts; cover/photo downloads use the SSRF-guarded
   redirect-checking fetch in `shared/remote-image.ts`.
@@ -607,6 +615,15 @@ Shard key: first 4 characters of the book ID, split into two path components (`a
 
 If no cover art is found, the UI generates a placeholder from the book's title initials — no broken image icons.
 
+### Picking a cover online (Cover tab)
+
+The Cover tab's **Find covers online** search reuses `metadata-search` to gather cover art from
+every provider (deduped, broken thumbnails dropped on image-load error) and applies the chosen
+one via `POST /api/library/books/:id/cover-from-url { url }`. That route downloads the image
+through the SSRF-guarded `downloadImage`, stores it with `writeCoverImages`, and points the book
+at it with `updateBookCover` — **only the cover changes**, no other metadata is written. This is
+the cover-only counterpart to the author Photo tab's `photo-from-url` picker.
+
 ---
 
 ## Metadata File Storage
@@ -642,7 +659,7 @@ The header action row exposes **Favorites** — a per-user, whole-book save (♥
 - **Metadata** — title, authors, narrators, category, tags, and description (tags use the same pick-existing-or-add combobox as authors and narrators)
 - **Publishing** — publisher, year, language, ISBN, ASIN
 - **Series** — series and position
-- **Cover** — refresh or upload cover art
+- **Cover** — pick a folder cover, upload one, or search providers for cover art online (apply a cover without touching any other metadata)
 - **Metadata Lookup** — search providers and apply a result
 
 Saving direct edits sets `book_metadata.source = 'manual'`. Resetting to automatic metadata remains available from the editor.
@@ -662,19 +679,20 @@ A per-book feature that lets a user search external providers for metadata and a
 | **iTunes / Apple Books** | ✓ | No | ✓ | Title, author, narrator, year, description, genres, series |
 | **OpenLibrary** | ✓ | No | ✓ | Title, authors, year, description, ISBN |
 | **FantLab** | ✓ | No | ✓ | Russian title, original title, author, year, description, genre hints |
+| **LibriVox** | ✓ | No | ✓ | Title, author, narrator, year, description, genres (public-domain audiobooks) |
 
 Audible is a future addition — it requires either an unofficial API or scraping and adds deployment complexity.
 
-iTunes, Open Library, and FantLab do not require API keys.
+None of the providers require API keys.
 
 ### User flow
 
 1. Open a book's detail page
 2. Open **More options**, then select **Edit metadata**
 3. Select the **Metadata Lookup** tab; search is pre-filled with the current title and author
-4. Adjust the query and select a provider
+4. Adjust the query and select a provider — **or** paste a direct book link (Open Library, Apple Books, FantLab, or LibriVox) and **Fetch** to pull one specific edition
 5. Results appear as cards showing: cover thumbnail, title, author(s), year, publisher
-6. Select a result to preview what would change on the book
+6. Click **Details** on a result to expand a current-vs-result comparison; fields the result would change are flagged
 7. Choose whether to update details and cover
 8. Apply the result — metadata is saved, `source = 'manual'` is set, and the selected cover is downloaded
 
@@ -684,6 +702,11 @@ iTunes, Open Library, and FantLab do not require API keys.
 GET  /api/library/books/:id/metadata-search
      ?q=The+Martian&provider=openlibrary
      → MetadataCandidate[]
+
+GET  /api/library/books/:id/metadata-from-url
+     ?url=https://openlibrary.org/works/OL17091839W
+     → MetadataCandidate[]   (resolves one supported provider link; 400 on a
+       bad/unsupported link, 502 on a provider fetch failure)
 
 POST /api/library/books/:id/metadata-match
      { candidate: MetadataCandidate, updateDetails: bool, updateCover: bool }
@@ -697,9 +720,28 @@ POST /api/library/books/:id/metadata-reset
      → { reset: bool, book: BookDetail }
 ```
 
-Implemented provider values: `itunes`, `openlibrary`, `fantlab`, and `all`.
+Implemented provider values: `itunes`, `openlibrary`, `fantlab`, `librivox`, and `all`.
 
 When a result is applied, `book_metadata.source` is set to `manual`; future rescans preserve the selected metadata.
+
+#### Resolving a custom link (`metadata-from-url`)
+
+Instead of searching, a user can paste a direct book-page URL. `fetchMetadataFromUrl`
+(`providers/index.ts`) matches the host against a fixed allowlist and dispatches to that
+provider's by-URL parser (`fetch*ByUrl` in each provider module), returning the same
+`MetadataCandidate[]` shape so the expand/compare and apply flow are unchanged:
+
+| Host | Parser | How it reads the record |
+|---|---|---|
+| `openlibrary.org` | `fetchOpenLibraryByUrl` | `/works/OL…W` or `/books/OL…M` → the record's `.json`; author names resolved from their `/authors/…` records |
+| `books.apple.com`, `itunes.apple.com`, `music.apple.com` | `fetchItunesByUrl` | item id (`?i=` or `/idNNN`) → the iTunes `lookup` API |
+| `fantlab.ru` | `fetchFantlabByUrl` | `/workNNNN` page → schema.org microdata (`itemprop` author/name/datePublished) + `og:`/altname tags |
+| `librivox.org` | `fetchLibrivoxByUrl` | the page 403s bots, so the title is recovered from the slug and run through the LibriVox JSON search API |
+
+The allowlist is a deliberate SSRF boundary (no arbitrary hosts). All fetches go through the
+SSRF-guarded `fetchTextFromUrl` (`shared/remote-image.ts`), which re-checks every redirect hop
+against private/internal address ranges. A malformed or unsupported link returns 400
+(`MetadataLinkError`); a provider fetch/parse failure returns 502.
 
 #### FantLab title handling
 
@@ -741,7 +783,7 @@ interface MetadataCandidate {
   asin?:        string
   genres?:      string[]
   language?:    string
-  source: "itunes" | "openlibrary" | "fantlab"
+  source: "itunes" | "openlibrary" | "fantlab" | "librivox"
 }
 ```
 
@@ -765,9 +807,12 @@ After apply, `book_metadata.source` is set to `'manual'`. The scanner will never
 
 ### Metadata preview / diff before apply
 
-Before writing any changes, the UI should show a side-by-side comparison of the current book record and what the selected candidate would change.
+**Implemented.** Each result card has a **Details** toggle that expands an inline side-by-side
+comparison of the current book record and what the selected candidate would change (component
+`ResultCompare` in `EditMetadataModal.tsx`).
 
-**Trigger:** clicking a result card expands an inline diff panel instead of immediately applying.
+**Trigger:** clicking **Details** expands the comparison; **Apply** stays on the card so the
+panel is purely informational.
 
 **Diff display:**
 

@@ -3,7 +3,7 @@
 // the authoritative source for both (readers per section, archive.org item for
 // cover art). https://librivox.org/api/info
 import { REMOTE_FETCH_USER_AGENT } from "../../shared/remote-image.js";
-import type { MetadataCandidate, MetadataSearchInput } from "./types.js";
+import { MetadataLinkError, type MetadataCandidate, type MetadataSearchInput } from "./types.js";
 
 const REQUEST_TIMEOUT_MS = 12_000;
 const MAX_NARRATORS = 10;
@@ -164,6 +164,21 @@ export async function searchLibrivox(input: MetadataSearchInput): Promise<Metada
     throw new Error("LibriVox search failed.");
   }
   return [];
+}
+
+// A LibriVox book link (https://librivox.org/<slug>/). The catalogue page itself
+// 403s automated clients, so instead of scraping we recover a title from the
+// slug ("the-…-by-author" → title + author) and run it through the JSON search
+// API, which is the same authoritative source the title search already uses.
+export async function fetchLibrivoxByUrl(url: string): Promise<MetadataCandidate[]> {
+  const slug = new URL(url).pathname.replace(/^\/+|\/+$/g, "");
+  const splitAt = slug.lastIndexOf("-by-");
+  const titleSlug = splitAt >= 0 ? slug.slice(0, splitAt) : slug;
+  const query = titleSlug.replace(/[-_]+/g, " ").trim();
+  if (!query) {
+    throw new MetadataLinkError("That doesn't look like a LibriVox book link.");
+  }
+  return searchLibrivox({ query, limit: 8 });
 }
 
 // All books for an author surname. Slim records: no sections (narrators) and

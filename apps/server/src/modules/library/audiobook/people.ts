@@ -7,7 +7,10 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
-import { enrichPerson, lookupPersonPhotoCandidates, removeStoredPhotos, writePersonPhoto } from "./enrich.js";
+import { canUserWriteLibrary, getAccessibleLibrary } from "../shared/library-access.js";
+import { enrichPerson, lookupPersonByUrl, lookupPersonInfo, lookupPersonPhotoCandidates, removeStoredPhotos, writePersonPhoto } from "./enrich.js";
+import { MetadataLinkError } from "./providers/types.js";
+import { sortTitle } from "./scanner.js";
 
 type AuthorRow = {
   id: string;
@@ -23,6 +26,13 @@ function photoUrl(storageKey: string | null) {
 
 const personProfileSchema = z.object({
   name: z.string().trim().min(1).max(240).optional(),
+  bio: z.string().trim().max(10000).nullable().optional(),
+  sortName: z.string().trim().max(240).nullable().optional()
+});
+
+const createPersonSchema = z.object({
+  name: z.string().trim().min(1).max(240),
+  libraryId: z.string().trim().min(1),
   bio: z.string().trim().max(10000).nullable().optional(),
   sortName: z.string().trim().max(240).nullable().optional()
 });
@@ -137,6 +147,69 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     } catch {
       reply.code(502).send({ error: "Online lookup failed. Check the server's internet access and try again." });
     }
+  });
+
+  // Preview a person's online profile (Wikipedia / Open Library) without writing
+  // anything: by name, or from a specific pasted author link (?url=). The modal
+  // shows a current-vs-found comparison and applies fields on confirmation.
+  app.get("/api/library/people/by-name/lookup", { preHandler: app.authenticate }, async (request, reply) => {
+    const q = request.query as { name?: string; url?: string };
+    const name = String(q.name ?? "").trim();
+    if (!name) {
+      reply.code(400).send({ error: "Name is required" });
+      return;
+    }
+
+    const url = q.url?.trim();
+    try {
+      const candidate = url
+        ? await lookupPersonByUrl(url)
+        : await lookupPersonInfo(name, personLookupLanguages(name));
+      reply.send({ candidate });
+    } catch (err) {
+      const status = err instanceof MetadataLinkError ? err.status : 502;
+      reply.code(status).send({ error: err instanceof Error ? err.message : "Online lookup failed" });
+    }
+  });
+
+  // Create a person manually (profile-only): a library-scoped authors row with
+  // name + optional bio. It becomes a book-edit suggestion immediately and shows
+  // on the browse page once a book credits them. Role isn't stored (it lives on
+  // book_authors), so "author" and "narrator" create the same kind of row.
+  app.post("/api/library/people", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(createPersonSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid person data", details: parsed.error });
+      return;
+    }
+    const { name, libraryId, bio, sortName } = parsed.data;
+
+    const lib = getAccessibleLibrary(libraryId, request.user!.id, request.user!.role, "audiobook");
+    if (!lib || !canUserWriteLibrary(lib, request.user!.id, request.user!.role)) {
+      reply.code(403).send({ error: "Write access to the library is required to add people." });
+      return;
+    }
+
+    const existing = db.prepare("SELECT id FROM authors WHERE library_id = ? AND name = ?").get(libraryId, name);
+    if (existing) {
+      reply.code(409).send({ error: "A person with that name already exists in this library." });
+      return;
+    }
+
+    const resolvedSortName = sortName?.trim() || sortTitle(name);
+    db.prepare("INSERT INTO authors (id, library_id, name, sort_name, bio) VALUES (?, ?, ?, ?, ?)")
+      .run(nanoid(16), libraryId, name, resolvedSortName, bio?.trim() || null);
+
+    logActivity({
+      event: "library.person.created",
+      actorUserId: request.user!.id,
+      targetType: "person",
+      targetId: name,
+      detail: `Created person "${name}".`,
+      ipAddress: request.ip
+    });
+
+    reply.send({ person: { name, sortName: resolvedSortName, bio: bio?.trim() || null, photoUrl: null } });
   });
 
   // Photo candidates the user can pick from (Wikipedia per language, Open

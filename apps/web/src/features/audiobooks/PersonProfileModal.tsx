@@ -13,12 +13,11 @@ type PersonProfile = {
   photoUrl: string | null;
 };
 
-type EnrichResponse = {
-  found: boolean;
-  updatedBio: boolean;
-  updatedPhoto: boolean;
-  source: "wikipedia" | "openlibrary" | null;
-  person: PersonProfile | null;
+type PersonLookupResult = {
+  bio: string | null;
+  photoUrl: string | null;
+  source: "wikipedia" | "openlibrary";
+  sourceUrl: string | null;
 };
 
 type PersonPhotoCandidate = {
@@ -51,6 +50,9 @@ export function PersonProfileModal({
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [finding, setFinding] = useState(false);
+  const [lookingUpLink, setLookingUpLink] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [candidate, setCandidate] = useState<PersonLookupResult | null>(null);
   const [findNotice, setFindNotice] = useState<{ tone: "info" | "success"; title: string; text: string } | null>(null);
   // null = not searched yet; [] = searched, nothing usable.
   const [photoCandidates, setPhotoCandidates] = useState<PersonPhotoCandidate[] | null>(null);
@@ -101,35 +103,75 @@ export function PersonProfileModal({
     }
   };
 
-  // Looks the person up online (Wikipedia / Open Library) and fills the empty
-  // fields server-side; existing biography and photo are never replaced.
-  const handleFindOnline = async () => {
-    setFinding(true);
+  // Preview a match without applying anything — by name ("Find online") or from
+  // a pasted Wikipedia / Open Library link. The result is shown as a
+  // current-vs-found comparison; the user applies bio and/or photo from there.
+  const runLookup = async (url?: string) => {
     setError("");
     setFindNotice(null);
+    const search = url ? `${query}&url=${encodeURIComponent(url)}` : query;
+    const result = await api<{ candidate: PersonLookupResult | null }>(`/api/library/people/by-name/lookup?${search}`);
+    if (!result.candidate || (!result.candidate.bio && !result.candidate.photoUrl)) {
+      setCandidate(null);
+      setFindNotice({
+        tone: "info",
+        title: "No match found",
+        text: url ? "Couldn't read a profile from that link." : "Nothing found online for this name."
+      });
+      return;
+    }
+    setCandidate(result.candidate);
+  };
+
+  const handleFindOnline = async () => {
+    setFinding(true);
     try {
-      const result = await api<EnrichResponse>(`/api/library/people/by-name/enrich?${query}`, { method: "POST" });
-      if (result.person) {
-        setProfile(result.person);
-        if (result.updatedBio && result.person.bio) {
-          setBio(result.person.bio);
-        }
-      }
-      if (!result.found) {
-        setFindNotice({ tone: "info", title: "No match found", text: "Nothing found online for this name." });
-      } else if (result.updatedBio || result.updatedPhoto) {
-        const filled = [result.updatedBio ? "biography" : null, result.updatedPhoto ? "photo" : null]
-          .filter(Boolean)
-          .join(" and ");
-        const source = result.source === "openlibrary" ? "Open Library" : "Wikipedia";
-        setFindNotice({ tone: "success", title: "Profile updated", text: `Added ${filled} from ${source}.` });
-      } else {
-        setFindNotice({ tone: "info", title: "Already filled in", text: "Found a match online, but the biography and photo are already set." });
-      }
+      await runLookup();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Online lookup failed");
     } finally {
       setFinding(false);
+    }
+  };
+
+  const handleLookupLink = async () => {
+    if (!linkUrl.trim()) return;
+    setLookingUpLink(true);
+    try {
+      await runLookup(linkUrl.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't read that link");
+    } finally {
+      setLookingUpLink(false);
+    }
+  };
+
+  const sourceLabel = (source: PersonLookupResult["source"]) => (source === "openlibrary" ? "Open Library" : "Wikipedia");
+
+  // Apply from the comparison. Bio fills the textarea (persisted on Save);
+  // the photo is downloaded + set immediately via the existing endpoint.
+  const useCandidateBio = () => {
+    if (!candidate?.bio) return;
+    setBio(candidate.bio);
+    setFindNotice({ tone: "success", title: "Bio applied", text: "Review it, then Save profile to keep it." });
+  };
+
+  const useCandidatePhoto = async () => {
+    if (!candidate?.photoUrl) return;
+    setApplyingPhotoUrl(candidate.photoUrl);
+    setError("");
+    setFindNotice(null);
+    try {
+      const result = await api<{ updated: boolean; photoUrl: string }>(
+        `/api/library/people/by-name/photo-from-url?${query}`,
+        { method: "POST", body: JSON.stringify({ url: candidate.photoUrl }) }
+      );
+      setProfile((prev) => prev ? { ...prev, photoUrl: result.photoUrl } : prev);
+      setFindNotice({ tone: "success", title: "Photo updated", text: `Applied the ${sourceLabel(candidate.source)} photo.` });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to apply the photo");
+    } finally {
+      setApplyingPhotoUrl(null);
     }
   };
 
@@ -213,7 +255,7 @@ export function PersonProfileModal({
       variant="panel"
       title={`${roleLabel}: ${personName}`}
       className="person-modal"
-      busy={saving || uploading || finding || findingPhotos || Boolean(applyingPhotoUrl)}
+      busy={saving || uploading || finding || lookingUpLink || findingPhotos || Boolean(applyingPhotoUrl)}
       onClose={onClose}
     >
         <div className="modal-tabs">
@@ -263,6 +305,87 @@ export function PersonProfileModal({
                   maxLength={10000}
                 />
               </label>
+              <div className="person-lookup">
+                <div className="person-lookup-bar">
+                  <button className="secondary-button compact-button" onClick={handleFindOnline} disabled={finding}>
+                    <Globe size={16} />
+                    <span>{finding ? "Searching…" : "Find online"}</span>
+                  </button>
+                  <label className="search-field person-lookup-input">
+                    <Globe size={16} aria-hidden="true" />
+                    <input
+                      type="url"
+                      value={linkUrl}
+                      onChange={(e) => setLinkUrl(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleLookupLink(); }}
+                      placeholder="…or paste a Wikipedia / Open Library author link"
+                      aria-label="Author profile link"
+                    />
+                  </label>
+                  <button className="secondary-button compact-button" onClick={handleLookupLink} disabled={lookingUpLink || !linkUrl.trim()}>
+                    <Globe size={16} />
+                    <span>{lookingUpLink ? "Looking up…" : "Look up"}</span>
+                  </button>
+                </div>
+
+                {candidate && (
+                  <div className="person-compare">
+                    <div className="person-compare-head">
+                      <span>Found online</span>
+                      <span className="person-compare-source-tag">{sourceLabel(candidate.source)}</span>
+                      {candidate.sourceUrl && (
+                        <a href={candidate.sourceUrl} target="_blank" rel="noreferrer">View source ↗</a>
+                      )}
+                    </div>
+
+                    <div className="person-compare-field">
+                      <span className="person-compare-label">Biography</span>
+                      <div className="person-compare-pair">
+                        <div className="person-compare-block">
+                          <small>Current</small>
+                          <p>{profile?.bio || "—"}</p>
+                        </div>
+                        <div className="person-compare-block found">
+                          <small>Found</small>
+                          <p>{candidate.bio || "—"}</p>
+                        </div>
+                      </div>
+                      {candidate.bio && candidate.bio.trim() !== (profile?.bio ?? "").trim() && (
+                        <button type="button" className="secondary-button compact-button" onClick={useCandidateBio}>Use this bio</button>
+                      )}
+                    </div>
+
+                    <div className="person-compare-field">
+                      <span className="person-compare-label">Photo</span>
+                      <div className="person-compare-photos">
+                        <div className="person-compare-block">
+                          <small>Current</small>
+                          <span className="compare-cover-frame">
+                            {profile?.photoUrl ? <img src={profile.photoUrl} alt="" /> : <UserRound size={20} />}
+                          </span>
+                        </div>
+                        <div className="person-compare-block found">
+                          <small>Found</small>
+                          <span className="compare-cover-frame">
+                            {candidate.photoUrl ? <img src={candidate.photoUrl} alt="" /> : <UserRound size={20} />}
+                          </span>
+                        </div>
+                      </div>
+                      {candidate.photoUrl && (
+                        <button
+                          type="button"
+                          className="secondary-button compact-button"
+                          onClick={useCandidatePhoto}
+                          disabled={Boolean(applyingPhotoUrl)}
+                        >
+                          {applyingPhotoUrl === candidate.photoUrl ? "Applying…" : "Use this photo"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="metadata-actions">
                 <button
                   className="primary-button"
@@ -272,10 +395,6 @@ export function PersonProfileModal({
                   <Save size={16} />
                   <span>{saving ? "Saving…" : "Save profile"}</span>
                 </button>
-                <Button variant="secondary" onClick={handleFindOnline} disabled={finding}>
-                  <Globe size={16} />
-                  <span>{finding ? "Searching…" : "Find online"}</span>
-                </Button>
                 <button className="secondary-button" onClick={onClose}>Cancel</button>
               </div>
             </div>
