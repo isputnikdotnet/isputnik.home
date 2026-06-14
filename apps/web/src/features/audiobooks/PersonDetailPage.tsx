@@ -14,12 +14,14 @@ export function PersonDetailPage({
   personName,
   role,
   user,
-  logout
+  logout,
+  kind = "audiobook"
 }: {
   personName: string;
   role: "author" | "narrator";
   user: PublicUser;
   logout: () => Promise<void>;
+  kind?: "audiobook" | "ebook";
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
@@ -31,10 +33,13 @@ export function PersonDetailPage({
   const [merging, setMerging] = useState(false);
   const [error, setError] = useState("");
 
+  const mediaBase = kind === "ebook" ? "/ebooks" : "/audiobooks";
+  const dashActive = kind === "ebook" ? "ebooks" : "audiobooks";
+
   const loadBooks = useCallback(async (libraryId: string) => {
-    const payload = await api<{ books: AudiobookBook[] }>(`/api/library/audiobook-libraries/${libraryId}/books`);
+    const payload = await api<{ books: AudiobookBook[] }>(`/api/library/${kind}-libraries/${libraryId}/books`);
     setBooksByLibrary((current) => ({ ...current, [libraryId]: payload.books }));
-  }, []);
+  }, [kind]);
 
   // Photo + bio for the page header; re-fetched after the profile modal closes
   // so edits show up immediately.
@@ -50,14 +55,14 @@ export function PersonDetailPage({
   }, [personName]);
 
   useEffect(() => {
-    api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
+    api<{ libraries: AudiobookLibrary[] }>(`/api/library/${kind}-libraries`)
       .then(async (payload) => {
         setLibraries(payload.libraries);
         await Promise.all(payload.libraries.map((lib) => loadBooks(lib.id)));
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load data"));
     void loadProfile();
-  }, [personName, loadBooks, loadProfile]);
+  }, [personName, kind, loadBooks, loadProfile]);
 
   const allBooks = libraries.flatMap((lib) =>
     (booksByLibrary[lib.id] ?? []).map((book) => ({ ...book, libraryName: lib.name }))
@@ -89,7 +94,7 @@ export function PersonDetailPage({
       });
       setMergeOpen(false);
       setMerging(false);
-      navigate(`/audiobooks/${navActive}/${encodeURIComponent(mergeTarget)}`);
+      navigate(`${mediaBase}/${navActive}/${encodeURIComponent(mergeTarget)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Merge failed");
       setMerging(false);
@@ -97,9 +102,9 @@ export function PersonDetailPage({
   };
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell active={dashActive} user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? `/audiobooks/${navActive}`)}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? `${mediaBase}/${navActive}`)}>
           <ArrowLeft size={17} aria-hidden="true" />
           <span>{backTo ? "Back" : `Back to ${navActive}`}</span>
         </button>
@@ -148,7 +153,7 @@ export function PersonDetailPage({
               <button
                 className="audiobook-card"
                 key={book.id}
-                onClick={() => navigate(`/audiobooks/books/${book.id}`)}
+                onClick={() => navigate(`${mediaBase}/books/${book.id}`)}
               >
                 <div className="audiobook-cover" aria-hidden="true">
                   {book.coverUrl ? (

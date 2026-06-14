@@ -11,11 +11,15 @@ import type { AudiobookBook, AudiobookLibrary } from "./types";
 export function PersonListPage({
   role,
   user,
-  logout
+  logout,
+  kind = "audiobook"
 }: {
   role: "author" | "narrator";
   user: PublicUser;
   logout: () => Promise<void>;
+  // Which media library the people are browsed from. Audiobooks support authors
+  // and narrators; ebooks only credit authors.
+  kind?: "audiobook" | "ebook";
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
@@ -29,13 +33,17 @@ export function PersonListPage({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
+  const mediaBase = kind === "ebook" ? "/ebooks" : "/audiobooks";
+  const mediaLabel = kind === "ebook" ? "ebooks" : "audiobooks";
+  const dashActive = kind === "ebook" ? "ebooks" : "audiobooks";
+
   const loadBooks = useCallback(async (libraryId: string) => {
-    const payload = await api<{ books: AudiobookBook[] }>(`/api/library/audiobook-libraries/${libraryId}/books`);
+    const payload = await api<{ books: AudiobookBook[] }>(`/api/library/${kind}-libraries/${libraryId}/books`);
     setBooksByLibrary((current) => ({ ...current, [libraryId]: payload.books }));
-  }, []);
+  }, [kind]);
 
   useEffect(() => {
-    api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
+    api<{ libraries: AudiobookLibrary[] }>(`/api/library/${kind}-libraries`)
       .then(async (payload) => {
         setLibraries(payload.libraries);
         await Promise.all(payload.libraries.map((lib) => loadBooks(lib.id)));
@@ -44,7 +52,7 @@ export function PersonListPage({
     api<{ photos: Record<string, string> }>("/api/library/people/photos")
       .then((payload) => setPhotos(payload.photos))
       .catch(() => {}); // avatars are decoration — the list works without them
-  }, [loadBooks]);
+  }, [kind, loadBooks]);
 
   const allBooks = libraries.flatMap((lib) => booksByLibrary[lib.id] ?? []);
   const getNames = (book: AudiobookBook) => (role === "author" ? book.authors : book.narrators);
@@ -58,8 +66,10 @@ export function PersonListPage({
 
   const title = role === "author" ? "Authors" : "Narrators";
   const roleNoun = role === "author" ? "author" : "narrator";
-  const detailBase = role === "author" ? "/audiobooks/authors" : "/audiobooks/narrators";
+  const detailBase = `${mediaBase}/${role === "author" ? "authors" : "narrators"}`;
   const writableLibraries = libraries.filter((lib) => lib.canWrite);
+  // Manual person creation is currently an audiobook-only server capability.
+  const canCreatePeople = kind === "audiobook" && writableLibraries.length > 0;
 
   const openCreate = () => {
     setNewName("");
@@ -87,11 +97,11 @@ export function PersonListPage({
   };
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell active={dashActive} user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(mediaBase)}>
           <ArrowLeft size={18} aria-hidden="true" />
-          <span>Back to audiobooks</span>
+          <span>Back to {mediaLabel}</span>
         </button>
 
         <div className="audiobook-page-title">
@@ -113,7 +123,7 @@ export function PersonListPage({
                 aria-label={`Search ${title.toLowerCase()}`}
               />
             </label>
-            {writableLibraries.length > 0 && (
+            {canCreatePeople && (
               <Button variant="primary" onClick={openCreate}>
                 <UserPlus size={16} />
                 <span>New {roleNoun}</span>
@@ -125,7 +135,7 @@ export function PersonListPage({
         {libraries.length === 0 ? (
           <div className="empty-state library-empty">
             <UserRound size={58} aria-hidden="true" />
-            <h2>No audiobook libraries yet</h2>
+            <h2>No {kind === "ebook" ? "ebook" : "audiobook"} libraries yet</h2>
             <p className="muted">An administrator can add libraries from the control panel.</p>
           </div>
         ) : filtered.length === 0 ? (

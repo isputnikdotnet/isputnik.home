@@ -105,12 +105,22 @@ export function AudiobookPageHeader({
   );
 }
 
-function AudiobookHeaderSort({ value, onChange }: { value: SortKey; onChange: (sort: SortKey) => void }) {
+export function AudiobookHeaderSort({
+  value,
+  onChange,
+  options = SORT_OPTIONS,
+  ariaLabel = "Sort audiobooks"
+}: {
+  value: SortKey;
+  onChange: (sort: SortKey) => void;
+  options?: { value: SortKey; label: string }[];
+  ariaLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const currentLabel = SORT_OPTIONS.find((option) => option.value === value)?.label ?? "";
+  const currentLabel = options.find((option) => option.value === value)?.label ?? "";
 
   const toggle = () => {
     setOpen((isOpen) => {
@@ -151,7 +161,7 @@ function AudiobookHeaderSort({ value, onChange }: { value: SortKey; onChange: (s
         onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Sort audiobooks"
+        aria-label={ariaLabel}
       >
         <span>{currentLabel}</span>
       </button>
@@ -161,10 +171,10 @@ function AudiobookHeaderSort({ value, onChange }: { value: SortKey; onChange: (s
           ref={menuRef}
           className="book-detail-action-menu audiobook-library-menu audiobook-sort-menu"
           role="menu"
-          aria-label="Sort audiobooks"
+          aria-label={ariaLabel}
           style={{ position: "fixed", top: pos.top, left: pos.left, right: "auto", minWidth: pos.width }}
         >
-          {SORT_OPTIONS.map((option) => (
+          {options.map((option) => (
             <button
               key={option.value}
               type="button"
@@ -194,7 +204,7 @@ function openPlayer(bookId: string) {
   window.open(`/player/${bookId}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes");
 }
 
-function CatalogAdminMenu({
+export function CatalogAdminMenu({
   book,
   canEdit,
   canDelete,
@@ -493,7 +503,7 @@ function CatalogBookCard({
 
 // Bottom-of-grid loader: an IntersectionObserver sentinel for infinite scroll
 // plus an explicit "Load more" button as a fallback.
-function CatalogTail({
+export function CatalogTail({
   hasMore, loadingMore, loadMore, sentinelRef
 }: {
   hasMore: boolean;

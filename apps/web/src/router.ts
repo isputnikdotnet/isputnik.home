@@ -15,6 +15,8 @@ export type Route =
   | { name: "audiobookPlayer"; id: string }
   | { name: "ebooks" }
   | { name: "ebookBook"; id: string }
+  | { name: "ebookAuthors" }
+  | { name: "ebookAuthorDetail"; personName: string }
   | { name: "collections" }
   | { name: "collectionDetail"; id: string }
   | { name: "audiobookAuthors" }
@@ -89,6 +91,15 @@ export function getRoute(): Route {
   const ebookBookMatch = path.match(/^\/ebooks\/books\/([^/]+)$/);
   if (ebookBookMatch) {
     return { name: "ebookBook", id: ebookBookMatch[1] };
+  }
+
+  if (path === "/ebooks/authors") {
+    return { name: "ebookAuthors" };
+  }
+
+  const ebookAuthorDetailMatch = path.match(/^\/ebooks\/authors\/(.+)$/);
+  if (ebookAuthorDetailMatch) {
+    return { name: "ebookAuthorDetail", personName: decodeURIComponent(ebookAuthorDetailMatch[1]) };
   }
 
   if (path === "/audiobooks/saved") {

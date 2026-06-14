@@ -30,15 +30,33 @@ export type CatalogScope =
   | { kind: "all" }
   | { kind: "library"; libraryId: string };
 
-interface CatalogResponse {
-  books: AudiobookBook[];
+interface CatalogResponse<T> {
+  books: T[];
   total: number;
 }
 
+// The catalog + facets endpoints a media type exposes. Any library type that
+// serves a server-side catalog (audiobooks, ebooks, …) supplies its own pair.
+export interface CatalogEndpoints {
+  catalog: string;
+  facets: string;
+}
+
+const AUDIOBOOK_ENDPOINTS: CatalogEndpoints = {
+  catalog: "/api/library/audiobooks/catalog",
+  facets: "/api/library/audiobooks/facets"
+};
+
 // Drives the server-side paged catalog: owns search/filters, fetches a page on
 // any query change, appends pages for infinite scroll, and loads the scope's
-// filter facets. Used by the main Audiobooks page.
-export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey, persistKey: string) {
+// filter facets. Generic over the book row shape and parameterised by the type's
+// endpoints, so every media type reuses it (see useAudiobookCatalog alias).
+export function useMediaCatalog<T = AudiobookBook>(
+  scope: CatalogScope,
+  sort: SortKey,
+  persistKey: string,
+  endpoints: CatalogEndpoints = AUDIOBOOK_ENDPOINTS
+) {
   const [search, setSearch] = useState(() => readCatalogView(persistKey).search);
   const [debounced, setDebounced] = useState(() => readCatalogView(persistKey).search.trim());
   const [filters, setFilters] = useState<BookFilters>(() => readCatalogView(persistKey).filters);
@@ -47,7 +65,7 @@ export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey, persistK
   useEffect(() => {
     writeCatalogView(persistKey, { search, filters });
   }, [persistKey, search, filters]);
-  const [books, setBooks] = useState<AudiobookBook[]>([]);
+  const [books, setBooks] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
   const [facets, setFacets] = useState<FacetOptions>(EMPTY_FACETS);
   const [loading, setLoading] = useState(true);
@@ -70,7 +88,7 @@ export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey, persistK
   useEffect(() => {
     const params = new URLSearchParams({ scope: scope.kind });
     if (scope.kind === "library") params.set("libraryId", scope.libraryId);
-    api<FacetOptions>(`/api/library/audiobooks/facets?${params.toString()}`)
+    api<FacetOptions>(`${endpoints.facets}?${params.toString()}`)
       .then(setFacets)
       .catch(() => setFacets(EMPTY_FACETS));
   }, [scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -93,7 +111,7 @@ export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey, persistK
     const id = ++reqId.current;
     setLoading(true);
     setError("");
-    api<CatalogResponse>("/api/library/audiobooks/catalog", { method: "POST", body: JSON.stringify(requestBody(0)) })
+    api<CatalogResponse<T>>(endpoints.catalog, { method: "POST", body: JSON.stringify(requestBody(0)) })
       .then((res) => {
         if (reqId.current !== id) return;
         setBooks(res.books);
@@ -113,7 +131,7 @@ export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey, persistK
     if (loading || loadingMore || !hasMore) return;
     const id = reqId.current; // tie to the current query
     setLoadingMore(true);
-    api<CatalogResponse>("/api/library/audiobooks/catalog", { method: "POST", body: JSON.stringify(requestBody(books.length)) })
+    api<CatalogResponse<T>>(endpoints.catalog, { method: "POST", body: JSON.stringify(requestBody(books.length)) })
       .then((res) => {
         if (reqId.current !== id) return;
         setBooks((prev) => [...prev, ...res.books]);
@@ -144,3 +162,7 @@ export function useAudiobookCatalog(scope: CatalogScope, sort: SortKey, persistK
     sentinelRef, error, refresh
   };
 }
+
+// Audiobook-bound alias kept for the audiobooks page (defaults to the audiobook
+// endpoints + AudiobookBook row shape).
+export const useAudiobookCatalog = useMediaCatalog;

@@ -13,7 +13,7 @@ import { type AudiobookBookRow, type BookFileRow } from "./types.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { downloadImage } from "../shared/remote-image.js";
 
-function largeCoverUrl(storageKey: string | null) {
+export function largeCoverUrl(storageKey: string | null) {
   if (!storageKey) {
     return null;
   }
@@ -72,7 +72,7 @@ export const manualMetadataSchema = z.object({
   seriesPosition: z.number().min(0).nullable().optional()
 });
 
-function splitGroupConcat(value: string | null) {
+export function splitGroupConcat(value: string | null) {
   return value ? value.split(",").map((item) => item.trim()).filter(Boolean) : [];
 }
 
@@ -116,7 +116,7 @@ export function categoryImageUrl(imageStorageKey: string | null) {
   return imageStorageKey ? `/api/library/covers/${imageStorageKey}` : null;
 }
 
-function categoryPayload(categoryId: string | null) {
+export function categoryPayload(categoryId: string | null) {
   if (!categoryId) {
     return null;
   }
@@ -124,7 +124,7 @@ function categoryPayload(categoryId: string | null) {
   return row ? { key: row.key, name: row.name, icon: row.icon, imageUrl: categoryImageUrl(row.image_storage_key) } : null;
 }
 
-function bookTags(bookId: string): string[] {
+export function bookTags(bookId: string): string[] {
   const rows = db.prepare(`
     SELECT tags.display_name AS name
     FROM taggables

@@ -63,6 +63,14 @@ export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "series", label: "Series order" }
 ];
 
+// Ebooks have no duration or series, so they offer the subset of sorts that apply.
+export const EBOOK_SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "title", label: "Title (A–Z)" },
+  { value: "title_desc", label: "Title (Z–A)" },
+  { value: "recent", label: "Recently added" },
+  { value: "author", label: "Author" }
+];
+
 const STATUS_OPTIONS = [
   { value: "in_progress", label: "In progress" },
   { value: "finished", label: "Finished" },
@@ -216,14 +224,18 @@ function FacetSection({
 }
 
 export function FilterButton({
-  facets, value, onChange
+  facets, value, onChange, fields
 }: {
   facets: FacetOptions;
   value: BookFilters;
   onChange: (filters: BookFilters) => void;
+  // Restrict which facet sections render (e.g. ebooks drop narrators/series/length).
+  // Defaults to every facet in display order.
+  fields?: (keyof BookFilters)[];
 }) {
   const [open, setOpen] = useState(false);
   const count = activeFilterCount(value);
+  const order = fields ? FACET_ORDER.filter((facet) => fields.includes(facet.key)) : FACET_ORDER;
 
   const toggle = (key: keyof BookFilters, v: string) => {
     const current = value[key];
@@ -240,7 +252,7 @@ export function FilterButton({
       {open && (
         <Modal variant="panel" title="Filters" surfaceClassName="filter-modal" onClose={() => setOpen(false)}>
             <div className="filter-modal-body">
-              {FACET_ORDER.map((facet) => {
+              {order.map((facet) => {
                 const options = facet.fixed ?? (facets[facet.key as keyof FacetOptions] ?? []).map((v) => ({ value: v, label: v }));
                 return (
                   <FacetSection

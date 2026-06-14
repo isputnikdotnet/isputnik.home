@@ -299,6 +299,14 @@ export function App() {
     return <AudiobookBookPage id={route.id} user={session.user} logout={logout} active="ebooks" backTo="/ebooks" />;
   }
 
+  if (route.name === "ebookAuthors") {
+    return <PersonListPage role="author" kind="ebook" user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "ebookAuthorDetail") {
+    return <PersonDetailPage personName={route.personName} role="author" kind="ebook" user={session.user} logout={logout} />;
+  }
+
   if (route.name === "audiobookAuthors") {
     return <PersonListPage role="author" user={session.user} logout={logout} />;
   }

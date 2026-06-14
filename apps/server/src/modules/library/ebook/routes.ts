@@ -9,6 +9,7 @@ import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { enqueueEbookScan, processEbookScanQueue } from "./scanner.js";
+import { resolveEbookScopeLibraryIds, queryEbookCatalog, ebookCatalogFacets } from "./catalog.js";
 
 const EBOOK_LIBRARY_LIST_SQL = `
   SELECT
@@ -109,6 +110,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
         categories.name AS category_name,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
         (SELECT format FROM book_documents WHERE book_id = books.id AND status = 'available' LIMIT 1) AS format,
+        (SELECT id FROM book_documents WHERE book_id = books.id AND status = 'available' LIMIT 1) AS document_id,
         (SELECT COUNT(*) FROM book_documents WHERE book_id = books.id AND status = 'available') AS file_count,
         (SELECT COALESCE(SUM(size), 0) FROM book_documents WHERE book_id = books.id AND status = 'available') AS total_size,
         (SELECT reading_progress.percent_complete FROM reading_progress WHERE reading_progress.book_id = books.id AND reading_progress.user_id = ? ORDER BY datetime(reading_progress.updated_at) DESC LIMIT 1) AS progress_percent,
@@ -126,7 +128,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       id: string; library_id: string; folder_path: string; status: string; discovered_at: string; updated_at: string;
       title: string | null; year_published: number | null; language: string | null;
       cover_storage_key: string | null; category_key: string | null; category_name: string | null;
-      author_names: string | null; format: string | null; file_count: number; total_size: number;
+      author_names: string | null; format: string | null; document_id: string | null; file_count: number; total_size: number;
       progress_percent: number | null; progress_completed_at: string | null; saved: number | null;
     }[];
 
@@ -154,6 +156,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
           tags: (tagsFor.all(row.id) as { name: string }[]).map((t) => t.name),
           language: row.language,
           format: row.format,
+          documentId: row.document_id,
           fileCount: row.file_count,
           totalSize: row.total_size,
           durationSeconds: null,
@@ -172,6 +175,59 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
         };
       })
     };
+  });
+
+  // Paged, server-side searched/sorted/filtered ebook catalog (mirrors the
+  // audiobook catalog). scope = all (every accessible ebook library) | library.
+  const ebookCatalogSchema = z.object({
+    scope: z.enum(["all", "library"]).default("all"),
+    libraryId: z.string().trim().min(1).optional(),
+    q: z.string().trim().max(200).default(""),
+    sort: z.enum(["title", "title_desc", "recent", "author"]).default("title"),
+    limit: z.number().int().min(1).max(200).default(48),
+    offset: z.number().int().min(0).default(0),
+    filters: z.object({
+      authors: z.array(z.string()).default([]),
+      categories: z.array(z.string()).default([]),
+      tags: z.array(z.string()).default([]),
+      languages: z.array(z.string()).default([]),
+      status: z.array(z.string()).default([])
+    }).default({ authors: [], categories: [], tags: [], languages: [], status: [] })
+  });
+
+  app.post("/api/library/ebooks/catalog", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(ebookCatalogSchema, request.body ?? {});
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid catalog query", details: parsed.error });
+      return;
+    }
+    const p = parsed.data;
+    const f = p.filters ?? {};
+    const libIds = resolveEbookScopeLibraryIds(request.user!, p.scope ?? "all", p.libraryId);
+    reply.send(queryEbookCatalog(request.user!.id, libIds, {
+      q: p.q ?? "",
+      sort: p.sort ?? "title",
+      limit: p.limit ?? 48,
+      offset: p.offset ?? 0,
+      // Ebooks ignore narrators/series/durations; the engine treats them as empty.
+      filters: {
+        authors: f.authors ?? [],
+        narrators: [],
+        categories: f.categories ?? [],
+        tags: f.tags ?? [],
+        series: [],
+        languages: f.languages ?? [],
+        status: f.status ?? [],
+        durations: []
+      }
+    }));
+  });
+
+  app.get("/api/library/ebooks/facets", { preHandler: app.authenticate }, async (request) => {
+    const qp = request.query as { scope?: string; libraryId?: string };
+    const scope = qp.scope === "library" ? qp.scope : "all";
+    const libIds = resolveEbookScopeLibraryIds(request.user!, scope, qp.libraryId);
+    return ebookCatalogFacets(libIds);
   });
 
   const rescanOptionsSchema = z.object({
