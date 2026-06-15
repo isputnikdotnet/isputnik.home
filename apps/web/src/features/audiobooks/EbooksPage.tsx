@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookMarked, BookOpen, Check, ChevronDown, Download, Heart, ListMusic, UserRound } from "lucide-react";
+import { BookMarked, BookOpen, Check, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { Modal } from "../../shared/Modal";
+import { Button } from "../../shared/Button";
+import { FileUpload } from "../../shared/FileUpload";
 import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
-import { AudiobookPageHeader, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
+import { AddToSeriesModal, AudiobookPageHeader, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
 import { useMediaCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import {
   EBOOK_SORT_OPTIONS, FilterButton, FilterChips, activeFilterCount,
@@ -35,12 +38,78 @@ interface EbookLibrary {
   canWrite: boolean;
   canDownload: boolean;
   canDelete: boolean;
+  canUpload: boolean;
+  uploadExtensions: string[];
+  maxUploadMB: number | null;
   bookCount: number;
   scanStatus: "idle" | "scanning" | "error";
 }
 
+// Upload one or more ebooks: pick the target library (when more than one accepts
+// uploads), then drop the files. Each file becomes its own ebook; the server scans
+// each immediately so new titles appear in the catalog when the modal closes.
+function EbookUploadModal({
+  libraries,
+  initialLibraryId,
+  onClose,
+  onUploaded
+}: {
+  libraries: EbookLibrary[];
+  initialLibraryId: string;
+  onClose: () => void;
+  onUploaded: (count: number, libraryName: string) => void;
+}) {
+  const [libraryId, setLibraryId] = useState(() => (
+    libraries.some((library) => library.id === initialLibraryId) ? initialLibraryId : libraries[0]?.id ?? ""
+  ));
+  const [busy, setBusy] = useState(false);
+  const library = libraries.find((item) => item.id === libraryId);
+
+  return (
+    <Modal title="Upload ebooks" className="book-upload-modal" busy={busy} onClose={onClose}>
+      <p className="muted">Each file becomes its own ebook — drop several at once. Books are scanned and appear in the catalog right away.</p>
+
+      {libraries.length > 1 && (
+        <label className="field" style={{ marginBottom: 12 }}>
+          <span>Library</span>
+          <select value={libraryId} onChange={(event) => setLibraryId(event.target.value)} disabled={busy}>
+            {libraries.map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {library && (
+        <FileUpload
+          endpoint={`/api/library/ebook-libraries/${library.id}/books/upload`}
+          accept={library.uploadExtensions}
+          maxBytes={library.maxUploadMB != null ? library.maxUploadMB * 1024 * 1024 : null}
+          multiple
+          maxFiles={100} // mirrors MAX_EBOOK_UPLOAD_FILES on the server
+          hint={`Accepted: ${library.uploadExtensions.map((ext) => `.${ext}`).join(", ")}${library.maxUploadMB != null ? ` · up to ${library.maxUploadMB} MB per file` : ""}`}
+          onUploaded={(response) => {
+            const payload = response as { uploaded?: number };
+            onUploaded(payload.uploaded ?? 0, library.name);
+          }}
+          onBusyChange={setBusy}
+        />
+      )}
+
+      <div className="modal-actions">
+        <Button variant="secondary" onClick={onClose} disabled={busy}>
+          Close
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 function EbookCatalogCard({
   book,
+  selectionMode,
+  selected,
+  onToggleSelect,
   canDownload,
   canEdit,
   canDelete,
@@ -49,6 +118,9 @@ function EbookCatalogCard({
   onDelete
 }: {
   book: EbookBook;
+  selectionMode: boolean;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
   canDownload: boolean;
   canEdit: boolean;
   canDelete: boolean;
@@ -62,7 +134,10 @@ function EbookCatalogCard({
   // Re-seed from the server shape when the catalog refreshes.
   useEffect(() => { setFav(book.saved); }, [book.saved]);
 
-  const open = () => navigate(`/ebooks/books/${book.id}`);
+  const activate = () => {
+    if (selectionMode) onToggleSelect(book.id);
+    else navigate(`/ebooks/books/${book.id}`);
+  };
 
   const toggleFav = async () => {
     if (favBusy) return;
@@ -90,16 +165,17 @@ function EbookCatalogCard({
   const byline = book.authors.length > 0 ? book.authors.join(", ") : "Unknown author";
 
   return (
-    <article className="audiobook-catalog-card grid">
+    <article className={`audiobook-catalog-card grid${selectionMode ? " selectable" : ""}${selected ? " selected" : ""}`}>
       <div
         className="audiobook-catalog-cover"
         role="button"
         tabIndex={0}
-        aria-label={`Open ${book.title}`}
-        onClick={open}
+        aria-pressed={selectionMode ? selected : undefined}
+        aria-label={selectionMode ? `Select ${book.title}` : `Open ${book.title}`}
+        onClick={activate}
         onKeyDown={(event) => {
           if (event.currentTarget !== event.target) return;
-          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); }
+          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); }
         }}
       >
         {book.coverUrl ? (
@@ -110,84 +186,92 @@ function EbookCatalogCard({
             <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
           </>
         )}
-        {finished && (
-          <span className="audiobook-catalog-finished" title="Finished"><Check size={14} /></span>
-        )}
-        {inProgress && (
+        {selectionMode ? (
+          <span className="audiobook-catalog-check" aria-hidden="true">
+            {selected ? <CheckSquare size={20} /> : <Square size={20} />}
+          </span>
+        ) : (
           <>
-            <span className="audiobook-catalog-pct" title={`${percent}% read`}>
-              <BookOpen size={9} aria-hidden="true" />{percent}%
-            </span>
-            <span className="audiobook-catalog-progress" aria-hidden="true">
-              <span style={{ width: `${percent}%` }} />
-            </span>
+            {finished && (
+              <span className="audiobook-catalog-finished" title="Finished"><Check size={14} /></span>
+            )}
+            {inProgress && (
+              <>
+                <span className="audiobook-catalog-pct" title={`${percent}% read`}>
+                  <BookOpen size={9} aria-hidden="true" />{percent}%
+                </span>
+                <span className="audiobook-catalog-progress" aria-hidden="true">
+                  <span style={{ width: `${percent}%` }} />
+                </span>
+              </>
+            )}
+            <div className="audiobook-catalog-actions" aria-label={`Actions for ${book.title}`}>
+              <div className="audiobook-catalog-action-row">
+                <button
+                  className={`audiobook-catalog-action${fav ? " on" : ""}`}
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); void toggleFav(); }}
+                  aria-pressed={fav}
+                  aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+                  title={fav ? "Favorited" : "Add to favorites"}
+                  disabled={favBusy}
+                >
+                  <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
+                  <span>{fav ? "Favorited" : "Favorite"}</span>
+                </button>
+                {canDownload && book.documentId && (
+                  <a
+                    className="audiobook-catalog-action"
+                    href={`/api/library/books/${book.id}/documents/${book.documentId}?download`}
+                    download
+                    onClick={(event) => event.stopPropagation()}
+                    aria-label={`Download ${book.title}`}
+                    title="Download"
+                  >
+                    <Download size={16} aria-hidden="true" />
+                    <span>Download</span>
+                  </a>
+                )}
+                <button
+                  className="audiobook-catalog-action"
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); onAddToCollection(book); }}
+                  aria-label="Add to collection"
+                  title="Add to collection"
+                >
+                  <ListMusic size={16} aria-hidden="true" />
+                  <span>Add to Collection</span>
+                </button>
+                <CatalogAdminMenu
+                  book={book}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
+              </div>
+              <div className="audiobook-catalog-hover-info">
+                <div className="audiobook-catalog-hover-text">
+                  <strong>{book.title}</strong>
+                  <small>{byline}</small>
+                  {metaParts.length > 0 && <span>{metaParts.join(" · ")}</span>}
+                </div>
+                <button
+                  className="audiobook-catalog-action primary"
+                  type="button"
+                  onClick={(event) => { event.stopPropagation(); activate(); }}
+                  aria-label={`Read ${book.title}`}
+                  title="Read"
+                >
+                  <BookOpen size={22} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
           </>
         )}
-        <div className="audiobook-catalog-actions" aria-label={`Actions for ${book.title}`}>
-          <div className="audiobook-catalog-action-row">
-            <button
-              className={`audiobook-catalog-action${fav ? " on" : ""}`}
-              type="button"
-              onClick={(event) => { event.stopPropagation(); void toggleFav(); }}
-              aria-pressed={fav}
-              aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-              title={fav ? "Favorited" : "Add to favorites"}
-              disabled={favBusy}
-            >
-              <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
-              <span>{fav ? "Favorited" : "Favorite"}</span>
-            </button>
-            {canDownload && book.documentId && (
-              <a
-                className="audiobook-catalog-action"
-                href={`/api/library/books/${book.id}/documents/${book.documentId}?download`}
-                download
-                onClick={(event) => event.stopPropagation()}
-                aria-label={`Download ${book.title}`}
-                title="Download"
-              >
-                <Download size={16} aria-hidden="true" />
-                <span>Download</span>
-              </a>
-            )}
-            <button
-              className="audiobook-catalog-action"
-              type="button"
-              onClick={(event) => { event.stopPropagation(); onAddToCollection(book); }}
-              aria-label="Add to collection"
-              title="Add to collection"
-            >
-              <ListMusic size={16} aria-hidden="true" />
-              <span>Add to Collection</span>
-            </button>
-            <CatalogAdminMenu
-              book={book}
-              canEdit={canEdit}
-              canDelete={canDelete}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          </div>
-          <div className="audiobook-catalog-hover-info">
-            <div className="audiobook-catalog-hover-text">
-              <strong>{book.title}</strong>
-              <small>{byline}</small>
-              {metaParts.length > 0 && <span>{metaParts.join(" · ")}</span>}
-            </div>
-            <button
-              className="audiobook-catalog-action primary"
-              type="button"
-              onClick={(event) => { event.stopPropagation(); open(); }}
-              aria-label={`Read ${book.title}`}
-              title="Read"
-            >
-              <BookOpen size={22} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
       </div>
 
-      <div className="audiobook-catalog-copy" onClick={open}>
+      <div className="audiobook-catalog-copy" onClick={activate}>
         <strong>{book.title}</strong>
         <small>{byline}</small>
         {metaParts.length > 0 && <span className="audiobook-catalog-meta">{metaParts.join(" · ")}</span>}
@@ -210,6 +294,13 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
   const libraryTriggerRef = useRef<HTMLButtonElement>(null);
   const libraryMenuRef = useRef<HTMLDivElement>(null);
 
+  // Source-writing actions: upload new ebooks, plus multi-select bulk add-to-series / delete.
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [seriesModalOpen, setSeriesModalOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+
   // Per-tile actions that need page-level UI.
   const [collectionBook, setCollectionBook] = useState<EbookBook | null>(null);
   const [editDetail, setEditDetail] = useState<AudiobookBookDetail | null>(null);
@@ -222,6 +313,56 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
     ? { kind: "all" }
     : { kind: "library", libraryId: selectedLibraryId };
   const cat = useMediaCatalog<EbookBook>(scope, sort, "ebooks:main", EBOOK_ENDPOINTS);
+
+  // Curate access in the current scope drives the multi-select bulk controls.
+  const canEditScope = selectedLibraryId === "all"
+    ? libraries.some((library) => library.canWrite)
+    : libraries.find((library) => library.id === selectedLibraryId)?.canWrite ?? false;
+  // Series live in a single library, so bulk "Add to series" needs a single-library scope.
+  const canAddToSeries = canEditScope && selectedLibraryId !== "all";
+  // Delete access in the current scope drives bulk delete (works across "all" too).
+  const canDeleteScope = selectedLibraryId === "all"
+    ? libraries.some((library) => library.canDelete)
+    : libraries.find((library) => library.id === selectedLibraryId)?.canDelete ?? false;
+  // Libraries accepting uploads drive the Upload button + modal choices.
+  const uploadLibraries = libraries.filter((library) => library.canUpload);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelection = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setSeriesModalOpen(false);
+    setBulkDeleteOpen(false);
+  };
+
+  const submitAddToSeries = async (target: { seriesId: string } | { newName: string }) => {
+    let seriesId: string;
+    if ("seriesId" in target) {
+      seriesId = target.seriesId;
+    } else {
+      const created = await api<{ series: { id: string } }>(
+        `/api/library/ebook-libraries/${selectedLibraryId}/series`,
+        { method: "POST", body: JSON.stringify({ name: target.newName }) }
+      );
+      seriesId = created.series.id;
+    }
+    const result = await api<{ added: number; skipped: number }>(
+      `/api/library/series/${seriesId}/books`,
+      { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
+    );
+    const parts = [`Added ${result.added} ${result.added === 1 ? "book" : "books"} to series`];
+    if (result.skipped > 0) parts.push(`${result.skipped} already in series or skipped`);
+    setNotice(parts.join(" · "));
+    cat.refresh();
+    exitSelection();
+  };
 
   const loadLibraries = useCallback(async () => {
     try {
@@ -238,6 +379,10 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
   useEffect(() => {
     writeCatalogView("ebooks:main", { selectedLibraryId, sort });
   }, [selectedLibraryId, sort]);
+
+  // Drop selection when the scope changes or all bulk access is lost.
+  useEffect(() => { exitSelection(); }, [selectedLibraryId]);
+  useEffect(() => { if (!canEditScope && !canDeleteScope) exitSelection(); }, [canEditScope, canDeleteScope]);
 
   // While a library is scanning, refresh both the library list and the catalog so
   // new books/covers appear without a manual reload.
@@ -306,6 +451,38 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
     }
   };
 
+  const confirmBulkDelete = async () => {
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      const result = await api<{ deleted: number; forbidden: number; missing: number; failed: number; error?: string }>(
+        "/api/library/books/bulk-delete",
+        { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
+      );
+      const parts = [`Moved ${result.deleted} ${result.deleted === 1 ? "ebook" : "ebooks"} to the Recycle Bin`];
+      if (result.forbidden > 0) parts.push(`${result.forbidden} skipped (no delete access)`);
+      if (result.missing > 0) parts.push(`${result.missing} not found`);
+      if (result.failed > 0) parts.push(`${result.failed} failed${result.error ? ` (${result.error})` : ""}`);
+      setNotice(parts.join(" · "));
+      exitSelection();
+      void loadLibraries();
+      cat.refresh();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Unable to move the selected ebooks to the Recycle Bin");
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const handleUploaded = (count: number, libraryName: string) => {
+    setUploadOpen(false);
+    setNotice(count > 0
+      ? `Uploaded ${count} ${count === 1 ? "ebook" : "ebooks"} to ${libraryName}`
+      : `Upload to ${libraryName} complete`);
+    void loadLibraries();
+    cat.refresh();
+  };
+
   const libraryFor = (libraryId: string) => libraries.find((library) => library.id === libraryId);
 
   const selectedLibrary = selectedLibraryId === "all" ? null : libraryFor(selectedLibraryId) ?? null;
@@ -337,6 +514,18 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
             <>
               <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} fields={EBOOK_FILTER_FIELDS} />
               <AudiobookHeaderSort value={sort} onChange={setSort} options={EBOOK_SORT_OPTIONS} ariaLabel="Sort ebooks" />
+              {uploadLibraries.length > 0 && !selectionMode && (
+                <button type="button" className="secondary-button" onClick={() => { setUploadOpen(true); setNotice(""); }}>
+                  <UploadCloud size={17} aria-hidden="true" />
+                  <span>Upload</span>
+                </button>
+              )}
+              {(canAddToSeries || canDeleteScope) && !selectionMode && (
+                <button type="button" className="secondary-button" onClick={() => { setSelectionMode(true); setNotice(""); }}>
+                  <CheckSquare size={17} aria-hidden="true" />
+                  <span>Select</span>
+                </button>
+              )}
             </>
           }
         />
@@ -407,9 +596,55 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                     <UserRound size={19} aria-hidden="true" />
                     <span>Authors</span>
                   </a>
+                  <a
+                    href="/ebooks/series"
+                    onClick={(event) => { event.preventDefault(); navigate("/ebooks/series"); }}
+                  >
+                    <Library size={19} aria-hidden="true" />
+                    <span>Series</span>
+                  </a>
                 </nav>
               </div>
             </div>
+
+            {selectionMode && (
+              <div className="audiobook-bulk-bar">
+                <span className="audiobook-bulk-count">{selectedIds.size} selected</span>
+                <div className="row-actions">
+                  <button
+                    type="button"
+                    className="secondary-button compact-button"
+                    onClick={() => setSelectedIds(new Set(cat.books.map((book) => book.id)))}
+                    disabled={cat.books.length === 0}
+                  >
+                    Select all loaded
+                  </button>
+                  {canAddToSeries && (
+                    <button
+                      type="button"
+                      className="primary-button compact-button accent-mint"
+                      onClick={() => setSeriesModalOpen(true)}
+                      disabled={selectedIds.size === 0}
+                    >
+                      <Library size={15} aria-hidden="true" /> Add to series
+                    </button>
+                  )}
+                  {canDeleteScope && (
+                    <button
+                      type="button"
+                      className="danger-button compact-button"
+                      onClick={() => { setDeleteError(""); setBulkDeleteOpen(true); }}
+                      disabled={selectedIds.size === 0}
+                    >
+                      <Trash2 size={15} aria-hidden="true" /> Delete
+                    </button>
+                  )}
+                  <button type="button" className="icon-button" onClick={exitSelection} aria-label="Cancel selection">
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             <FilterChips value={cat.filters} onChange={cat.setFilters} />
 
@@ -424,6 +659,9 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                 <EbookCatalogCard
                   key={book.id}
                   book={book}
+                  selectionMode={selectionMode}
+                  selected={selectedIds.has(book.id)}
+                  onToggleSelect={toggleSelect}
                   canDownload={libraryFor(book.libraryId)?.canDownload ?? false}
                   canEdit={libraryFor(book.libraryId)?.canWrite ?? false}
                   canDelete={libraryFor(book.libraryId)?.canDelete ?? false}
@@ -444,6 +682,25 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
             book={editDetail}
             onBookUpdated={(updated) => { setEditDetail(updated); cat.refresh(); }}
             onClose={() => setEditDetail(null)}
+          />
+        )}
+
+        {seriesModalOpen && selectedLibraryId !== "all" && (
+          <AddToSeriesModal
+            libraryId={selectedLibraryId}
+            kind="ebook"
+            count={selectedIds.size}
+            onClose={() => setSeriesModalOpen(false)}
+            onSubmit={submitAddToSeries}
+          />
+        )}
+
+        {uploadOpen && uploadLibraries.length > 0 && (
+          <EbookUploadModal
+            libraries={uploadLibraries}
+            initialLibraryId={selectedLibraryId}
+            onClose={() => setUploadOpen(false)}
+            onUploaded={handleUploaded}
           />
         )}
 
@@ -468,6 +725,21 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
           >
             This ebook moves into the Recycle Bin and leaves the library for everyone. You can restore it
             from the Recycle Bin, or delete it permanently from there.
+          </ConfirmDialog>
+        )}
+
+        {bulkDeleteOpen && (
+          <ConfirmDialog
+            title={`Move ${formatCount(selectedIds.size)} ${selectedIds.size === 1 ? "ebook" : "ebooks"} to the Recycle Bin?`}
+            confirmLabel={`Move ${formatCount(selectedIds.size)} ${selectedIds.size === 1 ? "ebook" : "ebooks"}`}
+            busyLabel="Moving…"
+            busy={deleteBusy}
+            error={deleteError}
+            onConfirm={() => void confirmBulkDelete()}
+            onCancel={() => { if (!deleteBusy) setBulkDeleteOpen(false); }}
+          >
+            The selected ebooks move into the Recycle Bin and leave the library for everyone. Ebooks you lack
+            delete access to are skipped. You can restore them from the Recycle Bin anytime.
           </ConfirmDialog>
         )}
       </section>

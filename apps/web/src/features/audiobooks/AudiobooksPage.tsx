@@ -626,14 +626,16 @@ function BulkEditModal({
 // Bulk "Add to series": pick an existing series in the current library or create
 // a new one on the spot. Selected books are appended after the series' current
 // last position (the server handles ordering).
-function AddToSeriesModal({
+export function AddToSeriesModal({
   libraryId,
   count,
+  kind = "audiobook",
   onClose,
   onSubmit
 }: {
   libraryId: string;
   count: number;
+  kind?: "audiobook" | "ebook";
   onClose: () => void;
   onSubmit: (target: { seriesId: string } | { newName: string }) => Promise<void>;
 }) {
@@ -647,14 +649,14 @@ function AddToSeriesModal({
 
   useEffect(() => {
     setLoading(true);
-    api<{ series: SeriesSummary[] }>(`/api/library/audiobook-libraries/${libraryId}/series`)
+    api<{ series: SeriesSummary[] }>(`/api/library/${kind}-libraries/${libraryId}/series`)
       .then((payload) => {
         setSeries(payload.series);
         if (payload.series.length === 0) setMode("new");
       })
       .catch(() => setSeries([]))
       .finally(() => setLoading(false));
-  }, [libraryId]);
+  }, [libraryId, kind]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();

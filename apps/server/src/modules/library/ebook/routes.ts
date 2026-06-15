@@ -1,15 +1,51 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { FastifyInstance } from "fastify";
+import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
+import { receiveUploadBatch, UploadError } from "../../../core/uploads.js";
+import { can, parsePolicy } from "../../../core/permissions.js";
 import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
 import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
-import { enqueueEbookScan, processEbookScanQueue } from "./scanner.js";
+import { validateLibrarySource } from "../shared/library-source.js";
+import { normaliseRelativePath } from "../shared/storage-roots.js";
+import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
+import { enqueueEbookScan, processEbookScanQueue, scanSingleEbookFile } from "./scanner.js";
 import { resolveEbookScopeLibraryIds, queryEbookCatalog, ebookCatalogFacets } from "./catalog.js";
+
+// Each uploaded file becomes its own ebook, so this also bounds books-per-upload.
+const MAX_EBOOK_UPLOAD_FILES = 100;
+
+// Turn a client filename into a safe, collision-free name within the library root:
+// strip path separators / control chars, refuse a leading dot (the scanner skips
+// dot-entries, and ".upload-*" is reserved for staging), then disambiguate against
+// existing files with " (2)", " (3)", … Returns null if nothing usable remains.
+function uniqueEbookFileName(root: string, filename: string): string | null {
+  const ext = path.extname(filename);
+  const stem = Array.from(path.basename(filename, ext))
+    .filter((ch) => ch.charCodeAt(0) >= 32)
+    .join("")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\.+/, "")
+    .slice(0, 150)
+    .replace(/[\s.]+$/g, "");
+  if (!stem) return null;
+  let candidate = `${stem}${ext}`;
+  let counter = 2;
+  while (fs.existsSync(path.join(root, candidate))) {
+    candidate = `${stem} (${counter})${ext}`;
+    counter += 1;
+  }
+  return candidate;
+}
 
 const EBOOK_LIBRARY_LIST_SQL = `
   SELECT
@@ -175,6 +211,93 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
         };
       })
     };
+  });
+
+  // Upload ebooks: every file in the multipart request becomes its OWN book (one
+  // file = one ebook, unlike audiobooks where a folder of tracks is one book). Files
+  // stream into a hidden ".upload-*" staging folder first, then each is moved into the
+  // library root under a safe, unique name and cataloged immediately.
+  app.post("/api/library/ebook-libraries/:id/books/upload", { preHandler: app.authenticate }, async (request, reply) => {
+    const libraryId = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const library = db.prepare(
+      "SELECT id, name, source_path, settings_json, policy_json FROM libraries WHERE id = ? AND type = 'ebook'"
+    ).get(libraryId) as { id: string; name: string; source_path: string; settings_json: string; policy_json: string } | undefined;
+    if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
+      reply.code(404).send({ error: "Ebook library not found" });
+      return;
+    }
+
+    const policy = parsePolicy(library.policy_json);
+    if (!can(user, { objectType: "library", objectId: library.id, policy }, "upload")) {
+      reply.code(403).send({ error: "Uploading is not allowed in this library." });
+      return;
+    }
+
+    let root: string;
+    try {
+      root = validateLibrarySource(library.source_path);
+    } catch (err) {
+      reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
+      return;
+    }
+
+    const settings = normalizeLibrarySettings("ebook", library.settings_json);
+    const maxBytes = policy.maxUploadMB != null ? policy.maxUploadMB * 1024 * 1024 : null;
+    const stagingDir = path.join(root, `.upload-${nanoid(10)}`);
+
+    let received;
+    try {
+      received = await receiveUploadBatch(
+        request,
+        { accept: uploadAcceptExtensions(settings), maxBytes },
+        stagingDir,
+        MAX_EBOOK_UPLOAD_FILES
+      );
+    } catch (err) {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+      const status = err instanceof UploadError ? err.statusCode : 400;
+      reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
+      return;
+    }
+
+    // Each file moves into the library root under a unique name, then is cataloged
+    // on its own. Files already in place stay even if a later one fails.
+    const createdIds: string[] = [];
+    let totalBytes = 0;
+    try {
+      for (const file of received) {
+        const finalName = uniqueEbookFileName(root, file.filename);
+        if (!finalName) { fs.rmSync(file.tmpPath, { force: true }); continue; }
+        const finalPath = path.join(root, finalName);
+        fs.renameSync(file.tmpPath, finalPath);
+        const relativePath = normaliseRelativePath(path.relative(root, finalPath));
+        const bookId = await scanSingleEbookFile(library.id, relativePath);
+        if (bookId) { createdIds.push(bookId); totalBytes += file.sizeBytes; }
+      }
+    } catch (err) {
+      reply.code(500).send({ error: err instanceof Error ? err.message : "Could not store the uploaded files." });
+      return;
+    } finally {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+    }
+
+    if (createdIds.length === 0) {
+      reply.code(400).send({ error: "No ebooks were added from the upload." });
+      return;
+    }
+
+    logActivity({
+      event: "library.ebook.book_uploaded",
+      actorUserId: user.id,
+      targetType: "library",
+      targetId: library.id,
+      detail: `Uploaded ${createdIds.length} ebook${createdIds.length === 1 ? "" : "s"} (${totalBytes} bytes) to library "${library.name}".`,
+      ipAddress: request.ip
+    });
+
+    reply.code(201).send({ uploaded: createdIds.length });
   });
 
   // Paged, server-side searched/sorted/filtered ebook catalog (mirrors the

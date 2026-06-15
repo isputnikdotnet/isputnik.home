@@ -20,12 +20,17 @@ interface EditableBook {
 export function SeriesDetailPage({
   seriesId,
   user,
-  logout
+  logout,
+  kind = "audiobook"
 }: {
   seriesId: string;
   user: PublicUser;
   logout: () => Promise<void>;
+  kind?: "audiobook" | "ebook";
 }) {
+  const mediaLabel = kind === "ebook" ? "ebooks" : "audiobooks";
+  const base = `/${mediaLabel}`;
+  const libPrefix = `/api/library/${kind}-libraries`;
   const [series, setSeries] = useState<SeriesDetail | null>(null);
   const [books, setBooks] = useState<EditableBook[]>([]);
   const [libraryBooks, setLibraryBooks] = useState<AudiobookBook[]>([]);
@@ -64,7 +69,7 @@ export function SeriesDetailPage({
             position: b.seriesPosition?.toString() ?? ""
           }))
         );
-        return api<{ books: AudiobookBook[] }>(`/api/library/audiobook-libraries/${payload.series.libraryId}/books`);
+        return api<{ books: AudiobookBook[] }>(`${libPrefix}/${payload.series.libraryId}/books`);
       })
       .then((payload) => setLibraryBooks(payload.books))
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load series"));
@@ -202,7 +207,7 @@ export function SeriesDetailPage({
     setDeleting(true);
     try {
       await api(`/api/library/series/${seriesId}`, { method: "DELETE" });
-      navigate("/audiobooks/series");
+      navigate(`${base}/series`);
     } catch {
       setDeleting(false);
       setDeleteConfirm(false);
@@ -219,9 +224,9 @@ export function SeriesDetailPage({
 
   if (error) {
     return (
-      <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout}>
         <section className="audiobook-main-page">
-          <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/audiobooks/series")}>
+          <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? `${base}/series`)}>
             <ArrowLeft size={17} aria-hidden="true" />
             <span>{backTo ? "Back" : "Back to series"}</span>
           </button>
@@ -233,7 +238,7 @@ export function SeriesDetailPage({
 
   if (!series) {
     return (
-      <DashboardShell active="audiobooks" user={user} logout={logout}>
+      <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout}>
         <section className="audiobook-main-page">
           <p className="management-empty">Loading series…</p>
         </section>
@@ -250,9 +255,9 @@ export function SeriesDetailPage({
     books.some((b) => !baselinePositions.has(b.id) || baselinePositions.get(b.id) !== b.position);
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/audiobooks/series")}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? `${base}/series`)}>
           <ArrowLeft size={17} aria-hidden="true" />
           <span>{backTo ? "Back" : "Back to series"}</span>
         </button>
@@ -312,7 +317,7 @@ export function SeriesDetailPage({
                   {book.coverUrl ? <img src={book.coverUrl} alt="" /> : <BookOpen size={14} />}
                 </div>
                 <div className="series-book-info">
-                  <button className="series-book-title-link" onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
+                  <button className="series-book-title-link" onClick={() => navigate(`${base}/books/${book.id}`)}>
                     {book.title}
                   </button>
                   {book.authors.length > 0 && <span>{book.authors.join(", ")}</span>}

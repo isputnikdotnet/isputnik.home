@@ -18,72 +18,61 @@ async function writeSeriesCover(libraryId: string, seriesId: string, source: Buf
   return storageKey;
 }
 
-export function registerSeriesRoutes(app: FastifyInstance) {
+// Series rows for one library, with a cover that falls back to the first book's
+// cover. Shared by the audiobook and ebook library-scoped list endpoints.
+function listSeriesForLibrary(libraryId: string) {
+  const rows = db.prepare(`
+    SELECT
+      series.id,
+      series.name,
+      COUNT(books.id) AS book_count,
+      COALESCE(
+        series.cover_storage_key,
+        (
+          SELECT book_metadata.cover_storage_key
+          FROM books b
+          LEFT JOIN book_metadata ON book_metadata.book_id = b.id
+          WHERE b.series_id = series.id AND b.deleted_at IS NULL
+          ORDER BY b.series_position ASC
+          LIMIT 1
+        )
+      ) AS cover_storage_key
+    FROM series
+    LEFT JOIN books ON books.series_id = series.id AND books.deleted_at IS NULL
+    WHERE series.library_id = ?
+    GROUP BY series.id
+    ORDER BY series.name COLLATE NOCASE
+  `).all(libraryId) as { id: string; name: string; book_count: number; cover_storage_key: string | null }[];
 
-  app.get("/api/library/audiobook-libraries/:id/people", { preHandler: app.authenticate }, async (request, reply) => {
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    bookCount: r.book_count,
+    coverUrl: r.cover_storage_key ? `/api/library/covers/${r.cover_storage_key}` : null
+  }));
+}
+
+// List + create series for a library of the given type. Series live in a single
+// library (so they're single-type), but both audiobook and ebook libraries get the
+// same shape — only the access type-guard and not-found message differ.
+function registerLibrarySeriesRoutes(app: FastifyInstance, type: "audiobook" | "ebook") {
+  const notFound = type === "ebook" ? "Ebook library not found" : "Audiobook library not found";
+
+  app.get(`/api/library/${type}-libraries/:id/series`, { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
-    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    const library = getAccessibleLibrary(id, user.id, user.role, type);
     if (!library) {
-      reply.code(404).send({ error: "Audiobook library not found" });
+      reply.code(404).send({ error: notFound });
       return;
     }
-
-    const rows = db.prepare(`
-      SELECT name FROM authors WHERE library_id = ? ORDER BY name COLLATE NOCASE
-    `).all(id) as { name: string }[];
-
-    reply.send({ people: rows.map((r) => r.name) });
+    reply.send({ series: listSeriesForLibrary(id) });
   });
 
-
-  app.get("/api/library/audiobook-libraries/:id/series", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post(`/api/library/${type}-libraries/:id/series`, { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
-    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
-    if (!library) {
-      reply.code(404).send({ error: "Audiobook library not found" });
-      return;
-    }
-
-    const rows = db.prepare(`
-      SELECT
-        series.id,
-        series.name,
-        COUNT(books.id) AS book_count,
-        COALESCE(
-          series.cover_storage_key,
-          (
-            SELECT book_metadata.cover_storage_key
-            FROM books b
-            LEFT JOIN book_metadata ON book_metadata.book_id = b.id
-            WHERE b.series_id = series.id AND b.deleted_at IS NULL
-            ORDER BY b.series_position ASC
-            LIMIT 1
-          )
-        ) AS cover_storage_key
-      FROM series
-      LEFT JOIN books ON books.series_id = series.id AND books.deleted_at IS NULL
-      WHERE series.library_id = ?
-      GROUP BY series.id
-      ORDER BY series.name COLLATE NOCASE
-    `).all(id) as { id: string; name: string; book_count: number; cover_storage_key: string | null }[];
-
-    reply.send({
-      series: rows.map((r) => ({
-        id: r.id,
-        name: r.name,
-        bookCount: r.book_count,
-        coverUrl: r.cover_storage_key ? `/api/library/covers/${r.cover_storage_key}` : null
-      }))
-    });
-  });
-
-
-  app.post("/api/library/audiobook-libraries/:id/series", { preHandler: app.authenticate }, async (request, reply) => {
-    const id = (request.params as { id: string }).id;
-    const user = request.user!;
-    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    const library = getAccessibleLibrary(id, user.id, user.role, type);
     if (!library || !canUserCurateLibrary(library, user.id, user.role)) {
       reply.code(403).send({ error: "Curator access required to manage series." });
       return;
@@ -111,6 +100,31 @@ export function registerSeriesRoutes(app: FastifyInstance) {
 
     reply.code(201).send({ series: { id: seriesId, name: parsed.data.name, bookCount: 0, coverUrl: null } });
   });
+}
+
+export function registerSeriesRoutes(app: FastifyInstance) {
+
+  app.get("/api/library/audiobook-libraries/:id/people", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
+    if (!library) {
+      reply.code(404).send({ error: "Audiobook library not found" });
+      return;
+    }
+
+    const rows = db.prepare(`
+      SELECT name FROM authors WHERE library_id = ? ORDER BY name COLLATE NOCASE
+    `).all(id) as { name: string }[];
+
+    reply.send({ people: rows.map((r) => r.name) });
+  });
+
+
+  // Library-scoped list/create, registered for both library types. Ebook series
+  // reuse the generic /api/library/series/:id* routes below.
+  registerLibrarySeriesRoutes(app, "audiobook");
+  registerLibrarySeriesRoutes(app, "ebook");
 
 
   app.get("/api/library/series/:id", { preHandler: app.authenticate }, async (request, reply) => {
@@ -129,7 +143,10 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       return;
     }
 
-    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    // A series id maps 1:1 to its library, so the `/series/:id*` routes resolve
+    // access by the series' own library regardless of type (no "audiobook" filter).
+    // That's what lets ebook-library series reuse these routes.
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib) {
       reply.code(404).send({ error: "Series not found" });
       return;
@@ -182,7 +199,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       return;
     }
 
-    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
       reply.code(403).send({ error: "Curator access required to manage series." });
       return;
@@ -215,7 +232,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       return;
     }
 
-    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
       reply.code(403).send({ error: "Curator access required to manage series." });
       return;
@@ -271,7 +288,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       return;
     }
 
-    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
       reply.code(403).send({ error: "Curator access required to change covers." });
       return;
@@ -313,7 +330,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       return;
     }
 
-    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
       reply.code(403).send({ error: "Curator access required to change covers." });
       return;
@@ -337,7 +354,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       return;
     }
 
-    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
       reply.code(403).send({ error: "Curator access required to manage series." });
       return;
@@ -362,7 +379,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       return;
     }
 
-    const lib = getAccessibleLibrary(row.library_id, user.id, user.role, "audiobook");
+    const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
       reply.code(403).send({ error: "Curator access required to manage series." });
       return;

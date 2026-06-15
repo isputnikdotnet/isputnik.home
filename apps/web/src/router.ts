@@ -17,6 +17,8 @@ export type Route =
   | { name: "ebookBook"; id: string }
   | { name: "ebookAuthors" }
   | { name: "ebookAuthorDetail"; personName: string }
+  | { name: "ebookSeries" }
+  | { name: "ebookSeriesDetail"; seriesId: string }
   | { name: "collections" }
   | { name: "collectionDetail"; id: string }
   | { name: "audiobookAuthors" }
@@ -101,6 +103,15 @@ export function getRoute(): Route {
   const ebookAuthorDetailMatch = path.match(/^\/ebooks\/authors\/(.+)$/);
   if (ebookAuthorDetailMatch) {
     return { name: "ebookAuthorDetail", personName: decodeURIComponent(ebookAuthorDetailMatch[1]) };
+  }
+
+  if (path === "/ebooks/series") {
+    return { name: "ebookSeries" };
+  }
+
+  const ebookSeriesDetailMatch = path.match(/^\/ebooks\/series\/([^/]+)$/);
+  if (ebookSeriesDetailMatch) {
+    return { name: "ebookSeriesDetail", seriesId: ebookSeriesDetailMatch[1] };
   }
 
   // Global, cross-type Favorites (audiobooks + ebooks); old path kept as an alias.

@@ -308,6 +308,14 @@ export function App() {
     return <PersonDetailPage personName={route.personName} role="author" kind="ebook" user={session.user} logout={logout} />;
   }
 
+  if (route.name === "ebookSeries") {
+    return <SeriesListPage kind="ebook" user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "ebookSeriesDetail") {
+    return <SeriesDetailPage seriesId={route.seriesId} kind="ebook" user={session.user} logout={logout} />;
+  }
+
   if (route.name === "audiobookAuthors") {
     return <PersonListPage role="author" user={session.user} logout={logout} />;
   }

@@ -210,6 +210,107 @@ function walkEbookFiles(rootPath: string, extensions: Set<string>): EbookFileEnt
 
 // ── Scan ──
 
+// Catalog one ebook file as a book — insert/update the book row, its scanned
+// metadata (unless the book was hand-edited), and its single document. Shared by
+// the full-library walk and the single-file upload path. Returns the book id.
+async function ingestEbookFile(
+  libraryId: string,
+  file: EbookFileEntry,
+  settings: ReturnType<typeof normalizeLibrarySettings>,
+  fileMetaEnabled: boolean
+): Promise<string> {
+  const existing = db.prepare("SELECT id FROM books WHERE library_id = ? AND folder_path = ?")
+    .get(libraryId, file.relativePath) as { id: string } | undefined;
+  const metaRow = existing
+    ? db.prepare("SELECT source FROM book_metadata WHERE book_id = ?").get(existing.id) as { source: string } | undefined
+    : undefined;
+  const manual = metaRow?.source === "manual";
+  const bookId = existing?.id ?? nanoid(16);
+
+  const meta = fileMetaEnabled && file.extension === ".epub"
+    ? (extractEpubMetadata(file.absolutePath) ?? pdfMetadata(file))
+    : pdfMetadata(file);
+  const title = meta.title || path.basename(file.fileName, file.extension);
+  const coverKey = (!manual && meta.coverBuffer) ? await generateEbookCover(libraryId, bookId, meta.coverBuffer) : null;
+
+  db.transaction(() => {
+    if (existing) {
+      db.prepare("UPDATE books SET status = 'ready', updated_at = CURRENT_TIMESTAMP, deleted_at = NULL WHERE id = ?").run(bookId);
+    } else {
+      db.prepare("INSERT INTO books (id, library_id, folder_path, status) VALUES (?, ?, ?, 'ready')")
+        .run(bookId, libraryId, file.relativePath);
+    }
+
+    if (!manual) {
+      db.prepare(`
+        INSERT INTO book_metadata (id, book_id, source, title, sort_title, description, year_published, language, isbn, cover_storage_key, category_id)
+        VALUES (?, ?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(book_id) DO UPDATE SET
+          title = excluded.title,
+          sort_title = excluded.sort_title,
+          description = excluded.description,
+          year_published = excluded.year_published,
+          language = excluded.language,
+          isbn = excluded.isbn,
+          cover_storage_key = COALESCE(excluded.cover_storage_key, book_metadata.cover_storage_key),
+          category_id = excluded.category_id,
+          updated_at = CURRENT_TIMESTAMP
+      `).run(
+        nanoid(16), bookId, title, sortName(title), meta.description,
+        meta.year, meta.language || settings.default_language || null, meta.isbn, coverKey,
+        matchCategoryId(meta.subjects)
+      );
+
+      db.prepare("DELETE FROM book_authors WHERE book_id = ? AND role = 'author'").run(bookId);
+      meta.authors.forEach((name, index) => {
+        const authorId = upsertAuthor(libraryId, name);
+        db.prepare("INSERT OR IGNORE INTO book_authors (book_id, author_id, role, sort_order) VALUES (?, ?, 'author', ?)")
+          .run(bookId, authorId, index);
+      });
+
+      setEntityTags("book", bookId, meta.subjects);
+    }
+
+    // The ebook file itself is stored as the book's document.
+    db.prepare("UPDATE book_documents SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(bookId);
+    db.prepare(`
+      INSERT INTO book_documents (id, book_id, relative_path, format, mime_type, size, status, deleted_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'available', NULL)
+      ON CONFLICT(book_id, relative_path) DO UPDATE SET
+        format = excluded.format, mime_type = excluded.mime_type, size = excluded.size,
+        status = 'available', deleted_at = NULL, updated_at = CURRENT_TIMESTAMP
+    `).run(nanoid(16), bookId, file.relativePath, file.extension.slice(1), ebookMimeTypes[file.extension] ?? "application/octet-stream", file.size);
+  })();
+
+  return bookId;
+}
+
+// Ingest a single newly-added ebook file (e.g. an upload) by its path relative to
+// the library source, without re-walking the whole library. Returns the new/updated
+// book id, or null if the library or file can't be read.
+export async function scanSingleEbookFile(libraryId: string, relativePath: string): Promise<string | null> {
+  const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
+    .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
+  if (!library) return null;
+
+  const settings = normalizeLibrarySettings("ebook", library.settings_json);
+  const fileMetaEnabled = sourceEnabled(settings.scan_sources, "file_metadata");
+  const rootPath = validateLibrarySource(library.source_path);
+  const normalized = normaliseRelativePath(relativePath);
+  const absolutePath = path.join(rootPath, normalized);
+  let size = 0;
+  try { size = fs.statSync(absolutePath).size; } catch { return null; }
+
+  const file: EbookFileEntry = {
+    absolutePath,
+    relativePath: normalized,
+    fileName: path.basename(absolutePath),
+    extension: path.extname(absolutePath).toLowerCase(),
+    size
+  };
+  return ingestEbookFile(libraryId, file, settings, fileMetaEnabled);
+}
+
 async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {}) {
   const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
     .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
@@ -225,68 +326,7 @@ async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {
 
   for (const file of files) {
     seenPaths.add(file.relativePath);
-    const existing = db.prepare("SELECT id FROM books WHERE library_id = ? AND folder_path = ?")
-      .get(libraryId, file.relativePath) as { id: string } | undefined;
-    const metaRow = existing
-      ? db.prepare("SELECT source FROM book_metadata WHERE book_id = ?").get(existing.id) as { source: string } | undefined
-      : undefined;
-    const manual = metaRow?.source === "manual";
-    const bookId = existing?.id ?? nanoid(16);
-
-    const meta = fileMetaEnabled && file.extension === ".epub"
-      ? (extractEpubMetadata(file.absolutePath) ?? pdfMetadata(file))
-      : pdfMetadata(file);
-    const title = meta.title || path.basename(file.fileName, file.extension);
-    const coverKey = (!manual && meta.coverBuffer) ? await generateEbookCover(libraryId, bookId, meta.coverBuffer) : null;
-
-    db.transaction(() => {
-      if (existing) {
-        db.prepare("UPDATE books SET status = 'ready', updated_at = CURRENT_TIMESTAMP, deleted_at = NULL WHERE id = ?").run(bookId);
-      } else {
-        db.prepare("INSERT INTO books (id, library_id, folder_path, status) VALUES (?, ?, ?, 'ready')")
-          .run(bookId, libraryId, file.relativePath);
-      }
-
-      if (!manual) {
-        db.prepare(`
-          INSERT INTO book_metadata (id, book_id, source, title, sort_title, description, year_published, language, isbn, cover_storage_key, category_id)
-          VALUES (?, ?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(book_id) DO UPDATE SET
-            title = excluded.title,
-            sort_title = excluded.sort_title,
-            description = excluded.description,
-            year_published = excluded.year_published,
-            language = excluded.language,
-            isbn = excluded.isbn,
-            cover_storage_key = COALESCE(excluded.cover_storage_key, book_metadata.cover_storage_key),
-            category_id = excluded.category_id,
-            updated_at = CURRENT_TIMESTAMP
-        `).run(
-          nanoid(16), bookId, title, sortName(title), meta.description,
-          meta.year, meta.language || settings.default_language || null, meta.isbn, coverKey,
-          matchCategoryId(meta.subjects)
-        );
-
-        db.prepare("DELETE FROM book_authors WHERE book_id = ? AND role = 'author'").run(bookId);
-        meta.authors.forEach((name, index) => {
-          const authorId = upsertAuthor(libraryId, name);
-          db.prepare("INSERT OR IGNORE INTO book_authors (book_id, author_id, role, sort_order) VALUES (?, ?, 'author', ?)")
-            .run(bookId, authorId, index);
-        });
-
-        setEntityTags("book", bookId, meta.subjects);
-      }
-
-      // The ebook file itself is stored as the book's document.
-      db.prepare("UPDATE book_documents SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(bookId);
-      db.prepare(`
-        INSERT INTO book_documents (id, book_id, relative_path, format, mime_type, size, status, deleted_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'available', NULL)
-        ON CONFLICT(book_id, relative_path) DO UPDATE SET
-          format = excluded.format, mime_type = excluded.mime_type, size = excluded.size,
-          status = 'available', deleted_at = NULL, updated_at = CURRENT_TIMESTAMP
-      `).run(nanoid(16), bookId, file.relativePath, file.extension.slice(1), ebookMimeTypes[file.extension] ?? "application/octet-stream", file.size);
-    })();
+    await ingestEbookFile(libraryId, file, settings, fileMetaEnabled);
   }
 
   // Soft-delete books whose files vanished.

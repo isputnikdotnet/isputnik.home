@@ -436,10 +436,10 @@ function BookDetailView({
     ? `${formatDuration(remainingSeconds)} remaining`
     : null;
 
-  // Authors (and the book route) differ per media type; link within the current
-  // type so an ebook's author goes to /ebooks/authors, not /audiobooks. Narrators
-  // and series are audiobook-only and never render here for ebooks, so they keep
-  // their /audiobooks links.
+  // Authors, series, and the book route differ per media type; link within the
+  // current type so an ebook's author/series goes to /ebooks/..., not /audiobooks.
+  // Narrators are audiobook-only and never render for ebooks, so they keep their
+  // /audiobooks links.
   const mediaBase = isEbook ? "/ebooks" : "/audiobooks";
   // Referrer so detail pages reached from here can offer "Back" to this book.
   const linkFrom = `?from=${encodeURIComponent(`${mediaBase}/books/${book.id}`)}`;
@@ -466,7 +466,7 @@ function BookDetailView({
       label: "Series",
       value: `${book.series}${book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}`,
       icon: BookOpen,
-      links: book.seriesId ? [{ text: `${book.series}${book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}`, href: `/audiobooks/series/${book.seriesId}${linkFrom}` }] : undefined
+      links: book.seriesId ? [{ text: `${book.series}${book.seriesPosition != null ? ` #${book.seriesPosition}` : ""}`, href: `${mediaBase}/series/${book.seriesId}${linkFrom}` }] : undefined
     } : null
   ] as (DetailRow | null)[]).filter((row): row is DetailRow => Boolean(row));
   const detailRows = ([

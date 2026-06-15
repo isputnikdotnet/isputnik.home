@@ -10,11 +10,16 @@ import type { AudiobookLibrary, SeriesSummary } from "./types";
 
 export function SeriesListPage({
   user,
-  logout
+  logout,
+  kind = "audiobook"
 }: {
   user: PublicUser;
   logout: () => Promise<void>;
+  kind?: "audiobook" | "ebook";
 }) {
+  const mediaLabel = kind === "ebook" ? "ebooks" : "audiobooks";
+  const base = `/${mediaLabel}`;
+  const libPrefix = `/api/library/${kind}-libraries`;
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [seriesByLibrary, setSeriesByLibrary] = useState<Record<string, SeriesSummary[]>>({});
   const [error, setError] = useState("");
@@ -27,12 +32,12 @@ export function SeriesListPage({
   const [createError, setCreateError] = useState("");
 
   const loadSeries = async (libraryId: string) => {
-    const payload = await api<{ series: SeriesSummary[] }>(`/api/library/audiobook-libraries/${libraryId}/series`);
+    const payload = await api<{ series: SeriesSummary[] }>(`${libPrefix}/${libraryId}/series`);
     setSeriesByLibrary((prev) => ({ ...prev, [libraryId]: payload.series }));
   };
 
   useEffect(() => {
-    api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
+    api<{ libraries: AudiobookLibrary[] }>(libPrefix)
       .then(async (payload) => {
         setLibraries(payload.libraries);
         setNewLibraryId(payload.libraries[0]?.id ?? "");
@@ -59,12 +64,12 @@ export function SeriesListPage({
     setCreating(true);
     setCreateError("");
     try {
-      const payload = await api<{ series: SeriesSummary }>(`/api/library/audiobook-libraries/${newLibraryId}/series`, {
+      const payload = await api<{ series: SeriesSummary }>(`${libPrefix}/${newLibraryId}/series`, {
         method: "POST",
         body: JSON.stringify({ name: newName.trim(), description: newDescription.trim() || null })
       });
       setModalOpen(false);
-      navigate(`/audiobooks/series/${payload.series.id}`);
+      navigate(`${base}/series/${payload.series.id}`);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Unable to create series");
     } finally {
@@ -73,11 +78,11 @@ export function SeriesListPage({
   };
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(base)}>
           <ArrowLeft size={18} aria-hidden="true" />
-          <span>Back to audiobooks</span>
+          <span>Back to {mediaLabel}</span>
         </button>
 
         <div className="section-head">
@@ -125,7 +130,7 @@ export function SeriesListPage({
               <button
                 key={s.id}
                 className="series-card"
-                onClick={() => navigate(`/audiobooks/series/${s.id}`)}
+                onClick={() => navigate(`${base}/series/${s.id}`)}
               >
                 <div className="series-card-cover" aria-hidden="true">
                   {s.coverUrl ? (
