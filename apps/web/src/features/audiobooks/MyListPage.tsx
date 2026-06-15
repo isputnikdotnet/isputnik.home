@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Heart, Trash2 } from "lucide-react";
+import { BookOpen, Headphones, Heart, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { LibraryNavTabs } from "./LibraryNavTabs";
@@ -65,6 +65,7 @@ export function MyListPage({
           <div className="audiobook-grid">
             {(books ?? []).map((book) => {
               const removing = removingIds.includes(book.id);
+              const FallbackIcon = book.kind === "ebook" ? BookOpen : Headphones;
               return (
                 <article className="saved-audiobook-card" key={book.id}>
                   <button className="audiobook-card" onClick={() => navigate(book.kind === "ebook" ? `/ebooks/books/${book.id}` : `/audiobooks/books/${book.id}`)}>
@@ -73,15 +74,15 @@ export function MyListPage({
                         <img src={book.coverUrl} alt="" />
                       ) : (
                         <>
-                          <BookOpen size={13} />
+                          <FallbackIcon size={13} />
                           <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
                         </>
                       )}
+                      <MediaKindBadge kind={book.kind} overlay />
                     </div>
                     <div className="audiobook-card-body">
                       <strong>{book.title}</strong>
                       <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
-                      <MediaKindBadge kind={book.kind} showLabel />
                       {book.note && <p className="audiobook-card-note">{book.note}</p>}
                     </div>
                   </button>

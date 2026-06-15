@@ -217,3 +217,30 @@ export function getLibraryForBook(bookId: string): LibraryAccessRow | null {
     WHERE books.id = ? AND books.deleted_at IS NULL
   `).get(bookId) as LibraryAccessRow | null;
 }
+
+// A book_documents row the user may read: it exists, belongs to the book, is
+// available, and the caller can access the book (library role or a share). Shared
+// by the reading-progress and ebook-bookmark routes — both anchor on (book, document).
+export function getReadableDocument(bookId: string, documentId: string, user: { id: string; role: string }) {
+  const row = db.prepare(`
+    SELECT
+      book_documents.id,
+      book_documents.status,
+      libraries.id AS library_id
+    FROM book_documents
+    JOIN books ON books.id = book_documents.book_id
+    JOIN libraries ON libraries.id = books.library_id
+    WHERE book_documents.id = ?
+      AND book_documents.book_id = ?
+      AND books.deleted_at IS NULL
+  `).get(documentId, bookId) as {
+    id: string;
+    status: string;
+    library_id: string;
+  } | undefined;
+
+  if (!row || row.status !== "available") return null;
+  // row.id is the DOCUMENT id — access resolves by the library id.
+  if (!canUserAccessBook(bookId, { id: row.library_id }, user.id, user.role)) return null;
+  return row;
+}

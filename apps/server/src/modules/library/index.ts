@@ -10,6 +10,7 @@ import { startTrashPurgeWorker } from "./shared/trash.js";
 import { registerFeedRoutes } from "./feed.js";
 import { registerCategoryRoutes } from "./categories.js";
 import { registerTagRoutes } from "./tags.js";
+import { registerBookmarkRoutes } from "./bookmarks.js";
 
 export async function libraryPlugin(app: FastifyInstance) {
   await app.register(librarySettingsPlugin);
@@ -28,6 +29,9 @@ export async function libraryPlugin(app: FastifyInstance) {
 
   // …the global Tags browse (polymorphic taggables, cross-type)…
   registerTagRoutes(app);
+
+  // …the cross-type "all my bookmarks" listing (audiobook position + epub reader)…
+  registerBookmarkRoutes(app);
 
   // …and the Recycle Bin, whose sweeper auto-purges items past the retention window.
   registerTrashRoutes(app);

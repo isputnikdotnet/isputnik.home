@@ -1,12 +1,39 @@
 import { useEffect, useState } from "react";
-import { Bookmark, BookOpen, Trash2 } from "lucide-react";
+import { Bookmark, BookOpen, Headphones, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { LibraryNavTabs } from "./LibraryNavTabs";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { MediaKindBadge } from "../../shared/MediaKindBadge";
 import { formatDuration } from "../../shared/utils";
 import type { SavedBookmark } from "./types";
+
+function percentLabel(value: number | null): number {
+  if (value == null || !Number.isFinite(value)) return 0;
+  return Math.round(Math.max(0, Math.min(1, value)) * 100);
+}
+
+// Bookmarks route to the right detail page by their parent library's media type,
+// not by the bookmark kind — an epub reader bookmark can live on a book in an
+// audiobook library (an audio title with an epub companion).
+function detailHref(bookmark: SavedBookmark): string {
+  const base = bookmark.libraryType === "ebook" ? "/ebooks" : "/audiobooks";
+  return `${base}/books/${bookmark.bookId}`;
+}
+
+function positionLabel(bookmark: SavedBookmark): string {
+  if (bookmark.kind === "listen") {
+    return `At ${formatDuration(bookmark.bookPositionSeconds ?? bookmark.positionSeconds)}`;
+  }
+  return bookmark.percentComplete != null ? `At ${percentLabel(bookmark.percentComplete)}%` : "Saved spot";
+}
+
+function removeEndpoint(bookmark: SavedBookmark): string {
+  return bookmark.kind === "read"
+    ? `/api/library/books/${bookmark.bookId}/ebook-bookmarks/${bookmark.id}`
+    : `/api/library/books/${bookmark.bookId}/bookmarks/${bookmark.id}`;
+}
 
 export function BookmarksPage({
   user,
@@ -29,7 +56,7 @@ export function BookmarksPage({
     setRemovingIds((current) => [...current, bookmark.id]);
     setError("");
     try {
-      await api(`/api/library/books/${bookmark.bookId}/bookmarks/${bookmark.id}`, { method: "DELETE" });
+      await api(removeEndpoint(bookmark), { method: "DELETE" });
       setBookmarks((current) => current?.filter((item) => item.id !== bookmark.id) ?? current);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to remove this bookmark");
@@ -59,30 +86,31 @@ export function BookmarksPage({
           <div className="empty-state library-empty">
             <Bookmark size={58} aria-hidden="true" />
             <h2>No bookmarks yet</h2>
-            <p className="muted">While listening, tap the bookmark button in the player to save a spot here.</p>
+            <p className="muted">While reading or listening, tap the bookmark button to save your spot here.</p>
           </div>
         ) : (
           <div className="audiobook-grid">
             {(bookmarks ?? []).map((bookmark) => {
               const removing = removingIds.includes(bookmark.id);
-              const position = bookmark.bookPositionSeconds ?? bookmark.positionSeconds;
+              const FallbackIcon = bookmark.libraryType === "ebook" ? BookOpen : Headphones;
               return (
                 <article className="saved-audiobook-card" key={bookmark.id}>
-                  <button className="audiobook-card" onClick={() => navigate(`/audiobooks/books/${bookmark.bookId}`)}>
+                  <button className="audiobook-card" onClick={() => navigate(detailHref(bookmark))}>
                     <div className="audiobook-cover" aria-hidden="true">
                       {bookmark.coverUrl ? (
                         <img src={bookmark.coverUrl} alt="" />
                       ) : (
                         <>
-                          <BookOpen size={13} />
+                          <FallbackIcon size={13} />
                           <strong>{bookmark.bookTitle.slice(0, 2).toUpperCase()}</strong>
                         </>
                       )}
+                      <MediaKindBadge kind={bookmark.libraryType} overlay />
                     </div>
                     <div className="audiobook-card-body">
                       <strong>{bookmark.label || bookmark.bookTitle}</strong>
                       <span>{bookmark.bookAuthors.length > 0 ? bookmark.bookAuthors.join(", ") : bookmark.bookTitle}</span>
-                      <small>At {formatDuration(position)}</small>
+                      <small>{positionLabel(bookmark)}</small>
                       {bookmark.note && <p className="audiobook-card-note">{bookmark.note}</p>}
                     </div>
                   </button>

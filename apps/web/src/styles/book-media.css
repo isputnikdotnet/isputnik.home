@@ -293,6 +293,210 @@
   background: rgba(17, 107, 95, 0.11);
 }
 
+/* Bookmarks panel — shares the .epub-toc-panel shell (left column on desktop, an
+   overlay on mobile); only the list internals are bespoke. */
+.epub-bookmark-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+}
+
+.epub-bookmark-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px dashed rgba(17, 107, 95, 0.5);
+  border-radius: 8px;
+  color: #0f594f;
+  background: rgba(17, 107, 95, 0.07);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.epub-bookmark-add:hover:not(:disabled),
+.epub-bookmark-add:focus-visible {
+  border-color: #116b5f;
+  background: rgba(17, 107, 95, 0.13);
+}
+
+.epub-bookmark-add:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.epub-bookmark-empty {
+  margin: 4px 2px;
+  color: #6c6a61;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.epub-bookmark-item {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.epub-bookmark-item.editing {
+  border-color: rgba(17, 107, 95, 0.4);
+  background: rgba(17, 107, 95, 0.06);
+}
+
+.epub-bookmark-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.epub-bookmark-jump {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 2px;
+  border: 0;
+  color: #3a382f;
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.epub-bookmark-jump > svg {
+  flex: 0 0 auto;
+  color: #116b5f;
+}
+
+.epub-bookmark-jump:hover .epub-bookmark-label,
+.epub-bookmark-jump:focus-visible .epub-bookmark-label {
+  color: #0f594f;
+}
+
+.epub-bookmark-percent {
+  flex: 0 0 auto;
+  min-width: 34px;
+  color: #61615a;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.epub-bookmark-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.epub-bookmark-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 2px;
+}
+
+.epub-bookmark-actions button {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  color: #6c6a61;
+  background: transparent;
+  cursor: pointer;
+}
+
+.epub-bookmark-actions button:hover,
+.epub-bookmark-actions button:focus-visible {
+  color: #0f594f;
+  background: rgba(17, 107, 95, 0.1);
+}
+
+.epub-bookmark-note {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.045);
+  color: #4e4b42;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.epub-bookmark-edit {
+  display: grid;
+  gap: 6px;
+}
+
+.epub-bookmark-note-input {
+  width: 100%;
+  resize: vertical;
+  padding: 7px 9px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  border-radius: 7px;
+  color: #1a1a1a;
+  background: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.epub-bookmark-note-input:focus-visible {
+  outline: none;
+  border-color: #116b5f;
+}
+
+.epub-bookmark-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.epub-bookmark-save,
+.epub-bookmark-cancel {
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.epub-bookmark-save {
+  color: #fff;
+  background: #116b5f;
+}
+
+.epub-bookmark-save:hover,
+.epub-bookmark-save:focus-visible {
+  background: #0f594f;
+}
+
+.epub-bookmark-cancel {
+  color: #5a574f;
+  background: transparent;
+  border-color: rgba(0, 0, 0, 0.16);
+}
+
+.epub-bookmark-cancel:hover,
+.epub-bookmark-cancel:focus-visible {
+  background: rgba(0, 0, 0, 0.05);
+}
+
 .epub-reader-area {
   flex: 1;
   min-width: 0;

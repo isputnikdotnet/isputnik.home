@@ -224,25 +224,53 @@ export interface Bookmark {
   updatedAt: string;
 }
 
-export interface BookSave {
-  saved: boolean;
-  note: string | null;
-}
-
-export interface SavedBookmark {
+// A reader bookmark inside one epub document: the cfi is the jump target,
+// percentComplete is the position shown. Counterpart to the audiobook `Bookmark`.
+export interface EbookBookmark {
   id: string;
-  bookId: string;
-  bookTitle: string;
-  bookAuthors: string[];
-  coverUrl: string | null;
-  fileId: string | null;
-  positionSeconds: number;
-  bookPositionSeconds: number | null;
+  documentId: string;
+  cfi: string;
+  percentComplete: number | null;
   label: string | null;
   note: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export interface BookSave {
+  saved: boolean;
+  note: string | null;
+}
+
+// One entry in the cross-type "all my bookmarks" listing. `libraryType` drives the
+// media badge + which detail route a tile opens; `kind` says how to render the
+// position — a "listen" timestamp (audiobook) or a "read" percentage (epub).
+interface SavedBookmarkBase {
+  id: string;
+  bookId: string;
+  libraryType: "audiobook" | "ebook";
+  bookTitle: string;
+  bookAuthors: string[];
+  coverUrl: string | null;
+  label: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedListenBookmark extends SavedBookmarkBase {
+  kind: "listen";
+  fileId: string | null;
+  positionSeconds: number;
+  bookPositionSeconds: number | null;
+}
+
+export interface SavedReadBookmark extends SavedBookmarkBase {
+  kind: "read";
+  percentComplete: number | null;
+}
+
+export type SavedBookmark = SavedListenBookmark | SavedReadBookmark;
 
 export interface SavedBook {
   id: string;

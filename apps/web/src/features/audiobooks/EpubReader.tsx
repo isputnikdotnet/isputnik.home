@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpenText, ChevronLeft, ChevronRight, Columns2, ListTree, Minus, Plus } from "lucide-react";
+import { Bookmark, BookmarkPlus, BookOpenText, ChevronLeft, ChevronRight, Columns2, ListTree, Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import ePub, { type Book, type Location, type NavItem, type Rendition } from "epubjs";
 import { api } from "../../api";
-import type { ReadingProgress } from "./types";
+import type { EbookBookmark, ReadingProgress } from "./types";
 
 interface EpubReaderProps {
   bookId: string;
@@ -108,6 +108,17 @@ function newerProgress(a: ReadingProgress | null, b: ReadingProgress | null) {
 function displayPercent(percent: number | null | undefined) {
   if (percent == null) return "Position not calculated";
   return `${Math.round(clampPercent(percent)! * 100)}%`;
+}
+
+// Compact "42%" for a bookmark chip; a bullet when the position isn't known yet
+// (book locations still generating when the mark was saved).
+function bookmarkPercent(percent: number | null) {
+  return percent == null ? "•" : `${Math.round(clampPercent(percent)! * 100)}%`;
+}
+
+// Bookmarks listed in reading order — earliest position first.
+function sortBookmarks(list: EbookBookmark[]) {
+  return [...list].sort((a, b) => (a.percentComplete ?? 0) - (b.percentComplete ?? 0));
 }
 
 function normalizeHref(value: string | undefined) {
@@ -399,6 +410,12 @@ export function EpubReader({
   const [currentHref, setCurrentHref] = useState("");
   const [atStart, setAtStart] = useState(false);
   const [atEnd, setAtEnd] = useState(false);
+  const [bookmarks, setBookmarks] = useState<EbookBookmark[]>([]);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const [bookmarkSaved, setBookmarkSaved] = useState(false);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
 
   const sendProgress = useCallback((progress: ProgressDraft) => {
     return patchReadingProgress(bookId, documentId, progress).catch(() => undefined);
@@ -488,6 +505,69 @@ export function EpubReader({
         setChapterError("This chapter link could not be opened.");
       });
   }, []);
+
+  // Save a mark at the current location. The reader already tracks the live cfi +
+  // percent + section label in latestProgressRef (updated on every relocate), so a
+  // bookmark is just that snapshot persisted under its own row.
+  const addBookmark = useCallback(async () => {
+    const draft = latestProgressRef.current;
+    if (!draft?.cfi) return;
+
+    setBookmarkBusy(true);
+    try {
+      const { bookmark } = await api<{ bookmark: EbookBookmark }>(`/api/library/books/${bookId}/ebook-bookmarks`, {
+        method: "POST",
+        body: JSON.stringify({
+          documentId,
+          cfi: draft.cfi,
+          percentComplete: draft.percentComplete,
+          label: draft.label ?? sectionLabel ?? "EPUB"
+        })
+      });
+      setBookmarks((prev) => sortBookmarks([...prev, bookmark]));
+      setChapterError("");
+      setBookmarkSaved(true);
+      window.setTimeout(() => setBookmarkSaved(false), 2000);
+    } catch {
+      setChapterError("Unable to save this bookmark.");
+    } finally {
+      setBookmarkBusy(false);
+    }
+  }, [bookId, documentId, sectionLabel]);
+
+  const jumpToBookmark = useCallback((bookmark: EbookBookmark) => {
+    const rendition = renditionRef.current;
+    if (!rendition) return;
+    void rendition.display(bookmark.cfi)
+      .then(() => {
+        setChapterError("");
+        setBookmarksOpen(false);
+      })
+      .catch(() => setChapterError("This bookmark could not be opened."));
+  }, []);
+
+  const saveBookmarkNote = useCallback(async (id: string, note: string) => {
+    try {
+      const { bookmark } = await api<{ bookmark: EbookBookmark }>(`/api/library/books/${bookId}/ebook-bookmarks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ note })
+      });
+      setBookmarks((prev) => prev.map((entry) => (entry.id === id ? bookmark : entry)));
+      setEditingBookmarkId(null);
+    } catch {
+      setChapterError("Unable to save this note.");
+    }
+  }, [bookId]);
+
+  const deleteBookmark = useCallback(async (id: string) => {
+    try {
+      await api(`/api/library/books/${bookId}/ebook-bookmarks/${id}`, { method: "DELETE" });
+      setBookmarks((prev) => prev.filter((entry) => entry.id !== id));
+      setEditingBookmarkId((current) => (current === id ? null : current));
+    } catch {
+      setChapterError("Unable to delete this bookmark.");
+    }
+  }, [bookId]);
 
   useEffect(() => {
     onProgressChangeRef.current = onProgressChange;
@@ -646,6 +726,21 @@ export function EpubReader({
     window.setTimeout(() => { void rendition.reportLocation(); }, 0);
   }, [pageMode]);
 
+  // Load this document's saved bookmarks for the panel + jump targets. Best-effort:
+  // offline or an older server just yields an empty list and reading still works.
+  useEffect(() => {
+    let cancelled = false;
+    setBookmarks([]);
+    setBookmarksOpen(false);
+    setEditingBookmarkId(null);
+    api<{ bookmarks: EbookBookmark[] }>(
+      `/api/library/books/${bookId}/ebook-bookmarks?documentId=${encodeURIComponent(documentId)}`
+    )
+      .then((payload) => { if (!cancelled) setBookmarks(sortBookmarks(payload.bookmarks)); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [bookId, documentId]);
+
   if (error) {
     return <div className="epub-reader-status">{error}</div>;
   }
@@ -660,13 +755,23 @@ export function EpubReader({
         <button
           className={`epub-tool-button${tocOpen ? " active" : ""}`}
           type="button"
-          onClick={() => setTocOpen((open) => !open)}
+          onClick={() => { setTocOpen((open) => !open); setBookmarksOpen(false); }}
           disabled={toc.length === 0}
           aria-expanded={tocOpen}
           aria-label="Table of contents"
           title="Table of contents"
         >
           <ListTree size={17} />
+        </button>
+        <button
+          className={`epub-tool-button${bookmarksOpen ? " active" : ""}`}
+          type="button"
+          onClick={() => { setBookmarksOpen((open) => !open); setTocOpen(false); }}
+          aria-expanded={bookmarksOpen}
+          aria-label="Bookmarks"
+          title="Bookmarks"
+        >
+          <Bookmark size={17} />
         </button>
         <div className="epub-reader-title">
           <strong>{sectionLabel}</strong>
@@ -730,6 +835,79 @@ export function EpubReader({
             </div>
             <div className="epub-toc-list">
               <TocItems items={toc} currentHref={currentHref} onSelect={selectTocItem} />
+            </div>
+          </aside>
+        )}
+        {bookmarksOpen && (
+          <aside className="epub-toc-panel epub-bookmark-panel" aria-label="Bookmarks">
+            <div className="epub-toc-head">
+              <strong>Bookmarks</strong>
+              <span>{bookmarks.length} {bookmarks.length === 1 ? "mark" : "marks"}</span>
+            </div>
+            <div className="epub-bookmark-list">
+              <button
+                className="epub-bookmark-add"
+                type="button"
+                onClick={addBookmark}
+                disabled={loading || bookmarkBusy}
+              >
+                <BookmarkPlus size={15} aria-hidden="true" />
+                <span>{bookmarkSaved ? "Bookmark added" : bookmarkBusy ? "Saving…" : "Bookmark this page"}</span>
+              </button>
+              {bookmarks.length === 0 ? (
+                <p className="epub-bookmark-empty">No bookmarks yet. Save your spot to find it again later.</p>
+              ) : (
+                bookmarks.map((bm) => {
+                  const editing = editingBookmarkId === bm.id;
+                  return (
+                    <div className={`epub-bookmark-item${editing ? " editing" : ""}`} key={bm.id}>
+                      <div className="epub-bookmark-row">
+                        <button className="epub-bookmark-jump" type="button" onClick={() => jumpToBookmark(bm)}>
+                          <Bookmark size={13} aria-hidden="true" />
+                          <span className="epub-bookmark-percent">{bookmarkPercent(bm.percentComplete)}</span>
+                          <span className="epub-bookmark-label">{bm.label || "Bookmark"}</span>
+                        </button>
+                        <div className="epub-bookmark-actions">
+                          <button
+                            type="button"
+                            onClick={() => { setEditingBookmarkId(bm.id); setNoteDraft(bm.note ?? ""); }}
+                            aria-label="Edit note"
+                            title="Edit note"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteBookmark(bm.id)}
+                            aria-label="Delete bookmark"
+                            title="Delete bookmark"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      {editing ? (
+                        <div className="epub-bookmark-edit">
+                          <textarea
+                            className="epub-bookmark-note-input"
+                            value={noteDraft}
+                            onChange={(event) => setNoteDraft(event.target.value)}
+                            placeholder="Add a note…"
+                            rows={2}
+                            autoFocus
+                          />
+                          <div className="epub-bookmark-edit-actions">
+                            <button type="button" className="epub-bookmark-save" onClick={() => saveBookmarkNote(bm.id, noteDraft)}>Save</button>
+                            <button type="button" className="epub-bookmark-cancel" onClick={() => setEditingBookmarkId(null)}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        bm.note && <p className="epub-bookmark-note">{bm.note}</p>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </aside>
         )}

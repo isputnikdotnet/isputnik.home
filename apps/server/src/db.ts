@@ -354,6 +354,23 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- Reader bookmarks for an epub document: a user-saved CFI anchor (optionally
+  -- labeled + noted) inside one book_documents row. Like reading_progress, but
+  -- many-per-document (no UNIQUE) — the cfi is the jump target and percent_complete
+  -- drives the "42%" display. Audio bookmarks use book_bookmarks instead.
+  CREATE TABLE IF NOT EXISTS ebook_bookmarks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    document_id TEXT NOT NULL REFERENCES book_documents(id) ON DELETE CASCADE,
+    cfi TEXT NOT NULL,
+    percent_complete REAL,
+    label TEXT,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS book_saves (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -483,6 +500,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_book ON book_bookmarks(user_id, book_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_book ON book_bookmarks(book_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_updated ON book_bookmarks(user_id, updated_at);
+  CREATE INDEX IF NOT EXISTS idx_ebook_bookmarks_user_book ON ebook_bookmarks(user_id, book_id);
+  CREATE INDEX IF NOT EXISTS idx_ebook_bookmarks_book ON ebook_bookmarks(book_id);
+  CREATE INDEX IF NOT EXISTS idx_ebook_bookmarks_user_updated ON ebook_bookmarks(user_id, updated_at);
   CREATE INDEX IF NOT EXISTS idx_saves_user ON book_saves(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_saves_book ON book_saves(book_id);
 

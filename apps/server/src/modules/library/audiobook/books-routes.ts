@@ -6,7 +6,7 @@ import { parseBody } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
-import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook, canUserDownloadBook, libraryCapabilities } from "../shared/library-access.js";
+import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook, canUserDownloadBook, libraryCapabilities, getReadableDocument } from "../shared/library-access.js";
 import { getAudiobookBookDetail, progressUpdateSchema, bulkMetadataSchema, BULK_METADATA_FIELDS, applyBulkMetadata, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
 import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
 
@@ -20,30 +20,6 @@ const readingProgressSchema = z.object({
 const trackPlayedSchema = z.object({
   played: z.boolean()
 });
-
-function getReadableDocument(bookId: string, documentId: string, user: { id: string; role: string }) {
-  const row = db.prepare(`
-    SELECT
-      book_documents.id,
-      book_documents.status,
-      libraries.id AS library_id
-    FROM book_documents
-    JOIN books ON books.id = book_documents.book_id
-    JOIN libraries ON libraries.id = books.library_id
-    WHERE book_documents.id = ?
-      AND book_documents.book_id = ?
-      AND books.deleted_at IS NULL
-  `).get(documentId, bookId) as {
-    id: string;
-    status: string;
-    library_id: string;
-  } | undefined;
-
-  if (!row || row.status !== "available") return null;
-  // row.id is the DOCUMENT id — access resolves by the library id.
-  if (!canUserAccessBook(bookId, { id: row.library_id }, user.id, user.role)) return null;
-  return row;
-}
 
 export function registerBookRoutes(app: FastifyInstance) {
 

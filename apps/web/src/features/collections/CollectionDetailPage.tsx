@@ -206,8 +206,8 @@ export function CollectionDetailPage({
                       <button className="icon-button" onClick={() => moveItem(index, 1)} disabled={index === items.length - 1 || busy} aria-label="Move down">
                         <ChevronDown size={15} />
                       </button>
-                      <button className="icon-button danger" onClick={() => removeItem(item)} aria-label={`Remove ${item.title}`} title="Remove">
-                        <X size={15} />
+                      <button className="icon-button danger" onClick={() => removeItem(item)} aria-label={`Remove ${item.title}`} title="Remove from collection">
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </article>

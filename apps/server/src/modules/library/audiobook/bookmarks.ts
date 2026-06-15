@@ -1,11 +1,9 @@
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
-import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { getLibraryForBook, canUserAccessBook, canUserAccessLibrary, accessibleLibraryIds } from "../shared/library-access.js";
-import { userHasItemShare } from "../shared/share-access.js";
+import { getLibraryForBook, canUserAccessLibrary } from "../shared/library-access.js";
 
 interface BookmarkRow {
   id: string;
@@ -16,21 +14,6 @@ interface BookmarkRow {
   note: string | null;
   created_at: string;
   updated_at: string;
-}
-
-// A bookmark joined with its parent book, for the cross-library "all my
-// bookmarks" listing on the profile page.
-interface BookmarkWithBookRow extends BookmarkRow {
-  book_id: string;
-  library_id: string;
-  folder_path: string;
-  title: string | null;
-  cover_storage_key: string | null;
-  author_names: string | null;
-}
-
-function splitNames(value: string | null) {
-  return value ? value.split(",").map((name) => name.trim()).filter(Boolean) : [];
 }
 
 function publicBookmark(row: BookmarkRow) {
@@ -72,53 +55,6 @@ function bookPositionFor(bookId: string, fileId: string, positionSeconds: number
 }
 
 export async function audiobookBookmarksPlugin(app: FastifyInstance) {
-  // All of the caller's bookmarks across every accessible book — powers the
-  // profile "Bookmarks" page.
-  app.get("/api/library/bookmarks", { preHandler: app.authenticate }, async (request, reply) => {
-    const user = request.user!;
-    const rows = db.prepare(`
-      SELECT
-        bm.id,
-        bm.book_id,
-        bm.file_id,
-        bm.position_seconds,
-        bm.book_position_seconds,
-        bm.label,
-        bm.note,
-        bm.created_at,
-        bm.updated_at,
-        books.library_id,
-        books.folder_path,
-        book_metadata.title,
-        book_metadata.cover_storage_key,
-        GROUP_CONCAT(DISTINCT authors.name) AS author_names
-      FROM book_bookmarks bm
-      JOIN books ON books.id = bm.book_id AND books.deleted_at IS NULL
-      JOIN libraries ON libraries.id = books.library_id
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-      LEFT JOIN authors ON authors.id = book_authors.author_id
-      WHERE bm.user_id = ?
-      GROUP BY bm.id
-      ORDER BY datetime(bm.updated_at) DESC
-    `).all(user.id) as BookmarkWithBookRow[];
-
-    // Library access precomputed once; per-item shares still grant access to a
-    // single book inside an otherwise inaccessible library.
-    const allowed = accessibleLibraryIds(user.id, user.role, "audiobook");
-    const accessible = rows.filter((row) =>
-      allowed.has(row.library_id) || userHasItemShare("audiobook", row.book_id, user.id));
-
-    reply.send({
-      bookmarks: accessible.map((row) => ({
-        ...publicBookmark(row),
-        bookId: row.book_id,
-        bookTitle: row.title ?? path.basename(row.folder_path),
-        bookAuthors: splitNames(row.author_names),
-        coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null
-      }))
-    });
-  });
 
   app.get("/api/library/books/:id/bookmarks", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
