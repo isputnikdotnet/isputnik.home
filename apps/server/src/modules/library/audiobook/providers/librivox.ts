@@ -134,7 +134,9 @@ function toCandidates(books: LibrivoxBook[]) {
 // "The". Try the query as-is, then without bracketed rip noise, then without a
 // leading article.
 function titleQueryVariants(query: string) {
-  const noNoise = query.replace(/\([^)]*\)/g, " ").replace(/\[[^\]]*\]/g, " ").replace(/\s+/g, " ").trim();
+  // Inner classes exclude the opening bracket too, so the match can't backtrack
+  // quadratically on unbalanced input (ReDoS); behaviour is unchanged for real titles.
+  const noNoise = query.replace(/\([^()]*\)/g, " ").replace(/\[[^[\]]*\]/g, " ").replace(/\s+/g, " ").trim();
   const noArticle = (value: string) => value.replace(/^(the|a|an)\s+/i, "").trim();
   return Array.from(new Set([query.trim(), noArticle(query.trim()), noNoise, noArticle(noNoise)].filter(Boolean)));
 }

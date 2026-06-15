@@ -16,12 +16,20 @@ const inviteSchema = z.object({
 // Prefer the origin of the page the admin is actually using (sent by the browser
 // on the fetch), so invite links match the real URL — a LAN address or public
 // domain — instead of the configured default. Fall back to config.appUrl.
+// Trim trailing slashes without a backtracking-prone regex: the Origin header is
+// attacker-controlled and /\/+$/ is quadratic on a long run of slashes.
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47 /* "/" */) end -= 1;
+  return value.slice(0, end);
+}
+
 function inviteOrigin(request: FastifyRequest): string {
   const origin = request.headers.origin;
   if (typeof origin === "string" && /^https?:\/\/.+/i.test(origin)) {
-    return origin.replace(/\/+$/, "");
+    return stripTrailingSlashes(origin);
   }
-  return config.appUrl.replace(/\/+$/, "");
+  return stripTrailingSlashes(config.appUrl);
 }
 
 interface InviteListRow {
