@@ -16,5 +16,9 @@
   "devDependencies": {
     "concurrently": "^9.1.2",
     "cross-env": "^10.1.0"
+  },
+  "overrides": {
+    "vite": "^8.0.16",
+    "shell-quote": "^1.8.4"
   }
 }
