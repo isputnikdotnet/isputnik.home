@@ -1031,7 +1031,7 @@ function BookDetailView({
       )}
 
       {addToCollectionOpen && (
-        <AddToCollectionModal entityId={book.id} title={book.title} onClose={() => setAddToCollectionOpen(false)} />
+        <AddToCollectionModal entityType={isEbook ? "ebook" : "audiobook"} entityId={book.id} title={book.title} onClose={() => setAddToCollectionOpen(false)} />
       )}
 
       {viewerDoc && createPortal(

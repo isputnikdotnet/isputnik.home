@@ -36,6 +36,10 @@ export function CollectionDetailPage({
 
   const items = collection?.items ?? [];
   const firstPlayable = items.find((item) => item.available && item.playable);
+  // A mixed collection (e.g. audiobooks + ebooks) only chains the playable items
+  // in the player, so be honest about the action: "Play audio" rather than
+  // "Play all" when some available items can't play.
+  const hasUnplayable = items.some((item) => item.available && !item.playable);
 
   const playFrom = (item: CollectionItem) => {
     window.open(`/player/${item.entityId}?collection=${id}`, "isputnik-player", PLAYER_FEATURES);
@@ -144,7 +148,7 @@ export function CollectionDetailPage({
                 {firstPlayable && (
                   <button className="primary-button compact-button" onClick={() => playFrom(firstPlayable)}>
                     <Play size={16} />
-                    <span>Play all</span>
+                    <span>{hasUnplayable ? "Play audio" : "Play all"}</span>
                   </button>
                 )}
                 <button className="secondary-button compact-button danger" onClick={() => setConfirmDelete(true)}>

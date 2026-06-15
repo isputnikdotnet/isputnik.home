@@ -5,16 +5,20 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { CollectionSummary } from "./types";
 
-// Add or remove a single entity (an audiobook today) from the caller's
+// Add or remove a single entity (audiobook or ebook) from the caller's
 // collections. Reuses the generic /api/collections endpoints — nothing here is
-// audiobook-specific beyond the entityType prop.
+// type-specific beyond the entityType prop the caller passes.
+// entityType is required (no default): every call site must say what it is
+// adding. A silent "audiobook" default once let ebooks be stored as the wrong
+// type. The union forces a compile error when a new collectable type is wired
+// up but a call site is missed.
 export function AddToCollectionModal({
-  entityType = "audiobook",
+  entityType,
   entityId,
   title,
   onClose
 }: {
-  entityType?: string;
+  entityType: "audiobook" | "ebook";
   entityId: string;
   title: string;
   onClose: () => void;

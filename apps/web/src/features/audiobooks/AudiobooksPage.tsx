@@ -1312,6 +1312,7 @@ export function AudiobooksPage({
 
         {collectionBook && (
           <AddToCollectionModal
+            entityType="audiobook"
             entityId={collectionBook.id}
             title={collectionBook.title}
             onClose={() => setCollectionBook(null)}

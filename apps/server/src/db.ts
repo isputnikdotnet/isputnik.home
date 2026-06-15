@@ -685,6 +685,21 @@ db.exec("DROP TABLE IF EXISTS book_genres");
 db.exec("DROP TABLE IF EXISTS genres");
 db.exec("DROP TABLE IF EXISTS narrators");
 
+// One-time repair: before ebooks had their own collection hydrator, adding one to
+// a collection stored it as entity_type='audiobook' (the add dialog's default),
+// so it rendered with a Play button and joined the audio queue. Relabel any
+// collection item whose book actually lives in an ebook library. Idempotent.
+db.exec(`
+  UPDATE collection_items
+  SET entity_type = 'ebook'
+  WHERE entity_type = 'audiobook'
+    AND entity_id IN (
+      SELECT books.id FROM books
+      JOIN libraries ON libraries.id = books.library_id
+      WHERE libraries.type = 'ebook'
+    )
+`);
+
 // The "special libraries" / sections feature was removed. Drop its table and
 // strip the deprecated section_id / overrides keys from each library's settings.
 {

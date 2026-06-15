@@ -449,6 +449,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
 
         {collectionBook && (
           <AddToCollectionModal
+            entityType="ebook"
             entityId={collectionBook.id}
             title={collectionBook.title}
             onClose={() => setCollectionBook(null)}
