@@ -6,53 +6,93 @@
   <Network>bridge</Network>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
-  <Overview>Private self-hosted family media library for audiobooks and ebooks, with installable PWA and offline listening support. On first run, open the web UI to create an admin account.</Overview>
+
+  <Overview>
+Private self-hosted family media library for audiobooks, ebooks, photos, and other digital media. Includes a modern web interface, installable PWA, offline listening support, user management, and library scanning. On first run, open the web UI to create an administrator account.
+  </Overview>
+
   <Category>MediaApp:Music</Category>
+
   <WebUI>http://[IP]:[PORT:4000]/</WebUI>
+
   <Icon>https://raw.githubusercontent.com/isputnikdotnet/isputnik.home/main/Assets/brand/isputnik-app-icon.png</Icon>
 
+  <!-- Web Port -->
+
   <Config Name="Web UI Port"
-    Target="4000" Default="4000" Mode="tcp"
-    Description="Port for the web interface."
-    Type="Port" Display="always" Required="true" Mask="false">4000</Config>
+          Target="4000"
+          Default="4000"
+          Mode="tcp"
+          Description="Port used to access the iSputnik web interface."
+          Type="Port"
+          Display="always"
+          Required="true"
+          Mask="false">4000</Config>
+
+  <!-- Application Data -->
 
   <Config Name="Config &amp; Data"
-    Target="/config" Default="/mnt/user/appdata/isputnik" Mode="rw"
-    Description="Stores the database, thumbnails, and metadata. Keep this on your appdata share."
-    Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/isputnik</Config>
+          Target="/config"
+          Default="/mnt/user/appdata/isputnik"
+          Mode="rw"
+          Description="Stores database, metadata, thumbnails, settings, and application data."
+          Type="Path"
+          Display="always"
+          Required="true"
+          Mask="false">/mnt/user/appdata/isputnik</Config>
 
-  <Config Name="Media Library 1"
-    Target="/media" Default="/mnt/user/data/" Mode="ro"
-    Description="Path to your primary media library (audiobooks, music, videos, photos, etc.). Add this path as a storage root inside the app."
-    Type="Path" Display="always" Required="true" Mask="false">/mnt/user/data/</Config>
+  <!-- Optional Media Path -->
 
-  <Config Name="Media Library 2"
-    Target="/media2" Default="" Mode="ro"
-    Description="Optional second media library. Leave blank if not needed. Add this path as a storage root inside the app."
-    Type="Path" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Media Storage"
+          Target="/media"
+          Default="/mnt/user/media"
+          Mode="ro"
+          Description="Optional media storage path. Additional storage locations can be added later by editing the container or from within iSputnik."
+          Type="Path"
+          Display="always"
+          Required="false"
+          Mask="false">/mnt/user/media</Config>
 
-  <Config Name="Media Library 3"
-    Target="/media3" Default="" Mode="ro"
-    Description="Optional third media library. Leave blank if not needed. Add this path as a storage root inside the app."
-    Type="Path" Display="advanced" Required="false" Mask="false"></Config>
+  <!-- Environment Variables -->
 
   <Config Name="App URL"
-    Target="APP_URL" Default="http://localhost:4000" Mode=""
-    Description="The URL you use to open the app in your browser. Used for CORS — must match exactly (IP or domain, including port)."
-    Type="Variable" Display="always" Required="true" Mask="false">http://localhost:4000</Config>
+          Target="APP_URL"
+          Default=""
+          Mode=""
+          Description="Optional public URL (for example https://isputnik.example.com). Leave blank for automatic detection."
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="false"></Config>
 
   <Config Name="Cookie Secure"
-    Target="COOKIE_SECURE" Default="false" Mode=""
-    Description="Set to true only if you access the app over HTTPS (e.g. behind a reverse proxy with SSL). Leave false for plain HTTP."
-    Type="Variable" Display="always" Required="true" Mask="false">false</Config>
+          Target="COOKIE_SECURE"
+          Default="auto"
+          Mode=""
+          Description="Use auto for automatic HTTPS detection. Use true only when forcing secure cookies."
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="false">auto</Config>
 
   <Config Name="Session Length (days)"
-    Target="SESSION_DAYS" Default="14" Mode=""
-    Description="How many days a login session stays valid."
-    Type="Variable" Display="advanced" Required="false" Mask="false">14</Config>
+          Target="SESSION_DAYS"
+          Default="14"
+          Mode=""
+          Description="Number of days a login session remains valid."
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="false">14</Config>
 
   <Config Name="Invite Validity (days)"
-    Target="INVITE_DAYS" Default="7" Mode=""
-    Description="How many days an invite link remains active."
-    Type="Variable" Display="advanced" Required="false" Mask="false">7</Config>
+          Target="INVITE_DAYS"
+          Default="7"
+          Mode=""
+          Description="Number of days invitation links remain valid."
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="false">7</Config>
+
 </Container>
