@@ -2,6 +2,7 @@ import fastify from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
+import rateLimit from "@fastify/rate-limit";
 import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
@@ -19,6 +20,15 @@ await app.register(cors, {
   credentials: true
 });
 await app.register(cookie);
+// Global per-client-IP rate limit, registered before the route plugins so it
+// covers every endpoint (browsing, covers, range-request streaming). The ceiling
+// is deliberately generous — high enough that a household never hits it under
+// normal use, low enough to bound scripted abuse. Keys on request.ip, which
+// honours the trustProxy setting above. Routes may tighten this individually.
+await app.register(rateLimit, {
+  max: 1000,
+  timeWindow: "1 minute"
+});
 // Generic file uploads. No global fileSize cap — each upload route enforces its
 // own size/extension policy while streaming (see core/uploads.ts). One file per
 // request; small text fields only (the file streams to disk, never to memory).
