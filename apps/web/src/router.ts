@@ -8,7 +8,7 @@ export type Route =
   | { name: "home" }
   | { name: "libraryFeed"; mode: "recent" | "continue" }
   | { name: "audiobooks" }
-  | { name: "audiobookSaved" }
+  | { name: "favorites" }
   | { name: "audiobookBookmarks" }
   | { name: "audiobookDownloads" }
   | { name: "audiobookBook"; id: string }
@@ -103,8 +103,9 @@ export function getRoute(): Route {
     return { name: "ebookAuthorDetail", personName: decodeURIComponent(ebookAuthorDetailMatch[1]) };
   }
 
-  if (path === "/audiobooks/saved") {
-    return { name: "audiobookSaved" };
+  // Global, cross-type Favorites (audiobooks + ebooks); old path kept as an alias.
+  if (path === "/favorites" || path === "/audiobooks/saved") {
+    return { name: "favorites" };
   }
 
   if (path === "/audiobooks/bookmarks") {

@@ -436,8 +436,13 @@ function BookDetailView({
     ? `${formatDuration(remainingSeconds)} remaining`
     : null;
 
+  // Authors (and the book route) differ per media type; link within the current
+  // type so an ebook's author goes to /ebooks/authors, not /audiobooks. Narrators
+  // and series are audiobook-only and never render here for ebooks, so they keep
+  // their /audiobooks links.
+  const mediaBase = isEbook ? "/ebooks" : "/audiobooks";
   // Referrer so detail pages reached from here can offer "Back" to this book.
-  const linkFrom = `?from=${encodeURIComponent(`/audiobooks/books/${book.id}`)}`;
+  const linkFrom = `?from=${encodeURIComponent(`${mediaBase}/books/${book.id}`)}`;
   type DetailLink = { text: string; href: string };
   type DetailRow = { label: string; value: string; icon: LucideIcon; className?: string; links?: DetailLink[] };
   const heroDetailRows = ([
@@ -589,7 +594,7 @@ function BookDetailView({
           {book.authors.length > 0 && (
             <p className="book-detail-author">
               {book.authors.map((name, i) => {
-                const href = `/audiobooks/authors/${encodeURIComponent(name)}${linkFrom}`;
+                const href = `${mediaBase}/authors/${encodeURIComponent(name)}${linkFrom}`;
                 return (
                   <Fragment key={name}>
                     {i > 0 && ", "}

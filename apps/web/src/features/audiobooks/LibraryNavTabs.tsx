@@ -18,7 +18,7 @@ interface LibraryNavItem {
 // app, so it's only shown there.
 export function LibraryNavTabs({ active }: { active: LibraryNavKey }) {
   const tabs: LibraryNavItem[] = [
-    { key: "saved", label: "Favorites", href: "/audiobooks/saved", icon: Heart },
+    { key: "saved", label: "Favorites", href: "/favorites", icon: Heart },
     { key: "bookmarks", label: "Bookmarks", href: "/audiobooks/bookmarks", icon: Bookmark },
     { key: "collections", label: "Collections", href: "/collections", icon: ListMusic },
     { key: "shared", label: "Shared with me", href: "/audiobooks/shared", icon: UsersRound },

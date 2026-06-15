@@ -5,7 +5,7 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { LibraryNavTabs } from "./LibraryNavTabs";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
-import { formatDuration } from "../../shared/utils";
+import { MediaKindBadge } from "../../shared/MediaKindBadge";
 import type { SavedBook } from "./types";
 
 export function MyListPage({
@@ -67,7 +67,7 @@ export function MyListPage({
               const removing = removingIds.includes(book.id);
               return (
                 <article className="saved-audiobook-card" key={book.id}>
-                  <button className="audiobook-card" onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
+                  <button className="audiobook-card" onClick={() => navigate(book.kind === "ebook" ? `/ebooks/books/${book.id}` : `/audiobooks/books/${book.id}`)}>
                     <div className="audiobook-cover" aria-hidden="true">
                       {book.coverUrl ? (
                         <img src={book.coverUrl} alt="" />
@@ -81,10 +81,7 @@ export function MyListPage({
                     <div className="audiobook-card-body">
                       <strong>{book.title}</strong>
                       <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
-                      <small>
-                        {book.durationSeconds != null ? `${formatDuration(book.durationSeconds)} · ` : ""}
-                        {book.fileCount} {book.fileCount === 1 ? "file" : "files"}
-                      </small>
+                      <MediaKindBadge kind={book.kind} showLabel />
                       {book.note && <p className="audiobook-card-note">{book.note}</p>}
                     </div>
                   </button>

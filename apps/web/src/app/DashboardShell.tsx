@@ -112,7 +112,7 @@ function mainNavItems(active: DashboardActive): MainNavItem[] {
 function userMenuLinks(): UserMenuLink[] {
   return [
     { label: "Shared with me", href: "/audiobooks/shared", icon: UsersRound },
-    { label: "Favorites", href: "/audiobooks/saved", icon: Heart },
+    { label: "Favorites", href: "/favorites", icon: Heart },
     { label: "Bookmarks", href: "/audiobooks/bookmarks", icon: Bookmark },
     { label: "Collections", href: "/collections", icon: ListMusic },
     { label: "Categories", href: "/categories", icon: Shapes },

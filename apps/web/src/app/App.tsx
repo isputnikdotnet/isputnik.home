@@ -256,7 +256,7 @@ export function App() {
     return <AudiobooksPage user={session.user} logout={logout} />;
   }
 
-  if (route.name === "audiobookSaved") {
+  if (route.name === "favorites") {
     return <MyListPage user={session.user} logout={logout} />;
   }
 

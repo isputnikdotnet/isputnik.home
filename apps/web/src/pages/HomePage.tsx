@@ -127,7 +127,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     { label: "Audiobooks", value: stats.audiobooks, tone: "violet", icon: Headphones, href: "/audiobooks" },
     { label: "Ebooks", value: stats.ebooks, tone: "green", icon: BookOpen, href: "/ebooks" },
     { label: "In progress", value: stats.inProgress, tone: "blue", icon: Play, href: "/continue" },
-    { label: "Favorites", value: stats.favorites, tone: "rose", icon: Heart, href: "/audiobooks/saved" }
+    { label: "Favorites", value: stats.favorites, tone: "rose", icon: Heart, href: "/favorites" }
   ];
 
   return (

@@ -4,7 +4,8 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { getLibraryForBook, canUserAccessLibrary, accessibleLibraryIds } from "../shared/library-access.js";
+import { getLibraryForBook, canUserAccessLibrary } from "../shared/library-access.js";
+import { bookLibraryIds } from "../feed.js";
 
 const saveSchema = z.object({
   note: z.string().trim().max(2000).nullable().optional()
@@ -12,15 +13,11 @@ const saveSchema = z.object({
 
 interface SavedBookRow {
   id: string;
-  library_id: string;
+  kind: "audiobook" | "ebook";
   folder_path: string;
-  series_name: string | null;
-  series_position: number | null;
   title: string | null;
-  duration_seconds: number | null;
   cover_storage_key: string | null;
   author_names: string | null;
-  file_count: number;
   save_note: string | null;
   saved_at: string;
 }
@@ -83,49 +80,42 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/saved", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
+    // Favorites span every book-like library type (audiobooks + ebooks). The save
+    // itself is book-id based and type-agnostic; this just lists across them.
+    const libIds = bookLibraryIds(user);
+    if (libIds.length === 0) {
+      reply.send({ books: [] });
+      return;
+    }
+    const inLibs = libIds.map(() => "?").join(", ");
+
     const rows = db.prepare(`
       SELECT
         books.id,
-        books.library_id,
+        libraries.type AS kind,
         books.folder_path,
-        series.name AS series_name,
-        books.series_position,
         book_metadata.title,
-        book_metadata.duration_seconds,
         book_metadata.cover_storage_key,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
-        (
-          SELECT COUNT(*) FROM book_files
-          WHERE book_files.book_id = books.id AND book_files.status = 'available'
-        ) AS file_count,
         book_saves.note AS save_note,
         book_saves.updated_at AS saved_at
       FROM book_saves
       JOIN books ON books.id = book_saves.book_id AND books.deleted_at IS NULL
       JOIN libraries ON libraries.id = books.library_id
-      LEFT JOIN series ON series.id = books.series_id
       LEFT JOIN book_metadata ON book_metadata.book_id = books.id
       LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
       LEFT JOIN authors ON authors.id = book_authors.author_id
-      WHERE book_saves.user_id = ?
+      WHERE book_saves.user_id = ? AND books.library_id IN (${inLibs})
       GROUP BY books.id
       ORDER BY datetime(book_saves.updated_at) DESC
-    `).all(user.id) as SavedBookRow[];
-
-    // row.id is the BOOK id — access resolves by library id, precomputed once.
-    const allowed = accessibleLibraryIds(user.id, user.role, "audiobook");
-    const accessible = rows.filter((row) => allowed.has(row.library_id));
+    `).all(user.id, ...libIds) as SavedBookRow[];
 
     reply.send({
-      books: accessible.map((row) => ({
+      books: rows.map((row) => ({
         id: row.id,
-        libraryId: row.library_id,
+        kind: row.kind,
         title: row.title ?? path.basename(row.folder_path),
-        series: row.series_name ?? null,
-        seriesPosition: row.series_position ?? null,
         authors: splitNames(row.author_names),
-        durationSeconds: row.duration_seconds,
-        fileCount: row.file_count,
         coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
         note: row.save_note,
         savedAt: row.saved_at

@@ -246,13 +246,9 @@ export interface SavedBookmark {
 
 export interface SavedBook {
   id: string;
-  libraryId: string;
+  kind: "audiobook" | "ebook";
   title: string;
-  series: string | null;
-  seriesPosition: number | null;
   authors: string[];
-  durationSeconds: number | null;
-  fileCount: number;
   coverUrl: string | null;
   note: string | null;
   savedAt: string;

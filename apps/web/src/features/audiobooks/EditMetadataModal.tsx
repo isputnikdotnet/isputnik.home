@@ -7,7 +7,7 @@ import { Modal } from "../../shared/Modal";
 import { formatBytes } from "../../shared/utils";
 import type { AudiobookBookDetail, CategorySummary, CoverCandidate, MetadataCandidate } from "./types";
 
-export type MetadataTab = "edit" | "publishing" | "series" | "cover" | "lookup";
+export type MetadataTab = "edit" | "tags" | "publishing" | "series" | "cover" | "lookup";
 
 // The full metadata editor used both on the book detail page and from the
 // audiobooks grid "Edit metadata" action. It owns its own metadata-related
@@ -87,6 +87,11 @@ export function EditMetadataModal({
     });
   }, [book]);
 
+  // Ebooks are single files: no scannable cover folder and no narrators. Hide the
+  // audiobook-only folder-cover scan (it 404s "Audiobook not found" for them) and
+  // the Narrators field.
+  const isEbook = book.files.length === 0 && book.documents.length > 0;
+
   const loadCoverCandidates = useCallback(async () => {
     setCoverLoading(true);
     setCoverError("");
@@ -101,10 +106,10 @@ export function EditMetadataModal({
   }, [book.id]);
 
   useEffect(() => {
-    if (activeMetadataTab === "cover") {
+    if (activeMetadataTab === "cover" && !isEbook) {
       loadCoverCandidates();
     }
-  }, [activeMetadataTab, loadCoverCandidates]);
+  }, [activeMetadataTab, isEbook, loadCoverCandidates]);
 
   useEffect(() => {
     api<{ people: string[] }>(`/api/library/audiobook-libraries/${book.libraryId}/people`)
@@ -374,6 +379,9 @@ export function EditMetadataModal({
           <button className={`modal-tab${activeMetadataTab === "edit" ? " active" : ""}`} onClick={() => setActiveMetadataTab("edit")}>
             Metadata
           </button>
+          <button className={`modal-tab${activeMetadataTab === "tags" ? " active" : ""}`} onClick={() => setActiveMetadataTab("tags")}>
+            Tags
+          </button>
           <button className={`modal-tab${activeMetadataTab === "publishing" ? " active" : ""}`} onClick={() => setActiveMetadataTab("publishing")}>
             Publishing
           </button>
@@ -405,15 +413,17 @@ export function EditMetadataModal({
                     placeholder="Add author…"
                   />
                 </div>
-                <div className="field metadata-field-half">
-                  <span>Narrators</span>
-                  <PeopleCombobox
-                    value={editForm.narrators}
-                    onChange={(v) => setEditForm((form) => ({ ...form, narrators: v }))}
-                    suggestions={libraryPeople}
-                    placeholder="Add narrator…"
-                  />
-                </div>
+                {!isEbook && (
+                  <div className="field metadata-field-half">
+                    <span>Narrators</span>
+                    <PeopleCombobox
+                      value={editForm.narrators}
+                      onChange={(v) => setEditForm((form) => ({ ...form, narrators: v }))}
+                      suggestions={libraryPeople}
+                      placeholder="Add narrator…"
+                    />
+                  </div>
+                )}
                 <label className="field metadata-field-half">
                   <span>Category</span>
                   <select value={editForm.categoryKey} onChange={(event) => setEditForm((form) => ({ ...form, categoryKey: event.target.value }))}>
@@ -423,7 +433,18 @@ export function EditMetadataModal({
                     ))}
                   </select>
                 </label>
-                <div className="field metadata-field-half">
+                <label className="field metadata-field-wide">
+                  <span>Description</span>
+                  <textarea value={editForm.description} onChange={(event) => setEditForm((form) => ({ ...form, description: event.target.value }))} rows={4} />
+                </label>
+              </div>
+
+              {metadataEditFooter}
+            </>
+          ) : activeMetadataTab === "tags" ? (
+            <>
+              <div className="metadata-edit-grid">
+                <div className="field metadata-field-wide">
                   <span>Tags</span>
                   <PeopleCombobox
                     value={editForm.tags}
@@ -432,11 +453,8 @@ export function EditMetadataModal({
                     placeholder="Add tag…"
                   />
                 </div>
-                <label className="field metadata-field-wide">
-                  <span>Description</span>
-                  <textarea value={editForm.description} onChange={(event) => setEditForm((form) => ({ ...form, description: event.target.value }))} rows={4} />
-                </label>
               </div>
+              <p className="muted">Shared across audiobooks and ebooks — tags power the Tags browse page and the catalog filters.</p>
 
               {metadataEditFooter}
             </>
@@ -511,6 +529,7 @@ export function EditMetadataModal({
                   </div>
                 </section>
 
+                {!isEbook && (
                 <section className="cover-picker-panel">
                   <div className="cover-picker-head">
                     <div>
@@ -542,6 +561,7 @@ export function EditMetadataModal({
                     )}
                   </div>
                 </section>
+                )}
               </div>
 
               <section className="cover-online-panel">
