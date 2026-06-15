@@ -61,11 +61,15 @@ export default defineConfig({
             }
           },
           {
-            // Cover art rarely changes — serve from cache, refresh in background.
+            // Covers can be replaced in place (a manual cover edit overwrites the
+            // file under the same key), so prefer the network — with the cover
+            // ETag an unchanged cover is a cheap 304 — and fall back to the cache
+            // only when offline, so a changed cover shows on the next refresh.
             urlPattern: /\/api\/library\/covers\//,
-            handler: "CacheFirst",
+            handler: "NetworkFirst",
             options: {
               cacheName: "isputnik-covers",
+              networkTimeoutSeconds: 3,
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [200] }
             }
