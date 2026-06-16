@@ -212,9 +212,9 @@ export function canUserDownloadBook(bookId: string, library: LibraryRoleInput, u
 export function getLibraryForBook(bookId: string): LibraryAccessRow | null {
   return db.prepare(`
     SELECT libraries.id, libraries.owner_id, libraries.owner_type, libraries.policy_json, libraries.type
-    FROM books
-    JOIN libraries ON libraries.id = books.library_id
-    WHERE books.id = ? AND books.deleted_at IS NULL
+    FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
   `).get(bookId) as LibraryAccessRow | null;
 }
 
@@ -224,15 +224,15 @@ export function getLibraryForBook(bookId: string): LibraryAccessRow | null {
 export function getReadableDocument(bookId: string, documentId: string, user: { id: string; role: string }) {
   const row = db.prepare(`
     SELECT
-      book_documents.id,
-      book_documents.status,
+      document_files.id,
+      document_files.status,
       libraries.id AS library_id
-    FROM book_documents
-    JOIN books ON books.id = book_documents.book_id
-    JOIN libraries ON libraries.id = books.library_id
-    WHERE book_documents.id = ?
-      AND book_documents.book_id = ?
-      AND books.deleted_at IS NULL
+    FROM document_files
+    JOIN library_items ON library_items.id = document_files.item_id
+    JOIN libraries ON libraries.id = library_items.library_id
+    WHERE document_files.id = ?
+      AND document_files.item_id = ?
+      AND library_items.deleted_at IS NULL
   `).get(documentId, bookId) as {
     id: string;
     status: string;
