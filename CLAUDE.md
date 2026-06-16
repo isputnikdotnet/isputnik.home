@@ -6,10 +6,19 @@ and `apps/web` (React + Vite PWA).
 - `npm run dev` — server on :4000 + Vite dev server
 - `npm run typecheck` — both workspaces
 - `npm run check:ui` — UI-convention checker (see below)
+- `npm test` — server test suite (Vitest, in-memory SQLite; tests in `apps/server/test/`)
+
+## Repo-root files — do not delete
+
+- `isputnik-home.xml` is the **Unraid Community Applications template** (the app's
+  install manifest), not source. Keep it.
+- The repo-root `Assets/` folder backs that template's `<Icon>` (a raw GitHub URL
+  to `Assets/brand/` on `main`). Keep it even though the web app uses its own copy
+  under `apps/web/public/Assets/`.
 
 ## Server architecture (core vs modules)
 
-Background: `docs/architecture-restructure-proposal.md`. The rule:
+Background: `docs/architecture.md` (Backend structure). The rule:
 
 - **`apps/server/src/core/` is platform infrastructure ONLY** — things every
   feature depends on with no product knowledge: auth/sessions, permissions,
