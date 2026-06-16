@@ -285,6 +285,33 @@ export function registerBookRoutes(app: FastifyInstance) {
     reply.send({ reset: true });
   });
 
+  // Mark an ebook finished without opening it. Mirrors /progress/complete for
+  // audiobooks. On an existing row this only flips percent/completed_at — the
+  // saved reading position (cfi/label) is left intact so "finished" never erases
+  // where the reader left off.
+  app.post("/api/library/books/:id/reading-progress/complete", { preHandler: app.authenticate }, async (request, reply) => {
+    const bookId = (request.params as { id: string }).id;
+    const documentId = ((request.body as { documentId?: string } | undefined)?.documentId ?? "").trim();
+    if (!documentId) {
+      reply.code(400).send({ error: "Document id is required" });
+      return;
+    }
+    const user = request.user!;
+    if (!getReadableDocument(bookId, documentId, user)) {
+      reply.code(404).send({ error: "Document not found" });
+      return;
+    }
+    db.prepare(`
+      INSERT INTO reading_progress (id, user_id, book_id, document_id, cfi, percent_complete, updated_at, completed_at)
+      VALUES (?, ?, ?, ?, '', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id, book_id, document_id) DO UPDATE SET
+        percent_complete = 1,
+        updated_at = CURRENT_TIMESTAMP,
+        completed_at = CURRENT_TIMESTAMP
+    `).run(nanoid(16), user.id, bookId, documentId);
+    reply.send({ completed: true });
+  });
+
 
   app.patch("/api/library/books/:id/progress", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;

@@ -336,6 +336,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "0.31.0",
+          label: "New EPUB reader",
+          changes: [
+            "The EPUB reader has been rebuilt from the ground up on a modern rendering engine. Chapter navigation that used to fail or jump to the wrong place on some books now works everywhere — the table of contents, the current-chapter title, and the reading progress all track the book reliably.",
+            "A cleaner, immersive reading view: a centered page with adjustable text size and font (serif or sans), line spacing, and light, sepia, or dark themes. Switch between one-page, two-page, and continuous-scroll layouts, jump anywhere with the progress slider, and see an estimated time remaining.",
+            "Full-text search across the whole book, plus bookmarks you can add, note, and jump back to.",
+            "Open a book straight into the reader from its tile on the Ebooks page, and mark an ebook as read or unread from both the tile and the book's detail page — mirroring how audiobooks work."
+          ]
+        },
+        {
           version: "0.27.0",
           label: "Home dashboard: Continue & Recently added",
           changes: [

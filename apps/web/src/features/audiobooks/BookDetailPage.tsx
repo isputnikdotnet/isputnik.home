@@ -6,7 +6,7 @@ import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
-import { EpubReader } from "./EpubReader";
+import { EbookReader } from "./reader/EbookReader";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
@@ -343,6 +343,19 @@ function BookDetailView({
     setProgressAction("complete");
     setProgressActionError("");
     try {
+      if (isEbook && primaryReadableDoc) {
+        await api(`/api/library/books/${book.id}/reading-progress/complete`, { method: "POST", body: JSON.stringify({ documentId: primaryReadableDoc.id }) });
+        const now = new Date().toISOString();
+        setReadingProgress((prev) => ({
+          documentId: primaryReadableDoc.id,
+          cfi: prev?.cfi ?? "",
+          percentComplete: 1,
+          label: prev?.label ?? null,
+          updatedAt: now,
+          completedAt: now
+        }));
+        return;
+      }
       await api(`/api/library/books/${book.id}/progress/complete`, { method: "POST", body: "{}" });
       const lastFile = book.files.filter((file) => file.status === "available").at(-1) ?? book.files.at(-1);
       setProgress({
@@ -778,20 +791,18 @@ function BookDetailView({
                   </button>
                   {progressMenuOpen && (
                     <div className="book-detail-action-menu book-progress-menu" role="menu" aria-label="Progress actions">
-                      {!isEbook && (
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setProgressMenuOpen(false);
-                            void markBookFinished();
-                          }}
-                          disabled={progressAction !== ""}
-                        >
-                          <CheckCircle2 size={16} aria-hidden="true" />
-                          <span>{progressAction === "complete" ? "Saving..." : bookFinished ? "Marked finished" : "Mark finished"}</span>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setProgressMenuOpen(false);
+                          void markBookFinished();
+                        }}
+                        disabled={progressAction !== ""}
+                      >
+                        <CheckCircle2 size={16} aria-hidden="true" />
+                        <span>{progressAction === "complete" ? "Saving..." : bookFinished ? "Marked finished" : "Mark finished"}</span>
+                      </button>
                       <button
                         type="button"
                         role="menuitem"
@@ -1035,34 +1046,39 @@ function BookDetailView({
       )}
 
       {viewerDoc && createPortal(
-        <div className="doc-viewer-backdrop" role="dialog" aria-modal="true" aria-label={viewerDoc.fileName}>
-          <div className="doc-viewer-head">
-            <span className="doc-viewer-name">{viewerDoc.fileName}</span>
-            <div className="doc-viewer-actions">
-              <a className="secondary-button compact-button" href={`${viewerDoc.url}?download`} download>
-                <Download size={15} />
-                <span>Download</span>
-              </a>
-              <button className="modal-close" onClick={() => setViewerDoc(null)} aria-label="Close reader">
-                <X size={18} />
-              </button>
+        viewerDoc.format === "epub" ? (
+          <EbookReader
+            bookId={book.id}
+            documentId={viewerDoc.id}
+            url={viewerDoc.url}
+            storageKey={`isputnik:epub-progress:${userId}:${book.id}:${viewerDoc.id}`}
+            initialProgress={viewerDoc.id === primaryReadableDoc?.id ? readingProgress : null}
+            onProgressChange={(next) => {
+              if (next.documentId === primaryReadableDoc?.id) setReadingProgress(next);
+            }}
+            title={book.title}
+            author={book.authors.join(", ")}
+            coverUrl={book.coverUrl}
+            downloadUrl={`${viewerDoc.url}?download`}
+            onExit={() => setViewerDoc(null)}
+          />
+        ) : (
+          <div className="doc-viewer-backdrop" role="dialog" aria-modal="true" aria-label={viewerDoc.fileName}>
+            <div className="doc-viewer-head">
+              <span className="doc-viewer-name">{viewerDoc.fileName}</span>
+              <div className="doc-viewer-actions">
+                <a className="secondary-button compact-button" href={`${viewerDoc.url}?download`} download>
+                  <Download size={15} />
+                  <span>Download</span>
+                </a>
+                <button className="modal-close" onClick={() => setViewerDoc(null)} aria-label="Close reader">
+                  <X size={18} />
+                </button>
+              </div>
             </div>
+            <iframe className="doc-viewer-frame" src={viewerDoc.url} title={viewerDoc.fileName} />
           </div>
-          {viewerDoc.format === "epub"
-            ? (
-              <EpubReader
-                bookId={book.id}
-                documentId={viewerDoc.id}
-                url={viewerDoc.url}
-                storageKey={`isputnik:epub-progress:${userId}:${book.id}:${viewerDoc.id}`}
-                initialProgress={viewerDoc.id === primaryReadableDoc?.id ? readingProgress : null}
-                onProgressChange={(next) => {
-                  if (next.documentId === primaryReadableDoc?.id) setReadingProgress(next);
-                }}
-              />
-            )
-            : <iframe className="doc-viewer-frame" src={viewerDoc.url} title={viewerDoc.fileName} />}
-        </div>,
+        ),
         document.body
       )}
 

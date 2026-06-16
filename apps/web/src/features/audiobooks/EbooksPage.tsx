@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookMarked, BookOpen, Check, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { BookMarked, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, RotateCcw, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -12,6 +12,7 @@ import { FileUpload } from "../../shared/FileUpload";
 import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
+import { EbookReader } from "./reader/EbookReader";
 import { AddToSeriesModal, AudiobookPageHeader, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
 import { useMediaCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import {
@@ -23,6 +24,13 @@ import type { AudiobookBook, AudiobookBookDetail } from "./types";
 // The shared book shape plus the primary document's format/id (for the format
 // chip and the direct download link) — what /api/library/ebooks/catalog returns.
 type EbookBook = AudiobookBook & { format?: string | null; documentId?: string | null };
+
+type BookStatus = "finished" | "in_progress" | "none";
+function bookStatus(book: EbookBook): BookStatus {
+  if (book.progress?.completedAt != null) return "finished";
+  if ((book.progress?.percentComplete ?? 0) > 0) return "in_progress";
+  return "none";
+}
 
 const EBOOK_ENDPOINTS = {
   catalog: "/api/library/ebooks/catalog",
@@ -115,7 +123,8 @@ function EbookCatalogCard({
   canDelete,
   onEdit,
   onAddToCollection,
-  onDelete
+  onDelete,
+  onRead
 }: {
   book: EbookBook;
   selectionMode: boolean;
@@ -127,6 +136,7 @@ function EbookCatalogCard({
   onEdit: (book: AudiobookBook) => void;
   onAddToCollection: (book: EbookBook) => void;
   onDelete: (book: AudiobookBook) => void;
+  onRead: (book: EbookBook) => void;
 }) {
   const [fav, setFav] = useState(book.saved);
   const [favBusy, setFavBusy] = useState(false);
@@ -154,9 +164,31 @@ function EbookCatalogCard({
     }
   };
 
-  const finished = book.progress?.completedAt != null;
+  const [status, setStatus] = useState<BookStatus>(() => bookStatus(book));
+  const [statusBusy, setStatusBusy] = useState(false);
+  useEffect(() => { setStatus(bookStatus(book)); }, [book.progress]);
+
+  const toggleFinished = async () => {
+    if (statusBusy || !book.documentId) return;
+    const wasFinished = status === "finished";
+    setStatus(wasFinished ? "none" : "finished");
+    setStatusBusy(true);
+    try {
+      if (wasFinished) {
+        await api(`/api/library/books/${book.id}/reading-progress?documentId=${encodeURIComponent(book.documentId)}`, { method: "DELETE" });
+      } else {
+        await api(`/api/library/books/${book.id}/reading-progress/complete`, { method: "POST", body: JSON.stringify({ documentId: book.documentId }) });
+      }
+    } catch {
+      setStatus(bookStatus(book));
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
   const percent = Math.round((book.progress?.percentComplete ?? 0) * 100);
-  const inProgress = !finished && percent > 0;
+  const finished = status === "finished";
+  const inProgress = status === "in_progress" && percent > 0;
 
   const metaParts = [
     book.format ? book.format.toUpperCase() : "EBOOK",
@@ -219,6 +251,19 @@ function EbookCatalogCard({
                   <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
                   <span>{fav ? "Favorited" : "Favorite"}</span>
                 </button>
+                {book.documentId && (
+                  <button
+                    className="audiobook-catalog-action"
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); void toggleFinished(); }}
+                    disabled={statusBusy}
+                    aria-label={finished ? "Mark as unread" : "Mark as read"}
+                    title={finished ? "Mark as unread" : "Mark as read"}
+                  >
+                    {finished ? <RotateCcw size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
+                    <span>{finished ? "Mark Unread" : "Mark as Read"}</span>
+                  </button>
+                )}
                 {canDownload && book.documentId && (
                   <a
                     className="audiobook-catalog-action"
@@ -259,7 +304,7 @@ function EbookCatalogCard({
                 <button
                   className="audiobook-catalog-action primary"
                   type="button"
-                  onClick={(event) => { event.stopPropagation(); activate(); }}
+                  onClick={(event) => { event.stopPropagation(); onRead(book); }}
                   aria-label={`Read ${book.title}`}
                   title="Read"
                 >
@@ -303,6 +348,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
 
   // Per-tile actions that need page-level UI.
   const [collectionBook, setCollectionBook] = useState<EbookBook | null>(null);
+  const [readerBook, setReaderBook] = useState<EbookBook | null>(null);
   const [editDetail, setEditDetail] = useState<AudiobookBookDetail | null>(null);
   const [editLoadError, setEditLoadError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<AudiobookBook | null>(null);
@@ -423,6 +469,13 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
       window.removeEventListener("scroll", dismiss, true);
     };
   }, [libraryMenuOpen]);
+
+  // The tile's read button opens EPUBs straight into the reader; other formats
+  // (PDF) fall back to the detail page, which has the right viewer for them.
+  const openReader = (book: EbookBook) => {
+    if (book.format === "epub" && book.documentId) setReaderBook(book);
+    else navigate(`/ebooks/books/${book.id}`);
+  };
 
   const openEditDetail = async (book: AudiobookBook) => {
     setEditLoadError("");
@@ -668,6 +721,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                   onEdit={openEditDetail}
                   onAddToCollection={setCollectionBook}
                   onDelete={(target) => { setDeleteError(""); setDeleteTarget(target); }}
+                  onRead={openReader}
                 />
               ))}
               {!cat.loading && cat.books.length === 0 && <p className="management-empty">{emptyMessage}</p>}
@@ -741,6 +795,22 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
             The selected ebooks move into the Recycle Bin and leave the library for everyone. Ebooks you lack
             delete access to are skipped. You can restore them from the Recycle Bin anytime.
           </ConfirmDialog>
+        )}
+
+        {readerBook?.documentId && createPortal(
+          <EbookReader
+            bookId={readerBook.id}
+            documentId={readerBook.documentId}
+            url={`/api/library/books/${readerBook.id}/documents/${readerBook.documentId}`}
+            storageKey={`isputnik:epub-progress:${user.id}:${readerBook.id}:${readerBook.documentId}`}
+            initialProgress={null}
+            title={readerBook.title}
+            author={readerBook.authors.join(", ")}
+            coverUrl={readerBook.coverUrl}
+            downloadUrl={`/api/library/books/${readerBook.id}/documents/${readerBook.documentId}?download`}
+            onExit={() => { setReaderBook(null); cat.refresh(); }}
+          />,
+          document.body
         )}
       </section>
     </DashboardShell>
