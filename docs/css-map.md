@@ -1,10 +1,47 @@
 # CSS Map — iSputnik.home
 
-All styles are imported by [`apps/web/src/styles.css`](../apps/web/src/styles.css) in this order:
+All styles are imported by [`apps/web/src/styles.css`](../apps/web/src/styles.css), in this order:
 
 ```
-tokens → base → auth → layout → components → player → library → admin → about → responsive
+tokens → base → auth → layout → components → home → player →
+library-browse → library-collections → book-detail → category-images →
+book-media → ebook-reader → metadata-modal → admin → about →
+share → filter → install → offline → theme-picker → responsive
 ```
+
+### Stylesheet inventory
+
+| Stylesheet | Purpose |
+|---|---|
+| `tokens.css` | Design tokens — colors and theming (`dark`/`light` via `data-theme`) |
+| `base.css` | Global resets and typography |
+| `auth.css` | Login / register split-screen (pre-auth) |
+| `layout.css` | App shell — header, sidebar rail, page grid, Control Center panel |
+| `components.css` | Shared UI — fields, buttons, message boxes, modals, datagrid, badges |
+| `home.css` | Home dashboard — Continue / Recently added feeds |
+| `player.css` | Audio player widget |
+| `library-browse.css` | Main audiobook catalog / landing + shared browse toolbar (split from `library.css`) |
+| `library-collections.css` | Category, series & people pages (split from `library.css`) |
+| `book-detail.css` | Audiobook book detail + tags (split from `library.css`) |
+| `category-images.css` | Category icon/image for admin + browse cards (split from `library.css`) |
+| `book-media.css` | Book files, companion documents, in-app reader (split from `library.css`) |
+| `ebook-reader.css` | Immersive EPUB reader (foliate-js) — full-screen, own light/sepia/dark theme |
+| `metadata-modal.css` | Metadata lookup modal + cover-picker tab (split from `library.css`) |
+| `admin.css` | Control Center — all admin/management pages |
+| `about.css` | About page and version timeline |
+| `share.css` | Public guest share page (no app shell) |
+| `filter.css` | Filter button + popup + active-filter chips for the audiobook grid |
+| `install.css` | PWA install page / prompt |
+| `offline.css` | Offline / downloaded-books UI |
+| `theme-picker.css` | Theme picker page (theme selection grid) |
+| `responsive.css` | Media-query overrides (no new classes) |
+
+> **Coverage:** the detailed per-class sections below were written for the original
+> foundational stylesheets (`tokens`, `base`, `auth`, `layout`, `components`,
+> `player`, `admin`, `about`, `responsive`). The feature stylesheets added since —
+> `home`, the files split out of the old `library.css`, `ebook-reader`, `share`,
+> `filter`, `install`, `offline`, `theme-picker` — are inventoried above but not yet
+> enumerated class-by-class.
 
 ---
 
@@ -196,8 +233,10 @@ Used on the Audiobook detail / playback page.
 
 ---
 
-## library.css
+## library-browse.css / book-detail.css / book-media.css / metadata-modal.css
 **Audiobook library, book detail, metadata editor, and cover picker**
+
+> The original `library.css` was split into the files above (plus `library-collections.css` and `category-images.css`). The class groups below still apply, now spread across those files.
 
 ### Library browser / audiobook grid
 | Class | What it styles |
