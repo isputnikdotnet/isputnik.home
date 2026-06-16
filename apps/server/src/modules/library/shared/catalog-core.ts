@@ -144,7 +144,7 @@ export function queryCatalog<Mapped>(
   `).all(userId, userId, ...args, opts.limit, opts.offset) as Record<string, unknown>[];
 
   const total = (db.prepare(`
-    SELECT COUNT(*) AS n
+    SELECT COUNT(DISTINCT library_items.id) AS n
     FROM library_items
     ${config.countJoins}
     WHERE ${where}

@@ -9,7 +9,17 @@ type ObjectRole = "viewer" | "member" | "contributor" | "manager" | "deny";
 // created_by/owner references don't matter — each test starts from empty.
 export function resetDb(): void {
   db.pragma("foreign_keys = OFF");
-  for (const table of ["assignments", "group_members", "shares", "share_links", "library_items", "libraries", "user_groups", "users"]) {
+  const tables = [
+    "assignments", "group_members", "shares", "share_links",
+    "item_saves", "item_categories", "item_people", "series_items",
+    "audio_chapters", "audio_files", "document_files",
+    "playback_progress", "track_progress", "reading_progress",
+    "audio_bookmarks", "reading_bookmarks",
+    "audiobook_details", "ebook_details", "item_metadata",
+    "taggables", "collection_items", "collections",
+    "library_items", "people", "series", "libraries", "user_groups", "users"
+  ];
+  for (const table of tables) {
     db.prepare(`DELETE FROM ${table}`).run();
   }
   db.pragma("foreign_keys = ON");
