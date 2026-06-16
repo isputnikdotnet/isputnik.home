@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { getAudiobookBookDetail } from "../src/modules/library/audiobook/book-helpers.js";
+import { getAudiobookBookDetail, updateManualMetadata } from "../src/modules/library/audiobook/book-helpers.js";
 import { queryCatalog } from "../src/modules/library/audiobook/catalog.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
@@ -93,5 +93,54 @@ describe("queryCatalog (paged catalog on the new schema)", () => {
     const miss = queryCatalog("u1", ["L"], { q: "", sort: "title", limit: 10, offset: 0, filters: { ...emptyFilters, authors: ["Nobody"] } });
     expect(hit.total).toBe(1);
     expect(miss.total).toBe(0);
+  });
+});
+
+describe("updateManualMetadata (write -> read round-trip across split tables)", () => {
+  it("persists every field into its new home and reads it back", () => {
+    db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES ('w1', 'L', 'audiobook', 'x', 'ready')").run();
+    db.prepare("INSERT INTO item_metadata (item_id, source, title) VALUES ('w1', 'scan', 'Old Title')").run();
+    const categoryKey = (db.prepare("SELECT key FROM categories ORDER BY sort_order LIMIT 1").get() as { key: string }).key;
+
+    const detail = updateManualMetadata("w1", {
+      title: "New Title",
+      authors: ["Author A", "Author B"],
+      narrators: ["Narrator N"],
+      tags: ["Sci-Fi", "Space"],
+      categoryKey,
+      publisher: "Pub",
+      yearPublished: 2020,
+      description: "Desc",
+      language: "en",
+      isbn: "111",
+      asin: "A222",
+      series: "Trilogy",
+      seriesPosition: 1.5
+    })!;
+
+    expect(detail.title).toBe("New Title");          // item_metadata
+    expect(detail.metadataSource).toBe("manual");
+    expect(detail.publisher).toBe("Pub");
+    expect(detail.asin).toBe("A222");                // audiobook_details
+    expect(detail.authors).toEqual(["Author A", "Author B"]); // item_people/people
+    expect(detail.narrators).toEqual(["Narrator N"]);
+    expect([...detail.tags].sort()).toEqual(["Sci-Fi", "Space"]); // taggables (library_item)
+    expect(detail.category).not.toBeNull();          // item_categories primary
+    expect(detail.series).toBe("Trilogy");           // global series + series_items
+    expect(detail.seriesPosition).toBe(1.5);
+
+    // people are global — one row per name, reusable across libraries.
+    expect((db.prepare("SELECT COUNT(*) c FROM people WHERE name = 'Author A'").get() as { c: number }).c).toBe(1);
+    // primary category is a single is_primary row.
+    expect((db.prepare("SELECT COUNT(*) c FROM item_categories WHERE item_id = 'w1' AND is_primary = 1").get() as { c: number }).c).toBe(1);
+  });
+
+  it("clearing the series removes the membership", () => {
+    db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES ('w2', 'L', 'audiobook', 'y', 'ready')").run();
+    db.prepare("INSERT INTO item_metadata (item_id, source, title) VALUES ('w2', 'scan', 'T')").run();
+    updateManualMetadata("w2", { title: "T", authors: [], narrators: [], tags: [], series: "S", seriesPosition: 1 });
+    expect((db.prepare("SELECT COUNT(*) c FROM series_items WHERE item_id = 'w2'").get() as { c: number }).c).toBe(1);
+    updateManualMetadata("w2", { title: "T", authors: [], narrators: [], tags: [], series: null });
+    expect((db.prepare("SELECT COUNT(*) c FROM series_items WHERE item_id = 'w2'").get() as { c: number }).c).toBe(0);
   });
 });

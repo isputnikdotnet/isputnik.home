@@ -75,22 +75,28 @@ export function addEntityTags(entityType: string, entityId: string, displayNames
 export function rematchAllCategories(): number {
   const typePlaceholders = BOOK_LIBRARY_TYPES.map(() => "?").join(", ");
   const books = db.prepare(`
-    SELECT books.id AS id, book_metadata.category_id AS category_id
-    FROM books
-    JOIN book_metadata ON book_metadata.book_id = books.id
-    JOIN libraries ON libraries.id = books.library_id
-    WHERE books.deleted_at IS NULL
+    SELECT
+      library_items.id AS id,
+      ic.category_id AS category_id
+    FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_categories ic ON ic.item_id = library_items.id AND ic.is_primary = 1
+    WHERE library_items.deleted_at IS NULL
       AND libraries.type IN (${typePlaceholders})
-      AND book_metadata.source != 'manual'
+      AND COALESCE(ic.source, 'scan') != 'manual'
   `).all(...BOOK_LIBRARY_TYPES) as { id: string; category_id: string | null }[];
 
   const tagsFor = db.prepare(`
     SELECT tags.display_name AS name
     FROM taggables
     JOIN tags ON tags.id = taggables.tag_id
-    WHERE taggables.entity_type = 'book' AND taggables.entity_id = ?
+    WHERE taggables.entity_type = 'library_item' AND taggables.entity_id = ?
   `);
-  const update = db.prepare("UPDATE book_metadata SET category_id = ?, updated_at = CURRENT_TIMESTAMP WHERE book_id = ?");
+  const clearPrimary = db.prepare("DELETE FROM item_categories WHERE item_id = ? AND is_primary = 1");
+  const setPrimary = db.prepare(`
+    INSERT INTO item_categories (item_id, category_id, is_primary, source) VALUES (?, ?, 1, 'scan')
+    ON CONFLICT(item_id, category_id) DO UPDATE SET is_primary = 1, source = 'scan'
+  `);
 
   let changed = 0;
   db.transaction(() => {
@@ -98,7 +104,8 @@ export function rematchAllCategories(): number {
       const tags = (tagsFor.all(book.id) as { name: string }[]).map((t) => t.name);
       const next = matchCategoryId(tags);
       if (next !== book.category_id) {
-        update.run(next, book.id);
+        clearPrimary.run(book.id);
+        setPrimary.run(book.id, next);
         changed += 1;
       }
     }
