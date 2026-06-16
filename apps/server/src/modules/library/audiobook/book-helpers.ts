@@ -129,7 +129,7 @@ export function bookTags(bookId: string): string[] {
     SELECT tags.display_name AS name
     FROM taggables
     JOIN tags ON tags.id = taggables.tag_id
-    WHERE taggables.entity_type = 'book' AND taggables.entity_id = ?
+    WHERE taggables.entity_type = 'library_item' AND taggables.entity_id = ?
     ORDER BY tags.display_name COLLATE NOCASE
   `).all(bookId) as { name: string }[];
   return rows.map((r) => r.name);
@@ -148,11 +148,11 @@ export function imageMimeType(filePath: string) {
 
 export function getBookCoverFolder(bookId: string) {
   const row = db.prepare(`
-    SELECT books.folder_path, libraries.source_path
-    FROM books
-    JOIN libraries ON libraries.id = books.library_id
-    WHERE books.id = ?
-      AND books.deleted_at IS NULL
+    SELECT library_items.folder_path, libraries.source_path
+    FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    WHERE library_items.id = ?
+      AND library_items.deleted_at IS NULL
   `).get(bookId) as { folder_path: string; source_path: string } | undefined;
 
   if (!row) {
@@ -462,50 +462,52 @@ export function applyBulkMetadata(bookId: string, patch: z.infer<typeof bulkMeta
 export function getAudiobookBookDetail(id: string) {
   const book = db.prepare(`
     SELECT
-      books.id,
-      books.library_id,
-      books.folder_path,
-      books.status,
-      books.discovered_at,
-      books.updated_at,
-      books.deleted_at,
-      books.series_position,
+      library_items.id,
+      library_items.library_id,
+      library_items.folder_path,
+      library_items.status,
+      library_items.discovered_at,
+      library_items.updated_at,
+      library_items.deleted_at,
+      series_items.position AS series_position,
       libraries.name AS library_name,
       libraries.settings_json AS settings_json,
       series.name AS series_name,
       series.id AS series_id,
-      book_metadata.title,
-      book_metadata.sort_title,
-      book_metadata.description,
-      book_metadata.year_published,
-      book_metadata.language,
-      book_metadata.duration_seconds,
-      book_metadata.cover_storage_key,
-      book_metadata.source AS metadata_source,
-      book_metadata.isbn,
-      book_metadata.asin,
-      book_metadata.publisher,
-      book_metadata.openlibrary_id,
-      book_metadata.category_id,
+      item_metadata.title,
+      item_metadata.sort_title,
+      item_metadata.description,
+      item_metadata.year_published,
+      item_metadata.language,
+      audiobook_details.duration_seconds,
+      item_metadata.cover_storage_key,
+      item_metadata.source AS metadata_source,
+      item_metadata.isbn,
+      audiobook_details.asin,
+      item_metadata.publisher,
+      item_metadata.openlibrary_id,
+      (SELECT ic.category_id FROM item_categories ic WHERE ic.item_id = library_items.id AND ic.is_primary = 1 LIMIT 1) AS category_id,
       GROUP_CONCAT(DISTINCT authors.name) AS author_names,
       GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names,
       (
-        SELECT COALESCE(SUM(book_files.size), 0)
-        FROM book_files
-        WHERE book_files.book_id = books.id
-          AND book_files.status = 'available'
+        SELECT COALESCE(SUM(audio_files.size), 0)
+        FROM audio_files
+        WHERE audio_files.item_id = library_items.id
+          AND audio_files.status = 'available'
       ) AS total_size
-    FROM books
-    JOIN libraries ON libraries.id = books.library_id
-    LEFT JOIN series ON series.id = books.series_id
-    LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-    LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-    LEFT JOIN authors ON authors.id = book_authors.author_id
-    LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
-    LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
-    WHERE books.id = ?
-      AND books.deleted_at IS NULL
-    GROUP BY books.id
+    FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN series_items ON series_items.item_id = library_items.id
+    LEFT JOIN series ON series.id = series_items.series_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    LEFT JOIN audiobook_details ON audiobook_details.item_id = library_items.id
+    LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+    LEFT JOIN people AS authors ON authors.id = item_people.person_id
+    LEFT JOIN item_people AS narrator_people ON narrator_people.item_id = library_items.id AND narrator_people.role = 'narrator'
+    LEFT JOIN people AS narrators ON narrators.id = narrator_people.person_id
+    WHERE library_items.id = ?
+      AND library_items.deleted_at IS NULL
+    GROUP BY library_items.id
   `).get(id) as (AudiobookBookRow & {
     library_name: string;
     settings_json: string;
@@ -528,39 +530,39 @@ export function getAudiobookBookDetail(id: string) {
   }
 
   const files = db.prepare(`
-    SELECT id, relative_path, mime_type, track_number, chapter_title, duration_seconds, size, modified_at, status
-    FROM book_files
-    WHERE book_id = ?
+    SELECT id, relative_path, mime_type, track_number, title AS chapter_title, duration_seconds, size, modified_at, status
+    FROM audio_files
+    WHERE item_id = ?
     ORDER BY track_number, relative_path COLLATE NOCASE
   `).all(id) as BookFileRow[];
 
   // Embedded chapters (m4b / MP3 CHAP), grouped onto their owning file below. Most
   // books have none, in which case this is empty and files carry no `chapters`.
   const chapterRows = db.prepare(`
-    SELECT book_chapters.id, book_chapters.book_file_id, book_chapters.title,
-           book_chapters.start_seconds, book_chapters.end_seconds
-    FROM book_chapters
-    JOIN book_files ON book_files.id = book_chapters.book_file_id
-    WHERE book_files.book_id = ?
-    ORDER BY book_chapters.book_file_id, book_chapters.ordinal
+    SELECT audio_chapters.id, audio_chapters.audio_file_id, audio_chapters.title,
+           audio_chapters.start_seconds, audio_chapters.end_seconds
+    FROM audio_chapters
+    JOIN audio_files ON audio_files.id = audio_chapters.audio_file_id
+    WHERE audio_files.item_id = ?
+    ORDER BY audio_chapters.audio_file_id, audio_chapters.ordinal
   `).all(id) as {
     id: string;
-    book_file_id: string;
+    audio_file_id: string;
     title: string;
     start_seconds: number;
     end_seconds: number | null;
   }[];
   const chaptersByFile = new Map<string, { id: string; title: string; startSeconds: number; endSeconds: number | null }[]>();
   for (const row of chapterRows) {
-    const list = chaptersByFile.get(row.book_file_id) ?? [];
+    const list = chaptersByFile.get(row.audio_file_id) ?? [];
     list.push({ id: row.id, title: row.title, startSeconds: row.start_seconds, endSeconds: row.end_seconds });
-    chaptersByFile.set(row.book_file_id, list);
+    chaptersByFile.set(row.audio_file_id, list);
   }
 
   const documents = db.prepare(`
     SELECT id, relative_path, format, mime_type, size
-    FROM book_documents
-    WHERE book_id = ? AND status = 'available'
+    FROM document_files
+    WHERE item_id = ? AND status = 'available'
     ORDER BY relative_path COLLATE NOCASE
   `).all(id) as { id: string; relative_path: string; format: string; mime_type: string | null; size: number | null }[];
 
@@ -623,41 +625,43 @@ export function getAudiobookBookDetail(id: string) {
 // and book_saves joins each bind the user id — they are the FIRST TWO positional
 // ? in any query using these joins (pass the user id twice, in this order).
 export const BOOK_LIST_COLUMNS = `
-        books.id,
-        books.library_id,
-        books.folder_path,
-        books.status,
-        books.discovered_at,
-        books.updated_at,
-        books.deleted_at,
-        books.series_position,
+        library_items.id,
+        library_items.library_id,
+        library_items.folder_path,
+        library_items.status,
+        library_items.discovered_at,
+        library_items.updated_at,
+        library_items.deleted_at,
+        series_items.position AS series_position,
         series.name AS series_name,
-        book_metadata.title,
-        book_metadata.sort_title,
-        book_metadata.language,
-        book_metadata.duration_seconds,
-        book_metadata.cover_storage_key,
-        book_metadata.publisher,
-        book_metadata.asin,
-        book_metadata.category_id,
+        item_metadata.title,
+        item_metadata.sort_title,
+        item_metadata.language,
+        audiobook_details.duration_seconds,
+        item_metadata.cover_storage_key,
+        item_metadata.publisher,
+        audiobook_details.asin,
+        (SELECT ic.category_id FROM item_categories ic WHERE ic.item_id = library_items.id AND ic.is_primary = 1 LIMIT 1) AS category_id,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
         GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names,
         progress.percent_complete AS progress_percent,
         progress.completed_at AS progress_completed_at,
-        (book_saves.id IS NOT NULL) AS saved,
-        (SELECT COUNT(*) FROM book_files WHERE book_files.book_id = books.id AND book_files.status = 'available') AS file_count,
-        (SELECT COALESCE(SUM(book_files.size), 0) FROM book_files WHERE book_files.book_id = books.id AND book_files.status = 'available') AS total_size`;
+        (item_saves.id IS NOT NULL) AS saved,
+        (SELECT COUNT(*) FROM audio_files WHERE audio_files.item_id = library_items.id AND audio_files.status = 'available') AS file_count,
+        (SELECT COALESCE(SUM(audio_files.size), 0) FROM audio_files WHERE audio_files.item_id = library_items.id AND audio_files.status = 'available') AS total_size`;
 
 export const BOOK_LIST_JOINS = `
-      FROM books
-      LEFT JOIN series ON series.id = books.series_id
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-      LEFT JOIN authors ON authors.id = book_authors.author_id
-      LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
-      LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
-      LEFT JOIN playback_progress AS progress ON progress.book_id = books.id AND progress.user_id = ?
-      LEFT JOIN book_saves ON book_saves.book_id = books.id AND book_saves.user_id = ?`;
+      FROM library_items
+      LEFT JOIN series_items ON series_items.item_id = library_items.id
+      LEFT JOIN series ON series.id = series_items.series_id
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      LEFT JOIN audiobook_details ON audiobook_details.item_id = library_items.id
+      LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+      LEFT JOIN people AS authors ON authors.id = item_people.person_id
+      LEFT JOIN item_people AS narrator_people ON narrator_people.item_id = library_items.id AND narrator_people.role = 'narrator'
+      LEFT JOIN people AS narrators ON narrators.id = narrator_people.person_id
+      LEFT JOIN playback_progress AS progress ON progress.item_id = library_items.id AND progress.user_id = ?
+      LEFT JOIN item_saves ON item_saves.item_id = library_items.id AND item_saves.user_id = ?`;
 
 export type BookListRow = AudiobookBookRow & {
   series_name: string | null;
