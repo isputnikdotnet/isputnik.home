@@ -7,7 +7,7 @@ import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
-import { receiveUploadBatch, UploadError } from "../../../core/uploads.js";
+import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { can, parsePolicy } from "../../../core/permissions.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import { validateLibrarySource } from "../shared/library-source.js";

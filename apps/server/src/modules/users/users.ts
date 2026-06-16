@@ -1,11 +1,11 @@
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
-import { db, logActivity, publicUser, type User } from "../db.js";
-import { hashPassword } from "../crypto.js";
-import { currentSessionHash } from "../auth.js";
-import { getDefaultTheme } from "./app-config.js";
-import { parseBody } from "./shared.js";
+import { db, logActivity, publicUser, type User } from "../../db.js";
+import { hashPassword } from "../../crypto.js";
+import { currentSessionHash } from "../../auth.js";
+import { getDefaultTheme } from "../../core/app-config.js";
+import { parseBody } from "../../core/shared.js";
 
 const roleSchema = z.object({
   role: z.enum(["admin", "member"])

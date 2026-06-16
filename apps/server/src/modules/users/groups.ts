@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
-import { db, logActivity } from "../db.js";
-import { parseBody } from "./shared.js";
-import { deleteLibraryMembersForSubject } from "../modules/library/shared/library-access.js";
+import { db, logActivity } from "../../db.js";
+import { parseBody } from "../../core/shared.js";
+import { deleteLibraryMembersForSubject } from "../library/shared/library-access.js";
 
 const groupSchema = z.object({
   name: z.string().trim().min(2).max(80)

@@ -1,12 +1,12 @@
 import { z } from "zod";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { nanoid } from "nanoid";
-import { db, logActivity, publicUser, type Role, type User } from "../db.js";
-import { sha256, hashPassword } from "../crypto.js";
-import { addDays, issueSession } from "../auth.js";
-import { config } from "../config.js";
-import { parseBody, setupSchema, getUserByEmail } from "./shared.js";
-import { getDefaultTheme } from "./app-config.js";
+import { db, logActivity, publicUser, type Role, type User } from "../../db.js";
+import { sha256, hashPassword } from "../../crypto.js";
+import { addDays, issueSession } from "../../auth.js";
+import { config } from "../../config.js";
+import { parseBody, setupSchema, getUserByEmail } from "../../core/shared.js";
+import { getDefaultTheme } from "../../core/app-config.js";
 
 const inviteSchema = z.object({
   role: z.enum(["admin", "member"]).default("member"),
