@@ -80,25 +80,29 @@ function uniqueValues(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
 
+// People and series are global (cross-library). The libraryId arg is retained for
+// call-site compatibility but no longer scopes uniqueness.
 export function upsertAuthor(libraryId: string, name: string) {
-  db.prepare("INSERT OR IGNORE INTO authors (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
-    .run(nanoid(16), libraryId, name, sortTitle(name));
-  return db.prepare("SELECT id FROM authors WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
+  void libraryId;
+  db.prepare("INSERT OR IGNORE INTO people (id, name, sort_name) VALUES (?, ?, ?)")
+    .run(nanoid(16), name, sortTitle(name));
+  return db.prepare("SELECT id FROM people WHERE name = ?").get(name) as { id: string };
 }
 
 function replaceBookPeople(bookId: string, libraryId: string, role: "author" | "narrator", names: string[]) {
-  db.prepare("DELETE FROM book_authors WHERE book_id = ? AND role = ?").run(bookId, role);
+  db.prepare("DELETE FROM item_people WHERE item_id = ? AND role = ?").run(bookId, role);
   uniqueValues(names).forEach((name, index) => {
-    const author = upsertAuthor(libraryId, name);
-    db.prepare("INSERT INTO book_authors (book_id, author_id, role, sort_order) VALUES (?, ?, ?, ?)")
-      .run(bookId, author.id, role, index);
+    const person = upsertAuthor(libraryId, name);
+    db.prepare("INSERT OR IGNORE INTO item_people (item_id, person_id, role, sort_order) VALUES (?, ?, ?, ?)")
+      .run(bookId, person.id, role, index);
   });
 }
 
 export function upsertSeries(libraryId: string, name: string) {
-  db.prepare("INSERT OR IGNORE INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
-    .run(nanoid(16), libraryId, name, sortTitle(name));
-  return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
+  void libraryId;
+  db.prepare("INSERT OR IGNORE INTO series (id, name, sort_name) VALUES (?, ?, ?)")
+    .run(nanoid(16), name, sortTitle(name));
+  return db.prepare("SELECT id FROM series WHERE name = ?").get(name) as { id: string };
 }
 
 export interface CategoryRow {
@@ -187,18 +191,18 @@ export function coverFilePathFromRelative(bookId: string, relativePath: string) 
 
 export function updateBookCover(bookId: string, coverStorageKey: string) {
   const updated = db.prepare(`
-    UPDATE book_metadata
+    UPDATE item_metadata
     SET source = 'manual',
       cover_storage_key = ?,
-      updated_at = CURRENT_TIMESTAMP
-    WHERE book_id = ?
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    WHERE item_id = ?
   `).run(coverStorageKey, bookId);
 
   if (updated.changes === 0) {
     db.prepare(`
-      INSERT INTO book_metadata (id, book_id, source, cover_storage_key)
-      VALUES (?, ?, 'manual', ?)
-    `).run(nanoid(16), bookId, coverStorageKey);
+      INSERT INTO item_metadata (item_id, source, cover_storage_key)
+      VALUES (?, 'manual', ?)
+    `).run(bookId, coverStorageKey);
   }
 
   return getAudiobookBookDetail(bookId);
@@ -207,28 +211,29 @@ export function updateBookCover(bookId: string, coverStorageKey: string) {
 function getBookForMetadata(bookId: string) {
   return db.prepare(`
     SELECT
-      books.id,
-      books.library_id,
-      book_metadata.title,
-      book_metadata.description,
-      book_metadata.year_published,
-      book_metadata.language,
-      book_metadata.cover_storage_key,
-      book_metadata.isbn,
-      book_metadata.asin,
-      book_metadata.publisher,
-      book_metadata.category_id,
+      library_items.id,
+      library_items.library_id,
+      item_metadata.title,
+      item_metadata.description,
+      item_metadata.year_published,
+      item_metadata.language,
+      item_metadata.cover_storage_key,
+      item_metadata.isbn,
+      audiobook_details.asin,
+      item_metadata.publisher,
+      (SELECT ic.category_id FROM item_categories ic WHERE ic.item_id = library_items.id AND ic.is_primary = 1 LIMIT 1) AS category_id,
       GROUP_CONCAT(DISTINCT authors.name) AS author_names,
       GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names
-    FROM books
-    LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-    LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-    LEFT JOIN authors ON authors.id = book_authors.author_id
-    LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
-    LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
-    WHERE books.id = ?
-      AND books.deleted_at IS NULL
-    GROUP BY books.id
+    FROM library_items
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    LEFT JOIN audiobook_details ON audiobook_details.item_id = library_items.id
+    LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+    LEFT JOIN people AS authors ON authors.id = item_people.person_id
+    LEFT JOIN item_people AS narrator_people ON narrator_people.item_id = library_items.id AND narrator_people.role = 'narrator'
+    LEFT JOIN people AS narrators ON narrators.id = narrator_people.person_id
+    WHERE library_items.id = ?
+      AND library_items.deleted_at IS NULL
+    GROUP BY library_items.id
   `).get(bookId) as {
     id: string;
     library_id: string;
@@ -294,14 +299,12 @@ export async function applyMetadataCandidate(bookId: string, candidate: Metadata
 
   db.transaction(() => {
     db.prepare(`
-      INSERT INTO book_metadata (
-        id, book_id, source, title, sort_title, description, year_published, language,
-        duration_seconds, cover_storage_key, isbn, asin, publisher
+      INSERT INTO item_metadata (
+        item_id, source, title, sort_title, description, year_published, language,
+        cover_storage_key, isbn, publisher
       )
-      SELECT lower(hex(randomblob(8))), ?, 'manual', ?, ?, ?, ?, ?, duration_seconds, ?, ?, ?, ?
-      FROM book_metadata
-      WHERE book_id = ?
-      ON CONFLICT(book_id) DO UPDATE SET
+      VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(item_id) DO UPDATE SET
         source = 'manual',
         title = excluded.title,
         sort_title = excluded.sort_title,
@@ -310,9 +313,8 @@ export async function applyMetadataCandidate(bookId: string, candidate: Metadata
         language = excluded.language,
         cover_storage_key = excluded.cover_storage_key,
         isbn = excluded.isbn,
-        asin = excluded.asin,
         publisher = excluded.publisher,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(
       bookId,
       next.title,
@@ -322,10 +324,12 @@ export async function applyMetadataCandidate(bookId: string, candidate: Metadata
       next.language,
       coverStorageKey,
       next.isbn,
-      next.asin,
-      next.publisher,
-      bookId
+      next.publisher
     );
+    db.prepare(`
+      INSERT INTO audiobook_details (item_id, asin) VALUES (?, ?)
+      ON CONFLICT(item_id) DO UPDATE SET asin = excluded.asin
+    `).run(bookId, next.asin);
 
     if (updateDetails || splitGroupConcat(current.author_names).length === 0) {
       replaceBookPeople(bookId, current.library_id, "author", candidate.authors);
@@ -334,7 +338,7 @@ export async function applyMetadataCandidate(bookId: string, candidate: Metadata
       replaceBookPeople(bookId, current.library_id, "narrator", candidate.narrators);
     }
     if (candidate.genres && (updateDetails || bookTags(current.id).length === 0)) {
-      addEntityTags("book", bookId, candidate.genres);
+      addEntityTags("library_item", bookId, candidate.genres);
     }
   })();
 
@@ -353,14 +357,12 @@ export function updateManualMetadata(bookId: string, metadata: z.infer<typeof ma
       ? (db.prepare("SELECT id FROM categories WHERE key = ?").get(metadata.categoryKey) as { id: string } | undefined)?.id ?? null
       : null;
     db.prepare(`
-      INSERT INTO book_metadata (
-        id, book_id, source, title, sort_title, description, year_published, language,
-        duration_seconds, cover_storage_key, isbn, asin, publisher, category_id
+      INSERT INTO item_metadata (
+        item_id, source, title, sort_title, description, year_published, language,
+        isbn, publisher
       )
-      SELECT lower(hex(randomblob(8))), ?, 'manual', ?, ?, ?, ?, ?, duration_seconds, cover_storage_key, ?, ?, ?, ?
-      FROM book_metadata
-      WHERE book_id = ?
-      ON CONFLICT(book_id) DO UPDATE SET
+      VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(item_id) DO UPDATE SET
         source = 'manual',
         title = excluded.title,
         sort_title = excluded.sort_title,
@@ -368,10 +370,8 @@ export function updateManualMetadata(bookId: string, metadata: z.infer<typeof ma
         year_published = excluded.year_published,
         language = excluded.language,
         isbn = excluded.isbn,
-        asin = excluded.asin,
         publisher = excluded.publisher,
-        category_id = excluded.category_id,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(
       bookId,
       metadata.title,
@@ -380,25 +380,35 @@ export function updateManualMetadata(bookId: string, metadata: z.infer<typeof ma
       metadata.yearPublished ?? null,
       metadata.language ?? null,
       metadata.isbn ?? null,
-      metadata.asin ?? null,
-      metadata.publisher ?? null,
-      categoryId,
-      bookId
+      metadata.publisher ?? null
     );
+    db.prepare(`
+      INSERT INTO audiobook_details (item_id, asin) VALUES (?, ?)
+      ON CONFLICT(item_id) DO UPDATE SET asin = excluded.asin
+    `).run(bookId, metadata.asin ?? null);
+
+    // Primary category (manual): replace any existing primary.
+    db.prepare("DELETE FROM item_categories WHERE item_id = ? AND is_primary = 1").run(bookId);
+    if (categoryId) {
+      db.prepare(`
+        INSERT INTO item_categories (item_id, category_id, is_primary, source) VALUES (?, ?, 1, 'manual')
+        ON CONFLICT(item_id, category_id) DO UPDATE SET is_primary = 1, source = 'manual'
+      `).run(bookId, categoryId);
+    }
 
     replaceBookPeople(bookId, current.library_id, "author", metadata.authors);
     replaceBookPeople(bookId, current.library_id, "narrator", metadata.narrators);
-    setEntityTags("book", bookId, metadata.tags);
-  })();
+    setEntityTags("library_item", bookId, metadata.tags);
 
-  // A book edited by hand owns its series too, so the scanner leaves it alone.
-  if (metadata.series) {
-    const series = upsertSeries(current.library_id, metadata.series);
-    db.prepare("UPDATE books SET series_id = ?, series_position = ?, series_source = 'manual' WHERE id = ?")
-      .run(series.id, metadata.seriesPosition ?? null, bookId);
-  } else {
-    db.prepare("UPDATE books SET series_id = NULL, series_position = NULL, series_source = 'manual' WHERE id = ?").run(bookId);
-  }
+    // A book edited by hand owns its series too, so the scanner leaves it alone
+    // (series_items.source = 'manual'). Clearing removes the membership.
+    db.prepare("DELETE FROM series_items WHERE item_id = ?").run(bookId);
+    if (metadata.series) {
+      const series = upsertSeries(current.library_id, metadata.series);
+      db.prepare("INSERT INTO series_items (series_id, item_id, position, source) VALUES (?, ?, ?, 'manual')")
+        .run(series.id, bookId, metadata.seriesPosition ?? null);
+    }
+  })();
 
   exportBookMetadata(bookId);
   return getAudiobookBookDetail(bookId);
@@ -428,21 +438,24 @@ export function applyBulkMetadata(bookId: string, patch: z.infer<typeof bulkMeta
 
   db.transaction(() => {
     // Ensure a metadata row exists so the column updates have somewhere to land.
-    const hasRow = db.prepare("SELECT 1 FROM book_metadata WHERE book_id = ?").get(bookId);
+    const hasRow = db.prepare("SELECT 1 FROM item_metadata WHERE item_id = ?").get(bookId);
     if (!hasRow) {
-      db.prepare("INSERT INTO book_metadata (id, book_id, source) VALUES (?, ?, 'manual')").run(nanoid(16), bookId);
+      db.prepare("INSERT INTO item_metadata (item_id, source) VALUES (?, 'manual')").run(bookId);
     }
 
-    const sets = ["source = 'manual'", "updated_at = CURRENT_TIMESTAMP"];
+    const sets = ["source = 'manual'", "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"];
     const args: unknown[] = [];
     if (patch.description !== undefined) { sets.push("description = ?"); args.push(patch.description || null); }
     if (patch.language !== undefined) { sets.push("language = ?"); args.push(patch.language || null); }
+    db.prepare(`UPDATE item_metadata SET ${sets.join(", ")} WHERE item_id = ?`).run(...args, bookId);
+
     if (patch.categoryKey !== undefined) {
       const categoryId = (db.prepare("SELECT id FROM categories WHERE key = ?").get(patch.categoryKey) as { id: string } | undefined)?.id ?? null;
-      sets.push("category_id = ?");
-      args.push(categoryId);
+      db.prepare("DELETE FROM item_categories WHERE item_id = ? AND is_primary = 1").run(bookId);
+      if (categoryId) {
+        db.prepare("INSERT INTO item_categories (item_id, category_id, is_primary, source) VALUES (?, ?, 1, 'manual') ON CONFLICT(item_id, category_id) DO UPDATE SET is_primary = 1, source = 'manual'").run(bookId, categoryId);
+      }
     }
-    db.prepare(`UPDATE book_metadata SET ${sets.join(", ")} WHERE book_id = ?`).run(...args, bookId);
 
     if (patch.authors !== undefined) {
       replaceBookPeople(bookId, current.library_id, "author", patch.authors);
@@ -451,7 +464,7 @@ export function applyBulkMetadata(bookId: string, patch: z.infer<typeof bulkMeta
       replaceBookPeople(bookId, current.library_id, "narrator", patch.narrators);
     }
     if (patch.tags !== undefined) {
-      setEntityTags("book", bookId, patch.tags);
+      setEntityTags("library_item", bookId, patch.tags);
     }
   })();
 
