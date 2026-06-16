@@ -44,8 +44,10 @@ function personLookupLanguages(name: string) {
   const rows = db.prepare(`
     SELECT DISTINCT libraries.settings_json AS settings_json
     FROM libraries
-    JOIN authors ON authors.library_id = libraries.id
-    WHERE authors.name = ?
+    JOIN library_items ON library_items.library_id = libraries.id
+    JOIN item_people ON item_people.item_id = library_items.id
+    JOIN people ON people.id = item_people.person_id
+    WHERE people.name = ?
   `).all(name) as { settings_json: string }[];
   return rows
     .map((row) => normalizeLibrarySettings("audiobook", row.settings_json).default_language)
@@ -61,8 +63,8 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     }
 
     const row = db.prepare(`
-      SELECT id, name, sort_name, bio, cover_storage_key
-      FROM authors WHERE name = ? ORDER BY rowid ASC LIMIT 1
+      SELECT id, name, sort_name, bio, image_storage_key AS cover_storage_key
+      FROM people WHERE name = ? LIMIT 1
     `).get(name) as AuthorRow | undefined;
 
     reply.send({
@@ -76,9 +78,9 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   // narrators list pages show avatars without a request per person.
   app.get("/api/library/people/photos", { preHandler: app.authenticate }, async (_request, reply) => {
     const rows = db.prepare(`
-      SELECT name, cover_storage_key
-      FROM authors
-      WHERE cover_storage_key IS NOT NULL
+      SELECT name, image_storage_key AS cover_storage_key
+      FROM people
+      WHERE image_storage_key IS NOT NULL
       ORDER BY rowid ASC
     `).all() as { name: string; cover_storage_key: string }[];
 
@@ -103,7 +105,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       return;
     }
 
-    db.prepare("UPDATE authors SET name = COALESCE(?, name), bio = ?, sort_name = ? WHERE name = ?").run(
+    db.prepare("UPDATE people SET name = COALESCE(?, name), bio = ?, sort_name = ? WHERE name = ?").run(
       parsed.data.name ?? null,
       parsed.data.bio ?? null,
       parsed.data.sortName ?? null,
@@ -122,7 +124,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       return;
     }
 
-    const exists = db.prepare("SELECT 1 FROM authors WHERE name = ? LIMIT 1").get(name);
+    const exists = db.prepare("SELECT 1 FROM people WHERE name = ? LIMIT 1").get(name);
     if (!exists) {
       reply.code(404).send({ error: "Person not found" });
       return;
@@ -131,8 +133,8 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     try {
       const { updatedBio, updatedPhoto, result } = await enrichPerson(name, personLookupLanguages(name));
       const row = db.prepare(`
-        SELECT id, name, sort_name, bio, cover_storage_key
-        FROM authors WHERE name = ? ORDER BY rowid ASC LIMIT 1
+        SELECT id, name, sort_name, bio, image_storage_key AS cover_storage_key
+        FROM people WHERE name = ? LIMIT 1
       `).get(name) as AuthorRow | undefined;
 
       reply.send({
@@ -190,15 +192,15 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       return;
     }
 
-    const existing = db.prepare("SELECT id FROM authors WHERE library_id = ? AND name = ?").get(libraryId, name);
+    const existing = db.prepare("SELECT id FROM people WHERE name = ?").get(name);
     if (existing) {
-      reply.code(409).send({ error: "A person with that name already exists in this library." });
+      reply.code(409).send({ error: "A person with that name already exists." });
       return;
     }
 
     const resolvedSortName = sortName?.trim() || sortTitle(name);
-    db.prepare("INSERT INTO authors (id, library_id, name, sort_name, bio) VALUES (?, ?, ?, ?, ?)")
-      .run(nanoid(16), libraryId, name, resolvedSortName, bio?.trim() || null);
+    db.prepare("INSERT INTO people (id, name, sort_name, bio) VALUES (?, ?, ?, ?)")
+      .run(nanoid(16), name, resolvedSortName, bio?.trim() || null);
 
     logActivity({
       event: "library.person.created",
@@ -221,7 +223,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       return;
     }
 
-    const exists = db.prepare("SELECT 1 FROM authors WHERE name = ? LIMIT 1").get(name);
+    const exists = db.prepare("SELECT 1 FROM people WHERE name = ? LIMIT 1").get(name);
     if (!exists) {
       reply.code(404).send({ error: "Person not found" });
       return;
@@ -252,7 +254,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     }
 
     const rows = db.prepare(
-      "SELECT id, cover_storage_key FROM authors WHERE name = ? ORDER BY rowid ASC"
+      "SELECT id, image_storage_key AS cover_storage_key FROM people WHERE name = ?"
     ).all(name) as { id: string; cover_storage_key: string | null }[];
     if (rows.length === 0) {
       reply.code(404).send({ error: "Person not found" });
@@ -261,7 +263,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
 
     try {
       const storageKey = await writePersonPhoto(rows[0].id, parsed.data.url);
-      db.prepare("UPDATE authors SET cover_storage_key = ? WHERE name = ?").run(storageKey, name);
+      db.prepare("UPDATE people SET image_storage_key = ? WHERE name = ?").run(storageKey, name);
       removeStoredPhotos(rows.map((row) => row.cover_storage_key).filter((key) => key !== storageKey));
       reply.send({ updated: true, photoUrl: `/api/library/covers/${storageKey}` });
     } catch (err) {
@@ -288,7 +290,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       return;
     }
 
-    const sourceExists = db.prepare("SELECT 1 FROM authors WHERE name = ? LIMIT 1").get(from);
+    const sourceExists = db.prepare("SELECT 1 FROM people WHERE name = ? LIMIT 1").get(from);
     if (!sourceExists) {
       reply.code(404).send({ error: "Person not found" });
       return;
@@ -303,28 +305,28 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       `).run(nanoid(16), from, into, request.user!.id);
       db.prepare("UPDATE person_aliases SET canonical_name = ? WHERE canonical_name = ?").run(into, from);
 
-      // Per library, fold the `from` author row into the `into` row.
-      const fromRows = db.prepare(
-        "SELECT id, library_id, sort_name, bio, cover_storage_key FROM authors WHERE name = ?"
-      ).all(from) as { id: string; library_id: string; sort_name: string | null; bio: string | null; cover_storage_key: string | null }[];
+      // People are global: fold the single `from` person into the `into` person.
+      const fromRow = db.prepare(
+        "SELECT id, sort_name, bio, image_storage_key FROM people WHERE name = ?"
+      ).get(from) as { id: string; sort_name: string | null; bio: string | null; image_storage_key: string | null } | undefined;
+      if (!fromRow) return;
 
-      for (const fromRow of fromRows) {
-        let intoRow = db.prepare("SELECT id FROM authors WHERE library_id = ? AND name = ?")
-          .get(fromRow.library_id, into) as { id: string } | undefined;
-        if (!intoRow) {
-          const id = nanoid(16);
-          db.prepare(
-            "INSERT INTO authors (id, library_id, name, sort_name, bio, cover_storage_key) VALUES (?, ?, ?, ?, ?, ?)"
-          ).run(id, fromRow.library_id, into, fromRow.sort_name, fromRow.bio, fromRow.cover_storage_key);
-          intoRow = { id };
-        }
-        // Repoint book links, de-duplicating on (book_id, author_id, role).
+      let intoRow = db.prepare("SELECT id FROM people WHERE name = ?").get(into) as { id: string } | undefined;
+      if (!intoRow) {
+        const id = nanoid(16);
+        db.prepare(
+          "INSERT INTO people (id, name, sort_name, bio, image_storage_key) VALUES (?, ?, ?, ?, ?)"
+        ).run(id, into, fromRow.sort_name, fromRow.bio, fromRow.image_storage_key);
+        intoRow = { id };
+      }
+      if (intoRow.id !== fromRow.id) {
+        // Repoint item credits, de-duplicating on (item_id, person_id, role).
         db.prepare(`
-          INSERT OR IGNORE INTO book_authors (book_id, author_id, role, sort_order)
-          SELECT book_id, ?, role, sort_order FROM book_authors WHERE author_id = ?
+          INSERT OR IGNORE INTO item_people (item_id, person_id, role, sort_order)
+          SELECT item_id, ?, role, sort_order FROM item_people WHERE person_id = ?
         `).run(intoRow.id, fromRow.id);
-        db.prepare("DELETE FROM book_authors WHERE author_id = ?").run(fromRow.id);
-        db.prepare("DELETE FROM authors WHERE id = ?").run(fromRow.id);
+        db.prepare("DELETE FROM item_people WHERE person_id = ?").run(fromRow.id);
+        db.prepare("DELETE FROM people WHERE id = ?").run(fromRow.id);
       }
     })();
 
@@ -363,7 +365,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     }
 
     const authorRows = db.prepare(
-      "SELECT id, cover_storage_key FROM authors WHERE name = ? ORDER BY rowid ASC"
+      "SELECT id, image_storage_key AS cover_storage_key FROM people WHERE name = ?"
     ).all(name) as { id: string; cover_storage_key: string | null }[];
 
     if (authorRows.length === 0) {
@@ -378,7 +380,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, body as Buffer);
 
-    db.prepare("UPDATE authors SET cover_storage_key = ? WHERE name = ?").run(storageKey, name);
+    db.prepare("UPDATE people SET image_storage_key = ? WHERE name = ?").run(storageKey, name);
     removeStoredPhotos(authorRows.map((row) => row.cover_storage_key).filter((key) => key !== storageKey));
 
     reply.send({ updated: true, photoUrl: `/api/library/covers/${storageKey}` });

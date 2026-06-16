@@ -73,22 +73,23 @@ function loadShareBook(bookId: string): ShareBookRow | undefined {
   return db.prepare(`
     SELECT
       libraries.source_path,
-      books.folder_path,
-      book_metadata.cover_storage_key,
-      book_metadata.title,
-      book_metadata.description,
-      book_metadata.duration_seconds,
+      library_items.folder_path,
+      item_metadata.cover_storage_key,
+      item_metadata.title,
+      item_metadata.description,
+      audiobook_details.duration_seconds,
       GROUP_CONCAT(DISTINCT authors.name) AS author_names,
       GROUP_CONCAT(DISTINCT narrators.name) AS narrator_names
-    FROM books
-    JOIN libraries ON libraries.id = books.library_id
-    LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-    LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-    LEFT JOIN authors ON authors.id = book_authors.author_id
-    LEFT JOIN book_authors AS book_narrators ON book_narrators.book_id = books.id AND book_narrators.role = 'narrator'
-    LEFT JOIN authors AS narrators ON narrators.id = book_narrators.author_id
-    WHERE books.id = ? AND books.deleted_at IS NULL
-    GROUP BY books.id
+    FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    LEFT JOIN audiobook_details ON audiobook_details.item_id = library_items.id
+    LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+    LEFT JOIN people AS authors ON authors.id = item_people.person_id
+    LEFT JOIN item_people AS narrator_people ON narrator_people.item_id = library_items.id AND narrator_people.role = 'narrator'
+    LEFT JOIN people AS narrators ON narrators.id = narrator_people.person_id
+    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
+    GROUP BY library_items.id
   `).get(bookId) as ShareBookRow | undefined;
 }
 
@@ -157,11 +158,11 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
         share_links.label,
         share_links.created_at,
         share_links.expires_at,
-        book_metadata.title,
-        books.folder_path
+        item_metadata.title,
+        library_items.folder_path
       FROM share_links
-      LEFT JOIN books ON books.id = share_links.resource_id
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
+      LEFT JOIN library_items ON library_items.id = share_links.resource_id
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
       WHERE share_links.module = ?
         AND share_links.created_by = ?
         AND share_links.revoked_at IS NULL
@@ -196,7 +197,7 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
     const where = user.role === "admin" ? "" : "AND created_by = ?";
     const params = user.role === "admin" ? [id] : [id, user.id];
     const result = db.prepare(`
-      UPDATE share_links SET revoked_at = CURRENT_TIMESTAMP
+      UPDATE share_links SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE id = ? AND revoked_at IS NULL ${where}
     `).run(...params);
 
@@ -264,7 +265,7 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
         revoked_at = NULL,
         expires_at = excluded.expires_at,
         created_by = excluded.created_by,
-        created_at = CURRENT_TIMESTAMP
+        created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(shareId, MODULE, parsed.data.bookId, parsed.data.userId, user.id, expiresAt);
     logActivity({
       event: "share.granted",
@@ -323,7 +324,7 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
     const where = user.role === "admin" ? "" : "AND created_by = ?";
     const params = user.role === "admin" ? [id] : [id, user.id];
     const result = db.prepare(`
-      UPDATE shares SET revoked_at = CURRENT_TIMESTAMP
+      UPDATE shares SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE id = ? AND revoked_at IS NULL ${where}
     `).run(...params);
 
@@ -348,11 +349,11 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
     const user = request.user!;
     const rows = db.prepare(`
       SELECT shares.resource_id, shares.created_at, shares.expires_at,
-             book_metadata.title, book_metadata.cover_storage_key, books.folder_path,
+             item_metadata.title, item_metadata.cover_storage_key, library_items.folder_path,
              owner.display_name AS shared_by
       FROM shares
-      JOIN books ON books.id = shares.resource_id AND books.deleted_at IS NULL
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
+      JOIN library_items ON library_items.id = shares.resource_id AND library_items.deleted_at IS NULL
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
       LEFT JOIN users AS owner ON owner.id = shares.created_by
       WHERE shares.module = ?
         AND shares.user_id = ?
@@ -409,9 +410,9 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
     ).get(link.id) as { label: string | null; expires_at: string };
 
     const files = db.prepare(`
-      SELECT id, track_number, chapter_title, duration_seconds
-      FROM book_files
-      WHERE book_id = ? AND status = 'available'
+      SELECT id, track_number, title AS chapter_title, duration_seconds
+      FROM audio_files
+      WHERE item_id = ? AND status = 'available'
       ORDER BY track_number, relative_path COLLATE NOCASE
     `).all(link.resource_id) as {
       id: string;
@@ -477,8 +478,8 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
 
     const file = db.prepare(`
       SELECT relative_path, mime_type, status
-      FROM book_files
-      WHERE id = ? AND book_id = ?
+      FROM audio_files
+      WHERE id = ? AND item_id = ?
     `).get(fileId, link.resource_id) as { relative_path: string; mime_type: string | null; status: string } | undefined;
 
     if (!file || file.status !== "available") {
@@ -531,8 +532,8 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
 
     const files = db.prepare(`
       SELECT relative_path
-      FROM book_files
-      WHERE book_id = ? AND status = 'available'
+      FROM audio_files
+      WHERE item_id = ? AND status = 'available'
       ORDER BY track_number, relative_path COLLATE NOCASE
     `).all(link.resource_id) as { relative_path: string }[];
 

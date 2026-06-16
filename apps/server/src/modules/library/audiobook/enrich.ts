@@ -426,7 +426,7 @@ function bioWithAttribution(result: PersonLookupResult) {
 // only to rows where the field is still empty.
 export async function enrichPerson(name: string, languages: string[]): Promise<{ updatedBio: boolean; updatedPhoto: boolean; result: PersonLookupResult | null }> {
   const rows = db.prepare(
-    "SELECT id, name, bio, cover_storage_key FROM authors WHERE name = ? ORDER BY rowid ASC"
+    "SELECT id, name, bio, image_storage_key AS cover_storage_key FROM people WHERE name = ?"
   ).all(name) as AuthorToEnrich[];
   if (rows.length === 0) {
     return { updatedBio: false, updatedPhoto: false, result: null };
@@ -435,7 +435,7 @@ export async function enrichPerson(name: string, languages: string[]): Promise<{
   const needsBio = rows.some((row) => !row.bio);
   const needsPhoto = rows.some((row) => !row.cover_storage_key);
   const result = await lookupPersonInfo(name, languages);
-  db.prepare("UPDATE authors SET enriched_at = CURRENT_TIMESTAMP WHERE name = ?").run(name);
+  db.prepare("UPDATE people SET enriched_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE name = ?").run(name);
   if (!result) {
     return { updatedBio: false, updatedPhoto: false, result: null };
   }
@@ -443,7 +443,7 @@ export async function enrichPerson(name: string, languages: string[]): Promise<{
   let updatedBio = false;
   const bio = bioWithAttribution(result);
   if (needsBio && bio) {
-    db.prepare("UPDATE authors SET bio = ? WHERE name = ? AND (bio IS NULL OR bio = '')").run(bio, name);
+    db.prepare("UPDATE people SET bio = ? WHERE name = ? AND (bio IS NULL OR bio = '')").run(bio, name);
     updatedBio = true;
   }
 
@@ -451,7 +451,7 @@ export async function enrichPerson(name: string, languages: string[]): Promise<{
   if (needsPhoto && result.photoUrl) {
     try {
       const storageKey = await writePersonPhoto(rows[0].id, result.photoUrl);
-      db.prepare("UPDATE authors SET cover_storage_key = ? WHERE name = ? AND cover_storage_key IS NULL").run(storageKey, name);
+      db.prepare("UPDATE people SET image_storage_key = ? WHERE name = ? AND image_storage_key IS NULL").run(storageKey, name);
       updatedPhoto = true;
     } catch {
       // no photo is fine — the bio may still have landed
@@ -474,15 +474,16 @@ export async function enrichLibraryAuthors(libraryId: string, options: EnrichAut
   const defaultLanguage = library ? normalizeLibrarySettings("audiobook", library.settings_json).default_language ?? "en" : "en";
 
   const rows = db.prepare(`
-    SELECT authors.name
-    FROM authors
-    JOIN book_authors ON book_authors.author_id = authors.id
-    WHERE authors.library_id = ?
-      ${options.bookId ? "AND book_authors.book_id = ?" : ""}
-      AND (authors.bio IS NULL OR authors.cover_storage_key IS NULL)
-      AND (authors.enriched_at IS NULL OR datetime(authors.enriched_at) < datetime('now', ?))
-    GROUP BY authors.id
-    ORDER BY authors.enriched_at IS NOT NULL, authors.name
+    SELECT people.name
+    FROM people
+    JOIN item_people ON item_people.person_id = people.id
+    JOIN library_items ON library_items.id = item_people.item_id
+    WHERE library_items.library_id = ?
+      ${options.bookId ? "AND item_people.item_id = ?" : ""}
+      AND (people.bio IS NULL OR people.image_storage_key IS NULL)
+      AND (people.enriched_at IS NULL OR datetime(people.enriched_at) < datetime('now', ?))
+    GROUP BY people.id
+    ORDER BY people.enriched_at IS NOT NULL, people.name
     LIMIT ?
   `).all(
     ...(options.bookId ? [libraryId, options.bookId] : [libraryId]),

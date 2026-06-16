@@ -45,9 +45,9 @@ const updateSchema = z.object({
 function bookPositionFor(bookId: string, fileId: string, positionSeconds: number) {
   const cumulative = db.prepare(`
     SELECT COALESCE(SUM(bf.duration_seconds), 0) AS before_seconds
-    FROM book_files bf
-    JOIN book_files current_file
-      ON current_file.id = ? AND current_file.book_id = ? AND current_file.book_id = bf.book_id
+    FROM audio_files bf
+    JOIN audio_files current_file
+      ON current_file.id = ? AND current_file.item_id = ? AND current_file.item_id = bf.item_id
     WHERE bf.track_number < current_file.track_number
       AND bf.status = 'available'
   `).get(fileId, bookId) as { before_seconds: number } | undefined;
@@ -66,10 +66,10 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
     }
 
     const rows = db.prepare(`
-      SELECT id, file_id, position_seconds, book_position_seconds, label, note, created_at, updated_at
-      FROM book_bookmarks
-      WHERE book_id = ? AND user_id = ?
-      ORDER BY book_position_seconds IS NULL, book_position_seconds, datetime(created_at)
+      SELECT id, file_id, position_seconds, item_position_seconds AS book_position_seconds, label, note, created_at, updated_at
+      FROM audio_bookmarks
+      WHERE item_id = ? AND user_id = ?
+      ORDER BY item_position_seconds IS NULL, item_position_seconds, datetime(created_at)
     `).all(bookId, user.id) as BookmarkRow[];
 
     reply.send({ bookmarks: rows.map(publicBookmark) });
@@ -92,7 +92,7 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
 
     const { fileId, positionSeconds, label, note } = parsed.data;
     const file = db.prepare(`
-      SELECT id FROM book_files WHERE id = ? AND book_id = ? AND status = 'available'
+      SELECT id FROM audio_files WHERE id = ? AND item_id = ? AND status = 'available'
     `).get(fileId, bookId);
     if (!file) {
       reply.code(404).send({ error: "Audio file not found" });
@@ -101,13 +101,13 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
 
     const id = nanoid(16);
     db.prepare(`
-      INSERT INTO book_bookmarks (id, user_id, book_id, file_id, position_seconds, book_position_seconds, label, note)
+      INSERT INTO audio_bookmarks (id, user_id, item_id, file_id, position_seconds, item_position_seconds, label, note)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, user.id, bookId, fileId, positionSeconds, bookPositionFor(bookId, fileId, positionSeconds), label ?? null, note ?? null);
 
     const row = db.prepare(`
-      SELECT id, file_id, position_seconds, book_position_seconds, label, note, created_at, updated_at
-      FROM book_bookmarks WHERE id = ?
+      SELECT id, file_id, position_seconds, item_position_seconds AS book_position_seconds, label, note, created_at, updated_at
+      FROM audio_bookmarks WHERE id = ?
     `).get(id) as BookmarkRow;
 
     reply.code(201).send({ bookmark: publicBookmark(row) });
@@ -118,7 +118,7 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
     const user = request.user!;
 
     const existing = db.prepare(`
-      SELECT id FROM book_bookmarks WHERE id = ? AND book_id = ? AND user_id = ?
+      SELECT id FROM audio_bookmarks WHERE id = ? AND item_id = ? AND user_id = ?
     `).get(bookmarkId, bookId, user.id);
     if (!existing) {
       reply.code(404).send({ error: "Bookmark not found" });
@@ -144,13 +144,13 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
 
     if (updates.length > 0) {
       db.prepare(`
-        UPDATE book_bookmarks SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+        UPDATE audio_bookmarks SET ${updates.join(", ")}, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?
       `).run(...values, bookmarkId);
     }
 
     const row = db.prepare(`
-      SELECT id, file_id, position_seconds, book_position_seconds, label, note, created_at, updated_at
-      FROM book_bookmarks WHERE id = ?
+      SELECT id, file_id, position_seconds, item_position_seconds AS book_position_seconds, label, note, created_at, updated_at
+      FROM audio_bookmarks WHERE id = ?
     `).get(bookmarkId) as BookmarkRow;
 
     reply.send({ bookmark: publicBookmark(row) });
@@ -161,7 +161,7 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
     const user = request.user!;
 
     const result = db.prepare(`
-      DELETE FROM book_bookmarks WHERE id = ? AND book_id = ? AND user_id = ?
+      DELETE FROM audio_bookmarks WHERE id = ? AND item_id = ? AND user_id = ?
     `).run(bookmarkId, bookId, user.id);
 
     if (result.changes === 0) {
