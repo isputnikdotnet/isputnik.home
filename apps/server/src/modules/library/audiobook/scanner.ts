@@ -138,7 +138,7 @@ interface PreparedBookFile {
   chapters?: PreparedChapter[];
 }
 
-interface PreparedBookScan {
+export interface PreparedBookScan {
   bookId: string;
   folderAbsolutePath: string;
   folderPath: string;
@@ -820,10 +820,10 @@ async function prepareBookScan(
 ): Promise<PreparedBookScan> {
   const { settings, sources, tagEncoding: enc, forceReread } = config;
   const folderPath = normaliseRelativePath(path.relative(rootPath, folderAbsolutePath)) || ".";
-  const existingBook = db.prepare("SELECT id FROM books WHERE library_id = ? AND folder_path = ?")
+  const existingBook = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
     .get(libraryId, folderPath) as { id: string } | undefined;
   const bookId = existingBook?.id ?? nanoid(16);
-  const metadataRow = db.prepare("SELECT source, cover_storage_key, description FROM book_metadata WHERE book_id = ?")
+  const metadataRow = db.prepare("SELECT source, cover_storage_key, description FROM item_metadata WHERE item_id = ?")
     .get(bookId) as { source: "scan" | "manual"; cover_storage_key: string | null; description: string | null } | undefined;
   const manualMetadata = metadataRow?.source === "manual";
   const onlineEnabled = sourceEnabled(sources, "online_metadata") && !manualMetadata;
@@ -848,7 +848,7 @@ async function prepareBookScan(
   // everything else keeps the cheap fast path.
   let onlineGaps = false;
   if (onlineEnabled && existingBook && metadataRow) {
-    const narratorCount = (db.prepare("SELECT COUNT(*) AS n FROM book_authors WHERE book_id = ? AND role = 'narrator'")
+    const narratorCount = (db.prepare("SELECT COUNT(*) AS n FROM item_people WHERE item_id = ? AND role = 'narrator'")
       .get(bookId) as { n: number }).n;
     onlineGaps = !metadataRow.cover_storage_key || !metadataRow.description || narratorCount === 0;
   }
@@ -860,16 +860,16 @@ async function prepareBookScan(
   const chaptersMissing = chapterCapable && Boolean(existingBook)
     && (db.prepare(`
         SELECT COUNT(*) AS n
-        FROM book_chapters
-        JOIN book_files ON book_files.id = book_chapters.book_file_id
-        WHERE book_files.book_id = ?
+        FROM audio_chapters
+        JOIN audio_files ON audio_files.id = audio_chapters.audio_file_id
+        WHERE audio_files.item_id = ?
       `).get(bookId) as { n: number }).n === 0;
 
   if (existingBook && metadataRow && !sidecar && !forceReread && !onlineGaps && !chaptersMissing) {
     const existingFiles = db.prepare(`
-      SELECT relative_path, mime_type, track_number, chapter_title, duration_seconds, size, modified_at, content_hash
-      FROM book_files
-      WHERE book_id = ?
+      SELECT relative_path, mime_type, track_number, title AS chapter_title, duration_seconds, size, modified_at, content_hash
+      FROM audio_files
+      WHERE item_id = ?
         AND deleted_at IS NULL
     `).all(bookId) as ExistingBookFileRow[];
     if (existingFilesAreCurrent(filesWithFallbackOrder, existingFiles)) {
@@ -1099,134 +1099,153 @@ function resolvePersonName(name: string): string {
 }
 
 function upsertAuthor(libraryId: string, name: string) {
+  void libraryId; // people are global now
   const resolved = resolvePersonName(name);
-  db.prepare("INSERT OR IGNORE INTO authors (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
-    .run(nanoid(16), libraryId, resolved, sortTitle(resolved));
-  return db.prepare("SELECT id FROM authors WHERE library_id = ? AND name = ?")
-    .get(libraryId, resolved) as { id: string };
+  db.prepare("INSERT OR IGNORE INTO people (id, name, sort_name) VALUES (?, ?, ?)")
+    .run(nanoid(16), resolved, sortTitle(resolved));
+  return db.prepare("SELECT id FROM people WHERE name = ?")
+    .get(resolved) as { id: string };
 }
 
 
 function upsertSeries(libraryId: string, name: string) {
-  db.prepare("INSERT OR IGNORE INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
-    .run(nanoid(16), libraryId, name, sortTitle(name));
-  return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?")
-    .get(libraryId, name) as { id: string };
+  void libraryId; // series are global now
+  db.prepare("INSERT OR IGNORE INTO series (id, name, sort_name) VALUES (?, ?, ?)")
+    .run(nanoid(16), name, sortTitle(name));
+  return db.prepare("SELECT id FROM series WHERE name = ?")
+    .get(name) as { id: string };
 }
 
-function writeBookScan(libraryId: string, book: PreparedBookScan) {
-  const existingBook = db.prepare("SELECT id FROM books WHERE id = ?").get(book.bookId);
+export function writeBookScan(libraryId: string, book: PreparedBookScan) {
+  const existingBook = db.prepare("SELECT id FROM library_items WHERE id = ?").get(book.bookId);
 
   if (existingBook) {
     db.prepare(`
-      UPDATE books
-      SET status = 'ready', updated_at = CURRENT_TIMESTAMP, deleted_at = NULL
+      UPDATE library_items
+      SET status = 'ready', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL
       WHERE id = ?
     `).run(book.bookId);
   } else {
     db.prepare(`
-      INSERT INTO books (id, library_id, folder_path, status)
-      VALUES (?, ?, ?, 'ready')
+      INSERT INTO library_items (id, library_id, type, folder_path, status)
+      VALUES (?, ?, 'audiobook', ?, 'ready')
     `).run(book.bookId, libraryId, book.folderPath);
   }
 
+  // Manual ownership is read from the live row, not the caller's flag, so a book
+  // the user has edited is never clobbered by a rescan (and stays consistent with
+  // the per-field manual preservation in the item_metadata upsert below).
+  const metaIsManual = (db.prepare("SELECT source FROM item_metadata WHERE item_id = ?")
+    .get(book.bookId) as { source?: string } | undefined)?.source === "manual";
+
   if (!book.skipMetadataUpdate) {
-    const categoryId = matchCategoryId(book.genres);
+    // Shared descriptive metadata; manual edits are preserved field-by-field.
     db.prepare(`
-      INSERT INTO book_metadata (
-        id, book_id, source, title, sort_title, description, year_published, language,
-        duration_seconds, cover_storage_key, isbn, asin, publisher, category_id
+      INSERT INTO item_metadata (
+        item_id, source, title, sort_title, description, year_published, language,
+        cover_storage_key, isbn, publisher
       )
-      VALUES (?, ?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(book_id) DO UPDATE SET
-        title = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.title ELSE excluded.title END,
-        sort_title = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.sort_title ELSE excluded.sort_title END,
-        description = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.description ELSE excluded.description END,
-        year_published = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.year_published ELSE excluded.year_published END,
-        language = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.language ELSE excluded.language END,
-        duration_seconds = excluded.duration_seconds,
+      VALUES (?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(item_id) DO UPDATE SET
+        title = CASE WHEN item_metadata.source = 'manual' THEN item_metadata.title ELSE excluded.title END,
+        sort_title = CASE WHEN item_metadata.source = 'manual' THEN item_metadata.sort_title ELSE excluded.sort_title END,
+        description = CASE WHEN item_metadata.source = 'manual' THEN item_metadata.description ELSE excluded.description END,
+        year_published = CASE WHEN item_metadata.source = 'manual' THEN item_metadata.year_published ELSE excluded.year_published END,
+        language = CASE WHEN item_metadata.source = 'manual' THEN item_metadata.language ELSE excluded.language END,
         cover_storage_key = CASE
-          WHEN book_metadata.source = 'manual' THEN book_metadata.cover_storage_key
-          ELSE COALESCE(excluded.cover_storage_key, book_metadata.cover_storage_key)
+          WHEN item_metadata.source = 'manual' THEN item_metadata.cover_storage_key
+          ELSE COALESCE(excluded.cover_storage_key, item_metadata.cover_storage_key)
         END,
-        isbn = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.isbn ELSE excluded.isbn END,
-        asin = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.asin ELSE excluded.asin END,
-        publisher = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.publisher ELSE excluded.publisher END,
-        category_id = CASE WHEN book_metadata.source = 'manual' THEN book_metadata.category_id ELSE excluded.category_id END,
-        updated_at = CURRENT_TIMESTAMP
+        isbn = CASE WHEN item_metadata.source = 'manual' THEN item_metadata.isbn ELSE excluded.isbn END,
+        publisher = CASE WHEN item_metadata.source = 'manual' THEN item_metadata.publisher ELSE excluded.publisher END,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(
-      nanoid(16),
       book.bookId,
       book.title,
       book.sortTitle,
       book.description,
       book.yearPublished,
       book.language,
-      book.durationSeconds,
       book.coverStorageKey,
       book.isbn,
-      book.asin,
-      book.publisher,
-      categoryId
+      book.publisher
     );
+
+    // Audiobook-specific: duration always refreshes; asin is preserved on manual.
+    db.prepare(`
+      INSERT INTO audiobook_details (item_id, asin, duration_seconds)
+      VALUES (?, ?, ?)
+      ON CONFLICT(item_id) DO UPDATE SET
+        duration_seconds = excluded.duration_seconds,
+        asin = CASE WHEN ? = 1 THEN audiobook_details.asin ELSE excluded.asin END
+    `).run(book.bookId, book.asin, book.durationSeconds, metaIsManual ? 1 : 0);
+
+    // Primary category from the scanned genres — left alone when metadata is manual.
+    if (!metaIsManual) {
+      const categoryId = matchCategoryId(book.genres);
+      db.prepare("DELETE FROM item_categories WHERE item_id = ? AND is_primary = 1").run(book.bookId);
+      db.prepare(`
+        INSERT INTO item_categories (item_id, category_id, is_primary, source) VALUES (?, ?, 1, 'scan')
+        ON CONFLICT(item_id, category_id) DO UPDATE SET is_primary = 1, source = 'scan'
+      `).run(book.bookId, categoryId);
+    }
   }
 
-  if (!book.manualMetadata && !book.skipMetadataUpdate) {
-    // Series is auto-managed only when the user hasn't curated it by hand. A book
-    // pinned to a manual series (via the series UI) keeps it across rescans, even
-    // when the folder/tags carry no series of their own.
-    const seriesRow = db.prepare("SELECT series_source FROM books WHERE id = ?")
+  if (!metaIsManual && !book.skipMetadataUpdate) {
+    // Series is auto-managed only when the user hasn't curated it by hand
+    // (library_items.series_source = 'manual'). A manually pinned/cleared series
+    // survives rescans even when the folder/tags carry one of their own.
+    const seriesRow = db.prepare("SELECT series_source FROM library_items WHERE id = ?")
       .get(book.bookId) as { series_source: string } | undefined;
     if (seriesRow?.series_source !== "manual") {
+      db.prepare("DELETE FROM series_items WHERE item_id = ?").run(book.bookId);
       if (book.seriesName) {
         const series = upsertSeries(libraryId, book.seriesName);
-        db.prepare("UPDATE books SET series_id = ?, series_position = ? WHERE id = ?")
-          .run(series.id, book.seriesPosition, book.bookId);
-      } else {
-        db.prepare("UPDATE books SET series_id = NULL, series_position = NULL WHERE id = ?").run(book.bookId);
+        db.prepare("INSERT INTO series_items (series_id, item_id, position, source) VALUES (?, ?, ?, 'scan')")
+          .run(series.id, book.bookId, book.seriesPosition);
       }
     }
 
-    db.prepare("DELETE FROM book_authors WHERE book_id = ? AND role IN ('author', 'narrator')").run(book.bookId);
+    db.prepare("DELETE FROM item_people WHERE item_id = ? AND role IN ('author', 'narrator')").run(book.bookId);
     book.authors.forEach((authorName, index) => {
       const author = upsertAuthor(libraryId, authorName);
       db.prepare(`
-        INSERT INTO book_authors (book_id, author_id, role, sort_order)
+        INSERT OR IGNORE INTO item_people (item_id, person_id, role, sort_order)
         VALUES (?, ?, 'author', ?)
       `).run(book.bookId, author.id, index);
     });
     book.narrators.forEach((narratorName, index) => {
       const narrator = upsertAuthor(libraryId, narratorName);
       db.prepare(`
-        INSERT INTO book_authors (book_id, author_id, role, sort_order)
+        INSERT OR IGNORE INTO item_people (item_id, person_id, role, sort_order)
         VALUES (?, ?, 'narrator', ?)
       `).run(book.bookId, narrator.id, index);
     });
 
     // Raw genres become global, freeform tags (the descriptive layer); the primary
     // category is derived from them above.
-    setEntityTags("book", book.bookId, book.genres);
+    setEntityTags("library_item", book.bookId, book.genres);
   }
 
-  db.prepare("UPDATE book_files SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(book.bookId);
+  db.prepare("UPDATE audio_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.bookId);
   for (const file of book.files) {
     db.prepare(`
-      INSERT INTO book_files (
-        id, book_id, relative_path, mime_type, track_number, chapter_title, duration_seconds,
+      INSERT INTO audio_files (
+        id, item_id, relative_path, mime_type, track_number, title, duration_seconds,
         size, modified_at, content_hash, status, deleted_at
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL)
-      ON CONFLICT(book_id, relative_path) DO UPDATE SET
+      ON CONFLICT(item_id, relative_path) DO UPDATE SET
         mime_type = excluded.mime_type,
         track_number = excluded.track_number,
-        chapter_title = excluded.chapter_title,
+        title = excluded.title,
         duration_seconds = excluded.duration_seconds,
         size = excluded.size,
         modified_at = excluded.modified_at,
         content_hash = excluded.content_hash,
         status = 'available',
         deleted_at = NULL,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(
       nanoid(16),
       book.bookId,
@@ -1243,13 +1262,13 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
     // Re-sync embedded chapters for this file. undefined = not re-parsed this scan
     // (fast path), so existing rows are left intact; otherwise replace them wholesale.
     if (file.chapters !== undefined) {
-      const fileRow = db.prepare("SELECT id FROM book_files WHERE book_id = ? AND relative_path = ?")
+      const fileRow = db.prepare("SELECT id FROM audio_files WHERE item_id = ? AND relative_path = ?")
         .get(book.bookId, file.relativePath) as { id: string } | undefined;
       if (fileRow) {
-        db.prepare("DELETE FROM book_chapters WHERE book_file_id = ?").run(fileRow.id);
+        db.prepare("DELETE FROM audio_chapters WHERE audio_file_id = ?").run(fileRow.id);
         file.chapters.forEach((chapter, ordinal) => {
           db.prepare(`
-            INSERT INTO book_chapters (id, book_file_id, ordinal, title, start_seconds, end_seconds)
+            INSERT INTO audio_chapters (id, audio_file_id, ordinal, title, start_seconds, end_seconds)
             VALUES (?, ?, ?, ?, ?, ?)
           `).run(nanoid(16), fileRow.id, ordinal, chapter.title, chapter.startSeconds, chapter.endSeconds);
         });
@@ -1257,19 +1276,20 @@ function writeBookScan(libraryId: string, book: PreparedBookScan) {
     }
   }
 
-  // Companion documents — re-synced from disk on every scan, like book_files.
-  db.prepare("UPDATE book_documents SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(book.bookId);
+  // Companion documents — re-synced from disk on every scan, like audio_files.
+  db.prepare("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ? AND role = 'companion'").run(book.bookId);
   for (const doc of book.documents) {
     db.prepare(`
-      INSERT INTO book_documents (id, book_id, relative_path, format, mime_type, size, status, deleted_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'available', NULL)
-      ON CONFLICT(book_id, relative_path) DO UPDATE SET
+      INSERT INTO document_files (id, item_id, role, relative_path, format, mime_type, size, status, deleted_at)
+      VALUES (?, ?, 'companion', ?, ?, ?, ?, 'available', NULL)
+      ON CONFLICT(item_id, relative_path) DO UPDATE SET
+        role = 'companion',
         format = excluded.format,
         mime_type = excluded.mime_type,
         size = excluded.size,
         status = 'available',
         deleted_at = NULL,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(nanoid(16), book.bookId, doc.relativePath, doc.format, doc.mimeType, doc.size);
   }
 }
@@ -1283,7 +1303,7 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
 
   const rootPath = validateLibrarySource(library.source_path);
   const config = resolveScanConfig(library.settings_json, options);
-  db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
+  db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
 
   const filesByFolder = await walkAudiobookFiles(rootPath, config.settings, config.groupingMode);
   const entries = [...filesByFolder.entries()];
@@ -1347,22 +1367,22 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
   }
 
   if (cancelled) {
-    db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
+    db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
     throw new Error("Job cancelled");
   }
 
   if (bookErrors.length > 0 && discoveredBooks === 0) {
-    db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
+    db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
     throw new Error(`All books failed to scan:\n${bookErrors.join("\n")}`);
   }
 
   db.transaction(() => {
-    const knownBooks = db.prepare("SELECT id, folder_path FROM books WHERE library_id = ? AND deleted_at IS NULL")
+    const knownBooks = db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL")
       .all(libraryId) as { id: string; folder_path: string }[];
     for (const book of knownBooks) {
       if (!foundFolders.has(book.folder_path)) {
-        db.prepare("UPDATE books SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(book.id);
-        db.prepare("UPDATE book_files SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(book.id);
+        db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(book.id);
+        db.prepare("UPDATE audio_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.id);
         // The book is gone for users — drop its shares so links stop working and
         // owners' share lists stay accurate.
         deleteSharesForResource("audiobook", book.id);
@@ -1371,7 +1391,7 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
     }
     db.prepare(`
       UPDATE libraries
-      SET scan_status = 'idle', last_scanned_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE id = ?
     `).run(libraryId);
   })();
@@ -1405,10 +1425,10 @@ async function scanAudiobookLibrary(libraryId: string, jobId: string | null = nu
 
 export async function rescanSingleBook(bookId: string, options: ScanOptions = {}) {
   const row = db.prepare(`
-    SELECT books.id, books.folder_path, libraries.id AS library_id, libraries.source_path, libraries.settings_json
-    FROM books
-    JOIN libraries ON libraries.id = books.library_id
-    WHERE books.id = ? AND books.deleted_at IS NULL
+    SELECT library_items.id, library_items.folder_path, libraries.id AS library_id, libraries.source_path, libraries.settings_json
+    FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
   `).get(bookId) as { id: string; folder_path: string; library_id: string; source_path: string; settings_json: string } | undefined;
 
   if (!row) {
@@ -1444,7 +1464,7 @@ export async function rescanSingleBook(bookId: string, options: ScanOptions = {}
 
 export function enqueueAudiobookScan(libraryId: string, options: ScanOptions = {}) {
   const jobId = nanoid(16);
-  db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
+  db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
   db.prepare(`
     INSERT INTO jobs (id, type, payload, status)
     VALUES (?, ?, ?, 'pending')
@@ -1487,7 +1507,7 @@ export async function processAudiobookScanQueue() {
 
       const claimed = db.prepare(`
         UPDATE jobs
-        SET status = 'running', attempts = attempts + 1, locked_at = CURRENT_TIMESTAMP, locked_by = ?
+        SET status = 'running', attempts = attempts + 1, locked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_by = ?
         WHERE id = ? AND status = 'pending'
       `).run(process.pid.toString(), job.id);
       if (claimed.changes === 0) {
@@ -1499,13 +1519,13 @@ export async function processAudiobookScanQueue() {
         const result = await scanAudiobookLibrary(payload.libraryId, job.id, payload.options ?? {});
         db.prepare(`
           UPDATE jobs
-          SET status = 'completed', payload = ?, completed_at = CURRENT_TIMESTAMP, locked_at = NULL, locked_by = NULL
+          SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL
           WHERE id = ?
         `).run(JSON.stringify({ ...payload, result }), job.id);
       } catch (err) {
         const currentStatus = (db.prepare("SELECT status FROM jobs WHERE id = ?").get(job.id) as { status: string } | undefined)?.status;
         if (currentStatus === "failed") {
-          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND scan_status = 'scanning'")
+          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'")
             .run(payload.libraryId);
           continue;
         }
@@ -1520,10 +1540,10 @@ export async function processAudiobookScanQueue() {
             WHERE id = ?
           `).run(runAt, message, job.id);
         } else {
-          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(payload.libraryId);
+          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(payload.libraryId);
           db.prepare(`
             UPDATE jobs
-            SET status = 'failed', failed_at = CURRENT_TIMESTAMP, locked_at = NULL, locked_by = NULL, error = ?
+            SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL, error = ?
             WHERE id = ?
           `).run(message, job.id);
         }

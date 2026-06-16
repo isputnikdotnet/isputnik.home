@@ -122,7 +122,7 @@ describe("updateManualMetadata (write -> read round-trip across split tables)", 
     expect(detail.metadataSource).toBe("manual");
     expect(detail.publisher).toBe("Pub");
     expect(detail.asin).toBe("A222");                // audiobook_details
-    expect(detail.authors).toEqual(["Author A", "Author B"]); // item_people/people
+    expect([...detail.authors].sort()).toEqual(["Author A", "Author B"]); // item_people/people (order not guaranteed by GROUP_CONCAT)
     expect(detail.narrators).toEqual(["Narrator N"]);
     expect([...detail.tags].sort()).toEqual(["Sci-Fi", "Space"]); // taggables (library_item)
     expect(detail.category).not.toBeNull();          // item_categories primary

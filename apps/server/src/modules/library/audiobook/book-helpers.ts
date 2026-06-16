@@ -401,7 +401,8 @@ export function updateManualMetadata(bookId: string, metadata: z.infer<typeof ma
     setEntityTags("library_item", bookId, metadata.tags);
 
     // A book edited by hand owns its series too, so the scanner leaves it alone
-    // (series_items.source = 'manual'). Clearing removes the membership.
+    // (library_items.series_source = 'manual'). Clearing removes the membership.
+    db.prepare("UPDATE library_items SET series_source = 'manual' WHERE id = ?").run(bookId);
     db.prepare("DELETE FROM series_items WHERE item_id = ?").run(bookId);
     if (metadata.series) {
       const series = upsertSeries(current.library_id, metadata.series);
