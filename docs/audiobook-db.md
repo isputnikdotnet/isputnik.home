@@ -197,16 +197,6 @@ erDiagram
         TEXT updated_at
     }
 
-    %% ── Library sections (grouping shell) ────────────────────────────
-    library_sections {
-        TEXT id PK
-        TEXT name
-        TEXT icon
-        TEXT created_by FK
-        TEXT created_at
-        TEXT updated_at
-    }
-
     %% ── Shared systems (outline only) ────────────────────────────────
     jobs {
         TEXT id PK
@@ -242,7 +232,6 @@ erDiagram
     book_files ||--o{ book_bookmarks    : "anchored in"
 
     jobs      }o--||  libraries     : "scan job for"
-    library_sections ||..o{ libraries : "groups (via settings_json.section_id)"
 ```
 
 ---
@@ -314,10 +303,6 @@ Per-user position bookmarks within a book — many rows per `(user_id, book_id)`
 ### `book_saves`
 
 Per-user "saved" flag for a whole book — the My List view. Unique on `(user_id, book_id)`, so a book is either saved or not. `note` holds an optional book-level note (a personal thought or mini-review), distinct from per-moment bookmark notes. Private to the owning user.
-
-### `library_sections`
-
-Grouping shell for **Special Sections** — a master entry in the audiobook sidebar that holds one or more audiobook libraries. Owns only identity (`name`, `icon`). Membership is not a foreign key: a library joins a section by storing `section_id` in its `settings_json`, and per-library metadata overrides live in `settings_json.overrides`. Member counts are derived with `json_extract`. Deleting a section detaches its members (clears their `section_id`); no books or files are removed. See [`special-section.md`](special-section.md).
 
 ### `jobs`
 

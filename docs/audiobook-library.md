@@ -1048,14 +1048,6 @@ A `beforeunload` handler calls `fetch` with `keepalive: true`, which browsers ke
 
 ---
 
-## Special Sections
-
-Audiobook libraries can be grouped into a **Special Section** — a master entry in the audiobook sidebar that holds one or more libraries and keeps their books out of the main grid. Each member library carries its own **overwrite-on-add** rules (Author, Narrator, Description, Category, Tags) applied by the scanner on add and rescan, respecting the `source = 'manual'` lock. Built for collections like *Model for Assembly* where embedded tags are inconsistent and a constant Narrator/Category is wanted across the set.
-
-See [`special-section.md`](special-section.md) for the full design, schema, and API.
-
----
-
 ## Future Considerations
 
 - **Managed uploads** — users upload their own audiobooks into `/data/media/library/`; same book/file/metadata model
