@@ -1,4 +1,11 @@
 <?xml version="1.0"?>
+<!--
+  Unraid Community Applications template for isputnik.home — a DEPLOYMENT
+  artifact (the app's install manifest), not source code. DO NOT DELETE.
+  The <Icon> below is a raw.githubusercontent URL to Assets/brand/ on the main
+  branch, so the repo-root Assets/ folder must also stay. (The web app uses its
+  own copy under apps/web/public/Assets/; this template references the root one.)
+-->
 <Container version="2">
   <Name>isputnik</Name>
   <Repository>ghcr.io/isputnikdotnet/isputnik.home:latest</Repository>

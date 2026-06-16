@@ -160,31 +160,44 @@ Routes are registered as Fastify plugins, grouped by domain:
 
 ```
 apps/server/src/
-  index.ts                    ← registers corePlugin + libraryPlugin
-  core/                       ← auth, setup, users, sessions, invites, logs, status
-  modules/
+  index.ts                    ← registers corePlugin, usersPlugin, backupsPlugin,
+                                 libraryPlugin, collectionsPlugin
+  core/                       ← platform infrastructure ONLY: auth-routes, sessions,
+                                 permissions, app-config, setup, logs, status, shared
+  modules/                    ← product features
+    users/                    ← profile, users, invites, groups (aggregate usersPlugin)
+    uploads/                  ← upload streaming helpers
+    backups/                  ← backup / restore
+    collections/              ← cross-type user collections
     library/
-      shared/                 ← thumbnail helpers, storage-root helpers, library-types
-      audiobook/              ← scanner, enricher, serializers, book-helpers,
-                                 route modules (books / metadata / series / browse)
-      settings.ts, covers.ts, storage.ts
+      shared/                 ← library crud / access / serializer, trash, members,
+                                 metadata, thumbnail, storage-roots, remote-image
+      audiobook/              ← scanner, enrich, chapters, people, providers/, routes
+      ebook/                  ← scanner, catalog, routes, bookmarks
+      categories.ts, tags.ts, bookmarks.ts, covers.ts, feed.ts, settings.ts, storage.ts
   db.ts                       ← SQLite singleton, schema, migrations
-  auth.ts, config.ts, crypto.ts, types.ts
+  auth.ts, config.ts, crypto.ts, categories-seed.ts, types.ts
+
+See CLAUDE.md ("Server architecture") for the core-vs-modules rule new code must follow.
 ```
 
 ### Frontend structure
 
 ```
 apps/web/src/
-  main.tsx                    ← createRoot mount only
+  main.tsx                    ← createRoot mount + global styles
   app/                        ← App (session + routing), Shell, DashboardShell
-  router.ts                   ← Route types, navigate, useRoute
-  pages/                      ← Install, Login, Invite, Home, Profile, About
-  shared/                     ← Field, MessageBox, AccountForm, AboutDetails, utils
+  router.ts, api.ts           ← route types/navigation, API client
+  pages/                      ← Login, Invite, Install, Home, Profile, About, Share, Theme
+  shared/                     ← Modal, Button, ConfirmDialog, MessageBox, Field, … (see UI-CONVENTIONS.md)
   features/
-    audiobooks/               ← AudiobooksPage, BookDetailPage, types
-    control/                  ← ControlPanelPage (nav dispatcher)
-      sections/               ← Users, Invites, Sessions, Logs, Status, About, Storage, Libraries
+    audiobooks/  └ reader/    ← audiobook pages + in-app reader
+    library/                  ← cross-type library feed / tiles
+    collections/  share/      ← collections UI, share dialogs
+    control/  └ libraries/ sections/   ← control panel (admin)
+  offline/  pwa/              ← installable-app + offline concerns
+  assets/  └ backgrounds/ categories/
+  vendor/foliate-js/          ← vendored EPUB reader
 ```
 
 ### Database
