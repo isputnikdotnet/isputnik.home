@@ -5,10 +5,10 @@ import archiver from "archiver";
 import AdmZip from "adm-zip";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { db, logActivity } from "../db.js";
-import { config } from "../config.js";
-import { parseBody } from "./shared.js";
-import { receiveUpload, UploadError } from "./uploads.js";
+import { db, logActivity } from "../../db.js";
+import { config } from "../../config.js";
+import { parseBody } from "../../core/shared.js";
+import { receiveUpload, UploadError } from "../uploads/index.js";
 
 // Database backups. A backup is a zip containing database.sqlite (a consistent
 // online snapshot) and, optionally, the thumbnail cache under thumbnails/ — those

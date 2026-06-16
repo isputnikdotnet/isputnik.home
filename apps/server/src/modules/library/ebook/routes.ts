@@ -5,7 +5,7 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { receiveUploadBatch, UploadError } from "../../../core/uploads.js";
+import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { can, parsePolicy } from "../../../core/permissions.js";
 import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
 import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
-import { db, logActivity, publicUser, THEME_PREFERENCES, type User } from "../db.js";
-import { parseBody } from "./shared.js";
+import { db, logActivity, publicUser, THEME_PREFERENCES, type User } from "../../db.js";
+import { parseBody } from "../../core/shared.js";
 
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(80),

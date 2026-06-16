@@ -7,6 +7,8 @@ import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
 import { corePlugin } from "./core/index.js";
+import { usersPlugin } from "./modules/users/index.js";
+import { backupsPlugin } from "./modules/backups/index.js";
 import { libraryPlugin } from "./modules/library/index.js";
 import { collectionsPlugin } from "./modules/collections/index.js";
 
@@ -30,11 +32,13 @@ await app.register(rateLimit, {
   timeWindow: "1 minute"
 });
 // Generic file uploads. No global fileSize cap — each upload route enforces its
-// own size/extension policy while streaming (see core/uploads.ts). One file per
+// own size/extension policy while streaming (see modules/uploads). One file per
 // request; small text fields only (the file streams to disk, never to memory).
 await app.register(multipart, { limits: { files: 1, fields: 10, fieldSize: 100 * 1024 } });
 await registerAuthDecorators(app);
 await app.register(corePlugin);
+await app.register(usersPlugin);
+await app.register(backupsPlugin);
 await app.register(libraryPlugin);
 await app.register(collectionsPlugin);
 
