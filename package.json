@@ -11,7 +11,8 @@
     "dev": "concurrently \"cross-env PORT=4000 npm run dev --workspace apps/server\" \"npm run dev --workspace apps/web\"",
     "build": "npm run build --workspace apps/server && npm run build --workspace apps/web",
     "typecheck": "npm run typecheck --workspace apps/server && npm run typecheck --workspace apps/web",
-    "check:ui": "node scripts/check-ui-conventions.mjs"
+    "check:ui": "node scripts/check-ui-conventions.mjs",
+    "test": "npm run test --workspace apps/server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
