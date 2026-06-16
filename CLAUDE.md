@@ -7,6 +7,26 @@ and `apps/web` (React + Vite PWA).
 - `npm run typecheck` — both workspaces
 - `npm run check:ui` — UI-convention checker (see below)
 
+## Server architecture (core vs modules)
+
+Background: `docs/architecture-restructure-proposal.md`. The rule:
+
+- **`apps/server/src/core/` is platform infrastructure ONLY** — things every
+  feature depends on with no product knowledge: auth/sessions, permissions,
+  config, logging/status, db access, setup, shared request helpers. Never put
+  audiobook-, ebook-, user-, or other feature-specific logic here.
+- **`apps/server/src/modules/` holds product features** — `users`, `uploads`,
+  `backups`, `collections`, and `library` (with media types nested under
+  `library/audiobook`, `library/ebook`, … over a shared `library/shared` layer).
+- **Media types nest under `library/`**, they are not top-level peers of it.
+  A new media type goes in `modules/library/<type>/` and must join the
+  cross-type systems (categories, tags, collections, bookmarks) by filtering on
+  `libraries.type` and passing the correct `entityType`.
+- Each module exposes a Fastify plugin from its `index.ts`; register it in
+  `apps/server/src/index.ts` as a sibling of `corePlugin`. Auth decorators
+  (`authenticate`/`requireAdmin`) are added on the root app, so they propagate
+  to every plugin regardless of registration nesting.
+
 ## UI conventions (web app)
 
 Full reference: `docs/UI-CONVENTIONS.md`. The short version:
