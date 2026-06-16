@@ -4,7 +4,7 @@
 
 ## Overview
 
-isputnik.home is a private, self-hosted web app for friends and family. It provides a shared digital space built around a **Digital Library** for media and a **Notes** module for personal and shared writing. Everything runs on a home server — no cloud accounts, no external services required.
+isputnik.home is a private, self-hosted web app for friends and family. It provides a shared digital space built around a **Digital Library** for media — audiobooks and ebooks today, with photo/video types and a **Notes** module planned. Everything runs on a home server — no cloud accounts, no external services required.
 
 ---
 
@@ -30,29 +30,31 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 
 ## Implementation Status
 
-**Status snapshot: June 7, 2026**
+**Status snapshot: June 16, 2026 — v0.31.0**
 
 ### Completed
 
 - React + TypeScript frontend, Node.js + Fastify + TypeScript backend, SQLite database
-- Admin setup, email/password login, cookie sessions, invite-only registration, protected routes
+- Admin setup, email/password login (scrypt), cookie sessions, invite-only registration, protected routes
 - App shell: shared left navigation on desktop, native-style bottom navigation for phone/PWA use, profile dropdown, light/dark/system themes
 - Control panel: user/role/session management, invite links, activity logs, system status, About
-- Digital Library infrastructure: storage containers, thumbnail configuration, audiobook and ebook library registration and scan
-
-- Audiobook playback — resume progress, per-user position bookmarks with notes, and a saved-books "My List"
-- PWA/offline listening — installable app shell, account-aware cache cleanup, durable downloaded-book metadata, offline player/detail fallback, and reconnect progress sync
-- Ebook reading — EPUB/PDF browsing and in-app reading using the shared Digital Library foundation
-- Collections and personal navigation — user-curated lists across media types, compact mobile icon navigation, and theme/profile/downloads pages outside the bottom tab bar
-- Genre model — fixed navigation **categories** (keyword-matched per scan with English default aliases) plus global, cross-type **tags**; admins can manage category mappings, promote scanned tags into keywords, create/rename/delete tags, remove unused tags, and instantly re-match existing books
-- Special Sections — group audiobook libraries under a master sidebar entry with their books hidden from the main grid, plus per-library overwrite-on-add for Author, Narrator, Description, Category, and Tags
-- Audiobook library Phase 3 — metadata lookup, sidecar import, expandable book details, and the tabbed manual metadata editor
+- Digital Library infrastructure: storage roots, thumbnail configuration, audiobook and ebook library registration and scan
+- Audiobook library — metadata lookup/enrichment (OpenLibrary, LibriVox, Audible, FantLab), author/narrator photos, sidecar import, m4b chapter reading, manual metadata editor, playback resume, position bookmarks, and a saved-books "My List"
+- Ebook library — EPUB/PDF catalog, in-app EPUB reader (foliate-js), per-type series, reading progress, and cross-type reader bookmarks
+- Uploads — audiobook and ebook upload (single + folder), companion files, and bulk delete (policy-gated; [`uploads.md`](uploads.md))
+- Sharing & access control — unified per-object role model with public/private libraries, user-to-user item shares, and guest share links ([`permissions.md`](permissions.md), [`sharing.md`](sharing.md))
+- Recycle Bin — delete moves source files to a hidden `.trash` folder; restore/purge across library types ([`recycle-bin.md`](recycle-bin.md))
+- Backup & restore tooling — download/upload backups with staged restore-on-restart
+- Categories & Tags — fixed navigation **categories** (keyword-matched per scan) plus global, cross-type **tags**, with global cross-type browse and admin management
+- Cross-type Favorites and Collections — user-curated lists spanning audiobooks and ebooks
+- Home dashboard — Continue and Recently added feeds across types
+- PWA/offline — installable app shell, account-aware cache cleanup, durable downloaded-book metadata, offline player/detail fallback, reconnect progress sync, and cover-cache revalidation
+- Security hardening — per-IP rate limiting, SSRF DNS-rebinding fix on remote image fetches, ReDoS fixes, and path-traversal-safe static serving
 
 ### Planned
 
-- Digital Library sharing — library and item access control
 - Notes module — rich text, tags, visibility, full-text search
-- Backup and restore tooling
+- Group ownership / membership for libraries (the `assignments` engine already supports group subjects)
 
 ### Future Updates
 
@@ -93,18 +95,18 @@ The primary content module. Supports multiple **library types** — each type ha
 
 - Background job queue for scans, metadata extraction, thumbnail generation
 - Sharded thumbnail cache at `THUMBNAIL_PATH`
-- Library-level access via ownership model (`owner_id` + `visibility`); item-level sharing via `shares` and `share_links` (planned)
-- Collections — user-curated lists shared across all library types and Notes
-- Soft delete — `deleted_at` on all content, 30-day retention before purge
-- Safety rule — source files are never renamed, moved, or deleted
+- Access via the unified permission model — per-object role assignments (Everyone group = public, owner = manager) with per-library write policies; item-level sharing via `shares` and `share_links` ([`permissions.md`](permissions.md))
+- Collections, Favorites, and Tags — cross-type, shared across all library types
+- Recycle Bin — deleting moves source files to a hidden `.trash` folder and removes the row; restore or purge later ([`recycle-bin.md`](recycle-bin.md))
+- Safety rule — source files are never renamed, moved, or deleted (uploads add; the Recycle Bin relocates within the source volume)
 
 **General delivery path across library types:**
 
 1. **Phase 1 — Index existing libraries.** Admin registers a source path. App scans, indexes metadata from audio tags and folder names. Files are read-only.
 2. **Metadata and thumbnails.** Type-specific scanners extract embedded metadata and generate browse artwork.
 3. **Enrichment.** Per-item lookup from external providers where useful — user selects a match, metadata applied and locked against future scans.
-4. **Sharing.** Libraries and items shared with users or family via the common permission model.
-5. **Later — Managed uploads.** Users upload their own content into `/data/media/`.
+4. **Sharing.** Libraries made public/private and individual items shared with specific users (or via guest links) through the unified permission model.
+5. **Uploads.** Contributors upload their own content into a managed library's source folder; policy-gated and refused on external (read-only) libraries (see [`uploads.md`](uploads.md)).
 
 ### Notes
 
@@ -118,11 +120,15 @@ A SQLite-backed job queue handles all slow work — scans, metadata extraction, 
 
 ## Sharing and Permissions
 
-A single `shares` table is reused across all modules for item-level sharing. Visibility levels: `private`, `family`, `shared` (specific users), `link` (anyone with the link). Permission levels: `read`, `edit`, `manage`. Public link tokens are stored hashed in `share_links`.
+Access runs through one unified model (the `assignments` table — see [`permissions.md`](permissions.md)). A single row means "this subject (a user or a group) holds this role on this object." Roles, weakest to strongest: `viewer`, `member`, `contributor`, `manager`; plus `deny` as an explicit block. An action is allowed when the user's resolved role permits it **and** the object's policy permits it.
 
-**Library-level access** uses an ownership model. Each library has an `owner_id`, an `owner_type` (`user` or `group`), and a `visibility` (`private` or `public`). Public libraries are accessible to all active users. Private libraries are accessible to the owner and admins only. Only the owner or an admin can edit library content — non-owners are always read-only. Group ownership is planned for Phase 2.
+- **Public vs private** is the presence of an `Everyone`-group grant on the library; the owner is just a `manager` assignment. There is no separate `visibility` column.
+- **Server admins** act as `manager` on every object except a private one they hold no grant on (until they take ownership). `deny` does not affect admins.
+- **Write policies** per library (`mode: managed | external`, `allowUpload`, `allowDelete`) gate only the source-touching actions (upload/delete); reads and metadata edits are never policy-blocked.
 
-See [`sharing.md`](sharing.md) for the general sharing schema and [`library-sharing.md`](library-sharing.md) for the library access model and roadmap.
+**Item-level sharing** is module-agnostic via `(module, resource_id)`. User-to-user shares (`shares`, permission `read`/`edit`/`manage`) grant a specific account access to one item; guest links (`share_links`, hashed token, required expiry) grant anyone with the link.
+
+See [`permissions.md`](permissions.md) for the access engine, [`sharing.md`](sharing.md) for the item-sharing schema, and [`library-sharing.md`](library-sharing.md) for the library access roadmap.
 
 ---
 
@@ -138,7 +144,7 @@ See [`sharing.md`](sharing.md) for the general sharing schema and [`library-shar
 | Auth | Session cookies + `scrypt` | Simple, secure, easy revocation |
 | MFA (future) | `otplib` + `qrcode` | TOTP, no external service |
 | Background jobs | SQLite job queue | No external infrastructure |
-| OpenLibrary API | Native `fetch` | Free metadata enrichment, no key required |
+| Metadata providers | `undici` / native `fetch` | OpenLibrary, LibriVox, Audible, FantLab, iTunes; SSRF-pinned remote image fetch |
 
 ---
 
@@ -177,9 +183,9 @@ apps/server/src/
       categories.ts, tags.ts, bookmarks.ts, covers.ts, feed.ts, settings.ts, storage.ts
   db.ts                       ← SQLite singleton, schema, migrations
   auth.ts, config.ts, crypto.ts, categories-seed.ts, types.ts
+```
 
 See CLAUDE.md ("Server architecture") for the core-vs-modules rule new code must follow.
-```
 
 ### Frontend structure
 
@@ -208,10 +214,11 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 
 | Path | Purpose |
 |---|---|
-| `data/db/isputnik.sqlite` | Application database |
-| `data/cache/thumbnails/` | Generated covers and previews (sharded by resource ID) |
-| `data/media/` | Future managed uploads |
-| Configured library roots | Original media files — read-only |
+| `data/db/isputnik.sqlite` | Application database (WAL) |
+| `data/cache/thumbnails/` (`THUMBNAIL_PATH`) | Generated covers and previews (sharded by resource ID) |
+| `data/backups/` (`BACKUP_PATH`) | Backup archives and staged restores |
+| `METADATA_PATH` (optional) | Imported/derived metadata assets |
+| Configured library roots | Original media files — read-only to scans; uploads add here, the Recycle Bin relocates within them |
 
 ---
 
@@ -220,14 +227,17 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 1. **Done** — Auth and user management (setup admin, sessions, invites, account management)
 2. **Done** — App shell (navigation, profile, themes, protected routes)
 3. **Done** — Control panel (user/session admin, logs, status, About)
-4. **Done** — Digital Library infrastructure (storage containers, thumbnail config, audiobook scan)
-5. **Done** — Audiobook library Phase 2 (metadata, covers, async scan)
-6. **Done** — Audiobook library Phase 3 (lookup/enrichment, sidecar import, and manual metadata editor)
-7. **Next** — Digital Library sharing Phase 1 — library ownership and visibility (private / public)
-8. **Planned** — Backup and restore tooling
-9. **Future** — Notes module
-10. **Future** — MFA
-11. **Future** — Photo and video library types
+4. **Done** — Digital Library infrastructure (storage roots, thumbnail config, audiobook + ebook scan)
+5. **Done** — Audiobook library (metadata/enrichment, m4b chapters, manual editor, playback, bookmarks)
+6. **Done** — Uploads and Recycle Bin across library types
+7. **Done** — Sharing & access control — unified permission model, public/private libraries, item shares + guest links
+8. **Done** — Backup and restore tooling
+9. **Done** — Ebook library + in-app EPUB reader (foliate-js)
+10. **Done** — Cross-type browse — Categories, Tags, Favorites, Collections, Home feeds
+11. **Done** — Security hardening — rate limiting, SSRF/ReDoS/path-traversal fixes
+12. **Future** — Notes module
+13. **Future** — Group ownership/membership for libraries
+14. **Future** — MFA, photo/video library types, mobile app
 
 ---
 
@@ -235,12 +245,15 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 
 | Document | Contents |
 |---|---|
+| [`permissions.md`](permissions.md) | Access engine — unified `assignments` model, roles, write policies, admin rules |
+| [`sharing.md`](sharing.md) | Item-level sharing — `shares` / `share_links` schema, access resolution |
+| [`library-sharing.md`](library-sharing.md) | Library access model and roadmap |
+| [`auth.md`](auth.md) | Authentication detail — sessions, invite flow, future MFA |
 | [`audiobook-library.md`](audiobook-library.md) | Audiobook library type — scan pipeline, metadata, phases, schema |
 | [`audiobook-db.md`](audiobook-db.md) | Audiobook database ER diagram and table reference |
-| [`special-section.md`](special-section.md) | Special Sections — library grouping and per-library metadata overrides |
+| [`ebook-library.md`](ebook-library.md) | Ebook library type — EPUB/PDF catalog, in-app reader, per-type series |
 | [`categories.md`](categories.md) | Categories — global genre taxonomy, scan matching, cross-type browse |
 | [`tags.md`](tags.md) | Tags — polymorphic labels, cross-type browse, admin management |
-| [`auth.md`](auth.md) | Authentication detail — sessions, invite flow, future MFA |
-| [`sharing.md`](sharing.md) | Sharing model — general `shares` / `share_links` schema, access resolution |
-| [`library-sharing.md`](library-sharing.md) | Library access model — ownership, visibility, Phase 1 schema, roadmap |
-| [`uploads.md`](uploads.md) | Upload process — end-to-end flow, streaming primitive, shared `FileUpload`, adding consumers |
+| [`uploads.md`](uploads.md) | Upload process — end-to-end flow, streaming primitive, adding consumers |
+| [`recycle-bin.md`](recycle-bin.md) | Recycle Bin — trash / restore / purge across library types |
+| [`UI-CONVENTIONS.md`](UI-CONVENTIONS.md) | Frontend UI conventions — shared Modal / Button / ConfirmDialog / MessageBox |
