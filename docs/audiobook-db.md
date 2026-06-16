@@ -112,12 +112,6 @@ erDiagram
         TEXT created_at
     }
 
-    genres {
-        TEXT id PK
-        TEXT library_id FK
-        TEXT name
-    }
-
     categories {
         TEXT id PK
         TEXT key
@@ -153,11 +147,6 @@ erDiagram
         TEXT author_id FK
         TEXT role
         INTEGER sort_order
-    }
-
-    book_genres {
-        TEXT book_id FK
-        TEXT genre_id FK
     }
 
     %% ── Playback ─────────────────────────────────────────────────────
@@ -210,7 +199,6 @@ erDiagram
     libraries ||--o{ books          : "contains"
     libraries ||--o{ authors        : "scoped to"
     libraries ||--o{ series         : "scoped to"
-    libraries ||--o{ genres         : "scoped to"
 
     series    ||--o{ books          : "groups"
     categories ||--o{ book_metadata : "assigned to"
@@ -220,13 +208,11 @@ erDiagram
     books     ||--||  book_metadata : "has one"
     books     ||--o{  book_files    : "has many"
     books     ||--o{  book_authors  : "linked via"
-    books     ||--o{  book_genres   : "linked via"
     books     ||--o{  taggables     : "tagged via"
     books     ||--o{  playback_progress : "tracked by"
     books     ||--o{  book_bookmarks : "bookmarked in"
     books     ||--o{  book_saves     : "saved in"
     authors   ||--o{  book_authors  : "linked via"
-    genres    ||--o{  book_genres   : "linked via"
 
     book_files ||--o{ playback_progress : "position in"
     book_files ||--o{ book_bookmarks    : "anchored in"
@@ -261,15 +247,11 @@ One record per audio file. `relative_path` is relative to `source_path`. `track_
 
 ### `authors`
 
-Library-scoped. Both authors and narrators are stored here; `book_authors.role` distinguishes them. `sort_name` is used for alphabetical listing (e.g. "Pratchett, Terry"). The separate `narrators` table is reserved for a future phase when narrators get richer metadata.
+Library-scoped. Both authors and narrators are stored here; `book_authors.role` distinguishes them. `sort_name` is used for alphabetical listing (e.g. "Pratchett, Terry"). Narrator-specific metadata (bio, photo, `enriched_at`) uses the same author row — there is no separate `narrators` table.
 
 ### `series`
 
 Library-scoped. `books.series_position` supports decimals (2.5 for novellas between books). `sort_name` strips leading articles for sorting.
-
-### `genres` / `book_genres` (deprecated)
-
-The original library-scoped freeform genre tables. **Superseded** by the two-layer model below — the scanner no longer writes to them. Retained only to avoid a destructive migration; safe to drop later.
 
 ### Genre model — categories + tags
 
@@ -287,10 +269,6 @@ Example: a scanned tag `historical mystery` matches the `mystery` keyword for My
 ### `book_authors`
 
 Join table linking books to authors/narrators. `role` is `'author'` or `'narrator'`. `sort_order` controls display order when a book has multiple authors.
-
-### `book_genres`
-
-Deprecated join table linking books to the old `genres` table. The scanner now writes `category_id` and `taggables` instead.
 
 ### `playback_progress`
 
@@ -312,7 +290,7 @@ Background job queue. Scan jobs are type `SCAN_AUDIOBOOK_LIBRARY`; Phase 2 uses 
 
 ## Notes
 
-**Narrators** are currently stored in the `authors` table with `book_authors.role = 'narrator'`. The standalone `narrators` table exists in the schema but is not yet populated. Phase 3 separates them when narrator-specific metadata (bio, photo) is needed.
+**Narrators** are stored in the `authors` table with `book_authors.role = 'narrator'` — there is no separate `narrators` table (the legacy one was dropped). Narrator bio/photo use the same author row.
 
 **`openlibrary_id`** on `book_metadata` and `authors` is retained as a reserved field for any future enrichment source that uses OpenLibrary identifiers. It is not populated by the current scanner.
 
