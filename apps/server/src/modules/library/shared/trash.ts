@@ -70,22 +70,22 @@ export class TrashError extends Error {
 function loadBookForTrash(bookId: string): TrashBookRow | undefined {
   return db.prepare(`
     SELECT
-      books.id,
-      books.folder_path,
-      books.library_id,
+      library_items.id,
+      library_items.folder_path,
+      library_items.library_id,
       libraries.name AS library_name,
       libraries.type AS library_type,
       libraries.source_path,
-      COALESCE(book_metadata.title, books.folder_path) AS title,
-      book_metadata.cover_storage_key,
-      (SELECT COUNT(*) FROM book_files WHERE book_files.book_id = books.id AND book_files.deleted_at IS NULL)
-        + (SELECT COUNT(*) FROM book_documents WHERE book_documents.book_id = books.id AND book_documents.deleted_at IS NULL) AS file_count,
-      (SELECT COALESCE(SUM(size), 0) FROM book_files WHERE book_files.book_id = books.id AND book_files.deleted_at IS NULL)
-        + (SELECT COALESCE(SUM(size), 0) FROM book_documents WHERE book_documents.book_id = books.id AND book_documents.deleted_at IS NULL) AS size_bytes
-    FROM books
-    JOIN libraries ON libraries.id = books.library_id
-    LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-    WHERE books.id = ? AND books.deleted_at IS NULL
+      COALESCE(item_metadata.title, library_items.folder_path) AS title,
+      item_metadata.cover_storage_key,
+      (SELECT COUNT(*) FROM audio_files WHERE audio_files.item_id = library_items.id AND audio_files.deleted_at IS NULL)
+        + (SELECT COUNT(*) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.deleted_at IS NULL) AS file_count,
+      (SELECT COALESCE(SUM(size), 0) FROM audio_files WHERE audio_files.item_id = library_items.id AND audio_files.deleted_at IS NULL)
+        + (SELECT COALESCE(SUM(size), 0) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.deleted_at IS NULL) AS size_bytes
+    FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
   `).get(bookId) as TrashBookRow | undefined;
 }
 
@@ -97,9 +97,9 @@ function getTrashedItem(id: string): TrashedItem | undefined {
 // (folder_path = ".") branch where the book owns individual files, not a folder.
 function catalogedRelativePaths(bookId: string): string[] {
   const rows = db.prepare(`
-    SELECT relative_path FROM book_files WHERE book_id = ?
+    SELECT relative_path FROM audio_files WHERE item_id = ?
     UNION
-    SELECT relative_path FROM book_documents WHERE book_id = ?
+    SELECT relative_path FROM document_files WHERE item_id = ?
   `).all(bookId, bookId) as { relative_path: string }[];
   return rows.map((row) => row.relative_path);
 }
@@ -209,15 +209,15 @@ function deleteBookCovers(libraryId: string, bookId: string, coverStorageKey: st
   }
 }
 
-// DB teardown — identical to the old hard delete. FK cascades clear book_files/metadata/
-// authors/documents/progress/bookmarks/saves; the polymorphic tables (taggables, shares,
+// DB teardown — identical to the old hard delete. FK cascades clear audio_files/metadata/
+// item_people/documents/progress/bookmarks/saves; the polymorphic tables (taggables, shares,
 // collections) have no FK and are cleaned explicitly. shares/collections are namespaced by
-// the library type; taggables use 'book' for every type.
+// the library type; taggables use 'library_item' for every type.
 function deleteBookRecord(bookId: string, libraryType: string): void {
-  db.prepare("DELETE FROM taggables WHERE entity_type = 'book' AND entity_id = ?").run(bookId);
+  db.prepare("DELETE FROM taggables WHERE entity_type = 'library_item' AND entity_id = ?").run(bookId);
   deleteSharesForResource(libraryType, bookId);
   deleteCollectionItemsForResource(libraryType, bookId);
-  db.prepare("DELETE FROM books WHERE id = ?").run(bookId);
+  db.prepare("DELETE FROM library_items WHERE id = ?").run(bookId);
 }
 
 export interface TrashResult {
@@ -296,14 +296,14 @@ export async function restoreTrashedItem(id: string): Promise<TrashResult> {
   if (item.library_type === "audiobook") {
     // rescanSingleBook needs a row to scan — revive a stale one at this path or insert fresh,
     // mirroring the upload path's catalog step.
-    const existing = db.prepare("SELECT id FROM books WHERE library_id = ? AND folder_path = ?")
+    const existing = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
       .get(item.library_id, restoredPath) as { id: string } | undefined;
     const bookId = existing?.id ?? nanoid(16);
     if (existing) {
-      db.prepare("UPDATE books SET deleted_at = NULL, status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(bookId);
+      db.prepare("UPDATE library_items SET deleted_at = NULL, status = 'pending', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(bookId);
     } else {
-      db.prepare("INSERT INTO books (id, library_id, folder_path, status) VALUES (?, ?, ?, 'pending')")
-        .run(bookId, item.library_id, restoredPath);
+      db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES (?, ?, ?, ?, 'pending')")
+        .run(bookId, item.library_id, item.library_type, restoredPath);
     }
     try { await rescanSingleBook(bookId); } catch { /* files are back; a library rescan will finish it */ }
   } else {

@@ -33,9 +33,9 @@ function canManageTrashItem(user: AuthUser, item: Pick<TrashedItem, "library_id"
   return can(user, { objectType: "library", objectId: lib.id, policy: parsePolicy(lib.policy_json) }, "manage");
 }
 
-// "YYYY-MM-DD HH:MM:SS" (SQLite CURRENT_TIMESTAMP, UTC) → epoch ms.
+// Timestamps are stored as ISO-8601 UTC (see schema.sql / nowIso) → epoch ms.
 function parseSqliteUtc(value: string): number {
-  return Date.parse(`${value.replace(" ", "T")}Z`);
+  return Date.parse(value);
 }
 
 function serializeTrashedItem(row: TrashedItem & { trashed_by_name: string | null }, retentionDays: number) {

@@ -37,7 +37,7 @@ export interface CatalogConfig<Row = Record<string, unknown>, Mapped = unknown> 
   // TWICE (progress, then saves) as the first two positional params.
   listColumns: string;
   listJoins: string;
-  // Join block for the COUNT query (no "FROM books") — binds the user id ONCE
+  // Join block for the COUNT query (no "FROM library_items") — binds the user id ONCE
   // (progress), and must include whatever the WHERE/status clauses reference.
   countJoins: string;
   // sort key -> ORDER BY expression. `title` is the fallback.
@@ -88,7 +88,7 @@ const STATUS_SQL: Record<string, string> = {
 // Common book filters (authors/categories/tags/languages/status) are handled here;
 // the config adds the free-text search clause and any type-specific extras.
 function buildWhere(libIds: string[], q: string, f: CatalogFilters, config: CatalogConfig): { where: string; args: unknown[] } {
-  const clauses: string[] = ["books.deleted_at IS NULL", `books.library_id IN (${placeholders(libIds.length)})`];
+  const clauses: string[] = ["library_items.deleted_at IS NULL", `library_items.library_id IN (${placeholders(libIds.length)})`];
   const args: unknown[] = [...libIds];
 
   if (q) {
@@ -97,19 +97,19 @@ function buildWhere(libIds: string[], q: string, f: CatalogFilters, config: Cata
     for (let i = 0; i < config.searchArgs; i += 1) args.push(like);
   }
   if (f.authors.length) {
-    clauses.push(`EXISTS (SELECT 1 FROM book_authors ba JOIN authors a ON a.id = ba.author_id WHERE ba.book_id = books.id AND ba.role = 'author' AND a.name IN (${placeholders(f.authors.length)}))`);
+    clauses.push(`EXISTS (SELECT 1 FROM item_people ip JOIN people p ON p.id = ip.person_id WHERE ip.item_id = library_items.id AND ip.role = 'author' AND p.name IN (${placeholders(f.authors.length)}))`);
     args.push(...f.authors);
   }
   if (f.categories.length) {
-    clauses.push(`book_metadata.category_id IN (SELECT id FROM categories WHERE name IN (${placeholders(f.categories.length)}))`);
+    clauses.push(`EXISTS (SELECT 1 FROM item_categories ic JOIN categories c ON c.id = ic.category_id WHERE ic.item_id = library_items.id AND c.name IN (${placeholders(f.categories.length)}))`);
     args.push(...f.categories);
   }
   if (f.tags.length) {
-    clauses.push(`EXISTS (SELECT 1 FROM taggables tg JOIN tags t ON t.id = tg.tag_id WHERE tg.entity_type = 'book' AND tg.entity_id = books.id AND t.display_name IN (${placeholders(f.tags.length)}))`);
+    clauses.push(`EXISTS (SELECT 1 FROM taggables tg JOIN tags t ON t.id = tg.tag_id WHERE tg.entity_type = 'library_item' AND tg.entity_id = library_items.id AND t.display_name IN (${placeholders(f.tags.length)}))`);
     args.push(...f.tags);
   }
   if (f.languages.length) {
-    clauses.push(`book_metadata.language IN (${placeholders(f.languages.length)})`);
+    clauses.push(`item_metadata.language IN (${placeholders(f.languages.length)})`);
     args.push(...f.languages);
   }
   const statusParts = f.status.map((s) => STATUS_SQL[s]).filter(Boolean);
@@ -138,14 +138,14 @@ export function queryCatalog<Mapped>(
     SELECT ${config.listColumns}
     ${config.listJoins}
       WHERE ${where}
-      GROUP BY books.id
-      ORDER BY ${order}, books.id
+      GROUP BY library_items.id
+      ORDER BY ${order}, library_items.id
       LIMIT ? OFFSET ?
   `).all(userId, userId, ...args, opts.limit, opts.offset) as Record<string, unknown>[];
 
   const total = (db.prepare(`
     SELECT COUNT(*) AS n
-    FROM books
+    FROM library_items
     ${config.countJoins}
     WHERE ${where}
   `).get(userId, ...args) as { n: number }).n;
