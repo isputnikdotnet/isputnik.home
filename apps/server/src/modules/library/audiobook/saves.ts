@@ -28,7 +28,7 @@ function splitNames(value: string | null) {
 
 function currentSave(bookId: string, userId: string) {
   const row = db.prepare(`
-    SELECT id, note, created_at, updated_at FROM book_saves WHERE book_id = ? AND user_id = ?
+    SELECT id, note, created_at, updated_at FROM item_saves WHERE item_id = ? AND user_id = ?
   `).get(bookId, userId) as { id: string; note: string | null; created_at: string; updated_at: string } | undefined;
   return row ? { saved: true, note: row.note, createdAt: row.created_at, updatedAt: row.updated_at } : { saved: false, note: null };
 }
@@ -61,11 +61,11 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
     }
 
     db.prepare(`
-      INSERT INTO book_saves (id, user_id, book_id, note)
+      INSERT INTO item_saves (id, user_id, item_id, note)
       VALUES (?, ?, ?, ?)
-      ON CONFLICT(user_id, book_id) DO UPDATE SET
+      ON CONFLICT(user_id, item_id) DO UPDATE SET
         note = excluded.note,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(nanoid(16), user.id, bookId, parsed.data.note ?? null);
 
     reply.send({ save: currentSave(bookId, user.id) });
@@ -74,7 +74,7 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
   app.delete("/api/library/books/:id/save", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
     const user = request.user!;
-    db.prepare("DELETE FROM book_saves WHERE book_id = ? AND user_id = ?").run(bookId, user.id);
+    db.prepare("DELETE FROM item_saves WHERE item_id = ? AND user_id = ?").run(bookId, user.id);
     reply.send({ save: { saved: false, note: null } });
   });
 
@@ -91,23 +91,23 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
 
     const rows = db.prepare(`
       SELECT
-        books.id,
+        library_items.id,
         libraries.type AS kind,
-        books.folder_path,
-        book_metadata.title,
-        book_metadata.cover_storage_key,
+        library_items.folder_path,
+        item_metadata.title,
+        item_metadata.cover_storage_key,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
-        book_saves.note AS save_note,
-        book_saves.updated_at AS saved_at
-      FROM book_saves
-      JOIN books ON books.id = book_saves.book_id AND books.deleted_at IS NULL
-      JOIN libraries ON libraries.id = books.library_id
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-      LEFT JOIN authors ON authors.id = book_authors.author_id
-      WHERE book_saves.user_id = ? AND books.library_id IN (${inLibs})
-      GROUP BY books.id
-      ORDER BY datetime(book_saves.updated_at) DESC
+        item_saves.note AS save_note,
+        item_saves.updated_at AS saved_at
+      FROM item_saves
+      JOIN library_items ON library_items.id = item_saves.item_id AND library_items.deleted_at IS NULL
+      JOIN libraries ON libraries.id = library_items.library_id
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+      LEFT JOIN people AS authors ON authors.id = item_people.person_id
+      WHERE item_saves.user_id = ? AND library_items.library_id IN (${inLibs})
+      GROUP BY library_items.id
+      ORDER BY datetime(item_saves.updated_at) DESC
     `).all(user.id, ...libIds) as SavedBookRow[];
 
     reply.send({

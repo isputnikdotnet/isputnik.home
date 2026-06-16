@@ -24,17 +24,17 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
 
     const row = db.prepare(`
       SELECT
-        book_files.relative_path,
-        book_files.mime_type,
-        book_files.status,
+        audio_files.relative_path,
+        audio_files.mime_type,
+        audio_files.status,
         libraries.source_path,
         libraries.id AS id
-      FROM book_files
-      JOIN books ON books.id = book_files.book_id
-      JOIN libraries ON libraries.id = books.library_id
-      WHERE book_files.id = ?
-        AND books.id = ?
-        AND books.deleted_at IS NULL
+      FROM audio_files
+      JOIN library_items ON library_items.id = audio_files.item_id
+      JOIN libraries ON libraries.id = library_items.library_id
+      WHERE audio_files.id = ?
+        AND library_items.id = ?
+        AND library_items.deleted_at IS NULL
     `).get(fileId, id) as {
       relative_path: string;
       mime_type: string | null;
@@ -97,11 +97,11 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     const { id } = request.params as { id: string };
 
     const meta = db.prepare(`
-      SELECT libraries.id AS library_id, libraries.source_path, book_metadata.title
-      FROM books
-      JOIN libraries ON libraries.id = books.library_id
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      WHERE books.id = ? AND books.deleted_at IS NULL
+      SELECT libraries.id AS library_id, libraries.source_path, item_metadata.title
+      FROM library_items
+      JOIN libraries ON libraries.id = library_items.library_id
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      WHERE library_items.id = ? AND library_items.deleted_at IS NULL
     `).get(id) as { library_id: string; source_path: string; title: string | null } | undefined;
 
     if (!meta) {
@@ -124,8 +124,8 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
 
     const files = db.prepare(`
       SELECT relative_path
-      FROM book_files
-      WHERE book_id = ? AND status = 'available'
+      FROM audio_files
+      WHERE item_id = ? AND status = 'available'
       ORDER BY track_number, relative_path COLLATE NOCASE
     `).all(id) as { relative_path: string }[];
 
@@ -170,17 +170,17 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
 
     const row = db.prepare(`
       SELECT
-        book_documents.relative_path,
-        book_documents.mime_type,
-        book_documents.status,
+        document_files.relative_path,
+        document_files.mime_type,
+        document_files.status,
         libraries.source_path,
         libraries.id AS id
-      FROM book_documents
-      JOIN books ON books.id = book_documents.book_id
-      JOIN libraries ON libraries.id = books.library_id
-      WHERE book_documents.id = ?
-        AND book_documents.book_id = ?
-        AND books.deleted_at IS NULL
+      FROM document_files
+      JOIN library_items ON library_items.id = document_files.item_id
+      JOIN libraries ON libraries.id = library_items.library_id
+      WHERE document_files.id = ?
+        AND document_files.item_id = ?
+        AND library_items.deleted_at IS NULL
     `).get(docId, id) as {
       relative_path: string;
       mime_type: string | null;
