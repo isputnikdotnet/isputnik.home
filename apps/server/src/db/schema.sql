@@ -130,6 +130,8 @@ CREATE TABLE IF NOT EXISTS library_items (
   type          TEXT NOT NULL,            -- 'audiobook' | 'ebook' | …
   folder_path   TEXT NOT NULL,           -- relative to the library source_path
   status        TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ready', 'error')),
+  -- 'manual' = the item's series membership is user-curated; the scanner won't touch it.
+  series_source TEXT NOT NULL DEFAULT 'scan' CHECK (series_source IN ('scan', 'manual')),
   discovered_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   deleted_at    TEXT,
