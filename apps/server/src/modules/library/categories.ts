@@ -23,13 +23,12 @@ export function registerCategoryRoutes(app: FastifyInstance) {
     const counts = new Map<string, number>();
     if (libIds.length > 0) {
       const rows = db.prepare(`
-        SELECT book_metadata.category_id AS category_id, COUNT(*) AS n
-        FROM books
-        JOIN book_metadata ON book_metadata.book_id = books.id
-        WHERE books.deleted_at IS NULL
-          AND books.library_id IN (${placeholders(libIds.length)})
-          AND book_metadata.category_id IS NOT NULL
-        GROUP BY book_metadata.category_id
+        SELECT item_categories.category_id AS category_id, COUNT(*) AS n
+        FROM library_items
+        JOIN item_categories ON item_categories.item_id = library_items.id AND item_categories.is_primary = 1
+        WHERE library_items.deleted_at IS NULL
+          AND library_items.library_id IN (${placeholders(libIds.length)})
+        GROUP BY item_categories.category_id
       `).all(...libIds) as { category_id: string; n: number }[];
       for (const row of rows) counts.set(row.category_id, row.n);
     }
@@ -57,7 +56,7 @@ export function registerCategoryRoutes(app: FastifyInstance) {
       return;
     }
 
-    const books = crossTypeBooksByFilter(user.id, bookLibraryIds(user), "book_metadata.category_id = ?", [category.id]);
+    const books = crossTypeBooksByFilter(user.id, bookLibraryIds(user), "EXISTS (SELECT 1 FROM item_categories WHERE item_categories.item_id = library_items.id AND item_categories.is_primary = 1 AND item_categories.category_id = ?)", [category.id]);
 
     reply.send({
       category: {

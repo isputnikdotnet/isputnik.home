@@ -37,30 +37,30 @@ const placeholders = (n: number) => Array(n).fill("?").join(", ");
 // caller supplies `pct` and `completed_at` (NULL for recent, the progress row for
 // continue / category detail).
 export const FEED_COLUMNS = `
-  books.id,
+  library_items.id,
   libraries.type AS kind,
-  book_metadata.title AS title,
-  books.folder_path,
-  books.discovered_at,
-  book_metadata.cover_storage_key,
+  item_metadata.title AS title,
+  library_items.folder_path,
+  library_items.discovered_at,
+  item_metadata.cover_storage_key,
   GROUP_CONCAT(DISTINCT authors.name) AS author_names`;
 
 export const FEED_JOINS = `
-  FROM books
-  JOIN libraries ON libraries.id = books.library_id
-  LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-  LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-  LEFT JOIN authors ON authors.id = book_authors.author_id`;
+  FROM library_items
+  JOIN libraries ON libraries.id = library_items.library_id
+  LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+  LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+  LEFT JOIN people AS authors ON authors.id = item_people.person_id`;
 
-// One progress row per book — the most-recent activity from either table. SQLite
+// One progress row per item — the most-recent activity from either table. SQLite
 // returns the pct/completed_at from the MAX(updated_at) row (bare-column + max).
 export const PROGRESS_CTE = `
   WITH prog AS (
-    SELECT book_id, percent_complete AS pct, completed_at, MAX(updated_at) AS updated_at
-    FROM playback_progress WHERE user_id = ? GROUP BY book_id
+    SELECT item_id, percent_complete AS pct, completed_at, MAX(updated_at) AS updated_at
+    FROM playback_progress WHERE user_id = ? GROUP BY item_id
     UNION ALL
-    SELECT book_id, percent_complete AS pct, completed_at, MAX(updated_at) AS updated_at
-    FROM reading_progress WHERE user_id = ? GROUP BY book_id
+    SELECT item_id, percent_complete AS pct, completed_at, MAX(updated_at) AS updated_at
+    FROM reading_progress WHERE user_id = ? GROUP BY item_id
   )`;
 
 export function mapRow(row: FeedRow): FeedItem {
@@ -97,12 +97,12 @@ export function crossTypeBooksByFilter(
     ${PROGRESS_CTE}
     SELECT ${FEED_COLUMNS}, prog.pct AS pct, prog.completed_at AS completed_at
     ${FEED_JOINS}
-    LEFT JOIN prog ON prog.book_id = books.id
-    WHERE books.deleted_at IS NULL
-      AND books.library_id IN (${placeholders(libIds.length)})
+    LEFT JOIN prog ON prog.item_id = library_items.id
+    WHERE library_items.deleted_at IS NULL
+      AND library_items.library_id IN (${placeholders(libIds.length)})
       AND ${filterSql}
-    GROUP BY books.id
-    ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE, books.id
+    GROUP BY library_items.id
+    ORDER BY COALESCE(item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE, library_items.id
   `).all(userId, userId, ...libIds, ...filterArgs) as FeedRow[];
   return rows.map(mapRow);
 }
@@ -116,15 +116,15 @@ export function recentlyAdded(user: { id: string; role: string }, limit: number,
   const rows = db.prepare(`
     SELECT ${FEED_COLUMNS}, NULL AS pct, NULL AS completed_at
     ${FEED_JOINS}
-    WHERE books.deleted_at IS NULL AND books.library_id IN (${inLibs})
-    GROUP BY books.id
-    ORDER BY books.discovered_at DESC, books.id
+    WHERE library_items.deleted_at IS NULL AND library_items.library_id IN (${inLibs})
+    GROUP BY library_items.id
+    ORDER BY library_items.discovered_at DESC, library_items.id
     LIMIT ? OFFSET ?
   `).all(...libIds, limit, offset) as FeedRow[];
 
   const total = (db.prepare(`
-    SELECT COUNT(*) AS n FROM books
-    WHERE books.deleted_at IS NULL AND books.library_id IN (${inLibs})
+    SELECT COUNT(*) AS n FROM library_items
+    WHERE library_items.deleted_at IS NULL AND library_items.library_id IN (${inLibs})
   `).get(...libIds) as { n: number }).n;
 
   return { items: rows.map(mapRow), total };
@@ -136,8 +136,8 @@ export function inProgress(user: { id: string; role: string }, limit: number, of
   if (libIds.length === 0) return { items: [], total: 0 };
   const inLibs = placeholders(libIds.length);
   const where = `
-    WHERE books.deleted_at IS NULL
-      AND books.library_id IN (${inLibs})
+    WHERE library_items.deleted_at IS NULL
+      AND library_items.library_id IN (${inLibs})
       AND prog.completed_at IS NULL
       AND prog.pct IS NOT NULL AND prog.pct > 0`;
 
@@ -145,17 +145,17 @@ export function inProgress(user: { id: string; role: string }, limit: number, of
     ${PROGRESS_CTE}
     SELECT ${FEED_COLUMNS}, prog.pct AS pct, prog.completed_at AS completed_at
     ${FEED_JOINS}
-    JOIN prog ON prog.book_id = books.id
+    JOIN prog ON prog.item_id = library_items.id
     ${where}
-    GROUP BY books.id
-    ORDER BY prog.updated_at DESC, books.id
+    GROUP BY library_items.id
+    ORDER BY prog.updated_at DESC, library_items.id
     LIMIT ? OFFSET ?
   `).all(user.id, user.id, ...libIds, limit, offset) as FeedRow[];
 
   const total = (db.prepare(`
     ${PROGRESS_CTE}
     SELECT COUNT(*) AS n
-    FROM books JOIN prog ON prog.book_id = books.id
+    FROM library_items JOIN prog ON prog.item_id = library_items.id
     ${where}
   `).get(user.id, user.id, ...libIds) as { n: number }).n;
 
