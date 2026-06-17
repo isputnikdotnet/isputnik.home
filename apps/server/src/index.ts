@@ -13,7 +13,23 @@ import { libraryPlugin } from "./modules/library/index.js";
 import { collectionsPlugin } from "./modules/collections/index.js";
 
 const app = fastify({
-  logger: true,
+  logger: {
+    serializers: {
+      // Mirror Fastify's default request log, but mask the OPDS path token so the
+      // token-in-URL convenience never leaks a live credential into the logs.
+      req(request) {
+        const version = request.headers?.["accept-version"];
+        return {
+          method: request.method,
+          url: request.url.replace(/(\/opds\/)isp_[^/?]+/g, "$1<token>"),
+          version: Array.isArray(version) ? version[0] : version,
+          hostname: request.hostname,
+          remoteAddress: request.ip,
+          remotePort: request.socket?.remotePort
+        };
+      }
+    }
+  },
   trustProxy: true
 });
 

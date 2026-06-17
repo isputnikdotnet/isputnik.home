@@ -457,6 +457,22 @@ CREATE TABLE IF NOT EXISTS share_links (
   revoked_at  TEXT
 );
 
+-- Personal access tokens. A user mints one per device to authenticate
+-- non-cookie clients (today: OPDS readers). Only the sha256(token) is stored;
+-- the raw value is shown once at creation. Read-only, scoped, revocable.
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash   TEXT NOT NULL UNIQUE,
+  scope        TEXT NOT NULL DEFAULT 'opds',   -- only 'opds' for now; room to grow
+  label        TEXT,                            -- "Kobo Clara", user-supplied
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  last_seen_at TEXT,
+  last_ip      TEXT,
+  expires_at   TEXT,                            -- NULL = no expiry
+  revoked_at   TEXT
+);
+
 -- ════════════════════════════════════════════════════════════════════════════
 --  Recycle bin & system
 -- ════════════════════════════════════════════════════════════════════════════
@@ -553,6 +569,8 @@ CREATE INDEX IF NOT EXISTS idx_reading_item             ON reading_progress(item
 CREATE INDEX IF NOT EXISTS idx_audio_bookmarks_user     ON audio_bookmarks(user_id, item_id);
 CREATE INDEX IF NOT EXISTS idx_reading_bookmarks_user   ON reading_bookmarks(user_id, item_id);
 CREATE INDEX IF NOT EXISTS idx_item_saves_user          ON item_saves(user_id, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user          ON api_tokens(user_id);
 
 CREATE INDEX IF NOT EXISTS idx_collections_user         ON collections(user_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_collection_items_coll    ON collection_items(collection_id, position);
