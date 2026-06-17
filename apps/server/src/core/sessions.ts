@@ -23,7 +23,7 @@ export async function sessionsPlugin(app: FastifyInstance) {
         sessions.token_hash,
         sessions.created_at,
         sessions.expires_at,
-        sessions.last_seen,
+        sessions.last_seen_at AS last_seen,
         sessions.device_name,
         sessions.ip_address,
         users.id AS user_id,
@@ -34,7 +34,7 @@ export async function sessionsPlugin(app: FastifyInstance) {
       WHERE sessions.revoked_at IS NULL
         AND datetime(sessions.expires_at) > CURRENT_TIMESTAMP
         AND users.deleted_at IS NULL
-      ORDER BY datetime(sessions.last_seen) DESC
+      ORDER BY datetime(sessions.last_seen_at) DESC
     `).all() as SessionListRow[];
     const tokenHash = currentSessionHash(request);
 
