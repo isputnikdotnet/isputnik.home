@@ -12,6 +12,6 @@ export function deleteCollectionItemsForResource(entityType: string, entityId: s
 // entityType identifies the collectable namespace for this library type.
 export function deleteCollectionItemsForLibrary(entityType: string, libraryId: string) {
   db.prepare(
-    "DELETE FROM collection_items WHERE entity_type = ? AND entity_id IN (SELECT id FROM books WHERE library_id = ?)"
+    "DELETE FROM collection_items WHERE entity_type = ? AND entity_id IN (SELECT id FROM library_items WHERE library_id = ?)"
   ).run(entityType, libraryId);
 }
