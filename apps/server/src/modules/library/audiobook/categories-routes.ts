@@ -115,7 +115,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
       SELECT
         categories.id, categories.key, categories.name, categories.sort_order, categories.icon, categories.image_storage_key,
         (
-          SELECT COUNT(*) FROM book_metadata WHERE book_metadata.category_id = categories.id
+          SELECT COUNT(*) FROM item_categories WHERE item_categories.category_id = categories.id AND item_categories.is_primary = 1
         ) AS book_count,
         (
           SELECT COUNT(*) FROM category_aliases WHERE category_aliases.category_id = categories.id
@@ -258,7 +258,10 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     }
     let movedBooks = 0;
     db.transaction(() => {
-      movedBooks = db.prepare("UPDATE book_metadata SET category_id = ? WHERE category_id = ?")
+      // OR IGNORE: an item already carrying the fallback category would collide on
+      // (item_id, category_id); its stale row then cascade-deletes with the category,
+      // leaving the item in the fallback either way.
+      movedBooks = db.prepare("UPDATE OR IGNORE item_categories SET category_id = ? WHERE category_id = ?")
         .run(fallback.id, category.id).changes;
       db.prepare("DELETE FROM categories WHERE id = ?").run(category.id);
       rememberDeletedCategoryKey(category.key);
@@ -400,10 +403,10 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
         (
           SELECT COUNT(*)
           FROM taggables
-          JOIN books ON books.id = taggables.entity_id
+          JOIN library_items ON library_items.id = taggables.entity_id
           WHERE taggables.tag_id = tags.id
-            AND taggables.entity_type = 'book'
-            AND books.deleted_at IS NULL
+            AND taggables.entity_type = 'library_item'
+            AND library_items.deleted_at IS NULL
         ) AS bookCount
       FROM tags
       ORDER BY tags.display_name COLLATE NOCASE
