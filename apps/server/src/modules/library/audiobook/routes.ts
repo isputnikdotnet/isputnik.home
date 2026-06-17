@@ -14,12 +14,12 @@ import type { AudiobookLibraryRow } from "./types.js";
 const AUDIOBOOK_LIBRARY_LIST_SQL = `
   SELECT
     libraries.*,
-    COUNT(DISTINCT books.id) AS book_count,
-    COUNT(book_files.id) AS file_count,
-    COALESCE(SUM(COALESCE(book_files.size, 0)), 0) AS total_size_bytes
+    COUNT(DISTINCT library_items.id) AS book_count,
+    COUNT(audio_files.id) AS file_count,
+    COALESCE(SUM(COALESCE(audio_files.size, 0)), 0) AS total_size_bytes
   FROM libraries
-  LEFT JOIN books ON books.library_id = libraries.id AND books.deleted_at IS NULL
-  LEFT JOIN book_files ON book_files.book_id = books.id AND book_files.status = 'available' AND book_files.deleted_at IS NULL
+  LEFT JOIN library_items ON library_items.library_id = libraries.id AND library_items.deleted_at IS NULL
+  LEFT JOIN audio_files ON audio_files.item_id = library_items.id AND audio_files.status = 'available' AND audio_files.deleted_at IS NULL
   WHERE libraries.type = 'audiobook' %WHERE%
   GROUP BY libraries.id
   ORDER BY datetime(libraries.created_at) DESC
@@ -110,8 +110,8 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       // cascade removes the books and orphans them.
       db.prepare(`
         DELETE FROM taggables
-        WHERE entity_type = 'book'
-          AND entity_id IN (SELECT id FROM books WHERE library_id = ?)
+        WHERE entity_type = 'library_item'
+          AND entity_id IN (SELECT id FROM library_items WHERE library_id = ?)
       `).run(id);
       // shares/share_links are polymorphic too — clean them up before the cascade.
       deleteSharesForLibrary("audiobook", id);

@@ -427,8 +427,8 @@ export function registerBookRoutes(app: FastifyInstance) {
     const userId = request.user!.id;
     const file = db.prepare(`
       SELECT id, duration_seconds
-      FROM book_files
-      WHERE book_id = ?
+      FROM audio_files
+      WHERE item_id = ?
         AND status = 'available'
       ORDER BY track_number DESC, relative_path COLLATE NOCASE DESC
       LIMIT 1

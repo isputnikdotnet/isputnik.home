@@ -152,14 +152,14 @@ export function registerSourceRoutes(app: FastifyInstance) {
 
     // Catalog the new folder: revive a previous row for this path if one exists
     // (the folder was deleted or went missing earlier), otherwise insert fresh.
-    const existing = db.prepare("SELECT id FROM books WHERE library_id = ? AND folder_path = ?")
+    const existing = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
       .get(library.id, folderPath) as { id: string } | undefined;
     const bookId = existing?.id ?? nanoid(16);
     if (existing) {
-      db.prepare("UPDATE books SET deleted_at = NULL, status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      db.prepare("UPDATE library_items SET deleted_at = NULL, status = 'pending', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
         .run(bookId);
     } else {
-      db.prepare("INSERT INTO books (id, library_id, folder_path, status) VALUES (?, ?, ?, 'pending')")
+      db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES (?, ?, 'audiobook', ?, 'pending')")
         .run(bookId, library.id, folderPath);
     }
 

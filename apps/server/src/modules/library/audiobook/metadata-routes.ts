@@ -248,7 +248,7 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       return;
     }
 
-    const existing = db.prepare("SELECT id FROM books WHERE id = ? AND deleted_at IS NULL").get(id);
+    const existing = db.prepare("SELECT id FROM library_items WHERE id = ? AND deleted_at IS NULL").get(id);
     if (!existing) {
       reply.code(404).send({ error: "Audiobook not found" });
       return;
@@ -289,13 +289,13 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       return;
     }
 
-    const existing = db.prepare("SELECT id FROM books WHERE id = ? AND deleted_at IS NULL").get(id);
+    const existing = db.prepare("SELECT id FROM library_items WHERE id = ? AND deleted_at IS NULL").get(id);
     if (!existing) {
       reply.code(404).send({ error: "Audiobook not found" });
       return;
     }
 
-    db.prepare("UPDATE book_metadata SET source = 'scan', updated_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(id);
+    db.prepare("UPDATE item_metadata SET source = 'scan', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(id);
 
     try {
       await rescanSingleBook(id);
