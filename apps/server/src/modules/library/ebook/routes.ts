@@ -50,12 +50,12 @@ function uniqueEbookFileName(root: string, filename: string): string | null {
 const EBOOK_LIBRARY_LIST_SQL = `
   SELECT
     libraries.*,
-    COUNT(DISTINCT books.id) AS book_count,
-    COUNT(book_documents.id) AS file_count,
-    COALESCE(SUM(COALESCE(book_documents.size, 0)), 0) AS total_size_bytes
+    COUNT(DISTINCT library_items.id) AS book_count,
+    COUNT(document_files.id) AS file_count,
+    COALESCE(SUM(COALESCE(document_files.size, 0)), 0) AS total_size_bytes
   FROM libraries
-  LEFT JOIN books ON books.library_id = libraries.id AND books.deleted_at IS NULL
-  LEFT JOIN book_documents ON book_documents.book_id = books.id AND book_documents.status = 'available' AND book_documents.deleted_at IS NULL
+  LEFT JOIN library_items ON library_items.library_id = libraries.id AND library_items.deleted_at IS NULL
+  LEFT JOIN document_files ON document_files.item_id = library_items.id AND document_files.status = 'available' AND document_files.deleted_at IS NULL
   WHERE libraries.type = 'ebook' %WHERE%
   GROUP BY libraries.id
   ORDER BY datetime(libraries.created_at) DESC
@@ -132,34 +132,35 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
 
     const rows = db.prepare(`
       SELECT
-        books.id,
-        books.library_id,
-        books.folder_path,
-        books.status,
-        books.discovered_at,
-        books.updated_at,
-        book_metadata.title,
-        book_metadata.year_published,
-        book_metadata.language,
-        book_metadata.cover_storage_key,
+        library_items.id,
+        library_items.library_id,
+        library_items.folder_path,
+        library_items.status,
+        library_items.discovered_at,
+        library_items.updated_at,
+        item_metadata.title,
+        item_metadata.year_published,
+        item_metadata.language,
+        item_metadata.cover_storage_key,
         categories.key AS category_key,
         categories.name AS category_name,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
-        (SELECT format FROM book_documents WHERE book_id = books.id AND status = 'available' LIMIT 1) AS format,
-        (SELECT id FROM book_documents WHERE book_id = books.id AND status = 'available' LIMIT 1) AS document_id,
-        (SELECT COUNT(*) FROM book_documents WHERE book_id = books.id AND status = 'available') AS file_count,
-        (SELECT COALESCE(SUM(size), 0) FROM book_documents WHERE book_id = books.id AND status = 'available') AS total_size,
-        (SELECT reading_progress.percent_complete FROM reading_progress WHERE reading_progress.book_id = books.id AND reading_progress.user_id = ? ORDER BY datetime(reading_progress.updated_at) DESC LIMIT 1) AS progress_percent,
-        (SELECT reading_progress.completed_at FROM reading_progress WHERE reading_progress.book_id = books.id AND reading_progress.user_id = ? ORDER BY datetime(reading_progress.updated_at) DESC LIMIT 1) AS progress_completed_at,
-        (SELECT book_saves.id IS NOT NULL FROM book_saves WHERE book_saves.book_id = books.id AND book_saves.user_id = ? LIMIT 1) AS saved
-      FROM books
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN categories ON categories.id = book_metadata.category_id
-      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-      LEFT JOIN authors ON authors.id = book_authors.author_id
-      WHERE books.library_id = ? AND books.deleted_at IS NULL
-      GROUP BY books.id
-      ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
+        (SELECT format FROM document_files WHERE item_id = library_items.id AND status = 'available' LIMIT 1) AS format,
+        (SELECT id FROM document_files WHERE item_id = library_items.id AND status = 'available' LIMIT 1) AS document_id,
+        (SELECT COUNT(*) FROM document_files WHERE item_id = library_items.id AND status = 'available') AS file_count,
+        (SELECT COALESCE(SUM(size), 0) FROM document_files WHERE item_id = library_items.id AND status = 'available') AS total_size,
+        (SELECT reading_progress.percent_complete FROM reading_progress WHERE reading_progress.item_id = library_items.id AND reading_progress.user_id = ? ORDER BY datetime(reading_progress.updated_at) DESC LIMIT 1) AS progress_percent,
+        (SELECT reading_progress.completed_at FROM reading_progress WHERE reading_progress.item_id = library_items.id AND reading_progress.user_id = ? ORDER BY datetime(reading_progress.updated_at) DESC LIMIT 1) AS progress_completed_at,
+        (SELECT item_saves.id IS NOT NULL FROM item_saves WHERE item_saves.item_id = library_items.id AND item_saves.user_id = ? LIMIT 1) AS saved
+      FROM library_items
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      LEFT JOIN item_categories ic ON ic.item_id = library_items.id AND ic.is_primary = 1
+      LEFT JOIN categories ON categories.id = ic.category_id
+      LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+      LEFT JOIN people AS authors ON authors.id = item_people.person_id
+      WHERE library_items.library_id = ? AND library_items.deleted_at IS NULL
+      GROUP BY library_items.id
+      ORDER BY COALESCE(item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE
     `).all(user.id, user.id, user.id, id) as {
       id: string; library_id: string; folder_path: string; status: string; discovered_at: string; updated_at: string;
       title: string | null; year_published: number | null; language: string | null;
@@ -171,7 +172,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     const tagsFor = db.prepare(`
       SELECT tags.display_name AS name FROM taggables
       JOIN tags ON tags.id = taggables.tag_id
-      WHERE taggables.entity_type = 'book' AND taggables.entity_id = ?
+      WHERE taggables.entity_type = 'library_item' AND taggables.entity_id = ?
       ORDER BY tags.display_name COLLATE NOCASE
     `);
 
@@ -398,7 +399,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     }
 
     db.transaction(() => {
-      db.prepare("DELETE FROM taggables WHERE entity_type = 'book' AND entity_id IN (SELECT id FROM books WHERE library_id = ?)").run(id);
+      db.prepare("DELETE FROM taggables WHERE entity_type = 'library_item' AND entity_id IN (SELECT id FROM library_items WHERE library_id = ?)").run(id);
       deleteSharesForLibrary("ebook", id);
       deleteCollectionItemsForLibrary("ebook", id);
       deleteLibraryAccess(id);
