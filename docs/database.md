@@ -87,6 +87,259 @@ activity_logs / app_settings / jobs / storage_roots  ── system
 
 ---
 
+## Entity-relationship diagram
+
+Renders on GitHub. Dotted relationships are **polymorphic** — enforced in app
+code, not by a foreign key (the `*_type` column says which table the id points
+at). System tables with no relationships (`activity_logs`, `app_settings`,
+`jobs`) are omitted.
+
+```mermaid
+erDiagram
+  users {
+    TEXT id PK
+    TEXT email UK
+    TEXT role
+  }
+  sessions {
+    TEXT id PK
+    TEXT user_id FK
+    TEXT token_hash UK
+    TEXT expires_at
+  }
+  invites {
+    TEXT id PK
+    TEXT created_by FK
+  }
+  user_groups {
+    TEXT id PK
+    TEXT name UK
+  }
+  group_members {
+    TEXT group_id FK
+    TEXT user_id FK
+    TEXT role
+  }
+  assignments {
+    TEXT subject_type "user|group"
+    TEXT subject_id
+    TEXT object_type "library|library_item|collection"
+    TEXT object_id
+    TEXT role "viewer..manager|deny"
+  }
+  storage_roots {
+    TEXT id PK
+    TEXT path UK
+    TEXT created_by FK
+  }
+  libraries {
+    TEXT id PK
+    TEXT type "audiobook|ebook|…"
+    TEXT source_path
+    TEXT owner_id
+    TEXT policy_json
+  }
+  library_items {
+    TEXT id PK
+    TEXT library_id FK
+    TEXT type
+    TEXT folder_path
+    TEXT series_source
+    TEXT status
+  }
+  item_metadata {
+    TEXT item_id PK "FK"
+    TEXT source "scan|manual"
+    TEXT title
+    TEXT cover_storage_key
+  }
+  audiobook_details {
+    TEXT item_id PK "FK"
+    TEXT asin
+    INTEGER duration_seconds
+  }
+  ebook_details {
+    TEXT item_id PK "FK"
+    INTEGER page_count
+  }
+  people {
+    TEXT id PK
+    TEXT name UK
+    TEXT image_storage_key
+  }
+  item_people {
+    TEXT item_id FK
+    TEXT person_id FK
+    TEXT role "author|narrator|…"
+  }
+  person_aliases {
+    TEXT alias UK
+    TEXT canonical_name
+  }
+  series {
+    TEXT id PK
+    TEXT library_id FK
+    TEXT name
+  }
+  series_items {
+    TEXT series_id FK
+    TEXT item_id FK
+    REAL position
+    TEXT source
+  }
+  categories {
+    TEXT id PK
+    TEXT key UK
+    TEXT parent_id FK
+  }
+  category_aliases {
+    TEXT keyword UK
+    TEXT category_id FK
+  }
+  item_categories {
+    TEXT item_id FK
+    TEXT category_id FK
+    INTEGER is_primary
+    TEXT source
+  }
+  tags {
+    TEXT id PK
+    TEXT key UK
+  }
+  taggables {
+    TEXT tag_id FK
+    TEXT entity_type
+    TEXT entity_id
+  }
+  audio_files {
+    TEXT id PK
+    TEXT item_id FK
+    INTEGER track_number
+  }
+  audio_chapters {
+    TEXT id PK
+    TEXT audio_file_id FK
+    INTEGER ordinal
+  }
+  document_files {
+    TEXT id PK
+    TEXT item_id FK
+    TEXT role "content|companion"
+    TEXT format
+  }
+  playback_progress {
+    TEXT user_id FK
+    TEXT item_id FK
+    TEXT current_file_id FK
+  }
+  track_progress {
+    TEXT user_id FK
+    TEXT item_id FK
+    TEXT file_id FK
+  }
+  reading_progress {
+    TEXT user_id FK
+    TEXT item_id FK
+    TEXT document_id FK
+    TEXT location
+  }
+  audio_bookmarks {
+    TEXT user_id FK
+    TEXT item_id FK
+    TEXT file_id FK
+  }
+  reading_bookmarks {
+    TEXT user_id FK
+    TEXT item_id FK
+    TEXT document_id FK
+  }
+  item_saves {
+    TEXT user_id FK
+    TEXT item_id FK
+  }
+  collections {
+    TEXT id PK
+    TEXT user_id FK
+    TEXT name
+  }
+  collection_items {
+    TEXT collection_id FK
+    TEXT entity_type
+    TEXT entity_id
+  }
+  shares {
+    TEXT id PK
+    TEXT module
+    TEXT resource_id
+    TEXT user_id FK
+  }
+  share_links {
+    TEXT id PK
+    TEXT module
+    TEXT resource_id
+    TEXT token_hash UK
+  }
+  trashed_items {
+    TEXT id PK
+    TEXT library_id
+    TEXT library_type
+  }
+
+  users ||--o{ sessions : "has"
+  users ||--o{ invites : "issues"
+  users ||--o{ user_groups : "creates"
+  user_groups ||--o{ group_members : "has"
+  users ||--o{ group_members : "in"
+  users }o..o{ assignments : "subject"
+  user_groups }o..o{ assignments : "subject"
+
+  users ||--o{ libraries : "creates"
+  users ||--o{ storage_roots : "configures"
+  libraries ||--o{ library_items : "contains"
+  library_items ||--|| item_metadata : "described by"
+  library_items ||--o| audiobook_details : "if audiobook"
+  library_items ||--o| ebook_details : "if ebook"
+
+  library_items ||--o{ item_people : "credits"
+  people ||--o{ item_people : "credited on"
+  people ||..o{ person_aliases : "alias (by name)"
+  libraries ||--o{ series : "scoped to"
+  series ||--o{ series_items : "orders"
+  library_items ||--o{ series_items : "in"
+
+  categories ||--o| categories : "parent"
+  categories ||--o{ category_aliases : "matched by"
+  categories ||--o{ item_categories : "applied to"
+  library_items ||--o{ item_categories : "categorised"
+  tags ||--o{ taggables : "linked via"
+  library_items }o..o{ taggables : "tagged (poly)"
+
+  library_items ||--o{ audio_files : "has"
+  audio_files ||--o{ audio_chapters : "has"
+  library_items ||--o{ document_files : "has"
+
+  library_items ||--o{ playback_progress : "progress"
+  users ||--o{ playback_progress : "by user"
+  library_items ||--o{ track_progress : "progress"
+  users ||--o{ track_progress : "by user"
+  library_items ||--o{ reading_progress : "progress"
+  users ||--o{ reading_progress : "by user"
+  library_items ||--o{ audio_bookmarks : "bookmarks"
+  users ||--o{ audio_bookmarks : "by user"
+  library_items ||--o{ reading_bookmarks : "bookmarks"
+  users ||--o{ reading_bookmarks : "by user"
+  library_items ||--o{ item_saves : "saved"
+  users ||--o{ item_saves : "by user"
+
+  users ||--o{ collections : "owns"
+  collections ||--o{ collection_items : "contains"
+  library_items }o..o{ collection_items : "member (poly)"
+  users ||--o{ shares : "granted to"
+  library_items }o..o{ shares : "shared (poly)"
+  library_items }o..o{ share_links : "shared (poly)"
+  libraries }o..o{ trashed_items : "snapshot (no FK)"
+```
+
 ## Migration from the `books`-centric schema
 
 Table/column map for anyone porting old queries:
