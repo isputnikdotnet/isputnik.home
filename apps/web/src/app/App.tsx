@@ -10,7 +10,6 @@ import { LoginPage } from "../pages/LoginPage";
 import { InvitePage } from "../pages/InvitePage";
 import { HomePage } from "../pages/HomePage";
 import { ProfilePage } from "../pages/ProfilePage";
-import { ThemePage } from "../pages/ThemePage";
 import { AboutPage } from "../pages/AboutPage";
 import { AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
 import { AudiobookBookPage } from "../features/audiobooks/BookDetailPage";
@@ -231,16 +230,6 @@ export function App() {
   if (route.name === "profile") {
     return (
       <ProfilePage
-        user={session.user}
-        logout={logout}
-        onUpdated={(user) => setSession((current) => ({ ...current, user }))}
-      />
-    );
-  }
-
-  if (route.name === "theme") {
-    return (
-      <ThemePage
         user={session.user}
         logout={logout}
         onUpdated={(user) => setSession((current) => ({ ...current, user }))}

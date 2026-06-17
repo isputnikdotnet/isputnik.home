@@ -13,7 +13,6 @@ import {
   Library,
   ListMusic,
   LogOut,
-  Palette,
   Settings,
   Shapes,
   Tag,
@@ -257,18 +256,6 @@ export function DashboardShell({
                     </a>
                   );
                 })}
-                <a
-                  className="home-user-menu-link"
-                  href="/theme"
-                  role="menuitem"
-                  onClick={(event) => {
-                    setUserMenuOpen(false);
-                    followRoute(event, "/theme");
-                  }}
-                >
-                  <Palette size={19} aria-hidden="true" />
-                  <span>Theme</span>
-                </a>
                 <a
                   className={`home-user-menu-link${active === "profile" ? " is-active" : ""}`}
                   href="/profile"

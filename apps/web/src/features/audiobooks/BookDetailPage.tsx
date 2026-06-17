@@ -293,6 +293,18 @@ function BookDetailView({
     return () => { cancelled = true; };
   }, [book.id, primaryReadableDoc?.id, primaryReadableDoc?.format]);
 
+  // Deep-link from a bookmark's Read button: open straight into the reader on the
+  // primary document, then drop the ?read flag so a refresh doesn't reopen it.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("read")) return;
+    if (primaryReadableDoc && VIEWABLE_DOC_FORMATS.has(primaryReadableDoc.format)) {
+      setViewerDoc({ id: primaryReadableDoc.id, fileName: primaryReadableDoc.fileName, url: primaryReadableDoc.url, format: primaryReadableDoc.format });
+    }
+    url.searchParams.delete("read");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [primaryReadableDoc?.id]);
+
   useEffect(() => {
     const loadProgress = () => api<{ progress: PlaybackProgress | null }>(`/api/library/books/${book.id}/progress`)
       .then((payload) => setProgress(payload.progress))

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "about" | "libraries" | "media" | "otherMedia" | "storage" | "recycleBin" | "groups" | "jobs" | "backup" | "categories" | "tags" | "config";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "about" | "libraries" | "storage" | "recycleBin" | "groups" | "jobs" | "backup" | "categories" | "tags" | "config";
 
 export type Route =
   | { name: "install" }
@@ -35,7 +35,6 @@ export type Route =
   | { name: "controlCategoryEditor"; categoryId: string | null }
   | { name: "about" }
   | { name: "profile" }
-  | { name: "theme" }
   | { name: "invite"; token: string }
   | { name: "share"; token: string }
   | { name: "audiobookSharedWithMe" };
@@ -247,14 +246,6 @@ export function getRoute(): Route {
     return { name: "control", section: "libraries" };
   }
 
-  if (["/control/media", "/control/photos", "/control/video"].includes(path)) {
-    return { name: "control", section: "media" };
-  }
-
-  if (path === "/control/other-media") {
-    return { name: "control", section: "otherMedia" };
-  }
-
   if (path === "/control/categories") {
     return { name: "control", section: "categories" };
   }
@@ -280,8 +271,9 @@ export function getRoute(): Route {
     return { name: "profile" };
   }
 
+  // Theme moved under the Profile page; keep the old path working as an alias.
   if (path === "/theme") {
-    return { name: "theme" };
+    return { name: "profile" };
   }
 
   if (path === "/about") {

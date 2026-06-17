@@ -4,10 +4,8 @@ import { followRoute } from "../../router";
 import type { ControlSection } from "../../router";
 import {
   Activity,
-  FileStack,
   HardDrive,
   Home,
-  Image,
   LibraryBig,
   ScrollText,
   Settings,
@@ -57,8 +55,6 @@ export function ControlPanelPage({
           {section === "storage"   && <StorageSection />}
           {section === "libraries" && <LibrariesSection />}
           {section === "recycleBin" && <RecycleBinSection />}
-          {section === "media"     && <ComingSoonSection title="Gallery" blurb="Photo and video library types — albums, thumbnails, and streaming playback — are planned." />}
-          {section === "otherMedia" && <ComingSoonSection title="Other Media" blurb="A flexible library type for media that isn't an audiobook, photo, or video is planned." />}
           {section === "categories" && categoryId !== undefined && <CategoryEditorPage categoryId={categoryId} />}
           {section === "categories" && categoryId === undefined && <TaxonomySection section="categories" />}
           {section === "tags"      && <TaxonomySection section="tags" />}
@@ -87,8 +83,6 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
         <ControlNavLink icon={HardDrive} label="Storage" href="/control/storage" active={section === "storage"} />
         <ControlNavLink icon={LibraryBig} label="Libraries" href="/control/libraries" active={section === "libraries"} />
         <ControlNavLink icon={Trash2} label="Recycle Bin" href="/control/recycle-bin" active={section === "recycleBin"} />
-        <ControlNavLink icon={Image} label="Gallery" href="/control/media" active={section === "media"} soon />
-        <ControlNavLink icon={FileStack} label="Other Media" href="/control/other-media" active={section === "otherMedia"} soon />
       </div>
 
       <div className="home-control-group">
@@ -103,24 +97,21 @@ function ControlNavLink({
   icon: Icon,
   label,
   href,
-  active,
-  soon
+  active
 }: {
   icon: typeof Activity;
   label: string;
   href: string;
   active: boolean;
-  soon?: boolean;
 }) {
   return (
     <a
-      className={`home-nav-link${active ? " is-active" : ""}${soon ? " home-control-link-soon" : ""}`}
+      className={`home-nav-link${active ? " is-active" : ""}`}
       href={href}
       onClick={(event) => followRoute(event, href)}
     >
       <Icon size={21} aria-hidden="true" />
       <span>{label}</span>
-      {soon && <span className="control-soon-badge">Soon</span>}
     </a>
   );
 }
@@ -210,19 +201,3 @@ function MaintenanceSection({ section }: { section: "jobs" | "backup" }) {
   );
 }
 
-function ComingSoonSection({ title, blurb }: { title: string; blurb: string }) {
-  return (
-    <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Digital Library</p>
-          <h1>{title}</h1>
-        </div>
-      </div>
-      <div className="empty-state">
-        <h2>Coming soon</h2>
-        <p className="muted">{blurb}</p>
-      </div>
-    </>
-  );
-}

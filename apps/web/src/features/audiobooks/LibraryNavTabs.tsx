@@ -1,9 +1,9 @@
-import { Bookmark, DownloadCloud, Heart, ListMusic, Palette, UserRound, UsersRound } from "lucide-react";
+import { Bookmark, DownloadCloud, Heart, ListMusic, UserRound, UsersRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { followRoute } from "../../router";
 import { isStandalone } from "../../pwa/platform";
 
-export type LibraryNavKey = "saved" | "bookmarks" | "collections" | "shared" | "downloads" | "theme" | "profile";
+export type LibraryNavKey = "saved" | "bookmarks" | "collections" | "shared" | "downloads" | "profile";
 
 interface LibraryNavItem {
   key: LibraryNavKey;
@@ -25,7 +25,6 @@ export function LibraryNavTabs({ active }: { active: LibraryNavKey }) {
     ...(isStandalone() || active === "downloads"
       ? [{ key: "downloads" as const, label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud }]
       : []),
-    { key: "theme", label: "Theme", href: "/theme", icon: Palette },
     { key: "profile", label: "Profile", href: "/profile", icon: UserRound }
   ];
 
