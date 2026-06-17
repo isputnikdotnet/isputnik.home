@@ -204,13 +204,17 @@ CREATE TABLE IF NOT EXISTS person_aliases (
   created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- A book series belongs to one library (unlike people, which are global). Item
+-- membership + ordering live in series_items.
 CREATE TABLE IF NOT EXISTS series (
   id                TEXT PRIMARY KEY,
-  name              TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  library_id        TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  name              TEXT NOT NULL,
   sort_name         TEXT,
   description       TEXT,
   cover_storage_key TEXT,
-  created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  UNIQUE (library_id, name COLLATE NOCASE)
 );
 
 CREATE TABLE IF NOT EXISTS series_items (
@@ -528,6 +532,7 @@ CREATE INDEX IF NOT EXISTS idx_items_type               ON library_items(type);
 
 CREATE INDEX IF NOT EXISTS idx_item_people_item         ON item_people(item_id);
 CREATE INDEX IF NOT EXISTS idx_item_people_person       ON item_people(person_id);
+CREATE INDEX IF NOT EXISTS idx_series_library          ON series(library_id);
 CREATE INDEX IF NOT EXISTS idx_series_items_series      ON series_items(series_id);
 CREATE INDEX IF NOT EXISTS idx_series_items_item        ON series_items(item_id);
 CREATE INDEX IF NOT EXISTS idx_item_categories_item     ON item_categories(item_id);

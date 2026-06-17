@@ -25,20 +25,22 @@ function listSeriesForLibrary(libraryId: string) {
     SELECT
       series.id,
       series.name,
-      COUNT(books.id) AS book_count,
+      COUNT(li.id) AS book_count,
       COALESCE(
         series.cover_storage_key,
         (
-          SELECT book_metadata.cover_storage_key
-          FROM books b
-          LEFT JOIN book_metadata ON book_metadata.book_id = b.id
-          WHERE b.series_id = series.id AND b.deleted_at IS NULL
-          ORDER BY b.series_position ASC
+          SELECT item_metadata.cover_storage_key
+          FROM series_items si2
+          JOIN library_items b ON b.id = si2.item_id AND b.deleted_at IS NULL
+          LEFT JOIN item_metadata ON item_metadata.item_id = b.id
+          WHERE si2.series_id = series.id
+          ORDER BY si2.position ASC
           LIMIT 1
         )
       ) AS cover_storage_key
     FROM series
-    LEFT JOIN books ON books.series_id = series.id AND books.deleted_at IS NULL
+    LEFT JOIN series_items si ON si.series_id = series.id
+    LEFT JOIN library_items li ON li.id = si.item_id AND li.deleted_at IS NULL
     WHERE series.library_id = ?
     GROUP BY series.id
     ORDER BY series.name COLLATE NOCASE
@@ -114,7 +116,12 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     }
 
     const rows = db.prepare(`
-      SELECT name FROM authors WHERE library_id = ? ORDER BY name COLLATE NOCASE
+      SELECT DISTINCT people.name
+      FROM people
+      JOIN item_people ON item_people.person_id = people.id
+      JOIN library_items ON library_items.id = item_people.item_id
+      WHERE library_items.library_id = ?
+      ORDER BY people.name COLLATE NOCASE
     `).all(id) as { name: string }[];
 
     reply.send({ people: rows.map((r) => r.name) });
@@ -154,19 +161,20 @@ export function registerSeriesRoutes(app: FastifyInstance) {
 
     const books = db.prepare(`
       SELECT
-        books.id,
-        books.series_position,
-        COALESCE(book_metadata.title, books.folder_path) AS title,
-        book_metadata.cover_storage_key,
-        GROUP_CONCAT(authors.name ORDER BY book_authors.sort_order) AS author_names
-      FROM books
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-      LEFT JOIN authors ON authors.id = book_authors.author_id
-      WHERE books.series_id = ?
-        AND books.deleted_at IS NULL
-      GROUP BY books.id
-      ORDER BY books.series_position ASC, title COLLATE NOCASE
+        library_items.id,
+        series_items.position AS series_position,
+        COALESCE(item_metadata.title, library_items.folder_path) AS title,
+        item_metadata.cover_storage_key,
+        GROUP_CONCAT(people.name ORDER BY item_people.sort_order) AS author_names
+      FROM series_items
+      JOIN library_items ON library_items.id = series_items.item_id
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+      LEFT JOIN people ON people.id = item_people.person_id
+      WHERE series_items.series_id = ?
+        AND library_items.deleted_at IS NULL
+      GROUP BY library_items.id
+      ORDER BY series_items.position ASC, title COLLATE NOCASE
     `).all(id) as { id: string; series_position: number | null; title: string; cover_storage_key: string | null; author_names: string | null }[];
 
     reply.send({
@@ -250,27 +258,32 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     // Auto-append: new books get positions after the series' current highest,
     // in the order they were selected. Books already in this series are left
     // untouched; books from other series are moved in.
-    const maxRow = db.prepare("SELECT COALESCE(MAX(series_position), 0) AS max_pos FROM books WHERE series_id = ?")
+    const maxRow = db.prepare("SELECT COALESCE(MAX(position), 0) AS max_pos FROM series_items WHERE series_id = ?")
       .get(id) as { max_pos: number };
     let nextPos = maxRow.max_pos;
     let added = 0;
     let skipped = 0;
 
     db.transaction(() => {
-      const update = db.prepare(`
-        UPDATE books SET series_id = ?, series_position = ?, series_source = 'manual'
-        WHERE id = ? AND library_id = ? AND deleted_at IS NULL
-          AND (series_id IS NULL OR series_id != ?)
-      `);
       for (const bookId of parsed.data.bookIds) {
-        const candidatePos = nextPos + 1;
-        const result = update.run(id, candidatePos, bookId, row.library_id, id);
-        if (result.changes > 0) {
-          nextPos = candidatePos;
-          added += 1;
-        } else {
+        // Only books in this library, not deleted, and not already in this series.
+        const item = db.prepare("SELECT id FROM library_items WHERE id = ? AND library_id = ? AND deleted_at IS NULL")
+          .get(bookId, row.library_id) as { id: string } | undefined;
+        const alreadyHere = item
+          ? db.prepare("SELECT 1 FROM series_items WHERE series_id = ? AND item_id = ?").get(id, bookId)
+          : undefined;
+        if (!item || alreadyHere) {
           skipped += 1;
+          continue;
         }
+        const candidatePos = nextPos + 1;
+        // A book belongs to at most one series (single-series model).
+        db.prepare("DELETE FROM series_items WHERE item_id = ?").run(bookId);
+        db.prepare("INSERT INTO series_items (series_id, item_id, position, source) VALUES (?, ?, ?, 'manual')")
+          .run(id, bookId, candidatePos);
+        db.prepare("UPDATE library_items SET series_source = 'manual' WHERE id = ?").run(bookId);
+        nextPos = candidatePos;
+        added += 1;
       }
     })();
 
@@ -361,7 +374,8 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     }
 
     db.transaction(() => {
-      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL, series_source = 'scan' WHERE series_id = ?").run(id);
+      // Reset members' manual flag; series_items rows cascade away with the series.
+      db.prepare("UPDATE library_items SET series_source = 'scan' WHERE id IN (SELECT item_id FROM series_items WHERE series_id = ?)").run(id);
       db.prepare("DELETE FROM series WHERE id = ?").run(id);
     })();
 
@@ -397,10 +411,17 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const newBookIds = new Set(parsed.data.books.map((b) => b.bookId));
 
     db.transaction(() => {
-      db.prepare("UPDATE books SET series_id = NULL, series_position = NULL, series_source = 'scan' WHERE series_id = ?").run(id);
+      // Replace the series' membership: clear current members (reset their flag),
+      // then set the new set + positions (single-series per book).
+      db.prepare("UPDATE library_items SET series_source = 'scan' WHERE id IN (SELECT item_id FROM series_items WHERE series_id = ?)").run(id);
+      db.prepare("DELETE FROM series_items WHERE series_id = ?").run(id);
       for (const { bookId, position } of parsed.data.books) {
-        db.prepare("UPDATE books SET series_id = ?, series_position = ?, series_source = 'manual' WHERE id = ? AND library_id = ?")
-          .run(id, position, bookId, row.library_id);
+        const item = db.prepare("SELECT id FROM library_items WHERE id = ? AND library_id = ?").get(bookId, row.library_id) as { id: string } | undefined;
+        if (!item) continue;
+        db.prepare("DELETE FROM series_items WHERE item_id = ?").run(bookId);
+        db.prepare("INSERT INTO series_items (series_id, item_id, position, source) VALUES (?, ?, ?, 'manual')")
+          .run(id, bookId, position);
+        db.prepare("UPDATE library_items SET series_source = 'manual' WHERE id = ?").run(bookId);
       }
     })();
 
