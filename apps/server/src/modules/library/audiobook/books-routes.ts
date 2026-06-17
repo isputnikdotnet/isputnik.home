@@ -35,10 +35,10 @@ export function registerBookRoutes(app: FastifyInstance) {
     const books = db.prepare(`
       SELECT ${BOOK_LIST_COLUMNS}
       ${BOOK_LIST_JOINS}
-      WHERE books.library_id = ?
-        AND books.deleted_at IS NULL
-      GROUP BY books.id
-      ORDER BY COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE
+      WHERE library_items.library_id = ?
+        AND library_items.deleted_at IS NULL
+      GROUP BY library_items.id
+      ORDER BY COALESCE(item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE
     `).all(user.id, user.id, id) as BookListRow[];
 
     return { books: books.map(mapBookListRow) };
@@ -178,7 +178,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     const row = db.prepare(`
       SELECT current_file_id, position_seconds, percent_complete, completed_at
       FROM playback_progress
-      WHERE book_id = ? AND user_id = ?
+      WHERE item_id = ? AND user_id = ?
     `).get(bookId, userId) as {
       current_file_id: string | null;
       position_seconds: number;
@@ -212,9 +212,9 @@ export function registerBookRoutes(app: FastifyInstance) {
     }
 
     const row = db.prepare(`
-      SELECT document_id, cfi, percent_complete, label, updated_at, completed_at
+      SELECT document_id, location AS cfi, percent_complete, label, updated_at, completed_at
       FROM reading_progress
-      WHERE book_id = ? AND document_id = ? AND user_id = ?
+      WHERE item_id = ? AND document_id = ? AND user_id = ?
     `).get(bookId, documentId, user.id) as {
       document_id: string;
       cfi: string;
@@ -255,13 +255,13 @@ export function registerBookRoutes(app: FastifyInstance) {
     const percentComplete = parsed.data.percentComplete ?? null;
     const completedAt = percentComplete != null && percentComplete >= 0.98 ? new Date().toISOString() : null;
     db.prepare(`
-      INSERT INTO reading_progress (id, user_id, book_id, document_id, cfi, percent_complete, label, updated_at, completed_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-      ON CONFLICT(user_id, book_id, document_id) DO UPDATE SET
-        cfi = excluded.cfi,
+      INSERT INTO reading_progress (id, user_id, item_id, document_id, location, percent_complete, label, updated_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?)
+      ON CONFLICT(user_id, item_id, document_id) DO UPDATE SET
+        location = excluded.location,
         percent_complete = excluded.percent_complete,
         label = excluded.label,
-        updated_at = CURRENT_TIMESTAMP,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
         completed_at = CASE WHEN excluded.completed_at IS NOT NULL THEN excluded.completed_at ELSE reading_progress.completed_at END
     `).run(nanoid(16), user.id, bookId, parsed.data.documentId, parsed.data.cfi, percentComplete, parsed.data.label ?? null, completedAt);
 
@@ -280,7 +280,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       reply.code(404).send({ error: "Document not found" });
       return;
     }
-    db.prepare("DELETE FROM reading_progress WHERE book_id = ? AND document_id = ? AND user_id = ?")
+    db.prepare("DELETE FROM reading_progress WHERE item_id = ? AND document_id = ? AND user_id = ?")
       .run(bookId, documentId, user.id);
     reply.send({ reset: true });
   });
@@ -302,12 +302,12 @@ export function registerBookRoutes(app: FastifyInstance) {
       return;
     }
     db.prepare(`
-      INSERT INTO reading_progress (id, user_id, book_id, document_id, cfi, percent_complete, updated_at, completed_at)
-      VALUES (?, ?, ?, ?, '', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      ON CONFLICT(user_id, book_id, document_id) DO UPDATE SET
+      INSERT INTO reading_progress (id, user_id, item_id, document_id, location, percent_complete, updated_at, completed_at)
+      VALUES (?, ?, ?, ?, '', 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      ON CONFLICT(user_id, item_id, document_id) DO UPDATE SET
         percent_complete = 1,
-        updated_at = CURRENT_TIMESTAMP,
-        completed_at = CURRENT_TIMESTAMP
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+        completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(nanoid(16), user.id, bookId, documentId);
     reply.send({ completed: true });
   });
@@ -326,17 +326,17 @@ export function registerBookRoutes(app: FastifyInstance) {
 
     const cumulative = db.prepare(`
       SELECT COALESCE(SUM(bf.duration_seconds), 0) AS before_seconds
-      FROM book_files bf
-      JOIN book_files current_file ON current_file.id = ? AND current_file.book_id = ? AND current_file.book_id = bf.book_id
+      FROM audio_files bf
+      JOIN audio_files current_file ON current_file.id = ? AND current_file.item_id = ? AND current_file.item_id = bf.item_id
       WHERE bf.track_number < current_file.track_number
         AND bf.status = 'available'
     `).get(fileId, bookId) as { before_seconds: number } | undefined;
 
     const currentFile = db.prepare(`
       SELECT id, duration_seconds
-      FROM book_files
+      FROM audio_files
       WHERE id = ?
-        AND book_id = ?
+        AND item_id = ?
         AND status = 'available'
     `).get(fileId, bookId) as { id: string; duration_seconds: number | null } | undefined;
     if (!currentFile) {
@@ -344,7 +344,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       return;
     }
 
-    const totalDuration = (db.prepare("SELECT duration_seconds FROM book_metadata WHERE book_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
+    const totalDuration = (db.prepare("SELECT duration_seconds FROM audiobook_details WHERE item_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
 
     const absoluteSeconds = (cumulative?.before_seconds ?? 0) + positionSeconds;
     const percentComplete = totalDuration ? Math.min(absoluteSeconds / totalDuration, 1) : null;
@@ -354,8 +354,8 @@ export function registerBookRoutes(app: FastifyInstance) {
     // position 0 of that track, so it won't trip this; the 2% slack forgives credits/silence.
     const lastTrack = db.prepare(`
       SELECT id, duration_seconds
-      FROM book_files
-      WHERE book_id = ? AND status = 'available'
+      FROM audio_files
+      WHERE item_id = ? AND status = 'available'
       ORDER BY track_number DESC, relative_path COLLATE NOCASE DESC
       LIMIT 1
     `).get(bookId) as { id: string; duration_seconds: number | null } | undefined;
@@ -366,14 +366,14 @@ export function registerBookRoutes(app: FastifyInstance) {
       positionSeconds >= lastTrack.duration_seconds * 0.98;
 
     db.prepare(`
-      INSERT INTO playback_progress (id, user_id, book_id, current_file_id, position_seconds, duration_seconds, percent_complete, updated_at, completed_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-      ON CONFLICT(user_id, book_id) DO UPDATE SET
+      INSERT INTO playback_progress (id, user_id, item_id, current_file_id, position_seconds, duration_seconds, percent_complete, updated_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?)
+      ON CONFLICT(user_id, item_id) DO UPDATE SET
         current_file_id = excluded.current_file_id,
         position_seconds = excluded.position_seconds,
         duration_seconds = excluded.duration_seconds,
         percent_complete = excluded.percent_complete,
-        updated_at = CURRENT_TIMESTAMP,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
         completed_at = CASE WHEN excluded.completed_at IS NOT NULL THEN excluded.completed_at ELSE completed_at END
     `).run(
       nanoid(16),
@@ -391,21 +391,21 @@ export function registerBookRoutes(app: FastifyInstance) {
     // reached. (Linear libraries rely solely on the book-level cursor written above.)
     const settingsRow = db.prepare(`
       SELECT libraries.settings_json AS settings_json
-      FROM books
-      JOIN libraries ON libraries.id = books.library_id
-      WHERE books.id = ?
+      FROM library_items
+      JOIN libraries ON libraries.id = library_items.library_id
+      WHERE library_items.id = ?
     `).get(bookId) as { settings_json: string } | undefined;
     const isEpisodic = normalizeLibrarySettings("audiobook", settingsRow?.settings_json).progress_mode === "episodic";
     if (isEpisodic) {
       const trackDuration = currentFile.duration_seconds;
       const trackComplete = trackDuration != null && trackDuration > 0 && positionSeconds >= trackDuration * 0.98;
       db.prepare(`
-        INSERT INTO track_progress (id, user_id, book_id, file_id, position_seconds, duration_seconds, updated_at, completed_at)
-        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+        INSERT INTO track_progress (id, user_id, item_id, file_id, position_seconds, duration_seconds, updated_at, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?)
         ON CONFLICT(user_id, file_id) DO UPDATE SET
           position_seconds = excluded.position_seconds,
           duration_seconds = excluded.duration_seconds,
-          updated_at = CURRENT_TIMESTAMP,
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
           completed_at = CASE WHEN excluded.completed_at IS NOT NULL THEN excluded.completed_at ELSE track_progress.completed_at END
       `).run(
         nanoid(16),
@@ -439,38 +439,38 @@ export function registerBookRoutes(app: FastifyInstance) {
       return;
     }
 
-    const totalDuration = (db.prepare("SELECT duration_seconds FROM book_metadata WHERE book_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
+    const totalDuration = (db.prepare("SELECT duration_seconds FROM audiobook_details WHERE item_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
     db.prepare(`
-      INSERT INTO playback_progress (id, user_id, book_id, current_file_id, position_seconds, duration_seconds, percent_complete, updated_at, completed_at)
-      VALUES (?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      ON CONFLICT(user_id, book_id) DO UPDATE SET
+      INSERT INTO playback_progress (id, user_id, item_id, current_file_id, position_seconds, duration_seconds, percent_complete, updated_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      ON CONFLICT(user_id, item_id) DO UPDATE SET
         current_file_id = excluded.current_file_id,
         position_seconds = excluded.position_seconds,
         duration_seconds = excluded.duration_seconds,
         percent_complete = 1,
-        updated_at = CURRENT_TIMESTAMP,
-        completed_at = CURRENT_TIMESTAMP
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+        completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(nanoid(16), userId, bookId, file.id, file.duration_seconds ?? totalDuration ?? 0, totalDuration);
 
     // In episodic libraries "finished" means every episode is played — mark them all,
     // not just the book-level cursor. (Linear libraries have no per-track state.)
     const settingsRow = db.prepare(`
       SELECT libraries.settings_json AS settings_json
-      FROM books
-      JOIN libraries ON libraries.id = books.library_id
-      WHERE books.id = ?
+      FROM library_items
+      JOIN libraries ON libraries.id = library_items.library_id
+      WHERE library_items.id = ?
     `).get(bookId) as { settings_json: string } | undefined;
     if (normalizeLibrarySettings("audiobook", settingsRow?.settings_json).progress_mode === "episodic") {
       db.prepare(`
-        INSERT INTO track_progress (id, user_id, book_id, file_id, position_seconds, duration_seconds, updated_at, completed_at)
-        SELECT lower(hex(randomblob(8))), ?, ?, bf.id, COALESCE(bf.duration_seconds, 0), bf.duration_seconds, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-        FROM book_files bf
-        WHERE bf.book_id = ? AND bf.status = 'available'
+        INSERT INTO track_progress (id, user_id, item_id, file_id, position_seconds, duration_seconds, updated_at, completed_at)
+        SELECT lower(hex(randomblob(8))), ?, ?, bf.id, COALESCE(bf.duration_seconds, 0), bf.duration_seconds, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        FROM audio_files bf
+        WHERE bf.item_id = ? AND bf.status = 'available'
         ON CONFLICT(user_id, file_id) DO UPDATE SET
           position_seconds = excluded.position_seconds,
           duration_seconds = excluded.duration_seconds,
-          updated_at = CURRENT_TIMESTAMP,
-          completed_at = CURRENT_TIMESTAMP
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+          completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       `).run(userId, bookId, bookId);
     }
 
@@ -481,8 +481,8 @@ export function registerBookRoutes(app: FastifyInstance) {
   app.delete("/api/library/books/:id/progress", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
     const userId = request.user!.id;
-    db.prepare("DELETE FROM playback_progress WHERE book_id = ? AND user_id = ?").run(bookId, userId);
-    db.prepare("DELETE FROM track_progress WHERE book_id = ? AND user_id = ?").run(bookId, userId);
+    db.prepare("DELETE FROM playback_progress WHERE item_id = ? AND user_id = ?").run(bookId, userId);
+    db.prepare("DELETE FROM track_progress WHERE item_id = ? AND user_id = ?").run(bookId, userId);
     reply.send({ reset: true });
   });
 
@@ -495,7 +495,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     const rows = db.prepare(`
       SELECT file_id, position_seconds, completed_at
       FROM track_progress
-      WHERE user_id = ? AND book_id = ?
+      WHERE user_id = ? AND item_id = ?
     `).all(userId, bookId) as { file_id: string; position_seconds: number; completed_at: string | null }[];
     reply.send({
       tracks: rows.map((row) => ({
@@ -520,8 +520,8 @@ export function registerBookRoutes(app: FastifyInstance) {
 
     const file = db.prepare(`
       SELECT duration_seconds
-      FROM book_files
-      WHERE id = ? AND book_id = ? AND status = 'available'
+      FROM audio_files
+      WHERE id = ? AND item_id = ? AND status = 'available'
     `).get(fileId, bookId) as { duration_seconds: number | null } | undefined;
     if (!file) {
       reply.code(404).send({ error: "Audio file not found" });
@@ -530,13 +530,13 @@ export function registerBookRoutes(app: FastifyInstance) {
 
     if (parsed.data.played) {
       db.prepare(`
-        INSERT INTO track_progress (id, user_id, book_id, file_id, position_seconds, duration_seconds, updated_at, completed_at)
-        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO track_progress (id, user_id, item_id, file_id, position_seconds, duration_seconds, updated_at, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
         ON CONFLICT(user_id, file_id) DO UPDATE SET
           position_seconds = excluded.position_seconds,
           duration_seconds = excluded.duration_seconds,
-          updated_at = CURRENT_TIMESTAMP,
-          completed_at = CURRENT_TIMESTAMP
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+          completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       `).run(nanoid(16), userId, bookId, fileId, file.duration_seconds ?? 0, file.duration_seconds);
     } else {
       db.prepare("DELETE FROM track_progress WHERE user_id = ? AND file_id = ?").run(userId, fileId);

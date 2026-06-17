@@ -24,7 +24,7 @@ function seedAudiobook(libraryId: string): string {
   const categoryId = (db.prepare("SELECT id FROM categories ORDER BY sort_order LIMIT 1").get() as { id: string }).id;
   db.prepare("INSERT INTO item_categories (item_id, category_id, is_primary, source) VALUES (?, ?, 1, 'scan')").run(itemId, categoryId);
 
-  db.prepare("INSERT INTO series (id, name, sort_name) VALUES ('s1', 'My Series', 'My Series')").run();
+  db.prepare("INSERT INTO series (id, library_id, name, sort_name) VALUES ('s1', 'L', 'My Series', 'My Series')").run();
   db.prepare("INSERT INTO series_items (series_id, item_id, position, source) VALUES ('s1', ?, 2, 'scan')").run(itemId);
   return itemId;
 }
@@ -81,7 +81,7 @@ describe("queryCatalog (paged catalog on the new schema)", () => {
   it("counts each item once despite the multiplying joins (COUNT DISTINCT)", () => {
     seedAudiobook("L");
     // a second series membership would multiply the LEFT JOIN rows
-    db.prepare("INSERT INTO series (id, name, sort_name) VALUES ('s2', 'Other Series', 'Other Series')").run();
+    db.prepare("INSERT INTO series (id, library_id, name, sort_name) VALUES ('s2', 'L', 'Other Series', 'Other Series')").run();
     db.prepare("INSERT INTO series_items (series_id, item_id, position, source) VALUES ('s2', 'item-1', 1, 'scan')").run();
     const result = queryCatalog("u1", ["L"], { q: "", sort: "title", limit: 10, offset: 0, filters: emptyFilters });
     expect(result.total).toBe(1);

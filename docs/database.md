@@ -21,9 +21,10 @@ document explains the model and the conventions behind it.
 2. **Shared concerns are media-agnostic.** Categories, tags, collections,
    permissions, sharing, favorites ("My List"), and the recycle bin attach to
    items generically, so every library type gets them for free.
-3. **People and series are global.** `people` and `series` are not scoped to a
-   library, so the same author/narrator or series can appear across libraries
-   and media types. Links go through `item_people` and `series_items`.
+3. **People are global; series are per-library.** `people` is not scoped to a
+   library, so the same author/narrator can appear across libraries; a book
+   `series` belongs to one library. Item links go through `item_people` and
+   `series_items`.
 4. **One permission model.** All access resolves through `assignments`
    (see [`permissions.md`](permissions.md)) — `object_type` is `'library'`,
    `'library_item'`, `'collection'`, … Public = the Everyone group's row;
@@ -69,7 +70,7 @@ libraries
                        ├── audiobook_details     (1:1)   ┐ exactly one
                        ├── ebook_details         (1:1)   ┘ per item type
                        ├── item_people ───── people       (global)
-                       ├── series_items ──── series       (global)
+                       ├── series_items ──── series       (per-library)
                        ├── item_categories ─ categories ── category_aliases
                        ├── taggables ─────── tags          (polymorphic)
                        ├── collection_items ─ collections  (polymorphic)
@@ -99,7 +100,7 @@ Table/column map for anyone porting old queries:
 | `book_metadata.category_id` | `item_categories` (M2M, `is_primary`, `source`) |
 | `authors` (library-scoped) | `people` (global) |
 | `book_authors` | `item_people` |
-| `series` (library-scoped), `books.series_id/series_position` | `series` (global) + `series_items` |
+| `series` (library-scoped), `books.series_id/series_position` | `series` (library-scoped) + `series_items` |
 | `book_files` | `audio_files` (`chapter_title` → `title`) |
 | `book_chapters` (`book_file_id`) | `audio_chapters` (`audio_file_id`) |
 | `book_documents` | `document_files` (+ `role` content/companion) |

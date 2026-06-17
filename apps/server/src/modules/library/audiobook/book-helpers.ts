@@ -99,10 +99,9 @@ function replaceBookPeople(bookId: string, libraryId: string, role: "author" | "
 }
 
 export function upsertSeries(libraryId: string, name: string) {
-  void libraryId;
-  db.prepare("INSERT OR IGNORE INTO series (id, name, sort_name) VALUES (?, ?, ?)")
-    .run(nanoid(16), name, sortTitle(name));
-  return db.prepare("SELECT id FROM series WHERE name = ?").get(name) as { id: string };
+  db.prepare("INSERT OR IGNORE INTO series (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
+    .run(nanoid(16), libraryId, name, sortTitle(name));
+  return db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(libraryId, name) as { id: string };
 }
 
 export interface CategoryRow {
