@@ -490,6 +490,11 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  /* Always separate the action row from the body above it. Forms that end in a
+     field (no trailing margin) would otherwise let the buttons hug the input;
+     where the body already ends in a <p> (e.g. ConfirmDialog) this collapses
+     against its 24px bottom margin, so the gap stays a consistent 24px. */
+  margin-top: 24px;
 }
 
 /* Rescan holds the full scan-sources editor (rows with descriptions + reorder

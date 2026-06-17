@@ -5,18 +5,7 @@ import archiver from "archiver";
 import { db } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "../shared/library-access.js";
-
-function parseRangeHeader(header: string, totalSize: number) {
-  const match = header.match(/^bytes=(\d*)-(\d*)$/);
-  if (!match) return null;
-
-  const start = match[1] ? parseInt(match[1], 10) : 0;
-  const end = match[2] ? parseInt(match[2], 10) : totalSize - 1;
-
-  if (isNaN(start) || isNaN(end) || start > end || end >= totalSize) return null;
-
-  return { start, end, size: end - start + 1 };
-}
+import { parseRangeHeader, streamDocumentFile } from "../shared/document-stream.js";
 
 export async function audiobookStreamPlugin(app: FastifyInstance) {
   app.get("/api/library/books/:id/stream/:fileId", { preHandler: app.authenticate }, (request, reply) => {
@@ -164,81 +153,11 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
   });
 
   // Serve a companion document (PDF/EPUB) for inline viewing or download. Range
-  // support lets the browser's PDF viewer fetch pages on demand.
+  // support lets the browser's PDF viewer fetch pages on demand. The streaming +
+  // access logic is shared with the OPDS acquisition route (document-stream.ts).
   app.get("/api/library/books/:id/documents/:docId", { preHandler: app.authenticate }, (request, reply) => {
     const { id, docId } = request.params as { id: string; docId: string };
-
-    const row = db.prepare(`
-      SELECT
-        document_files.relative_path,
-        document_files.mime_type,
-        document_files.status,
-        libraries.source_path,
-        libraries.id AS id
-      FROM document_files
-      JOIN library_items ON library_items.id = document_files.item_id
-      JOIN libraries ON libraries.id = library_items.library_id
-      WHERE document_files.id = ?
-        AND document_files.item_id = ?
-        AND library_items.deleted_at IS NULL
-    `).get(docId, id) as {
-      relative_path: string;
-      mime_type: string | null;
-      status: string;
-      source_path: string;
-      id: string;
-    } | undefined;
-
-    if (!row || row.status !== "available") {
-      reply.code(404).send({ error: "Document not found" });
-      return;
-    }
-
-    const user = request.user!;
-    if (!canUserAccessBook(id, row, user.id, user.role)) {
-      reply.code(404).send({ error: "Document not found" });
-      return;
-    }
-
     const wantsDownload = (request.query as { download?: string }).download != null;
-    if (wantsDownload && !canUserDownloadBook(id, row, user.id, user.role)) {
-      reply.code(403).send({ error: "You don't have permission to download from this library." });
-      return;
-    }
-
-    const filePath = path.join(row.source_path, ...row.relative_path.split("/"));
-    if (!pathIsInside(filePath, row.source_path) || !fs.existsSync(filePath)) {
-      reply.code(404).send({ error: "Document not found" });
-      return;
-    }
-
-    const stat = fs.statSync(filePath);
-    const totalSize = stat.size;
-    const mimeType = row.mime_type ?? "application/octet-stream";
-    const fileName = row.relative_path.split("/").pop() ?? "document";
-    const asciiName = fileName.replace(/[^\x20-\x7E]/g, "_");
-    const disposition = wantsDownload ? "attachment" : "inline";
-    const rangeHeader = request.headers["range"];
-    const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
-
-    if (rangeHeader && !range) {
-      reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
-      return;
-    }
-
-    reply.hijack();
-    const baseHeaders = {
-      "Content-Type": mimeType,
-      "Content-Disposition": `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
-      "Accept-Ranges": "bytes",
-      "Cache-Control": "private, no-cache"
-    };
-    if (range) {
-      reply.raw.writeHead(206, { ...baseHeaders, "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`, "Content-Length": range.size });
-      fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(reply.raw);
-    } else {
-      reply.raw.writeHead(200, { ...baseHeaders, "Content-Length": totalSize });
-      fs.createReadStream(filePath).pipe(reply.raw);
-    }
+    streamDocumentFile(request, reply, { itemId: id, docId, user: request.user!, download: wantsDownload });
   });
 }

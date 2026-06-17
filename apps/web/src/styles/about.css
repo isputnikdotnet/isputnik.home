@@ -250,3 +250,115 @@
   scroll-margin-top: 32px;
 }
 
+/* ── Reader access (OPDS) ───────────────────────────────────────── */
+
+.opds-access {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.opds-access h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.opds-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.opds-actions {
+  display: flex;
+}
+
+/* Comfortably fit the long catalog URL / QR inside the card modal. The doubled
+   class beats the bare `.confirm-modal` width (same specificity, later file). */
+.confirm-modal.opds-token-modal {
+  width: min(92vw, 520px);
+}
+
+.opds-created {
+  display: grid;
+  gap: 14px;
+}
+
+/* Grid items default to min-width:auto, so a long unbreakable URL would stretch
+   the whole grid (and every sibling) past the card. Let them shrink instead. */
+.opds-created > * {
+  min-width: 0;
+}
+
+.opds-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.opds-copy-label {
+  flex: 0 0 110px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.opds-copy-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-all;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg, var(--surface));
+  font-size: 0.85rem;
+}
+
+.opds-qr {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.opds-qr svg {
+  border-radius: 6px;
+  padding: 8px;
+  background: #ffffff;
+}
+
+.opds-basic summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.opds-basic[open] {
+  display: grid;
+  gap: 10px;
+}
+
+.opds-token-list {
+  display: grid;
+  gap: 8px;
+}
+
+.opds-token-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.opds-token-meta {
+  display: grid;
+  min-width: 0;
+}
+

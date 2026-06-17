@@ -6,6 +6,7 @@ import { LibraryNavTabs } from "../features/audiobooks/LibraryNavTabs";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
 import { InstallCard } from "../pwa/InstallCard";
+import { OpdsAccessSection } from "../features/profile/OpdsAccessSection";
 
 export function ProfilePage({
   user,
@@ -59,6 +60,8 @@ export function ProfilePage({
             {status === "saving" ? "Saving..." : "Save changes"}
           </button>
         </form>
+
+        <OpdsAccessSection />
 
         <InstallCard
           title="Install the mobile app"

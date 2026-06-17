@@ -337,6 +337,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.1.0",
+          label: "Read on any device (OPDS)",
+          changes: [
+            "Your ebook library is now available over OPDS — the open catalog standard that reader apps speak — so you can browse and download your books in apps like KOReader, Moon+ Reader, Librera, and Thorium, including on e-ink devices such as Kobo and Kindle that the in-app reader can't reach.",
+            "Set it up under Profile → Reader access (OPDS): create a token for each device, then paste its catalog link into the reader, or scan the QR code on a phone. If your reader asks for a username and password instead, the same token works as the HTTP Basic password.",
+            "Each token is read-only and only ever sees the libraries you can already access — it is never your account password, and you can remove a device's token at any time without affecting your other devices.",
+            "Browse the catalog by recently added, all books, author, category, or language, search the whole library, and download a book straight into your reader."
+          ]
+        },
+        {
           version: "1.0.1",
           label: "Security hardening",
           changes: [

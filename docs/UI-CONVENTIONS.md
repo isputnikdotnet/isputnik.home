@@ -103,6 +103,17 @@ dialog as a `<form>`), `icon` (optional title icon), `className` (appended), `su
 </Modal>
 ```
 
+**Every form/dialog ends in a `modal-actions` row** — that's the single place the
+action buttons live, and it carries its own top spacing (`margin-top: 24px` in
+`components.css`), so the buttons are always separated from the fields above. Do
+not add ad-hoc spacing before the actions, and do not place buttons outside this
+row.
+
+Inside a `card` modal the body sets the width — give long, unbreakable strings
+(URLs, tokens, IDs) `min-width: 0` plus `word-break`/`overflow` so they wrap or
+scroll **within** the card. A grid/flex child at its default `min-width: auto`
+will otherwise stretch the whole dialog past its edge.
+
 ### ConfirmDialog — `shared/ConfirmDialog.tsx`
 
 The only way to ask "are you sure?". Built on Modal.
