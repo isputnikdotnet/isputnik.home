@@ -37,23 +37,23 @@ function audiobookLibraryStats() {
   const libraries = db.prepare(`
     WITH file_totals AS (
       SELECT
-        book_id,
+        item_id,
         SUM(COALESCE(size, 0)) AS size_bytes,
         SUM(COALESCE(duration_seconds, 0)) AS duration_seconds
-      FROM book_files
+      FROM audio_files
       WHERE deleted_at IS NULL AND status = 'available'
-      GROUP BY book_id
+      GROUP BY item_id
     ),
     book_totals AS (
       SELECT
-        books.id,
-        books.library_id,
-        COALESCE(book_metadata.duration_seconds, file_totals.duration_seconds, 0) AS duration_seconds,
+        library_items.id,
+        library_items.library_id,
+        COALESCE(audiobook_details.duration_seconds, file_totals.duration_seconds, 0) AS duration_seconds,
         COALESCE(file_totals.size_bytes, 0) AS size_bytes
-      FROM books
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN file_totals ON file_totals.book_id = books.id
-      WHERE books.deleted_at IS NULL
+      FROM library_items
+      LEFT JOIN audiobook_details ON audiobook_details.item_id = library_items.id
+      LEFT JOIN file_totals ON file_totals.item_id = library_items.id
+      WHERE library_items.deleted_at IS NULL
     )
     SELECT
       libraries.id,
@@ -71,31 +71,31 @@ function audiobookLibraryStats() {
   const peopleByRole = (role: "author" | "narrator") => db.prepare(`
     WITH file_totals AS (
       SELECT
-        book_id,
+        item_id,
         SUM(COALESCE(duration_seconds, 0)) AS duration_seconds
-      FROM book_files
+      FROM audio_files
       WHERE deleted_at IS NULL AND status = 'available'
-      GROUP BY book_id
+      GROUP BY item_id
     ),
     book_totals AS (
       SELECT
-        books.id,
-        COALESCE(book_metadata.duration_seconds, file_totals.duration_seconds, 0) AS duration_seconds
-      FROM books
-      JOIN libraries ON libraries.id = books.library_id AND libraries.type = 'audiobook'
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN file_totals ON file_totals.book_id = books.id
-      WHERE books.deleted_at IS NULL
+        library_items.id,
+        COALESCE(audiobook_details.duration_seconds, file_totals.duration_seconds, 0) AS duration_seconds
+      FROM library_items
+      JOIN libraries ON libraries.id = library_items.library_id AND libraries.type = 'audiobook'
+      LEFT JOIN audiobook_details ON audiobook_details.item_id = library_items.id
+      LEFT JOIN file_totals ON file_totals.item_id = library_items.id
+      WHERE library_items.deleted_at IS NULL
     )
     SELECT
-      MIN(authors.name) AS name,
+      MIN(people.name) AS name,
       COUNT(DISTINCT book_totals.id) AS book_count,
       COALESCE(SUM(book_totals.duration_seconds), 0) AS total_duration_seconds
-    FROM book_authors
-    JOIN authors ON authors.id = book_authors.author_id
-    JOIN book_totals ON book_totals.id = book_authors.book_id
-    WHERE book_authors.role = ?
-    GROUP BY lower(authors.name)
+    FROM item_people
+    JOIN people ON people.id = item_people.person_id
+    JOIN book_totals ON book_totals.id = item_people.item_id
+    WHERE item_people.role = ?
+    GROUP BY lower(people.name)
     ORDER BY book_count DESC, total_duration_seconds DESC, name COLLATE NOCASE
     LIMIT 10
   `).all(role) as PersonStatsRow[];
@@ -103,24 +103,25 @@ function audiobookLibraryStats() {
   const longestBooks = db.prepare(`
     WITH file_totals AS (
       SELECT
-        book_id,
+        item_id,
         SUM(COALESCE(size, 0)) AS size_bytes,
         SUM(COALESCE(duration_seconds, 0)) AS duration_seconds
-      FROM book_files
+      FROM audio_files
       WHERE deleted_at IS NULL AND status = 'available'
-      GROUP BY book_id
+      GROUP BY item_id
     ),
     book_totals AS (
       SELECT
-        books.id,
-        books.library_id,
-        COALESCE(NULLIF(book_metadata.title, ''), books.folder_path) AS title,
-        COALESCE(book_metadata.duration_seconds, file_totals.duration_seconds, 0) AS duration_seconds,
+        library_items.id,
+        library_items.library_id,
+        COALESCE(NULLIF(item_metadata.title, ''), library_items.folder_path) AS title,
+        COALESCE(audiobook_details.duration_seconds, file_totals.duration_seconds, 0) AS duration_seconds,
         COALESCE(file_totals.size_bytes, 0) AS size_bytes
-      FROM books
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN file_totals ON file_totals.book_id = books.id
-      WHERE books.deleted_at IS NULL
+      FROM library_items
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      LEFT JOIN audiobook_details ON audiobook_details.item_id = library_items.id
+      LEFT JOIN file_totals ON file_totals.item_id = library_items.id
+      WHERE library_items.deleted_at IS NULL
     )
     SELECT
       book_totals.id,
@@ -129,11 +130,11 @@ function audiobookLibraryStats() {
       COALESCE((
         SELECT GROUP_CONCAT(name, ', ')
         FROM (
-          SELECT authors.name
-          FROM book_authors
-          JOIN authors ON authors.id = book_authors.author_id
-          WHERE book_authors.book_id = book_totals.id AND book_authors.role = 'author'
-          ORDER BY book_authors.sort_order, authors.name COLLATE NOCASE
+          SELECT people.name
+          FROM item_people
+          JOIN people ON people.id = item_people.person_id
+          WHERE item_people.item_id = book_totals.id AND item_people.role = 'author'
+          ORDER BY item_people.sort_order, people.name COLLATE NOCASE
         )
       ), '') AS author_names,
       book_totals.size_bytes AS total_size_bytes,
@@ -194,7 +195,7 @@ export async function statusPlugin(app: FastifyInstance) {
     `).get() as { count: number };
     const events = db.prepare("SELECT COUNT(*) AS count FROM activity_logs").get() as { count: number };
     const audiobookLibraries = db.prepare("SELECT COUNT(*) AS count FROM libraries WHERE type = 'audiobook'").get() as { count: number };
-    const audiobookBooks = db.prepare("SELECT COUNT(*) AS count FROM books WHERE deleted_at IS NULL").get() as { count: number };
+    const audiobookBooks = db.prepare("SELECT COUNT(*) AS count FROM library_items WHERE deleted_at IS NULL").get() as { count: number };
     const libraryStats = audiobookLibraryStats();
 
     return {

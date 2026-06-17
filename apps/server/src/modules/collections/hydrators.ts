@@ -66,23 +66,24 @@ function makeBookHydrator(config: BookHydratorConfig): Hydrator {
     const placeholders = entityIds.map(() => "?").join(", ");
     const rows = db.prepare(`
       SELECT
-        books.id,
-        books.folder_path,
-        books.library_id,
-        book_metadata.title,
+        library_items.id,
+        library_items.folder_path,
+        library_items.library_id,
+        item_metadata.title,
         ${config.durationSql} AS duration_seconds,
-        book_metadata.cover_storage_key,
+        item_metadata.cover_storage_key,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
         (${config.fileCountSql}) AS file_count
-      FROM books
-      JOIN libraries ON libraries.id = books.library_id
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-      LEFT JOIN authors ON authors.id = book_authors.author_id
-      WHERE books.id IN (${placeholders})
-        AND books.deleted_at IS NULL
+      FROM library_items
+      JOIN libraries ON libraries.id = library_items.library_id
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      LEFT JOIN audiobook_details ON audiobook_details.item_id = library_items.id
+      LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+      LEFT JOIN people AS authors ON authors.id = item_people.person_id
+      WHERE library_items.id IN (${placeholders})
+        AND library_items.deleted_at IS NULL
         AND libraries.type = ?
-      GROUP BY books.id
+      GROUP BY library_items.id
     `).all(...entityIds, config.libraryType) as BookRow[];
 
     for (const row of rows) {
@@ -107,8 +108,8 @@ function makeBookHydrator(config: BookHydratorConfig): Hydrator {
 
 const hydrateAudiobooks = makeBookHydrator({
   libraryType: "audiobook",
-  durationSql: "book_metadata.duration_seconds",
-  fileCountSql: "SELECT COUNT(*) FROM book_files WHERE book_files.book_id = books.id AND book_files.status = 'available'",
+  durationSql: "audiobook_details.duration_seconds",
+  fileCountSql: "SELECT COUNT(*) FROM audio_files WHERE audio_files.item_id = library_items.id AND audio_files.status = 'available'",
   hrefBase: "/audiobooks/books",
   playable: true
 });
@@ -118,7 +119,7 @@ const hydrateAudiobooks = makeBookHydrator({
 const hydrateEbooks = makeBookHydrator({
   libraryType: "ebook",
   durationSql: "NULL",
-  fileCountSql: "SELECT COUNT(*) FROM book_documents WHERE book_documents.book_id = books.id AND book_documents.status = 'available'",
+  fileCountSql: "SELECT COUNT(*) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available'",
   hrefBase: "/ebooks/books",
   playable: false
 });
