@@ -61,7 +61,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
       return;
     }
 
-    db.prepare("UPDATE sessions SET last_seen = CURRENT_TIMESTAMP WHERE token_hash = ?").run(tokenHash);
+    db.prepare("UPDATE sessions SET last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE token_hash = ?").run(tokenHash);
     request.user = row;
   });
 
