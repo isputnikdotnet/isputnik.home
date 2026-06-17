@@ -1,169 +1,134 @@
 import { useEffect, useState } from "react";
-import { BookOpen, ChevronRight, Headphones, Heart, Play } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { api, type PublicUser } from "../api";
+import { BookOpen, Headphones, Play } from "lucide-react";
+import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { followRoute } from "../router";
+import { followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
-import { fetchFeed, type FeedItem, type FeedMode } from "../features/library/feed";
-import { FeedTile, FeedTileSkeleton } from "../features/library/FeedTile";
+import { useOnlineStatus } from "../pwa/useOnlineStatus";
+import { authorLine, feedHref, fetchFeed, type FeedItem } from "../features/library/feed";
 
-// Upper bound fetched per row. Each row renders one line of fixed-size tiles and
-// clips whatever doesn't fit (no horizontal scroll, no wrap) — so we fetch enough
-// to fill a wide screen and let CSS decide how many actually show.
-const FETCH = 16;
-
-type Tone = "violet" | "green" | "blue" | "rose";
-
-interface LibraryCountRow {
-  bookCount: number;
-}
-
-interface StatCard {
-  label: string;
-  value: number;
-  tone: Tone;
-  icon: LucideIcon;
-  href: string;
-}
-
-const count = (value: number) => new Intl.NumberFormat().format(value);
-
-function RowHeader({ id, title, href }: { id: string; title: string; href: string }) {
+function HomeHeader() {
+  const online = useOnlineStatus();
   return (
-    <div className="home-section-title">
-      <h2 id={id}>{title}</h2>
-      <a href={href} onClick={(event) => followRoute(event, href)}>
-        <span>View all</span>
-        <ChevronRight size={18} aria-hidden="true" />
-      </a>
+    <div className="home-brand-header">
+      <img
+        src="/Assets/brand/isputnik-brand-icon.svg"
+        alt=""
+        className="home-brand-icon"
+        aria-hidden="true"
+      />
+      <div className="home-brand-text">
+        <strong className="home-brand-name">iSputnik</strong>
+        <span className="home-brand-url">{window.location.origin}</span>
+      </div>
+      <span
+        className={`home-brand-status${online ? " is-online" : " is-offline"}`}
+        role="status"
+        aria-label={online ? "Online" : "Offline"}
+      >
+        <span className="home-brand-status-dot" aria-hidden="true" />
+        {online ? "Online" : "Offline"}
+      </span>
     </div>
   );
 }
 
-function FeedRow({ id, title, href, mode, items, emptyText }: {
-  id: string;
-  title: string;
-  href: string;
-  mode: FeedMode;
-  items: FeedItem[] | null;
-  emptyText: string;
-}) {
+function InProgressRow({ item }: { item: FeedItem }) {
+  const href = feedHref(item);
+  const percent = Math.round((item.percentComplete ?? 0) * 100);
+  const isAudiobook = item.kind === "audiobook";
+
   return (
-    <section className="home-section" aria-labelledby={id}>
-      <RowHeader id={id} title={title} href={href} />
-      {items !== null && items.length === 0 ? (
-        <p className="home-row-empty">{emptyText}</p>
-      ) : (
-        <div className="home-tile-grid">
-          {items === null
-            ? Array.from({ length: 10 }).map((_, index) => <FeedTileSkeleton key={index} />)
-            : items.map((item) => (
-              <FeedTile key={`${item.kind}-${item.id}`} item={item} progress={mode === "continue"} added={mode === "recent"} />
-            ))}
+    <div className="inprogress-row" role="listitem">
+      <a className="inprogress-main" href={href} onClick={(e) => followRoute(e, href)}>
+        <div className="inprogress-cover">
+          {item.coverUrl
+            ? <img src={item.coverUrl} alt="" loading="lazy" />
+            : isAudiobook
+              ? <Headphones size={18} aria-hidden="true" />
+              : <BookOpen size={18} aria-hidden="true" />
+          }
         </div>
-      )}
-    </section>
+        <div className="inprogress-info">
+          <strong>{item.title}</strong>
+          <small>{authorLine(item)}</small>
+          {percent > 0 && (
+            <span className="inprogress-bar" aria-label={`${percent}% complete`}>
+              <span style={{ width: `${percent}%` }} />
+            </span>
+          )}
+        </div>
+      </a>
+      <button
+        type="button"
+        className="inprogress-play"
+        onClick={() => navigate(isAudiobook ? `/player/${item.id}` : href)}
+        aria-label={`Play ${item.title}`}
+      >
+        <Play size={13} fill="currentColor" aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 
-function StatTile({ card }: { card: StatCard }) {
-  const Icon = card.icon;
+function InProgressRowSkeleton() {
   return (
-    <a className="home-overview-card" href={card.href} onClick={(event) => followRoute(event, card.href)}>
-      <span className={`home-overview-icon ${card.tone}`} aria-hidden="true">
-        <Icon size={22} />
-      </span>
-      <span>
-        <strong>{count(card.value)}</strong>
-        <small>{card.label}</small>
-      </span>
-    </a>
+    <div className="inprogress-row is-skeleton" aria-hidden="true">
+      <div className="inprogress-main">
+        <div className="inprogress-cover" />
+        <div className="inprogress-info">
+          <div className="home-skeleton-line" style={{ width: "65%" }} />
+          <div className="home-skeleton-line" style={{ width: "42%", marginTop: "5px" }} />
+          <div className="inprogress-bar" style={{ marginTop: "8px" }}>
+            <span style={{ width: "30%" }} />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
-  const [continueItems, setContinueItems] = useState<FeedItem[] | null>(null);
-  const [recentItems, setRecentItems] = useState<FeedItem[] | null>(null);
-  const [stats, setStats] = useState({ audiobooks: 0, ebooks: 0, inProgress: 0, favorites: 0 });
+  const [items, setItems] = useState<FeedItem[] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let alive = true;
-
-    Promise.allSettled([
-      fetchFeed("continue", FETCH),
-      fetchFeed("recent", FETCH),
-      api<{ libraries: LibraryCountRow[] }>("/api/library/audiobook-libraries"),
-      api<{ libraries: LibraryCountRow[] }>("/api/library/ebook-libraries"),
-      api<{ books: unknown[] }>("/api/library/saved")
-    ]).then(([cont, recent, audioLibs, ebookLibs, saved]) => {
+    fetchFeed("continue", 10).then((feed) => {
       if (!alive) return;
-
-      if (cont.status === "fulfilled") {
-        setContinueItems(cont.value.items);
-        setStats((prev) => ({ ...prev, inProgress: cont.value.total }));
-      } else {
-        setContinueItems([]);
-      }
-
-      if (recent.status === "fulfilled") {
-        setRecentItems(recent.value.items);
-      } else {
-        setRecentItems([]);
-        setError(recent.reason instanceof Error ? recent.reason.message : "Unable to load your library");
-      }
-
-      const sumBooks = (libs: LibraryCountRow[]) => libs.reduce((total, library) => total + (library.bookCount ?? 0), 0);
-      if (audioLibs.status === "fulfilled") setStats((prev) => ({ ...prev, audiobooks: sumBooks(audioLibs.value.libraries) }));
-      if (ebookLibs.status === "fulfilled") setStats((prev) => ({ ...prev, ebooks: sumBooks(ebookLibs.value.libraries) }));
-      if (saved.status === "fulfilled") setStats((prev) => ({ ...prev, favorites: saved.value.books.length }));
+      setItems(feed.items);
+    }).catch(() => {
+      if (!alive) return;
+      setItems([]);
+      setError("Unable to load your library");
     });
-
     return () => { alive = false; };
   }, []);
 
-  const statCards: StatCard[] = [
-    { label: "Audiobooks", value: stats.audiobooks, tone: "violet", icon: Headphones, href: "/audiobooks" },
-    { label: "Ebooks", value: stats.ebooks, tone: "green", icon: BookOpen, href: "/ebooks" },
-    { label: "In progress", value: stats.inProgress, tone: "blue", icon: Play, href: "/continue" },
-    { label: "Favorites", value: stats.favorites, tone: "rose", icon: Heart, href: "/favorites" }
-  ];
-
   return (
     <DashboardShell active="home" user={user} logout={logout}>
-      <section className="home-page" aria-label="Home">
-        <header className="home-header">
-          <div className="home-heading">
-            <h1>Welcome back, {user.displayName}</h1>
-            <p>Here's what's happening in your library</p>
+      <section className="home-page" aria-label="In progress">
+        <HomeHeader />
+        {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}
+
+        {items === null || items.length > 0 ? (
+          <>
+            <h2 className="inprogress-heading">Continue listening</h2>
+            <div className="inprogress-list" role={items !== null ? "list" : undefined}>
+              {items === null
+                ? Array.from({ length: 6 }).map((_, i) => <InProgressRowSkeleton key={i} />)
+                : items.map((item) => (
+                    <InProgressRow key={`${item.kind}-${item.id}`} item={item} />
+                  ))
+              }
+            </div>
+          </>
+        ) : (
+          <div className="inprogress-empty">
+            <Headphones size={48} aria-hidden="true" />
+            <p>Nothing in progress yet — open a book to start.</p>
           </div>
-        </header>
-
-        {error && <MessageBox tone="error" title="Unable to load home">{error}</MessageBox>}
-
-        <div className="home-stats" aria-label="Library overview">
-          {statCards.map((card) => <StatTile card={card} key={card.label} />)}
-        </div>
-
-        <div className="home-content">
-          <FeedRow
-            id="home-continue-title"
-            title="Continue listening & reading"
-            href="/continue"
-            mode="continue"
-            items={continueItems}
-            emptyText="Nothing in progress yet — open a book to start."
-          />
-          <FeedRow
-            id="home-recent-title"
-            title="Recently added"
-            href="/recent"
-            mode="recent"
-            items={recentItems}
-            emptyText="No books yet. Newly added audiobooks and ebooks show up here."
-          />
-        </div>
+        )}
       </section>
     </DashboardShell>
   );
