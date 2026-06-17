@@ -62,34 +62,34 @@ export function registerBookmarkRoutes(app: FastifyInstance) {
 
     const listenRows = db.prepare(`
       SELECT
-        bm.id, bm.book_id, bm.file_id, bm.position_seconds, bm.book_position_seconds,
+        bm.id, bm.item_id AS book_id, bm.file_id, bm.position_seconds, bm.item_position_seconds AS book_position_seconds,
         bm.label, bm.note, bm.created_at, bm.updated_at,
-        books.library_id, books.folder_path, libraries.type AS library_type,
-        book_metadata.title, book_metadata.cover_storage_key,
+        library_items.library_id, library_items.folder_path, libraries.type AS library_type,
+        item_metadata.title, item_metadata.cover_storage_key,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names
-      FROM book_bookmarks bm
-      JOIN books ON books.id = bm.book_id AND books.deleted_at IS NULL
-      JOIN libraries ON libraries.id = books.library_id
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-      LEFT JOIN authors ON authors.id = book_authors.author_id
+      FROM audio_bookmarks bm
+      JOIN library_items ON library_items.id = bm.item_id AND library_items.deleted_at IS NULL
+      JOIN libraries ON libraries.id = library_items.library_id
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+      LEFT JOIN people AS authors ON authors.id = item_people.person_id
       WHERE bm.user_id = ?
       GROUP BY bm.id
     `).all(user.id) as ListenRow[];
 
     const readRows = db.prepare(`
       SELECT
-        eb.id, eb.book_id, eb.percent_complete,
+        eb.id, eb.item_id AS book_id, eb.percent_complete,
         eb.label, eb.note, eb.created_at, eb.updated_at,
-        books.library_id, books.folder_path, libraries.type AS library_type,
-        book_metadata.title, book_metadata.cover_storage_key,
+        library_items.library_id, library_items.folder_path, libraries.type AS library_type,
+        item_metadata.title, item_metadata.cover_storage_key,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names
-      FROM ebook_bookmarks eb
-      JOIN books ON books.id = eb.book_id AND books.deleted_at IS NULL
-      JOIN libraries ON libraries.id = books.library_id
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-      LEFT JOIN authors ON authors.id = book_authors.author_id
+      FROM reading_bookmarks eb
+      JOIN library_items ON library_items.id = eb.item_id AND library_items.deleted_at IS NULL
+      JOIN libraries ON libraries.id = library_items.library_id
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+      LEFT JOIN people AS authors ON authors.id = item_people.person_id
       WHERE eb.user_id = ?
       GROUP BY eb.id
     `).all(user.id) as ReadRow[];

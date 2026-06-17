@@ -22,8 +22,8 @@ export function registerTagRoutes(app: FastifyInstance) {
       SELECT tags.display_name AS name, COUNT(*) AS count
       FROM taggables
       JOIN tags ON tags.id = taggables.tag_id
-      JOIN books ON books.id = taggables.entity_id AND taggables.entity_type = 'book'
-      WHERE books.deleted_at IS NULL AND books.library_id IN (${placeholders(libIds.length)})
+      JOIN library_items ON library_items.id = taggables.entity_id AND taggables.entity_type = 'library_item'
+      WHERE library_items.deleted_at IS NULL AND library_items.library_id IN (${placeholders(libIds.length)})
       GROUP BY tags.id
       ORDER BY count DESC, name COLLATE NOCASE
     `).all(...libIds) as { name: string; count: number }[];
@@ -46,7 +46,7 @@ export function registerTagRoutes(app: FastifyInstance) {
     const books = crossTypeBooksByFilter(
       user.id,
       bookLibraryIds(user),
-      "EXISTS (SELECT 1 FROM taggables WHERE taggables.entity_id = books.id AND taggables.entity_type = 'book' AND taggables.tag_id = ?)",
+      "EXISTS (SELECT 1 FROM taggables WHERE taggables.entity_id = library_items.id AND taggables.entity_type = 'library_item' AND taggables.tag_id = ?)",
       [tag.id]
     );
 
