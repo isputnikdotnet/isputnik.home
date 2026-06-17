@@ -337,6 +337,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.0.1",
+          label: "Security hardening",
+          changes: [
+            "Rate limits applied to the two public invite endpoints (the link preview and the account-creation form) to prevent scripted abuse."
+          ]
+        },
+        {
           version: "1.0.0",
           label: "Rebuilt library foundation",
           changes: [
