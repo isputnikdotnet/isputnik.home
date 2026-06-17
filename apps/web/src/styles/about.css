@@ -250,6 +250,63 @@
   scroll-margin-top: 32px;
 }
 
+/* ── Password ───────────────────────────────────────────────────── */
+
+.password-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.password-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.password-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.password-actions {
+  display: flex;
+}
+
+/* Stack the password fields with the same gap as the other form modals. */
+.password-form-modal {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 460px);
+}
+
+/* ── Appearance (theme) ─────────────────────────────────────────── */
+
+.appearance-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.appearance-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.appearance-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 /* ── Reader access (OPDS) ───────────────────────────────────────── */
 
 .opds-access {

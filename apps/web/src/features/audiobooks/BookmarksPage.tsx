@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
-import { Bookmark, BookOpen, Headphones, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Bookmark, BookOpen, ChevronDown, Headphones, Play, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { LibraryNavTabs } from "./LibraryNavTabs";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
-import { formatDuration } from "../../shared/utils";
+import { formatDuration, relativeTime } from "../../shared/utils";
 import type { SavedBookmark } from "./types";
 
 function percentLabel(value: number | null): number {
@@ -22,6 +22,8 @@ function detailHref(bookmark: SavedBookmark): string {
   return `${base}/books/${bookmark.bookId}`;
 }
 
+// Real stored position — a listen timestamp or a read percentage. (We don't store
+// page numbers, so the progress position stands in for "where in the book".)
 function positionLabel(bookmark: SavedBookmark): string {
   if (bookmark.kind === "listen") {
     return `At ${formatDuration(bookmark.bookPositionSeconds ?? bookmark.positionSeconds)}`;
@@ -35,6 +37,54 @@ function removeEndpoint(bookmark: SavedBookmark): string {
     : `/api/library/books/${bookmark.bookId}/bookmarks/${bookmark.id}`;
 }
 
+interface BookmarkGroup {
+  bookId: string;
+  bookTitle: string;
+  bookAuthors: string[];
+  coverUrl: string | null;
+  libraryType: SavedBookmark["libraryType"];
+  items: SavedBookmark[];
+}
+
+// Group bookmarks under their book, newest bookmark first within a group, and
+// groups ordered by their most recent bookmark.
+function groupByBook(bookmarks: SavedBookmark[]): BookmarkGroup[] {
+  const map = new Map<string, BookmarkGroup>();
+  for (const bookmark of bookmarks) {
+    const group = map.get(bookmark.bookId);
+    if (group) {
+      group.items.push(bookmark);
+    } else {
+      map.set(bookmark.bookId, {
+        bookId: bookmark.bookId,
+        bookTitle: bookmark.bookTitle,
+        bookAuthors: bookmark.bookAuthors,
+        coverUrl: bookmark.coverUrl,
+        libraryType: bookmark.libraryType,
+        items: [bookmark]
+      });
+    }
+  }
+  const groups = [...map.values()];
+  for (const group of groups) {
+    group.items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  groups.sort((a, b) => b.items[0].createdAt.localeCompare(a.items[0].createdAt));
+  return groups;
+}
+
+function Cover({ url, title, libraryType }: { url: string | null; title: string; libraryType: SavedBookmark["libraryType"] }) {
+  const FallbackIcon = libraryType === "ebook" ? BookOpen : Headphones;
+  return url ? (
+    <img src={url} alt="" />
+  ) : (
+    <>
+      <FallbackIcon size={16} />
+      <strong>{title.slice(0, 2).toUpperCase()}</strong>
+    </>
+  );
+}
+
 export function BookmarksPage({
   user,
   logout
@@ -45,12 +95,36 @@ export function BookmarksPage({
   const [bookmarks, setBookmarks] = useState<SavedBookmark[] | null>(null);
   const [error, setError] = useState("");
   const [removingIds, setRemovingIds] = useState<string[]>([]);
+  // Groups start collapsed; the reader expands only the books they want.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     api<{ bookmarks: SavedBookmark[] }>("/api/library/bookmarks")
       .then((payload) => setBookmarks(payload.bookmarks))
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load your bookmarks"));
   }, []);
+
+  const groups = useMemo(() => groupByBook(bookmarks ?? []), [bookmarks]);
+  const total = bookmarks?.length ?? 0;
+
+  const toggleGroup = (bookId: string) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(bookId)) next.delete(bookId);
+      else next.add(bookId);
+      return next;
+    });
+  };
+
+  // Read bookmarks open straight into the reader (the detail page auto-opens it on
+  // ?read); listen bookmarks pop out the player, matching the book page's Play action.
+  const openBookmark = (bookmark: SavedBookmark) => {
+    if (bookmark.kind === "read") {
+      navigate(`${detailHref(bookmark)}?read=1`);
+    } else {
+      window.open(`/player/${bookmark.bookId}`, "isputnik-player", "width=500,height=700,resizable=yes,scrollbars=yes");
+    }
+  };
 
   const removeBookmark = async (bookmark: SavedBookmark) => {
     setRemovingIds((current) => [...current, bookmark.id]);
@@ -75,59 +149,105 @@ export function BookmarksPage({
             <p className="eyebrow">Digital Library</p>
             <h1>Bookmarks</h1>
           </div>
-          {bookmarks && bookmarks.length > 0 && (
-            <span>{bookmarks.length} {bookmarks.length === 1 ? "bookmark" : "bookmarks"}</span>
+          {total > 0 && (
+            <span className="bookmark-total">
+              <Bookmark size={15} aria-hidden="true" />
+              {total} {total === 1 ? "Bookmark" : "Bookmarks"}
+            </span>
           )}
         </div>
 
         {error && <MessageBox tone="error" title="Bookmarks error">{error}</MessageBox>}
 
-        {bookmarks && bookmarks.length === 0 ? (
+        {bookmarks === null ? (
+          <p className="management-empty">Loading your bookmarks…</p>
+        ) : bookmarks.length === 0 ? (
           <div className="empty-state library-empty">
             <Bookmark size={58} aria-hidden="true" />
             <h2>No bookmarks yet</h2>
             <p className="muted">While reading or listening, tap the bookmark button to save your spot here.</p>
           </div>
         ) : (
-          <div className="audiobook-grid">
-            {(bookmarks ?? []).map((bookmark) => {
-              const removing = removingIds.includes(bookmark.id);
-              const FallbackIcon = bookmark.libraryType === "ebook" ? BookOpen : Headphones;
-              return (
-                <article className="saved-audiobook-card" key={bookmark.id}>
-                  <button className="audiobook-card" onClick={() => navigate(detailHref(bookmark))}>
-                    <div className="audiobook-cover" aria-hidden="true">
-                      {bookmark.coverUrl ? (
-                        <img src={bookmark.coverUrl} alt="" />
-                      ) : (
-                        <>
-                          <FallbackIcon size={13} />
-                          <strong>{bookmark.bookTitle.slice(0, 2).toUpperCase()}</strong>
-                        </>
-                      )}
-                      <MediaKindBadge kind={bookmark.libraryType} overlay />
-                    </div>
-                    <div className="audiobook-card-body">
-                      <strong>{bookmark.label || bookmark.bookTitle}</strong>
-                      <span>{bookmark.bookAuthors.length > 0 ? bookmark.bookAuthors.join(", ") : bookmark.bookTitle}</span>
-                      <small>{positionLabel(bookmark)}</small>
-                      {bookmark.note && <p className="audiobook-card-note">{bookmark.note}</p>}
-                    </div>
-                  </button>
-                  <button
-                    className="icon-button danger saved-audiobook-remove"
-                    onClick={() => removeBookmark(bookmark)}
-                    disabled={removing}
-                    aria-label={`Remove bookmark from ${bookmark.bookTitle}`}
-                    title="Remove bookmark"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </article>
-              );
-            })}
-            {bookmarks === null && <p className="management-empty">Loading your bookmarks...</p>}
-          </div>
+          <>
+            <div className="bookmark-groups">
+              {groups.map((group) => {
+                const open = expanded.has(group.bookId);
+                const count = group.items.length;
+                return (
+                  <section className="bookmark-group" key={group.bookId}>
+                    <button
+                      type="button"
+                      className="bookmark-group-head"
+                      onClick={() => toggleGroup(group.bookId)}
+                      aria-expanded={open}
+                    >
+                      <span className="bookmark-group-cover" aria-hidden="true">
+                        <Cover url={group.coverUrl} title={group.bookTitle} libraryType={group.libraryType} />
+                        <MediaKindBadge kind={group.libraryType} overlay />
+                      </span>
+                      <span className="bookmark-group-meta">
+                        <strong>{group.bookTitle}</strong>
+                        {group.bookAuthors.length > 0 && <span>{group.bookAuthors.join(", ")}</span>}
+                      </span>
+                      <span className="bookmark-count">{count} {count === 1 ? "bookmark" : "bookmarks"}</span>
+                      <ChevronDown className={`bookmark-chevron${open ? " is-open" : ""}`} size={20} aria-hidden="true" />
+                    </button>
+
+                    {open && (
+                      <div className="bookmark-list">
+                        {group.items.map((bookmark, index) => {
+                          const removing = removingIds.includes(bookmark.id);
+                          return (
+                            <article className="bookmark-row" key={bookmark.id}>
+                              <span className="bookmark-index" aria-hidden="true">{index + 1}</span>
+                              <button className="bookmark-row-open" onClick={() => navigate(detailHref(bookmark))}>
+                                <span className="bookmark-row-cover" aria-hidden="true">
+                                  <Cover url={bookmark.coverUrl} title={bookmark.bookTitle} libraryType={bookmark.libraryType} />
+                                </span>
+                                <span className="bookmark-row-body">
+                                  <strong className="bookmark-chapter">{bookmark.label || "Bookmark"}</strong>
+                                  <span className="bookmark-meta">
+                                    {positionLabel(bookmark)}
+                                    <span className="bookmark-meta-dot" aria-hidden="true">•</span>
+                                    {bookmark.note
+                                      ? <span className="bookmark-note">{bookmark.note}</span>
+                                      : relativeTime(bookmark.createdAt)}
+                                  </span>
+                                </span>
+                              </button>
+                              <div className="bookmark-row-actions">
+                                <button
+                                  className="icon-button bookmark-open"
+                                  onClick={() => openBookmark(bookmark)}
+                                  aria-label={bookmark.kind === "read" ? `Read ${bookmark.bookTitle}` : `Play ${bookmark.bookTitle}`}
+                                  title={bookmark.kind === "read" ? "Read" : "Play"}
+                                >
+                                  {bookmark.kind === "read" ? <BookOpen size={16} /> : <Play size={16} />}
+                                </button>
+                                <button
+                                  className="icon-button danger bookmark-remove"
+                                  onClick={() => removeBookmark(bookmark)}
+                                  disabled={removing}
+                                  aria-label={`Remove bookmark from ${bookmark.bookTitle}`}
+                                  title="Remove bookmark"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+
+            <p className="bookmark-footer">
+              Showing {groups.length} {groups.length === 1 ? "book" : "books"} with {total} {total === 1 ? "bookmark" : "bookmarks"}
+            </p>
+          </>
         )}
       </section>
     </DashboardShell>

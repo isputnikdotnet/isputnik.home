@@ -337,6 +337,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.0",
+          label: "Profile, theme & bookmarks refresh",
+          changes: [
+            "Your account settings now live in one place: change your password and pick your theme right on the Profile page. Changing your password signs your other devices out automatically.",
+            "Bookmarks were redesigned around the books they belong to. Bookmarks are grouped under each book (collapsed by default, with an audio or ebook badge), and every saved spot shows its chapter, position, and your note in a compact row — with a Read or Play button to jump straight back in, next to remove.",
+            "The Favorites, Downloads, and Shared-with-me tiles now show a clear remove button.",
+            "Tidied the Control Panel: the Gallery and Other Media placeholders are gone. New library types are added through the library wizard and managed under Libraries."
+          ]
+        },
+        {
           version: "1.1.0",
           label: "Read on any device (OPDS)",
           changes: [

@@ -5,7 +5,9 @@ import { DashboardShell } from "../app/DashboardShell";
 import { LibraryNavTabs } from "../features/audiobooks/LibraryNavTabs";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
+import { ThemePicker, type Theme } from "../shared/ThemePicker";
 import { InstallCard } from "../pwa/InstallCard";
+import { ChangePasswordSection } from "../features/profile/ChangePasswordSection";
 import { OpdsAccessSection } from "../features/profile/OpdsAccessSection";
 
 export function ProfilePage({
@@ -20,13 +22,15 @@ export function ProfilePage({
   const [displayName, setDisplayName] = useState(user.displayName);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
+  const [themeSaving, setThemeSaving] = useState(false);
+  const [themeError, setThemeError] = useState("");
 
   const saveProfile = async (event: FormEvent) => {
     event.preventDefault();
     setStatus("saving");
     setError("");
     try {
-      // Theme lives on its own page now; keep the user's current theme unchanged.
+      // Theme is saved on its own below; keep the user's current theme unchanged here.
       const payload = await api<{ user: PublicUser }>("/api/profile", {
         method: "PATCH",
         body: JSON.stringify({ displayName, theme: user.theme })
@@ -36,6 +40,28 @@ export function ProfilePage({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save profile");
       setStatus("idle");
+    }
+  };
+
+  // Theme saves immediately on selection (optimistic): apply the look right away,
+  // then persist, reverting if the request fails. Display name is left untouched.
+  const chooseTheme = async (theme: Theme) => {
+    if (themeSaving || theme === user.theme) return;
+    setThemeError("");
+    setThemeSaving(true);
+    const previous = user;
+    onUpdated({ ...user, theme });
+    try {
+      const payload = await api<{ user: PublicUser }>("/api/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ displayName: user.displayName, theme })
+      });
+      onUpdated(payload.user);
+    } catch (err) {
+      onUpdated(previous);
+      setThemeError(err instanceof Error ? err.message : "Unable to save theme");
+    } finally {
+      setThemeSaving(false);
     }
   };
 
@@ -60,6 +86,15 @@ export function ProfilePage({
             {status === "saving" ? "Saving..." : "Save changes"}
           </button>
         </form>
+
+        <ChangePasswordSection />
+
+        <section className="appearance-section" aria-labelledby="appearance-heading">
+          <h2 id="appearance-heading">Appearance</h2>
+          <p className="appearance-intro">Choose how iSputnik looks. Your choice is saved to your account and applies right away.</p>
+          <ThemePicker value={user.theme} onChange={chooseTheme} disabled={themeSaving} />
+          {themeError && <MessageBox tone="error" title="Unable to save">{themeError}</MessageBox>}
+        </section>
 
         <OpdsAccessSection />
 

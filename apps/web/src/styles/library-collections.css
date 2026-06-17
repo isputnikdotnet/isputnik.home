@@ -721,8 +721,8 @@
 .icon-button.danger.saved-audiobook-remove {
   position: absolute;
   top: 7px;
-  right: 7px;
-  z-index: 1;
+  left: 7px;
+  z-index: 2;
   display: grid;
   place-items: center;
   min-width: 32px;
@@ -746,6 +746,246 @@
 .saved-audiobook-remove:disabled {
   cursor: not-allowed;
   opacity: 0.72;
+}
+
+/* ── Bookmarks (grouped by book, horizontal rows) ───────────────── */
+
+.bookmark-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.bookmark-groups {
+  display: grid;
+  gap: 26px;
+}
+
+.bookmark-group {
+  display: grid;
+  gap: 12px;
+}
+
+.bookmark-group-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 4px 2px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bookmark-group-head:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--mint) 32%, transparent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.bookmark-group-cover,
+.bookmark-row-cover {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 6px;
+  overflow: hidden;
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 12%, var(--surface));
+}
+
+.bookmark-group-cover {
+  width: 68px;
+  aspect-ratio: 1 / 1;
+}
+
+.bookmark-row-cover {
+  width: 38px;
+  aspect-ratio: 1 / 1;
+}
+
+.bookmark-group-cover img,
+.bookmark-row-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bookmark-group-cover strong,
+.bookmark-row-cover strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.bookmark-group-meta {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.bookmark-group-meta strong {
+  color: var(--ink);
+  font-size: 1.02rem;
+}
+
+.bookmark-group-meta span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-count {
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.bookmark-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.bookmark-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.bookmark-list {
+  display: grid;
+  gap: 10px;
+}
+
+.bookmark-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: border-color 0.15s ease;
+}
+
+.bookmark-row:hover {
+  border-color: color-mix(in srgb, var(--mint) 40%, var(--line));
+}
+
+.bookmark-index {
+  flex: none;
+  align-self: center;
+  width: 22px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.bookmark-row-open {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bookmark-row-open:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--mint) 32%, transparent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.bookmark-row-body {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.bookmark-chapter {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.bookmark-book {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.bookmark-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.bookmark-meta-dot {
+  flex: none;
+  opacity: 0.55;
+}
+
+.bookmark-note {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: italic;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-row-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-button.danger.bookmark-remove {
+  flex: none;
+}
+
+.bookmark-footer {
+  margin-top: 22px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .bookmark-row {
+    padding: 10px;
+  }
+
+  .bookmark-index {
+    display: none;
+  }
+
+  .bookmark-row-cover {
+    width: 34px;
+  }
 }
 
 .audiobook-cover {
