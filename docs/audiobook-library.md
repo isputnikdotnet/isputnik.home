@@ -4,7 +4,7 @@
 
 An audiobook library indexes an existing folder of audiobook files on the home server. Original files are never moved or modified. The application scans the folder, builds a structured catalogue of books, authors, series, and chapters, and generates cover art thumbnails for browsing.
 
-See [`audiobook-db.md`](audiobook-db.md) for the full entity-relationship diagram.
+See [`database.md`](database.md) for the database schema.
 
 ---
 
@@ -173,7 +173,7 @@ LibriVox is also available as a provider in the manual metadata search
 
 ## Database Schema
 
-See [`audiobook-db.md`](audiobook-db.md) for the full ER diagram.
+See [`database.md`](database.md) for the database schema.
 
 ### Core tables
 
