@@ -250,7 +250,7 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 | [`library-sharing.md`](library-sharing.md) | Library access model and roadmap |
 | [`auth.md`](auth.md) | Authentication detail — sessions, invite flow, future MFA |
 | [`audiobook-library.md`](audiobook-library.md) | Audiobook library type — scan pipeline, metadata, phases, schema |
-| [`audiobook-db.md`](audiobook-db.md) | Audiobook database ER diagram and table reference |
+| [`database.md`](database.md) | Database schema — unified `library_items` model, conventions, old→new map, table reference |
 | [`ebook-library.md`](ebook-library.md) | Ebook library type — EPUB/PDF catalog, in-app reader, per-type series |
 | [`categories.md`](categories.md) | Categories — global genre taxonomy, scan matching, cross-type browse |
 | [`tags.md`](tags.md) | Tags — polymorphic labels, cross-type browse, admin management |
