@@ -89,10 +89,10 @@ function rememberDeletedCategoryKey(key: string) {
   }
   db.prepare(`
     INSERT INTO app_settings (key, value, updated_at)
-    VALUES ('deleted_category_keys', ?, CURRENT_TIMESTAMP)
+    VALUES ('deleted_category_keys', ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     ON CONFLICT(key) DO UPDATE SET
       value = excluded.value,
-      updated_at = CURRENT_TIMESTAMP
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
   `).run(JSON.stringify(keys));
 }
 

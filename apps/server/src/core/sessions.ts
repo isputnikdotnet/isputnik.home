@@ -32,7 +32,7 @@ export async function sessionsPlugin(app: FastifyInstance) {
       FROM sessions
       JOIN users ON users.id = sessions.user_id
       WHERE sessions.revoked_at IS NULL
-        AND datetime(sessions.expires_at) > CURRENT_TIMESTAMP
+        AND datetime(sessions.expires_at) > datetime('now')
         AND users.deleted_at IS NULL
       ORDER BY datetime(sessions.last_seen_at) DESC
     `).all() as SessionListRow[];
@@ -71,7 +71,7 @@ export async function sessionsPlugin(app: FastifyInstance) {
       return;
     }
 
-    db.prepare("UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+    db.prepare("UPDATE sessions SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(id);
     logActivity({
       event: "session.revoked",
       actorUserId: request.user!.id,

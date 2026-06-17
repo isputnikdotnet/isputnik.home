@@ -189,7 +189,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
       UPDATE collections SET
         name = COALESCE(?, name),
         description = CASE WHEN ? THEN ? ELSE description END,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE id = ?
     `).run(
       parsed.data.name ?? null,
@@ -256,7 +256,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
         db.prepare(
           "INSERT INTO collection_items (id, collection_id, entity_type, entity_id, position) VALUES (?, ?, ?, ?, ?)"
         ).run(nanoid(16), id, entityType, entityId, next.pos);
-        db.prepare("UPDATE collections SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+        db.prepare("UPDATE collections SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(id);
       })();
     }
 
@@ -273,7 +273,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
     }
     db.transaction(() => {
       db.prepare("DELETE FROM collection_items WHERE id = ? AND collection_id = ?").run(itemId, id);
-      db.prepare("UPDATE collections SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+      db.prepare("UPDATE collections SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(id);
     })();
     reply.send({ removed: true });
   });
@@ -303,7 +303,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
       for (const itemId of parsed.data.orderedItemIds) {
         if (owned.has(itemId)) setPosition.run(pos++, itemId, id);
       }
-      db.prepare("UPDATE collections SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+      db.prepare("UPDATE collections SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(id);
     })();
     reply.send({ reordered: true });
   });

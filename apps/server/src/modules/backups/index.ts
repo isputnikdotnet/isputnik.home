@@ -67,8 +67,8 @@ function getSettings(): BackupSettings {
 function saveSettings(settings: BackupSettings, userId: string | null) {
   db.prepare(`
     INSERT INTO app_settings (key, value, updated_by, updated_at)
-    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = CURRENT_TIMESTAMP
+    VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
   `).run(SETTINGS_KEY, JSON.stringify(settings), userId);
 }
 

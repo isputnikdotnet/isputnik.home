@@ -358,7 +358,7 @@ export async function audiobookSharesPlugin(app: FastifyInstance) {
       WHERE shares.module = ?
         AND shares.user_id = ?
         AND shares.revoked_at IS NULL
-        AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > CURRENT_TIMESTAMP)
+        AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
       ORDER BY datetime(shares.created_at) DESC
     `).all(MODULE, user.id) as {
       resource_id: string;

@@ -18,7 +18,7 @@ export async function profilePlugin(app: FastifyInstance) {
 
     db.prepare(`
       UPDATE users
-      SET display_name = ?, theme = ?, updated_at = CURRENT_TIMESTAMP
+      SET display_name = ?, theme = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE id = ?
     `).run(parsed.data.displayName, parsed.data.theme, request.user!.id);
 

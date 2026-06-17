@@ -17,7 +17,7 @@ export function resolveShareLink(token: string): ResolvedShareLink | null {
     FROM share_links
     WHERE token_hash = ?
       AND revoked_at IS NULL
-      AND datetime(expires_at) > CURRENT_TIMESTAMP
+      AND datetime(expires_at) > datetime('now')
   `).get(sha256(token)) as ResolvedShareLink | undefined;
   return row ?? null;
 }
@@ -52,7 +52,7 @@ export function userHasItemShare(module: string, resourceId: string, userId: str
       AND resource_id = ?
       AND user_id = ?
       AND revoked_at IS NULL
-      AND (expires_at IS NULL OR datetime(expires_at) > CURRENT_TIMESTAMP)
+      AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
   `).get(module, resourceId, userId);
   return Boolean(row);
 }
