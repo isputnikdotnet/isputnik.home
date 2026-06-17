@@ -137,7 +137,7 @@ export async function invitesPlugin(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  app.get("/api/invites/:token", async (request, reply) => {
+  app.get("/api/invites/:token", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
     const token = (request.params as { token: string }).token;
     const invite = db.prepare(`
       SELECT id, role, expires_at
@@ -156,7 +156,7 @@ export async function invitesPlugin(app: FastifyInstance) {
     reply.send({ invite: { id: invite.id, role: invite.role, expiresAt: invite.expires_at } });
   });
 
-  app.post("/api/invites/:token/accept", async (request, reply) => {
+  app.post("/api/invites/:token/accept", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (request, reply) => {
     const token = (request.params as { token: string }).token;
     const parsed = parseBody(setupSchema, request.body);
     if (parsed.error) {
