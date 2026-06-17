@@ -8,47 +8,47 @@ import {
 import { splitGroupConcat, categoryPayload, bookTags, largeCoverUrl } from "../audiobook/book-helpers.js";
 
 // Columns/joins for the ebook catalog. Unlike audiobooks, content is documents
-// (book_documents) and progress is per-document reading_progress — folded to the
-// most recently touched row per book so the shared status SQL (which reads the
+// (document_files) and progress is per-document reading_progress — folded to the
+// most recently touched row per item so the shared status SQL (which reads the
 // `progress` alias) works unchanged. The page query binds the user id twice
 // (progress, then saves); the COUNT query binds it once (progress).
 const EBOOK_PROGRESS_JOIN = `
       LEFT JOIN (
-        SELECT book_id, percent_complete, completed_at,
-          ROW_NUMBER() OVER (PARTITION BY book_id ORDER BY datetime(updated_at) DESC) AS rn
+        SELECT item_id, percent_complete, completed_at,
+          ROW_NUMBER() OVER (PARTITION BY item_id ORDER BY datetime(updated_at) DESC) AS rn
         FROM reading_progress
         WHERE user_id = ?
-      ) AS progress ON progress.book_id = books.id AND progress.rn = 1`;
+      ) AS progress ON progress.item_id = library_items.id AND progress.rn = 1`;
 
 const EBOOK_LIST_COLUMNS = `
-        books.id,
-        books.library_id,
-        books.folder_path,
-        books.status,
-        books.discovered_at,
-        books.updated_at,
-        books.deleted_at,
-        book_metadata.title,
-        book_metadata.sort_title,
-        book_metadata.language,
-        book_metadata.year_published,
-        book_metadata.cover_storage_key,
-        book_metadata.category_id,
+        library_items.id,
+        library_items.library_id,
+        library_items.folder_path,
+        library_items.status,
+        library_items.discovered_at,
+        library_items.updated_at,
+        library_items.deleted_at,
+        item_metadata.title,
+        item_metadata.sort_title,
+        item_metadata.language,
+        item_metadata.year_published,
+        item_metadata.cover_storage_key,
+        (SELECT ic.category_id FROM item_categories ic WHERE ic.item_id = library_items.id AND ic.is_primary = 1 LIMIT 1) AS category_id,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
-        (SELECT format FROM book_documents WHERE book_documents.book_id = books.id AND book_documents.status = 'available' LIMIT 1) AS format,
-        (SELECT id FROM book_documents WHERE book_documents.book_id = books.id AND book_documents.status = 'available' LIMIT 1) AS document_id,
-        (SELECT COUNT(*) FROM book_documents WHERE book_documents.book_id = books.id AND book_documents.status = 'available') AS file_count,
-        (SELECT COALESCE(SUM(book_documents.size), 0) FROM book_documents WHERE book_documents.book_id = books.id AND book_documents.status = 'available') AS total_size,
+        (SELECT format FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available' LIMIT 1) AS format,
+        (SELECT id FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available' LIMIT 1) AS document_id,
+        (SELECT COUNT(*) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available') AS file_count,
+        (SELECT COALESCE(SUM(document_files.size), 0) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available') AS total_size,
         progress.percent_complete AS progress_percent,
         progress.completed_at AS progress_completed_at,
-        (book_saves.id IS NOT NULL) AS saved`;
+        (item_saves.id IS NOT NULL) AS saved`;
 
 const EBOOK_LIST_JOINS = `
-      FROM books
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id
-      LEFT JOIN book_authors ON book_authors.book_id = books.id AND book_authors.role = 'author'
-      LEFT JOIN authors ON authors.id = book_authors.author_id${EBOOK_PROGRESS_JOIN}
-      LEFT JOIN book_saves ON book_saves.book_id = books.id AND book_saves.user_id = ?`;
+      FROM library_items
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
+      LEFT JOIN people AS authors ON authors.id = item_people.person_id${EBOOK_PROGRESS_JOIN}
+      LEFT JOIN item_saves ON item_saves.item_id = library_items.id AND item_saves.user_id = ?`;
 
 interface EbookCatalogRow {
   id: string;
@@ -111,21 +111,21 @@ export const ebookCatalogConfig: CatalogConfig = {
   listColumns: EBOOK_LIST_COLUMNS,
   listJoins: EBOOK_LIST_JOINS,
   countJoins: `
-      LEFT JOIN book_metadata ON book_metadata.book_id = books.id${EBOOK_PROGRESS_JOIN}`,
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id${EBOOK_PROGRESS_JOIN}`,
   orderBy: {
-    title: "COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE ASC",
-    title_desc: "COALESCE(book_metadata.sort_title, book_metadata.title, books.folder_path) COLLATE NOCASE DESC",
-    recent: "books.discovered_at DESC",
-    author: "(SELECT a.name FROM book_authors ba JOIN authors a ON a.id = ba.author_id WHERE ba.book_id = books.id AND ba.role = 'author' ORDER BY ba.sort_order LIMIT 1) COLLATE NOCASE ASC, COALESCE(book_metadata.sort_title, book_metadata.title) COLLATE NOCASE ASC"
+    title: "COALESCE(item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE ASC",
+    title_desc: "COALESCE(item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE DESC",
+    recent: "library_items.discovered_at DESC",
+    author: "(SELECT p.name FROM item_people ip JOIN people p ON p.id = ip.person_id WHERE ip.item_id = library_items.id AND ip.role = 'author' ORDER BY ip.sort_order LIMIT 1) COLLATE NOCASE ASC, COALESCE(item_metadata.sort_title, item_metadata.title) COLLATE NOCASE ASC"
   },
-  searchSql: "(book_metadata.title LIKE ? OR EXISTS (SELECT 1 FROM book_authors ba JOIN authors a ON a.id = ba.author_id WHERE ba.book_id = books.id AND a.name LIKE ?))",
+  searchSql: "(item_metadata.title LIKE ? OR EXISTS (SELECT 1 FROM item_people ip JOIN people p ON p.id = ip.person_id WHERE ip.item_id = library_items.id AND p.name LIKE ?))",
   searchArgs: 2,
   extraClauses: [],
   facetQueries: {
-    authors: (inLibs) => `SELECT DISTINCT a.name AS v FROM authors a JOIN book_authors ba ON ba.author_id = a.id JOIN books b ON b.id = ba.book_id WHERE ba.role = 'author' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY a.name COLLATE NOCASE`,
-    categories: (inLibs) => `SELECT DISTINCT c.name AS v FROM categories c JOIN book_metadata m ON m.category_id = c.id JOIN books b ON b.id = m.book_id WHERE b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY c.name COLLATE NOCASE`,
-    tags: (inLibs) => `SELECT DISTINCT t.display_name AS v FROM tags t JOIN taggables tg ON tg.tag_id = t.id JOIN books b ON b.id = tg.entity_id WHERE tg.entity_type = 'book' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY t.display_name COLLATE NOCASE`,
-    languages: (inLibs) => `SELECT DISTINCT m.language AS v FROM book_metadata m JOIN books b ON b.id = m.book_id WHERE m.language IS NOT NULL AND m.language <> '' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY m.language COLLATE NOCASE`
+    authors: (inLibs) => `SELECT DISTINCT p.name AS v FROM people p JOIN item_people ip ON ip.person_id = p.id JOIN library_items b ON b.id = ip.item_id WHERE ip.role = 'author' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY p.name COLLATE NOCASE`,
+    categories: (inLibs) => `SELECT DISTINCT c.name AS v FROM categories c JOIN item_categories ic ON ic.category_id = c.id JOIN library_items b ON b.id = ic.item_id WHERE b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY c.name COLLATE NOCASE`,
+    tags: (inLibs) => `SELECT DISTINCT t.display_name AS v FROM tags t JOIN taggables tg ON tg.tag_id = t.id JOIN library_items b ON b.id = tg.entity_id WHERE tg.entity_type = 'library_item' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY t.display_name COLLATE NOCASE`,
+    languages: (inLibs) => `SELECT DISTINCT m.language AS v FROM item_metadata m JOIN library_items b ON b.id = m.item_id WHERE m.language IS NOT NULL AND m.language <> '' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY m.language COLLATE NOCASE`
   },
   mapRow: (row) => mapEbookRow(row as unknown as EbookCatalogRow)
 };

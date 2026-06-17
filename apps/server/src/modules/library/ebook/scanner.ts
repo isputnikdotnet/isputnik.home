@@ -148,10 +148,11 @@ function sortName(value: string): string {
 }
 
 function upsertAuthor(libraryId: string, name: string): string {
+  void libraryId; // people are global
   const resolved = resolvePersonName(name);
-  db.prepare("INSERT OR IGNORE INTO authors (id, library_id, name, sort_name) VALUES (?, ?, ?, ?)")
-    .run(nanoid(16), libraryId, resolved, sortName(resolved));
-  return (db.prepare("SELECT id FROM authors WHERE library_id = ? AND name = ?").get(libraryId, resolved) as { id: string }).id;
+  db.prepare("INSERT OR IGNORE INTO people (id, name, sort_name) VALUES (?, ?, ?)")
+    .run(nanoid(16), resolved, sortName(resolved));
+  return (db.prepare("SELECT id FROM people WHERE name = ?").get(resolved) as { id: string }).id;
 }
 
 async function generateEbookCover(libraryId: string, bookId: string, source: Buffer): Promise<string | null> {
@@ -219,10 +220,10 @@ async function ingestEbookFile(
   settings: ReturnType<typeof normalizeLibrarySettings>,
   fileMetaEnabled: boolean
 ): Promise<string> {
-  const existing = db.prepare("SELECT id FROM books WHERE library_id = ? AND folder_path = ?")
+  const existing = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
     .get(libraryId, file.relativePath) as { id: string } | undefined;
   const metaRow = existing
-    ? db.prepare("SELECT source FROM book_metadata WHERE book_id = ?").get(existing.id) as { source: string } | undefined
+    ? db.prepare("SELECT source FROM item_metadata WHERE item_id = ?").get(existing.id) as { source: string } | undefined
     : undefined;
   const manual = metaRow?.source === "manual";
   const bookId = existing?.id ?? nanoid(16);
@@ -235,50 +236,56 @@ async function ingestEbookFile(
 
   db.transaction(() => {
     if (existing) {
-      db.prepare("UPDATE books SET status = 'ready', updated_at = CURRENT_TIMESTAMP, deleted_at = NULL WHERE id = ?").run(bookId);
+      db.prepare("UPDATE library_items SET status = 'ready', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL WHERE id = ?").run(bookId);
     } else {
-      db.prepare("INSERT INTO books (id, library_id, folder_path, status) VALUES (?, ?, ?, 'ready')")
+      db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES (?, ?, 'ebook', ?, 'ready')")
         .run(bookId, libraryId, file.relativePath);
     }
 
     if (!manual) {
       db.prepare(`
-        INSERT INTO book_metadata (id, book_id, source, title, sort_title, description, year_published, language, isbn, cover_storage_key, category_id)
-        VALUES (?, ?, 'scan', ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(book_id) DO UPDATE SET
+        INSERT INTO item_metadata (item_id, source, title, sort_title, description, year_published, language, isbn, cover_storage_key)
+        VALUES (?, 'scan', ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(item_id) DO UPDATE SET
           title = excluded.title,
           sort_title = excluded.sort_title,
           description = excluded.description,
           year_published = excluded.year_published,
           language = excluded.language,
           isbn = excluded.isbn,
-          cover_storage_key = COALESCE(excluded.cover_storage_key, book_metadata.cover_storage_key),
-          category_id = excluded.category_id,
-          updated_at = CURRENT_TIMESTAMP
+          cover_storage_key = COALESCE(excluded.cover_storage_key, item_metadata.cover_storage_key),
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       `).run(
-        nanoid(16), bookId, title, sortName(title), meta.description,
-        meta.year, meta.language || settings.default_language || null, meta.isbn, coverKey,
-        matchCategoryId(meta.subjects)
+        bookId, title, sortName(title), meta.description,
+        meta.year, meta.language || settings.default_language || null, meta.isbn, coverKey
       );
 
-      db.prepare("DELETE FROM book_authors WHERE book_id = ? AND role = 'author'").run(bookId);
+      // Primary category from the ebook's subjects.
+      const categoryId = matchCategoryId(meta.subjects);
+      db.prepare("DELETE FROM item_categories WHERE item_id = ? AND is_primary = 1").run(bookId);
+      db.prepare(`
+        INSERT INTO item_categories (item_id, category_id, is_primary, source) VALUES (?, ?, 1, 'scan')
+        ON CONFLICT(item_id, category_id) DO UPDATE SET is_primary = 1, source = 'scan'
+      `).run(bookId, categoryId);
+
+      db.prepare("DELETE FROM item_people WHERE item_id = ? AND role = 'author'").run(bookId);
       meta.authors.forEach((name, index) => {
         const authorId = upsertAuthor(libraryId, name);
-        db.prepare("INSERT OR IGNORE INTO book_authors (book_id, author_id, role, sort_order) VALUES (?, ?, 'author', ?)")
+        db.prepare("INSERT OR IGNORE INTO item_people (item_id, person_id, role, sort_order) VALUES (?, ?, 'author', ?)")
           .run(bookId, authorId, index);
       });
 
-      setEntityTags("book", bookId, meta.subjects);
+      setEntityTags("library_item", bookId, meta.subjects);
     }
 
-    // The ebook file itself is stored as the book's document.
-    db.prepare("UPDATE book_documents SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(bookId);
+    // The ebook file itself is stored as the item's content document.
+    db.prepare("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ? AND role = 'content'").run(bookId);
     db.prepare(`
-      INSERT INTO book_documents (id, book_id, relative_path, format, mime_type, size, status, deleted_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'available', NULL)
-      ON CONFLICT(book_id, relative_path) DO UPDATE SET
-        format = excluded.format, mime_type = excluded.mime_type, size = excluded.size,
-        status = 'available', deleted_at = NULL, updated_at = CURRENT_TIMESTAMP
+      INSERT INTO document_files (id, item_id, role, relative_path, format, mime_type, size, status, deleted_at)
+      VALUES (?, ?, 'content', ?, ?, ?, ?, 'available', NULL)
+      ON CONFLICT(item_id, relative_path) DO UPDATE SET
+        role = 'content', format = excluded.format, mime_type = excluded.mime_type, size = excluded.size,
+        status = 'available', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(nanoid(16), bookId, file.relativePath, file.extension.slice(1), ebookMimeTypes[file.extension] ?? "application/octet-stream", file.size);
   })();
 
@@ -330,16 +337,16 @@ async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {
   }
 
   // Soft-delete books whose files vanished.
-  const known = db.prepare("SELECT id, folder_path FROM books WHERE library_id = ? AND deleted_at IS NULL")
+  const known = db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL")
     .all(libraryId) as { id: string; folder_path: string }[];
   for (const book of known) {
     if (!seenPaths.has(book.folder_path)) {
-      db.prepare("UPDATE books SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?").run(book.id);
-      db.prepare("UPDATE book_documents SET status = 'missing', deleted_at = CURRENT_TIMESTAMP WHERE book_id = ?").run(book.id);
+      db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(book.id);
+      db.prepare("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.id);
     }
   }
 
-  db.prepare("UPDATE libraries SET scan_status = 'idle', last_scanned_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+  db.prepare("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
     .run(libraryId);
   return { books: files.length };
 }
@@ -348,7 +355,7 @@ async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {
 
 export function enqueueEbookScan(libraryId: string, options: EbookScanOptions = {}): string {
   const jobId = nanoid(16);
-  db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(libraryId);
+  db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
   db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
     .run(jobId, scanJobType, JSON.stringify({ libraryId, options }));
   return jobId;
@@ -372,7 +379,7 @@ export async function processEbookScanQueue() {
       if (!job) break;
 
       const claim = db.prepare(`
-        UPDATE jobs SET status = 'running', attempts = attempts + 1, locked_at = CURRENT_TIMESTAMP, locked_by = ?
+        UPDATE jobs SET status = 'running', attempts = attempts + 1, locked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_by = ?
         WHERE id = ? AND status = 'pending'
       `).run(process.pid.toString(), job.id);
       if (claim.changes === 0) continue;
@@ -381,7 +388,7 @@ export async function processEbookScanQueue() {
       try {
         const result = await scanEbookLibrary(payload.libraryId, payload.options ?? {});
         db.prepare(`
-          UPDATE jobs SET status = 'completed', payload = ?, completed_at = CURRENT_TIMESTAMP, locked_at = NULL, locked_by = NULL
+          UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL
           WHERE id = ?
         `).run(JSON.stringify({ ...payload, result }), job.id);
       } catch (err) {
@@ -392,9 +399,9 @@ export async function processEbookScanQueue() {
           db.prepare("UPDATE jobs SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(runAt, message, job.id);
         } else {
-          db.prepare("UPDATE jobs SET status = 'failed', failed_at = CURRENT_TIMESTAMP, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
+          db.prepare("UPDATE jobs SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(message, job.id);
-          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND scan_status = 'scanning'")
+          db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'")
             .run(payload.libraryId);
         }
       }

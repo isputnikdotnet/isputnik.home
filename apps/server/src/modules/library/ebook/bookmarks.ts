@@ -63,9 +63,9 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
     }
 
     const rows = db.prepare(`
-      SELECT id, document_id, cfi, percent_complete, label, note, created_at, updated_at
-      FROM ebook_bookmarks
-      WHERE book_id = ? AND document_id = ? AND user_id = ?
+      SELECT id, document_id, location AS cfi, percent_complete, label, note, created_at, updated_at
+      FROM reading_bookmarks
+      WHERE item_id = ? AND document_id = ? AND user_id = ?
       ORDER BY percent_complete IS NULL, percent_complete, datetime(created_at)
     `).all(bookId, documentId, user.id) as EbookBookmarkRow[];
 
@@ -87,7 +87,7 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
 
     const id = nanoid(16);
     db.prepare(`
-      INSERT INTO ebook_bookmarks (id, user_id, book_id, document_id, cfi, percent_complete, label, note)
+      INSERT INTO reading_bookmarks (id, user_id, item_id, document_id, location, percent_complete, label, note)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
@@ -101,8 +101,8 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
     );
 
     const row = db.prepare(`
-      SELECT id, document_id, cfi, percent_complete, label, note, created_at, updated_at
-      FROM ebook_bookmarks WHERE id = ?
+      SELECT id, document_id, location AS cfi, percent_complete, label, note, created_at, updated_at
+      FROM reading_bookmarks WHERE id = ?
     `).get(id) as EbookBookmarkRow;
 
     reply.code(201).send({ bookmark: publicEbookBookmark(row) });
@@ -113,7 +113,7 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
     const user = request.user!;
 
     const existing = db.prepare(`
-      SELECT id FROM ebook_bookmarks WHERE id = ? AND book_id = ? AND user_id = ?
+      SELECT id FROM reading_bookmarks WHERE id = ? AND item_id = ? AND user_id = ?
     `).get(bookmarkId, bookId, user.id);
     if (!existing) {
       reply.code(404).send({ error: "Bookmark not found" });
@@ -139,13 +139,13 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
 
     if (updates.length > 0) {
       db.prepare(`
-        UPDATE ebook_bookmarks SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+        UPDATE reading_bookmarks SET ${updates.join(", ")}, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?
       `).run(...values, bookmarkId);
     }
 
     const row = db.prepare(`
-      SELECT id, document_id, cfi, percent_complete, label, note, created_at, updated_at
-      FROM ebook_bookmarks WHERE id = ?
+      SELECT id, document_id, location AS cfi, percent_complete, label, note, created_at, updated_at
+      FROM reading_bookmarks WHERE id = ?
     `).get(bookmarkId) as EbookBookmarkRow;
 
     reply.send({ bookmark: publicEbookBookmark(row) });
@@ -156,7 +156,7 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
     const user = request.user!;
 
     const result = db.prepare(`
-      DELETE FROM ebook_bookmarks WHERE id = ? AND book_id = ? AND user_id = ?
+      DELETE FROM reading_bookmarks WHERE id = ? AND item_id = ? AND user_id = ?
     `).run(bookmarkId, bookId, user.id);
 
     if (result.changes === 0) {
