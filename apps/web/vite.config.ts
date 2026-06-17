@@ -14,7 +14,7 @@ export default defineConfig({
       // The service worker self-updates in the background; the app reloads onto
       // the new version on the next navigation.
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      injectRegister: null,
       includeAssets: ["Assets/brand/apple-touch-icon.png"],
       manifest: {
         name: "iSputnik Home",

@@ -726,7 +726,7 @@ a.home-overview-card:focus-visible {
     bottom: 0;
     left: 0;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
     min-height: calc(72px + env(safe-area-inset-bottom));
     padding: 8px max(8px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
@@ -778,6 +778,84 @@ a.home-overview-card:focus-visible {
   .home-mobile-nav-item.is-active svg {
     color: var(--home-accent);
   }
+
+  /* ── Media pick-menu (drop-up sheet above the bottom nav) ────────── */
+
+  .mobile-media-backdrop {
+    position: fixed;
+    z-index: 58;
+    inset: 0;
+  }
+
+  .mobile-media-menu {
+    position: fixed;
+    z-index: 59;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    left: 0;
+    right: 0;
+    padding: 16px max(16px, env(safe-area-inset-left)) 14px max(16px, env(safe-area-inset-right));
+    background: color-mix(in srgb, var(--home-panel-raised) 96%, transparent);
+    border: 1px solid color-mix(in srgb, var(--home-line) 86%, transparent);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -12px 36px color-mix(in srgb, var(--home-shadow-color) 56%, transparent);
+    backdrop-filter: blur(24px);
+    animation: mobile-sheet-in 0.2s ease;
+  }
+
+  .mobile-media-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .mobile-media-option {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 7px;
+    padding: 16px 6px 12px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--home-field);
+    color: var(--home-ink);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 760;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-media-option svg {
+    color: var(--home-accent);
+  }
+
+  .mobile-media-option:not(.is-future):hover,
+  .mobile-media-option:not(.is-future):focus-visible {
+    background: var(--home-soft-strong);
+    outline: 0;
+  }
+
+  .mobile-media-option.is-future {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  @keyframes mobile-sheet-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* Prevent the sheet/backdrop from appearing on desktop if somehow open. */
+@media (min-width: 741px) {
+  .mobile-media-backdrop,
+  .mobile-media-menu {
+    display: none;
+  }
 }
 
 @media (max-width: 680px) {
@@ -807,4 +885,242 @@ a.home-overview-card:focus-visible {
   .home-heading p {
     font-size: 0.92rem;
   }
+}
+
+/* ── In-progress list (home page) ───────────────────────────────── */
+
+.home-brand-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--home-line);
+}
+
+.home-brand-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.home-brand-text {
+  display: grid;
+  gap: 2px;
+}
+
+.home-brand-name {
+  font-size: 1.08rem;
+  font-weight: 720;
+  color: var(--home-ink);
+  line-height: 1;
+}
+
+.home-brand-url {
+  font-size: 0.72rem;
+  color: var(--home-muted);
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  word-break: break-all;
+}
+
+.home-brand-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 640;
+  white-space: nowrap;
+}
+
+.home-brand-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.home-brand-status.is-online {
+  color: var(--home-green);
+}
+
+.home-brand-status.is-online .home-brand-status-dot {
+  background: var(--home-green);
+}
+
+.home-brand-status.is-offline {
+  color: var(--home-amber);
+}
+
+.home-brand-status.is-offline .home-brand-status-dot {
+  background: var(--home-amber);
+}
+
+.inprogress-heading {
+  margin: 0 0 8px;
+  font-size: 0.73rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--home-muted);
+}
+
+.inprogress-list {
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+}
+
+.inprogress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--home-line);
+}
+
+.inprogress-row:last-child {
+  border-bottom: none;
+}
+
+.inprogress-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  color: var(--home-ink);
+  text-decoration: none;
+}
+
+.inprogress-cover {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--home-soft-strong);
+  color: var(--home-muted);
+}
+
+.inprogress-row.is-skeleton .inprogress-cover {
+  animation: home-pulse 1.3s ease-in-out infinite;
+}
+
+.inprogress-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.inprogress-info {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.inprogress-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.91rem;
+  line-height: 1.3;
+  color: var(--home-ink);
+}
+
+.inprogress-info small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--home-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.inprogress-bar {
+  display: block;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--home-line);
+  overflow: hidden;
+}
+
+.inprogress-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--home-accent);
+}
+
+.inprogress-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.inprogress-play {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding-left: 2px; /* optical centering of the play icon */
+  border: none;
+  border-radius: 50%;
+  background: var(--home-accent);
+  color: var(--home-canvas);
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.inprogress-play:hover {
+  filter: brightness(1.12);
+}
+
+.inprogress-offline {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--home-accent);
+}
+
+.inprogress-download-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--home-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.inprogress-download-btn:hover {
+  color: var(--home-ink);
+  background: var(--home-soft-strong);
+}
+
+.inprogress-empty {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: clamp(40px, 12vh, 72px) 20px;
+  color: var(--home-muted);
+  text-align: center;
+}
+
+.inprogress-empty p {
+  margin: 0;
+  max-width: 28ch;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
