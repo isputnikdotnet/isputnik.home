@@ -41,7 +41,7 @@ export async function usersPlugin(app: FastifyInstance) {
       FROM users
       LEFT JOIN sessions ON sessions.user_id = users.id
         AND sessions.revoked_at IS NULL
-        AND datetime(sessions.expires_at) > CURRENT_TIMESTAMP
+        AND datetime(sessions.expires_at) > datetime('now')
       WHERE users.deleted_at IS NULL
       GROUP BY users.id
       ORDER BY datetime(users.created_at) ASC
@@ -116,7 +116,7 @@ export async function usersPlugin(app: FastifyInstance) {
 
     db.prepare(`
       UPDATE users
-      SET email = ?, display_name = ?, role = ?, updated_at = CURRENT_TIMESTAMP
+      SET email = ?, display_name = ?, role = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE id = ?
     `).run(parsed.data.email, parsed.data.displayName, parsed.data.role, id);
 
@@ -151,7 +151,7 @@ export async function usersPlugin(app: FastifyInstance) {
       return;
     }
 
-    db.prepare("UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(parsed.data.role, id);
+    db.prepare("UPDATE users SET role = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(parsed.data.role, id);
     logActivity({
       event: "user.role_changed",
       actorUserId: request.user!.id,
@@ -181,10 +181,10 @@ export async function usersPlugin(app: FastifyInstance) {
     const passwordHash = await hashPassword(parsed.data.password);
     const sessionHash = currentSessionHash(request);
     db.transaction(() => {
-      db.prepare("UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(passwordHash, id);
+      db.prepare("UPDATE users SET password_hash = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(passwordHash, id);
       db.prepare(`
         UPDATE sessions
-        SET revoked_at = CURRENT_TIMESTAMP
+        SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
         WHERE user_id = ?
           AND revoked_at IS NULL
           AND (? IS NULL OR token_hash <> ?)
@@ -221,8 +221,8 @@ export async function usersPlugin(app: FastifyInstance) {
     }
 
     db.transaction(() => {
-      db.prepare("UPDATE users SET deleted_at = CURRENT_TIMESTAMP, is_active = 0 WHERE id = ?").run(id);
-      db.prepare("UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ?").run(id);
+      db.prepare("UPDATE users SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), is_active = 0 WHERE id = ?").run(id);
+      db.prepare("UPDATE sessions SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id = ?").run(id);
     })();
 
     logActivity({

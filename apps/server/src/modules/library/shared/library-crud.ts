@@ -220,7 +220,7 @@ export function updateLibraryRecord(opts: {
 
   db.prepare(`
     UPDATE libraries
-    SET name = ?, owner_id = ?, owner_type = ?, policy_json = ?, settings_json = ?, updated_at = CURRENT_TIMESTAMP
+    SET name = ?, owner_id = ?, owner_type = ?, policy_json = ?, settings_json = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE id = ?
   `).run(
     data.name, ownerId, ownerType,

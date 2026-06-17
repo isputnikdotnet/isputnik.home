@@ -187,11 +187,11 @@ export async function statusPlugin(app: FastifyInstance) {
     const users = db.prepare("SELECT COUNT(*) AS count FROM users WHERE deleted_at IS NULL").get() as { count: number };
     const sessions = db.prepare(`
       SELECT COUNT(*) AS count FROM sessions
-      WHERE revoked_at IS NULL AND datetime(expires_at) > CURRENT_TIMESTAMP
+      WHERE revoked_at IS NULL AND datetime(expires_at) > datetime('now')
     `).get() as { count: number };
     const activeInvites = db.prepare(`
       SELECT COUNT(*) AS count FROM invites
-      WHERE revoked_at IS NULL AND used_at IS NULL AND datetime(expires_at) > CURRENT_TIMESTAMP
+      WHERE revoked_at IS NULL AND used_at IS NULL AND datetime(expires_at) > datetime('now')
     `).get() as { count: number };
     const events = db.prepare("SELECT COUNT(*) AS count FROM activity_logs").get() as { count: number };
     const audiobookLibraries = db.prepare("SELECT COUNT(*) AS count FROM libraries WHERE type = 'audiobook'").get() as { count: number };
@@ -284,13 +284,13 @@ export async function statusPlugin(app: FastifyInstance) {
     }
     db.prepare(`
       UPDATE jobs
-      SET status = 'failed', failed_at = CURRENT_TIMESTAMP, locked_at = NULL, locked_by = NULL, error = 'Cancelled by user'
+      SET status = 'failed', failed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL, error = 'Cancelled by user'
       WHERE id = ?
     `).run(id);
     try {
       const p = JSON.parse(job.payload) as { libraryId?: string };
       if (p.libraryId) {
-        db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND scan_status = 'scanning'")
+        db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'")
           .run(p.libraryId);
       }
     } catch { /* ignore */ }

@@ -117,7 +117,7 @@ export async function invitesPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const result = db.prepare(`
       UPDATE invites
-      SET revoked_at = CURRENT_TIMESTAMP
+      SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE id = ? AND revoked_at IS NULL
     `).run(id);
 
@@ -145,7 +145,7 @@ export async function invitesPlugin(app: FastifyInstance) {
       WHERE token_hash = ?
         AND used_at IS NULL
         AND revoked_at IS NULL
-        AND datetime(expires_at) > CURRENT_TIMESTAMP
+        AND datetime(expires_at) > datetime('now')
     `).get(sha256(token)) as { id: string; role: Role; expires_at: string } | undefined;
 
     if (!invite) {
@@ -170,7 +170,7 @@ export async function invitesPlugin(app: FastifyInstance) {
       WHERE token_hash = ?
         AND used_at IS NULL
         AND revoked_at IS NULL
-        AND datetime(expires_at) > CURRENT_TIMESTAMP
+        AND datetime(expires_at) > datetime('now')
     `).get(sha256(token)) as { id: string; role: Role } | undefined;
 
     if (!invite) {
@@ -190,7 +190,7 @@ export async function invitesPlugin(app: FastifyInstance) {
         INSERT INTO users (id, email, password_hash, display_name, role, theme)
         VALUES (?, ?, ?, ?, ?, ?)
       `).run(userId, parsed.data.email, passwordHash, parsed.data.displayName, invite.role, getDefaultTheme());
-      db.prepare("UPDATE invites SET used_at = CURRENT_TIMESTAMP, used_by = ? WHERE id = ?").run(userId, invite.id);
+      db.prepare("UPDATE invites SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), used_by = ? WHERE id = ?").run(userId, invite.id);
       return db.prepare("SELECT * FROM users WHERE id = ?").get(userId) as User;
     })();
 
