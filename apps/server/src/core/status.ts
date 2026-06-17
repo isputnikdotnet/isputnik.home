@@ -337,6 +337,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.0.0",
+          label: "Rebuilt library foundation",
+          changes: [
+            "Heads up before you update: this release rebuilds the library database on a new, cleaner foundation, and it does not carry the old data across. After updating, your libraries will look empty — open each one and run a scan to re-catalogue it from your files. Your audiobooks and ebooks on disk are never touched, so a scan brings everything straight back. Listening and reading progress, bookmarks, collections, favourites, and shares start fresh.",
+            "Audiobooks, ebooks, and future media types now share one common foundation. Every library type gets the same categories, tags, collections, favourites, sharing, and search, and new types can be added later without disturbing what's already there.",
+            "Authors and narrators are now shared across the whole app, so the same person's photo and biography show up everywhere they're credited — not just inside one library.",
+            "A lot of behind-the-scenes tidying for reliability and consistency: one uniform way of recording dates and times across the app, and a cleaner data model that's faster to build on going forward."
+          ]
+        },
+        {
           version: "0.31.0",
           label: "New EPUB reader",
           changes: [
