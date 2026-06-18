@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, MoreVertical, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { activeFilterCount, FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
@@ -253,7 +253,7 @@ export function CatalogAdminMenu({
         aria-label={`More actions for ${book.title}`}
         title="More actions"
       >
-        <MoreHorizontal size={16} aria-hidden="true" />
+        <MoreVertical size={16} aria-hidden="true" />
         <span>More actions</span>
       </button>
       {open && (
@@ -444,7 +444,7 @@ function AudiobookCatalogRow({
           aria-label={`More options for ${book.title}`}
           title="More options"
         >
-          <MoreHorizontal size={16} aria-hidden="true" />
+          <MoreVertical size={16} aria-hidden="true" />
         </button>
         {menuOpen && menuPos && createPortal(
           <div

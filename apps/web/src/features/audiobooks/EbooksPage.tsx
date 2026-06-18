@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookMarked, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, MoreHorizontal, Pencil, RotateCcw, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { BookMarked, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, MoreVertical, Pencil, RotateCcw, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -267,7 +267,7 @@ function EbookCatalogRow({
           aria-label={`More options for ${book.title}`}
           title="More options"
         >
-          <MoreHorizontal size={16} aria-hidden="true" />
+          <MoreVertical size={16} aria-hidden="true" />
         </button>
         {menuOpen && menuPos && createPortal(
           <div
