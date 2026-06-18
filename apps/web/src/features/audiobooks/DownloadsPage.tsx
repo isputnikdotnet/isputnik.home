@@ -8,10 +8,13 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes } from "../../shared/utils";
 import {
   deleteDownload,
+  deleteEbookDownload,
   estimateStorage,
   listDownloads,
+  listEbookDownloads,
   requestPersistentStorage,
   type DownloadRecord,
+  type EbookDownloadRecord,
   type StorageEstimate
 } from "../../offline/downloads";
 
@@ -23,12 +26,15 @@ export function DownloadsPage({
   logout: () => Promise<void>;
 }) {
   const [downloads, setDownloads] = useState<DownloadRecord[] | null>(null);
+  const [ebookDownloads, setEbookDownloads] = useState<EbookDownloadRecord[] | null>(null);
   const [storage, setStorage] = useState<StorageEstimate | null>(null);
   const [removing, setRemoving] = useState<string[]>([]);
+  const [removingEbook, setRemovingEbook] = useState<string[]>([]);
 
   const refresh = useCallback(async () => {
-    const [list, est] = await Promise.all([listDownloads(), estimateStorage()]);
+    const [list, ebookList, est] = await Promise.all([listDownloads(), listEbookDownloads(), estimateStorage()]);
     setDownloads(list);
+    setEbookDownloads(ebookList);
     setStorage(est);
   }, []);
 
@@ -47,7 +53,22 @@ export function DownloadsPage({
     }
   };
 
-  const totalDownloadedBytes = (downloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0);
+  const removeEbook = async (bookId: string) => {
+    setRemovingEbook((current) => [...current, bookId]);
+    try {
+      await deleteEbookDownload(bookId);
+      await refresh();
+    } finally {
+      setRemovingEbook((current) => current.filter((id) => id !== bookId));
+    }
+  };
+
+  const totalDownloadedBytes =
+    (downloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0) +
+    (ebookDownloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0);
+  const totalCount = (downloads?.length ?? 0) + (ebookDownloads?.length ?? 0);
+  const hasAny = totalCount > 0;
+  const allLoaded = downloads !== null && ebookDownloads !== null;
   const usagePercent = storage && storage.quota > 0 ? Math.min(100, Math.round((storage.usage / storage.quota) * 100)) : null;
 
   return (
@@ -60,8 +81,8 @@ export function DownloadsPage({
             <p className="eyebrow">Digital Library</p>
             <h1>Downloads</h1>
           </div>
-          {downloads && downloads.length > 0 && (
-            <span>{downloads.length} {downloads.length === 1 ? "book" : "books"} · {formatBytes(totalDownloadedBytes)}</span>
+          {hasAny && (
+            <span>{totalCount} {totalCount === 1 ? "book" : "books"} · {formatBytes(totalDownloadedBytes)}</span>
           )}
         </div>
 
@@ -86,13 +107,14 @@ export function DownloadsPage({
           </section>
         )}
 
-        {downloads && downloads.length === 0 ? (
+        {allLoaded && !hasAny ? (
           <div className="empty-state library-empty">
             <DownloadCloud size={58} aria-hidden="true" />
             <h2>No downloads yet</h2>
-            <p className="muted">Open a book and tap “Save offline” to keep it on this device for listening without a connection.</p>
+            <p className="muted">Open a book and tap "Save offline" to keep it on this device for listening or reading without a connection.</p>
           </div>
         ) : (
+          <div>
           <div className="audiobook-grid">
             {(downloads ?? []).map((book) => {
               const isRemoving = removing.includes(book.bookId);
@@ -142,6 +164,62 @@ export function DownloadsPage({
               );
             })}
             {downloads === null && <p className="management-empty">Loading downloads…</p>}
+          </div>
+
+          {ebookDownloads && ebookDownloads.length > 0 && (
+            <>
+              <h2 className="downloads-section-title">Ebooks</h2>
+              <div className="audiobook-grid">
+                {(ebookDownloads ?? []).map((book) => {
+                  const isRemoving = removingEbook.includes(book.bookId);
+                  return (
+                    <article className="saved-audiobook-card" key={book.bookId}>
+                      <button className="audiobook-card" onClick={() => navigate(`/ebooks/books/${book.bookId}`)}>
+                        <div className="audiobook-cover" aria-hidden="true">
+                          {book.coverUrl ? (
+                            <img src={book.coverUrl} alt="" />
+                          ) : (
+                            <>
+                              <BookOpen size={13} />
+                              <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
+                            </>
+                          )}
+                        </div>
+                        <div className="audiobook-card-body">
+                          <strong>{book.title}</strong>
+                          <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
+                          <small>
+                            EPUB · {formatBytes(book.totalBytes)}
+                            {book.state === "downloading" && " · downloading…"}
+                            {book.state === "failed" && " · incomplete"}
+                          </small>
+                        </div>
+                      </button>
+                      <div className="downloads-card-actions">
+                        <button
+                          className="icon-button"
+                          onClick={() => navigate(`/ebooks/books/${book.bookId}`)}
+                          aria-label={`Read ${book.title}`}
+                          title="Read"
+                        >
+                          <BookOpen size={16} />
+                        </button>
+                        <button
+                          className="icon-button danger"
+                          onClick={() => removeEbook(book.bookId)}
+                          disabled={isRemoving}
+                          aria-label={`Remove ${book.title} from downloads`}
+                          title="Remove download"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
+          )}
           </div>
         )}
       </section>

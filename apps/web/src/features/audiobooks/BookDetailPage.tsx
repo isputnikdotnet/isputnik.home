@@ -11,8 +11,9 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
-import { getDownloadedBookDetail } from "../../offline/downloads";
+import { getDownloadedBookDetail, getDownloadedEpubBlob } from "../../offline/downloads";
 import { useDownload } from "../../offline/useDownload";
+import { useEbookDownload } from "../../offline/useEbookDownload";
 import { isStandalone } from "../../pwa/platform";
 import { formatBytes, formatDuration } from "../../shared/utils";
 import { ProgressRing } from "../../shared/ProgressRing";
@@ -143,9 +144,10 @@ function BookDetailView({
   const [saveError, setSaveError] = useState("");
   const [metadataModalOpen, setMetadataModalOpen] = useState(false);
   const [confirmRemoveDownload, setConfirmRemoveDownload] = useState(false);
+  const [confirmRemoveEbookDownload, setConfirmRemoveEbookDownload] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false);
-  const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string } | null>(null);
+  const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string; blobUrl?: string } | null>(null);
   const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
   const [progressMenuOpen, setProgressMenuOpen] = useState(false);
   const progressMenuRef = useRef<HTMLDivElement>(null);
@@ -153,6 +155,12 @@ function BookDetailView({
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const offline = useDownload(book);
+
+  // Revoke any blob URL created for offline reading when the viewer closes.
+  useEffect(() => {
+    const doc = viewerDoc;
+    return () => { if (doc?.blobUrl) URL.revokeObjectURL(doc.blobUrl); };
+  }, [viewerDoc]);
 
   // Move this item to the Recycle Bin, then return to the list (where it's now gone).
   // Recoverable from Control Panel → Recycle Bin until it's purged. Shared by both types.
@@ -267,6 +275,16 @@ function BookDetailView({
   const primaryReaderStorageKey = primaryReadableDoc
     ? `isputnik:epub-progress:${userId}:${book.id}:${primaryReadableDoc.id}`
     : "";
+  const ebookMeta = isEbook && primaryReadableDoc?.format === "epub" ? {
+    bookId: book.id,
+    documentId: primaryReadableDoc.id,
+    documentUrl: primaryReadableDoc.url,
+    title: book.title,
+    authors: book.authors,
+    coverUrl: book.coverLargeUrl ?? book.coverUrl,
+    totalBytes: primaryReadableDoc.size
+  } : null;
+  const ebookOffline = useEbookDownload(ebookMeta);
   const [progressAction, setProgressAction] = useState<"complete" | "reset" | "">("");
   const [progressActionError, setProgressActionError] = useState("");
 
@@ -555,7 +573,14 @@ function BookDetailView({
   const openPrimaryReader = () => {
     const doc = primaryReadableDoc;
     if (!doc || !VIEWABLE_DOC_FORMATS.has(doc.format)) return;
-    setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format });
+    if (doc.format === "epub" && ebookOffline.record?.state === "complete") {
+      void getDownloadedEpubBlob(book.id, doc.id).then((blob) => {
+        const blobUrl = blob ? URL.createObjectURL(blob) : undefined;
+        setViewerDoc({ id: doc.id, fileName: doc.fileName, url: blobUrl ?? doc.url, format: doc.format, blobUrl });
+      });
+    } else {
+      setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format });
+    }
   };
 
   const renderRowValue = (row: DetailRow) =>
@@ -694,13 +719,26 @@ function BookDetailView({
                   aria-label={offline.record?.state === "complete" ? "Remove offline download" : "Save for offline listening"}
                   title={offline.record?.state === "complete" ? "Saved offline" : offline.busy ? `Downloading ${Math.round(offline.progress * 100)}%` : "Save offline"}
                 >
-                  {offline.record?.state === "complete" ? (
-                    <CheckCircle2 size={18} />
-                  ) : offline.busy ? (
-                    <Download size={18} />
-                  ) : (
-                    <Download size={18} />
-                  )}
+                  {offline.record?.state === "complete" ? <CheckCircle2 size={18} /> : <Download size={18} />}
+                </button>
+              )}
+              {isEbook && isStandalone() && capabilities.canDownload && primaryReadableDoc?.format === "epub" && (
+                <button
+                  className={`book-detail-icon-action${ebookOffline.record?.state === "complete" ? " offline-saved" : ""}`}
+                  type="button"
+                  onClick={() => {
+                    if (ebookOffline.busy) return;
+                    if (ebookOffline.record?.state === "complete") {
+                      setConfirmRemoveEbookDownload(true);
+                    } else {
+                      void ebookOffline.start();
+                    }
+                  }}
+                  disabled={ebookOffline.busy}
+                  aria-label={ebookOffline.record?.state === "complete" ? "Remove offline download" : "Save for offline reading"}
+                  title={ebookOffline.record?.state === "complete" ? "Saved offline" : ebookOffline.busy ? `Downloading ${Math.round(ebookOffline.progress * 100)}%` : "Save offline"}
+                >
+                  {ebookOffline.record?.state === "complete" ? <CheckCircle2 size={18} /> : <Download size={18} />}
                 </button>
               )}
               {capabilities.canEdit && (
@@ -1111,6 +1149,18 @@ function BookDetailView({
           onCancel={() => setConfirmRemoveDownload(false)}
         >
           This downloaded book is removed from this device. You can download it again at any time.
+        </ConfirmDialog>
+      )}
+
+      {confirmRemoveEbookDownload && (
+        <ConfirmDialog
+          title="Remove download?"
+          confirmLabel="Remove download"
+          danger
+          onConfirm={() => { setConfirmRemoveEbookDownload(false); void ebookOffline.remove(); }}
+          onCancel={() => setConfirmRemoveEbookDownload(false)}
+        >
+          This ebook is removed from this device. You can download it again at any time.
         </ConfirmDialog>
       )}
 

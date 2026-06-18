@@ -743,12 +743,17 @@ a.home-overview-card:focus-visible {
     gap: 4px;
     min-width: 0;
     min-height: 56px;
+    padding: 0;
+    border: none;
     border-radius: 8px;
+    background: transparent;
     color: var(--home-muted);
+    font-family: inherit;
     font-size: 0.67rem;
     font-weight: 760;
     line-height: 1;
     text-decoration: none;
+    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -1091,13 +1096,29 @@ a.home-overview-card:focus-visible {
   color: var(--home-accent);
 }
 
+.inprogress-offline-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--home-accent) 14%, transparent);
+  color: var(--home-accent);
+  cursor: pointer;
+}
+
+.inprogress-offline-btn:hover {
+  background: color-mix(in srgb, var(--home-accent) 22%, transparent);
+}
+
 .inprogress-download-btn {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border: none;
-  border-radius: 7px;
+  border-radius: 6px;
   background: transparent;
   color: var(--home-muted);
   cursor: pointer;

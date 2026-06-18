@@ -121,6 +121,13 @@
   to { transform: rotate(360deg); }
 }
 
+.downloads-section-title {
+  margin: 28px 0 14px;
+  font-size: 1rem;
+  font-weight: 680;
+  color: var(--muted);
+}
+
 .downloads-card-actions {
   position: absolute;
   top: 8px;
