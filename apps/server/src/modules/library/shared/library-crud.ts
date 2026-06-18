@@ -120,7 +120,7 @@ export function createLibraryRecord(opts: {
   }
 
   const { ownerId, ownerType } = resolveOwner(data);
-  const ownerError = validateLibraryOwner(ownerId, ownerType, type);
+  const ownerError = validateLibraryOwner(ownerId, ownerType);
   if (ownerError) {
     return ownerError;
   }
@@ -185,7 +185,7 @@ export function updateLibraryRecord(opts: {
   }
 
   const { ownerId, ownerType } = resolveOwner(data);
-  const ownerError = validateLibraryOwner(ownerId, ownerType, type, id);
+  const ownerError = validateLibraryOwner(ownerId, ownerType);
   if (ownerError) {
     return ownerError;
   }

@@ -141,13 +141,11 @@ export function deleteLibraryAccess(libraryId: string): void {
   deleteAssignmentsForObject("library", libraryId);
 }
 
-// Validate a library's logical owner before it is written (still uses the legacy
-// owner columns for the one-library-per-owner rule during the transition).
+// Validate a library's logical owner exists before it is written. A user or group
+// may own any number of libraries (of any type).
 export function validateLibraryOwner(
   ownerId: string | null,
-  ownerType: "user" | "group" | null,
-  type: string,
-  excludeLibraryId?: string
+  ownerType: "user" | "group" | null
 ): { status: number; error: string } | null {
   if (!ownerId) return null;
 
@@ -159,19 +157,6 @@ export function validateLibraryOwner(
   } else if (ownerType === "group") {
     const groupExists = db.prepare("SELECT id FROM user_groups WHERE id = ?").get(ownerId);
     if (!groupExists) return { status: 400, error: "Owner group not found." };
-  }
-
-  const sql = `SELECT id FROM libraries WHERE type = ? AND owner_id = ? AND owner_type = ?${
-    excludeLibraryId ? " AND id != ?" : ""
-  }`;
-  const params = excludeLibraryId ? [type, ownerId, ownerType, excludeLibraryId] : [type, ownerId, ownerType];
-  const duplicate = db.prepare(sql).get(...params);
-  if (duplicate) {
-    const noun = ownerType === "group" ? "group" : "user";
-    return {
-      status: 409,
-      error: `This ${noun} already owns ${excludeLibraryId ? "another" : "an"} ${type} library.`
-    };
   }
 
   return null;
