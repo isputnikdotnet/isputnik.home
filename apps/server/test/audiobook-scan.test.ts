@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { writeBookScan, type PreparedBookScan } from "../src/modules/library/audiobook/scanner.js";
+import { writeBookScan, enqueueAudiobookScan, processAudiobookScanQueue, type PreparedBookScan } from "../src/modules/library/audiobook/scanner.js";
 import { getAudiobookBookDetail } from "../src/modules/library/audiobook/book-helpers.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
@@ -85,5 +85,23 @@ describe("writeBookScan (scan write -> read round-trip)", () => {
     expect(detail.title).toBe("Hand Title");     // manual title preserved
     expect(detail.asin).toBe("MANUAL_ASIN");     // manual asin preserved
     expect(detail.durationSeconds).toBe(5000);   // duration always refreshes
+  });
+});
+
+describe("scan queue handles a missing source folder", () => {
+  it("fails the job on the first attempt and errors the library (no endless retry)", async () => {
+    // makeLibrary seeds source_path "/src/L", which does not exist on disk.
+    const jobId = enqueueAudiobookScan("L");
+    await processAudiobookScanQueue();
+
+    const job = db.prepare("SELECT status, attempts, error FROM jobs WHERE id = ?")
+      .get(jobId) as { status: string; attempts: number; error: string };
+    expect(job.status).toBe("failed");   // not rescheduled to 'pending' for retry
+    expect(job.attempts).toBe(1);        // failed once, never retried
+    expect(job.error).toMatch(/missing or not accessible/i);
+
+    const library = db.prepare("SELECT scan_status FROM libraries WHERE id = 'L'")
+      .get() as { scan_status: string };
+    expect(library.scan_status).toBe("error");
   });
 });

@@ -8,7 +8,7 @@ import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { deleteSharesForResource } from "../shared/share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
-import { validateLibrarySource } from "../shared/library-source.js";
+import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import {
   normalizeLibrarySettings,
   normalizeScanSources,
@@ -1528,10 +1528,14 @@ export async function processAudiobookScanQueue() {
             .run(payload.libraryId);
           continue;
         }
+        // A bad/missing source folder is a permanent configuration error: fail the
+        // job at once instead of retrying for minutes while the library is stuck on
+        // "scanning". The stack is noise for these, so keep just the message.
+        const permanent = err instanceof LibrarySourceError;
         const message = err instanceof Error
-          ? `${err.message}${err.stack ? `\n\nStack:\n${err.stack}` : ""}`
+          ? (permanent ? err.message : `${err.message}${err.stack ? `\n\nStack:\n${err.stack}` : ""}`)
           : "Audiobook scan failed";
-        if (job.attempts + 1 < job.max_attempts) {
+        if (!permanent && job.attempts + 1 < job.max_attempts) {
           const runAt = new Date(Date.now() + Math.min(job.attempts + 1, 5) * 60_000).toISOString();
           db.prepare(`
             UPDATE jobs
