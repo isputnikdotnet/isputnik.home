@@ -337,6 +337,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.5",
+          label: "Default covers, reader access & library fixes",
+          changes: [
+            "Audiobooks and ebooks without their own artwork now show a clean default cover — a blue headphones card for audiobooks and an orange book card for ebooks — across the library grids, book pages, the player, and the home screen.",
+            "Reader access (OPDS) has moved from your Profile to Control Panel → Config, so reader tokens are now managed by an administrator in one place.",
+            "A user or group can now own more than one library.",
+            "Audiobook player: multi-file books now show the position as a track number instead of a chapter number (books with real embedded chapters still show chapters).",
+            "Scanning a library whose source folder is missing or unreadable now stops right away with a clear error, instead of appearing to scan indefinitely."
+          ]
+        },
+        {
           version: "1.2.4",
           label: "Library setup wizard refresh",
           changes: [
