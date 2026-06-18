@@ -1060,3 +1060,221 @@
     gap: 6px;
   }
 }
+
+/* ── Catalog row/list view (replaces card grid) ──────────────────── */
+
+.audiobook-catalog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.catalog-row {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  transition: background 0.12s ease;
+}
+
+.catalog-row:hover {
+  background: var(--hover);
+}
+
+.catalog-row.selected {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.catalog-row-cover {
+  position: relative;
+  width: 48px;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--field);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.catalog-row-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.catalog-row-cover > strong {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.catalog-row-check {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border-radius: 6px;
+}
+
+.catalog-row-finished {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--mint);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+
+.catalog-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.catalog-row-title {
+  font-size: 0.9rem;
+  font-weight: 640;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink);
+}
+
+.catalog-row-author {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalog-row-meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.catalog-row-bar {
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--field);
+  overflow: hidden;
+  margin-top: 5px;
+  max-width: 160px;
+}
+
+.catalog-row-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.catalog-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.catalog-row-play {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+
+.catalog-row-play:hover {
+  background: color-mix(in srgb, var(--accent) 82%, black);
+  transform: scale(1.06);
+}
+
+.catalog-row-menu {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.catalog-row-menu:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+/* Three-dot dropdown */
+.catalog-row-dropdown {
+  z-index: 300;
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px var(--shadow);
+  padding: 6px;
+  min-width: 188px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.catalog-row-dropdown button,
+.catalog-row-dropdown a[role="menuitem"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 0.86rem;
+  color: var(--ink);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: left;
+  width: 100%;
+}
+
+.catalog-row-dropdown button:hover,
+.catalog-row-dropdown a[role="menuitem"]:hover {
+  background: var(--hover);
+}
+
+.catalog-row-dropdown button.fav {
+  color: var(--accent);
+}
+
+.catalog-row-dropdown button.danger {
+  color: var(--danger);
+}
+
+.catalog-row-dropdown button.danger:hover {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.catalog-row-dropdown-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 0;
+}
