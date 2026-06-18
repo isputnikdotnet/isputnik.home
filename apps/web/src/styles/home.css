@@ -1006,7 +1006,7 @@ a.home-overview-card:focus-visible {
 
   .home-feed-row-dropdown {
     position: absolute;
-    z-index: 30;
+    z-index: 65;
     top: calc(100% + 4px);
     right: 0;
     min-width: 186px;
@@ -1017,7 +1017,8 @@ a.home-overview-card:focus-visible {
     box-shadow: 0 16px 40px var(--home-shadow-color);
   }
 
-  .home-feed-row-dropdown button {
+  .home-feed-row-dropdown button,
+  .home-feed-row-dropdown a {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1030,21 +1031,31 @@ a.home-overview-card:focus-visible {
     font: inherit;
     font-size: 0.86rem;
     text-align: left;
+    text-decoration: none;
     cursor: pointer;
   }
 
-  .home-feed-row-dropdown button:hover {
+  .home-feed-row-dropdown button:hover,
+  .home-feed-row-dropdown a:hover {
     background: var(--home-soft-strong);
   }
 
-  .home-feed-row-dropdown button svg {
+  .home-feed-row-dropdown button svg,
+  .home-feed-row-dropdown a svg {
     flex: 0 0 auto;
     color: var(--home-icon);
   }
 
   .home-feed-row-dropdown button.is-fav,
-  .home-feed-row-dropdown button.is-fav svg {
+  .home-feed-row-dropdown button.is-fav svg,
+  .home-feed-row-dropdown a.is-fav,
+  .home-feed-row-dropdown a.is-fav svg {
     color: var(--home-accent-strong);
+  }
+
+  .home-feed-row-dropdown button.danger,
+  .home-feed-row-dropdown button.danger svg {
+    color: var(--home-rose);
   }
 
   .home-feed-row.is-skeleton .home-feed-row-cover {
@@ -1233,4 +1244,63 @@ a.home-overview-card:focus-visible {
   box-shadow: 0 6px 20px var(--shadow);
   pointer-events: none;
   white-space: nowrap;
+}
+
+/* Persistent download-progress banner — stays put with a live progress bar
+   until the download actually finishes (portaled to <body>, global theme vars). */
+.home-dl-banner {
+  position: fixed;
+  z-index: 200;
+  left: 50%;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: min(370px, calc(100vw - 26px));
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 26px var(--shadow);
+}
+
+.home-dl-banner-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.home-dl-banner-label {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-dl-banner-track {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--field);
+  overflow: hidden;
+}
+
+.home-dl-banner-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mint);
+  transition: width 0.2s ease;
+}
+
+.home-dl-banner-pct {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
 }

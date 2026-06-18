@@ -261,6 +261,15 @@ async function responseBlobWithProgress(
   return new Blob(chunks, { type: mimeType });
 }
 
+// Best-effort: fetch a cover URL so the service worker caches it (covers use a
+// NetworkFirst runtime cache), making the artwork available offline later. The
+// on-screen thumbnail is usually cached from browsing, but the large cover used
+// on the player / detail page often isn't until it's first viewed online.
+function warmCover(url: string | null | undefined): void {
+  if (!url) return;
+  void fetch(url, { credentials: "include" }).catch(() => {});
+}
+
 /**
  * Download every available chapter of a book into local storage, reporting
  * progress (0–1). Streams each response so progress reflects bytes received.
@@ -301,6 +310,8 @@ export async function downloadBook(
     createdAt: new Date().toISOString()
   };
   await database.put("downloads", record);
+  warmCover(book.coverLargeUrl);
+  warmCover(book.coverUrl);
 
   let downloaded = 0;
   try {
@@ -436,6 +447,7 @@ export async function downloadEbook(
     createdAt: new Date().toISOString()
   };
   await database.put("ebookDownloads", record);
+  warmCover(meta.coverUrl);
 
   let downloaded = 0;
   try {

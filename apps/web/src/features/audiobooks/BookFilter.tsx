@@ -224,7 +224,7 @@ function FacetSection({
 }
 
 export function FilterButton({
-  facets, value, onChange, fields
+  facets, value, onChange, fields, compact = false
 }: {
   facets: FacetOptions;
   value: BookFilters;
@@ -232,6 +232,7 @@ export function FilterButton({
   // Restrict which facet sections render (e.g. ebooks drop narrators/series/length).
   // Defaults to every facet in display order.
   fields?: (keyof BookFilters)[];
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const count = activeFilterCount(value);
@@ -244,9 +245,9 @@ export function FilterButton({
 
   return (
     <>
-      <button className={`filter-button${count > 0 ? " active" : ""}`} onClick={() => setOpen(true)} aria-label="Filters">
+      <button className={`filter-button${count > 0 ? " active" : ""}${compact ? " compact" : ""}`} onClick={() => setOpen(true)} aria-label="Filters" title={compact ? "Filter" : undefined}>
         <SlidersHorizontal size={16} aria-hidden="true" />
-        <span>Filter</span>
+        {!compact && <span>Filter</span>}
         {count > 0 && <span className="filter-badge">{count}</span>}
       </button>
       {open && (

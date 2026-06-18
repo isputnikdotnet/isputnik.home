@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Download, Heart, Library, ListMusic, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { ArrowDownUp, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Library, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { activeFilterCount, FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
@@ -9,6 +9,9 @@ import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { PeopleCombobox } from "./PeopleCombobox";
 import { navigate } from "../../router";
+import { useIsMobile } from "../../shared/useIsMobile";
+import { CatalogRowMobile } from "./CatalogRowMobile";
+import { listDownloads } from "../../offline/downloads";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
@@ -109,15 +112,17 @@ export function AudiobookHeaderSort({
   value,
   onChange,
   options = SORT_OPTIONS,
-  ariaLabel = "Sort audiobooks"
+  ariaLabel = "Sort audiobooks",
+  compact = false
 }: {
   value: SortKey;
   onChange: (sort: SortKey) => void;
   options?: { value: SortKey; label: string }[];
   ariaLabel?: string;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number | null; right: number | null; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const currentLabel = options.find((option) => option.value === value)?.label ?? "";
@@ -126,7 +131,15 @@ export function AudiobookHeaderSort({
     setOpen((isOpen) => {
       if (!isOpen && triggerRef.current) {
         const rect = triggerRef.current.getBoundingClientRect();
-        setPos({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+        // Right-align the menu when a left-aligned one would run off-screen (the
+        // compact icon sits near the right edge). Desktop, where it fits, is unchanged.
+        const alignRight = rect.left + 200 > window.innerWidth;
+        setPos({
+          top: rect.bottom + 8,
+          left: alignRight ? null : rect.left,
+          right: alignRight ? window.innerWidth - rect.right : null,
+          width: rect.width
+        });
       }
       return !isOpen;
     });
@@ -152,27 +165,44 @@ export function AudiobookHeaderSort({
   }, [open]);
 
   return (
-    <div className="audiobook-sort-control">
-      <span>Sort by</span>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="audiobook-sort-trigger"
-        onClick={toggle}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={ariaLabel}
-      >
-        <span>{currentLabel}</span>
-      </button>
-      <ChevronDown size={16} aria-hidden="true" />
+    <div className={`audiobook-sort-control${compact ? " compact" : ""}`}>
+      {compact ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          className="audiobook-sort-trigger"
+          onClick={toggle}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={ariaLabel}
+          title="Sort"
+        >
+          <ArrowDownUp size={18} aria-hidden="true" />
+        </button>
+      ) : (
+        <>
+          <span>Sort by</span>
+          <button
+            ref={triggerRef}
+            type="button"
+            className="audiobook-sort-trigger"
+            onClick={toggle}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-label={ariaLabel}
+          >
+            <span>{currentLabel}</span>
+          </button>
+          <ChevronDown size={16} aria-hidden="true" />
+        </>
+      )}
       {open && pos && createPortal(
         <div
           ref={menuRef}
           className="book-detail-action-menu audiobook-library-menu audiobook-sort-menu"
           role="menu"
           aria-label={ariaLabel}
-          style={{ position: "fixed", top: pos.top, left: pos.left, right: "auto", minWidth: pos.width }}
+          style={{ position: "fixed", top: pos.top, left: pos.left ?? undefined, right: pos.right ?? undefined, minWidth: pos.width }}
         >
           {options.map((option) => (
             <button
@@ -765,9 +795,17 @@ function UploadBookModal({
   const library = libraries.find((item) => item.id === libraryId);
 
   return (
-    <Modal title="Upload audiobook" className="book-upload-modal" busy={busy} onClose={onClose}>
-      <p className="muted">All files in one upload become a single audiobook (multi-part books: drop every track together, or the whole book folder). The book is scanned and appears in the catalog right away.</p>
-
+    <Modal
+      title="Upload audiobook"
+      className="book-upload-modal"
+      busy={busy}
+      onClose={onClose}
+      headerAction={
+        <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label="Close">
+          <X size={18} aria-hidden="true" />
+        </button>
+      }
+    >
       {libraries.length > 1 && (
         <label className="field" style={{ marginBottom: 12 }}>
           <span>Library</span>
@@ -809,11 +847,6 @@ function UploadBookModal({
         />
       )}
 
-      <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={busy}>
-          Close
-        </Button>
-      </div>
     </Modal>
   );
 }
@@ -834,6 +867,11 @@ export function AudiobooksPage({
   const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
   const libraryTriggerRef = useRef<HTMLButtonElement>(null);
   const libraryMenuRef = useRef<HTMLDivElement>(null);
+  // Mobile-only "Browse" dropdown that collapses the Authors / Narrators / Series tabs.
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [browsePos, setBrowsePos] = useState<{ top: number; left: number | null; right: number | null } | null>(null);
+  const browseTriggerRef = useRef<HTMLButtonElement>(null);
+  const browseMenuRef = useRef<HTMLDivElement>(null);
 
   // Multi-select bulk editing (admins / library owners only).
   const [selectionMode, setSelectionMode] = useState(false);
@@ -854,6 +892,31 @@ export function AudiobooksPage({
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  // Mobile / PWA: render the catalog as homepage-style rows (with a live download
+  // banner + toast) instead of the desktop card grid. Desktop is untouched.
+  const isMobile = useIsMobile();
+  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+  const [activeDownload, setActiveDownload] = useState<{ title: string; progress: number } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (message: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(message);
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
+  };
+
+  const handleDownloaded = (id: string) => setDownloadedIds((prev) => new Set([...prev, id]));
+
+  useEffect(() => {
+    if (!isMobile) return;
+    let alive = true;
+    listDownloads().then((downloads) => {
+      if (alive) setDownloadedIds(new Set(downloads.map((d) => d.bookId)));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [isMobile]);
 
   const scope: CatalogScope = selectedLibraryId === "all" ? { kind: "all" } : { kind: "library", libraryId: selectedLibraryId };
   const cat = useAudiobookCatalog(scope, sort, "audiobooks:main");
@@ -1055,6 +1118,40 @@ export function AudiobooksPage({
     };
   }, [libraryMenuOpen]);
 
+  const toggleBrowse = () => {
+    setBrowseOpen((open) => {
+      if (!open && browseTriggerRef.current) {
+        const rect = browseTriggerRef.current.getBoundingClientRect();
+        const alignRight = rect.left + 200 > window.innerWidth;
+        setBrowsePos({
+          top: rect.bottom + 8,
+          left: alignRight ? null : rect.left,
+          right: alignRight ? window.innerWidth - rect.right : null
+        });
+      }
+      return !open;
+    });
+  };
+
+  useEffect(() => {
+    if (!browseOpen) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (browseTriggerRef.current?.contains(target)) return;
+      if (browseMenuRef.current?.contains(target)) return;
+      setBrowseOpen(false);
+    };
+    const dismiss = () => setBrowseOpen(false);
+    window.addEventListener("mousedown", close);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
+  }, [browseOpen]);
+
   const selectedLibrary = selectedLibraryId === "all"
     ? null
     : libraries.find((library) => library.id === selectedLibraryId) ?? null;
@@ -1085,15 +1182,21 @@ export function AudiobooksPage({
           searchPlaceholder="Search audiobooks..."
           actions={
             <>
-              <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} />
-              <AudiobookHeaderSort value={sort} onChange={setSort} />
+              <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} compact={isMobile} />
+              <AudiobookHeaderSort value={sort} onChange={setSort} compact={isMobile} />
               {uploadLibraries.length > 0 && !selectionMode && (
-                <button type="button" className="secondary-button" onClick={() => { setUploadOpen(true); setBulkNotice(""); }}>
-                  <UploadCloud size={17} aria-hidden="true" />
-                  <span>Upload</span>
-                </button>
+                isMobile ? (
+                  <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setBulkNotice(""); }} aria-label="Upload" title="Upload">
+                    <UploadCloud size={18} aria-hidden="true" />
+                  </button>
+                ) : (
+                  <button type="button" className="secondary-button" onClick={() => { setUploadOpen(true); setBulkNotice(""); }}>
+                    <UploadCloud size={17} aria-hidden="true" />
+                    <span>Upload</span>
+                  </button>
+                )
               )}
-              {canEditScope && !selectionMode && (
+              {!isMobile && canEditScope && !selectionMode && (
                 <button type="button" className="secondary-button" onClick={() => { setSelectionMode(true); setBulkNotice(""); }}>
                   <CheckSquare size={17} aria-hidden="true" />
                   <span>Select</span>
@@ -1161,11 +1264,52 @@ export function AudiobooksPage({
                     document.body
                   )}
                 </div>
-                <AudiobookTabs active="books" includeBooks={false} />
+                {isMobile ? (
+                  <div className="audiobook-library-shortcuts">
+                    <button
+                      ref={browseTriggerRef}
+                      type="button"
+                      className="audiobook-library-tab"
+                      onClick={toggleBrowse}
+                      aria-haspopup="menu"
+                      aria-expanded={browseOpen}
+                      aria-label="Browse authors, narrators and series"
+                    >
+                      <Compass size={19} aria-hidden="true" />
+                      <span>Browse</span>
+                      <ChevronDown size={16} aria-hidden="true" />
+                    </button>
+                    {browseOpen && browsePos && createPortal(
+                      <div
+                        ref={browseMenuRef}
+                        className="book-detail-action-menu audiobook-library-menu"
+                        role="menu"
+                        aria-label="Browse"
+                        style={{ position: "fixed", top: browsePos.top, left: browsePos.left ?? undefined, right: browsePos.right ?? undefined }}
+                      >
+                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/authors"); }}>
+                          <UserRound size={16} aria-hidden="true" />
+                          <span>Authors</span>
+                        </button>
+                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/narrators"); }}>
+                          <Mic2 size={16} aria-hidden="true" />
+                          <span>Narrators</span>
+                        </button>
+                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/series"); }}>
+                          <Library size={16} aria-hidden="true" />
+                          <span>Series</span>
+                        </button>
+                      </div>,
+                      document.body
+                    )}
+                  </div>
+                ) : (
+                  <AudiobookTabs active="books" includeBooks={false} />
+                )}
               </div>
             </div>
 
-            {selectionMode && (
+            {!isMobile && selectionMode && (
               <div className="audiobook-bulk-bar">
                 <span className="audiobook-bulk-count">{selectedIds.size} selected</span>
                 <div className="row-actions">
@@ -1220,25 +1364,51 @@ export function AudiobooksPage({
               </MessageBox>
             )}
 
-            <div className={`audiobook-catalog ${viewMode}`}>
-              {cat.books.map((book) => (
-                <CatalogBookCard
-                  key={book.id}
-                  book={book}
-                  viewMode={viewMode}
-                  selectionMode={selectionMode}
-                  selected={selectedIds.has(book.id)}
-                  onToggleSelect={toggleSelect}
-                  canEdit={libraries.find((library) => library.id === book.libraryId)?.canWrite ?? false}
-                  canDownload={libraries.find((library) => library.id === book.libraryId)?.canDownload ?? false}
-                  canDelete={libraries.find((library) => library.id === book.libraryId)?.canDelete ?? false}
-                  onEdit={openEditDetail}
-                  onAddToCollection={setCollectionBook}
-                  onDelete={(target) => { setDeleteError(""); setDeleteTarget(target); }}
-                />
-              ))}
-              {!cat.loading && cat.books.length === 0 && <p className="management-empty">{emptyCatalogMessage}</p>}
-            </div>
+            {isMobile ? (
+              <div className="home-feed-list">
+                {cat.books.map((book) => {
+                  const lib = libraries.find((library) => library.id === book.libraryId);
+                  return (
+                    <CatalogRowMobile
+                      key={book.id}
+                      book={book}
+                      kind="audiobook"
+                      canEdit={lib?.canWrite ?? false}
+                      canDownload={lib?.canDownload ?? false}
+                      canDelete={lib?.canDelete ?? false}
+                      onEdit={openEditDetail}
+                      onDelete={(target) => { setDeleteError(""); setDeleteTarget(target); }}
+                      onAddToCollection={setCollectionBook}
+                      downloaded={downloadedIds.has(book.id)}
+                      onDownload={setActiveDownload}
+                      onDownloaded={handleDownloaded}
+                      onToast={showToast}
+                    />
+                  );
+                })}
+                {!cat.loading && cat.books.length === 0 && <p className="management-empty">{emptyCatalogMessage}</p>}
+              </div>
+            ) : (
+              <div className={`audiobook-catalog ${viewMode}`}>
+                {cat.books.map((book) => (
+                  <CatalogBookCard
+                    key={book.id}
+                    book={book}
+                    viewMode={viewMode}
+                    selectionMode={selectionMode}
+                    selected={selectedIds.has(book.id)}
+                    onToggleSelect={toggleSelect}
+                    canEdit={libraries.find((library) => library.id === book.libraryId)?.canWrite ?? false}
+                    canDownload={libraries.find((library) => library.id === book.libraryId)?.canDownload ?? false}
+                    canDelete={libraries.find((library) => library.id === book.libraryId)?.canDelete ?? false}
+                    onEdit={openEditDetail}
+                    onAddToCollection={setCollectionBook}
+                    onDelete={(target) => { setDeleteError(""); setDeleteTarget(target); }}
+                  />
+                ))}
+                {!cat.loading && cat.books.length === 0 && <p className="management-empty">{emptyCatalogMessage}</p>}
+              </div>
+            )}
 
             <CatalogTail hasMore={cat.hasMore} loadingMore={cat.loadingMore} loadMore={cat.loadMore} sentinelRef={cat.sentinelRef} />
           </>
@@ -1319,6 +1489,25 @@ export function AudiobooksPage({
             title={collectionBook.title}
             onClose={() => setCollectionBook(null)}
           />
+        )}
+
+        {activeDownload && createPortal(
+          <div className="home-dl-banner" role="status" aria-live="polite">
+            <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
+            <div className="home-dl-banner-body">
+              <span className="home-dl-banner-label">Downloading {activeDownload.title}</span>
+              <span className="home-dl-banner-track">
+                <span style={{ width: `${Math.round(activeDownload.progress * 100)}%` }} />
+              </span>
+            </div>
+            <span className="home-dl-banner-pct">{Math.round(activeDownload.progress * 100)}%</span>
+          </div>,
+          document.body
+        )}
+
+        {toast && createPortal(
+          <div className="home-toast" role="status" aria-live="polite">{toast}</div>,
+          document.body
         )}
       </section>
     </DashboardShell>
