@@ -227,7 +227,6 @@
   display: flex;
   align-items: center;
   gap: clamp(14px, 3vw, 42px);
-  flex: 1;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -241,9 +240,15 @@
 .audiobook-page-tabs-with-library {
   display: flex;
   align-items: center;
-  gap: clamp(12px, 2vw, 24px);
+  gap: clamp(14px, 3vw, 42px);
   min-width: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.audiobook-page-tabs-with-library::-webkit-scrollbar {
+  display: none;
 }
 
 .audiobook-library-tab {
@@ -267,6 +272,12 @@
 .audiobook-main-nav-row .audiobook-library-tab {
   min-height: 44px;
   border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.audiobook-main-nav-row .audiobook-library-tab.active,
+.audiobook-main-nav-row .audiobook-library-tab:hover {
   background: var(--active);
   color: var(--mint);
 }
@@ -343,8 +354,6 @@
   align-items: center;
   flex: 0 0 auto;
   gap: 8px;
-  padding-right: clamp(12px, 2vw, 24px);
-  border-right: 1px solid var(--line);
 }
 
 .audiobook-page-tabs a {
