@@ -7,7 +7,7 @@ import { db } from "../../../db.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { matchCategoryId, setEntityTags } from "../audiobook/categorize.js";
-import { validateLibrarySource } from "../shared/library-source.js";
+import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import {
   normalizeLibrarySettings,
   normalizeScanSources,
@@ -392,9 +392,12 @@ export async function processEbookScanQueue() {
           WHERE id = ?
         `).run(JSON.stringify({ ...payload, result }), job.id);
       } catch (err) {
+        // A bad/missing source folder is a permanent configuration error — fail the
+        // job at once instead of retrying while the library is stuck on "scanning".
+        const permanent = err instanceof LibrarySourceError;
         const message = err instanceof Error ? err.message : "Ebook scan failed";
         const attempts = (db.prepare("SELECT attempts, max_attempts FROM jobs WHERE id = ?").get(job.id) as { attempts: number; max_attempts: number });
-        if (attempts.attempts < attempts.max_attempts) {
+        if (!permanent && attempts.attempts < attempts.max_attempts) {
           const runAt = new Date(Date.now() + 5000).toISOString();
           db.prepare("UPDATE jobs SET status = 'pending', run_at = ?, locked_at = NULL, locked_by = NULL, error = ? WHERE id = ?")
             .run(runAt, message, job.id);

@@ -13,7 +13,7 @@ import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
-import { validateLibrarySource } from "../shared/library-source.js";
+import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
 import { enqueueEbookScan, processEbookScanQueue, scanSingleEbookFile } from "./scanner.js";
@@ -364,7 +364,8 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
 
   app.post("/api/library/ebook-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const exists = db.prepare("SELECT id FROM libraries WHERE id = ? AND type = 'ebook'").get(id);
+    const exists = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'ebook'")
+      .get(id) as { id: string; source_path: string } | undefined;
     if (!exists) {
       reply.code(404).send({ error: "Ebook library not found" });
       return;
@@ -374,6 +375,18 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
       return;
+    }
+
+    // Catch a missing/inaccessible source folder now, so the user gets an immediate
+    // error instead of a library stuck on "scanning" while the job retries.
+    try {
+      validateLibrarySource(exists.source_path);
+    } catch (err) {
+      if (err instanceof LibrarySourceError) {
+        reply.code(422).send({ error: err.message });
+        return;
+      }
+      throw err;
     }
 
     const jobId = enqueueEbookScan(id, parsed.data);

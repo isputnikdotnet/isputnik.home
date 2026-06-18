@@ -7,6 +7,7 @@ import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "
 import { publicLibrary } from "../shared/library-serializer.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
+import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import type { AudiobookLibraryRow } from "./types.js";
@@ -143,8 +144,8 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
 
   app.post("/api/library/audiobook-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'audiobook'")
-      .get(id) as { id: string; name: string } | undefined;
+    const exists = db.prepare("SELECT id, name, source_path FROM libraries WHERE id = ? AND type = 'audiobook'")
+      .get(id) as { id: string; name: string; source_path: string } | undefined;
     if (!exists) {
       reply.code(404).send({ error: "Audiobook library not found" });
       return;
@@ -154,6 +155,18 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
       return;
+    }
+
+    // Catch a missing/inaccessible source folder now, so the user gets an immediate
+    // error instead of a library stuck on "scanning" while the job retries.
+    try {
+      validateLibrarySource(exists.source_path);
+    } catch (err) {
+      if (err instanceof LibrarySourceError) {
+        reply.code(422).send({ error: err.message });
+        return;
+      }
+      throw err;
     }
 
     const jobId = enqueueAudiobookScan(id, parsed.data);
