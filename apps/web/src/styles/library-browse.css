@@ -1084,7 +1084,7 @@
 }
 
 .catalog-row.selected {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--mint) 10%, transparent);
 }
 
 .catalog-row-cover {
@@ -1179,7 +1179,7 @@
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--mint);
 }
 
 .catalog-row-actions {
@@ -1194,8 +1194,8 @@
   height: 34px;
   border-radius: 50%;
   border: none;
-  background: var(--accent);
-  color: #fff;
+  background: var(--mint);
+  color: var(--canvas);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -1203,7 +1203,7 @@
 }
 
 .catalog-row-play:hover {
-  background: color-mix(in srgb, var(--accent) 82%, black);
+  background: color-mix(in srgb, var(--mint) 82%, black);
   transform: scale(1.06);
 }
 
@@ -1262,7 +1262,7 @@
 }
 
 .catalog-row-dropdown button.fav {
-  color: var(--accent);
+  color: var(--mint);
 }
 
 .catalog-row-dropdown button.danger {
