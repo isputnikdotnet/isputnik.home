@@ -85,6 +85,38 @@ function InProgressRow({ item, downloaded, onDownloaded, onRead }: { item: FeedI
         <div className="inprogress-info">
           <strong>{item.title}</strong>
           <small>{authorLine(item)}</small>
+          <div className="inprogress-progress-row">
+            {downloaded ? (
+              <button
+                type="button"
+                className="inprogress-bar-icon"
+                onClick={(e) => { e.preventDefault(); navigate(isAudiobook ? "/audiobooks/downloads" : href); }}
+                title="Saved for offline"
+                aria-label="Available offline"
+              >
+                <HardDrive size={10} aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="inprogress-bar-icon"
+                onClick={(e) => { e.preventDefault(); void startDownload(); }}
+                disabled={downloading}
+                title={downloading ? "Downloading…" : "Save for offline"}
+                aria-label={downloading ? "Downloading…" : "Save for offline"}
+              >
+                {downloading
+                  ? <Loader2 size={10} aria-hidden="true" className="inprogress-spinning" />
+                  : <DownloadCloud size={10} aria-hidden="true" />
+                }
+              </button>
+            )}
+            {percent > 0 && (
+              <span className="inprogress-bar" aria-label={`${percent}% complete`}>
+                <span style={{ width: `${percent}%` }} />
+              </span>
+            )}
+          </div>
           {(isAudiobook ? item.durationSeconds : item.format) && (
             <span className="inprogress-meta">
               {isAudiobook
@@ -93,39 +125,9 @@ function InProgressRow({ item, downloaded, onDownloaded, onRead }: { item: FeedI
               }
             </span>
           )}
-          {percent > 0 && (
-            <span className="inprogress-bar" aria-label={`${percent}% complete`}>
-              <span style={{ width: `${percent}%` }} />
-            </span>
-          )}
         </div>
       </a>
       <div className="inprogress-actions">
-        {downloaded ? (
-          <button
-            type="button"
-            className="inprogress-offline-btn"
-            onClick={() => navigate(isAudiobook ? "/audiobooks/downloads" : href)}
-            title="Saved for offline"
-            aria-label="Available offline"
-          >
-            <HardDrive size={14} aria-hidden="true" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="inprogress-download-btn"
-            onClick={() => void startDownload()}
-            disabled={downloading}
-            title={downloading ? "Downloading…" : "Save for offline"}
-            aria-label={downloading ? "Downloading…" : `Save for offline`}
-          >
-            {downloading
-              ? <Loader2 size={14} aria-hidden="true" className="inprogress-spinning" />
-              : <DownloadCloud size={14} aria-hidden="true" />
-            }
-          </button>
-        )}
         <button
           type="button"
           className="inprogress-play"
