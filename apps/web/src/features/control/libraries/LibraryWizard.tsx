@@ -1,21 +1,23 @@
 import { useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   BookOpen,
   Check,
   ChevronDown,
-  ChevronUp,
   ClipboardList,
   FileText,
+  Globe2,
   Headphones,
   Image as ImageIcon,
   LibraryBig,
+  LockKeyhole,
   SlidersHorizontal,
+  UserRound,
   X,
-  Zap,
   type LucideIcon
 } from "lucide-react";
-import { api } from "../../../api";
+import { api, type PublicUser } from "../../../api";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { Field } from "../../../shared/Field";
@@ -25,15 +27,15 @@ import { PUBLIC_ROLE_OPTIONS } from "../../audiobooks/types";
 import type { ManagedUser, ManagedGroup, StorageRoot, StorageBrowse } from "../types";
 import { ExtensionsEditor } from "./ExtensionsEditor";
 import { ScanSourcesEditor } from "./ScanSourcesEditor";
-import { UploadSettingsFields } from "./UploadSettingsFields";
 import { SourceFolderPicker } from "./SourceFolderPicker";
 import { TagEncodingField } from "./TagEncodingField";
-import { LibraryAccessRows } from "./access-selects";
+import { UploadSettingsFields } from "./UploadSettingsFields";
+import { ModeSelect, OwnerSelect, PublicRoleSelect, VisibilitySelect } from "./access-selects";
 
 type WizardLibraryType = "audiobook" | "ebook";
 type LibraryTypeChoice = WizardLibraryType | "gallery" | "files";
-type SetupMode = "quick" | "custom";
-type StepKey = "type" | "basics" | "access" | "upload" | "scanning";
+type StepKey = "type" | "basics" | "review";
+type AdvancedTab = "access" | "upload" | "scanning";
 
 const TYPE_OPTIONS: {
   type: LibraryTypeChoice;
@@ -46,13 +48,13 @@ const TYPE_OPTIONS: {
   {
     type: "audiobook",
     label: "Audiobooks",
-    caption: "Audio folders become books with chapters, tracks, progress, and bookmarks.",
+    caption: "Audio folders become books with chapters, tracks, and bookmarks.",
     icon: Headphones,
     available: true
   },
   {
     type: "ebook",
-    label: "Ebooks",
+    label: "eBooks",
     caption: "EPUB and PDF files become a searchable reading library.",
     icon: BookOpen,
     available: true
@@ -60,10 +62,10 @@ const TYPE_OPTIONS: {
   {
     type: "gallery",
     label: "Gallery",
-    caption: "Photos and videos become albums with previews, metadata, and sharing.",
+    caption: "Photos and videos become albums with previews and sharing.",
     icon: ImageIcon,
     available: false,
-    badge: "Soon"
+    badge: "Coming soon"
   },
   {
     type: "files",
@@ -71,16 +73,14 @@ const TYPE_OPTIONS: {
     caption: "Any supported file type for documents, archives, and general storage.",
     icon: FileText,
     available: false,
-    badge: "Soon"
+    badge: "Coming soon"
   }
 ];
 
 const STEP_TITLES: Record<StepKey, string> = {
   type: "Type",
   basics: "Details",
-  access: "Advanced",
-  upload: "Upload",
-  scanning: "Scanning"
+  review: "Review"
 };
 
 // Roving-tabindex keyboard support for a radiogroup of cards (Arrow keys move and
@@ -115,15 +115,16 @@ function useRovingRadio<T extends string>(values: T[], value: T, onChange: (next
   });
 }
 
-// One create wizard for every library type. "Quick" needs only a type, name, and
-// folder — everything else uses the type's recommended defaults. "Custom" adds the
-// access and scanning steps so every setting can be tuned before the first scan.
+// One create wizard for every library type. The visible flow stays short:
+// choose a type, fill in the essentials, then review. Advanced settings expand
+// inside the details step so deeper choices stay available in the parent wizard.
 export function LibraryWizard({
   initialType,
   users,
   groups,
   storageRoots,
   initialRootId,
+  currentUser,
   metadataSources,
   typeDefaults,
   onClose,
@@ -134,27 +135,39 @@ export function LibraryWizard({
   groups: ManagedGroup[];
   storageRoots: StorageRoot[];
   initialRootId: string;
+  currentUser: PublicUser;
   metadataSources: MetadataSourceInfo[];
   typeDefaults: Record<string, LibraryTypeDefaults>;
   onClose: () => void;
   onCreated: (type: WizardLibraryType) => void;
 }) {
   const [libraryType, setLibraryType] = useState<WizardLibraryType>(initialType);
-  const [setupMode, setSetupMode] = useState<SetupMode>("quick");
   const [stepIndex, setStepIndex] = useState(0);
   const [name, setName] = useState("");
   const [selectedRootId, setSelectedRootId] = useState(initialRootId);
   const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
   const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const initialOwnerId = users.some((user) => user.id === currentUser.id) ? currentUser.id : "";
+  const [ownerId, setOwnerId] = useState(initialOwnerId);
+  const [ownerType, setOwnerType] = useState<"user" | "group" | "">(initialOwnerId ? "user" : "");
   const [publicRole, setPublicRole] = useState<PublicRole>("member");
   const [mode, setMode] = useState<LibraryMode>("managed");
-  const [ownerId, setOwnerId] = useState("");
-  const [ownerType, setOwnerType] = useState<"user" | "group" | "">("");
   const [extensions, setExtensions] = useState<string[]>(typeDefaults[initialType]?.extensions ?? []);
   const [companions, setCompanions] = useState<string[]>(typeDefaults[initialType]?.companions ?? []);
   const [scanSources, setScanSources] = useState<ScanSource[]>(typeDefaults[initialType]?.sources ?? []);
   const [maxUploadMB, setMaxUploadMB] = useState("");
   const [tagEncoding, setTagEncoding] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedTab, setAdvancedTab] = useState<AdvancedTab>("access");
+  const [advancedError, setAdvancedError] = useState("");
+  const [draftVisibility, setDraftVisibility] = useState<"public" | "private">("public");
+  const [draftPublicRole, setDraftPublicRole] = useState<PublicRole>("member");
+  const [draftMode, setDraftMode] = useState<LibraryMode>("managed");
+  const [draftExtensions, setDraftExtensions] = useState<string[]>(typeDefaults[initialType]?.extensions ?? []);
+  const [draftCompanions, setDraftCompanions] = useState<string[]>(typeDefaults[initialType]?.companions ?? []);
+  const [draftScanSources, setDraftScanSources] = useState<ScanSource[]>(typeDefaults[initialType]?.sources ?? []);
+  const [draftMaxUploadMB, setDraftMaxUploadMB] = useState("");
+  const [draftTagEncoding, setDraftTagEncoding] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -164,7 +177,7 @@ export function LibraryWizard({
     [metadataSources, libraryType]
   );
 
-  const steps: StepKey[] = setupMode === "quick" ? ["type", "basics"] : ["type", "basics", "access", "upload", "scanning"];
+  const steps: StepKey[] = ["type", "basics", "review"];
   const lastStep = steps.length - 1;
   const current = Math.min(stepIndex, lastStep);
   const stepKey = steps[current];
@@ -176,41 +189,63 @@ export function LibraryWizard({
     setStorageBrowse(payload);
   };
 
-  const changeRoot = (rootId: string) => {
-    setSelectedRootId(rootId);
-    setStorageBrowse(null);
-    setError("");
-  };
-
   const pickType = (type: WizardLibraryType) => {
     if (type === libraryType) return;
     setLibraryType(type);
-    // Scanning options follow the chosen type's defaults until the user edits them.
     setExtensions(typeDefaults[type]?.extensions ?? []);
     setCompanions(typeDefaults[type]?.companions ?? []);
     setScanSources(typeDefaults[type]?.sources ?? []);
+    setMaxUploadMB("");
     setTagEncoding("");
   };
 
   const basicsReady = name.trim().length >= 2 && Boolean(storageBrowse?.selectedPath);
 
-  // Quick setup ignores anything tweaked in Custom and always applies the type's
-  // recommended defaults, so the "public, managed, standard formats" promise holds
-  // even if the user visited Custom, changed a setting, then switched back to Quick.
-  const quick = setupMode === "quick";
-  const effectiveVisibility: "public" | "private" = quick ? "public" : visibility;
-  const effectivePublicRole: PublicRole = quick ? "member" : publicRole;
-  const effectiveMode: LibraryMode = quick ? "managed" : mode;
-  const effectiveOwnerId = quick ? "" : ownerId;
-  const effectiveOwnerType: "user" | "group" | "" = quick ? "" : ownerType;
-  const effectiveExtensions = quick ? (defaults?.extensions ?? []) : extensions;
-  const effectiveCompanions = quick ? (defaults?.companions ?? []) : companions;
-  const effectiveSources = quick ? (defaults?.sources ?? []) : scanSources;
-  const effectiveMaxUploadMB = quick ? "" : maxUploadMB;
-  const effectiveTagEncoding = quick ? "" : tagEncoding;
+  const effectiveVisibility = visibility;
+  const effectivePublicRole = publicRole;
+  const effectiveMode = mode;
+  const effectiveOwnerId = ownerId;
+  const effectiveOwnerType = ownerType;
+  const effectiveExtensions = extensions;
+  const effectiveCompanions = companions;
+  const effectiveSources = scanSources;
+  const effectiveMaxUploadMB = maxUploadMB;
+  const effectiveTagEncoding = tagEncoding;
 
   const typeRoving = useRovingRadio<WizardLibraryType>(["audiobook", "ebook"], libraryType, pickType);
-  const setupRoving = useRovingRadio<SetupMode>(["quick", "custom"], setupMode, setSetupMode);
+  const visibilityRoving = useRovingRadio<"public" | "private">(["public", "private"], visibility, setVisibility);
+
+  const openAdvanced = () => {
+    setDraftVisibility(visibility);
+    setDraftPublicRole(publicRole);
+    setDraftMode(mode);
+    setDraftExtensions([...extensions]);
+    setDraftCompanions([...companions]);
+    setDraftScanSources(scanSources.map((source) => ({ ...source })));
+    setDraftMaxUploadMB(maxUploadMB);
+    setDraftTagEncoding(tagEncoding);
+    setAdvancedError("");
+    setAdvancedTab("access");
+    setAdvancedOpen(true);
+  };
+
+  const saveAdvanced = () => {
+    if (draftExtensions.length === 0) {
+      setAdvancedTab("upload");
+      setAdvancedError("Add at least one file extension to scan.");
+      return;
+    }
+    setVisibility(draftVisibility);
+    setPublicRole(draftPublicRole);
+    setMode(draftMode);
+    setExtensions([...draftExtensions]);
+    setCompanions([...draftCompanions]);
+    setScanSources(draftScanSources.map((source) => ({ ...source })));
+    setMaxUploadMB(draftMaxUploadMB);
+    setTagEncoding(draftTagEncoding);
+    setAdvancedError("");
+    setAdvancedOpen(false);
+  };
 
   const ownerLabel = effectiveOwnerId
     ? (effectiveOwnerType === "group"
@@ -223,7 +258,6 @@ export function LibraryWizard({
     { label: "Type", value: typeLabel },
     { label: "Name", value: name.trim() || "—" },
     { label: "Folder", value: storageBrowse?.selectedPath || "—" },
-    { label: "Setup", value: quick ? "Quick (recommended defaults)" : "Custom" },
     {
       label: "Visibility",
       value: effectiveVisibility === "public"
@@ -249,10 +283,6 @@ export function LibraryWizard({
       setError(name.trim().length < 2
         ? "Enter a library name (at least 2 characters) to continue."
         : "Browse and select a source folder for this library.");
-      return;
-    }
-    if (stepKey === "upload" && extensions.length === 0) {
-      setError("Add at least one file extension to scan.");
       return;
     }
     setError("");
@@ -301,6 +331,7 @@ export function LibraryWizard({
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
+    if (advancedOpen) return;
     if (current < lastStep) {
       goNext();
       return;
@@ -312,7 +343,7 @@ export function LibraryWizard({
     <Modal
       title="Add library"
       icon={<LibraryBig size={30} />}
-      className={`create-library-modal library-create-wizard${stepKey === "type" ? " library-type-wizard" : ""}${stepKey === "basics" ? " library-details-wizard" : ""}${stepKey === "access" ? " library-access-wizard" : ""}${stepKey === "upload" ? " library-upload-wizard" : ""}${stepKey === "scanning" ? " library-scanning-wizard" : ""}`}
+      className={`create-library-modal library-create-wizard${stepKey === "type" ? " library-type-wizard" : ""}${stepKey === "basics" ? " library-details-wizard" : ""}${stepKey === "review" ? " library-review-wizard" : ""}${advancedOpen ? " library-advanced-open" : ""}`}
       busy={creating}
       onClose={onClose}
       onSubmit={onSubmit}
@@ -356,8 +387,8 @@ export function LibraryWizard({
       {stepKey === "type" && (
         <section className="library-type-step">
           <div className="library-type-copy">
-            <h3>Choose library type</h3>
-            <p>Select what you want to organize in this library.</p>
+            <h3>What do you want to organize?</h3>
+            <p>Choose a library type to get started.</p>
           </div>
           <div className="library-type-grid" role="radiogroup" aria-label="Library type">
             {TYPE_OPTIONS.map(({ type, label, caption, icon: Icon, available, badge }) => {
@@ -384,12 +415,19 @@ export function LibraryWizard({
                     <strong>{label}</strong>
                     <small>{caption}</small>
                   </span>
-                  {selected && (
-                    <span className="library-type-selected" aria-hidden="true">
-                      <Check size={18} />
-                    </span>
-                  )}
-                  {badge && <span className="library-type-badge">{badge}</span>}
+                  <span className="library-type-status">
+                    {selected && (
+                      <span className="library-type-selected" aria-hidden="true">
+                        <Check size={18} />
+                      </span>
+                    )}
+                    {badge && <span className="library-type-badge">{badge}</span>}
+                    {!available && (
+                      <span className="library-type-lock" aria-hidden="true">
+                        <LockKeyhole size={17} />
+                      </span>
+                    )}
+                  </span>
                 </Button>
               );
             })}
@@ -401,48 +439,7 @@ export function LibraryWizard({
         <section className="library-details-step">
           <div className="library-details-copy">
             <h3>Library details</h3>
-            <p>Configure the basic settings for your new library.</p>
-          </div>
-          <div className="field">
-            <span>Setup type</span>
-            <div className="setup-type-grid" role="radiogroup" aria-label="Setup mode">
-              <Button
-                variant="text"
-                type="button"
-                role="radio"
-                aria-checked={setupMode === "quick"}
-                className={`setup-type-card${setupMode === "quick" ? " selected" : ""}`}
-                {...setupRoving("quick")}
-                onClick={() => setSetupMode("quick")}
-              >
-                <span className="setup-type-icon" aria-hidden="true">
-                  <Zap size={28} />
-                </span>
-                <span className="setup-type-copy">
-                  <strong>Quick setup</strong>
-                  <small>Recommended defaults: public, managed, standard formats.</small>
-                </span>
-                <span className="setup-type-radio" aria-hidden="true" />
-              </Button>
-              <Button
-                variant="text"
-                type="button"
-                role="radio"
-                aria-checked={setupMode === "custom"}
-                className={`setup-type-card${setupMode === "custom" ? " selected" : ""}`}
-                {...setupRoving("custom")}
-                onClick={() => setSetupMode("custom")}
-              >
-                <span className="setup-type-icon" aria-hidden="true">
-                  <SlidersHorizontal size={28} />
-                </span>
-                <span className="setup-type-copy">
-                  <strong>Custom setup</strong>
-                  <small>Choose access, scanning, and upload options.</small>
-                </span>
-                <span className="setup-type-radio" aria-hidden="true" />
-              </Button>
-            </div>
+            <p>Let's set up the basics for your new library.</p>
           </div>
 
           <Field
@@ -457,87 +454,209 @@ export function LibraryWizard({
             selectedRootId={selectedRootId}
             storageBrowse={storageBrowse}
             onBrowse={browse}
-            onRootChange={changeRoot}
             onError={setError}
           />
-        </section>
-      )}
 
-      {stepKey === "access" && (
-        <section className="library-access-step">
-          <p>Configure access and ownership settings for this library.</p>
-          <LibraryAccessRows
-            ownerId={ownerId}
-            ownerType={ownerType}
-            onOwnerChange={(type, id) => { setOwnerType(type); setOwnerId(id); }}
-            visibility={visibility}
-            onVisibilityChange={setVisibility}
-            publicRole={publicRole}
-            onPublicRoleChange={setPublicRole}
-            mode={mode}
-            onModeChange={setMode}
-            users={users}
-            groups={groups}
-          />
-        </section>
-      )}
+          <label className="field library-owner-field">
+            <span>Owner</span>
+            <span className="library-details-select-control">
+              <UserRound size={19} aria-hidden="true" />
+              <OwnerSelect
+                ownerId={ownerId}
+                ownerType={ownerType}
+                onChange={(type, id) => { setOwnerType(type); setOwnerId(id); }}
+                users={users}
+                groups={groups}
+                compactLabels
+              />
+            </span>
+          </label>
 
-      {stepKey === "upload" && (
-        <section className="library-upload-step">
-          <div className="library-step-copy">
-            <h3>Upload settings</h3>
-            <p>Configure how files can be uploaded to this library.</p>
+          <div className="field library-visibility-field">
+            <span>Visibility</span>
+            <div className="library-visibility-grid" role="radiogroup" aria-label="Visibility">
+              <Button
+                variant="text"
+                type="button"
+                role="radio"
+                aria-checked={visibility === "public"}
+                className={`library-visibility-card${visibility === "public" ? " selected" : ""}`}
+                {...visibilityRoving("public")}
+                onClick={() => setVisibility("public")}
+              >
+                <span className="library-visibility-radio" aria-hidden="true" />
+                <Globe2 size={22} aria-hidden="true" />
+                <span className="library-visibility-copy">
+                  <strong>Public</strong>
+                  <small>Visible to all users</small>
+                </span>
+              </Button>
+              <Button
+                variant="text"
+                type="button"
+                role="radio"
+                aria-checked={visibility === "private"}
+                className={`library-visibility-card${visibility === "private" ? " selected" : ""}`}
+                {...visibilityRoving("private")}
+                onClick={() => setVisibility("private")}
+              >
+                <span className="library-visibility-radio" aria-hidden="true" />
+                <LockKeyhole size={22} aria-hidden="true" />
+                <span className="library-visibility-copy">
+                  <strong>Private</strong>
+                  <small>Only you and invited users</small>
+                </span>
+              </Button>
+            </div>
           </div>
-          <ExtensionsEditor
-            extensions={extensions}
-            onChange={setExtensions}
-            defaults={defaults?.extensions ?? []}
-            label="Supported file extensions (scanning & upload)"
-          />
-          <ExtensionsEditor
-            extensions={companions}
-            onChange={setCompanions}
-            defaults={defaults?.companions ?? []}
-            label="Companion files (upload only — covers, metadata, documents)"
-            emptyHint="No companion files — uploads accept the formats above only."
-          />
-          <UploadSettingsFields maxUploadMB={maxUploadMB} onChange={setMaxUploadMB} mode={mode} />
-        </section>
-      )}
 
-      {stepKey === "scanning" && (
-        <section className="library-scanning-step">
-          <div className="library-step-copy">
-            <h3>Scanning settings</h3>
-            <p>Configure how the library will be scanned.</p>
-          </div>
-          <ScanSourcesEditor sources={scanSources} onChange={setScanSources} sourceInfo={typeSourceInfo} />
-          {libraryType === "audiobook" && (
-            <TagEncodingField value={tagEncoding} onChange={setTagEncoding} noneLabel="Auto Detect" />
+          <Button
+            variant="text"
+            type="button"
+            className="library-advanced-options"
+            onClick={openAdvanced}
+            aria-expanded={advancedOpen}
+          >
+            <span>
+              <SlidersHorizontal size={19} aria-hidden="true" />
+              <strong>Advanced options</strong>
+            </span>
+            <ChevronDown size={18} aria-hidden="true" />
+          </Button>
+
+          {advancedOpen && (
+            <section className="library-advanced-inline" aria-label="Advanced library settings">
+              <div className="modal-tabs" role="tablist" aria-label="Advanced library settings">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={advancedTab === "access"}
+                  className={`modal-tab${advancedTab === "access" ? " active" : ""}`}
+                  onClick={() => setAdvancedTab("access")}
+                >
+                  Access
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={advancedTab === "upload"}
+                  className={`modal-tab${advancedTab === "upload" ? " active" : ""}`}
+                  onClick={() => setAdvancedTab("upload")}
+                >
+                  Upload
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={advancedTab === "scanning"}
+                  className={`modal-tab${advancedTab === "scanning" ? " active" : ""}`}
+                  onClick={() => setAdvancedTab("scanning")}
+                >
+                  Scanning
+                </button>
+              </div>
+
+              <div className="modal-tab-content library-advanced-content">
+                {advancedTab === "access" && (
+                  <section className="library-advanced-tab" aria-label="Access settings">
+                    <label className="field">
+                      <span>Visibility</span>
+                      <VisibilitySelect value={draftVisibility} onChange={setDraftVisibility} />
+                    </label>
+                    {draftVisibility === "public" && (
+                      <label className="field">
+                        <span>Public access</span>
+                        <PublicRoleSelect value={draftPublicRole} onChange={setDraftPublicRole} />
+                      </label>
+                    )}
+                    <label className="field">
+                      <span>Mode</span>
+                      <ModeSelect value={draftMode} onChange={setDraftMode} />
+                    </label>
+                  </section>
+                )}
+
+                {advancedTab === "upload" && (
+                  <section className="library-advanced-tab" aria-label="Upload settings">
+                    <ExtensionsEditor
+                      extensions={draftExtensions}
+                      onChange={setDraftExtensions}
+                      defaults={defaults?.extensions ?? []}
+                      label="Supported file extensions (scanning & upload)"
+                    />
+                    <ExtensionsEditor
+                      extensions={draftCompanions}
+                      onChange={setDraftCompanions}
+                      defaults={defaults?.companions ?? []}
+                      label="Companion files (upload only — covers, metadata, documents)"
+                      emptyHint="No companion files — uploads accept the formats above only."
+                    />
+                    <UploadSettingsFields
+                      maxUploadMB={draftMaxUploadMB}
+                      onChange={setDraftMaxUploadMB}
+                      mode={draftMode}
+                    />
+                  </section>
+                )}
+
+                {advancedTab === "scanning" && (
+                  <section className="library-advanced-tab" aria-label="Scanning settings">
+                    <ScanSourcesEditor
+                      sources={draftScanSources}
+                      onChange={setDraftScanSources}
+                      sourceInfo={typeSourceInfo}
+                    />
+                    {libraryType === "audiobook" && (
+                      <TagEncodingField
+                        value={draftTagEncoding}
+                        onChange={setDraftTagEncoding}
+                        noneLabel="Auto Detect"
+                      />
+                    )}
+                  </section>
+                )}
+              </div>
+
+              <div className="library-advanced-footer">
+                {advancedError && <MessageBox tone="error" title="Unable to save advanced options">{advancedError}</MessageBox>}
+                <div className="modal-actions">
+                  <Button variant="secondary" type="button" onClick={() => setAdvancedOpen(false)} disabled={creating}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" type="button" onClick={saveAdvanced} disabled={creating}>
+                    Save
+                  </Button>
+                </div>
+              </div>
+            </section>
           )}
         </section>
       )}
 
-      {current === lastStep && (
-        <details className="wizard-review">
-          <summary>
-            <ClipboardList size={16} aria-hidden="true" />
-            <span className="wizard-review-title">Review</span>
-            <span className="wizard-review-glance">{reviewGlance}</span>
-            <span className="wizard-review-chevron" aria-hidden="true">
-              <ChevronDown size={16} className="wizard-review-chev-closed" />
-              <ChevronUp size={16} className="wizard-review-chev-open" />
-            </span>
-          </summary>
-          <dl>
-            {reviewRows.map((row) => (
-              <div key={row.label}>
-                <dt>{row.label}</dt>
-                <dd>{row.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </details>
+      {stepKey === "review" && (
+        <section className="library-review-step">
+          <div className="library-details-copy">
+            <h3>Review library</h3>
+            <p>Confirm these settings before the first scan starts.</p>
+          </div>
+          <section className="library-review-card" aria-label="Library review">
+            <div className="library-review-card-head">
+              <span>
+                <ClipboardList size={17} aria-hidden="true" />
+                <strong>Review</strong>
+              </span>
+              <span>{reviewGlance}</span>
+            </div>
+            <dl>
+              {reviewRows.map((row) => (
+                <div key={row.label}>
+                  <dt>{row.label}</dt>
+                  <dd>{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        </section>
       )}
 
       {error && <MessageBox tone="error" title="Unable to add library">{error}</MessageBox>}
@@ -549,16 +668,14 @@ export function LibraryWizard({
             onClick={() => { setError(""); setStepIndex(current - 1); }}
             disabled={creating}
           >
+            <ArrowLeft size={18} aria-hidden="true" />
             Back
           </Button>
         )}
-        {(stepKey === "upload" || stepKey === "scanning") && (
-          <span className="library-wizard-footnote">Nothing is scanned until you choose Add and scan.</span>
-        )}
         {current < lastStep ? (
-          <Button variant="primary" type="submit">
+          <Button variant="primary" type="submit" disabled={advancedOpen}>
             <span>Next</span>
-            {stepKey === "type" && <ArrowRight size={20} aria-hidden="true" />}
+            <ArrowRight size={20} aria-hidden="true" />
           </Button>
         ) : (
           <Button variant="primary" type="submit" disabled={creating || !basicsReady}>
@@ -569,4 +686,3 @@ export function LibraryWizard({
     </Modal>
   );
 }
-
