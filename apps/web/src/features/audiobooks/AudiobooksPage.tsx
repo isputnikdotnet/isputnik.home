@@ -1047,16 +1047,15 @@ export function AudiobooksPage({
           onSearchChange={cat.setSearch}
           searchPlaceholder="Search audiobooks..."
           actions={
-            <>
+            <div className="catalog-toolbar">
               <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} />
               <AudiobookHeaderSort value={sort} onChange={setSort} />
               {uploadLibraries.length > 0 && !selectionMode && (
-                <button type="button" className="secondary-button" onClick={() => { setUploadOpen(true); setBulkNotice(""); }}>
-                  <UploadCloud size={17} aria-hidden="true" />
-                  <span>Upload</span>
+                <button type="button" className="catalog-toolbar-icon-btn" onClick={() => { setUploadOpen(true); setBulkNotice(""); }} aria-label="Upload audiobooks" title="Upload">
+                  <UploadCloud size={16} aria-hidden="true" />
                 </button>
               )}
-            </>
+            </div>
           }
         />
 

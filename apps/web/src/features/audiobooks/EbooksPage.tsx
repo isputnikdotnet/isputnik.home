@@ -529,16 +529,15 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
           onSearchChange={cat.setSearch}
           searchPlaceholder="Search ebooks..."
           actions={
-            <>
+            <div className="catalog-toolbar">
               <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} fields={EBOOK_FILTER_FIELDS} />
               <AudiobookHeaderSort value={sort} onChange={setSort} options={EBOOK_SORT_OPTIONS} ariaLabel="Sort ebooks" />
               {uploadLibraries.length > 0 && !selectionMode && (
-                <button type="button" className="secondary-button" onClick={() => { setUploadOpen(true); setNotice(""); }}>
-                  <UploadCloud size={17} aria-hidden="true" />
-                  <span>Upload</span>
+                <button type="button" className="catalog-toolbar-icon-btn" onClick={() => { setUploadOpen(true); setNotice(""); }} aria-label="Upload ebooks" title="Upload">
+                  <UploadCloud size={16} aria-hidden="true" />
                 </button>
               )}
-            </>
+            </div>
           }
         />
 
