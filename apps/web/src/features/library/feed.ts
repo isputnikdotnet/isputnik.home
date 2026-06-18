@@ -12,6 +12,7 @@ export interface FeedItem {
   discoveredAt: string;
   durationSeconds: number | null;
   format: string | null;
+  totalSize: number | null;
 }
 
 export interface FeedResponse {

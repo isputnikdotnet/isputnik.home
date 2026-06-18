@@ -19,6 +19,7 @@ export interface FeedItem {
   discoveredAt: string;
   durationSeconds: number | null;
   format: string | null;
+  totalSize: number | null;
 }
 
 export interface FeedRow {
@@ -33,6 +34,7 @@ export interface FeedRow {
   completed_at: string | null;
   duration_seconds: number | null;
   doc_format: string | null;
+  doc_total_size: number | null;
 }
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
@@ -49,7 +51,8 @@ export const FEED_COLUMNS = `
   item_metadata.cover_storage_key,
   GROUP_CONCAT(DISTINCT authors.name) AS author_names,
   audiobook_details.duration_seconds,
-  (SELECT format FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available' LIMIT 1) AS doc_format`;
+  (SELECT format FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available' LIMIT 1) AS doc_format,
+  (SELECT COALESCE(SUM(size), 0) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available') AS doc_total_size`;
 
 export const FEED_JOINS = `
   FROM library_items
@@ -81,7 +84,8 @@ export function mapRow(row: FeedRow): FeedItem {
     completedAt: row.completed_at ?? null,
     discoveredAt: row.discovered_at,
     durationSeconds: row.duration_seconds ?? null,
-    format: row.doc_format ?? null
+    format: row.doc_format ?? null,
+    totalSize: row.doc_total_size ?? null
   };
 }
 
