@@ -924,11 +924,6 @@
   font-size: 1rem;
 }
 
-.bookmark-book {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
 .bookmark-meta {
   display: flex;
   align-items: center;

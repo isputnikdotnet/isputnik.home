@@ -29,7 +29,7 @@ import { ScanSourcesEditor } from "./ScanSourcesEditor";
 import { SourceFolderPicker } from "./SourceFolderPicker";
 import { TagEncodingField } from "./TagEncodingField";
 import { UploadSettingsFields } from "./UploadSettingsFields";
-import { ModeSelect, OwnerSelect, PublicRoleSelect, VisibilitySelect } from "./access-selects";
+import { ModeSelect, OwnerSelect, PublicRoleSelect } from "./access-selects";
 
 type WizardLibraryType = "audiobook" | "ebook";
 type LibraryTypeChoice = WizardLibraryType | "gallery" | "files";
@@ -159,7 +159,6 @@ export function LibraryWizard({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [advancedTab, setAdvancedTab] = useState<AdvancedTab>("access");
   const [advancedError, setAdvancedError] = useState("");
-  const [draftVisibility, setDraftVisibility] = useState<"public" | "private">("public");
   const [draftPublicRole, setDraftPublicRole] = useState<PublicRole>("member");
   const [draftMode, setDraftMode] = useState<LibraryMode>("managed");
   const [draftExtensions, setDraftExtensions] = useState<string[]>(typeDefaults[initialType]?.extensions ?? []);
@@ -200,22 +199,10 @@ export function LibraryWizard({
 
   const basicsReady = name.trim().length >= 2 && Boolean(storageBrowse?.selectedPath);
 
-  const effectiveVisibility = visibility;
-  const effectivePublicRole = publicRole;
-  const effectiveMode = mode;
-  const effectiveOwnerId = ownerId;
-  const effectiveOwnerType = ownerType;
-  const effectiveExtensions = extensions;
-  const effectiveCompanions = companions;
-  const effectiveSources = scanSources;
-  const effectiveMaxUploadMB = maxUploadMB;
-  const effectiveTagEncoding = tagEncoding;
-
   const typeRoving = useRovingRadio<WizardLibraryType>(["audiobook", "ebook"], libraryType, pickType);
   const visibilityRoving = useRovingRadio<"public" | "private">(["public", "private"], visibility, setVisibility);
 
   const openAdvanced = () => {
-    setDraftVisibility(visibility);
     setDraftPublicRole(publicRole);
     setDraftMode(mode);
     setDraftExtensions([...extensions]);
@@ -234,7 +221,6 @@ export function LibraryWizard({
       setAdvancedError("Add at least one file extension to scan.");
       return;
     }
-    setVisibility(draftVisibility);
     setPublicRole(draftPublicRole);
     setMode(draftMode);
     setExtensions([...draftExtensions]);
@@ -246,35 +232,35 @@ export function LibraryWizard({
     setAdvancedOpen(false);
   };
 
-  const ownerLabel = effectiveOwnerId
-    ? (effectiveOwnerType === "group"
-        ? groups.find((group) => group.id === effectiveOwnerId)?.name ?? "Unknown group"
-        : users.find((user) => user.id === effectiveOwnerId)?.displayName ?? "Unknown user")
+  const ownerLabel = ownerId
+    ? (ownerType === "group"
+        ? groups.find((group) => group.id === ownerId)?.name ?? "Unknown group"
+        : users.find((user) => user.id === ownerId)?.displayName ?? "Unknown user")
     : "System library";
   const typeLabel = TYPE_OPTIONS.find((option) => option.type === libraryType)?.label ?? libraryType;
-  const reviewGlance = `${typeLabel} · ${effectiveVisibility === "public" ? "Public" : "Private"} · ${effectiveMode === "managed" ? "Managed" : "External"}`;
+  const reviewGlance = `${typeLabel} · ${visibility === "public" ? "Public" : "Private"} · ${mode === "managed" ? "Managed" : "External"}`;
   const reviewRows: { label: string; value: string }[] = [
     { label: "Type", value: typeLabel },
     { label: "Name", value: name.trim() || "—" },
     { label: "Folder", value: storageBrowse?.selectedPath || "—" },
     {
       label: "Visibility",
-      value: effectiveVisibility === "public"
-        ? `Public · ${PUBLIC_ROLE_OPTIONS.find((option) => option.value === effectivePublicRole)?.label ?? effectivePublicRole}`
+      value: visibility === "public"
+        ? `Public · ${PUBLIC_ROLE_OPTIONS.find((option) => option.value === publicRole)?.label ?? publicRole}`
         : "Private — owner and admins only"
     },
-    { label: "Mode", value: effectiveMode === "managed" ? "Managed" : "External (read-only)" },
+    { label: "Mode", value: mode === "managed" ? "Managed" : "External (read-only)" },
     { label: "Owner", value: ownerLabel },
-    { label: "Formats", value: effectiveExtensions.length ? effectiveExtensions.map((ext) => `.${ext}`).join(", ") : "—" },
-    { label: "Companion files", value: effectiveCompanions.length ? effectiveCompanions.map((ext) => `.${ext}`).join(", ") : "None" },
+    { label: "Formats", value: extensions.length ? extensions.map((ext) => `.${ext}`).join(", ") : "—" },
+    { label: "Companion files", value: companions.length ? companions.map((ext) => `.${ext}`).join(", ") : "None" },
     {
       label: "Scan sources",
-      value: effectiveSources.filter((source) => source.enabled)
+      value: scanSources.filter((source) => source.enabled)
         .map((source) => typeSourceInfo.find((info) => info.id === source.id)?.label ?? source.id)
         .join(" › ") || "None"
     },
-    { label: "Upload limit", value: effectiveMaxUploadMB ? `${effectiveMaxUploadMB} MB` : "No limit" },
-    ...(libraryType === "audiobook" ? [{ label: "Tag encoding", value: effectiveTagEncoding || "Auto detect" }] : [])
+    { label: "Upload limit", value: maxUploadMB ? `${maxUploadMB} MB` : "No limit" },
+    ...(libraryType === "audiobook" ? [{ label: "Tag encoding", value: tagEncoding || "Auto detect" }] : [])
   ];
 
   const goNext = () => {
@@ -295,29 +281,29 @@ export function LibraryWizard({
         : "Browse and select a source folder for this library.");
       return;
     }
-    if (effectiveExtensions.length === 0) {
+    if (extensions.length === 0) {
       setError("Add at least one file extension to scan.");
       return;
     }
     setCreating(true);
     setError("");
     try {
-      const maxUpload = Number.parseInt(effectiveMaxUploadMB, 10);
+      const maxUpload = Number.parseInt(maxUploadMB, 10);
       await api(`/api/library/${libraryType}-libraries`, {
         method: "POST",
         body: JSON.stringify({
           name,
           sourcePath: storageBrowse!.selectedPath,
-          visibility: effectiveVisibility,
-          publicRole: effectivePublicRole,
-          mode: effectiveMode,
-          ownerId: effectiveOwnerId || null,
-          ownerType: effectiveOwnerType || null,
-          scanExtensions: effectiveExtensions,
-          companionExtensions: effectiveCompanions,
-          scanSources: effectiveSources,
+          visibility,
+          publicRole,
+          mode,
+          ownerId: ownerId || null,
+          ownerType: ownerType || null,
+          scanExtensions: extensions,
+          companionExtensions: companions,
+          scanSources,
           maxUploadMB: Number.isFinite(maxUpload) && maxUpload > 0 ? maxUpload : null,
-          tagEncoding: libraryType === "audiobook" && effectiveTagEncoding ? effectiveTagEncoding : null
+          tagEncoding: libraryType === "audiobook" && tagEncoding ? tagEncoding : null
         })
       });
       onCreated(libraryType);
@@ -555,11 +541,7 @@ export function LibraryWizard({
               <div className="modal-tab-content library-advanced-content">
                 {advancedTab === "access" && (
                   <section className="library-advanced-tab" aria-label="Access settings">
-                    <label className="field">
-                      <span>Visibility</span>
-                      <VisibilitySelect value={draftVisibility} onChange={setDraftVisibility} />
-                    </label>
-                    {draftVisibility === "public" && (
+                    {visibility === "public" && (
                       <label className="field">
                         <span>Public access</span>
                         <PublicRoleSelect value={draftPublicRole} onChange={setDraftPublicRole} />

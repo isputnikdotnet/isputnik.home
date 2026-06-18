@@ -69,7 +69,6 @@
 .field select,
 .field textarea,
 .invite-box input,
-.invite-link input,
 .member-field select,
 .member-role-control select {
   width: 100%;
@@ -85,7 +84,6 @@
 .field select:focus,
 .field textarea:focus,
 .invite-box input:focus,
-.invite-link input:focus,
 .member-field select:focus,
 .member-role-control select:focus {
   border-color: var(--mint);
@@ -739,9 +737,6 @@
   overflow: hidden;
 }
 
-.create-library-modal.library-access-wizard,
-.create-library-modal.library-upload-wizard,
-.create-library-modal.library-scanning-wizard,
 .create-library-modal.library-review-wizard {
   gap: 28px;
   width: min(100%, 1060px);
@@ -809,7 +804,6 @@
 }
 
 .create-library-modal.library-details-wizard .modal-actions,
-.create-library-modal.library-access-wizard .modal-actions,
 .create-library-modal.library-review-wizard .modal-actions {
   bottom: -28px;
   align-items: center;
@@ -817,9 +811,6 @@
   padding: 18px 28px 12px;
 }
 
-.create-library-modal.library-access-wizard .modal-actions,
-.create-library-modal.library-upload-wizard .modal-actions,
-.create-library-modal.library-scanning-wizard .modal-actions,
 .create-library-modal.library-review-wizard .modal-actions {
   bottom: -28px;
   align-items: center;
@@ -839,19 +830,6 @@
   padding: 0 24px;
   border-radius: 9px;
   font-size: 1rem;
-}
-
-.library-wizard-footnote {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 0.86rem;
-}
-
-.wizard-step-indicator {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 600;
 }
 
 /* ── Unified Libraries page ─────────────────────────────────────── */
@@ -1500,94 +1478,6 @@
   font-size: 0.98rem;
 }
 
-/* Collapsible final-step recap of everything that will be created. */
-.wizard-review {
-  margin-top: 4px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-raised);
-}
-
-.wizard-review > summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  cursor: pointer;
-  font-size: 0.92rem;
-  font-weight: 700;
-  list-style: none;
-}
-
-.wizard-review > summary::-webkit-details-marker {
-  display: none;
-}
-
-.wizard-review > summary:hover {
-  color: var(--control-primary-button, var(--mint));
-}
-
-.wizard-review-glance {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-weight: 500;
-  font-size: 0.84rem;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.wizard-review-chevron {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  margin-left: auto;
-  color: var(--muted);
-}
-
-/* Swap the caret by toggling display (transform is unreliable on these SVGs). */
-.wizard-review-chev-open {
-  display: none;
-}
-
-.wizard-review[open] .wizard-review-chev-closed {
-  display: none;
-}
-
-.wizard-review[open] .wizard-review-chev-open {
-  display: inline;
-}
-
-/* Setting display on a <details> child overrides the native collapse, so the grid
-   layout must be scoped to the open state and the closed state hidden explicitly. */
-.wizard-review:not([open]) dl {
-  display: none;
-}
-
-.wizard-review[open] dl {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 8px 18px;
-  margin: 0;
-  padding: 12px 16px 16px;
-  border-top: 1px solid var(--line);
-}
-
-.wizard-review dl > div {
-  display: contents;
-}
-
-.wizard-review dt {
-  color: var(--muted);
-  font-size: 0.86rem;
-}
-
-.wizard-review dd {
-  margin: 0;
-  font-size: 0.9rem;
-  word-break: break-word;
-}
-
 .library-type-step {
   display: grid;
   gap: 18px;
@@ -1768,91 +1658,6 @@
 .library-details-step > .field select {
   min-height: 54px;
   font-size: 0.98rem;
-}
-
-.setup-type-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.setup-type-card.text-button {
-  position: relative;
-  display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) 22px;
-  align-items: center;
-  gap: 16px;
-  min-height: 112px;
-  width: 100%;
-  padding: 18px 20px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--ink);
-  background: var(--surface-raised);
-  font-weight: 400;
-  text-align: left;
-  text-decoration: none;
-}
-
-.setup-type-card.text-button:hover,
-.setup-type-card.text-button:focus-visible {
-  color: var(--ink);
-  border-color: color-mix(in srgb, var(--control-primary-button, var(--mint)) 42%, var(--line));
-  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 4%, var(--surface-raised));
-  outline: 0;
-}
-
-.setup-type-card.selected {
-  border-color: var(--control-primary-button, var(--mint));
-  box-shadow: 0 0 0 1px var(--control-primary-button, var(--mint));
-}
-
-.setup-type-icon {
-  display: grid;
-  place-items: center;
-  width: 50px;
-  height: 50px;
-  border-radius: 8px;
-  color: var(--control-primary-button, var(--mint));
-  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 12%, transparent);
-}
-
-.setup-type-copy {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.setup-type-copy strong {
-  font-size: 0.98rem;
-  line-height: 1.15;
-}
-
-.setup-type-copy small {
-  color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.35;
-}
-
-.setup-type-radio {
-  display: grid;
-  place-items: center;
-  align-self: start;
-  width: 22px;
-  height: 22px;
-  border: 2px solid var(--muted);
-  border-radius: 50%;
-}
-
-.setup-type-card.selected .setup-type-radio {
-  border: 7px solid var(--control-primary-button, var(--mint));
-}
-
-.source-folder-grid {
-  display: grid;
-  grid-template-columns: minmax(180px, 0.65fr) minmax(260px, 1.15fr);
-  gap: 24px;
-  align-items: end;
 }
 
 .source-folder-control {
@@ -2119,24 +1924,6 @@
   margin: 0;
 }
 
-.source-folder-summary {
-  display: grid;
-  gap: 4px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.source-folder-summary span {
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-
-.source-folder-summary.pending span {
-  color: var(--amber);
-}
-
 .folder-picker-modal {
   display: grid;
   gap: 16px;
@@ -2219,17 +2006,6 @@
   white-space: nowrap;
 }
 
-.library-access-step {
-  display: grid;
-  gap: 28px;
-}
-
-.library-access-step > p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 1.03rem;
-}
-
 .library-access-list {
   display: grid;
   gap: 10px;
@@ -2289,47 +2065,6 @@
   font: inherit;
 }
 
-.wizard-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
-}
-
-.wizard-card {
-  display: grid;
-  gap: 4px;
-  justify-items: start;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--field);
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-}
-
-.wizard-card:hover {
-  background: var(--hover);
-}
-
-.wizard-card.selected {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 1px var(--gold);
-}
-
-.wizard-card svg {
-  color: var(--gold);
-}
-
-.wizard-card strong {
-  font-size: 0.92rem;
-}
-
-.wizard-card small {
-  color: var(--muted);
-  line-height: 1.35;
-}
-
 @media (max-width: 820px) {
   .create-library-modal.library-create-wizard {
     padding: 22px;
@@ -2375,9 +2110,7 @@
   }
 
   .library-type-grid,
-  .setup-type-grid,
-  .library-visibility-grid,
-  .source-folder-grid {
+  .library-visibility-grid {
     grid-template-columns: 1fr;
     gap: 14px;
   }
@@ -2401,12 +2134,6 @@
 
   .create-library-modal.library-type-wizard .modal-actions .primary-button {
     min-height: 58px;
-  }
-
-  .library-wizard-footnote {
-    flex-basis: 100%;
-    order: -1;
-    margin-left: 0;
   }
 
   .library-access-row {
@@ -2791,31 +2518,6 @@
   color: inherit;
 }
 
-/* ── Upload settings & Scanning settings wizard steps ───────────── */
-
-.library-upload-step,
-.library-scanning-step {
-  display: grid;
-  gap: 28px;
-}
-
-.library-step-copy {
-  display: grid;
-  gap: 6px;
-}
-
-.library-step-copy h3 {
-  margin: 0;
-  font-size: clamp(1.35rem, 2vw, 1.65rem);
-  line-height: 1.15;
-}
-
-.library-step-copy p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 1rem;
-}
-
 /* ── Upload size radio cards ─────────────────────────────────────── */
 
 .upload-size-options {
@@ -3124,19 +2826,6 @@
 .extension-add-row input {
   flex: 1;
   min-width: 0;
-}
-
-.scan-sources-heading {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-}
-
-.scan-sources-help {
-  display: inline-flex;
-  color: var(--muted);
-  opacity: 0.7;
 }
 
 .scan-sources-hint {
@@ -3497,31 +3186,6 @@
   color: var(--mint);
   font-size: 0.78rem;
   font-weight: 700;
-}
-
-/* ── Invite status ──────────────────────────────────────────────── */
-
-.invite-status {
-  padding: 5px 8px;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-weight: 750;
-  text-transform: capitalize;
-}
-
-.invite-status.active {
-  color: var(--mint);
-  background: var(--active);
-}
-
-.invite-status.expired {
-  color: var(--amber);
-  background: color-mix(in srgb, var(--amber) 14%, transparent);
-}
-
-.invite-status.used {
-  color: var(--blue);
-  background: rgba(94, 176, 216, 0.15);
 }
 
 .management-empty {
