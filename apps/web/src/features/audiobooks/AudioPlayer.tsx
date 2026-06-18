@@ -154,6 +154,10 @@ export function AudioPlayer({
   }, [chapters, fileIndex, currentTime]);
 
   const currentChapter = chapters[currentChapterIndex];
+  // Books with embedded markers (m4b) have real chapters; multi-file books are just
+  // tracks (one file each). Label by what's actually navigated so a 55-track book
+  // doesn't call track 5 "Chapter 5".
+  const navUnitLabel = chapters.length > availableFiles.length ? "Chapter" : "Track";
 
   const chapterProgressFor = (chapter: FlatChapter, index: number) => {
     const span = Math.max(0, chapter.endOffset - chapter.startOffset);
@@ -739,7 +743,7 @@ export function AudioPlayer({
           )}
 
           <div className="player-popup-chapter">
-            <strong><Bookmark size={15} aria-hidden="true" /> Chapter {currentChapterIndex + 1}</strong>
+            <strong><Bookmark size={15} aria-hidden="true" /> {navUnitLabel} {currentChapterIndex + 1}</strong>
             <span>{currentChapter?.title || currentFile?.relativePath.split("/").at(-1) || ""}</span>
           </div>
 
@@ -931,7 +935,7 @@ export function AudioPlayer({
       {audioEl}
 
       <div className="player-chapter">
-        <span className="player-chapter-index">{currentChapterIndex + 1} / {chapters.length}</span>
+        <span className="player-chapter-index">{navUnitLabel} {currentChapterIndex + 1} / {chapters.length}</span>
         <span className="player-chapter-title">
           {currentChapter?.title || currentFile?.relativePath.split("/").at(-1) || ""}
         </span>
