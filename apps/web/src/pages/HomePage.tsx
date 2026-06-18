@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronRight, Headphones, Heart, Play } from "lucide-react";
+import { BookOpen, ChevronRight, Headphones, Heart, Loader2, Play } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
@@ -11,7 +11,7 @@ import { FeedTile, FeedTileSkeleton } from "../features/library/FeedTile";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
 import { useIsMobile } from "../shared/useIsMobile";
 import { useOnlineStatus } from "../pwa/useOnlineStatus";
-import { getDownloadedEpubBlob, listDownloads, listEbookDownloads } from "../offline/downloads";
+import { getDownloadedEpubBlob, getEbookDownload, listDownloads, listEbookDownloads } from "../offline/downloads";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
 
@@ -48,7 +48,7 @@ function RowHeader({ id, title, href }: { id: string; title: string; href: strin
   );
 }
 
-function FeedRow({ id, title, mobileTitle, href, mode, items, emptyText, mobile, downloadedIds, onDownloaded, onRead, onToast }: {
+function FeedRow({ id, title, mobileTitle, href, mode, items, emptyText, mobile, downloadedIds, onDownloaded, onRead, onToast, onDownload }: {
   id: string;
   title: string;
   mobileTitle?: string;
@@ -61,6 +61,7 @@ function FeedRow({ id, title, mobileTitle, href, mode, items, emptyText, mobile,
   onDownloaded?: (id: string) => void;
   onRead?: (item: FeedItem) => Promise<void>;
   onToast?: (message: string) => void;
+  onDownload?: (info: { title: string; progress: number } | null) => void;
 }) {
   const heading = mobile && mobileTitle ? mobileTitle : title;
   return (
@@ -81,6 +82,7 @@ function FeedRow({ id, title, mobileTitle, href, mode, items, emptyText, mobile,
                 onDownloaded={onDownloaded}
                 onRead={onRead}
                 onToast={onToast}
+                onDownload={onDownload}
               />
             ))}
         </div>
@@ -134,6 +136,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activeDownload, setActiveDownload] = useState<{ title: string; progress: number } | null>(null);
 
   const showToast = useCallback((message: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -147,28 +150,42 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     setDownloadedIds((prev) => new Set([...prev, id]));
   }, []);
 
-  // Open an ebook in the inline reader: resolve its epub document, pull the saved
-  // reading position and any offline blob, then mount the reader overlay.
+  // Open an ebook in the inline reader. Works offline: the epub document id comes
+  // from the live detail when the server is reachable, else from the saved
+  // download record, and the file loads from the offline blob when present.
   const handleRead = useCallback(async (item: FeedItem) => {
-    const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
-    const doc = book.documents.find((d) => d.format === "epub") ?? book.documents[0] ?? null;
-    if (!doc) { navigate(`/ebooks/books/${item.id}`); return; }
-    const [progressData, offlineBlob] = await Promise.all([
-      api<{ progress: ReadingProgress | null }>(`/api/library/books/${item.id}/reading-progress?documentId=${encodeURIComponent(doc.id)}`).catch(() => ({ progress: null })),
-      getDownloadedEpubBlob(item.id, doc.id).catch(() => null)
-    ]);
+    const offlineRecord = await getEbookDownload(item.id).catch(() => null);
+    let docId: string | null = offlineRecord?.documentId ?? null;
+    let networkUrl: string | null = null;
+    try {
+      const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
+      const doc = book.documents.find((d) => d.format === "epub") ?? book.documents[0] ?? null;
+      if (doc) { docId = doc.id; networkUrl = doc.url; }
+    } catch {
+      // Server unreachable — fall back to the offline record's document id below.
+    }
+    if (!docId) { navigate(`/ebooks/books/${item.id}`); return; }
+
+    const offlineBlob = await getDownloadedEpubBlob(item.id, docId).catch(() => null);
     const blobUrl = offlineBlob ? URL.createObjectURL(offlineBlob) : undefined;
+    const url = blobUrl ?? networkUrl;
+    if (!url) { showToast("Not available offline"); return; }
+
+    const progressData = await api<{ progress: ReadingProgress | null }>(
+      `/api/library/books/${item.id}/reading-progress?documentId=${encodeURIComponent(docId)}`
+    ).catch(() => ({ progress: null }));
+
     setViewer({
       bookId: item.id,
-      docId: doc.id,
-      url: blobUrl ?? doc.url,
+      docId,
+      url,
       title: item.title,
       author: item.authors.join(", "),
       coverUrl: item.coverUrl,
       blobUrl,
       initialProgress: progressData.progress
     });
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     const current = viewer;
@@ -283,6 +300,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
             onDownloaded={handleDownloaded}
             onRead={handleRead}
             onToast={showToast}
+            onDownload={setActiveDownload}
           />
           <FeedRow
             id="home-recent-title"
@@ -296,6 +314,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
             onDownloaded={handleDownloaded}
             onRead={handleRead}
             onToast={showToast}
+            onDownload={setActiveDownload}
           />
         </div>
       </section>
@@ -303,6 +322,20 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
 
     {toast && createPortal(
       <div className="home-toast" role="status" aria-live="polite">{toast}</div>,
+      document.body
+    )}
+
+    {activeDownload && createPortal(
+      <div className="home-dl-banner" role="status" aria-live="polite">
+        <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
+        <div className="home-dl-banner-body">
+          <span className="home-dl-banner-label">Downloading {activeDownload.title}</span>
+          <span className="home-dl-banner-track">
+            <span style={{ width: `${Math.round(activeDownload.progress * 100)}%` }} />
+          </span>
+        </div>
+        <span className="home-dl-banner-pct">{Math.round(activeDownload.progress * 100)}%</span>
+      </div>,
       document.body
     )}
 

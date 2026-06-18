@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BookOpen, DownloadCloud, HardDrive, Headphones, Heart, Info, Loader2, MoreVertical, Play } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { downloadBook, downloadEbook } from "../../offline/downloads";
 import { navigate } from "../../router";
@@ -7,18 +8,33 @@ import { formatBytes, formatDuration } from "../../shared/utils";
 import type { AudiobookBookDetail } from "../audiobooks/types";
 import { authorLine, feedHref, type FeedItem } from "./feed";
 
+// A single ⋮-menu entry. When `menuItems` is supplied the row renders these
+// instead of the default favourites/details menu — this lets the library pages
+// inject their full action set while keeping the identical row look.
+export interface FeedRowMenuItem {
+  icon: LucideIcon;
+  label: string;
+  onClick?: () => void;
+  href?: string;
+  danger?: boolean;
+  active?: boolean;
+  disabled?: boolean;
+}
+
 // Mobile / PWA home-feed row: one book per line. Info column reads
 // title → author → [offline button + progress bar] → run time / format. The
 // action button plays (audiobook) or reads (ebook); a ⋮ menu carries the rest.
 // Only mounts at the mobile breakpoint (see useIsMobile), so the desktop layout
 // is untouched.
-export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead, onToast }: {
+export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead, onToast, onDownload, menuItems }: {
   item: FeedItem;
   progress?: boolean;
   downloaded?: boolean;
   onDownloaded?: (id: string) => void;
   onRead?: (item: FeedItem) => Promise<void>;
   onToast?: (message: string) => void;
+  onDownload?: (info: { title: string; progress: number } | null) => void;
+  menuItems?: FeedRowMenuItem[];
 }) {
   const href = feedHref(item);
   const isEbook = item.kind === "ebook";
@@ -72,7 +88,8 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
   const startDownload = async () => {
     if (downloading) return;
     setDownloading(true);
-    onToast?.("Downloading…");
+    onDownload?.({ title: item.title, progress: 0 });
+    const onProgress = (fraction: number) => onDownload?.({ title: item.title, progress: fraction });
     try {
       const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
       if (isEbook) {
@@ -83,16 +100,17 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
             authors: item.authors,
             coverUrl: item.coverUrl,
             totalBytes: doc.size
-          });
+          }, onProgress);
         }
       } else {
-        await downloadBook(book);
+        await downloadBook(book, onProgress);
       }
       onDownloaded?.(item.id);
       onToast?.("Saved for offline");
     } catch {
       onToast?.("Download failed");
     } finally {
+      onDownload?.(null);
       setDownloading(false);
     }
   };
@@ -200,24 +218,61 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
         </button>
         {menuOpen && (
           <div className="home-feed-row-dropdown" role="menu" aria-label={`Options for ${item.title}`}>
-            <button
-              type="button"
-              role="menuitem"
-              className={fav ? "is-fav" : ""}
-              onClick={() => { setMenuOpen(false); void toggleFav(); }}
-              disabled={favBusy}
-            >
-              <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
-              <span>{fav ? "Favorited" : "Add to favorites"}</span>
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => { setMenuOpen(false); navigate(href); }}
-            >
-              <Info size={16} aria-hidden="true" />
-              <span>View details</span>
-            </button>
+            {menuItems ? (
+              menuItems.map((entry, index) => {
+                const MenuIcon = entry.icon;
+                const inner = (
+                  <>
+                    <MenuIcon size={16} aria-hidden="true" />
+                    <span>{entry.label}</span>
+                  </>
+                );
+                return entry.href ? (
+                  <a
+                    key={index}
+                    role="menuitem"
+                    href={entry.href}
+                    download
+                    className={entry.active ? "is-fav" : ""}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <button
+                    key={index}
+                    type="button"
+                    role="menuitem"
+                    className={`${entry.danger ? "danger" : ""}${entry.active ? " is-fav" : ""}`.trim()}
+                    onClick={() => { setMenuOpen(false); entry.onClick?.(); }}
+                    disabled={entry.disabled}
+                  >
+                    {inner}
+                  </button>
+                );
+              })
+            ) : (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={fav ? "is-fav" : ""}
+                  onClick={() => { setMenuOpen(false); void toggleFav(); }}
+                  disabled={favBusy}
+                >
+                  <Heart size={16} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
+                  <span>{fav ? "Favorited" : "Add to favorites"}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setMenuOpen(false); navigate(href); }}
+                >
+                  <Info size={16} aria-hidden="true" />
+                  <span>View details</span>
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
