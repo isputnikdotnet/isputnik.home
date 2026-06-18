@@ -1194,16 +1194,16 @@
   height: 34px;
   border-radius: 50%;
   border: none;
-  background: var(--mint);
-  color: var(--canvas);
+  background: #111;
+  color: #fff;
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: background 0.12s ease, transform 0.1s ease;
+  transition: opacity 0.12s ease, transform 0.1s ease;
 }
 
 .catalog-row-play:hover {
-  background: color-mix(in srgb, var(--mint) 82%, black);
+  opacity: 0.8;
   transform: scale(1.06);
 }
 
