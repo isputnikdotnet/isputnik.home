@@ -337,6 +337,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.2",
+          label: "Faster offline detection",
+          changes: [
+            "The online/offline indicator now updates promptly when the server becomes unreachable, instead of waiting on the browser's slower built-in network check."
+          ]
+        },
+        {
           version: "1.2.1",
           label: "Mobile home & app navigation",
           changes: [
