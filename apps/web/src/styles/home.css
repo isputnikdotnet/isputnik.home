@@ -1058,14 +1058,17 @@ a.home-overview-card:focus-visible {
   align-items: center;
   gap: 6px;
   margin-top: 4px;
+  max-width: 50%;
 }
 
 .inprogress-bar-icon {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 18px;
   height: 18px;
+  padding: 0;
   border-radius: 50%;
   border: none;
   background: var(--ink);
