@@ -16,10 +16,6 @@
   filter: brightness(1.05);
 }
 
-.profile-area .install-cta {
-  margin-top: 20px;
-}
-
 /* ---- Polished platform-aware install card (login + profile) ---- */
 .install-card {
   width: 100%;

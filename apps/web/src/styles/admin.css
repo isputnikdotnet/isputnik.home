@@ -28,192 +28,8 @@
   background: var(--control-primary-button-hover);
 }
 
-/* ── Users ──────────────────────────────────────────────────────── */
-
-.user-list {
-  display: grid;
-  gap: 10px;
-}
-
-.user-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 86px;
-  align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.user-row > div:first-child {
-  display: grid;
-  gap: 2px;
-}
-
-.user-row span {
-  color: var(--muted);
-}
-
-.user-controls {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.role-select {
-  min-height: 38px;
-  padding: 6px 9px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  color: var(--ink);
-  background: var(--field);
-}
-
-.role-select:disabled {
-  color: var(--muted);
-  opacity: 0.72;
-}
-
-.protected-badge,
-.current-badge {
-  padding: 5px 8px;
-  border-radius: 6px;
-  color: var(--mint);
-  background: var(--active);
-  font-size: 0.78rem;
-  font-weight: 750;
-}
-
-/* ── Invites ────────────────────────────────────────────────────── */
-
-.invite-list {
-  display: grid;
-  gap: 10px;
-}
-
-.invite-row {
-  display: grid;
-  grid-template-columns: minmax(210px, 1.1fr) auto minmax(185px, 0.9fr) 72px;
-  align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.invite-link {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
-  gap: 8px;
-  margin-top: 2px;
-}
-
-.invite-link-unavailable {
-  grid-column: 1 / -1;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.invite-summary,
-.invite-dates {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.invite-summary span,
-.invite-dates span {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
 .library-empty svg {
   color: var(--mint);
-}
-
-/* ── Library layout ─────────────────────────────────────────────── */
-
-.book-list {
-  display: grid;
-  gap: 10px;
-}
-
-.book-row div {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.book-row span,
-.book-row small {
-  color: var(--muted);
-}
-
-.book-row {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-/* ── Folder browser ─────────────────────────────────────────────── */
-
-.folder-browser {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.folder-browser-head {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.folder-browser-head > div {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.folder-browser-head span {
-  color: var(--muted);
-  overflow-wrap: anywhere;
-  font-size: 0.9rem;
-}
-
-.folder-list {
-  display: grid;
-  gap: 7px;
-  max-height: 260px;
-  overflow: auto;
-}
-
-.folder-row {
-  min-height: 38px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  color: var(--ink);
-  text-align: left;
-  background: var(--field);
-}
-
-.folder-row:hover {
-  border-color: color-mix(in srgb, var(--mint) 40%, var(--line));
-  background: var(--hover);
 }
 
 /* ── Library settings & storage ─────────────────────────────────── */
@@ -341,50 +157,6 @@
   grid-template-columns: minmax(0, 1.5fr) minmax(100px, 0.65fr) auto;
   align-items: end;
   gap: 10px;
-}
-
-/* ── Sessions ───────────────────────────────────────────────────── */
-
-.session-list {
-  display: grid;
-  gap: 10px;
-}
-
-.session-row {
-  display: grid;
-  grid-template-columns: minmax(170px, 0.8fr) minmax(300px, 1.4fr) 104px;
-  align-items: center;
-  gap: 16px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.session-owner,
-.session-meta {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.session-owner span,
-.session-meta span,
-.health-line span,
-.status-metric span {
-  color: var(--muted);
-}
-
-.session-meta {
-  font-size: 0.9rem;
-}
-
-.session-row .text-button {
-  justify-self: end;
-}
-
-.current-badge {
-  justify-self: end;
 }
 
 /* ── Logs ───────────────────────────────────────────────────────── */
@@ -530,6 +302,11 @@
   height: 10px;
   border-radius: 50%;
   background: var(--mint);
+}
+
+.health-line span,
+.status-metric span {
+  color: var(--muted);
 }
 
 .status-grid {
