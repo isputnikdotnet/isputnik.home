@@ -17,6 +17,8 @@ export interface FeedItem {
   percentComplete: number | null;
   completedAt: string | null;
   discoveredAt: string;
+  durationSeconds: number | null;
+  format: string | null;
 }
 
 export interface FeedRow {
@@ -29,6 +31,8 @@ export interface FeedRow {
   author_names: string | null;
   pct: number | null;
   completed_at: string | null;
+  duration_seconds: number | null;
+  doc_format: string | null;
 }
 
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
@@ -43,14 +47,17 @@ export const FEED_COLUMNS = `
   library_items.folder_path,
   library_items.discovered_at,
   item_metadata.cover_storage_key,
-  GROUP_CONCAT(DISTINCT authors.name) AS author_names`;
+  GROUP_CONCAT(DISTINCT authors.name) AS author_names,
+  audiobook_details.duration_seconds,
+  (SELECT format FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available' LIMIT 1) AS doc_format`;
 
 export const FEED_JOINS = `
   FROM library_items
   JOIN libraries ON libraries.id = library_items.library_id
   LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
   LEFT JOIN item_people ON item_people.item_id = library_items.id AND item_people.role = 'author'
-  LEFT JOIN people AS authors ON authors.id = item_people.person_id`;
+  LEFT JOIN people AS authors ON authors.id = item_people.person_id
+  LEFT JOIN audiobook_details ON audiobook_details.item_id = library_items.id`;
 
 // One progress row per item — the most-recent activity from either table. SQLite
 // returns the pct/completed_at from the MAX(updated_at) row (bare-column + max).
@@ -72,7 +79,9 @@ export function mapRow(row: FeedRow): FeedItem {
     coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
     percentComplete: row.pct ?? null,
     completedAt: row.completed_at ?? null,
-    discoveredAt: row.discovered_at
+    discoveredAt: row.discovered_at,
+    durationSeconds: row.duration_seconds ?? null,
+    format: row.doc_format ?? null
   };
 }
 

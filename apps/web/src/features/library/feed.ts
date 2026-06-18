@@ -10,6 +10,8 @@ export interface FeedItem {
   percentComplete: number | null;
   completedAt: string | null;
   discoveredAt: string;
+  durationSeconds: number | null;
+  format: string | null;
 }
 
 export interface FeedResponse {
