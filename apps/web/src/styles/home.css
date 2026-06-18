@@ -711,7 +711,7 @@ a.home-overview-card:focus-visible {
   }
 
   .app-dashboard-shell:not(.home-control-shell) .home-main {
-    padding: 18px 14px calc(104px + env(safe-area-inset-bottom));
+    padding: 18px 14px calc(90px + env(safe-area-inset-bottom));
   }
 
   .app-dashboard-shell:not(.home-control-shell) .work-area {
@@ -726,10 +726,10 @@ a.home-overview-card:focus-visible {
     bottom: 0;
     left: 0;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
-    min-height: calc(72px + env(safe-area-inset-bottom));
-    padding: 8px max(8px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
+    min-height: calc(58px + env(safe-area-inset-bottom));
+    padding: 6px max(8px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
     border-top: 1px solid color-mix(in srgb, var(--home-line) 86%, transparent);
     background: color-mix(in srgb, var(--home-panel-raised) 94%, transparent);
     box-shadow: 0 -14px 34px color-mix(in srgb, var(--home-shadow-color) 68%, transparent);
@@ -740,15 +740,20 @@ a.home-overview-card:focus-visible {
     display: grid;
     justify-items: center;
     align-content: center;
-    gap: 4px;
+    gap: 3px;
     min-width: 0;
-    min-height: 56px;
+    min-height: 45px;
+    padding: 0;
+    border: none;
     border-radius: 8px;
+    background: transparent;
     color: var(--home-muted);
-    font-size: 0.67rem;
+    font-family: inherit;
+    font-size: 0.54rem;
     font-weight: 760;
     line-height: 1;
     text-decoration: none;
+    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -807,4 +812,425 @@ a.home-overview-card:focus-visible {
   .home-heading p {
     font-size: 0.92rem;
   }
+}
+
+/* ── Mobile / PWA Home ───────────────────────────────────────────────────────
+   On phones (and the installed app), drop the library-overview stats strip and
+   render each feed row as a one-book-per-line list (cover · info · play · menu)
+   instead of the desktop's clipped cover-tile grid. Desktop (>740px) keeps the
+   1.2.0 layout untouched. */
+@media (max-width: 740px) {
+  .home-page .home-stats {
+    display: none;
+  }
+
+  .home-page .home-header {
+    margin-bottom: 2px;
+  }
+
+  .home-content {
+    gap: 22px;
+    margin-top: 18px;
+  }
+
+  .home-section-title {
+    margin-bottom: 12px;
+  }
+
+  .home-section-title h2 {
+    font-size: 1rem;
+  }
+
+  .home-feed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .home-feed-row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 8px;
+    border: 1px solid var(--home-line);
+    border-radius: 10px;
+    background: var(--home-panel);
+  }
+
+  .home-feed-row-main {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .home-feed-row-cover {
+    position: relative;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 46px;
+    height: 62px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--home-soft-strong);
+    color: var(--home-icon);
+  }
+
+  .home-feed-row-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .home-feed-row-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .home-feed-row-info strong {
+    overflow: hidden;
+    color: var(--home-ink);
+    font-size: 0.92rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-feed-row-info small {
+    overflow: hidden;
+    color: var(--home-muted);
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-feed-row-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+  }
+
+  .home-feed-row-dl {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--home-ink);
+    color: var(--home-canvas);
+    cursor: pointer;
+  }
+
+  .home-feed-row-dl.is-saved {
+    background: color-mix(in srgb, var(--home-accent) 22%, transparent);
+    color: var(--home-accent);
+  }
+
+  .home-feed-row-dl:disabled {
+    cursor: default;
+  }
+
+  .home-feed-row-bar {
+    display: block;
+    width: 120px;
+    max-width: 100%;
+    height: 5px;
+    margin-top: 6px;
+    border-radius: 999px;
+    background: var(--home-soft-strong);
+    overflow: hidden;
+  }
+
+  .home-feed-row-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--home-accent);
+  }
+
+  .home-feed-row-meta {
+    overflow: hidden;
+    min-width: 0;
+    color: var(--home-muted);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-feed-spin {
+    animation: home-feed-spin 0.9s linear infinite;
+  }
+
+  @keyframes home-feed-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .home-feed-row-action {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: var(--home-soft);
+    color: var(--home-accent-strong);
+    cursor: pointer;
+  }
+
+  .home-feed-row-menu {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .home-feed-row-kebab {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: var(--home-muted);
+    cursor: pointer;
+  }
+
+  .home-feed-row-dropdown {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 186px;
+    padding: 6px;
+    border: 1px solid var(--home-line);
+    border-radius: 10px;
+    background: var(--home-panel-raised);
+    box-shadow: 0 16px 40px var(--home-shadow-color);
+  }
+
+  .home-feed-row-dropdown button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--home-ink);
+    font: inherit;
+    font-size: 0.86rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .home-feed-row-dropdown button:hover {
+    background: var(--home-soft-strong);
+  }
+
+  .home-feed-row-dropdown button svg {
+    flex: 0 0 auto;
+    color: var(--home-icon);
+  }
+
+  .home-feed-row-dropdown button.is-fav,
+  .home-feed-row-dropdown button.is-fav svg {
+    color: var(--home-accent-strong);
+  }
+
+  .home-feed-row.is-skeleton .home-feed-row-cover {
+    animation: home-pulse 1.3s ease-in-out infinite;
+  }
+}
+
+/* ── Mobile Home brand header + online/offline indicator ─────────────────────
+   Replaces the desktop "Welcome back" heading on phones / the installed app. */
+@media (max-width: 740px) {
+  .home-header-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .home-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+  }
+
+  .home-brand-mark {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+  }
+
+  .home-brand-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .home-brand-copy strong {
+    color: var(--home-ink);
+    font-size: 1.06rem;
+    font-weight: 760;
+    line-height: 1.1;
+  }
+
+  .home-brand-copy small {
+    overflow: hidden;
+    color: var(--home-muted);
+    font-size: 0.76rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-net {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border: 1px solid var(--home-line);
+    border-radius: 999px;
+    background: var(--home-panel);
+    color: var(--home-muted);
+    font-size: 0.74rem;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  .home-net-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--home-muted);
+  }
+
+  .home-net.is-online {
+    color: var(--home-green);
+  }
+
+  .home-net.is-online .home-net-dot {
+    background: var(--home-green);
+  }
+
+  .home-net.is-offline {
+    color: var(--home-amber);
+  }
+
+  .home-net.is-offline .home-net-dot {
+    background: var(--home-amber);
+  }
+}
+
+/* ── "Media" tab drop-up sheet (Audiobooks / Ebooks / Gallery / Others) ────── */
+@media (max-width: 740px) {
+  .mobile-media-backdrop {
+    position: fixed;
+    z-index: 58;
+    inset: 0;
+  }
+
+  .mobile-media-menu {
+    position: fixed;
+    z-index: 59;
+    bottom: calc(58px + env(safe-area-inset-bottom));
+    left: 0;
+    right: 0;
+    padding: 16px max(16px, env(safe-area-inset-left)) 14px max(16px, env(safe-area-inset-right));
+    background: color-mix(in srgb, var(--home-panel-raised) 96%, transparent);
+    border: 1px solid color-mix(in srgb, var(--home-line) 86%, transparent);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -12px 36px color-mix(in srgb, var(--home-shadow-color) 56%, transparent);
+    backdrop-filter: blur(24px);
+    animation: mobile-sheet-in 0.2s ease;
+  }
+
+  .mobile-media-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .mobile-media-option {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 7px;
+    padding: 16px 6px 12px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--home-field);
+    color: var(--home-ink);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 760;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-media-option svg {
+    color: var(--home-accent);
+  }
+
+  .mobile-media-option:not(.is-future):hover,
+  .mobile-media-option:not(.is-future):focus-visible {
+    background: var(--home-soft-strong);
+    outline: 0;
+  }
+
+  .mobile-media-option.is-future {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  @keyframes mobile-sheet-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* Keep the Media sheet/backdrop hidden on desktop if its state ever lingers. */
+@media (min-width: 741px) {
+  .mobile-media-backdrop,
+  .mobile-media-menu {
+    display: none;
+  }
+}
+
+/* Download feedback toast (portaled to <body>, so it uses the global theme vars
+   rather than the .home-dashboard-shell-scoped --home-* aliases). */
+.home-toast {
+  position: fixed;
+  z-index: 200;
+  left: 50%;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  padding: 9px 16px;
+  border-radius: 100px;
+  background: var(--ink);
+  color: var(--canvas);
+  font-size: 0.82rem;
+  font-weight: 650;
+  box-shadow: 0 6px 20px var(--shadow);
+  pointer-events: none;
+  white-space: nowrap;
 }

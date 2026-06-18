@@ -12,6 +12,7 @@ import {
   Info,
   Library,
   ListMusic,
+  MoreHorizontal,
   LogOut,
   Settings,
   Shapes,
@@ -45,33 +46,10 @@ interface DisabledMainNavLink {
 
 type MainNavItem = MainNavLink | DisabledMainNavLink;
 
-interface MobileNavItem {
-  label: string;
-  href: string;
-  icon: LucideIcon;
-  active: boolean;
-}
-
 interface UserMenuLink {
   label: string;
   href: string;
   icon: LucideIcon;
-}
-
-const LAST_MEDIA_HREF_KEY = "isputnik-mobile-media-href";
-
-function readLastMediaHref() {
-  try {
-    return localStorage.getItem(LAST_MEDIA_HREF_KEY) === "/ebooks" ? "/ebooks" : "/audiobooks";
-  } catch {
-    return "/audiobooks";
-  }
-}
-
-function mediaHrefForPath(path: string): string | null {
-  if (path.startsWith("/ebooks")) return "/ebooks";
-  if (path.startsWith("/audiobooks") && path !== "/audiobooks/downloads") return "/audiobooks";
-  return null;
 }
 
 function DashboardNavLink({ item }: { item: MainNavItem }) {
@@ -122,43 +100,88 @@ function userMenuLinks(): UserMenuLink[] {
   ];
 }
 
-function mobileNavItems(active: DashboardActive, currentPath: string, mediaHref: string): MobileNavItem[] {
+// Four-tab bottom nav for the installed app / phones: Home, Media, Offline,
+// Profile. "Media" isn't a page — it opens a drop-up sheet to pick a library
+// (Audiobooks / Ebooks, with Gallery + Others reserved for later).
+function MobileNav({ active, currentPath }: { active: DashboardActive; currentPath: string }) {
+  const [mediaOpen, setMediaOpen] = useState(false);
+
   const downloadsActive = currentPath === "/audiobooks/downloads";
-  const collectionsActive = currentPath === "/collections" || currentPath.startsWith("/collections/");
-  const categoriesActive = currentPath === "/categories" || currentPath.startsWith("/categories/");
-  const mediaActive = (
+  const mediaActive =
     currentPath.startsWith("/ebooks") ||
-    (currentPath.startsWith("/audiobooks") && !downloadsActive)
-  );
+    (currentPath.startsWith("/audiobooks") && !downloadsActive);
 
-  return [
-    { label: "Home", href: "/", icon: Home, active: active === "home" && currentPath === "/" },
-    { label: "Media", href: mediaHref, icon: Library, active: mediaActive },
-    { label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud, active: downloadsActive },
-    { label: "Collections", href: "/collections", icon: ListMusic, active: collectionsActive },
-    { label: "Categories", href: "/categories", icon: Shapes, active: categoriesActive },
-    { label: "Profile", href: "/profile", icon: UserRound, active: active === "profile" }
-  ];
-}
+  useEffect(() => {
+    if (!mediaOpen) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setMediaOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mediaOpen]);
 
-function MobileBottomNav({ items }: { items: MobileNavItem[] }) {
+  const close = () => setMediaOpen(false);
+
   return (
-    <nav className="home-mobile-nav" aria-label="Primary app tabs">
-      {items.map((item) => {
-        const Icon = item.icon;
-        return (
-          <a
-            className={`home-mobile-nav-item${item.active ? " is-active" : ""}`}
-            href={item.href}
-            key={item.label}
-            onClick={(event) => followRoute(event, item.href)}
-          >
-            <Icon size={21} aria-hidden="true" />
-            <span>{item.label}</span>
-          </a>
-        );
-      })}
-    </nav>
+    <>
+      {mediaOpen && <div className="mobile-media-backdrop" onClick={close} aria-hidden="true" />}
+      {mediaOpen && (
+        <div className="mobile-media-menu" role="dialog" aria-label="Choose library">
+          <div className="mobile-media-menu-grid">
+            <a className="mobile-media-option" href="/audiobooks" onClick={(event) => { followRoute(event, "/audiobooks"); close(); }}>
+              <Headphones size={26} aria-hidden="true" />
+              <span>Audiobooks</span>
+            </a>
+            <a className="mobile-media-option" href="/ebooks" onClick={(event) => { followRoute(event, "/ebooks"); close(); }}>
+              <BookOpen size={26} aria-hidden="true" />
+              <span>Ebooks</span>
+            </a>
+            <button className="mobile-media-option is-future" type="button" disabled title="Gallery is coming soon">
+              <Image size={26} aria-hidden="true" />
+              <span>Gallery</span>
+            </button>
+            <button className="mobile-media-option is-future" type="button" disabled title="More media types are coming soon">
+              <MoreHorizontal size={26} aria-hidden="true" />
+              <span>Others</span>
+            </button>
+          </div>
+        </div>
+      )}
+      <nav className="home-mobile-nav" aria-label="Primary app tabs">
+        <a
+          className={`home-mobile-nav-item${active === "home" && currentPath === "/" ? " is-active" : ""}`}
+          href="/"
+          onClick={(event) => { followRoute(event, "/"); close(); }}
+        >
+          <Home size={17} aria-hidden="true" />
+          <span>Home</span>
+        </a>
+        <button
+          type="button"
+          className={`home-mobile-nav-item${mediaActive || mediaOpen ? " is-active" : ""}`}
+          onClick={() => setMediaOpen((open) => !open)}
+          aria-haspopup="dialog"
+          aria-expanded={mediaOpen}
+        >
+          <Library size={17} aria-hidden="true" />
+          <span>Media</span>
+        </button>
+        <a
+          className={`home-mobile-nav-item${downloadsActive ? " is-active" : ""}`}
+          href="/audiobooks/downloads"
+          onClick={(event) => { followRoute(event, "/audiobooks/downloads"); close(); }}
+        >
+          <DownloadCloud size={17} aria-hidden="true" />
+          <span>Offline</span>
+        </a>
+        <a
+          className={`home-mobile-nav-item${active === "profile" ? " is-active" : ""}`}
+          href="/profile"
+          onClick={(event) => { followRoute(event, "/profile"); close(); }}
+        >
+          <UserRound size={17} aria-hidden="true" />
+          <span>Profile</span>
+        </a>
+      </nav>
+    </>
   );
 }
 
@@ -179,16 +202,8 @@ export function DashboardShell({
   const mainClasses = `home-main app-dashboard-main scene-page ${isControlPanel ? "control-scene" : "sputnik-scene"}`;
   const settingsHref = user.role === "admin" && !isControlPanel ? "/control/status" : "/profile";
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [mediaHref, setMediaHref] = useState(readLastMediaHref);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const currentPath = window.location.pathname;
-
-  useEffect(() => {
-    const next = mediaHrefForPath(currentPath);
-    if (!next) return;
-    setMediaHref(next);
-    try { localStorage.setItem(LAST_MEDIA_HREF_KEY, next); } catch { /* private mode */ }
-  }, [currentPath]);
 
   useEffect(() => {
     if (!userMenuOpen) {
@@ -337,7 +352,7 @@ export function DashboardShell({
         </div>
       </section>
 
-      {!isControlPanel && <MobileBottomNav items={mobileNavItems(active, currentPath, mediaHref)} />}
+      {!isControlPanel && <MobileNav active={active} currentPath={currentPath} />}
     </main>
   );
 }
