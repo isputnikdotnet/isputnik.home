@@ -331,10 +331,6 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
   const [notice, setNotice] = useState("");
 
   // Library selector dropdown (mirrors the audiobooks main page).
-  const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
-  const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const libraryTriggerRef = useRef<HTMLButtonElement>(null);
-  const libraryMenuRef = useRef<HTMLDivElement>(null);
 
   // Source-writing actions: upload new ebooks, plus multi-select bulk add-to-series / delete.
   const [selectionMode, setSelectionMode] = useState(false);
@@ -438,34 +434,6 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
     return () => window.clearInterval(timer);
   }, [libraries, loadLibraries, cat.refresh]);
 
-  const toggleLibraryMenu = () => {
-    setLibraryMenuOpen((open) => {
-      if (!open && libraryTriggerRef.current) {
-        const rect = libraryTriggerRef.current.getBoundingClientRect();
-        setLibraryMenuPos({ top: rect.bottom + 8, left: rect.left });
-      }
-      return !open;
-    });
-  };
-
-  useEffect(() => {
-    if (!libraryMenuOpen) return;
-    const close = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (libraryTriggerRef.current?.contains(target)) return;
-      if (libraryMenuRef.current?.contains(target)) return;
-      setLibraryMenuOpen(false);
-    };
-    const dismiss = () => setLibraryMenuOpen(false);
-    window.addEventListener("mousedown", close);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
-    };
-  }, [libraryMenuOpen]);
 
   // The tile's read button opens EPUBs straight into the reader; other formats
   // (PDF) fall back to the detail page, which has the right viewer for them.
@@ -587,50 +555,28 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
           <>
             <div className="audiobook-page-nav-row audiobook-main-nav-row">
               <div className="audiobook-page-tabs-with-library">
-                <div className="audiobook-library-shortcuts">
+                <div className="audiobook-library-shortcuts" role="tablist" aria-label="Select library">
                   <button
-                    ref={libraryTriggerRef}
                     type="button"
-                    className="audiobook-library-tab"
-                    onClick={toggleLibraryMenu}
-                    aria-haspopup="menu"
-                    aria-expanded={libraryMenuOpen}
-                    aria-label="Select library"
+                    role="tab"
+                    className={`audiobook-library-tab${selectedLibraryId === "all" ? " active" : ""}`}
+                    aria-selected={selectedLibraryId === "all"}
+                    onClick={() => setSelectedLibraryId("all")}
                   >
-                    <BookMarked size={19} aria-hidden="true" />
-                    <span>{selectedLibraryLabel}</span>
-                    <ChevronDown size={16} aria-hidden="true" />
+                    <span>All</span>
                   </button>
-                  {libraryMenuOpen && libraryMenuPos && createPortal(
-                    <div
-                      ref={libraryMenuRef}
-                      className="book-detail-action-menu audiobook-library-menu"
-                      role="menu"
-                      aria-label="Select library"
-                      style={{ position: "fixed", top: libraryMenuPos.top, left: libraryMenuPos.left, right: "auto" }}
+                  {libraries.map((library) => (
+                    <button
+                      key={library.id}
+                      type="button"
+                      role="tab"
+                      className={`audiobook-library-tab${selectedLibraryId === library.id ? " active" : ""}`}
+                      aria-selected={selectedLibraryId === library.id}
+                      onClick={() => setSelectedLibraryId(library.id)}
                     >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className={selectedLibraryId === "all" ? "active" : ""}
-                        onClick={() => { setSelectedLibraryId("all"); setLibraryMenuOpen(false); }}
-                      >
-                        <span>All Libraries</span>
-                      </button>
-                      {libraries.map((library) => (
-                        <button
-                          key={library.id}
-                          type="button"
-                          role="menuitem"
-                          className={selectedLibraryId === library.id ? "active" : ""}
-                          onClick={() => { setSelectedLibraryId(library.id); setLibraryMenuOpen(false); }}
-                        >
-                          <span>{library.name}</span>
-                        </button>
-                      ))}
-                    </div>,
-                    document.body
-                  )}
+                      <span>{library.name}</span>
+                    </button>
+                  ))}
                 </div>
                 <nav className="audiobook-page-tabs" aria-label="Ebook views">
                   <a

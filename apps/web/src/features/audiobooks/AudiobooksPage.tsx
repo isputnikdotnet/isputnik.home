@@ -825,10 +825,6 @@ export function AudiobooksPage({
   const [selectedLibraryId, setSelectedLibraryId] = useState(() => readCatalogView("audiobooks:main").selectedLibraryId);
   const [sort, setSort] = useState<SortKey>("recent");
   const [librariesError, setLibrariesError] = useState("");
-  const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
-  const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const libraryTriggerRef = useRef<HTMLButtonElement>(null);
-  const libraryMenuRef = useRef<HTMLDivElement>(null);
 
   // Multi-select bulk editing (admins / library owners only).
   const [selectionMode, setSelectionMode] = useState(false);
@@ -1021,34 +1017,6 @@ export function AudiobooksPage({
     return () => window.clearInterval(timer);
   }, [libraries, cat.refresh]);
 
-  const toggleLibraryMenu = () => {
-    setLibraryMenuOpen((open) => {
-      if (!open && libraryTriggerRef.current) {
-        const rect = libraryTriggerRef.current.getBoundingClientRect();
-        setLibraryMenuPos({ top: rect.bottom + 8, left: rect.left });
-      }
-      return !open;
-    });
-  };
-
-  useEffect(() => {
-    if (!libraryMenuOpen) return;
-    const close = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (libraryTriggerRef.current?.contains(target)) return;
-      if (libraryMenuRef.current?.contains(target)) return;
-      setLibraryMenuOpen(false);
-    };
-    const dismiss = () => setLibraryMenuOpen(false);
-    window.addEventListener("mousedown", close);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
-    };
-  }, [libraryMenuOpen]);
 
   const selectedLibrary = selectedLibraryId === "all"
     ? null
@@ -1105,50 +1073,28 @@ export function AudiobooksPage({
           <>
             <div className="audiobook-page-nav-row audiobook-main-nav-row">
               <div className="audiobook-page-tabs-with-library">
-                <div className="audiobook-library-shortcuts">
+                <div className="audiobook-library-shortcuts" role="tablist" aria-label="Select library">
                   <button
-                    ref={libraryTriggerRef}
                     type="button"
-                    className="audiobook-library-tab"
-                    onClick={toggleLibraryMenu}
-                    aria-haspopup="menu"
-                    aria-expanded={libraryMenuOpen}
-                    aria-label="Select library"
+                    role="tab"
+                    className={`audiobook-library-tab${selectedLibraryId === "all" ? " active" : ""}`}
+                    aria-selected={selectedLibraryId === "all"}
+                    onClick={() => setSelectedLibraryId("all")}
                   >
-                    <BookOpen size={19} aria-hidden="true" />
-                    <span>{selectedLibraryLabel}</span>
-                    <ChevronDown size={16} aria-hidden="true" />
+                    <span>All</span>
                   </button>
-                  {libraryMenuOpen && libraryMenuPos && createPortal(
-                    <div
-                      ref={libraryMenuRef}
-                      className="book-detail-action-menu audiobook-library-menu"
-                      role="menu"
-                      aria-label="Select library"
-                      style={{ position: "fixed", top: libraryMenuPos.top, left: libraryMenuPos.left, right: "auto" }}
+                  {libraries.map((library) => (
+                    <button
+                      key={library.id}
+                      type="button"
+                      role="tab"
+                      className={`audiobook-library-tab${selectedLibraryId === library.id ? " active" : ""}`}
+                      aria-selected={selectedLibraryId === library.id}
+                      onClick={() => setSelectedLibraryId(library.id)}
                     >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className={selectedLibraryId === "all" ? "active" : ""}
-                        onClick={() => { setSelectedLibraryId("all"); setLibraryMenuOpen(false); }}
-                      >
-                        <span>All Libraries</span>
-                      </button>
-                      {libraries.map((library) => (
-                        <button
-                          key={library.id}
-                          type="button"
-                          role="menuitem"
-                          className={selectedLibraryId === library.id ? "active" : ""}
-                          onClick={() => { setSelectedLibraryId(library.id); setLibraryMenuOpen(false); }}
-                        >
-                          <span>{library.name}</span>
-                        </button>
-                      ))}
-                    </div>,
-                    document.body
-                  )}
+                      <span>{library.name}</span>
+                    </button>
+                  ))}
                 </div>
                 <AudiobookTabs active="books" includeBooks={false} />
               </div>
