@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Headphones, Play } from "lucide-react";
+import { BookOpen, DownloadCloud, HardDrive, Headphones, Play } from "lucide-react";
 import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { useOnlineStatus } from "../pwa/useOnlineStatus";
+import { listDownloads, listEbookDownloads } from "../offline/downloads";
 import { authorLine, feedHref, fetchFeed, type FeedItem } from "../features/library/feed";
 
 function HomeHeader() {
@@ -33,7 +34,7 @@ function HomeHeader() {
   );
 }
 
-function InProgressRow({ item }: { item: FeedItem }) {
+function InProgressRow({ item, downloaded }: { item: FeedItem; downloaded: boolean }) {
   const href = feedHref(item);
   const percent = Math.round((item.percentComplete ?? 0) * 100);
   const isAudiobook = item.kind === "audiobook";
@@ -59,14 +60,43 @@ function InProgressRow({ item }: { item: FeedItem }) {
           )}
         </div>
       </a>
-      <button
-        type="button"
-        className="inprogress-play"
-        onClick={() => navigate(isAudiobook ? `/player/${item.id}` : href)}
-        aria-label={`Play ${item.title}`}
-      >
-        <Play size={13} fill="currentColor" aria-hidden="true" />
-      </button>
+      <div className="inprogress-actions">
+        {downloaded
+          ? (
+            <button
+              type="button"
+              className="inprogress-offline-btn"
+              onClick={() => navigate(isAudiobook ? "/audiobooks/downloads" : href)}
+              title="Saved for offline"
+              aria-label="Available offline"
+            >
+              <HardDrive size={14} aria-hidden="true" />
+            </button>
+          )
+          : (
+            <button
+              type="button"
+              className="inprogress-download-btn"
+              onClick={() => navigate(href)}
+              title="Save for offline"
+              aria-label={`Save "${item.title}" for offline`}
+            >
+              <DownloadCloud size={14} aria-hidden="true" />
+            </button>
+          )
+        }
+        <button
+          type="button"
+          className="inprogress-play"
+          onClick={() => navigate(isAudiobook ? `/player/${item.id}` : href)}
+          aria-label={isAudiobook ? `Play ${item.title}` : `Read ${item.title}`}
+        >
+          {isAudiobook
+            ? <Play size={13} fill="currentColor" aria-hidden="true" />
+            : <BookOpen size={14} aria-hidden="true" />
+          }
+        </button>
+      </div>
     </div>
   );
 }
@@ -90,17 +120,19 @@ function InProgressRowSkeleton() {
 
 export function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
   const [items, setItems] = useState<FeedItem[] | null>(null);
+  const [downloadedIds, setDownloadedIds] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState("");
 
   useEffect(() => {
     let alive = true;
-    fetchFeed("continue", 10).then((feed) => {
+    Promise.allSettled([fetchFeed("continue", 10), listDownloads(), listEbookDownloads()]).then(([feed, downloads, ebookDownloads]) => {
       if (!alive) return;
-      setItems(feed.items);
-    }).catch(() => {
-      if (!alive) return;
-      setItems([]);
-      setError("Unable to load your library");
+      if (feed.status === "fulfilled") setItems(feed.value.items);
+      else { setItems([]); setError("Unable to load your library"); }
+      const ids = new Set<string>();
+      if (downloads.status === "fulfilled") downloads.value.forEach((d) => ids.add(d.bookId));
+      if (ebookDownloads.status === "fulfilled") ebookDownloads.value.forEach((d) => ids.add(d.bookId));
+      setDownloadedIds(ids);
     });
     return () => { alive = false; };
   }, []);
@@ -118,7 +150,11 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
               {items === null
                 ? Array.from({ length: 6 }).map((_, i) => <InProgressRowSkeleton key={i} />)
                 : items.map((item) => (
-                    <InProgressRow key={`${item.kind}-${item.id}`} item={item} />
+                    <InProgressRow
+                      key={`${item.kind}-${item.id}`}
+                      item={item}
+                      downloaded={downloadedIds.has(item.id)}
+                    />
                   ))
               }
             </div>

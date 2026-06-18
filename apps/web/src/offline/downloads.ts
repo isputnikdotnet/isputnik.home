@@ -79,10 +79,29 @@ export interface QueuedProgress {
   synced: boolean;
 }
 
+export interface EbookDownloadRecord {
+  bookId: string;
+  documentId: string;
+  title: string;
+  authors: string[];
+  coverUrl: string | null;
+  totalBytes: number;
+  downloadedBytes: number;
+  state: DownloadState;
+  createdAt: string;
+}
+
+interface StoredEbookFile {
+  key: string; // `${bookId}:${documentId}`
+  blob: Blob;
+}
+
 interface OfflineDB extends DBSchema {
   downloads: { key: string; value: DownloadRecord };
   files: { key: string; value: StoredFile; indexes: { bookId: string } };
   progressQueue: { key: string; value: QueuedProgress };
+  ebookDownloads: { key: string; value: EbookDownloadRecord };
+  ebookFiles: { key: string; value: StoredEbookFile };
 }
 
 function dbName(userId: string) {
@@ -97,17 +116,17 @@ function db(): Promise<IDBPDatabase<OfflineDB>> | null {
   if (cached?.userId !== userId) {
     cached = {
       userId,
-      db: openDB<OfflineDB>(dbName(userId), 1, {
-        upgrade(database) {
-          if (!database.objectStoreNames.contains("downloads")) {
+      db: openDB<OfflineDB>(dbName(userId), 2, {
+        upgrade(database, oldVersion) {
+          if (oldVersion < 1) {
             database.createObjectStore("downloads", { keyPath: "bookId" });
-          }
-          if (!database.objectStoreNames.contains("files")) {
             const store = database.createObjectStore("files", { keyPath: "fileId" });
             store.createIndex("bookId", "bookId");
-          }
-          if (!database.objectStoreNames.contains("progressQueue")) {
             database.createObjectStore("progressQueue", { keyPath: "bookId" });
+          }
+          if (oldVersion < 2) {
+            database.createObjectStore("ebookDownloads", { keyPath: "bookId" });
+            database.createObjectStore("ebookFiles", { keyPath: "key" });
           }
         }
       })
@@ -349,5 +368,111 @@ export async function requestPersistentStorage(): Promise<boolean> {
     return await navigator.storage.persist();
   } catch {
     return false;
+  }
+}
+
+// ── Ebook offline downloads ───────────────────────────────────────────────────
+
+export async function getEbookDownload(bookId: string): Promise<EbookDownloadRecord | null> {
+  const handle = db();
+  if (!handle) return null;
+  try {
+    return (await (await handle).get("ebookDownloads", bookId)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function listEbookDownloads(): Promise<EbookDownloadRecord[]> {
+  const handle = db();
+  if (!handle) return [];
+  try {
+    const all = await (await handle).getAll("ebookDownloads");
+    return all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteEbookDownload(bookId: string): Promise<void> {
+  const handle = db();
+  if (!handle) return;
+  const database = await handle;
+  const record = await database.get("ebookDownloads", bookId);
+  const tx = database.transaction(["ebookDownloads", "ebookFiles"], "readwrite");
+  if (record) {
+    await tx.objectStore("ebookFiles").delete(`${bookId}:${record.documentId}`);
+  }
+  await tx.objectStore("ebookDownloads").delete(bookId);
+  await tx.done;
+}
+
+/**
+ * Download an EPUB document into local IndexedDB storage. The url must be the
+ * server-side document URL (credentials are included automatically).
+ */
+export async function downloadEbook(
+  bookId: string,
+  documentId: string,
+  url: string,
+  meta: { title: string; authors: string[]; coverUrl: string | null; totalBytes: number },
+  onProgress?: (fraction: number) => void
+): Promise<EbookDownloadRecord> {
+  const handle = db();
+  if (!handle) throw new Error("Sign in to download books for offline use.");
+  const database = await handle;
+
+  void requestPersistentStorage();
+
+  const record: EbookDownloadRecord = {
+    bookId,
+    documentId,
+    title: meta.title,
+    authors: meta.authors,
+    coverUrl: meta.coverUrl,
+    totalBytes: meta.totalBytes,
+    downloadedBytes: 0,
+    state: "downloading",
+    createdAt: new Date().toISOString()
+  };
+  await database.put("ebookDownloads", record);
+
+  let downloaded = 0;
+  try {
+    const res = await fetch(url, { credentials: "include" });
+    if (!res.ok || !res.body) throw new Error(`Couldn't download ebook (status ${res.status}).`);
+
+    const blob = await responseBlobWithProgress(res, "application/epub+zip", (bytes) => {
+      downloaded += bytes;
+      onProgress?.(meta.totalBytes > 0 ? Math.min(downloaded / meta.totalBytes, 0.999) : 0);
+    });
+
+    await database.put("ebookFiles", { key: `${bookId}:${documentId}`, blob });
+
+    record.state = "complete";
+    record.downloadedBytes = meta.totalBytes;
+    await database.put("ebookDownloads", record);
+    onProgress?.(1);
+    return record;
+  } catch (err) {
+    record.state = "failed";
+    record.downloadedBytes = downloaded;
+    await database.put("ebookDownloads", record).catch(() => {});
+    throw err instanceof Error ? err : new Error("Download failed.");
+  }
+}
+
+/**
+ * Retrieve a downloaded EPUB as a Blob. Returns null when not stored locally.
+ * Caller is responsible for revoking any object URL created from the blob.
+ */
+export async function getDownloadedEpubBlob(bookId: string, documentId: string): Promise<Blob | null> {
+  const handle = db();
+  if (!handle) return null;
+  try {
+    const stored = await (await handle).get("ebookFiles", `${bookId}:${documentId}`);
+    return stored?.blob ?? null;
+  } catch {
+    return null;
   }
 }
