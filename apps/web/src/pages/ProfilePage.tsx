@@ -8,7 +8,6 @@ import { MessageBox } from "../shared/MessageBox";
 import { ThemePicker, type Theme } from "../shared/ThemePicker";
 import { InstallCard } from "../pwa/InstallCard";
 import { ChangePasswordSection } from "../features/profile/ChangePasswordSection";
-import { OpdsAccessSection } from "../features/profile/OpdsAccessSection";
 
 export function ProfilePage({
   user,
@@ -95,8 +94,6 @@ export function ProfilePage({
           <ThemePicker value={user.theme} onChange={chooseTheme} disabled={themeSaving} />
           {themeError && <MessageBox tone="error" title="Unable to save">{themeError}</MessageBox>}
         </section>
-
-        <OpdsAccessSection />
 
         <InstallCard
           title="Install the mobile app"

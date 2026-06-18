@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Check, Copy, Plus, Trash2 } from "lucide-react";
-import { api } from "../../api";
-import { Button } from "../../shared/Button";
-import { Field } from "../../shared/Field";
-import { Modal } from "../../shared/Modal";
-import { MessageBox } from "../../shared/MessageBox";
-import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { api } from "../../../api";
+import { Button } from "../../../shared/Button";
+import { Field } from "../../../shared/Field";
+import { Modal } from "../../../shared/Modal";
+import { MessageBox } from "../../../shared/MessageBox";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 
 interface OpdsToken {
   id: string;
