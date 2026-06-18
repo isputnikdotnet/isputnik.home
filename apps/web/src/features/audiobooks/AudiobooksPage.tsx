@@ -87,7 +87,7 @@ export function AudiobookPageHeader({
           {onSearchChange && (
             <label className="audiobook-page-search">
               <span className="sr-only">{searchPlaceholder ?? "Search audiobooks"}</span>
-              <Search size={22} aria-hidden="true" />
+              <Search size={15} aria-hidden="true" />
               <input
                 type="search"
                 value={search ?? ""}
@@ -1086,12 +1086,6 @@ export function AudiobooksPage({
                 <button type="button" className="secondary-button" onClick={() => { setUploadOpen(true); setBulkNotice(""); }}>
                   <UploadCloud size={17} aria-hidden="true" />
                   <span>Upload</span>
-                </button>
-              )}
-              {canEditScope && !selectionMode && (
-                <button type="button" className="secondary-button" onClick={() => { setSelectionMode(true); setBulkNotice(""); }}>
-                  <CheckSquare size={17} aria-hidden="true" />
-                  <span>Select</span>
                 </button>
               )}
             </>

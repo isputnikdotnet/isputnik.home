@@ -570,12 +570,6 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                   <span>Upload</span>
                 </button>
               )}
-              {(canAddToSeries || canDeleteScope) && !selectionMode && (
-                <button type="button" className="secondary-button" onClick={() => { setSelectionMode(true); setNotice(""); }}>
-                  <CheckSquare size={17} aria-hidden="true" />
-                  <span>Select</span>
-                </button>
-              )}
             </>
           }
         />
