@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
-import { BookOpen, DownloadCloud, HardDrive, Headphones, Play } from "lucide-react";
-import type { PublicUser } from "../api";
+import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { BookOpen, DownloadCloud, HardDrive, Headphones, Loader2, Play } from "lucide-react";
+import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
 import { useOnlineStatus } from "../pwa/useOnlineStatus";
-import { listDownloads, listEbookDownloads } from "../offline/downloads";
+import { downloadBook, downloadEbook, getDownloadedEpubBlob, listDownloads, listEbookDownloads } from "../offline/downloads";
+import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
+import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import { authorLine, feedHref, fetchFeed, type FeedItem } from "../features/library/feed";
 
 function HomeHeader() {
@@ -34,10 +37,38 @@ function HomeHeader() {
   );
 }
 
-function InProgressRow({ item, downloaded }: { item: FeedItem; downloaded: boolean }) {
+function InProgressRow({ item, downloaded, onDownloaded, onRead }: { item: FeedItem; downloaded: boolean; onDownloaded: (id: string) => void; onRead: (item: FeedItem) => Promise<void> }) {
+  const [downloading, setDownloading] = useState(false);
+  const [opening, setOpening] = useState(false);
   const href = feedHref(item);
   const percent = Math.round((item.percentComplete ?? 0) * 100);
   const isAudiobook = item.kind === "audiobook";
+
+  const startDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
+      if (isAudiobook) {
+        await downloadBook(book);
+      } else {
+        const doc = book.documents.find((d) => d.format === "epub") ?? book.documents[0] ?? null;
+        if (doc) {
+          await downloadEbook(item.id, doc.id, doc.url, {
+            title: item.title,
+            authors: item.authors,
+            coverUrl: item.coverUrl,
+            totalBytes: doc.size
+          });
+        }
+      }
+      onDownloaded(item.id);
+    } catch {
+      // silently — user can retry or use the book detail page
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div className="inprogress-row" role="listitem">
@@ -61,39 +92,50 @@ function InProgressRow({ item, downloaded }: { item: FeedItem; downloaded: boole
         </div>
       </a>
       <div className="inprogress-actions">
-        {downloaded
-          ? (
-            <button
-              type="button"
-              className="inprogress-offline-btn"
-              onClick={() => navigate(isAudiobook ? "/audiobooks/downloads" : href)}
-              title="Saved for offline"
-              aria-label="Available offline"
-            >
-              <HardDrive size={14} aria-hidden="true" />
-            </button>
-          )
-          : (
-            <button
-              type="button"
-              className="inprogress-download-btn"
-              onClick={() => navigate(href)}
-              title="Save for offline"
-              aria-label={`Save "${item.title}" for offline`}
-            >
-              <DownloadCloud size={14} aria-hidden="true" />
-            </button>
-          )
-        }
+        {downloaded ? (
+          <button
+            type="button"
+            className="inprogress-offline-btn"
+            onClick={() => navigate(isAudiobook ? "/audiobooks/downloads" : href)}
+            title="Saved for offline"
+            aria-label="Available offline"
+          >
+            <HardDrive size={14} aria-hidden="true" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="inprogress-download-btn"
+            onClick={() => void startDownload()}
+            disabled={downloading}
+            title={downloading ? "Downloading…" : "Save for offline"}
+            aria-label={downloading ? "Downloading…" : `Save for offline`}
+          >
+            {downloading
+              ? <Loader2 size={14} aria-hidden="true" className="inprogress-spinning" />
+              : <DownloadCloud size={14} aria-hidden="true" />
+            }
+          </button>
+        )}
         <button
           type="button"
           className="inprogress-play"
-          onClick={() => navigate(isAudiobook ? `/player/${item.id}` : href)}
-          aria-label={isAudiobook ? `Play ${item.title}` : `Read ${item.title}`}
+          disabled={opening}
+          onClick={() => {
+            if (isAudiobook) {
+              navigate(`/player/${item.id}`);
+            } else {
+              setOpening(true);
+              void onRead(item).finally(() => setOpening(false));
+            }
+          }}
+          aria-label={isAudiobook ? `Play ${item.title}` : (opening ? "Opening…" : `Read ${item.title}`)}
         >
-          {isAudiobook
-            ? <Play size={13} fill="currentColor" aria-hidden="true" />
-            : <BookOpen size={14} aria-hidden="true" />
+          {!isAudiobook && opening
+            ? <Loader2 size={14} aria-hidden="true" className="inprogress-spinning" />
+            : isAudiobook
+              ? <Play size={13} fill="currentColor" aria-hidden="true" />
+              : <BookOpen size={14} aria-hidden="true" />
           }
         </button>
       </div>
@@ -118,10 +160,52 @@ function InProgressRowSkeleton() {
   );
 }
 
+interface ViewerState {
+  bookId: string;
+  docId: string;
+  url: string;
+  title: string;
+  author: string;
+  coverUrl: string | null;
+  blobUrl?: string;
+  initialProgress: ReadingProgress | null;
+}
+
 export function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
   const [items, setItems] = useState<FeedItem[] | null>(null);
-  const [downloadedIds, setDownloadedIds] = useState<ReadonlySet<string>>(new Set());
+  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
+  const [viewer, setViewer] = useState<ViewerState | null>(null);
+
+  const handleDownloaded = useCallback((id: string) => {
+    setDownloadedIds((prev) => new Set([...prev, id]));
+  }, []);
+
+  const handleRead = useCallback(async (item: FeedItem) => {
+    const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
+    const doc = book.documents.find((d) => d.format === "epub") ?? book.documents[0] ?? null;
+    if (!doc) { navigate(`/ebooks/books/${item.id}`); return; }
+    const [progressData, offlineBlob] = await Promise.all([
+      api<{ progress: ReadingProgress | null }>(`/api/library/books/${item.id}/reading-progress?documentId=${encodeURIComponent(doc.id)}`).catch(() => ({ progress: null })),
+      getDownloadedEpubBlob(item.id, doc.id).catch(() => null)
+    ]);
+    const blobUrl = offlineBlob ? URL.createObjectURL(offlineBlob) : undefined;
+    setViewer({
+      bookId: item.id,
+      docId: doc.id,
+      url: blobUrl ?? doc.url,
+      title: item.title,
+      author: item.authors.join(", "),
+      coverUrl: item.coverUrl,
+      blobUrl,
+      initialProgress: progressData.progress
+    });
+  }, []);
+
+  useEffect(() => {
+    const v = viewer;
+    return () => { if (v?.blobUrl) URL.revokeObjectURL(v.blobUrl); };
+  }, [viewer]);
 
   useEffect(() => {
     let alive = true;
@@ -138,6 +222,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   }, []);
 
   return (
+    <>
     <DashboardShell active="home" user={user} logout={logout}>
       <section className="home-page" aria-label="In progress">
         <HomeHeader />
@@ -154,6 +239,8 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
                       key={`${item.kind}-${item.id}`}
                       item={item}
                       downloaded={downloadedIds.has(item.id)}
+                      onDownloaded={handleDownloaded}
+                      onRead={handleRead}
                     />
                   ))
               }
@@ -167,5 +254,22 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
         )}
       </section>
     </DashboardShell>
+
+    {viewer && createPortal(
+      <EbookReader
+        bookId={viewer.bookId}
+        documentId={viewer.docId}
+        url={viewer.url}
+        storageKey={`isputnik:epub-progress:${user.id}:${viewer.bookId}:${viewer.docId}`}
+        initialProgress={viewer.initialProgress}
+        title={viewer.title}
+        author={viewer.author}
+        coverUrl={viewer.coverUrl}
+        downloadUrl={viewer.url}
+        onExit={() => setViewer(null)}
+      />,
+      document.body
+    )}
+    </>
   );
 }
