@@ -1130,6 +1130,19 @@ a.home-overview-card:focus-visible {
   background: var(--home-soft-strong);
 }
 
+.inprogress-download-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.inprogress-spinning {
+  animation: inprogress-spin 1s linear infinite;
+}
+
+@keyframes inprogress-spin {
+  to { transform: rotate(360deg); }
+}
+
 .inprogress-empty {
   display: grid;
   justify-items: center;
