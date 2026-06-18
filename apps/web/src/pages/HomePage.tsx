@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, DownloadCloud, HardDrive, Headphones, Loader2, Play } from "lucide-react";
 import { api, type PublicUser } from "../api";
@@ -38,7 +38,7 @@ function HomeHeader() {
   );
 }
 
-function InProgressRow({ item, downloaded, onDownloaded, onRead }: { item: FeedItem; downloaded: boolean; onDownloaded: (id: string) => void; onRead: (item: FeedItem) => Promise<void> }) {
+function InProgressRow({ item, downloaded, onDownloaded, onRead, onToast }: { item: FeedItem; downloaded: boolean; onDownloaded: (id: string) => void; onRead: (item: FeedItem) => Promise<void>; onToast: (msg: string) => void }) {
   const [downloading, setDownloading] = useState(false);
   const [opening, setOpening] = useState(false);
   const href = feedHref(item);
@@ -48,6 +48,7 @@ function InProgressRow({ item, downloaded, onDownloaded, onRead }: { item: FeedI
   const startDownload = async () => {
     if (downloading) return;
     setDownloading(true);
+    onToast("Downloading…");
     try {
       const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
       if (isAudiobook) {
@@ -64,8 +65,9 @@ function InProgressRow({ item, downloaded, onDownloaded, onRead }: { item: FeedI
         }
       }
       onDownloaded(item.id);
+      onToast("Saved for offline");
     } catch {
-      // silently — user can retry or use the book detail page
+      onToast("Download failed");
     } finally {
       setDownloading(false);
     }
@@ -90,7 +92,7 @@ function InProgressRow({ item, downloaded, onDownloaded, onRead }: { item: FeedI
               <button
                 type="button"
                 className="inprogress-bar-icon"
-                onClick={(e) => { e.preventDefault(); navigate(isAudiobook ? "/audiobooks/downloads" : href); }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); navigate(isAudiobook ? "/audiobooks/downloads" : href); }}
                 title="Saved for offline"
                 aria-label="Available offline"
               >
@@ -100,7 +102,7 @@ function InProgressRow({ item, downloaded, onDownloaded, onRead }: { item: FeedI
               <button
                 type="button"
                 className="inprogress-bar-icon"
-                onClick={(e) => { e.preventDefault(); void startDownload(); }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); void startDownload(); }}
                 disabled={downloading}
                 title={downloading ? "Downloading…" : "Save for offline"}
                 aria-label={downloading ? "Downloading…" : "Save for offline"}
@@ -187,6 +189,16 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const [viewer, setViewer] = useState<ViewerState | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
+  }, []);
+
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   const handleDownloaded = useCallback((id: string) => {
     setDownloadedIds((prev) => new Set([...prev, id]));
@@ -252,6 +264,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
                       downloaded={downloadedIds.has(item.id)}
                       onDownloaded={handleDownloaded}
                       onRead={handleRead}
+                      onToast={showToast}
                     />
                   ))
               }
@@ -265,6 +278,11 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
         )}
       </section>
     </DashboardShell>
+
+    {toast && createPortal(
+      <div className="home-toast" role="status" aria-live="polite">{toast}</div>,
+      document.body
+    )}
 
     {viewer && createPortal(
       <EbookReader
