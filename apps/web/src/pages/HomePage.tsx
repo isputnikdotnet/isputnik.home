@@ -1,304 +1,170 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { BookOpen, DownloadCloud, HardDrive, Headphones, Loader2, Play } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BookOpen, ChevronRight, Headphones, Heart, Play } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { followRoute, navigate } from "../router";
+import { followRoute } from "../router";
 import { MessageBox } from "../shared/MessageBox";
-import { formatBytes, formatDuration } from "../shared/utils";
-import { useOnlineStatus } from "../pwa/useOnlineStatus";
-import { downloadBook, downloadEbook, getDownloadedEpubBlob, listDownloads, listEbookDownloads } from "../offline/downloads";
-import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
-import { EbookReader } from "../features/audiobooks/reader/EbookReader";
-import { authorLine, feedHref, fetchFeed, type FeedItem } from "../features/library/feed";
+import { fetchFeed, type FeedItem, type FeedMode } from "../features/library/feed";
+import { FeedTile, FeedTileSkeleton } from "../features/library/FeedTile";
 
-function HomeHeader() {
-  const online = useOnlineStatus();
-  return (
-    <div className="home-brand-header">
-      <img
-        src="/Assets/brand/isputnik-brand-icon.svg"
-        alt=""
-        className="home-brand-icon"
-        aria-hidden="true"
-      />
-      <div className="home-brand-text">
-        <strong className="home-brand-name">iSputnik</strong>
-        <span className="home-brand-url">{window.location.origin}</span>
-      </div>
-      <span
-        className={`home-brand-status${online ? " is-online" : " is-offline"}`}
-        role="status"
-        aria-label={online ? "Online" : "Offline"}
-      >
-        <span className="home-brand-status-dot" aria-hidden="true" />
-        {online ? "Online" : "Offline"}
-      </span>
-    </div>
-  );
+// Upper bound fetched per row. Each row renders one line of fixed-size tiles and
+// clips whatever doesn't fit (no horizontal scroll, no wrap) — so we fetch enough
+// to fill a wide screen and let CSS decide how many actually show.
+const FETCH = 16;
+
+type Tone = "violet" | "green" | "blue" | "rose";
+
+interface LibraryCountRow {
+  bookCount: number;
 }
 
-function InProgressRow({ item, downloaded, onDownloaded, onRead, onToast }: { item: FeedItem; downloaded: boolean; onDownloaded: (id: string) => void; onRead: (item: FeedItem) => Promise<void>; onToast: (msg: string) => void }) {
-  const [downloading, setDownloading] = useState(false);
-  const [opening, setOpening] = useState(false);
-  const href = feedHref(item);
-  const percent = Math.round((item.percentComplete ?? 0) * 100);
-  const isAudiobook = item.kind === "audiobook";
+interface StatCard {
+  label: string;
+  value: number;
+  tone: Tone;
+  icon: LucideIcon;
+  href: string;
+}
 
-  const startDownload = async () => {
-    if (downloading) return;
-    setDownloading(true);
-    onToast("Downloading…");
-    try {
-      const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
-      if (isAudiobook) {
-        await downloadBook(book);
-      } else {
-        const doc = book.documents.find((d) => d.format === "epub") ?? book.documents[0] ?? null;
-        if (doc) {
-          await downloadEbook(item.id, doc.id, doc.url, {
-            title: item.title,
-            authors: item.authors,
-            coverUrl: item.coverUrl,
-            totalBytes: doc.size
-          });
-        }
-      }
-      onDownloaded(item.id);
-      onToast("Saved for offline");
-    } catch {
-      onToast("Download failed");
-    } finally {
-      setDownloading(false);
-    }
-  };
+const count = (value: number) => new Intl.NumberFormat().format(value);
 
+function RowHeader({ id, title, href }: { id: string; title: string; href: string }) {
   return (
-    <div className="inprogress-row" role="listitem">
-      <a className="inprogress-main" href={href} onClick={(e) => followRoute(e, href)}>
-        <div className="inprogress-cover">
-          {item.coverUrl
-            ? <img src={item.coverUrl} alt="" loading="lazy" />
-            : isAudiobook
-              ? <Headphones size={18} aria-hidden="true" />
-              : <BookOpen size={18} aria-hidden="true" />
-          }
-        </div>
-        <div className="inprogress-info">
-          <strong>{item.title}</strong>
-          <small>{authorLine(item)}</small>
-          <div className="inprogress-progress-row">
-            {downloaded ? (
-              <button
-                type="button"
-                className="inprogress-bar-icon"
-                onClick={(e) => { e.stopPropagation(); e.preventDefault(); navigate(isAudiobook ? "/audiobooks/downloads" : href); }}
-                title="Saved for offline"
-                aria-label="Available offline"
-              >
-                <HardDrive size={10} aria-hidden="true" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="inprogress-bar-icon"
-                onClick={(e) => { e.stopPropagation(); e.preventDefault(); void startDownload(); }}
-                disabled={downloading}
-                title={downloading ? "Downloading…" : "Save for offline"}
-                aria-label={downloading ? "Downloading…" : "Save for offline"}
-              >
-                {downloading
-                  ? <Loader2 size={10} aria-hidden="true" className="inprogress-spinning" />
-                  : <DownloadCloud size={10} aria-hidden="true" />
-                }
-              </button>
-            )}
-            {percent > 0 && (
-              <span className="inprogress-bar" aria-label={`${percent}% complete`}>
-                <span style={{ width: `${percent}%` }} />
-              </span>
-            )}
-          </div>
-          {(isAudiobook ? item.durationSeconds : item.format) && (
-            <span className="inprogress-meta">
-              {isAudiobook
-                ? formatDuration(item.durationSeconds!)
-                : [item.format!.toUpperCase(), item.totalSize ? formatBytes(item.totalSize) : null].filter(Boolean).join(" · ")
-              }
-            </span>
-          )}
-        </div>
+    <div className="home-section-title">
+      <h2 id={id}>{title}</h2>
+      <a href={href} onClick={(event) => followRoute(event, href)}>
+        <span>View all</span>
+        <ChevronRight size={18} aria-hidden="true" />
       </a>
-      <div className="inprogress-actions">
-        <button
-          type="button"
-          className="inprogress-play"
-          disabled={opening}
-          onClick={() => {
-            if (isAudiobook) {
-              navigate(`/player/${item.id}`);
-            } else {
-              setOpening(true);
-              void onRead(item).finally(() => setOpening(false));
-            }
-          }}
-          aria-label={isAudiobook ? `Play ${item.title}` : (opening ? "Opening…" : `Read ${item.title}`)}
-        >
-          {!isAudiobook && opening
-            ? <Loader2 size={14} aria-hidden="true" className="inprogress-spinning" />
-            : isAudiobook
-              ? <Play size={13} fill="currentColor" aria-hidden="true" />
-              : <BookOpen size={14} aria-hidden="true" />
-          }
-        </button>
-      </div>
     </div>
   );
 }
 
-function InProgressRowSkeleton() {
-  return (
-    <div className="inprogress-row is-skeleton" aria-hidden="true">
-      <div className="inprogress-main">
-        <div className="inprogress-cover" />
-        <div className="inprogress-info">
-          <div className="home-skeleton-line" style={{ width: "65%" }} />
-          <div className="home-skeleton-line" style={{ width: "42%", marginTop: "5px" }} />
-          <div className="inprogress-bar" style={{ marginTop: "8px" }}>
-            <span style={{ width: "30%" }} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface ViewerState {
-  bookId: string;
-  docId: string;
-  url: string;
+function FeedRow({ id, title, href, mode, items, emptyText }: {
+  id: string;
   title: string;
-  author: string;
-  coverUrl: string | null;
-  blobUrl?: string;
-  initialProgress: ReadingProgress | null;
+  href: string;
+  mode: FeedMode;
+  items: FeedItem[] | null;
+  emptyText: string;
+}) {
+  return (
+    <section className="home-section" aria-labelledby={id}>
+      <RowHeader id={id} title={title} href={href} />
+      {items !== null && items.length === 0 ? (
+        <p className="home-row-empty">{emptyText}</p>
+      ) : (
+        <div className="home-tile-grid">
+          {items === null
+            ? Array.from({ length: 10 }).map((_, index) => <FeedTileSkeleton key={index} />)
+            : items.map((item) => (
+              <FeedTile key={`${item.kind}-${item.id}`} item={item} progress={mode === "continue"} added={mode === "recent"} />
+            ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StatTile({ card }: { card: StatCard }) {
+  const Icon = card.icon;
+  return (
+    <a className="home-overview-card" href={card.href} onClick={(event) => followRoute(event, card.href)}>
+      <span className={`home-overview-icon ${card.tone}`} aria-hidden="true">
+        <Icon size={22} />
+      </span>
+      <span>
+        <strong>{count(card.value)}</strong>
+        <small>{card.label}</small>
+      </span>
+    </a>
+  );
 }
 
 export function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
-  const [items, setItems] = useState<FeedItem[] | null>(null);
-  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+  const [continueItems, setContinueItems] = useState<FeedItem[] | null>(null);
+  const [recentItems, setRecentItems] = useState<FeedItem[] | null>(null);
+  const [stats, setStats] = useState({ audiobooks: 0, ebooks: 0, inProgress: 0, favorites: 0 });
   const [error, setError] = useState("");
-  const [viewer, setViewer] = useState<ViewerState | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showToast = useCallback((msg: string) => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast(msg);
-    toastTimer.current = setTimeout(() => setToast(null), 2500);
-  }, []);
-
-  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
-
-  const handleDownloaded = useCallback((id: string) => {
-    setDownloadedIds((prev) => new Set([...prev, id]));
-  }, []);
-
-  const handleRead = useCallback(async (item: FeedItem) => {
-    const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
-    const doc = book.documents.find((d) => d.format === "epub") ?? book.documents[0] ?? null;
-    if (!doc) { navigate(`/ebooks/books/${item.id}`); return; }
-    const [progressData, offlineBlob] = await Promise.all([
-      api<{ progress: ReadingProgress | null }>(`/api/library/books/${item.id}/reading-progress?documentId=${encodeURIComponent(doc.id)}`).catch(() => ({ progress: null })),
-      getDownloadedEpubBlob(item.id, doc.id).catch(() => null)
-    ]);
-    const blobUrl = offlineBlob ? URL.createObjectURL(offlineBlob) : undefined;
-    setViewer({
-      bookId: item.id,
-      docId: doc.id,
-      url: blobUrl ?? doc.url,
-      title: item.title,
-      author: item.authors.join(", "),
-      coverUrl: item.coverUrl,
-      blobUrl,
-      initialProgress: progressData.progress
-    });
-  }, []);
-
-  useEffect(() => {
-    const v = viewer;
-    return () => { if (v?.blobUrl) URL.revokeObjectURL(v.blobUrl); };
-  }, [viewer]);
 
   useEffect(() => {
     let alive = true;
-    Promise.allSettled([fetchFeed("continue", 10), listDownloads(), listEbookDownloads()]).then(([feed, downloads, ebookDownloads]) => {
+
+    Promise.allSettled([
+      fetchFeed("continue", FETCH),
+      fetchFeed("recent", FETCH),
+      api<{ libraries: LibraryCountRow[] }>("/api/library/audiobook-libraries"),
+      api<{ libraries: LibraryCountRow[] }>("/api/library/ebook-libraries"),
+      api<{ books: unknown[] }>("/api/library/saved")
+    ]).then(([cont, recent, audioLibs, ebookLibs, saved]) => {
       if (!alive) return;
-      if (feed.status === "fulfilled") setItems(feed.value.items);
-      else { setItems([]); setError("Unable to load your library"); }
-      const ids = new Set<string>();
-      if (downloads.status === "fulfilled") downloads.value.forEach((d) => ids.add(d.bookId));
-      if (ebookDownloads.status === "fulfilled") ebookDownloads.value.forEach((d) => ids.add(d.bookId));
-      setDownloadedIds(ids);
+
+      if (cont.status === "fulfilled") {
+        setContinueItems(cont.value.items);
+        setStats((prev) => ({ ...prev, inProgress: cont.value.total }));
+      } else {
+        setContinueItems([]);
+      }
+
+      if (recent.status === "fulfilled") {
+        setRecentItems(recent.value.items);
+      } else {
+        setRecentItems([]);
+        setError(recent.reason instanceof Error ? recent.reason.message : "Unable to load your library");
+      }
+
+      const sumBooks = (libs: LibraryCountRow[]) => libs.reduce((total, library) => total + (library.bookCount ?? 0), 0);
+      if (audioLibs.status === "fulfilled") setStats((prev) => ({ ...prev, audiobooks: sumBooks(audioLibs.value.libraries) }));
+      if (ebookLibs.status === "fulfilled") setStats((prev) => ({ ...prev, ebooks: sumBooks(ebookLibs.value.libraries) }));
+      if (saved.status === "fulfilled") setStats((prev) => ({ ...prev, favorites: saved.value.books.length }));
     });
+
     return () => { alive = false; };
   }, []);
 
-  return (
-    <>
-    <DashboardShell active="home" user={user} logout={logout}>
-      <section className="home-page" aria-label="In progress">
-        <HomeHeader />
-        {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}
+  const statCards: StatCard[] = [
+    { label: "Audiobooks", value: stats.audiobooks, tone: "violet", icon: Headphones, href: "/audiobooks" },
+    { label: "Ebooks", value: stats.ebooks, tone: "green", icon: BookOpen, href: "/ebooks" },
+    { label: "In progress", value: stats.inProgress, tone: "blue", icon: Play, href: "/continue" },
+    { label: "Favorites", value: stats.favorites, tone: "rose", icon: Heart, href: "/favorites" }
+  ];
 
-        {items === null || items.length > 0 ? (
-          <>
-            <h2 className="inprogress-heading">Continue listening</h2>
-            <div className="inprogress-list" role={items !== null ? "list" : undefined}>
-              {items === null
-                ? Array.from({ length: 6 }).map((_, i) => <InProgressRowSkeleton key={i} />)
-                : items.map((item) => (
-                    <InProgressRow
-                      key={`${item.kind}-${item.id}`}
-                      item={item}
-                      downloaded={downloadedIds.has(item.id)}
-                      onDownloaded={handleDownloaded}
-                      onRead={handleRead}
-                      onToast={showToast}
-                    />
-                  ))
-              }
-            </div>
-          </>
-        ) : (
-          <div className="inprogress-empty">
-            <Headphones size={48} aria-hidden="true" />
-            <p>Nothing in progress yet — open a book to start.</p>
+  return (
+    <DashboardShell active="home" user={user} logout={logout}>
+      <section className="home-page" aria-label="Home">
+        <header className="home-header">
+          <div className="home-heading">
+            <h1>Welcome back, {user.displayName}</h1>
+            <p>Here's what's happening in your library</p>
           </div>
-        )}
+        </header>
+
+        {error && <MessageBox tone="error" title="Unable to load home">{error}</MessageBox>}
+
+        <div className="home-stats" aria-label="Library overview">
+          {statCards.map((card) => <StatTile card={card} key={card.label} />)}
+        </div>
+
+        <div className="home-content">
+          <FeedRow
+            id="home-continue-title"
+            title="Continue listening & reading"
+            href="/continue"
+            mode="continue"
+            items={continueItems}
+            emptyText="Nothing in progress yet — open a book to start."
+          />
+          <FeedRow
+            id="home-recent-title"
+            title="Recently added"
+            href="/recent"
+            mode="recent"
+            items={recentItems}
+            emptyText="No books yet. Newly added audiobooks and ebooks show up here."
+          />
+        </div>
       </section>
     </DashboardShell>
-
-    {toast && createPortal(
-      <div className="home-toast" role="status" aria-live="polite">{toast}</div>,
-      document.body
-    )}
-
-    {viewer && createPortal(
-      <EbookReader
-        bookId={viewer.bookId}
-        documentId={viewer.docId}
-        url={viewer.url}
-        storageKey={`isputnik:epub-progress:${user.id}:${viewer.bookId}:${viewer.docId}`}
-        initialProgress={viewer.initialProgress}
-        title={viewer.title}
-        author={viewer.author}
-        coverUrl={viewer.coverUrl}
-        downloadUrl={viewer.url}
-        onExit={() => setViewer(null)}
-      />,
-      document.body
-    )}
-    </>
   );
 }
