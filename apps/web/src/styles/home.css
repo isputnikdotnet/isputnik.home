@@ -1053,10 +1053,40 @@ a.home-overview-card:focus-visible {
   letter-spacing: 0.02em;
 }
 
+.inprogress-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.inprogress-bar-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ink);
+  color: var(--canvas);
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+
+.inprogress-bar-icon:hover {
+  opacity: 0.75;
+}
+
+.inprogress-bar-icon:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .inprogress-bar {
   display: block;
-  height: 3px;
-  margin-top: 6px;
+  flex: 1;
+  height: 5px;
   border-radius: 999px;
   background: var(--home-line);
   overflow: hidden;
@@ -1096,52 +1126,6 @@ a.home-overview-card:focus-visible {
   transform: scale(1.06);
 }
 
-.inprogress-offline {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  color: var(--muted);
-}
-
-.inprogress-offline-btn {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--muted);
-  border-radius: 50%;
-  background: var(--canvas);
-  color: var(--ink);
-  cursor: pointer;
-  transition: background 0.12s ease;
-}
-
-.inprogress-offline-btn:hover {
-  background: var(--hover);
-}
-
-.inprogress-download-btn {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--muted);
-  border-radius: 50%;
-  background: var(--canvas);
-  color: var(--ink);
-  cursor: pointer;
-  transition: background 0.12s ease;
-}
-
-.inprogress-download-btn:hover {
-  background: var(--hover);
-}
-
-.inprogress-download-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
 
 .inprogress-spinning {
   animation: inprogress-spin 1s linear infinite;
