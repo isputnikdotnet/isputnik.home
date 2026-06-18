@@ -1076,16 +1076,17 @@ a.home-overview-card:focus-visible {
   width: 32px;
   height: 32px;
   padding-left: 2px; /* optical centering of the play icon */
-  border: none;
+  border: 1px solid var(--muted);
   border-radius: 50%;
-  background: var(--home-accent);
-  color: var(--home-canvas);
+  background: var(--canvas);
+  color: var(--ink);
   cursor: pointer;
-  transition: filter 0.15s ease;
+  transition: background 0.12s ease, transform 0.1s ease;
 }
 
 .inprogress-play:hover {
-  filter: brightness(1.12);
+  background: var(--hover);
+  transform: scale(1.06);
 }
 
 .inprogress-offline {
@@ -1093,7 +1094,7 @@ a.home-overview-card:focus-visible {
   place-items: center;
   width: 32px;
   height: 32px;
-  color: var(--home-accent);
+  color: var(--muted);
 }
 
 .inprogress-offline-btn {
@@ -1101,15 +1102,16 @@ a.home-overview-card:focus-visible {
   place-items: center;
   width: 30px;
   height: 30px;
-  border: none;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--home-accent) 14%, transparent);
-  color: var(--home-accent);
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  background: var(--canvas);
+  color: var(--ink);
   cursor: pointer;
+  transition: background 0.12s ease;
 }
 
 .inprogress-offline-btn:hover {
-  background: color-mix(in srgb, var(--home-accent) 22%, transparent);
+  background: var(--hover);
 }
 
 .inprogress-download-btn {
@@ -1117,17 +1119,16 @@ a.home-overview-card:focus-visible {
   place-items: center;
   width: 30px;
   height: 30px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--home-muted);
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  background: var(--canvas);
+  color: var(--ink);
   cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: background 0.12s ease;
 }
 
 .inprogress-download-btn:hover {
-  color: var(--home-ink);
-  background: var(--home-soft-strong);
+  background: var(--hover);
 }
 
 .inprogress-download-btn:disabled {
