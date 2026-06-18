@@ -1046,6 +1046,13 @@ a.home-overview-card:focus-visible {
   line-height: 1.4;
 }
 
+.inprogress-meta {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--home-muted);
+  letter-spacing: 0.02em;
+}
+
 .inprogress-bar {
   display: block;
   height: 3px;

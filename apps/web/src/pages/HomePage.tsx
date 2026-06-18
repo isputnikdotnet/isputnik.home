@@ -5,6 +5,7 @@ import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
+import { formatDuration } from "../shared/utils";
 import { useOnlineStatus } from "../pwa/useOnlineStatus";
 import { downloadBook, downloadEbook, getDownloadedEpubBlob, listDownloads, listEbookDownloads } from "../offline/downloads";
 import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
@@ -84,6 +85,11 @@ function InProgressRow({ item, downloaded, onDownloaded, onRead }: { item: FeedI
         <div className="inprogress-info">
           <strong>{item.title}</strong>
           <small>{authorLine(item)}</small>
+          {(isAudiobook ? item.durationSeconds : item.format) && (
+            <span className="inprogress-meta">
+              {isAudiobook ? formatDuration(item.durationSeconds!) : item.format!.toUpperCase()}
+            </span>
+          )}
           {percent > 0 && (
             <span className="inprogress-bar" aria-label={`${percent}% complete`}>
               <span style={{ width: `${percent}%` }} />
