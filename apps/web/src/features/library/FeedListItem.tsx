@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, DownloadCloud, HardDrive, Headphones, Heart, Info, Loader2, MoreVertical, Play } from "lucide-react";
+import { BookOpen, DownloadCloud, HardDrive, Heart, Info, Loader2, MoreVertical, Play } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { downloadBook, downloadEbook } from "../../offline/downloads";
 import { navigate } from "../../router";
 import { formatBytes, formatDuration } from "../../shared/utils";
 import type { AudiobookBookDetail } from "../audiobooks/types";
+import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { authorLine, feedHref, type FeedItem } from "./feed";
 
 // A single ⋮-menu entry. When `menuItems` is supplied the row renders these
@@ -141,13 +142,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
         onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }}
       >
         <span className="home-feed-row-cover">
-          {item.coverUrl ? (
-            <img src={item.coverUrl} alt="" loading="lazy" />
-          ) : isEbook ? (
-            <BookOpen size={20} aria-hidden="true" />
-          ) : (
-            <Headphones size={20} aria-hidden="true" />
-          )}
+          <img src={item.coverUrl ?? DEFAULT_COVERS[item.kind]} alt="" loading="lazy" />
         </span>
         <span className="home-feed-row-info">
           <strong>{item.title}</strong>
