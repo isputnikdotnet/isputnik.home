@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Download, Headphones, ListMusic, Menu, RotateCcw, SkipForward, X } from "lucide-react";
+import { ChevronRight, Download, ListMusic, Menu, RotateCcw, SkipForward, X } from "lucide-react";
 import { api, isAccessOrMissingApiError } from "../../api";
 import { getDownloadedBookDetail } from "../../offline/downloads";
 import { AudioPlayer } from "./AudioPlayer";
+import { DEFAULT_COVERS } from "./covers";
 import type { AudiobookBookDetail, BookSave } from "./types";
 import type { CollectionDetail } from "../collections/types";
 
@@ -258,13 +259,7 @@ export function PlayerPage({ id }: { id: string }) {
           <p className="popup-save-note">{save.note}</p>
         )}
 
-        {book.coverLargeUrl ? (
-          <img src={book.coverLargeUrl} alt="" className="popup-cover" />
-        ) : (
-          <div className="popup-cover popup-cover-empty">
-            <Headphones size={56} />
-          </div>
-        )}
+        <img src={book.coverLargeUrl ?? DEFAULT_COVERS.audiobook} alt="" className="popup-cover" />
         <h1 className="popup-title">{book.title}</h1>
         {book.authors.length > 0 && (
           <p className="popup-authors">

@@ -6,6 +6,7 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { CatalogRowMobile } from "./CatalogRowMobile";
+import { DEFAULT_COVERS } from "./covers";
 import { listEbookDownloads } from "../../offline/downloads";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
@@ -216,14 +217,7 @@ function EbookCatalogCard({
           if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); }
         }}
       >
-        {book.coverUrl ? (
-          <img src={book.coverUrl} alt="" />
-        ) : (
-          <>
-            <BookMarked size={34} aria-hidden="true" />
-            <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
-          </>
-        )}
+        <img src={book.coverUrl ?? DEFAULT_COVERS.ebook} alt="" />
         {selectionMode ? (
           <span className="audiobook-catalog-check" aria-hidden="true">
             {selected ? <CheckSquare size={20} /> : <Square size={20} />}

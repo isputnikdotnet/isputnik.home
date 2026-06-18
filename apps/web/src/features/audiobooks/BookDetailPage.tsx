@@ -7,6 +7,7 @@ import { ShareModal } from "../share/ShareModal";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { EbookReader } from "./reader/EbookReader";
+import { DEFAULT_COVERS } from "./covers";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
@@ -605,14 +606,7 @@ function BookDetailView({
       <div className="book-detail-head">
         <div className="book-detail-cover-col">
           <div className="book-detail-cover" aria-hidden="true">
-            {book.coverUrl ? (
-              <img src={book.coverLargeUrl ?? book.coverUrl} alt="" />
-            ) : (
-              <>
-                <BookOpen size={32} />
-                <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
-              </>
-            )}
+            <img src={book.coverLargeUrl ?? book.coverUrl ?? (isEbook ? DEFAULT_COVERS.ebook : DEFAULT_COVERS.audiobook)} alt="" />
           </div>
           {(book.category || book.tags.length > 0) && (
             <section className="book-tags book-tags-under-cover" aria-label="Tags">

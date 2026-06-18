@@ -1,4 +1,5 @@
-import { BookOpen, Headphones, Play } from "lucide-react";
+import { Play } from "lucide-react";
+import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { followRoute } from "../../router";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
 import { authorLine, feedHref, timeAgo, type FeedItem } from "./feed";
@@ -16,18 +17,7 @@ export function FeedTile({ item, progress, added, kindLabel }: { item: FeedItem;
   return (
     <a className="audiobook-catalog-card grid home-feed-tile" href={href} onClick={(event) => followRoute(event, href)}>
       <div className="audiobook-catalog-cover">
-        {item.coverUrl ? (
-          <img src={item.coverUrl} alt="" loading="lazy" />
-        ) : (
-          // No cover art — fall back to a media-type illustration so the tile
-          // still reads as an audiobook (headphones) or ebook (book).
-          <>
-            {item.kind === "ebook"
-              ? <BookOpen size={40} aria-hidden="true" />
-              : <Headphones size={40} aria-hidden="true" />}
-            <strong>{item.title.slice(0, 2).toUpperCase()}</strong>
-          </>
-        )}
+        <img src={item.coverUrl ?? DEFAULT_COVERS[item.kind]} alt="" loading="lazy" />
         <MediaKindBadge kind={item.kind} overlay showLabel={kindLabel} />
         {progress && percent > 0 && (
           <>

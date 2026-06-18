@@ -7,6 +7,7 @@ import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogSco
 import { DashboardShell } from "../../app/DashboardShell";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
+import { DEFAULT_COVERS } from "./covers";
 import { PeopleCombobox } from "./PeopleCombobox";
 import { navigate } from "../../router";
 import { useIsMobile } from "../../shared/useIsMobile";
@@ -418,14 +419,7 @@ function CatalogBookCard({
           if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); }
         }}
       >
-        {book.coverUrl ? (
-          <img src={book.coverUrl} alt="" />
-        ) : (
-          <>
-            <BookOpen size={34} aria-hidden="true" />
-            <strong>{book.title.slice(0, 2).toUpperCase()}</strong>
-          </>
-        )}
+        <img src={book.coverUrl ?? DEFAULT_COVERS.audiobook} alt="" />
         {selectionMode ? (
           <span className="audiobook-catalog-check" aria-hidden="true">
             {selected ? <CheckSquare size={20} /> : <Square size={20} />}
