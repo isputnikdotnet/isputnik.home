@@ -13,7 +13,6 @@ import {
   LibraryBig,
   LockKeyhole,
   SlidersHorizontal,
-  UserRound,
   X,
   type LucideIcon
 } from "lucide-react";
@@ -459,17 +458,14 @@ export function LibraryWizard({
 
           <label className="field library-owner-field">
             <span>Owner</span>
-            <span className="library-details-select-control">
-              <UserRound size={19} aria-hidden="true" />
-              <OwnerSelect
-                ownerId={ownerId}
-                ownerType={ownerType}
-                onChange={(type, id) => { setOwnerType(type); setOwnerId(id); }}
-                users={users}
-                groups={groups}
-                compactLabels
-              />
-            </span>
+            <OwnerSelect
+              ownerId={ownerId}
+              ownerType={ownerType}
+              onChange={(type, id) => { setOwnerType(type); setOwnerId(id); }}
+              users={users}
+              groups={groups}
+              compactLabels
+            />
           </label>
 
           <div className="field library-visibility-field">
