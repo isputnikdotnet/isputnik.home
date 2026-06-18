@@ -337,6 +337,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.3",
+          label: "Mobile library & offline polish",
+          changes: [
+            "Audiobooks and Ebooks on phones / the installed app now use the same clean one-book-per-row layout as the home screen — cover, progress, run time or format, a play/read button, and a three-dot menu with the full library actions (favourite, mark played/read, add to collection, download, edit, delete).",
+            "The mobile library header is now a compact icon row (search, filter, sort, upload) with a Browse menu for authors, narrators and series.",
+            "Offline reliability: downloaded ebooks open in the reader while offline, covers are saved for offline viewing, and a progress bar shows while a download is still running."
+          ]
+        },
+        {
           version: "1.2.2",
           label: "Faster offline detection",
           changes: [

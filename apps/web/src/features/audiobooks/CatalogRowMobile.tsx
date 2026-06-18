@@ -31,9 +31,9 @@ export function CatalogRowMobile({
   onDownload,
   onDownloaded,
   onToast,
-  onRead
+  onOpenReader
 }: {
-  book: AudiobookBook;
+  book: AudiobookBook & { format?: string | null };
   kind: "audiobook" | "ebook";
   canEdit: boolean;
   canDownload: boolean;
@@ -45,7 +45,7 @@ export function CatalogRowMobile({
   onDownload?: (info: { title: string; progress: number } | null) => void;
   onDownloaded?: (id: string) => void;
   onToast?: (message: string) => void;
-  onRead?: (item: FeedItem) => Promise<void>;
+  onOpenReader?: () => void;
 }) {
   const [fav, setFav] = useState(book.saved);
   const [favBusy, setFavBusy] = useState(false);
@@ -96,8 +96,8 @@ export function CatalogRowMobile({
     completedAt: book.progress?.completedAt ?? null,
     discoveredAt: book.discoveredAt,
     durationSeconds: book.durationSeconds,
-    format: null,
-    totalSize: null
+    format: kind === "ebook" ? (book.format ?? null) : null,
+    totalSize: kind === "ebook" ? book.totalSize : null
   };
 
   const detailHref = kind === "ebook" ? `/ebooks/books/${book.id}` : `/audiobooks/books/${book.id}`;
@@ -125,7 +125,7 @@ export function CatalogRowMobile({
       onDownload={onDownload}
       onDownloaded={onDownloaded}
       onToast={onToast}
-      onRead={onRead}
+      onRead={onOpenReader ? () => Promise.resolve(onOpenReader()) : undefined}
     />
   );
 }
