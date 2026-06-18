@@ -1110,12 +1110,13 @@ a.home-overview-card:focus-visible {
 }
 
 .inprogress-play {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 32px;
   height: 32px;
-  padding-left: 2px; /* optical centering of the play icon */
+  padding: 0;
   border: 1px solid var(--muted);
   border-radius: 50%;
   background: var(--canvas);
