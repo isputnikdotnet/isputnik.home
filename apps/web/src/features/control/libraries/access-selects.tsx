@@ -14,13 +14,15 @@ export function OwnerSelect({
   ownerType,
   onChange,
   users,
-  groups
+  groups,
+  compactLabels = false
 }: {
   ownerId: string;
   ownerType: OwnerType;
   onChange: (ownerType: OwnerType, ownerId: string) => void;
   users: ManagedUser[];
   groups: ManagedGroup[];
+  compactLabels?: boolean;
 }) {
   return (
     <select
@@ -36,7 +38,9 @@ export function OwnerSelect({
       {users.length > 0 && (
         <optgroup label="Users">
           {users.map((user) => (
-            <option value={`user:${user.id}`} key={user.id}>{user.displayName} ({user.email})</option>
+            <option value={`user:${user.id}`} key={user.id}>
+              {compactLabels ? user.displayName : `${user.displayName} (${user.email})`}
+            </option>
           ))}
         </optgroup>
       )}

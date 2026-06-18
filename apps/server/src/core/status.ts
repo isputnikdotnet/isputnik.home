@@ -337,6 +337,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.4",
+          label: "Library setup wizard refresh",
+          changes: [
+            "The Add library wizard now has a cleaner three-step flow: choose the library type, enter the core details, then review the settings before scanning.",
+            "Advanced library setup now opens inside the parent wizard as a bottom-up overlay with Access, Upload, and Scanning tabs, plus Save and Cancel actions.",
+            "The Details step is more focused: folder selection, owner, and public/private visibility are directly on the page, while advanced scan/upload options stay tucked away until needed."
+          ]
+        },
+        {
           version: "1.2.3",
           label: "Mobile library & offline polish",
           changes: [

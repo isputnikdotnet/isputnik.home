@@ -12,23 +12,19 @@ export function SourceFolderPicker({
   selectedRootId,
   storageBrowse,
   onBrowse,
-  onRootChange,
   onError
 }: {
   storageRoots: StorageRoot[];
   selectedRootId: string;
   storageBrowse: StorageBrowse | null;
   onBrowse: (rootId: string, relativePath?: string) => Promise<void>;
-  onRootChange: (rootId: string) => void;
   onError: (message: string) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [draftBrowse, setDraftBrowse] = useState<StorageBrowse | null>(null);
   const [draftRootId, setDraftRootId] = useState(selectedRootId);
   const [loading, setLoading] = useState(false);
-  const selectedRoot = storageRoots.find((root) => root.id === selectedRootId) ?? storageBrowse?.root ?? null;
-  const folderLabel = storageBrowse?.currentPath || "Choose a folder...";
-  const selectedPath = storageBrowse?.selectedPath ?? "";
+  const folderLabel = storageBrowse?.selectedPath || "Choose a folder...";
 
   const loadDraft = async (rootId: string, relativePath = "") => {
     setLoading(true);
@@ -69,34 +65,16 @@ export function SourceFolderPicker({
 
   return (
     <>
-      <div className="source-folder-grid">
-        <label className="field">
-          <span>Container</span>
-          <select value={selectedRootId} onChange={(event) => onRootChange(event.target.value)} required>
-            {storageRoots.map((root) => (
-              <option value={root.id} key={root.id}>{root.name}</option>
-            ))}
-          </select>
-        </label>
-
-        <div className="field">
-          <span>Select folder</span>
-          <div className="source-folder-control">
-            <Folder size={19} aria-hidden="true" />
-            <span>{folderLabel}</span>
-            <Button variant="secondary" compact onClick={openPicker}>
-              Browse
-            </Button>
-          </div>
+      <div className="field source-folder-field">
+        <span>Folder</span>
+        <div className="source-folder-control">
+          <Folder size={19} aria-hidden="true" />
+          <span>{folderLabel}</span>
+          <Button variant="secondary" compact onClick={openPicker}>
+            Browse
+          </Button>
         </div>
       </div>
-
-      {selectedRoot && (
-        <section className={`source-folder-summary${selectedPath ? "" : " pending"}`} aria-label="Selected storage container">
-          <strong>{selectedRoot.name}</strong>
-          <span>{selectedPath || "No library folder selected"}</span>
-        </section>
-      )}
 
       {pickerOpen && (
         <Modal
