@@ -104,7 +104,7 @@
 
 @media (max-width: 740px) {
   .sw-update-banner {
-    bottom: calc(72px + env(safe-area-inset-bottom) + 12px);
+    bottom: calc(58px + env(safe-area-inset-bottom) + 12px);
   }
 }
 

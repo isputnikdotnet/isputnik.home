@@ -337,6 +337,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.1",
+          label: "Mobile home & app navigation",
+          changes: [
+            "The home screen on phones and the installed app was rebuilt: in-progress and recently-added books now appear as a clean one-book-per-row list with cover, progress bar, run time, and a play or read button.",
+            "New four-tab bottom navigation — Home, Media, Offline, Profile — with a Media menu to switch between Audiobooks and Ebooks.",
+            "Save a book for offline straight from the home list, open ebooks in the reader or audiobooks in the player with one tap, and see an online/offline indicator in the header."
+          ]
+        },
+        {
           version: "1.2.0",
           label: "Profile, theme & bookmarks refresh",
           changes: [
