@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ThemePicker, type Theme } from "../../../shared/ThemePicker";
+import { OpdsAccessSection } from "./OpdsAccessSection";
 
 export function ConfigSection() {
   const [defaultTheme, setDefaultTheme] = useState<Theme | null>(null);
@@ -52,6 +53,8 @@ export function ConfigSection() {
         {saved && <MessageBox tone="success" title="Saved">Default theme updated.</MessageBox>}
         {error && <MessageBox tone="error" title="Config error">{error}</MessageBox>}
       </section>
+
+      <OpdsAccessSection />
     </>
   );
 }
