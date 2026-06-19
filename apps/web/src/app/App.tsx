@@ -13,10 +13,10 @@ import { ProfilePage } from "../pages/ProfilePage";
 import { AboutPage } from "../pages/AboutPage";
 import { AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
 import { AudiobookBookPage } from "../features/audiobooks/BookDetailPage";
-import { MyListPage } from "../features/audiobooks/MyListPage";
-import { BookmarksPage } from "../features/audiobooks/BookmarksPage";
-import { DownloadsPage } from "../features/audiobooks/DownloadsPage";
-import { SharedWithMePage } from "../features/audiobooks/SharedWithMePage";
+import { MyListPage } from "../features/library/MyListPage";
+import { BookmarksPage } from "../features/library/BookmarksPage";
+import { DownloadsPage } from "../features/library/DownloadsPage";
+import { SharedWithMePage } from "../features/library/SharedWithMePage";
 import { EbooksPage } from "../features/audiobooks/EbooksPage";
 import { LibraryFeedPage } from "../features/library/LibraryFeedPage";
 import { CollectionsPage } from "../features/collections/CollectionsPage";
@@ -249,15 +249,15 @@ export function App() {
     return <MyListPage user={session.user} logout={logout} />;
   }
 
-  if (route.name === "audiobookBookmarks") {
+  if (route.name === "bookmarks") {
     return <BookmarksPage user={session.user} logout={logout} />;
   }
 
-  if (route.name === "audiobookDownloads") {
+  if (route.name === "downloads") {
     return <DownloadsPage user={session.user} logout={logout} />;
   }
 
-  if (route.name === "audiobookSharedWithMe") {
+  if (route.name === "sharedWithMe") {
     return <SharedWithMePage user={session.user} logout={logout} />;
   }
 

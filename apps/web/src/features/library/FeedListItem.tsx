@@ -163,7 +163,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
                 <button
                   type="button"
                   className="home-feed-row-dl is-saved"
-                  onClick={(event) => { event.stopPropagation(); navigate(isEbook ? href : "/audiobooks/downloads"); }}
+                  onClick={(event) => { event.stopPropagation(); navigate(isEbook ? href : "/downloads"); }}
                   title="Saved for offline"
                   aria-label="Available offline"
                 >

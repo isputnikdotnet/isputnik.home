@@ -7,7 +7,7 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
 import { formatDuration, relativeTime } from "../../shared/utils";
-import type { SavedBookmark } from "./types";
+import type { SavedBookmark } from "../audiobooks/types";
 
 function percentLabel(value: number | null): number {
   if (value == null || !Number.isFinite(value)) return 0;

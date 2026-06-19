@@ -9,8 +9,8 @@ export type Route =
   | { name: "libraryFeed"; mode: "recent" | "continue" }
   | { name: "audiobooks" }
   | { name: "favorites" }
-  | { name: "audiobookBookmarks" }
-  | { name: "audiobookDownloads" }
+  | { name: "bookmarks" }
+  | { name: "downloads" }
   | { name: "audiobookBook"; id: string }
   | { name: "audiobookPlayer"; id: string }
   | { name: "ebooks" }
@@ -37,7 +37,7 @@ export type Route =
   | { name: "profile" }
   | { name: "invite"; token: string }
   | { name: "share"; token: string }
-  | { name: "audiobookSharedWithMe" };
+  | { name: "sharedWithMe" };
 
 export function getRoute(): Route {
   const path = window.location.pathname;
@@ -118,16 +118,17 @@ export function getRoute(): Route {
     return { name: "favorites" };
   }
 
-  if (path === "/audiobooks/bookmarks") {
-    return { name: "audiobookBookmarks" };
+  // Cross-type personal-library pages; old /audiobooks/* paths kept as aliases.
+  if (path === "/bookmarks" || path === "/audiobooks/bookmarks") {
+    return { name: "bookmarks" };
   }
 
-  if (path === "/audiobooks/downloads") {
-    return { name: "audiobookDownloads" };
+  if (path === "/downloads" || path === "/audiobooks/downloads") {
+    return { name: "downloads" };
   }
 
-  if (path === "/audiobooks/shared") {
-    return { name: "audiobookSharedWithMe" };
+  if (path === "/shared" || path === "/audiobooks/shared") {
+    return { name: "sharedWithMe" };
   }
 
   const audiobookBookMatch = path.match(/^\/audiobooks\/books\/([^/]+)$/);

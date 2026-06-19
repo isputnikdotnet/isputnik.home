@@ -88,15 +88,15 @@ function mainNavItems(active: DashboardActive): MainNavItem[] {
 
 function userMenuLinks(): UserMenuLink[] {
   return [
-    { label: "Shared with me", href: "/audiobooks/shared", icon: UsersRound },
+    { label: "Shared with me", href: "/shared", icon: UsersRound },
     { label: "Favorites", href: "/favorites", icon: Heart },
-    { label: "Bookmarks", href: "/audiobooks/bookmarks", icon: Bookmark },
+    { label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
     { label: "Collections", href: "/collections", icon: ListMusic },
     { label: "Categories", href: "/categories", icon: Shapes },
     { label: "Tags", href: "/tags", icon: Tag },
     // Offline downloads only exist in the installed app, so only surface the
     // Downloads screen there.
-    ...(isStandalone() ? [{ label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud }] : [])
+    ...(isStandalone() ? [{ label: "Downloads", href: "/downloads", icon: DownloadCloud }] : [])
   ];
 }
 
@@ -106,7 +106,7 @@ function userMenuLinks(): UserMenuLink[] {
 function MobileNav({ active, currentPath }: { active: DashboardActive; currentPath: string }) {
   const [mediaOpen, setMediaOpen] = useState(false);
 
-  const downloadsActive = currentPath === "/audiobooks/downloads";
+  const downloadsActive = currentPath === "/downloads" || currentPath === "/audiobooks/downloads";
   const mediaActive =
     currentPath.startsWith("/ebooks") ||
     (currentPath.startsWith("/audiobooks") && !downloadsActive);
@@ -166,8 +166,8 @@ function MobileNav({ active, currentPath }: { active: DashboardActive; currentPa
         </button>
         <a
           className={`home-mobile-nav-item${downloadsActive ? " is-active" : ""}`}
-          href="/audiobooks/downloads"
-          onClick={(event) => { followRoute(event, "/audiobooks/downloads"); close(); }}
+          href="/downloads"
+          onClick={(event) => { followRoute(event, "/downloads"); close(); }}
         >
           <DownloadCloud size={17} aria-hidden="true" />
           <span>Offline</span>

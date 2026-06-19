@@ -7,8 +7,8 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { formatBytes } from "../../shared/utils";
-import { FeedListItem } from "../library/FeedListItem";
-import type { FeedItem } from "../library/feed";
+import { FeedListItem } from "./FeedListItem";
+import type { FeedItem } from "./feed";
 import {
   deleteDownload,
   deleteEbookDownload,
