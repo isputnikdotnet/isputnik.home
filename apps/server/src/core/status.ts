@@ -337,6 +337,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.6",
+          label: "Reader & offline screen redesign",
+          changes: [
+            "The ebook reader has a cleaner menu on phones and the installed app: a back button up top alongside quick Search, text size (Aa), theme, bookmark, and settings controls, plus a slim bottom bar showing chapters, a progress slider, and the current page.",
+            "The reader's settings now carry the full set of options — theme, font, text size, line spacing, and page direction — and the desktop reader uses the same layout with the book cover and title centred.",
+            "The Offline screen now lists downloaded books in the same one-book-per-row layout as the home screen, grouped under Audiobooks and Ebooks headings, each row with a one-tap delete button to free up space."
+          ]
+        },
+        {
           version: "1.2.5",
           label: "Default covers, reader access & library fixes",
           changes: [
