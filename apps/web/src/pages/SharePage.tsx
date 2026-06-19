@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, FastForward, Headphones, List, Pause, Play, Rewind, SkipBack, SkipForward } from "lucide-react";
+import { createPortal } from "react-dom";
+import { BookOpen, Download, FastForward, Headphones, List, Pause, Play, Rewind, SkipBack, SkipForward, X } from "lucide-react";
+import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 
 interface ShareFile {
   id: string;
@@ -8,8 +10,14 @@ interface ShareFile {
   durationSeconds: number | null;
 }
 
-interface SharePayload {
-  share: { label: string | null; expiresAt: string };
+interface ShareInfo {
+  label: string | null;
+  expiresAt: string;
+}
+
+interface AudiobookSharePayload {
+  type: "audiobook";
+  share: ShareInfo;
   book: {
     title: string;
     authors: string[];
@@ -20,6 +28,20 @@ interface SharePayload {
     files: ShareFile[];
   };
 }
+
+interface EbookSharePayload {
+  type: "ebook";
+  share: ShareInfo;
+  book: {
+    title: string;
+    authors: string[];
+    description: string | null;
+    coverUrl: string | null;
+    format: string;
+  };
+}
+
+type SharePayload = AudiobookSharePayload | EbookSharePayload;
 
 function formatTime(seconds: number) {
   if (!isFinite(seconds) || seconds < 0) seconds = 0;
@@ -33,15 +55,6 @@ function formatTime(seconds: number) {
 export function SharePage({ token }: { token: string }) {
   const [payload, setPayload] = useState<SharePayload | null>(null);
   const [loadError, setLoadError] = useState("");
-  const [playerError, setPlayerError] = useState("");
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const autoPlayRef = useRef(false);
-
-  const [fileIndex, setFileIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [fileDuration, setFileDuration] = useState(0);
-  const [chaptersOpen, setChaptersOpen] = useState(false);
 
   useEffect(() => {
     fetch(`/api/share/${token}`)
@@ -59,7 +72,125 @@ export function SharePage({ token }: { token: string }) {
       .catch((err) => setLoadError(err instanceof Error ? err.message : "This share is no longer available."));
   }, [token]);
 
-  const files = payload?.book.files ?? [];
+  if (loadError) {
+    return (
+      <div className="share-page">
+        <div className="share-card share-card--message">
+          <BookOpen size={40} aria-hidden="true" />
+          <h1>Share unavailable</h1>
+          <p className="muted">{loadError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!payload) {
+    return (
+      <div className="share-page">
+        <div className="share-card share-card--message">
+          <p className="muted">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return payload.type === "ebook"
+    ? <EbookShareView token={token} payload={payload} />
+    : <AudiobookShareView token={token} payload={payload} />;
+}
+
+// --- Ebook share: a landing card that opens the in-browser reader (EPUB) or the
+// browser's native viewer (PDF). The whole file is delivered to read it, so Read
+// and Download are peers — neither protects the content more than the other.
+function EbookShareView({ token, payload }: { token: string; payload: EbookSharePayload }) {
+  const { book, share } = payload;
+  const [reading, setReading] = useState(false);
+  const fileUrl = `/api/share/${token}/file`;
+  const downloadUrl = `/api/share/${token}/download`;
+  const isEpub = book.format === "epub";
+
+  return (
+    <>
+      <div className="share-page">
+        <div className="share-card">
+          <div className="share-book-header">
+            {book.coverUrl ? (
+              <img src={book.coverUrl} alt="" className="share-cover" />
+            ) : (
+              <div className="share-cover share-cover--empty"><BookOpen size={48} /></div>
+            )}
+            <h1 className="share-title">{book.title}</h1>
+            {book.authors.length > 0 && <p className="share-authors">{book.authors.join(", ")}</p>}
+          </div>
+
+          <div className="share-actions">
+            <button className="primary-button" onClick={() => setReading(true)}>
+              <BookOpen size={16} /><span>Read</span>
+            </button>
+            <a className="secondary-button" href={downloadUrl} download>
+              <Download size={16} /><span>Download</span>
+            </a>
+          </div>
+
+          {book.description && <p className="share-description">{book.description}</p>}
+
+          <p className="share-footer muted">Shared via isputnik.home · link expires {new Date(share.expiresAt).toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      {reading && isEpub && createPortal(
+        <EbookReader
+          bookId="share"
+          documentId="share"
+          url={fileUrl}
+          storageKey={`isputnik:epub-share:${token}`}
+          initialProgress={null}
+          title={book.title}
+          author={book.authors.join(", ")}
+          coverUrl={book.coverUrl}
+          downloadUrl={downloadUrl}
+          onExit={() => setReading(false)}
+          guest
+        />,
+        document.body
+      )}
+
+      {reading && !isEpub && createPortal(
+        <div className="share-doc-viewer" role="dialog" aria-modal="true" aria-label={book.title}>
+          <div className="share-doc-viewer-head">
+            <span className="share-doc-viewer-title">{book.title}</span>
+            <div className="share-doc-viewer-actions">
+              <a className="secondary-button compact-button" href={downloadUrl} download>
+                <Download size={15} /><span>Download</span>
+              </a>
+              <button className="icon-button" onClick={() => setReading(false)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+          <iframe className="share-doc-viewer-frame" src={fileUrl} title={book.title} />
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
+// --- Audiobook share: a self-contained lightweight player (no progress sync for
+// guests) plus a ZIP download.
+function AudiobookShareView({ token, payload }: { token: string; payload: AudiobookSharePayload }) {
+  const { book, share } = payload;
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const autoPlayRef = useRef(false);
+  const [playerError, setPlayerError] = useState("");
+
+  const [fileIndex, setFileIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [fileDuration, setFileDuration] = useState(0);
+  const [chaptersOpen, setChaptersOpen] = useState(false);
+
+  const files = book.files;
   const currentFile = files[fileIndex];
 
   // Point the audio element at the current file. preload="none" means no request
@@ -120,29 +251,6 @@ export function SharePage({ token }: { token: string }) {
     setChaptersOpen(false);
   };
 
-  if (loadError) {
-    return (
-      <div className="share-page">
-        <div className="share-card share-card--message">
-          <Headphones size={40} aria-hidden="true" />
-          <h1>Share unavailable</h1>
-          <p className="muted">{loadError}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!payload) {
-    return (
-      <div className="share-page">
-        <div className="share-card share-card--message">
-          <p className="muted">Loading…</p>
-        </div>
-      </div>
-    );
-  }
-
-  const { book } = payload;
   const seekPct = fileDuration > 0 ? Math.min(100, (currentTime / fileDuration) * 100) : 0;
 
   return (
@@ -253,7 +361,7 @@ export function SharePage({ token }: { token: string }) {
 
         {book.description && <p className="share-description">{book.description}</p>}
 
-        <p className="share-footer muted">Shared via isputnik.home · link expires {new Date(payload.share.expiresAt).toLocaleDateString()}</p>
+        <p className="share-footer muted">Shared via isputnik.home · link expires {new Date(share.expiresAt).toLocaleDateString()}</p>
       </div>
     </div>
   );

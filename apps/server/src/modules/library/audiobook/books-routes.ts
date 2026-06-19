@@ -7,6 +7,7 @@ import { rescanSingleBook } from "./scanner.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook, canUserDownloadBook, libraryCapabilities, getReadableDocument } from "../shared/library-access.js";
+import { mediaKind } from "../shared/library-types.js";
 import { getAudiobookBookDetail, progressUpdateSchema, bulkMetadataSchema, BULK_METADATA_FIELDS, applyBulkMetadata, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
 import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
 
@@ -141,7 +142,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     // Gate by book-level access (library role or an explicit share) — direct id
     // fetches were previously open to any signed-in user.
     const lib = getLibraryForBook(id);
-    if (!lib || !canUserAccessBook(id, lib, user.id, user.role)) {
+    if (!lib || !canUserAccessBook(id, lib, user.id, user.role, mediaKind(lib.type))) {
       reply.code(404).send({ error: "Audiobook not found" });
       return;
     }
@@ -160,7 +161,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       capabilities: {
         canEdit: caps.canEdit,
         // Download also covers a user-share of this single book (no library role needed).
-        canDownload: canUserDownloadBook(id, lib, user.id, user.role),
+        canDownload: canUserDownloadBook(id, lib, user.id, user.role, mediaKind(lib.type)),
         canCurate: caps.canCurate,
         canShare: caps.canCurate,
         // Delete (move to Recycle Bin) needs manager+ on a managed library — same gate the

@@ -102,7 +102,7 @@ See [`library-sharing.md`](library-sharing.md) for the full schema, access resol
 
 ## Option A — Item-Level Media Sharing (current build)
 
-> **Status: implemented** (audiobooks). See [Implementation](#implementation) at the end of this section for the actual files, endpoints, and behaviour as shipped.
+> **Status: implemented** (audiobooks + ebooks). See [Implementation](#implementation) at the end of this section for the actual files, endpoints, and behaviour as shipped.
 
 An owner shares a **single media item** (an audiobook today; photos, notes, any module later) with a specific person. This is the "recommend / give a book to someone" flow, not social activity sharing. Both share types below are built on the generic tables above (`module` + `resource_id`), so implementing them for audiobooks makes them reusable for every future module without schema changes.
 
@@ -110,7 +110,7 @@ There are **two share types**, for two different recipients:
 
 | Type | Table | Recipient | Functionality |
 |---|---|---|---|
-| **Guest link share** | `share_links` | Anyone with the link, no account | Stream + download only, no progress |
+| **Guest link share** | `share_links` | Anyone with the link, no account | Consume in the browser (audiobook player / ebook reader) + download, no progress |
 | **User-to-user share** | `shares` | A specific registered user | **Full** — streams, downloads, *and* the recipient's own progress, bookmarks, and saves all work |
 
 The difference is the recipient's identity. A guest is anonymous, so there is nothing to attach progress to. A user-to-user share grants an existing account access to an item it otherwise couldn't see; because the recipient is signed in as themselves, every per-user feature works automatically — the share only adds *visibility*, not a reduced mode.
@@ -120,7 +120,7 @@ The difference is the recipient's identity. A guest is anonymous, so there is no
 | Topic | Decision |
 |---|---|
 | **Recipient** | **Guest sharing** — anyone with the link can open it, no account and no sign-in required. |
-| **Capabilities** | **Stream and download** are both allowed. For a media item, `permission = 'read'` grants playback *and* file download. |
+| **Capabilities** | **Consume and download** are both allowed: an audiobook streams in the guest player; an ebook opens in the in-browser reader (EPUB via foliate) or the browser's native PDF viewer. Reading delivers the whole file to the browser, so reader-vs-download is a convenience choice, not a content control. For a media item, `permission = 'read'` grants playback/reading *and* file download. |
 | **Progress** | **Not tracked.** No server-side progress and no client cookie sync — each visit starts fresh. |
 | **Logging** | **Every link access is logged** (see below), so the owner can see that and when a share was opened. |
 
@@ -134,7 +134,7 @@ Reuses `share_links` as defined above. For media items the only permission used 
 ALTER TABLE share_links ADD COLUMN label TEXT;   -- optional note, e.g. "For Dad"
 ```
 
-**Token storage is hash-only / show-once.** Generation matches `invites`: `nanoid(36)`, stored as `sha256(token)` in `token_hash` — the raw token is **never** persisted. The full URL is returned exactly once on creation and shown with a copy button; it cannot be re-displayed later. A guest link is a bearer secret reachable by anyone on the internet, so a DB read must not expose working links (same reasoning as password hashing). If an owner loses a link, they revoke and create a new one — cheap, since links last at most 30 days. Resource is referenced by `module = 'audiobook'` + `resource_id = <bookId>`.
+**Token storage is hash-only / show-once.** Generation matches `invites`: `nanoid(36)`, stored as `sha256(token)` in `token_hash` — the raw token is **never** persisted. The full URL is returned exactly once on creation and shown with a copy button; it cannot be re-displayed later. A guest link is a bearer secret reachable by anyone on the internet, so a DB read must not expose working links (same reasoning as password hashing). If an owner loses a link, they revoke and create a new one — cheap, since links last at most 30 days. Resource is referenced by `module = <library type>` (`'audiobook'` | `'ebook'`) + `resource_id = <bookId>`, where the module is derived from the book's library type at creation time (`mediaKind`).
 
 ### Access logging
 
@@ -219,9 +219,9 @@ What actually shipped for audiobooks, and where it lives.
 **Server**
 
 - `share-access.ts` ([`apps/server/src/modules/library/shared/`](../apps/server/src/modules/library/shared/share-access.ts)) — the resolver: `resolveShareLink(token)`, `userHasItemShare(module, resourceId, userId)`, plus cleanup helpers `deleteSharesForResource(module, resourceId)` and `deleteSharesForLibrary(module, libraryId)`.
-- `shares.ts` ([`apps/server/src/modules/library/audiobook/`](../apps/server/src/modules/library/audiobook/shares.ts)) — all share routes (owner + public), registered in that module's `index.ts`.
-- `library-access.ts` gained `canUserAccessBook()` = library access **OR** active user share. Wired into the authenticated stream + download endpoints in `stream.ts`.
-- Tables `shares` and `share_links` are created in `db.ts` via `CREATE TABLE IF NOT EXISTS` (no migration needed).
+- `shares.ts` ([`apps/server/src/modules/library/shared/`](../apps/server/src/modules/library/shared/shares.ts)) — **one cross-type plugin** for all share routes (owner + public), registered in `library/index.ts`. Owner routes derive the module from the book's library type; the public `/api/share/:token*` routes dispatch on the resolved link's module so a single set of routes serves every book type.
+- `library-access.ts` gained `canUserAccessBook(…, module)` / `canUserDownloadBook(…, module)` = library access **OR** an active user share *in that module*. The `module` is passed by every caller (derived via `mediaKind`) so an ebook share never resolves against an audiobook check, or vice versa. Wired into `stream.ts` (audio) and `document-stream.ts` (PDF/EPUB, module derived from the row's library type).
+- Tables `shares` and `share_links` are created in `db.ts` via `CREATE TABLE IF NOT EXISTS` (no migration needed); `permission` stays `'read'` for both types.
 
 **Endpoints** (as built; superset of the API table above)
 
@@ -233,14 +233,16 @@ What actually shipped for audiobooks, and where it lives.
 | `DELETE` | `/api/shares/user/:id` | signed-in | Revoke a user share. |
 | `GET` | `/api/shares/directory` | signed-in | Minimal user list (id + display name) for the recipient picker. |
 | `GET` | `/api/shared-with-me` | signed-in | Items shared *to* the caller. |
-| `GET` | `/api/share/:token` · `/cover` · `/stream/:fileId` · `/download` | public | Guest resolve, cover, per-file stream (range), ZIP download. Logs `share.accessed` / `share.downloaded`. |
+| `GET` | `/api/share/:token` · `/cover` · `/download` | public | Guest resolve (type-discriminated payload), cover, download (audiobook ZIP / ebook single file). Logs `share.accessed` / `share.downloaded`. |
+| `GET` | `/api/share/:token/stream/:fileId` | public | Audiobook only — stream one track (range). 404 for other types. |
+| `GET` | `/api/share/:token/file` | public | Ebook only — serve the document inline (range) for the guest reader. 404 for other types. |
 
 **Cleanup** — shares are polymorphic (no FK), so module code removes them, passing its own `module` namespace: `deleteSharesForLibrary(module, libraryId)` runs in the library hard-delete transaction (`routes.ts`), and `deleteSharesForResource(module, resourceId)` runs when the scanner soft-deletes a book whose files vanished (`scanner.ts`).
 
 **Web**
 
-- Public guest page `/share/:token` ([`pages/SharePage.tsx`](../apps/web/src/pages/SharePage.tsx)) — self-contained lightweight player (no progress/bookmarks), its own seekbar with a real progress fill, and a Download button. Rendered before the auth gate so guests reach it without an account.
-- Share dialog ([`features/share/ShareModal.tsx`](../apps/web/src/features/share/ShareModal.tsx)) — Guest link + People tabs, opened from the **Share** button on the book detail page.
-- "Shared with me" page ([`features/audiobooks/SharedWithMePage.tsx`](../apps/web/src/features/audiobooks/SharedWithMePage.tsx)) with a sidebar nav entry.
+- Public guest page `/share/:token` ([`pages/SharePage.tsx`](../apps/web/src/pages/SharePage.tsx)) — branches on the payload `type`. Audiobook: a self-contained lightweight player (no progress/bookmarks), its own seekbar with a real progress fill, and a Download button. Ebook: a landing card (cover/title/author) with **Read** + **Download**; Read opens the shared `EbookReader` in `guest` mode (localStorage-only position, no bookmarks) for EPUB, or the browser's PDF viewer in an overlay. Rendered before the auth gate so guests reach it without an account.
+- Share dialog ([`features/share/ShareModal.tsx`](../apps/web/src/features/share/ShareModal.tsx)) — Guest link + People tabs, opened from the **Share** button on the book detail page. Takes `isEbook` to phrase the copy ("read" vs "listen").
+- "Shared with me" page ([`features/library/SharedWithMePage.tsx`](../apps/web/src/features/library/SharedWithMePage.tsx)) — cross-type; each tile carries its `type` and routes to the audiobook or ebook detail page accordingly. Has a sidebar nav entry.
 
 ---

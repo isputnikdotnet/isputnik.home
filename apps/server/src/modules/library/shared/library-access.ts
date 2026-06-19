@@ -3,6 +3,7 @@
 // the codebase migrates. All role resolution now goes through `assignments`.
 import { db } from "../../../db.js";
 import { userHasItemShare } from "./share-access.js";
+import { mediaKind, type BookLibraryType } from "./library-types.js";
 import {
   EVERYONE_GROUP_ID,
   resolveObjectRole,
@@ -182,16 +183,18 @@ export function getAccessibleLibrary(
 }
 
 // Book-level read access: library access (any role), OR an explicit user-to-user
-// share of this single book even when its library is private.
-export function canUserAccessBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string): boolean {
+// share of this single book even when its library is private. `module` is the
+// item's share namespace ("audiobook" | "ebook") — pass the right one or a share
+// of the wrong type silently fails to resolve.
+export function canUserAccessBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: BookLibraryType): boolean {
   if (canUserAccessLibrary(library, userId, userRole)) return true;
-  return userHasItemShare("audiobook", bookId, userId);
+  return userHasItemShare(module, bookId, userId);
 }
 
 // Book-level download: needs the Member+ download capability, OR a user share.
-export function canUserDownloadBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string): boolean {
+export function canUserDownloadBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: BookLibraryType): boolean {
   if (canUserDownloadLibrary(library, userId, userRole)) return true;
-  return userHasItemShare("audiobook", bookId, userId);
+  return userHasItemShare(module, bookId, userId);
 }
 
 export function getLibraryForBook(bookId: string): LibraryAccessRow | null {
@@ -211,7 +214,8 @@ export function getReadableDocument(bookId: string, documentId: string, user: { 
     SELECT
       document_files.id,
       document_files.status,
-      libraries.id AS library_id
+      libraries.id AS library_id,
+      libraries.type AS library_type
     FROM document_files
     JOIN library_items ON library_items.id = document_files.item_id
     JOIN libraries ON libraries.id = library_items.library_id
@@ -222,10 +226,11 @@ export function getReadableDocument(bookId: string, documentId: string, user: { 
     id: string;
     status: string;
     library_id: string;
+    library_type: string;
   } | undefined;
 
   if (!row || row.status !== "available") return null;
   // row.id is the DOCUMENT id — access resolves by the library id.
-  if (!canUserAccessBook(bookId, { id: row.library_id }, user.id, user.role)) return null;
+  if (!canUserAccessBook(bookId, { id: row.library_id }, user.id, user.role, mediaKind(row.library_type))) return null;
   return row;
 }

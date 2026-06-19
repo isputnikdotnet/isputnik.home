@@ -24,6 +24,10 @@ interface EbookReaderProps {
   coverUrl?: string | null;
   downloadUrl?: string;
   onExit?: () => void;
+  // Guest mode (public share link): no account, so every per-user server call
+  // (progress sync, bookmarks) is skipped — reading position lives in localStorage
+  // only, and bookmarks are hidden.
+  guest?: boolean;
 }
 
 interface ProgressDraft {
@@ -197,7 +201,8 @@ export function EbookReader({
   author,
   coverUrl,
   downloadUrl,
-  onExit
+  onExit,
+  guest = false
 }: EbookReaderProps) {
   const isMobile = useIsMobile();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -240,8 +245,11 @@ export function EbookReader({
   const [searching, setSearching] = useState(false);
 
   const sendProgress = useCallback((progress: ProgressDraft) => {
+    // Guests have no account to sync to — localStorage (in persistProgress) is the
+    // only store, so skip the server PATCH entirely.
+    if (guest) return Promise.resolve(undefined);
     return patchReadingProgress(bookId, documentId, progress).catch(() => undefined);
-  }, [bookId, documentId]);
+  }, [bookId, documentId, guest]);
 
   const persistProgress = useCallback((progress: ProgressDraft) => {
     latestProgressRef.current = progress;
@@ -325,7 +333,7 @@ export function EbookReader({
         if (cancelled) return;
 
         let startCfi = startingProgress?.cfi ?? null;
-        if (!startCfi) {
+        if (!startCfi && !guest) {
           try {
             const payload = await api<{ progress: ReadingProgress | null }>(
               `/api/library/books/${bookId}/reading-progress?documentId=${encodeURIComponent(documentId)}`
@@ -382,7 +390,7 @@ export function EbookReader({
         try { view.remove(); } catch { /* ignore */ }
       }
     };
-  }, [bookId, documentId, url, storageKey, startingProgress, sendProgress, onRelocate, onLoad]);
+  }, [bookId, documentId, url, storageKey, startingProgress, sendProgress, onRelocate, onLoad, guest]);
 
   // Typography / theme changes — applied live, no view rebuild.
   useEffect(() => {
@@ -422,18 +430,20 @@ export function EbookReader({
     return () => window.removeEventListener("keydown", onKey);
   }, [goLeft, goRight, panel, onExit]);
 
-  // Load this document's bookmarks. Best-effort.
+  // Load this document's bookmarks. Best-effort. Guests have no account, so the
+  // bookmarks UI is hidden and there is nothing to load.
   useEffect(() => {
     let cancelled = false;
     setBookmarks([]);
     setEditingBookmarkId(null);
+    if (guest) return () => { cancelled = true; };
     api<{ bookmarks: EbookBookmark[] }>(
       `/api/library/books/${bookId}/ebook-bookmarks?documentId=${encodeURIComponent(documentId)}`
     )
       .then((payload) => { if (!cancelled) setBookmarks(sortBookmarks(payload.bookmarks)); })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [bookId, documentId]);
+  }, [bookId, documentId, guest]);
 
   const addBookmark = useCallback(async () => {
     const draft = latestProgressRef.current;
@@ -527,10 +537,12 @@ export function EbookReader({
 
   const resetPosition = useCallback(async () => {
     setPanel(null);
-    try { await api(`/api/library/books/${bookId}/reading-progress?documentId=${encodeURIComponent(documentId)}`, { method: "DELETE" }); } catch { /* ignore */ }
+    if (!guest) {
+      try { await api(`/api/library/books/${bookId}/reading-progress?documentId=${encodeURIComponent(documentId)}`, { method: "DELETE" }); } catch { /* ignore */ }
+    }
     try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
     void viewRef.current?.goTo(0);
-  }, [bookId, documentId, storageKey]);
+  }, [bookId, documentId, storageKey, guest]);
 
   const togglePanel = useCallback((next: Panel) => {
     setPanel((current) => (current === next ? null : next));
@@ -607,7 +619,9 @@ export function EbookReader({
           <button type="button" className={`ebk-icon-btn${panel === "search" ? " active" : ""}`} onClick={() => togglePanel("search")} aria-label="Search"><Search size={19} /></button>
           <button type="button" className={`ebk-icon-btn${panel === "text" ? " active" : ""}`} onClick={() => togglePanel("text")} aria-label="Text options"><ALargeSmall size={20} /></button>
           <button type="button" className="ebk-icon-btn" onClick={cycleTheme} aria-label="Change theme"><Sun size={19} /></button>
-          <button type="button" className={`ebk-icon-btn${panel === "bookmarks" ? " active" : ""}`} onClick={() => togglePanel("bookmarks")} aria-label="Bookmarks"><Bookmark size={19} /></button>
+          {!guest && (
+            <button type="button" className={`ebk-icon-btn${panel === "bookmarks" ? " active" : ""}`} onClick={() => togglePanel("bookmarks")} aria-label="Bookmarks"><Bookmark size={19} /></button>
+          )}
           <button type="button" className={`ebk-icon-btn${panel === "settings" ? " active" : ""}`} onClick={() => togglePanel("settings")} aria-label="Settings"><Settings size={19} /></button>
         </div>
       </header>

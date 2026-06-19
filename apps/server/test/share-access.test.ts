@@ -29,6 +29,13 @@ describe("resolveShareLink (guest-link token validity)", () => {
     expect(resolveShareLink("wrong-token")).toBeNull();
   });
 
+  it("carries the share's module so guest routes can dispatch by type", () => {
+    db.prepare(
+      "INSERT INTO share_links (id, module, resource_id, token_hash, expires_at, created_by) VALUES ('link-ebook', 'ebook', 'doc-1', ?, ?, 'owner')"
+    ).run(sha256("ebook-token"), futureIso());
+    expect(resolveShareLink("ebook-token")?.module).toBe("ebook");
+  });
+
   it("returns null for a revoked token", () => {
     makeShareLink({ token: "secret", expiresAt: futureIso(), revoked: true });
     expect(resolveShareLink("secret")).toBeNull();
