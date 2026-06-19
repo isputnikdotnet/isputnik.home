@@ -6,7 +6,7 @@ import { LibraryNavTabs } from "./LibraryNavTabs";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
-import type { SavedBook } from "./types";
+import type { SavedBook } from "../audiobooks/types";
 
 export function MyListPage({
   user,

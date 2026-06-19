@@ -19,11 +19,11 @@ interface LibraryNavItem {
 export function LibraryNavTabs({ active }: { active: LibraryNavKey }) {
   const tabs: LibraryNavItem[] = [
     { key: "saved", label: "Favorites", href: "/favorites", icon: Heart },
-    { key: "bookmarks", label: "Bookmarks", href: "/audiobooks/bookmarks", icon: Bookmark },
+    { key: "bookmarks", label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
     { key: "collections", label: "Collections", href: "/collections", icon: ListMusic },
-    { key: "shared", label: "Shared with me", href: "/audiobooks/shared", icon: UsersRound },
+    { key: "shared", label: "Shared with me", href: "/shared", icon: UsersRound },
     ...(isStandalone() || active === "downloads"
-      ? [{ key: "downloads" as const, label: "Downloads", href: "/audiobooks/downloads", icon: DownloadCloud }]
+      ? [{ key: "downloads" as const, label: "Downloads", href: "/downloads", icon: DownloadCloud }]
       : []),
     { key: "profile", label: "Profile", href: "/profile", icon: UserRound }
   ];

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { UserRound } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
-import { LibraryNavTabs } from "../features/audiobooks/LibraryNavTabs";
+import { LibraryNavTabs } from "../features/library/LibraryNavTabs";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
 import { ThemePicker, type Theme } from "../shared/ThemePicker";
