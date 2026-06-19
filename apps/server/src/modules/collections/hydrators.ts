@@ -88,7 +88,7 @@ function makeBookHydrator(config: BookHydratorConfig): Hydrator {
 
     for (const row of rows) {
       // row.id is the BOOK id — access resolves by the library id.
-      if (!canUserAccessBook(row.id, { id: row.library_id }, user.id, user.role)) continue;
+      if (!canUserAccessBook(row.id, { id: row.library_id }, user.id, user.role, config.libraryType)) continue;
       const authors = splitNames(row.author_names);
       result.set(row.id, {
         available: true,

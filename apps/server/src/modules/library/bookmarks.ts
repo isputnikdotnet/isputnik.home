@@ -8,6 +8,7 @@ import type { FastifyInstance } from "fastify";
 import { db } from "../../db.js";
 import { accessibleLibraryIds } from "./shared/library-access.js";
 import { userHasItemShare } from "./shared/share-access.js";
+import { mediaKind } from "./shared/library-types.js";
 
 // Each row carries its parent library so we can filter by access and route the tile
 // to the right detail page; `kind` ("listen" | "read") tells the UI how to render
@@ -48,12 +49,6 @@ interface ReadRow {
 
 function splitNames(value: string | null): string[] {
   return value ? value.split(",").map((name) => name.trim()).filter(Boolean) : [];
-}
-
-// libraries.type is always a BOOK_LIBRARY_TYPE here (books only live in audiobook /
-// ebook libraries); fold anything unexpected into "audiobook" so routing stays valid.
-function mediaKind(libraryType: string): "audiobook" | "ebook" {
-  return libraryType === "ebook" ? "ebook" : "audiobook";
 }
 
 export function registerBookmarkRoutes(app: FastifyInstance) {

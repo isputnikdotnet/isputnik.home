@@ -38,7 +38,7 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     }
 
     const user = request.user!;
-    if (!canUserAccessBook(id, row, user.id, user.role)) {
+    if (!canUserAccessBook(id, row, user.id, user.role, "audiobook")) {
       reply.code(404).send({ error: "Audio file not found" });
       return;
     }
@@ -102,11 +102,11 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
     const downloadLibrary = { id: meta.library_id };
     // View is not enough to download — require the Subscriber+ download capability
     // (or an explicit share). Distinguish "no access" (404) from "no download" (403).
-    if (!canUserAccessBook(id, downloadLibrary, downloadUser.id, downloadUser.role)) {
+    if (!canUserAccessBook(id, downloadLibrary, downloadUser.id, downloadUser.role, "audiobook")) {
       reply.code(404).send({ error: "Book not found" });
       return;
     }
-    if (!canUserDownloadBook(id, downloadLibrary, downloadUser.id, downloadUser.role)) {
+    if (!canUserDownloadBook(id, downloadLibrary, downloadUser.id, downloadUser.role, "audiobook")) {
       reply.code(403).send({ error: "You don't have permission to download from this library." });
       return;
     }

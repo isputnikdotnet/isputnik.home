@@ -8,6 +8,7 @@ import { MessageBox } from "../../shared/MessageBox";
 
 interface SharedBook {
   id: string;
+  type: "audiobook" | "ebook";
   title: string;
   coverUrl: string | null;
   sharedBy: string | null;
@@ -58,7 +59,7 @@ export function SharedWithMePage({
           <div className="audiobook-grid">
             {(books ?? []).map((book) => (
               <article className="saved-audiobook-card" key={book.id}>
-                <button className="audiobook-card" onClick={() => navigate(`/audiobooks/books/${book.id}`)}>
+                <button className="audiobook-card" onClick={() => navigate(`${book.type === "ebook" ? "/ebooks" : "/audiobooks"}/books/${book.id}`)}>
                   <div className="audiobook-cover" aria-hidden="true">
                     {book.coverUrl ? (
                       <img src={book.coverUrl} alt="" />

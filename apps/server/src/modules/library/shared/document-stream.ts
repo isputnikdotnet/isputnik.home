@@ -4,6 +4,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { db } from "../../../db.js";
 import { pathIsInside } from "./storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "./library-access.js";
+import { mediaKind } from "./library-types.js";
 
 // Parse a single-range `Range` header against the resource size. Returns null for
 // a malformed or unsatisfiable range. Shared by the audio and document streamers.
@@ -25,6 +26,7 @@ interface DocumentRow {
   status: string;
   source_path: string;
   id: string; // library id (aliased for canUserAccessBook)
+  library_type: string; // resolves the share module ("audiobook" | "ebook")
 }
 
 interface StreamOptions {
@@ -49,7 +51,8 @@ export function streamDocumentFile(request: FastifyRequest, reply: FastifyReply,
       document_files.mime_type,
       document_files.status,
       libraries.source_path,
-      libraries.id AS id
+      libraries.id AS id,
+      libraries.type AS library_type
     FROM document_files
     JOIN library_items ON library_items.id = document_files.item_id
     JOIN libraries ON libraries.id = library_items.library_id
@@ -63,12 +66,13 @@ export function streamDocumentFile(request: FastifyRequest, reply: FastifyReply,
     return;
   }
 
-  if (!canUserAccessBook(itemId, row, user.id, user.role)) {
+  const module = mediaKind(row.library_type);
+  if (!canUserAccessBook(itemId, row, user.id, user.role, module)) {
     reply.code(404).send({ error: "Document not found" });
     return;
   }
 
-  if (download && !canUserDownloadBook(itemId, row, user.id, user.role)) {
+  if (download && !canUserDownloadBook(itemId, row, user.id, user.role, module)) {
     reply.code(403).send({ error: "You don't have permission to download from this library." });
     return;
   }

@@ -11,6 +11,7 @@ import { registerFeedRoutes } from "./feed.js";
 import { registerCategoryRoutes } from "./categories.js";
 import { registerTagRoutes } from "./tags.js";
 import { registerBookmarkRoutes } from "./bookmarks.js";
+import { librarySharesPlugin } from "./shared/shares.js";
 
 export async function libraryPlugin(app: FastifyInstance) {
   await app.register(librarySettingsPlugin);
@@ -32,6 +33,10 @@ export async function libraryPlugin(app: FastifyInstance) {
 
   // …the cross-type "all my bookmarks" listing (audiobook position + epub reader)…
   registerBookmarkRoutes(app);
+
+  // …item-level sharing (guest links + user shares) for every book type, with
+  // public guest routes that dispatch by the share's module…
+  await app.register(librarySharesPlugin);
 
   // …and the Recycle Bin, whose sweeper auto-purges items past the retention window.
   registerTrashRoutes(app);

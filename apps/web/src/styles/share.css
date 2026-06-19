@@ -147,6 +147,41 @@
   margin: 4px 0 0;
 }
 
+/* Guest PDF reader — a full-screen overlay wrapping the browser's native viewer. */
+.share-doc-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas);
+}
+.share-doc-viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.share-doc-viewer-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.share-doc-viewer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.share-doc-viewer-frame {
+  flex: 1;
+  border: none;
+  width: 100%;
+}
+
 /* Share modal (inside the app) — rows for create + existing shares. */
 .share-create-row {
   display: flex;

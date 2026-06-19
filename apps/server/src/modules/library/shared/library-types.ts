@@ -10,3 +10,11 @@ export type LibraryType = typeof LIBRARY_TYPES[number];
 // its subjects as tags — exactly what the audiobook and ebook scanners already do.
 export const BOOK_LIBRARY_TYPES = ["audiobook", "ebook"] as const;
 export type BookLibraryType = typeof BOOK_LIBRARY_TYPES[number];
+
+// Map a library type onto the share/bookmark module namespace it uses. Books only
+// live in audiobook / ebook libraries, so anything unexpected folds into
+// "audiobook" to keep routing valid. This is the single source of truth for the
+// libraries.type → module mapping used by shares, bookmarks, and book access.
+export function mediaKind(libraryType: string): BookLibraryType {
+  return libraryType === "ebook" ? "ebook" : "audiobook";
+}

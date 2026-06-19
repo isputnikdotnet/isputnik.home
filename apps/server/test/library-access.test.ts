@@ -115,9 +115,21 @@ describe("canUserAccessBook (book-level share overrides a private library)", () 
     makeLibrary("L", { createdBy: "owner" });
     setLibraryAccess("L", { visibility: "private", ownerType: "user", ownerId: "owner", createdBy: "owner" });
 
-    expect(canUserAccessBook("book-1", lib("L"), "friend", "member")).toBe(false);
+    expect(canUserAccessBook("book-1", lib("L"), "friend", "member", "audiobook")).toBe(false);
 
     makeShare({ module: "audiobook", resourceId: "book-1", userId: "friend", createdBy: "owner" });
-    expect(canUserAccessBook("book-1", lib("L"), "friend", "member")).toBe(true);
+    expect(canUserAccessBook("book-1", lib("L"), "friend", "member", "audiobook")).toBe(true);
+  });
+
+  it("honours an ebook share and keeps modules isolated", () => {
+    makeUser("owner");
+    makeUser("friend");
+    makeLibrary("L", { createdBy: "owner" });
+    setLibraryAccess("L", { visibility: "private", ownerType: "user", ownerId: "owner", createdBy: "owner" });
+
+    makeShare({ module: "ebook", resourceId: "doc-1", userId: "friend", createdBy: "owner" });
+    expect(canUserAccessBook("doc-1", lib("L"), "friend", "member", "ebook")).toBe(true);
+    // The same share must not leak across the module boundary.
+    expect(canUserAccessBook("doc-1", lib("L"), "friend", "member", "audiobook")).toBe(false);
   });
 });

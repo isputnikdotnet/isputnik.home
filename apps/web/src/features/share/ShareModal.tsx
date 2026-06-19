@@ -38,12 +38,17 @@ const EXPIRY_OPTIONS = [
 export function ShareModal({
   bookId,
   bookTitle,
+  isEbook = false,
   onClose
 }: {
   bookId: string;
   bookTitle: string;
+  isEbook?: boolean;
   onClose: () => void;
 }) {
+  // Books are read; audiobooks are listened to — the rest of the share flow is identical.
+  const consumeVerb = isEbook ? "read" : "listen";
+  const consumeNoun = isEbook ? "reading" : "playback";
   const [tab, setTab] = useState<Tab>("link");
   const [error, setError] = useState("");
 
@@ -161,7 +166,7 @@ export function ShareModal({
 
           {tab === "link" && (
             <div className="share-link-tab">
-              <p className="muted">Anyone with the link can listen and download — no account needed. Links expire and can be revoked.</p>
+              <p className="muted">Anyone with the link can {consumeVerb} and download — no account needed. Links expire and can be revoked.</p>
 
               <div className="share-create-row">
                 <label className="field">
@@ -216,7 +221,7 @@ export function ShareModal({
 
           {tab === "people" && (
             <div className="share-people-tab">
-              <p className="muted">Share with a registered user. They get full access in their own account — playback, downloads, and their own progress.</p>
+              <p className="muted">Share with a registered user. They get full access in their own account — {consumeNoun}, downloads, and their own progress.</p>
 
               <div className="share-create-row">
                 <label className="field">
