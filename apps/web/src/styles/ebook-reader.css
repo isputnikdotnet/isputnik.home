@@ -26,16 +26,19 @@
   --ebk-muted: rgba(255, 255, 255, 0.55); --ebk-accent: #7fc3b3;
 }
 
-/* Top bar */
+/* Top bar — three tracks so the book title/cover sits centred between the
+   back button (left) and the action icons (right), at any side-column width. */
 .ebk-topbar {
   flex: 0 0 auto;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--ebk-border);
 }
-.ebk-book { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ebk-back-btn { grid-column: 1; justify-self: start; }
+.ebk-book { grid-column: 2; justify-self: center; display: flex; align-items: center; gap: 12px; min-width: 0; max-width: min(440px, 42vw); }
 .ebk-cover { width: 36px; height: 48px; border-radius: 4px; object-fit: cover; flex: none; }
 .ebk-cover-fallback {
   display: flex; align-items: center; justify-content: center;
@@ -45,7 +48,7 @@
 .ebk-book-meta strong { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ebk-book-meta span { font-size: 12px; color: var(--ebk-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.ebk-topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+.ebk-topbar-actions { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 2px; }
 .ebk-icon-btn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 38px; height: 38px; border: none; background: transparent; cursor: pointer;
@@ -53,20 +56,8 @@
 }
 .ebk-icon-btn:hover { background: var(--ebk-surface); color: var(--ebk-fg); }
 .ebk-icon-btn.active { color: var(--ebk-accent); }
-.ebk-exit-btn {
-  display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;
-  padding: 8px 13px; border: 1px solid var(--ebk-border); border-radius: 9px;
-  background: transparent; color: var(--ebk-fg); font-size: 13px; cursor: pointer;
-}
-.ebk-exit-btn:hover { background: var(--ebk-surface); }
 
-.ebk-more { position: relative; }
-.ebk-menu {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 5;
-  min-width: 180px; padding: 6px; border-radius: 10px;
-  background: var(--ebk-bg); border: 1px solid var(--ebk-border);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
-}
+/* Action rows (Download / Reset) inside the Settings drawer. */
 .ebk-menu-item {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 9px 10px; border: none; background: transparent; cursor: pointer;
@@ -185,10 +176,6 @@
 .ebk-contents.active { color: var(--ebk-accent); }
 .ebk-seek { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .ebk-seek input[type="range"] { width: 100%; accent-color: var(--ebk-accent); }
-.ebk-seek-pct { font-size: 12px; color: var(--ebk-muted); }
-.ebk-timeleft { font-size: 12px; color: var(--ebk-muted); white-space: nowrap; }
-.ebk-theme-toggle { border: none; background: transparent; color: var(--ebk-muted); cursor: pointer; padding: 4px; }
-.ebk-theme-toggle:hover { color: var(--ebk-fg); }
 
 .ebk-toast {
   position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 6;
@@ -196,10 +183,22 @@
   background: #2c2c2a; color: #fff; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
-@media (max-width: 720px) {
-  .ebk-book-meta span { display: none; }
-  .ebk-exit-btn span { display: none; }
-  .ebk-exit-btn { padding: 8px; }
+/* Mobile / PWA reader chrome — these classes only render ≤740px (useIsMobile),
+   so no media query is needed to scope them. */
+.ebk-topbar-mobile { padding: 8px 12px; }
+.ebk-bottombar-mobile { width: calc(100% - 20px); gap: 14px; padding: 8px 14px; }
+.ebk-bottombar-mobile .ebk-contents { padding: 6px; }
+.ebk-pageno {
+  flex: none; font-size: 12px; color: var(--ebk-muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 56px; text-align: right;
+}
+/* Download / Reset actions appended to the mobile Settings drawer. */
+.ebk-setting-actions {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--ebk-border);
+}
+
+@media (max-width: 740px) {
   .ebk-page-prev { left: 6px; }
   .ebk-page-next { right: 6px; }
 }
