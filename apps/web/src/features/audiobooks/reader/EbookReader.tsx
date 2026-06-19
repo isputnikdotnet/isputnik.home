@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Bookmark, BookmarkPlus, BookOpen, ChevronLeft, ChevronRight, Columns2, Download,
-  List, Minus, MoreVertical, Pencil, Plus, RotateCcw, ScrollText, Search, Settings, Sun, Trash2, X
+  ALargeSmall, ArrowLeft, Bookmark, BookmarkPlus, BookOpen, ChevronLeft, ChevronRight, Columns2, Download,
+  List, Minus, Pencil, Plus, RotateCcw, ScrollText, Search, Settings, Sun, Trash2
 } from "lucide-react";
 import { api } from "../../../api";
+import { useIsMobile } from "../../../shared/useIsMobile";
 import type { EbookBookmark, ReadingProgress } from "../types";
 import {
-  applyLayout, countToc, createFoliateView, flattenToc, themeColors, themeCSS,
+  applyLayout, countToc, createFoliateView, themeColors, themeCSS,
   type FoliateRelocateDetail, type FoliateLoadDetail, type FoliateTocItem, type FoliateView,
   type ReaderFont, type ReaderLayout, type ReaderTheme
 } from "./foliate";
@@ -39,7 +40,7 @@ interface SearchHit {
   chapter: string;
 }
 
-type Panel = "toc" | "bookmarks" | "search" | "settings" | null;
+type Panel = "toc" | "bookmarks" | "search" | "settings" | "text" | null;
 
 const FONT_KEY = "isputnik-ebk-font";
 const FAMILY_KEY = "isputnik-ebk-family";
@@ -134,16 +135,6 @@ function bookmarkPercent(percent: number | null) {
   return percent == null ? "•" : `${Math.round(clampPercent(percent)! * 100)}%`;
 }
 
-// foliate's time unit ≈ 1600 characters, which reads in roughly a minute — close
-// enough for a "~time left" hint without a configurable reading-speed setting.
-function timeLeftLabel(minutes: number | null) {
-  if (minutes == null || !Number.isFinite(minutes) || minutes < 1) return null;
-  const total = Math.round(minutes);
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  return h > 0 ? `~${h}h ${m}m left` : `~${m}m left`;
-}
-
 function sortBookmarks(list: EbookBookmark[]) {
   return [...list].sort((a, b) => (a.percentComplete ?? 0) - (b.percentComplete ?? 0));
 }
@@ -208,6 +199,7 @@ export function EbookReader({
   downloadUrl,
   onExit
 }: EbookReaderProps) {
+  const isMobile = useIsMobile();
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<FoliateView | null>(null);
   const latestProgressRef = useRef<ProgressDraft | null>(null);
@@ -227,11 +219,10 @@ export function EbookReader({
   const [notice, setNotice] = useState("");
   const [toc, setToc] = useState<FoliateTocItem[]>([]);
   const [panel, setPanel] = useState<Panel>(null);
-  const [moreOpen, setMoreOpen] = useState(false);
   const [percentComplete, setPercentComplete] = useState<number | null>(startingProgress?.percentComplete ?? null);
   const [sectionLabel, setSectionLabel] = useState(startingProgress?.label ?? "");
   const [currentHref, setCurrentHref] = useState("");
-  const [timeLeftMinutes, setTimeLeftMinutes] = useState<number | null>(null);
+  const [pageInfo, setPageInfo] = useState<{ current: number; total: number } | null>(null);
 
   const [fontScale, setFontScale] = useState(appearanceRef.current.fontScale);
   const [lineSpacing, setLineSpacing] = useState(appearanceRef.current.lineSpacing);
@@ -247,12 +238,6 @@ export function EbookReader({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
-
-  const flatToc = useMemo(() => flattenToc(toc), [toc]);
-  const chapterOrdinal = useMemo(() => {
-    const idx = flatToc.findIndex((entry) => entry.href === currentHref);
-    return idx >= 0 ? { current: idx + 1, total: flatToc.length } : null;
-  }, [flatToc, currentHref]);
 
   const sendProgress = useCallback((progress: ProgressDraft) => {
     return patchReadingProgress(bookId, documentId, progress).catch(() => undefined);
@@ -284,7 +269,7 @@ export function EbookReader({
   const goLeft = useCallback(() => { void viewRef.current?.goLeft(); }, []);
   const goRight = useCallback(() => { void viewRef.current?.goRight(); }, []);
 
-  const closePanels = useCallback(() => { setPanel(null); setMoreOpen(false); }, []);
+  const closePanels = useCallback(() => { setPanel(null); }, []);
 
   const goToHref = useCallback((href: string) => {
     void viewRef.current?.goTo(href).catch(() => setNotice("Could not open that location."));
@@ -299,7 +284,11 @@ export function EbookReader({
     const fraction = clampPercent(detail.fraction);
     setPercentComplete(fraction);
     setCurrentHref(detail.tocItem?.href ?? "");
-    setTimeLeftMinutes(detail.time?.total ?? null);
+    const loc = detail.location;
+    // foliate's location.current is 0-based; show a 1-based page clamped to total.
+    setPageInfo(loc && Number.isFinite(loc.total) && loc.total > 0
+      ? { current: Math.min(loc.current + 1, loc.total), total: loc.total }
+      : null);
     const label = detail.tocItem?.label ?? null;
     if (label) setSectionLabel(label);
     persistProgress({ cfi: detail.cfi, percentComplete: fraction, label });
@@ -425,13 +414,13 @@ export function EbookReader({
       if (e.key === "ArrowLeft") { e.preventDefault(); goLeft(); }
       else if (e.key === "ArrowRight") { e.preventDefault(); goRight(); }
       else if (e.key === "Escape") {
-        if (panel || moreOpen) { setPanel(null); setMoreOpen(false); }
+        if (panel) setPanel(null);
         else onExit?.();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goLeft, goRight, panel, moreOpen, onExit]);
+  }, [goLeft, goRight, panel, onExit]);
 
   // Load this document's bookmarks. Best-effort.
   useEffect(() => {
@@ -537,14 +526,13 @@ export function EbookReader({
   }, [searchQuery]);
 
   const resetPosition = useCallback(async () => {
-    setMoreOpen(false);
+    setPanel(null);
     try { await api(`/api/library/books/${bookId}/reading-progress?documentId=${encodeURIComponent(documentId)}`, { method: "DELETE" }); } catch { /* ignore */ }
     try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
     void viewRef.current?.goTo(0);
   }, [bookId, documentId, storageKey]);
 
   const togglePanel = useCallback((next: Panel) => {
-    setMoreOpen(false);
     setPanel((current) => (current === next ? null : next));
   }, []);
 
@@ -554,8 +542,8 @@ export function EbookReader({
 
   const colors = themeColors(theme);
   const pct = percentComplete ?? 0;
-  const timeLeft = timeLeftLabel(timeLeftMinutes);
-  const drawerSide = panel === "settings" ? "right" : "left";
+  const pageLabel = pageInfo ? `${pageInfo.current} / ${pageInfo.total}` : percentLabel(percentComplete);
+  const drawerSide = panel === "settings" || panel === "text" ? "right" : "left";
 
   if (error) {
     return (
@@ -568,38 +556,59 @@ export function EbookReader({
     );
   }
 
+  // Text-appearance rows are shared between the "Aa" text panel and the full
+  // Settings panel, so they stay in sync from one definition.
+  const fontRow = (
+    <div className="ebk-setting">
+      <label>Font</label>
+      <div className="ebk-seg">
+        <button type="button" className={`ebk-seg-btn${fontFamily === "serif" ? " active" : ""}`} onClick={() => setFontFamily("serif")}>Serif</button>
+        <button type="button" className={`ebk-seg-btn${fontFamily === "sans" ? " active" : ""}`} onClick={() => setFontFamily("sans")}>Sans</button>
+      </div>
+    </div>
+  );
+  const fontSizeRow = (
+    <div className="ebk-setting">
+      <label>Font size</label>
+      <div className="ebk-stepper">
+        <button type="button" onClick={() => setFontScale((s) => clampFontScale(s - 6))} aria-label="Smaller"><Minus size={16} /></button>
+        <span>{fontScale}%</span>
+        <button type="button" onClick={() => setFontScale((s) => clampFontScale(s + 6))} aria-label="Larger"><Plus size={16} /></button>
+      </div>
+    </div>
+  );
+  const lineSpacingRow = (
+    <div className="ebk-setting">
+      <label>Line spacing</label>
+      <div className="ebk-stepper">
+        <button type="button" onClick={() => setLineSpacing((s) => Math.max(1.2, Math.round((s - 0.1) * 10) / 10))} aria-label="Tighter"><Minus size={16} /></button>
+        <span>{lineSpacing.toFixed(1)}</span>
+        <button type="button" onClick={() => setLineSpacing((s) => Math.min(2.2, Math.round((s + 0.1) * 10) / 10))} aria-label="Looser"><Plus size={16} /></button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="ebk-reader" data-theme={theme} style={{ background: colors.bg, color: colors.fg }}>
-      <header className="ebk-topbar">
-        <div className="ebk-book">
-          {coverUrl ? <img className="ebk-cover" src={coverUrl} alt="" /> : <span className="ebk-cover ebk-cover-fallback"><BookOpen size={18} /></span>}
-          <div className="ebk-book-meta">
-            <strong title={title}>{title ?? "Reading"}</strong>
-            {author && <span>{author}</span>}
+      <header className={`ebk-topbar${isMobile ? " ebk-topbar-mobile" : ""}`}>
+        <button type="button" className="ebk-icon-btn ebk-back-btn" onClick={onExit} aria-label="Back">
+          <ArrowLeft size={22} />
+        </button>
+        {!isMobile && (
+          <div className="ebk-book">
+            {coverUrl ? <img className="ebk-cover" src={coverUrl} alt="" /> : <span className="ebk-cover ebk-cover-fallback"><BookOpen size={18} /></span>}
+            <div className="ebk-book-meta">
+              <strong title={title}>{title ?? "Reading"}</strong>
+              {author && <span>{author}</span>}
+            </div>
           </div>
-        </div>
+        )}
         <div className="ebk-topbar-actions">
           <button type="button" className={`ebk-icon-btn${panel === "search" ? " active" : ""}`} onClick={() => togglePanel("search")} aria-label="Search"><Search size={19} /></button>
+          <button type="button" className={`ebk-icon-btn${panel === "text" ? " active" : ""}`} onClick={() => togglePanel("text")} aria-label="Text options"><ALargeSmall size={20} /></button>
+          <button type="button" className="ebk-icon-btn" onClick={cycleTheme} aria-label="Change theme"><Sun size={19} /></button>
           <button type="button" className={`ebk-icon-btn${panel === "bookmarks" ? " active" : ""}`} onClick={() => togglePanel("bookmarks")} aria-label="Bookmarks"><Bookmark size={19} /></button>
           <button type="button" className={`ebk-icon-btn${panel === "settings" ? " active" : ""}`} onClick={() => togglePanel("settings")} aria-label="Settings"><Settings size={19} /></button>
-          <div className="ebk-more">
-            <button type="button" className="ebk-icon-btn" onClick={() => { setMoreOpen((o) => !o); setPanel(null); }} aria-haspopup="menu" aria-expanded={moreOpen} aria-label="More"><MoreVertical size={19} /></button>
-            {moreOpen && (
-              <div className="ebk-menu" role="menu">
-                {downloadUrl && (
-                  <a className="ebk-menu-item" href={downloadUrl} download role="menuitem" onClick={() => setMoreOpen(false)}>
-                    <Download size={16} /> Download
-                  </a>
-                )}
-                <button type="button" className="ebk-menu-item" role="menuitem" onClick={resetPosition}>
-                  <RotateCcw size={16} /> Reset position
-                </button>
-              </div>
-            )}
-          </div>
-          <button type="button" className="ebk-exit-btn" onClick={onExit} aria-label="Exit reader">
-            <X size={18} /><span>Exit</span>
-          </button>
         </div>
       </header>
 
@@ -615,7 +624,7 @@ export function EbookReader({
           <span className="ebk-page-circle"><ChevronRight size={22} /></span>
         </button>
 
-        {(panel || moreOpen) && <button type="button" className="ebk-scrim" aria-label="Close" onClick={closePanels} />}
+        {panel && <button type="button" className="ebk-scrim" aria-label="Close" onClick={closePanels} />}
 
         {panel && (
           <aside className={`ebk-drawer ebk-drawer-${drawerSide}`} aria-label={panel}>
@@ -707,29 +716,9 @@ export function EbookReader({
                       ))}
                     </div>
                   </div>
-                  <div className="ebk-setting">
-                    <label>Font</label>
-                    <div className="ebk-seg">
-                      <button type="button" className={`ebk-seg-btn${fontFamily === "serif" ? " active" : ""}`} onClick={() => setFontFamily("serif")}>Serif</button>
-                      <button type="button" className={`ebk-seg-btn${fontFamily === "sans" ? " active" : ""}`} onClick={() => setFontFamily("sans")}>Sans</button>
-                    </div>
-                  </div>
-                  <div className="ebk-setting">
-                    <label>Font size</label>
-                    <div className="ebk-stepper">
-                      <button type="button" onClick={() => setFontScale((s) => clampFontScale(s - 6))} aria-label="Smaller"><Minus size={16} /></button>
-                      <span>{fontScale}%</span>
-                      <button type="button" onClick={() => setFontScale((s) => clampFontScale(s + 6))} aria-label="Larger"><Plus size={16} /></button>
-                    </div>
-                  </div>
-                  <div className="ebk-setting">
-                    <label>Line spacing</label>
-                    <div className="ebk-stepper">
-                      <button type="button" onClick={() => setLineSpacing((s) => Math.max(1.2, Math.round((s - 0.1) * 10) / 10))} aria-label="Tighter"><Minus size={16} /></button>
-                      <span>{lineSpacing.toFixed(1)}</span>
-                      <button type="button" onClick={() => setLineSpacing((s) => Math.min(2.2, Math.round((s + 0.1) * 10) / 10))} aria-label="Looser"><Plus size={16} /></button>
-                    </div>
-                  </div>
+                  {fontRow}
+                  {fontSizeRow}
+                  {lineSpacingRow}
                   <div className="ebk-setting">
                     <label>Layout</label>
                     <div className="ebk-seg">
@@ -738,6 +727,27 @@ export function EbookReader({
                       <button type="button" className={`ebk-seg-btn${layout === "scrolled" ? " active" : ""}`} onClick={() => setLayout("scrolled")}><ScrollText size={15} /></button>
                     </div>
                   </div>
+                  <div className="ebk-setting-actions">
+                    {downloadUrl && (
+                      <a className="ebk-menu-item" href={downloadUrl} download onClick={closePanels}>
+                        <Download size={16} /> Download
+                      </a>
+                    )}
+                    <button type="button" className="ebk-menu-item" onClick={resetPosition}>
+                      <RotateCcw size={16} /> Reset position
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {panel === "text" && (
+              <>
+                <div className="ebk-drawer-head"><strong>Text</strong></div>
+                <div className="ebk-drawer-body ebk-settings">
+                  {fontRow}
+                  {fontSizeRow}
+                  {lineSpacingRow}
                 </div>
               </>
             )}
@@ -745,10 +755,9 @@ export function EbookReader({
         )}
       </div>
 
-      <footer className="ebk-bottombar">
-        <button type="button" className={`ebk-contents${panel === "toc" ? " active" : ""}`} onClick={() => togglePanel("toc")}>
-          <List size={18} />
-          <span>{chapterOrdinal ? `Chapter ${chapterOrdinal.current} of ${chapterOrdinal.total}` : (sectionLabel || "Contents")}</span>
+      <footer className={`ebk-bottombar${isMobile ? " ebk-bottombar-mobile" : ""}`}>
+        <button type="button" className={`ebk-contents${panel === "toc" ? " active" : ""}`} onClick={() => togglePanel("toc")} aria-label="Chapters">
+          <List size={20} />
         </button>
         <div className="ebk-seek">
           <input
@@ -760,10 +769,8 @@ export function EbookReader({
             aria-label="Reading progress"
             onChange={(e) => { void viewRef.current?.goToFraction(Number(e.target.value) / 1000); }}
           />
-          <span className="ebk-seek-pct">{percentLabel(percentComplete)} complete</span>
         </div>
-        {timeLeft && <span className="ebk-timeleft">{timeLeft}</span>}
-        <button type="button" className="ebk-theme-toggle" onClick={cycleTheme} aria-label="Change theme"><Sun size={18} /></button>
+        <span className="ebk-pageno">{pageLabel}</span>
       </footer>
 
       {notice && <div className="ebk-toast" role="status">{notice}</div>}
