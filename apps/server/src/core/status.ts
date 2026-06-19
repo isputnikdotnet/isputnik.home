@@ -337,6 +337,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.7",
+          label: "Ebook sharing",
+          changes: [
+            "You can now share ebooks just like audiobooks — create a guest link anyone can open without an account, or share a book directly with another person's account.",
+            "Opening a shared ebook link shows the cover and title with Read and Download buttons: Read opens the book right in the browser (the reader for EPUBs, the built-in viewer for PDFs), no app or sign-in needed.",
+            "Ebooks shared directly with your account now appear under \"Shared with me\" alongside shared audiobooks and open in the reader with your own reading position."
+          ]
+        },
+        {
           version: "1.2.6",
           label: "Reader & offline screen redesign",
           changes: [
