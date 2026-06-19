@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { BookOpen, DownloadCloud, HardDrive, Play, ShieldCheck, Trash2 } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -9,10 +10,13 @@ import { useIsMobile } from "../../shared/useIsMobile";
 import { formatBytes } from "../../shared/utils";
 import { FeedListItem } from "./FeedListItem";
 import type { FeedItem } from "./feed";
+import { EbookReader } from "../audiobooks/reader/EbookReader";
+import type { ReadingProgress } from "../audiobooks/types";
 import {
   deleteDownload,
   deleteEbookDownload,
   estimateStorage,
+  getDownloadedEpubBlob,
   listDownloads,
   listEbookDownloads,
   requestPersistentStorage,
@@ -57,6 +61,17 @@ function ebookRecordToFeedItem(book: EbookDownloadRecord): FeedItem {
   };
 }
 
+interface ViewerState {
+  bookId: string;
+  docId: string;
+  url: string;
+  title: string;
+  author: string;
+  coverUrl: string | null;
+  blobUrl: string;
+  initialProgress: ReadingProgress | null;
+}
+
 export function DownloadsPage({
   user,
   logout
@@ -70,6 +85,7 @@ export function DownloadsPage({
   const [storage, setStorage] = useState<StorageEstimate | null>(null);
   const [removing, setRemoving] = useState<string[]>([]);
   const [removingEbook, setRemovingEbook] = useState<string[]>([]);
+  const [viewer, setViewer] = useState<ViewerState | null>(null);
 
   const refresh = useCallback(async () => {
     const [list, ebookList, est] = await Promise.all([listDownloads(), listEbookDownloads(), estimateStorage()]);
@@ -103,6 +119,31 @@ export function DownloadsPage({
     }
   };
 
+  // Open a downloaded ebook in the inline reader, straight from its offline
+  // blob (this page is the offline surface). Falls back to the detail page only
+  // if the file isn't actually present.
+  const openReader = useCallback(async (record: EbookDownloadRecord) => {
+    const blob = await getDownloadedEpubBlob(record.bookId, record.documentId).catch(() => null);
+    if (!blob) { navigate(`/ebooks/books/${record.bookId}`); return; }
+    const blobUrl = URL.createObjectURL(blob);
+    setViewer({
+      bookId: record.bookId,
+      docId: record.documentId,
+      url: blobUrl,
+      title: record.title,
+      author: record.authors.length > 0 ? record.authors.join(", ") : "Unknown author",
+      coverUrl: record.coverUrl,
+      blobUrl,
+      initialProgress: null
+    });
+  }, []);
+
+  // Revoke the blob URL when the reader closes or switches books.
+  useEffect(() => {
+    const current = viewer;
+    return () => { if (current?.blobUrl) URL.revokeObjectURL(current.blobUrl); };
+  }, [viewer]);
+
   const totalDownloadedBytes =
     (downloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0) +
     (ebookDownloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0);
@@ -113,6 +154,7 @@ export function DownloadsPage({
   const usagePercent = storage && storage.quota > 0 ? Math.min(100, Math.round((storage.usage / storage.quota) * 100)) : null;
 
   return (
+    <>
     <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="work-area audiobook-area downloads-page">
         {!isMobile && <LibraryNavTabs active="downloads" />}
@@ -180,6 +222,7 @@ export function DownloadsPage({
                       key={book.bookId}
                       item={ebookRecordToFeedItem(book)}
                       hideDownload
+                      onRead={() => openReader(book)}
                       onDelete={() => void removeEbook(book.bookId)}
                       deleting={removingEbook.includes(book.bookId)}
                     />
@@ -274,7 +317,7 @@ export function DownloadsPage({
                       <div className="downloads-card-actions">
                         <button
                           className="icon-button"
-                          onClick={() => navigate(`/ebooks/books/${book.bookId}`)}
+                          onClick={() => void openReader(book)}
                           aria-label={`Read ${book.title}`}
                           title="Read"
                         >
@@ -300,5 +343,22 @@ export function DownloadsPage({
         )}
       </section>
     </DashboardShell>
+
+    {viewer && createPortal(
+      <EbookReader
+        bookId={viewer.bookId}
+        documentId={viewer.docId}
+        url={viewer.url}
+        storageKey={`isputnik:epub-progress:${user.id}:${viewer.bookId}:${viewer.docId}`}
+        initialProgress={viewer.initialProgress}
+        title={viewer.title}
+        author={viewer.author}
+        coverUrl={viewer.coverUrl}
+        downloadUrl={viewer.url}
+        onExit={() => setViewer(null)}
+      />,
+      document.body
+    )}
+    </>
   );
 }
