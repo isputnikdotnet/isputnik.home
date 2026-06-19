@@ -999,6 +999,9 @@ a.home-overview-card:focus-visible {
     cursor: pointer;
   }
 
+  .home-feed-row-delete:hover { color: var(--home-rose); }
+  .home-feed-row-delete:disabled { cursor: default; }
+
   .home-feed-row-dropdown {
     position: absolute;
     z-index: 65;

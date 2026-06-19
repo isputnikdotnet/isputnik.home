@@ -128,6 +128,21 @@
   color: var(--muted);
 }
 
+/* Mobile Downloads header: the book/size stats sit just under the title. */
+.downloads-subtitle {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Drop the extra .work-area top padding on mobile so the Downloads header lines
+   up with the catalog pages (audiobooks/ebooks), which sit flush to .home-main. */
+@media (max-width: 740px) {
+  .app-dashboard-shell:not(.home-control-shell) .downloads-page {
+    padding-top: 0;
+  }
+}
+
 .downloads-card-actions {
   position: absolute;
   top: 8px;

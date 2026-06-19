@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, DownloadCloud, HardDrive, Heart, Info, Loader2, MoreVertical, Play } from "lucide-react";
+import { BookOpen, DownloadCloud, HardDrive, Heart, Info, Loader2, MoreVertical, Play, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { downloadBook, downloadEbook } from "../../offline/downloads";
@@ -27,7 +27,7 @@ export interface FeedRowMenuItem {
 // action button plays (audiobook) or reads (ebook); a ⋮ menu carries the rest.
 // Only mounts at the mobile breakpoint (see useIsMobile), so the desktop layout
 // is untouched.
-export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead, onToast, onDownload, menuItems }: {
+export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead, onToast, onDownload, menuItems, hideDownload, onDelete, deleting }: {
   item: FeedItem;
   progress?: boolean;
   downloaded?: boolean;
@@ -36,6 +36,11 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
   onToast?: (message: string) => void;
   onDownload?: (info: { title: string; progress: number } | null) => void;
   menuItems?: FeedRowMenuItem[];
+  // Offline/Downloads use: hide the save-for-offline button, drop the ⋮ menu,
+  // and show a single delete (trash) action in its place.
+  hideDownload?: boolean;
+  onDelete?: () => void;
+  deleting?: boolean;
 }) {
   const href = feedHref(item);
   const isEbook = item.kind === "ebook";
@@ -152,33 +157,35 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
               <span style={{ width: `${percent}%` }} />
             </span>
           )}
-          <span className="home-feed-row-meta-row">
-            {downloaded ? (
-              <button
-                type="button"
-                className="home-feed-row-dl is-saved"
-                onClick={(event) => { event.stopPropagation(); navigate(isEbook ? href : "/audiobooks/downloads"); }}
-                title="Saved for offline"
-                aria-label="Available offline"
-              >
-                <HardDrive size={11} aria-hidden="true" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="home-feed-row-dl"
-                onClick={(event) => { event.stopPropagation(); void startDownload(); }}
-                disabled={downloading}
-                title={downloading ? "Downloading…" : "Save for offline"}
-                aria-label={downloading ? "Downloading…" : "Save for offline"}
-              >
-                {downloading
-                  ? <Loader2 size={11} className="home-feed-spin" aria-hidden="true" />
-                  : <DownloadCloud size={11} aria-hidden="true" />}
-              </button>
-            )}
-            {meta && <span className="home-feed-row-meta">{meta}</span>}
-          </span>
+          {(!hideDownload || meta !== "") && (
+            <span className="home-feed-row-meta-row">
+              {!hideDownload && (downloaded ? (
+                <button
+                  type="button"
+                  className="home-feed-row-dl is-saved"
+                  onClick={(event) => { event.stopPropagation(); navigate(isEbook ? href : "/audiobooks/downloads"); }}
+                  title="Saved for offline"
+                  aria-label="Available offline"
+                >
+                  <HardDrive size={11} aria-hidden="true" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="home-feed-row-dl"
+                  onClick={(event) => { event.stopPropagation(); void startDownload(); }}
+                  disabled={downloading}
+                  title={downloading ? "Downloading…" : "Save for offline"}
+                  aria-label={downloading ? "Downloading…" : "Save for offline"}
+                >
+                  {downloading
+                    ? <Loader2 size={11} className="home-feed-spin" aria-hidden="true" />
+                    : <DownloadCloud size={11} aria-hidden="true" />}
+                </button>
+              ))}
+              {meta && <span className="home-feed-row-meta">{meta}</span>}
+            </span>
+          )}
         </span>
       </div>
 
@@ -199,6 +206,20 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
         )}
       </button>
 
+      {onDelete ? (
+        <button
+          type="button"
+          className="home-feed-row-kebab home-feed-row-delete"
+          onClick={onDelete}
+          disabled={deleting}
+          aria-label={`Remove ${item.title} from downloads`}
+          title="Remove download"
+        >
+          {deleting
+            ? <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
+            : <Trash2 size={17} aria-hidden="true" />}
+        </button>
+      ) : (
       <div className="home-feed-row-menu" ref={menuRef}>
         <button
           type="button"
@@ -271,6 +292,7 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
           </div>
         )}
       </div>
+      )}
     </article>
   );
 }

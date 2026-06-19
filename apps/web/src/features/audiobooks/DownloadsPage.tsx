@@ -5,7 +5,10 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { LibraryNavTabs } from "./LibraryNavTabs";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { useIsMobile } from "../../shared/useIsMobile";
 import { formatBytes } from "../../shared/utils";
+import { FeedListItem } from "../library/FeedListItem";
+import type { FeedItem } from "../library/feed";
 import {
   deleteDownload,
   deleteEbookDownload,
@@ -18,6 +21,42 @@ import {
   type StorageEstimate
 } from "../../offline/downloads";
 
+// Offline records → the home-feed FeedItem shape, so the mobile Downloads list
+// reuses the exact home row layout. No progress is carried (offline rows don't
+// show a bar); audiobooks surface their duration when the saved detail has it,
+// ebooks surface "EPUB · size".
+function audioRecordToFeedItem(book: DownloadRecord): FeedItem {
+  return {
+    id: book.bookId,
+    kind: "audiobook",
+    title: book.title,
+    authors: book.authors,
+    coverUrl: book.coverUrl,
+    percentComplete: null,
+    completedAt: null,
+    discoveredAt: book.createdAt,
+    durationSeconds: book.bookDetail?.durationSeconds ?? null,
+    format: null,
+    totalSize: null
+  };
+}
+
+function ebookRecordToFeedItem(book: EbookDownloadRecord): FeedItem {
+  return {
+    id: book.bookId,
+    kind: "ebook",
+    title: book.title,
+    authors: book.authors,
+    coverUrl: book.coverUrl,
+    percentComplete: null,
+    completedAt: null,
+    discoveredAt: book.createdAt,
+    durationSeconds: null,
+    format: "epub",
+    totalSize: book.totalBytes
+  };
+}
+
 export function DownloadsPage({
   user,
   logout
@@ -25,6 +64,7 @@ export function DownloadsPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const isMobile = useIsMobile();
   const [downloads, setDownloads] = useState<DownloadRecord[] | null>(null);
   const [ebookDownloads, setEbookDownloads] = useState<EbookDownloadRecord[] | null>(null);
   const [storage, setStorage] = useState<StorageEstimate | null>(null);
@@ -68,22 +108,21 @@ export function DownloadsPage({
     (ebookDownloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0);
   const totalCount = (downloads?.length ?? 0) + (ebookDownloads?.length ?? 0);
   const hasAny = totalCount > 0;
+  const statsLabel = hasAny ? `${totalCount} ${totalCount === 1 ? "book" : "books"} · ${formatBytes(totalDownloadedBytes)}` : null;
   const allLoaded = downloads !== null && ebookDownloads !== null;
   const usagePercent = storage && storage.quota > 0 ? Math.min(100, Math.round((storage.usage / storage.quota) * 100)) : null;
 
   return (
     <DashboardShell active="audiobooks" user={user} logout={logout}>
-      <section className="work-area audiobook-area">
-        <LibraryNavTabs active="downloads" />
+      <section className="work-area audiobook-area downloads-page">
+        {!isMobile && <LibraryNavTabs active="downloads" />}
 
         <div className="section-head audiobook-head">
           <div>
-            <p className="eyebrow">Digital Library</p>
             <h1>Downloads</h1>
+            {isMobile && statsLabel && <p className="downloads-subtitle">{statsLabel}</p>}
           </div>
-          {hasAny && (
-            <span>{totalCount} {totalCount === 1 ? "book" : "books"} · {formatBytes(totalDownloadedBytes)}</span>
-          )}
+          {!isMobile && statsLabel && <span>{statsLabel}</span>}
         </div>
 
         {storage && (
@@ -113,8 +152,45 @@ export function DownloadsPage({
             <h2>No downloads yet</h2>
             <p className="muted">Open a book and tap "Save offline" to keep it on this device for listening or reading without a connection.</p>
           </div>
+        ) : isMobile ? (
+          <div>
+            {downloads === null && <p className="management-empty">Loading downloads…</p>}
+            {downloads && downloads.length > 0 && (
+              <>
+                <h2 className="downloads-section-title">Audiobooks</h2>
+                <div className="home-feed-list">
+                  {downloads.map((book) => (
+                    <FeedListItem
+                      key={book.bookId}
+                      item={audioRecordToFeedItem(book)}
+                      hideDownload
+                      onDelete={() => void remove(book.bookId)}
+                      deleting={removing.includes(book.bookId)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+            {ebookDownloads && ebookDownloads.length > 0 && (
+              <>
+                <h2 className="downloads-section-title">Ebooks</h2>
+                <div className="home-feed-list">
+                  {ebookDownloads.map((book) => (
+                    <FeedListItem
+                      key={book.bookId}
+                      item={ebookRecordToFeedItem(book)}
+                      hideDownload
+                      onDelete={() => void removeEbook(book.bookId)}
+                      deleting={removingEbook.includes(book.bookId)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         ) : (
           <div>
+          {downloads && downloads.length > 0 && <h2 className="downloads-section-title">Audiobooks</h2>}
           <div className="audiobook-grid">
             {(downloads ?? []).map((book) => {
               const isRemoving = removing.includes(book.bookId);
