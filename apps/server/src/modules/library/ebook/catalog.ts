@@ -2,6 +2,7 @@ import {
   resolveScopeLibraryIds as coreResolveScopeLibraryIds,
   queryCatalog as coreQueryCatalog,
   catalogFacets as coreCatalogFacets,
+  editionRepresentativeSql,
   type CatalogConfig,
   type CatalogQuery
 } from "../shared/catalog-core.js";
@@ -35,10 +36,15 @@ const EBOOK_LIST_COLUMNS = `
         item_metadata.cover_storage_key,
         (SELECT ic.category_id FROM item_categories ic WHERE ic.item_id = library_items.id AND ic.is_primary = 1 LIMIT 1) AS category_id,
         GROUP_CONCAT(DISTINCT authors.name) AS author_names,
-        (SELECT format FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available' LIMIT 1) AS format,
-        (SELECT id FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available' LIMIT 1) AS document_id,
+        (SELECT format FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available' ORDER BY CASE format WHEN 'epub' THEN 0 WHEN 'pdf' THEN 1 ELSE 2 END, relative_path LIMIT 1) AS format,
+        (SELECT id FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available' ORDER BY CASE format WHEN 'epub' THEN 0 WHEN 'pdf' THEN 1 ELSE 2 END, relative_path LIMIT 1) AS document_id,
+        (SELECT GROUP_CONCAT(id || ':' || format) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available') AS documents,
         (SELECT COUNT(*) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available') AS file_count,
         (SELECT COALESCE(SUM(document_files.size), 0) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.status = 'available') AS total_size,
+        (SELECT COUNT(*) FROM work_items wsib
+           JOIN work_items wself ON wself.work_id = wsib.work_id
+           JOIN library_items wli ON wli.id = wsib.item_id AND wli.deleted_at IS NULL
+           WHERE wself.item_id = library_items.id) AS edition_count,
         progress.percent_complete AS progress_percent,
         progress.completed_at AS progress_completed_at,
         (item_saves.id IS NOT NULL) AS saved`;
@@ -65,15 +71,30 @@ interface EbookCatalogRow {
   author_names: string | null;
   format: string | null;
   document_id: string | null;
+  documents: string | null;
   file_count: number;
   total_size: number;
+  edition_count: number;
   progress_percent: number | null;
   progress_completed_at: string | null;
   saved: number;
 }
 
+const FORMAT_RANK: Record<string, number> = { epub: 0, pdf: 1 };
+const formatRank = (format: string): number => FORMAT_RANK[format] ?? 2;
+
 function mapEbookRow(row: EbookCatalogRow) {
   const coverUrl = row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null;
+  // "id:format" pairs from GROUP_CONCAT → an ordered list (EPUB first) for the format
+  // chips and OPDS per-format acquisition links.
+  const documents = (row.documents ?? "")
+    .split(",")
+    .filter(Boolean)
+    .map((pair) => {
+      const idx = pair.indexOf(":");
+      return { id: pair.slice(0, idx), format: pair.slice(idx + 1) };
+    })
+    .sort((a, b) => formatRank(a.format) - formatRank(b.format));
   return {
     id: row.id,
     libraryId: row.library_id,
@@ -89,8 +110,11 @@ function mapEbookRow(row: EbookCatalogRow) {
     language: row.language,
     format: row.format,
     documentId: row.document_id,
+    documents,
+    formats: documents.map((doc) => doc.format),
     fileCount: row.file_count,
     totalSize: row.total_size ?? 0,
+    editionCount: row.edition_count ?? 0,
     durationSeconds: null,
     yearPublished: row.year_published,
     coverUrl,
@@ -122,10 +146,10 @@ export const ebookCatalogConfig: CatalogConfig = {
   searchArgs: 2,
   extraClauses: [],
   facetQueries: {
-    authors: (inLibs) => `SELECT DISTINCT p.name AS v FROM people p JOIN item_people ip ON ip.person_id = p.id JOIN library_items b ON b.id = ip.item_id WHERE ip.role = 'author' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY p.name COLLATE NOCASE`,
-    categories: (inLibs) => `SELECT DISTINCT c.name AS v FROM categories c JOIN item_categories ic ON ic.category_id = c.id JOIN library_items b ON b.id = ic.item_id WHERE b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY c.name COLLATE NOCASE`,
-    tags: (inLibs) => `SELECT DISTINCT t.display_name AS v FROM tags t JOIN taggables tg ON tg.tag_id = t.id JOIN library_items b ON b.id = tg.entity_id WHERE tg.entity_type = 'library_item' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY t.display_name COLLATE NOCASE`,
-    languages: (inLibs) => `SELECT DISTINCT m.language AS v FROM item_metadata m JOIN library_items b ON b.id = m.item_id WHERE m.language IS NOT NULL AND m.language <> '' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY m.language COLLATE NOCASE`
+    authors: (inLibs) => `SELECT DISTINCT p.name AS v FROM people p JOIN item_people ip ON ip.person_id = p.id JOIN library_items b ON b.id = ip.item_id WHERE ip.role = 'author' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) AND ${editionRepresentativeSql("b")} ORDER BY p.name COLLATE NOCASE`,
+    categories: (inLibs) => `SELECT DISTINCT c.name AS v FROM categories c JOIN item_categories ic ON ic.category_id = c.id JOIN library_items b ON b.id = ic.item_id WHERE b.deleted_at IS NULL AND b.library_id IN (${inLibs}) AND ${editionRepresentativeSql("b")} ORDER BY c.name COLLATE NOCASE`,
+    tags: (inLibs) => `SELECT DISTINCT t.display_name AS v FROM tags t JOIN taggables tg ON tg.tag_id = t.id JOIN library_items b ON b.id = tg.entity_id WHERE tg.entity_type = 'library_item' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) AND ${editionRepresentativeSql("b")} ORDER BY t.display_name COLLATE NOCASE`,
+    languages: (inLibs) => `SELECT DISTINCT m.language AS v FROM item_metadata m JOIN library_items b ON b.id = m.item_id WHERE m.language IS NOT NULL AND m.language <> '' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) AND ${editionRepresentativeSql("b")} ORDER BY m.language COLLATE NOCASE`
   },
   mapRow: (row) => mapEbookRow(row as unknown as EbookCatalogRow)
 };

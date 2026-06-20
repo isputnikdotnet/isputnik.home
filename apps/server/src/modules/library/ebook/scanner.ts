@@ -19,7 +19,14 @@ const scanJobType = "SCAN_EBOOK_LIBRARY";
 
 const ebookMimeTypes: Record<string, string> = {
   ".epub": "application/epub+zip",
-  ".pdf": "application/pdf"
+  ".pdf": "application/pdf",
+  ".fb2": "application/x-fictionbook+xml",
+  ".mobi": "application/x-mobipocket-ebook",
+  ".azw3": "application/vnd.amazon.ebook",
+  ".cbz": "application/vnd.comicbook+zip",
+  ".cbr": "application/vnd.comicbook-rar",
+  ".txt": "text/plain",
+  ".rtf": "application/rtf"
 };
 
 export interface EbookScanOptions {
@@ -211,27 +218,41 @@ function walkEbookFiles(rootPath: string, extensions: Set<string>): EbookFileEnt
 
 // ── Scan ──
 
-// Catalog one ebook file as a book — insert/update the book row, its scanned
-// metadata (unless the book was hand-edited), and its single document. Shared by
+// The grouping key for a file: its directory + basename without extension. Files in
+// the same folder sharing a stem (Title.epub + Title.pdf + Title.fb2) are ONE book
+// in several formats. (Folder-as-book would wrongly merge loose uploads at the root.)
+export function ebookGroupKey(relativePath: string): string {
+  const dir = path.posix.dirname(relativePath);
+  const stem = path.posix.basename(relativePath, path.posix.extname(relativePath));
+  return dir === "." ? stem : `${dir}/${stem}`;
+}
+
+// Catalog one GROUP of files (the same book in one or more formats) — insert/update
+// the book row, its scanned metadata (unless hand-edited), and one content document
+// per format. Metadata + cover come from the EPUB when the group has one. Shared by
 // the full-library walk and the single-file upload path. Returns the book id.
-async function ingestEbookFile(
+export async function ingestEbookGroup(
   libraryId: string,
-  file: EbookFileEntry,
+  files: EbookFileEntry[],
   settings: ReturnType<typeof normalizeLibrarySettings>,
   fileMetaEnabled: boolean
 ): Promise<string> {
+  const groupKey = ebookGroupKey(files[0].relativePath);
   const existing = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
-    .get(libraryId, file.relativePath) as { id: string } | undefined;
+    .get(libraryId, groupKey) as { id: string } | undefined;
   const metaRow = existing
     ? db.prepare("SELECT source FROM item_metadata WHERE item_id = ?").get(existing.id) as { source: string } | undefined
     : undefined;
   const manual = metaRow?.source === "manual";
   const bookId = existing?.id ?? nanoid(16);
 
-  const meta = fileMetaEnabled && file.extension === ".epub"
-    ? (extractEpubMetadata(file.absolutePath) ?? pdfMetadata(file))
-    : pdfMetadata(file);
-  const title = meta.title || path.basename(file.fileName, file.extension);
+  // Prefer the EPUB for metadata + cover (it carries an OPF); otherwise fall back to
+  // the first file's name. A PDF/FB2-only group is titled from its filename.
+  const metaFile = files.find((entry) => entry.extension === ".epub") ?? files[0];
+  const meta = fileMetaEnabled && metaFile.extension === ".epub"
+    ? (extractEpubMetadata(metaFile.absolutePath) ?? pdfMetadata(metaFile))
+    : pdfMetadata(metaFile);
+  const title = meta.title || path.basename(metaFile.fileName, metaFile.extension);
   const coverKey = (!manual && meta.coverBuffer) ? await generateEbookCover(libraryId, bookId, meta.coverBuffer) : null;
 
   db.transaction(() => {
@@ -239,7 +260,7 @@ async function ingestEbookFile(
       db.prepare("UPDATE library_items SET status = 'ready', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL WHERE id = ?").run(bookId);
     } else {
       db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES (?, ?, 'ebook', ?, 'ready')")
-        .run(bookId, libraryId, file.relativePath);
+        .run(bookId, libraryId, groupKey);
     }
 
     if (!manual) {
@@ -278,15 +299,19 @@ async function ingestEbookFile(
       setEntityTags("library_item", bookId, meta.subjects);
     }
 
-    // The ebook file itself is stored as the item's content document.
+    // Every file in the group is a content document. Mark all current content docs
+    // missing, then re-add each present format — so a removed format drops out while
+    // the rest stay available.
     db.prepare("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ? AND role = 'content'").run(bookId);
-    db.prepare(`
-      INSERT INTO document_files (id, item_id, role, relative_path, format, mime_type, size, status, deleted_at)
-      VALUES (?, ?, 'content', ?, ?, ?, ?, 'available', NULL)
-      ON CONFLICT(item_id, relative_path) DO UPDATE SET
-        role = 'content', format = excluded.format, mime_type = excluded.mime_type, size = excluded.size,
-        status = 'available', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-    `).run(nanoid(16), bookId, file.relativePath, file.extension.slice(1), ebookMimeTypes[file.extension] ?? "application/octet-stream", file.size);
+    for (const file of files) {
+      db.prepare(`
+        INSERT INTO document_files (id, item_id, role, relative_path, format, mime_type, size, status, deleted_at)
+        VALUES (?, ?, 'content', ?, ?, ?, ?, 'available', NULL)
+        ON CONFLICT(item_id, relative_path) DO UPDATE SET
+          role = 'content', format = excluded.format, mime_type = excluded.mime_type, size = excluded.size,
+          status = 'available', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+      `).run(nanoid(16), bookId, file.relativePath, file.extension.slice(1), ebookMimeTypes[file.extension] ?? "application/octet-stream", file.size);
+    }
   })();
 
   return bookId;
@@ -305,17 +330,29 @@ export async function scanSingleEbookFile(libraryId: string, relativePath: strin
   const rootPath = validateLibrarySource(library.source_path);
   const normalized = normaliseRelativePath(relativePath);
   const absolutePath = path.join(rootPath, normalized);
-  let size = 0;
-  try { size = fs.statSync(absolutePath).size; } catch { return null; }
+  try { fs.statSync(absolutePath); } catch { return null; }
 
-  const file: EbookFileEntry = {
-    absolutePath,
-    relativePath: normalized,
-    fileName: path.basename(absolutePath),
-    extension: path.extname(absolutePath).toLowerCase(),
-    size
-  };
-  return ingestEbookFile(libraryId, file, settings, fileMetaEnabled);
+  // Gather the whole group from disk: every file in the same folder sharing this
+  // basename (any scanned extension) is a format of the same book, so an uploaded
+  // PDF joins an existing EPUB rather than creating a duplicate book.
+  const allowed = new Set(settings.scan_extensions.map((extension) => `.${extension}`));
+  const stem = path.posix.basename(normalized, path.posix.extname(normalized));
+  const dirAbs = path.dirname(absolutePath);
+  const files: EbookFileEntry[] = [];
+  let entries: fs.Dirent[];
+  try { entries = fs.readdirSync(dirAbs, { withFileTypes: true }); } catch { return null; }
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const extension = path.extname(entry.name).toLowerCase();
+    if (!allowed.has(extension)) continue;
+    if (path.basename(entry.name, path.extname(entry.name)) !== stem) continue;
+    const abs = path.join(dirAbs, entry.name);
+    let size = 0;
+    try { size = fs.statSync(abs).size; } catch { continue; }
+    files.push({ absolutePath: abs, relativePath: normaliseRelativePath(path.relative(rootPath, abs)), fileName: entry.name, extension, size });
+  }
+  if (files.length === 0) return null;
+  return ingestEbookGroup(libraryId, files, settings, fileMetaEnabled);
 }
 
 async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {}) {
@@ -329,18 +366,24 @@ async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {
   const fileMetaEnabled = sourceEnabled(sources, "file_metadata");
   const rootPath = validateLibrarySource(library.source_path);
   const files = walkEbookFiles(rootPath, new Set(settings.scan_extensions.map((extension) => `.${extension}`)));
-  const seenPaths = new Set<string>();
 
+  // Group files by folder + basename so the same book in several formats is one item.
+  const groups = new Map<string, EbookFileEntry[]>();
   for (const file of files) {
-    seenPaths.add(file.relativePath);
-    await ingestEbookFile(libraryId, file, settings, fileMetaEnabled);
+    const key = ebookGroupKey(file.relativePath);
+    const list = groups.get(key);
+    if (list) list.push(file); else groups.set(key, [file]);
   }
 
-  // Soft-delete books whose files vanished.
+  for (const groupFiles of groups.values()) {
+    await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled);
+  }
+
+  // Soft-delete books whose every format vanished (their group key is gone).
   const known = db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL")
     .all(libraryId) as { id: string; folder_path: string }[];
   for (const book of known) {
-    if (!seenPaths.has(book.folder_path)) {
+    if (!groups.has(book.folder_path)) {
       db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(book.id);
       db.prepare("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.id);
     }
@@ -348,7 +391,7 @@ async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {
 
   db.prepare("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
     .run(libraryId);
-  return { books: files.length };
+  return { books: groups.size };
 }
 
 // ── Job queue (mirrors the audiobook scan worker) ──

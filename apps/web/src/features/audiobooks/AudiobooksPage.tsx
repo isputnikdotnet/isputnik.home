@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDownUp, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Library, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { ArrowDownUp, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { activeFilterCount, FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
@@ -420,6 +420,11 @@ function CatalogBookCard({
         }}
       >
         <img src={book.coverUrl ?? DEFAULT_COVERS.audiobook} alt="" />
+        {book.editionCount > 1 && (
+          <span className="audiobook-catalog-editions" title={`${book.editionCount} editions`}>
+            <Layers size={11} aria-hidden="true" />{book.editionCount}
+          </span>
+        )}
         {selectionMode ? (
           <span className="audiobook-catalog-check" aria-hidden="true">
             {selected ? <CheckSquare size={20} /> : <Square size={20} />}
@@ -766,6 +771,104 @@ export function AddToSeriesModal({
   );
 }
 
+// Bulk "Group as editions": fold the selected books into one work (= editions of
+// the same title). The chosen primary supplies the browse card; the rest become
+// alternate editions reachable from the detail page. Selection is same-type in
+// practice since you pick from one catalog.
+export interface EditionCandidate {
+  id: string;
+  title: string;
+  authors: string[];
+  coverUrl: string | null;
+  publisher?: string | null;
+  format?: string | null;
+}
+
+export function GroupAsEditionsModal({
+  books,
+  kind,
+  onClose,
+  onSubmit
+}: {
+  books: EditionCandidate[];
+  kind: "audiobook" | "ebook";
+  onClose: () => void;
+  onSubmit: (primaryItemId: string) => Promise<void>;
+}) {
+  // Default the primary to the richest-looking edition: prefer one with a cover and
+  // a known author, else the first with a cover, else the first selected.
+  const [primaryId, setPrimaryId] = useState(() =>
+    books.find((book) => book.coverUrl && book.authors.length > 0)?.id
+    ?? books.find((book) => book.coverUrl)?.id
+    ?? books[0]?.id
+    ?? ""
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!primaryId) {
+      setError("Choose which edition is the primary.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await onSubmit(primaryId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to group editions");
+      setSaving(false);
+    }
+  };
+
+  const metaFor = (book: EditionCandidate) =>
+    [book.format ? book.format.toUpperCase() : null, book.publisher].filter(Boolean).join(" · ");
+
+  return (
+    <Modal
+      title={`Group ${books.length} ${kind === "ebook" ? "ebooks" : "books"} as editions`}
+      style={{ width: "min(100%, 480px)" }}
+      busy={saving}
+      onClose={onClose}
+      onSubmit={submit}
+    >
+      <p className="muted">They become one book. The primary edition supplies the browse cover, title and author; the others stay reachable as alternate editions on the detail page.</p>
+      <div className="editions-pick-list">
+        {books.map((book) => {
+          const meta = metaFor(book);
+          const byline = book.authors.length > 0 ? book.authors.join(", ") : "Unknown author";
+          return (
+            <label key={book.id} className={`editions-pick-row${primaryId === book.id ? " selected" : ""}`}>
+              <input
+                type="radio"
+                name="primary-edition"
+                checked={primaryId === book.id}
+                onChange={() => setPrimaryId(book.id)}
+              />
+              <img src={book.coverUrl ?? DEFAULT_COVERS[kind]} alt="" />
+              <span className="editions-pick-text">
+                <strong>{book.title}</strong>
+                <small>{meta ? `${byline} · ${meta}` : byline}</small>
+              </span>
+              {primaryId === book.id && <span className="editions-pick-flag">Primary</span>}
+            </label>
+          );
+        })}
+      </div>
+      {error && <MessageBox tone="error" title="Unable to group">{error}</MessageBox>}
+      <div className="modal-actions">
+        <Button variant="secondary" onClick={onClose} disabled={saving}>
+          Cancel
+        </Button>
+        <Button variant="primary" type="submit" disabled={saving}>
+          {saving ? "Grouping…" : `Group ${books.length} editions`}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 // Upload one audiobook: pick the target library (when more than one allows
 // uploads), optionally name the book, then drop the audio files — or a whole
 // book folder. All files of one upload become a single book; the server scans it
@@ -872,6 +975,7 @@ export function AudiobooksPage({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [seriesModalOpen, setSeriesModalOpen] = useState(false);
+  const [editionsModalOpen, setEditionsModalOpen] = useState(false);
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [bulkNotice, setBulkNotice] = useState("");
   // Per-tile actions that need page-level UI.
@@ -943,7 +1047,19 @@ export function AudiobooksPage({
     setSelectedIds(new Set());
     setBulkOpen(false);
     setSeriesModalOpen(false);
+    setEditionsModalOpen(false);
     setBulkDeleteOpen(false);
+  };
+
+  // Group the selected books into one work (editions of the same title).
+  const submitGroupEditions = async (primaryItemId: string) => {
+    const result = await api<{ work: { id: string }; count: number }>(
+      "/api/library/works",
+      { method: "POST", body: JSON.stringify({ itemIds: [...selectedIds], primaryItemId }) }
+    );
+    setBulkNotice(`Grouped ${result.count} ${result.count === 1 ? "edition" : "editions"} into one book`);
+    cat.refresh();
+    exitSelection();
   };
 
   // Series live in a single library, so bulk "Add to series" is only offered
@@ -1323,6 +1439,15 @@ export function AudiobooksPage({
                   >
                     Edit metadata
                   </button>
+                  <button
+                    type="button"
+                    className="primary-button compact-button"
+                    onClick={() => setEditionsModalOpen(true)}
+                    disabled={selectedIds.size < 2}
+                    title="Group the selected books as editions of one title"
+                  >
+                    <Layers size={15} aria-hidden="true" /> Group as editions
+                  </button>
                   {canAddToSeries && (
                     <button
                       type="button"
@@ -1425,6 +1550,15 @@ export function AudiobooksPage({
             count={selectedIds.size}
             onClose={() => setSeriesModalOpen(false)}
             onSubmit={submitAddToSeries}
+          />
+        )}
+
+        {editionsModalOpen && (
+          <GroupAsEditionsModal
+            kind="audiobook"
+            books={cat.books.filter((book) => selectedIds.has(book.id))}
+            onClose={() => setEditionsModalOpen(false)}
+            onSubmit={submitGroupEditions}
           />
         )}
 

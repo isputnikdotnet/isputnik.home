@@ -3,6 +3,7 @@ import {
   resolveScopeLibraryIds as coreResolveScopeLibraryIds,
   queryCatalog as coreQueryCatalog,
   catalogFacets as coreCatalogFacets,
+  editionRepresentativeSql,
   type CatalogConfig,
   type CatalogQuery
 } from "../shared/catalog-core.js";
@@ -56,12 +57,12 @@ export const audiobookCatalogConfig: CatalogConfig = {
     }
   ],
   facetQueries: {
-    authors: (inLibs) => `SELECT DISTINCT p.name AS v FROM people p JOIN item_people ip ON ip.person_id = p.id JOIN library_items b ON b.id = ip.item_id WHERE ip.role = 'author' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY p.name COLLATE NOCASE`,
-    narrators: (inLibs) => `SELECT DISTINCT p.name AS v FROM people p JOIN item_people ip ON ip.person_id = p.id JOIN library_items b ON b.id = ip.item_id WHERE ip.role = 'narrator' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY p.name COLLATE NOCASE`,
-    categories: (inLibs) => `SELECT DISTINCT c.name AS v FROM categories c JOIN item_categories ic ON ic.category_id = c.id JOIN library_items b ON b.id = ic.item_id WHERE b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY c.name COLLATE NOCASE`,
-    tags: (inLibs) => `SELECT DISTINCT t.display_name AS v FROM tags t JOIN taggables tg ON tg.tag_id = t.id JOIN library_items b ON b.id = tg.entity_id WHERE tg.entity_type = 'library_item' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY t.display_name COLLATE NOCASE`,
-    series: (inLibs) => `SELECT DISTINCT s.name AS v FROM series s JOIN series_items si ON si.series_id = s.id JOIN library_items b ON b.id = si.item_id WHERE b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY s.name COLLATE NOCASE`,
-    languages: (inLibs) => `SELECT DISTINCT m.language AS v FROM item_metadata m JOIN library_items b ON b.id = m.item_id WHERE m.language IS NOT NULL AND m.language <> '' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) ORDER BY m.language COLLATE NOCASE`
+    authors: (inLibs) => `SELECT DISTINCT p.name AS v FROM people p JOIN item_people ip ON ip.person_id = p.id JOIN library_items b ON b.id = ip.item_id WHERE ip.role = 'author' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) AND ${editionRepresentativeSql("b")} ORDER BY p.name COLLATE NOCASE`,
+    narrators: (inLibs) => `SELECT DISTINCT p.name AS v FROM people p JOIN item_people ip ON ip.person_id = p.id JOIN library_items b ON b.id = ip.item_id WHERE ip.role = 'narrator' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) AND ${editionRepresentativeSql("b")} ORDER BY p.name COLLATE NOCASE`,
+    categories: (inLibs) => `SELECT DISTINCT c.name AS v FROM categories c JOIN item_categories ic ON ic.category_id = c.id JOIN library_items b ON b.id = ic.item_id WHERE b.deleted_at IS NULL AND b.library_id IN (${inLibs}) AND ${editionRepresentativeSql("b")} ORDER BY c.name COLLATE NOCASE`,
+    tags: (inLibs) => `SELECT DISTINCT t.display_name AS v FROM tags t JOIN taggables tg ON tg.tag_id = t.id JOIN library_items b ON b.id = tg.entity_id WHERE tg.entity_type = 'library_item' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) AND ${editionRepresentativeSql("b")} ORDER BY t.display_name COLLATE NOCASE`,
+    series: (inLibs) => `SELECT DISTINCT s.name AS v FROM series s JOIN series_items si ON si.series_id = s.id JOIN library_items b ON b.id = si.item_id WHERE b.deleted_at IS NULL AND b.library_id IN (${inLibs}) AND ${editionRepresentativeSql("b")} ORDER BY s.name COLLATE NOCASE`,
+    languages: (inLibs) => `SELECT DISTINCT m.language AS v FROM item_metadata m JOIN library_items b ON b.id = m.item_id WHERE m.language IS NOT NULL AND m.language <> '' AND b.deleted_at IS NULL AND b.library_id IN (${inLibs}) AND ${editionRepresentativeSql("b")} ORDER BY m.language COLLATE NOCASE`
   },
   mapRow: (row) => mapBookListRow(row as unknown as Parameters<typeof mapBookListRow>[0])
 };

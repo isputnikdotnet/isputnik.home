@@ -405,3 +405,85 @@
   background: color-mix(in srgb, var(--surface-raised) 84%, transparent);
   color: var(--ink);
 }
+
+/* Editions switcher — shown when a book is one of several grouped editions. */
+.book-detail-editions {
+  margin: 4px 0 8px;
+}
+.book-detail-editions-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.editions-switch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.editions-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+.editions-switch-row.current {
+  border-color: color-mix(in srgb, var(--mint) 55%, var(--line));
+  background: color-mix(in srgb, var(--mint) 8%, transparent);
+}
+.editions-switch-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+.editions-switch-main img {
+  width: 32px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+.editions-switch-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.editions-switch-text strong {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.editions-switch-text small {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+a.editions-switch-main:hover .editions-switch-text strong {
+  color: var(--mint);
+}
+.editions-switch-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.editions-switch-flag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--mint);
+}
+.editions-switch-here {
+  font-size: 0.72rem;
+  color: var(--muted);
+}

@@ -337,6 +337,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.11",
+          label: "Book editions & multi-format ebooks",
+          changes: [
+            "Group different versions of the same book as editions. On the Audiobooks or Ebooks page choose Select, tick the books that belong together, and use \"Group as editions\", naming the one that should lead. The library then shows the group as a single cover — with a small editions badge — instead of several look-alike duplicates, and the book's page gains an Editions switcher to flip between them. Each edition keeps its own details (a different translation, publisher, year, or narrator) and its own reading or listening position.",
+            "An edition group can mix an audiobook and an ebook of the same title, so one book can offer both Listen and Read. From the book's page you can change which edition leads, or remove one from the group — removing the last pair ungroups them.",
+            "Ebooks that come in several file formats — say EPUB, PDF, and FB2 of the same book — are now one book with multiple formats rather than separate entries. New ebook libraries now scan EPUB, PDF, FB2, MOBI, AZW3, TXT and RTF; the scanner groups files that share a name in one folder, the book's page lists every format under Files, and Read opens the best one for in-app reading (EPUB, then PDF) while the rest are there to download. Reader apps over OPDS now get one entry per book offering every format.",
+            "Heads up for ebook libraries you already have: existing ebooks keep working untouched. To merge format-duplicates you already catalogued, rescan the ebook library once — that re-catalogs it fresh, so its reading positions, favourites, and bookmarks reset (your files on disk are never touched). Newly added ebooks group their formats automatically."
+          ]
+        },
+        {
           version: "1.2.10",
           label: "One Authors page for everything",
           changes: [
