@@ -494,7 +494,7 @@ function BookDetailView({
       label: "Narrator",
       value: book.narrators.join(", "),
       icon: Headphones,
-      links: book.narrators.map((name) => ({ text: name, href: `/audiobooks/narrators/${encodeURIComponent(name)}${linkFrom}` }))
+      links: book.narrators.map((name) => ({ text: name, href: `/people/${encodeURIComponent(name)}${linkFrom}` }))
     } : null,
     { label: "Library", value: book.libraryName, icon: Library },
     formatValue ? { label: "Format", value: formatValue, icon: FileIcon } : null,
@@ -638,7 +638,7 @@ function BookDetailView({
           {book.authors.length > 0 && (
             <p className="book-detail-author">
               {book.authors.map((name, i) => {
-                const href = `${mediaBase}/authors/${encodeURIComponent(name)}${linkFrom}`;
+                const href = `/people/${encodeURIComponent(name)}${linkFrom}`;
                 return (
                   <Fragment key={name}>
                     {i > 0 && ", "}

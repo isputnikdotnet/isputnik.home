@@ -112,6 +112,38 @@ export function listPersonItems(name: string, userId: string, userRole: string):
   }));
 }
 
+export type AuthorSummary = { name: string; audiobookCount: number; ebookCount: number };
+
+// Every person credited as an author, across all accessible libraries, with how
+// many audiobooks vs ebooks they have — drives the unified Authors list and its
+// All / Audiobooks / Ebooks filter. Same global-people + access-filter shape as
+// listPersonItems; narrators are intentionally excluded (audiobook-only role).
+export function listAuthors(userId: string, userRole: string): AuthorSummary[] {
+  const libraryIds = [...accessibleLibraryIds(userId, userRole)];
+  if (libraryIds.length === 0) return [];
+
+  const placeholders = libraryIds.map(() => "?").join(", ");
+  const rows = db.prepare(`
+    SELECT
+      p.name AS name,
+      SUM(CASE WHEN li.type = 'audiobook' THEN 1 ELSE 0 END) AS audiobook_count,
+      SUM(CASE WHEN li.type = 'ebook' THEN 1 ELSE 0 END) AS ebook_count
+    FROM people p
+    JOIN item_people ip   ON ip.person_id = p.id AND ip.role = 'author'
+    JOIN library_items li ON li.id = ip.item_id
+    WHERE li.deleted_at IS NULL
+      AND li.library_id IN (${placeholders})
+    GROUP BY p.id
+    ORDER BY p.sort_name COLLATE NOCASE, p.name COLLATE NOCASE
+  `).all(...libraryIds) as { name: string; audiobook_count: number; ebook_count: number }[];
+
+  return rows.map((row) => ({
+    name: row.name,
+    audiobookCount: row.audiobook_count,
+    ebookCount: row.ebook_count
+  }));
+}
+
 export async function audiobookPeoplePlugin(app: FastifyInstance) {
   app.get("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
@@ -166,6 +198,11 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   app.get("/api/library/people/names", { preHandler: app.authenticate }, async (_request, reply) => {
     const rows = db.prepare("SELECT name FROM people ORDER BY name COLLATE NOCASE").all() as { name: string }[];
     reply.send({ names: rows.map((row) => row.name) });
+  });
+
+  // The unified Authors browse: every author across types, with per-type counts.
+  app.get("/api/library/people/authors", { preHandler: app.authenticate }, async (request, reply) => {
+    reply.send({ authors: listAuthors(request.user!.id, request.user!.role) });
   });
 
   app.patch("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {

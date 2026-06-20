@@ -733,7 +733,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                         aria-label="Browse"
                         style={{ position: "fixed", top: browsePos.top, left: browsePos.left ?? undefined, right: browsePos.right ?? undefined }}
                       >
-                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/ebooks/authors"); }}>
+                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/authors"); }}>
                           <UserRound size={16} aria-hidden="true" />
                           <span>Authors</span>
                         </button>
@@ -748,8 +748,8 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                 ) : (
                   <nav className="audiobook-page-tabs" aria-label="Ebook views">
                     <a
-                      href="/ebooks/authors"
-                      onClick={(event) => { event.preventDefault(); navigate("/ebooks/authors"); }}
+                      href="/authors"
+                      onClick={(event) => { event.preventDefault(); navigate("/authors"); }}
                     >
                       <UserRound size={19} aria-hidden="true" />
                       <span>Authors</span>
