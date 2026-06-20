@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
-import { listPersonItems } from "../src/modules/library/audiobook/people.js";
+import { listAuthors, listPersonItems } from "../src/modules/library/audiobook/people.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 function addItem(id: string, libraryId: string, type: string, folder: string, title: string): void {
@@ -67,5 +67,23 @@ describe("listPersonItems (unified cross-type person page)", () => {
   it("returns nothing when the user can access no libraries", () => {
     makeUser("u2"); // no grants at all
     expect(listPersonItems("Shared Author", "u2", "member")).toEqual([]);
+  });
+});
+
+describe("listAuthors (unified Authors list with per-type counts)", () => {
+  it("counts an author's titles per media type, excluding inaccessible libraries", () => {
+    const shared = listAuthors("u1", "member").find((a) => a.name === "Shared Author");
+    expect(shared).toBeDefined();
+    expect(shared!.audiobookCount).toBe(1); // ab only — "hidden" in AB2 is excluded
+    expect(shared!.ebookCount).toBe(1);     // eb
+  });
+
+  it("excludes people who are only ever narrators", () => {
+    expect(listAuthors("u1", "member").some((a) => a.name === "Some Narrator")).toBe(false);
+  });
+
+  it("is empty when the user can access no libraries", () => {
+    makeUser("u2");
+    expect(listAuthors("u2", "member")).toEqual([]);
   });
 });

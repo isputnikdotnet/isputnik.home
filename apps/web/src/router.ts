@@ -15,14 +15,13 @@ export type Route =
   | { name: "audiobookPlayer"; id: string }
   | { name: "ebooks" }
   | { name: "ebookBook"; id: string }
-  | { name: "ebookAuthors" }
   | { name: "ebookAuthorDetail"; personName: string }
   | { name: "ebookSeries" }
   | { name: "ebookSeriesDetail"; seriesId: string }
   | { name: "collections" }
   | { name: "collectionDetail"; id: string }
+  | { name: "authors" }
   | { name: "personDetail"; personName: string }
-  | { name: "audiobookAuthors" }
   | { name: "audiobookAuthorDetail"; personName: string }
   | { name: "audiobookNarrators" }
   | { name: "audiobookNarratorDetail"; personName: string }
@@ -91,6 +90,11 @@ export function getRoute(): Route {
     return { name: "collectionDetail", id: collectionDetailMatch[1] };
   }
 
+  // Single, cross-type Authors browse (audiobooks + ebooks, with a type filter).
+  if (path === "/authors") {
+    return { name: "authors" };
+  }
+
   // Canonical, cross-type person page: one author/narrator across audiobooks +
   // ebooks. The per-type /audiobooks|ebooks/(authors|narrators)/:name paths
   // below still resolve and render the same page (kept for existing links).
@@ -104,8 +108,9 @@ export function getRoute(): Route {
     return { name: "ebookBook", id: ebookBookMatch[1] };
   }
 
+  // Old per-type author lists now alias the single unified /authors page.
   if (path === "/ebooks/authors") {
-    return { name: "ebookAuthors" };
+    return { name: "authors" };
   }
 
   const ebookAuthorDetailMatch = path.match(/^\/ebooks\/authors\/(.+)$/);
@@ -151,7 +156,7 @@ export function getRoute(): Route {
   }
 
   if (path === "/audiobooks/authors") {
-    return { name: "audiobookAuthors" };
+    return { name: "authors" };
   }
 
   const audiobookAuthorDetailMatch = path.match(/^\/audiobooks\/authors\/(.+)$/);

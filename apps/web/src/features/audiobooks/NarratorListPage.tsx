@@ -8,18 +8,15 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { AudiobookBook, AudiobookLibrary } from "./types";
 
-export function PersonListPage({
-  role,
+// Narrators are an audiobook-only credit, so this list stays per-section (unlike
+// Authors, which are unified across types in AuthorListPage). Each narrator
+// still opens the cross-type person page at /people/:name.
+export function NarratorListPage({
   user,
-  logout,
-  kind = "audiobook"
+  logout
 }: {
-  role: "author" | "narrator";
   user: PublicUser;
   logout: () => Promise<void>;
-  // Which media library the people are browsed from. Audiobooks support authors
-  // and narrators; ebooks only credit authors.
-  kind?: "audiobook" | "ebook";
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
   const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
@@ -33,17 +30,13 @@ export function PersonListPage({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  const mediaBase = kind === "ebook" ? "/ebooks" : "/audiobooks";
-  const mediaLabel = kind === "ebook" ? "ebooks" : "audiobooks";
-  const dashActive = kind === "ebook" ? "ebooks" : "audiobooks";
-
   const loadBooks = useCallback(async (libraryId: string) => {
-    const payload = await api<{ books: AudiobookBook[] }>(`/api/library/${kind}-libraries/${libraryId}/books`);
+    const payload = await api<{ books: AudiobookBook[] }>(`/api/library/audiobook-libraries/${libraryId}/books`);
     setBooksByLibrary((current) => ({ ...current, [libraryId]: payload.books }));
-  }, [kind]);
+  }, []);
 
   useEffect(() => {
-    api<{ libraries: AudiobookLibrary[] }>(`/api/library/${kind}-libraries`)
+    api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
       .then(async (payload) => {
         setLibraries(payload.libraries);
         await Promise.all(payload.libraries.map((lib) => loadBooks(lib.id)));
@@ -52,27 +45,22 @@ export function PersonListPage({
     api<{ photos: Record<string, string> }>("/api/library/people/photos")
       .then((payload) => setPhotos(payload.photos))
       .catch(() => {}); // avatars are decoration — the list works without them
-  }, [kind, loadBooks]);
+  }, [loadBooks]);
 
   const allBooks = libraries.flatMap((lib) => booksByLibrary[lib.id] ?? []);
-  const getNames = (book: AudiobookBook) => (role === "author" ? book.authors : book.narrators);
-
-  const persons = [...new Set(allBooks.flatMap(getNames))]
-    .map((name) => ({ name, bookCount: allBooks.filter((b) => getNames(b).includes(name)).length }))
+  const persons = [...new Set(allBooks.flatMap((book) => book.narrators))]
+    .map((name) => ({ name, bookCount: allBooks.filter((b) => b.narrators.includes(name)).length }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const term = search.trim().toLowerCase();
   const filtered = term ? persons.filter((person) => person.name.toLowerCase().includes(term)) : persons;
 
-  const title = role === "author" ? "Authors" : "Narrators";
-  const roleNoun = role === "author" ? "author" : "narrator";
   // Everyone lands on the canonical, cross-type person page; `from` lets its
-  // Back button return to this specific list.
+  // Back button return to this list.
   const personHref = (name: string) =>
     `/people/${encodeURIComponent(name)}?from=${encodeURIComponent(window.location.pathname)}`;
   const writableLibraries = libraries.filter((lib) => lib.canWrite);
-  // Manual person creation is currently an audiobook-only server capability.
-  const canCreatePeople = kind === "audiobook" && writableLibraries.length > 0;
+  const canCreate = writableLibraries.length > 0;
 
   const openCreate = () => {
     setNewName("");
@@ -82,7 +70,7 @@ export function PersonListPage({
     setCreateOpen(true);
   };
 
-  const createPerson = async () => {
+  const createNarrator = async () => {
     const name = newName.trim();
     if (!name || !newLibraryId) return;
     setCreating(true);
@@ -94,22 +82,22 @@ export function PersonListPage({
       });
       navigate(`/people/${encodeURIComponent(name)}`);
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : `Unable to create ${roleNoun}`);
+      setCreateError(err instanceof Error ? err.message : "Unable to create narrator");
       setCreating(false);
     }
   };
 
   return (
-    <DashboardShell active={dashActive} user={user} logout={logout}>
+    <DashboardShell active="audiobooks" user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(mediaBase)}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
           <ArrowLeft size={18} aria-hidden="true" />
-          <span>Back to {mediaLabel}</span>
+          <span>Back to audiobooks</span>
         </button>
 
         <div className="audiobook-page-title">
-          <h1>{title}</h1>
-          <p>{filtered.length} {filtered.length === 1 ? title.slice(0, -1).toLowerCase() : title.toLowerCase()}</p>
+          <h1>Narrators</h1>
+          <p>{filtered.length} {filtered.length === 1 ? "narrator" : "narrators"}</p>
         </div>
 
         {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
@@ -122,14 +110,14 @@ export function PersonListPage({
                 type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder={`Search ${title.toLowerCase()}`}
-                aria-label={`Search ${title.toLowerCase()}`}
+                placeholder="Search narrators"
+                aria-label="Search narrators"
               />
             </label>
-            {canCreatePeople && (
+            {canCreate && (
               <Button variant="primary" onClick={openCreate}>
                 <UserPlus size={16} />
-                <span>New {roleNoun}</span>
+                <span>New narrator</span>
               </Button>
             )}
           </div>
@@ -138,13 +126,13 @@ export function PersonListPage({
         {libraries.length === 0 ? (
           <div className="empty-state library-empty">
             <UserRound size={58} aria-hidden="true" />
-            <h2>No {kind === "ebook" ? "ebook" : "audiobook"} libraries yet</h2>
+            <h2>No audiobook libraries yet</h2>
             <p className="muted">An administrator can add libraries from the control panel.</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state library-empty">
             <UserRound size={48} aria-hidden="true" />
-            <h2>No {title.toLowerCase()} match</h2>
+            <h2>No narrators match</h2>
           </div>
         ) : (
           <div className="person-grid">
@@ -172,11 +160,11 @@ export function PersonListPage({
       </section>
 
       {createOpen && (
-        <Modal title={`New ${roleNoun}`} busy={creating} onClose={() => setCreateOpen(false)}>
+        <Modal title="New narrator" busy={creating} onClose={() => setCreateOpen(false)}>
           <p className="muted">
-            Create a {roleNoun} ahead of time. They become available when editing a book and appear on this page once a book credits them.
+            Create a narrator ahead of time. They become available when editing a book and appear on this page once a book credits them.
           </p>
-          {createError && <MessageBox tone="error" title={`Unable to create ${roleNoun}`}>{createError}</MessageBox>}
+          {createError && <MessageBox tone="error" title="Unable to create narrator">{createError}</MessageBox>}
           <label className="field">
             <span>Name</span>
             <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Full name" autoFocus />
@@ -204,9 +192,9 @@ export function PersonListPage({
           </label>
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
-            <Button variant="primary" onClick={createPerson} disabled={creating || !newName.trim() || !newLibraryId}>
+            <Button variant="primary" onClick={createNarrator} disabled={creating || !newName.trim() || !newLibraryId}>
               <UserPlus size={15} />
-              <span>{creating ? "Creating…" : `Create ${roleNoun}`}</span>
+              <span>{creating ? "Creating…" : "Create narrator"}</span>
             </Button>
           </div>
         </Modal>

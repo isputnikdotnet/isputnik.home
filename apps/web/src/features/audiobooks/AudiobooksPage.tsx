@@ -38,7 +38,7 @@ export function AudiobookTabs({
 }) {
   const tabs = [
     { id: "books", label: "All Libraries", href: "/audiobooks", icon: BookOpen },
-    { id: "authors", label: "Authors", href: "/audiobooks/authors", icon: UserRound },
+    { id: "authors", label: "Authors", href: "/authors", icon: UserRound },
     { id: "narrators", label: "Narrators", href: "/audiobooks/narrators", icon: Mic2 },
     { id: "series", label: "Series", href: "/audiobooks/series", icon: Library }
   ] as const;
@@ -1281,7 +1281,7 @@ export function AudiobooksPage({
                         aria-label="Browse"
                         style={{ position: "fixed", top: browsePos.top, left: browsePos.left ?? undefined, right: browsePos.right ?? undefined }}
                       >
-                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/authors"); }}>
+                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/authors"); }}>
                           <UserRound size={16} aria-hidden="true" />
                           <span>Authors</span>
                         </button>

@@ -28,7 +28,7 @@ import { followRoute } from "../router";
 
 const APP_VERSION = packageInfo.version;
 
-type DashboardActive = "home" | "audiobooks" | "ebooks" | "categories" | "tags" | "about" | "profile" | "control";
+type DashboardActive = "home" | "audiobooks" | "ebooks" | "authors" | "categories" | "tags" | "about" | "profile" | "control";
 
 interface MainNavLink {
   label: string;
@@ -92,6 +92,7 @@ function userMenuLinks(): UserMenuLink[] {
     { label: "Favorites", href: "/favorites", icon: Heart },
     { label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
     { label: "Collections", href: "/collections", icon: ListMusic },
+    { label: "Authors", href: "/authors", icon: UserRound },
     { label: "Categories", href: "/categories", icon: Shapes },
     { label: "Tags", href: "/tags", icon: Tag },
     // Offline downloads only exist in the installed app, so only surface the

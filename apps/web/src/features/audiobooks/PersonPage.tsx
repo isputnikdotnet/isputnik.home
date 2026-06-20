@@ -123,7 +123,7 @@ export function PersonPage({
   return (
     <DashboardShell active={dashActive} user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/audiobooks/authors")}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/authors")}>
           <ArrowLeft size={17} aria-hidden="true" />
           <span>{backTo ? "Back" : "Back to authors"}</span>
         </button>
