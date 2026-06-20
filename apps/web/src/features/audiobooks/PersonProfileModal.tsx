@@ -36,7 +36,9 @@ export function PersonProfileModal({
   onClose
 }: {
   personName: string;
-  role: "author" | "narrator";
+  // A person can be credited in several roles across types, so the profile
+  // (name/bio/photo) is role-agnostic; the prop only tweaks the panel title.
+  role?: "author" | "narrator";
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("profile");
@@ -93,8 +95,7 @@ export function PersonProfileModal({
       });
       onClose();
       if (newName !== personName) {
-        const listBase = role === "author" ? "/audiobooks/authors" : "/audiobooks/narrators";
-        navigate(`${listBase}/${encodeURIComponent(newName)}`);
+        navigate(`/people/${encodeURIComponent(newName)}`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
@@ -247,7 +248,7 @@ export function PersonProfileModal({
     }
   };
 
-  const roleLabel = role === "author" ? "Author" : "Narrator";
+  const roleLabel = role === "author" ? "Author" : role === "narrator" ? "Narrator" : "Profile";
   const currentPhotoUrl = uploadPreview ?? profile?.photoUrl ?? null;
 
   return (

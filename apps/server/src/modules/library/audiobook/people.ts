@@ -7,7 +7,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
-import { canUserWriteLibrary, getAccessibleLibrary } from "../shared/library-access.js";
+import { accessibleLibraryIds, canUserWriteLibrary, getAccessibleLibrary } from "../shared/library-access.js";
 import { enrichPerson, lookupPersonByUrl, lookupPersonInfo, lookupPersonPhotoCandidates, removeStoredPhotos, writePersonPhoto } from "./enrich.js";
 import { MetadataLinkError } from "./providers/types.js";
 import { sortTitle } from "./scanner.js";
@@ -54,6 +54,64 @@ function personLookupLanguages(name: string) {
     .filter((lang): lang is string => Boolean(lang));
 }
 
+export type PersonItem = {
+  id: string;
+  type: string;
+  role: string;
+  title: string;
+  authors: string[];
+  coverUrl: string | null;
+};
+
+// Every item a person is credited on, across ALL media types and every library
+// the caller can access — the data behind the unified person page. People are
+// global (one row per name, see schema.sql), so a single name can span
+// audiobooks and ebooks; `role` says how they're credited on each item. The
+// library_id filter is the entire permission story: an item in a library the
+// user can't see simply never joins.
+export function listPersonItems(name: string, userId: string, userRole: string): PersonItem[] {
+  const libraryIds = [...accessibleLibraryIds(userId, userRole)];
+  if (libraryIds.length === 0) return [];
+
+  const placeholders = libraryIds.map(() => "?").join(", ");
+  const rows = db.prepare(`
+    SELECT
+      li.id                AS id,
+      li.type              AS type,
+      li.folder_path       AS folder_path,
+      im.title             AS title,
+      im.cover_storage_key AS cover_storage_key,
+      ip.role              AS role,
+      GROUP_CONCAT(DISTINCT authors.name) AS author_names
+    FROM item_people ip
+    JOIN people p              ON p.id = ip.person_id
+    JOIN library_items li      ON li.id = ip.item_id
+    LEFT JOIN item_metadata im ON im.item_id = li.id
+    LEFT JOIN item_people author_credits ON author_credits.item_id = li.id AND author_credits.role = 'author'
+    LEFT JOIN people authors   ON authors.id = author_credits.person_id
+    WHERE p.name = ? COLLATE NOCASE
+      AND li.deleted_at IS NULL
+      AND li.library_id IN (${placeholders})
+    GROUP BY li.id, ip.role
+    ORDER BY
+      CASE ip.role WHEN 'author' THEN 0 WHEN 'narrator' THEN 1 ELSE 2 END,
+      ip.role,
+      COALESCE(im.sort_title, im.title, li.folder_path) COLLATE NOCASE
+  `).all(name, ...libraryIds) as {
+    id: string; type: string; folder_path: string; title: string | null;
+    cover_storage_key: string | null; role: string; author_names: string | null;
+  }[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    type: row.type,
+    role: row.role,
+    title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
+    authors: row.author_names ? row.author_names.split(",").map((n) => n.trim()).filter(Boolean) : [],
+    coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null
+  }));
+}
+
 export async function audiobookPeoplePlugin(app: FastifyInstance) {
   app.get("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
@@ -90,6 +148,24 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       photos[row.name] ??= `/api/library/covers/${row.cover_storage_key}`;
     }
     reply.send({ photos });
+  });
+
+  // The unified person page's data: everything this person made, across types
+  // and every accessible library. See listPersonItems above.
+  app.get("/api/library/people/by-name/items", { preHandler: app.authenticate }, async (request, reply) => {
+    const name = String((request.query as { name?: string }).name ?? "").trim();
+    if (!name) {
+      reply.code(400).send({ error: "Name is required" });
+      return;
+    }
+    reply.send({ items: listPersonItems(name, request.user!.id, request.user!.role) });
+  });
+
+  // Flat list of every person name (global) — feeds the merge picker on the
+  // person page, which no longer derives candidates from a bulk book load.
+  app.get("/api/library/people/names", { preHandler: app.authenticate }, async (_request, reply) => {
+    const rows = db.prepare("SELECT name FROM people ORDER BY name COLLATE NOCASE").all() as { name: string }[];
+    reply.send({ names: rows.map((row) => row.name) });
   });
 
   app.patch("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {

@@ -66,7 +66,10 @@ export function PersonListPage({
 
   const title = role === "author" ? "Authors" : "Narrators";
   const roleNoun = role === "author" ? "author" : "narrator";
-  const detailBase = `${mediaBase}/${role === "author" ? "authors" : "narrators"}`;
+  // Everyone lands on the canonical, cross-type person page; `from` lets its
+  // Back button return to this specific list.
+  const personHref = (name: string) =>
+    `/people/${encodeURIComponent(name)}?from=${encodeURIComponent(window.location.pathname)}`;
   const writableLibraries = libraries.filter((lib) => lib.canWrite);
   // Manual person creation is currently an audiobook-only server capability.
   const canCreatePeople = kind === "audiobook" && writableLibraries.length > 0;
@@ -89,7 +92,7 @@ export function PersonListPage({
         method: "POST",
         body: JSON.stringify({ name, libraryId: newLibraryId, bio: newBio.trim() || null })
       });
-      navigate(`${detailBase}/${encodeURIComponent(name)}`);
+      navigate(`/people/${encodeURIComponent(name)}`);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : `Unable to create ${roleNoun}`);
       setCreating(false);
@@ -149,7 +152,7 @@ export function PersonListPage({
               <button
                 key={person.name}
                 className="person-card"
-                onClick={() => navigate(`${detailBase}/${encodeURIComponent(person.name)}`)}
+                onClick={() => navigate(personHref(person.name))}
               >
                 <div className="person-avatar" aria-hidden="true">
                   {photos[person.name] ? (
