@@ -337,6 +337,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.9",
+          label: "Unified author pages",
+          changes: [
+            "Authors and narrators now have one combined page that brings together everything they made across your library — their audiobooks and ebooks side by side, grouped by role (author, narrator). Before, the same person showed up as separate entries under audiobooks and ebooks.",
+            "You can still browse Authors and Narrators from each section as before; every link now opens this unified person page, and your existing author links and bookmarks keep working."
+          ]
+        },
+        {
           version: "1.2.8",
           label: "Smarter audiobook folder scanning",
           changes: [
