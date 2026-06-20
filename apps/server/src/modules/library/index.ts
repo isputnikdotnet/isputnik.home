@@ -10,6 +10,7 @@ import { startTrashPurgeWorker } from "./shared/trash.js";
 import { registerFeedRoutes } from "./feed.js";
 import { registerCategoryRoutes } from "./categories.js";
 import { registerTagRoutes } from "./tags.js";
+import { registerWorkRoutes } from "./works.js";
 import { registerBookmarkRoutes } from "./bookmarks.js";
 import { librarySharesPlugin } from "./shared/shares.js";
 
@@ -30,6 +31,9 @@ export async function libraryPlugin(app: FastifyInstance) {
 
   // …the global Tags browse (polymorphic taggables, cross-type)…
   registerTagRoutes(app);
+
+  // …grouping items into works (editions of the same title, cross-type)…
+  registerWorkRoutes(app);
 
   // …the cross-type "all my bookmarks" listing (audiobook position + epub reader)…
   registerBookmarkRoutes(app);

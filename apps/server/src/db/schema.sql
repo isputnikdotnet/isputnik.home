@@ -225,6 +225,32 @@ CREATE TABLE IF NOT EXISTS series_items (
   PRIMARY KEY (series_id, item_id)
 );
 
+-- A "work" groups library_items that are the SAME book in different editions:
+-- two ebook printings/translations, two narrator recordings, or the audiobook +
+-- ebook of one title. Works are GLOBAL (cross-library, cross-type) like people.
+-- The work holds no descriptive metadata of its own — every display resolves
+-- through a member edition, leaving room to add a canonical title/cover here
+-- later. A work is meaningful only with >= 2 members; app code deletes an emptied one.
+CREATE TABLE IF NOT EXISTS works (
+  id         TEXT PRIMARY KEY,
+  created_by TEXT REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- Edition membership. An item belongs to at most one work (item_id is UNIQUE).
+-- `is_primary` is a per-(work, media-type) PREFERENCE, not a load-bearing pointer:
+-- the catalog DERIVES each work's browse representative as the preferred-then-
+-- lowest-id surviving edition of a type, so deleting/unlinking a primary can never
+-- strand its siblings. Both ids carry real FKs (not polymorphic, unlike taggables/
+-- collection_items) — a deleted item or work cascades its membership away.
+CREATE TABLE IF NOT EXISTS work_items (
+  work_id    TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+  item_id    TEXT NOT NULL UNIQUE REFERENCES library_items(id) ON DELETE CASCADE,
+  is_primary INTEGER NOT NULL DEFAULT 0 CHECK (is_primary IN (0, 1)),
+  added_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (work_id, item_id)
+);
+
 -- Fixed navigation taxonomy. `parent_id` allows an optional hierarchy.
 CREATE TABLE IF NOT EXISTS categories (
   id                TEXT PRIMARY KEY,

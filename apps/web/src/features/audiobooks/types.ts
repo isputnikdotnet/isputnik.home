@@ -133,6 +133,8 @@ export interface AudiobookBook {
   language: string | null;
   fileCount: number;
   totalSize: number;
+  // Number of editions in this book's work (>1 = grouped); 0/1 = standalone.
+  editionCount: number;
   durationSeconds: number | null;
   coverUrl: string | null;
   coverLargeUrl: string | null;
@@ -186,8 +188,34 @@ export interface AudiobookBookDetail extends AudiobookBook {
   isbn: string | null;
   openLibraryId: string | null;
   metadataSource: "scan" | "manual";
+  // The work this book belongs to, when it's grouped as one of several editions.
+  workId: string | null;
   files: AudiobookFile[];
   documents: BookDocument[];
+}
+
+// One edition of a work, as returned by GET /api/library/works/:id. Powers the
+// detail-page editions switcher.
+export interface WorkEdition {
+  id: string;
+  libraryId: string;
+  type: string;
+  isPrimary: boolean;
+  title: string | null;
+  authors: string[];
+  narrators: string[];
+  yearPublished: number | null;
+  publisher: string | null;
+  format: string | null;
+  documentCount: number;
+  durationSeconds: number | null;
+  coverUrl: string | null;
+  progress: { percentComplete: number | null; completedAt: string | null };
+}
+
+export interface WorkEditions {
+  id: string;
+  editions: WorkEdition[];
 }
 
 export interface PlaybackProgress {

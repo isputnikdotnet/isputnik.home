@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, Trash2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Layers, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
@@ -18,7 +18,7 @@ import { useEbookDownload } from "../../offline/useEbookDownload";
 import { isStandalone } from "../../pwa/platform";
 import { formatBytes, formatDuration } from "../../shared/utils";
 import { ProgressRing } from "../../shared/ProgressRing";
-import type { AudiobookBookDetail, AudiobookFile, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress, TrackProgress } from "./types";
+import type { AudiobookBookDetail, AudiobookFile, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress, TrackProgress, WorkEdition, WorkEditions } from "./types";
 
 // Button gating is cosmetic — the server enforces every operation — so when we
 // can't determine capabilities we fail OPEN (show the full menu) rather than hide
@@ -50,6 +50,8 @@ export function AudiobookBookPage({
   const [book, setBook] = useState<AudiobookBookDetail | null>(null);
   const [capabilities, setCapabilities] = useState<BookCapabilities>(FULL_CAPABILITIES);
   const [error, setError] = useState("");
+  // Bump to re-fetch the detail (e.g. after this book leaves an edition group).
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,7 +78,7 @@ export function AudiobookBookPage({
     };
     void load();
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, reloadKey]);
 
   return (
     <DashboardShell active={active} user={user} logout={logout}>
@@ -91,6 +93,7 @@ export function AudiobookBookPage({
               onBack={() => navigate(backTo)}
               backLabel={active === "ebooks" ? "Back to ebooks" : "Back to audiobooks"}
               onBookUpdated={setBook}
+              onReload={() => setReloadKey((n) => n + 1)}
             />
           ) : !error ? (
             <p className="management-empty">Loading…</p>
@@ -120,13 +123,153 @@ function parseEpisodeTitle(raw: string): { title: string; author: string | null;
   return { number: null, author: null, title: raw };
 }
 
+// Editions switcher: when this book is one of several grouped editions of a work,
+// list them all, mark the one being viewed, and (for curators) let you set the
+// primary or remove an edition. Hidden while loading or once a group dissolves to
+// a single book.
+function EditionsSwitcher({
+  workId,
+  currentId,
+  canCurate,
+  linkFrom,
+  onLeftGroup
+}: {
+  workId: string;
+  currentId: string;
+  canCurate: boolean;
+  linkFrom: string;
+  onLeftGroup: () => void;
+}) {
+  const [editions, setEditions] = useState<WorkEdition[] | null>(null);
+  const [busyId, setBusyId] = useState("");
+  const [error, setError] = useState("");
+  const [confirmRemove, setConfirmRemove] = useState<WorkEdition | null>(null);
+
+  const load = useCallback(() => {
+    api<{ work: WorkEditions }>(`/api/library/works/${workId}`)
+      .then((payload) => setEditions(payload.work.editions))
+      .catch(() => setEditions([]));
+  }, [workId]);
+  useEffect(() => { load(); }, [load]);
+
+  if (!editions || editions.length < 2) return null;
+
+  const routeFor = (edition: WorkEdition) =>
+    `${edition.type === "ebook" ? "/ebooks" : "/audiobooks"}/books/${edition.id}${linkFrom}`;
+
+  const makePrimary = async (edition: WorkEdition) => {
+    setBusyId(edition.id);
+    setError("");
+    try {
+      await api(`/api/library/works/${workId}`, { method: "PATCH", body: JSON.stringify({ primaryItemId: edition.id }) });
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to set the primary edition");
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const removeEdition = async (edition: WorkEdition) => {
+    setBusyId(edition.id);
+    setError("");
+    try {
+      const result = await api<{ dissolved: boolean }>(
+        `/api/library/works/${workId}/items/${edition.id}`,
+        { method: "DELETE" }
+      );
+      setConfirmRemove(null);
+      // If THIS book left the group, or the group dissolved, the page's workId is
+      // stale — reload the detail. Otherwise just refresh the edition list.
+      if (result.dissolved || edition.id === currentId) onLeftGroup();
+      else load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to remove the edition");
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  return (
+    <section className="book-detail-editions" aria-label="Editions">
+      <h2 className="book-detail-editions-title">
+        <Layers size={16} aria-hidden="true" /> Editions <span className="muted">({editions.length})</span>
+      </h2>
+      <div className="editions-switch-list">
+        {editions.map((edition) => {
+          const current = edition.id === currentId;
+          const pct = edition.progress.completedAt ? 100 : Math.round(Math.max(0, Math.min(1, edition.progress.percentComplete ?? 0)) * 100);
+          const status = edition.progress.completedAt ? "Finished" : pct > 0 ? `${pct}%` : "Not started";
+          const medium = edition.type === "ebook" ? (edition.format ? edition.format.toUpperCase() : "Ebook") : "Audiobook";
+          const meta = [medium, edition.publisher, edition.yearPublished ? String(edition.yearPublished) : null].filter(Boolean).join(" · ");
+          const cover = edition.coverUrl ?? (edition.type === "ebook" ? DEFAULT_COVERS.ebook : DEFAULT_COVERS.audiobook);
+          const inner = (
+            <>
+              <img src={cover} alt="" />
+              <span className="editions-switch-text">
+                <strong>{edition.title ?? "Untitled"}</strong>
+                <small>{meta} · {status}</small>
+              </span>
+            </>
+          );
+          return (
+            <div className={`editions-switch-row${current ? " current" : ""}`} key={edition.id}>
+              {current ? (
+                <div className="editions-switch-main" aria-current="true">{inner}</div>
+              ) : (
+                <a className="editions-switch-main" href={routeFor(edition)} onClick={(event) => followRoute(event, routeFor(edition))}>{inner}</a>
+              )}
+              <div className="editions-switch-side">
+                {edition.isPrimary && <span className="editions-switch-flag">Primary</span>}
+                {current && <span className="editions-switch-here">Viewing</span>}
+                {canCurate && !edition.isPrimary && (
+                  <button type="button" className="secondary-button compact-button" disabled={busyId !== ""} onClick={() => void makePrimary(edition)}>
+                    Make primary
+                  </button>
+                )}
+                {canCurate && (
+                  <button
+                    type="button"
+                    className="icon-button"
+                    disabled={busyId !== ""}
+                    onClick={() => setConfirmRemove(edition)}
+                    aria-label={`Remove ${edition.title ?? "edition"} from the group`}
+                    title="Remove from group"
+                  >
+                    <X size={15} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {error && <MessageBox tone="error" title="Editions error">{error}</MessageBox>}
+      {confirmRemove && (
+        <ConfirmDialog
+          title={`Remove "${confirmRemove.title ?? "this edition"}" from the group?`}
+          confirmLabel="Remove from group"
+          danger
+          busy={busyId === confirmRemove.id}
+          onConfirm={() => void removeEdition(confirmRemove)}
+          onCancel={() => { if (busyId === "") setConfirmRemove(null); }}
+        >
+          The book stays in your library — it just stops being grouped as an edition of this title.
+          {editions.length === 2 ? " As only two editions remain, this ungroups them entirely." : ""}
+        </ConfirmDialog>
+      )}
+    </section>
+  );
+}
+
 function BookDetailView({
   book,
   capabilities,
   userId,
   onBack,
   backLabel,
-  onBookUpdated
+  onBookUpdated,
+  onReload
 }: {
   book: AudiobookBookDetail;
   capabilities: BookCapabilities;
@@ -134,6 +277,7 @@ function BookDetailView({
   onBack: () => void;
   backLabel: string;
   onBookUpdated: (book: AudiobookBookDetail) => void;
+  onReload: () => void;
 }) {
   const [progress, setProgress] = useState<PlaybackProgress | null>(null);
   const [trackProgress, setTrackProgress] = useState<Record<string, TrackProgress>>({});
@@ -456,7 +600,7 @@ function BookDetailView({
   const audioFormat = [...new Set(book.files.map((file) => fileFormat(file.relativePath)).filter(Boolean))]
     .slice(0, 2)
     .join(", ");
-  const documentFormat = book.documents[0]?.format.toUpperCase() ?? "";
+  const documentFormat = [...new Set(book.documents.map((doc) => doc.format.toUpperCase()))].join(", ");
   const formatValue = isEbook ? documentFormat : audioFormat || "Audio";
   const progressPercent = isEbook
     ? readingProgress?.completedAt ? 100 : Math.round(Math.max(0, Math.min(1, readingProgress?.percentComplete ?? 0)) * 100)
@@ -894,6 +1038,16 @@ function BookDetailView({
         </div>
       </div>
 
+      {book.workId && (
+        <EditionsSwitcher
+          workId={book.workId}
+          currentId={book.id}
+          canCurate={capabilities.canCurate}
+          linkFrom={linkFrom}
+          onLeftGroup={onReload}
+        />
+      )}
+
       <section className="book-detail-tabs-section">
         <nav className="book-detail-tabs" aria-label="Book detail sections">
           {detailTabs.map((tab) => (
@@ -967,14 +1121,14 @@ function BookDetailView({
             <section className="book-detail-files-tab">
               {book.documents.length > 0 && (
                 <section className="book-documents-section">
-                  <h2 className="book-documents-title">Documents</h2>
+                  <h2 className="book-documents-title">{isEbook ? "Formats" : "Documents"}</h2>
                   <div className="book-document-list">
                     {book.documents.map((doc) => (
                       <div className="book-document-row" key={doc.id}>
                         <FileText size={18} aria-hidden="true" />
                         <div className="book-document-info">
-                          <strong>{doc.fileName}</strong>
-                          <small>{doc.format.toUpperCase()} · {formatBytes(doc.size)}</small>
+                          <strong>{doc.format.toUpperCase()}</strong>
+                          <small>{doc.fileName} · {formatBytes(doc.size)}</small>
                         </div>
                         {VIEWABLE_DOC_FORMATS.has(doc.format) && (
                           <button

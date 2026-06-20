@@ -84,12 +84,39 @@ const STATUS_SQL: Record<string, string> = {
   not_started: "(progress.completed_at IS NULL AND (progress.percent_complete IS NULL OR progress.percent_complete = 0))"
 };
 
+// Editions collapse predicate. An item is its work's representative — and so visible
+// in browse and facets — when it's in no work, or it's the preferred (is_primary)
+// else lowest-id surviving edition of its own media type. Derived (not a stored
+// pointer), so deleting/unlinking a primary never strands its siblings. Parameterized
+// by the library_items alias so it drops into the catalog WHERE (`library_items`) and
+// every facet query (`b`) alike.
+export function editionRepresentativeSql(alias: string): string {
+  return `(
+          NOT EXISTS (SELECT 1 FROM work_items wi WHERE wi.item_id = ${alias}.id)
+          OR ${alias}.id = (
+            SELECT wi2.item_id
+            FROM work_items wself
+            JOIN work_items wi2 ON wi2.work_id = wself.work_id
+            JOIN library_items li2 ON li2.id = wi2.item_id
+            WHERE wself.item_id = ${alias}.id
+              AND li2.type = ${alias}.type
+              AND li2.deleted_at IS NULL
+            ORDER BY wi2.is_primary DESC, wi2.item_id ASC
+            LIMIT 1
+          )
+        )`;
+}
+
 // Builds the WHERE clause + its bound args (after the leading user-id param[s]).
 // Common book filters (authors/categories/tags/languages/status) are handled here;
 // the config adds the free-text search clause and any type-specific extras.
 function buildWhere(libIds: string[], q: string, f: CatalogFilters, config: CatalogConfig): { where: string; args: unknown[] } {
   const clauses: string[] = ["library_items.deleted_at IS NULL", `library_items.library_id IN (${placeholders(libIds.length)})`];
   const args: unknown[] = [...libIds];
+
+  // Editions collapse: a grouped book appears once per media type in browse (via its
+  // work's representative) instead of as N duplicate cards. See editionRepresentativeSql.
+  clauses.push(editionRepresentativeSql("library_items"));
 
   if (q) {
     clauses.push(config.searchSql);

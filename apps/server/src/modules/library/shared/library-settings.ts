@@ -55,7 +55,7 @@ export const LIBRARY_TYPE_DEFAULTS: Partial<Record<LibraryType, { extensions: st
     extensions: ["m4b", "m4a", "mp3", "flac", "ogg", "opus", "aac", "wav", "wave"],
     companions: ["png", "jpg", "jpeg", "webp", "xml", "json", "epub", "pdf"]
   },
-  ebook: { extensions: ["epub", "pdf"], companions: ["png", "jpg", "jpeg", "webp", "xml", "json"] }
+  ebook: { extensions: ["epub", "pdf", "fb2", "mobi", "azw3", "txt", "rtf"], companions: ["png", "jpg", "jpeg", "webp", "xml", "json"] }
 };
 
 export function defaultCompanionExtensions(type: LibraryType): string[] {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookMarked, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Library, ListMusic, Loader2, RotateCcw, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { BookMarked, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, ListMusic, Loader2, RotateCcw, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -17,7 +17,7 @@ import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { EbookReader } from "./reader/EbookReader";
-import { AddToSeriesModal, AudiobookPageHeader, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
+import { AddToSeriesModal, GroupAsEditionsModal, AudiobookPageHeader, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
 import { useMediaCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import {
   EBOOK_SORT_OPTIONS, FilterButton, FilterChips, activeFilterCount,
@@ -25,9 +25,10 @@ import {
 } from "./BookFilter";
 import type { AudiobookBook, AudiobookBookDetail } from "./types";
 
-// The shared book shape plus the primary document's format/id (for the format
-// chip and the direct download link) — what /api/library/ebooks/catalog returns.
-type EbookBook = AudiobookBook & { format?: string | null; documentId?: string | null };
+// The shared book shape plus the primary document's format/id (for the Read button
+// and the direct download link) and the full list of available formats (for the
+// format chips) — what /api/library/ebooks/catalog returns.
+type EbookBook = AudiobookBook & { format?: string | null; documentId?: string | null; formats?: string[] };
 
 type BookStatus = "finished" | "in_progress" | "none";
 function bookStatus(book: EbookBook): BookStatus {
@@ -197,8 +198,11 @@ function EbookCatalogCard({
   const finished = status === "finished";
   const inProgress = status === "in_progress" && percent > 0;
 
+  const formatLabel = book.formats && book.formats.length > 0
+    ? book.formats.map((fmt) => fmt.toUpperCase()).join(" · ")
+    : book.format ? book.format.toUpperCase() : "EBOOK";
   const metaParts = [
-    book.format ? book.format.toUpperCase() : "EBOOK",
+    formatLabel,
     book.totalSize ? formatBytes(book.totalSize) : ""
   ].filter(Boolean);
   const byline = book.authors.length > 0 ? book.authors.join(", ") : "Unknown author";
@@ -218,6 +222,11 @@ function EbookCatalogCard({
         }}
       >
         <img src={book.coverUrl ?? DEFAULT_COVERS.ebook} alt="" />
+        {book.editionCount > 1 && (
+          <span className="audiobook-catalog-editions" title={`${book.editionCount} editions`}>
+            <Layers size={11} aria-hidden="true" />{book.editionCount}
+          </span>
+        )}
         {selectionMode ? (
           <span className="audiobook-catalog-check" aria-hidden="true">
             {selected ? <CheckSquare size={20} /> : <Square size={20} />}
@@ -343,6 +352,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [seriesModalOpen, setSeriesModalOpen] = useState(false);
+  const [editionsModalOpen, setEditionsModalOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
 
@@ -414,7 +424,19 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
     setSelectionMode(false);
     setSelectedIds(new Set());
     setSeriesModalOpen(false);
+    setEditionsModalOpen(false);
     setBulkDeleteOpen(false);
+  };
+
+  // Group the selected ebooks into one work (editions of the same title).
+  const submitGroupEditions = async (primaryItemId: string) => {
+    const result = await api<{ work: { id: string }; count: number }>(
+      "/api/library/works",
+      { method: "POST", body: JSON.stringify({ itemIds: [...selectedIds], primaryItemId }) }
+    );
+    setNotice(`Grouped ${result.count} ${result.count === 1 ? "edition" : "editions"} into one book`);
+    cat.refresh();
+    exitSelection();
   };
 
   const submitAddToSeries = async (target: { seriesId: string } | { newName: string }) => {
@@ -642,7 +664,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                   </button>
                 )
               )}
-              {!isMobile && (canAddToSeries || canDeleteScope) && !selectionMode && (
+              {!isMobile && (canEditScope || canDeleteScope) && !selectionMode && (
                 <button type="button" className="secondary-button" onClick={() => { setSelectionMode(true); setNotice(""); }}>
                   <CheckSquare size={17} aria-hidden="true" />
                   <span>Select</span>
@@ -778,6 +800,17 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                   >
                     Select all loaded
                   </button>
+                  {canEditScope && (
+                    <button
+                      type="button"
+                      className="primary-button compact-button"
+                      onClick={() => setEditionsModalOpen(true)}
+                      disabled={selectedIds.size < 2}
+                      title="Group the selected ebooks as editions of one title"
+                    >
+                      <Layers size={15} aria-hidden="true" /> Group as editions
+                    </button>
+                  )}
                   {canAddToSeries && (
                     <button
                       type="button"
@@ -876,6 +909,15 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
             count={selectedIds.size}
             onClose={() => setSeriesModalOpen(false)}
             onSubmit={submitAddToSeries}
+          />
+        )}
+
+        {editionsModalOpen && (
+          <GroupAsEditionsModal
+            kind="ebook"
+            books={cat.books.filter((book) => selectedIds.has(book.id))}
+            onClose={() => setEditionsModalOpen(false)}
+            onSubmit={submitGroupEditions}
           />
         )}
 

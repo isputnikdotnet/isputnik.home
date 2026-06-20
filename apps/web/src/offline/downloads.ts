@@ -198,6 +198,8 @@ function detailFromDownloadRecord(record: DownloadRecord): AudiobookBookDetail {
     language: null,
     fileCount: record.files.length,
     totalSize: record.totalBytes,
+    editionCount: 0,
+    workId: null,
     durationSeconds,
     coverUrl: record.coverUrl,
     coverLargeUrl: record.coverUrl,

@@ -61,6 +61,8 @@ interface EbookListItem {
   language: string | null;
   format: string | null;
   documentId: string | null;
+  // Every available format of the book — one acquisition link is emitted per entry.
+  documents: { id: string; format: string }[];
   yearPublished: number | null;
   coverUrl: string | null;
   updatedAt: string;
@@ -215,9 +217,10 @@ function renderBookEntry(book: EbookListItem, ctx: LinkCtx): string {
     parts.push(`<link rel="http://opds-spec.org/image/thumbnail" type="${mime}" href="${href}"/>`);
   }
 
-  if (book.documentId) {
-    const acqType = FORMAT_MIME[book.format ?? ""] ?? "application/octet-stream";
-    const href = escapeXml(opdsHref(ctx, `/document/${book.id}/${book.documentId}`));
+  // One acquisition link per available format, so a reader picks the one it supports.
+  for (const doc of book.documents) {
+    const acqType = FORMAT_MIME[doc.format] ?? "application/octet-stream";
+    const href = escapeXml(opdsHref(ctx, `/document/${book.id}/${doc.id}`));
     parts.push(`<link rel="http://opds-spec.org/acquisition" type="${acqType}" href="${href}"/>`);
   }
 

@@ -16,7 +16,7 @@ export function resetDb(): void {
     "playback_progress", "track_progress", "reading_progress",
     "audio_bookmarks", "reading_bookmarks",
     "audiobook_details", "ebook_details", "item_metadata",
-    "taggables", "collection_items", "collections",
+    "taggables", "collection_items", "collections", "work_items", "works",
     "library_items", "people", "series", "libraries", "user_groups", "users"
   ];
   for (const table of tables) {

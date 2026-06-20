@@ -507,7 +507,12 @@ export function getAudiobookBookDetail(id: string) {
         FROM audio_files
         WHERE audio_files.item_id = library_items.id
           AND audio_files.status = 'available'
-      ) AS total_size
+      ) AS total_size,
+      (SELECT work_id FROM work_items WHERE item_id = library_items.id) AS work_id,
+      (SELECT COUNT(*) FROM work_items wsib
+         JOIN work_items wself ON wself.work_id = wsib.work_id
+         JOIN library_items wli ON wli.id = wsib.item_id AND wli.deleted_at IS NULL
+         WHERE wself.item_id = library_items.id) AS edition_count
     FROM library_items
     JOIN libraries ON libraries.id = library_items.library_id
     LEFT JOIN series_items ON series_items.item_id = library_items.id
@@ -536,6 +541,8 @@ export function getAudiobookBookDetail(id: string) {
     category_id: string | null;
     narrator_names: string | null;
     metadata_source: "scan" | "manual";
+    work_id: string | null;
+    edition_count: number;
   }) | undefined;
 
   if (!book) {
@@ -599,6 +606,8 @@ export function getAudiobookBookDetail(id: string) {
     category: categoryPayload(book.category_id),
     tags: bookTags(book.id),
     totalSize: book.total_size ?? 0,
+    editionCount: book.edition_count ?? 0,
+    workId: book.work_id ?? null,
     durationSeconds: book.duration_seconds,
     coverUrl: book.cover_storage_key ? `/api/library/covers/${book.cover_storage_key}` : null,
     coverLargeUrl: largeCoverUrl(book.cover_storage_key),
@@ -661,7 +670,11 @@ export const BOOK_LIST_COLUMNS = `
         progress.completed_at AS progress_completed_at,
         (item_saves.id IS NOT NULL) AS saved,
         (SELECT COUNT(*) FROM audio_files WHERE audio_files.item_id = library_items.id AND audio_files.status = 'available') AS file_count,
-        (SELECT COALESCE(SUM(audio_files.size), 0) FROM audio_files WHERE audio_files.item_id = library_items.id AND audio_files.status = 'available') AS total_size`;
+        (SELECT COALESCE(SUM(audio_files.size), 0) FROM audio_files WHERE audio_files.item_id = library_items.id AND audio_files.status = 'available') AS total_size,
+        (SELECT COUNT(*) FROM work_items wsib
+           JOIN work_items wself ON wself.work_id = wsib.work_id
+           JOIN library_items wli ON wli.id = wsib.item_id AND wli.deleted_at IS NULL
+           WHERE wself.item_id = library_items.id) AS edition_count`;
 
 export const BOOK_LIST_JOINS = `
       FROM library_items
@@ -683,6 +696,7 @@ export type BookListRow = AudiobookBookRow & {
   progress_percent: number | null;
   progress_completed_at: string | null;
   saved: number;
+  edition_count: number;
 };
 
 export function mapBookListRow(book: BookListRow) {
@@ -702,6 +716,7 @@ export function mapBookListRow(book: BookListRow) {
     tags: bookTags(book.id),
     fileCount: book.file_count,
     totalSize: book.total_size ?? 0,
+    editionCount: book.edition_count ?? 0,
     durationSeconds: book.duration_seconds,
     coverUrl: book.cover_storage_key ? `/api/library/covers/${book.cover_storage_key}` : null,
     coverLargeUrl: largeCoverUrl(book.cover_storage_key),
