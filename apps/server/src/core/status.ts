@@ -337,6 +337,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.10",
+          label: "One Authors page for everything",
+          changes: [
+            "Authors now live on a single page that spans your whole library, with an All / Audiobooks / Ebooks filter — just like categories. The separate per-section author lists are gone; Authors is in the main menu now (and the shortcuts inside Audiobooks and Ebooks still take you there).",
+            "Clicking an author or narrator anywhere — including on a book's page — opens their unified page showing everything they made across audiobooks and ebooks."
+          ]
+        },
+        {
           version: "1.2.9",
           label: "Unified author pages",
           changes: [
