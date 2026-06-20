@@ -34,7 +34,12 @@ const documentMimeTypes: Record<string, string> = {
   ".azw3": "application/vnd.amazon.ebook"
 };
 const documentExtensions = new Set(Object.keys(documentMimeTypes));
-const imageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+// Cover *source* formats. TIFF is included because CD rips often ship cover scans
+// as .tif (frequently in a sidecar folder); sharp transcodes them to webp on import
+// just like any other format, so they never reach a browser as TIFF.
+const coverImageExtensions = [".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"];
+// Sibling folders a book's cover art may live in instead of the book folder itself.
+const coverSubfolderNames = new Set(["covers", "cover", "artwork", "art", "scans"]);
 const scanJobType = "SCAN_AUDIOBOOK_LIBRARY";
 
 export type { TagEncoding };
@@ -223,6 +228,71 @@ function scanExtensionSet(settings: AudiobookSettings) {
 function discNumberFromFolderName(folderName: string) {
   const match = folderName.match(/^(?:cd|disc|disk)\s*(\d+)$/i);
   return match ? Number(match[1]) : null;
+}
+
+export interface ParsedFolderName {
+  title: string;
+  authors?: string[];
+  narrators?: string[];
+  year?: number;
+}
+
+/**
+ * Decompose a book folder name following the common self-hosted convention
+ * `Author - Title (Year) [Narrator]` (the trailing `(Year)`/`[Narrator]` tokens are
+ * optional and may appear in either order). Author and narrator lists split on the
+ * usual separators. When no ` - ` separator is present the whole name is the title.
+ *
+ * Folder names come off the filesystem as proper Unicode, so — unlike audio tags —
+ * they never need mojibake repair.
+ */
+export function parseFolderName(rawName: string): ParsedFolderName {
+  let name = rawName.trim();
+  let narrators: string[] | undefined;
+  let year: number | undefined;
+
+  // Strip trailing [Narrator] and (Year) tokens, in any order, until neither matches.
+  for (;;) {
+    const bracket = name.match(/\s*\[([^\]]*)\]\s*$/);
+    if (bracket) {
+      const inner = splitNames([bracket[1]]);
+      if (inner.length) narrators = narrators ?? inner;
+      name = name.slice(0, bracket.index).trim();
+      continue;
+    }
+    const paren = name.match(/\s*\((\d{4})\)\s*$/);
+    if (paren) {
+      year = year ?? Number(paren[1]);
+      name = name.slice(0, paren.index).trim();
+      continue;
+    }
+    break;
+  }
+
+  let authors: string[] | undefined;
+  let title = name;
+  const dash = name.match(/\s+-\s+/);
+  if (dash?.index) {
+    const left = name.slice(0, dash.index).trim();
+    const right = name.slice(dash.index + dash[0].length).trim();
+    if (right) {
+      if (/\p{L}/u.test(left)) {
+        // Left side has letters → an author name.
+        authors = splitNames([left]);
+        title = right;
+      } else if (/^\d+\.?$/.test(left)) {
+        // A bare leading number (e.g. "1 - Title") is an ordering prefix, not an author.
+        title = right;
+      }
+    }
+  }
+
+  return {
+    title: title || rawName.trim(),
+    ...(authors?.length ? { authors } : {}),
+    ...(narrators?.length ? { narrators } : {}),
+    ...(year ? { year } : {})
+  };
 }
 
 function stringValue(value: unknown): string | null {
@@ -552,27 +622,69 @@ function extractChapters(filePath: string, encoding: TagEncoding | undefined): P
 }
 
 
-function findFolderCover(folderPath: string, settings: AudiobookSettings) {
+// Scan a single directory for cover images: the first file matching a wanted name
+// wins outright; otherwise the largest image is remembered as a fallback.
+function searchCoverDir(dir: string, wanted: Set<string>) {
+  let named: string | null = null;
+  let largest: { filePath: string; size: number } | null = null;
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return { named, largest };
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile() || entry.name.startsWith(".")) continue; // skip ._cover.jpg junk
+    const ext = path.extname(entry.name).toLowerCase();
+    if (!coverImageExtensions.includes(ext)) continue;
+    const filePath = path.join(dir, entry.name);
+    if (wanted.has(entry.name.toLowerCase())) {
+      named = filePath;
+      break;
+    }
+    let size = 0;
+    try {
+      size = fs.statSync(filePath).size;
+    } catch {
+      continue;
+    }
+    if (!largest || size > largest.size) {
+      largest = { filePath, size };
+    }
+  }
+
+  return { named, largest };
+}
+
+export function findFolderCover(folderPath: string, settings: AudiobookSettings) {
   const coverNames = settings.cover_filenames?.length ? settings.cover_filenames : ["cover", "folder", "artwork"];
   const wanted = new Set(coverNames.flatMap((name) => {
     const base = name.trim().toLowerCase();
     const parsedExtension = path.extname(base);
-    return parsedExtension ? [base] : imageExtensions.map((extension) => `${base}${extension}`);
+    return parsedExtension ? [base] : coverImageExtensions.map((extension) => `${base}${extension}`);
   }));
 
-  let fallback: { filePath: string; size: number } | null = null;
+  // The book folder itself takes precedence — a named cover here wins immediately.
+  const direct = searchCoverDir(folderPath, wanted);
+  if (direct.named) return direct.named;
+  let fallback = direct.largest;
 
-  for (const entry of fs.readdirSync(folderPath, { withFileTypes: true })) {
-    if (!entry.isFile() || entry.name.startsWith(".")) continue; // skip ._cover.jpg junk
-    const ext = path.extname(entry.name).toLowerCase();
-    if (!imageExtensions.includes(ext)) continue;
-    const filePath = path.join(folderPath, entry.name);
-    if (wanted.has(entry.name.toLowerCase())) {
-      return filePath;
-    }
-    const size = fs.statSync(filePath).size;
-    if (!fallback || size > fallback.size) {
-      fallback = { filePath, size };
+  // Then recognised sidecar art folders (Covers/, Artwork/, …) — common on CD rips
+  // that keep scans separate from the audio. Never descend into arbitrary folders.
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(folderPath, { withFileTypes: true });
+  } catch {
+    entries = [];
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !coverSubfolderNames.has(entry.name.toLowerCase())) continue;
+    const sub = searchCoverDir(path.join(folderPath, entry.name), wanted);
+    if (sub.named) return sub.named;
+    if (sub.largest && (!fallback || sub.largest.size > fallback.size)) {
+      fallback = sub.largest;
     }
   }
 
@@ -958,9 +1070,16 @@ async function prepareBookScan(
   }
 
   if (sourceEnabled(sources, "folder_structure")) {
-    // Folder names supply the book title; per-track titles come from file names
-    // (handled in the chapter-title pick below).
-    candidates.set("folder_structure", { title: titleHint });
+    // The folder name supplies the book title, and — following the common
+    // "Author - Title [Narrator]" convention — author and narrator when present.
+    // Per-track titles still come from file names (the chapter-title pick below).
+    const parsed = parseFolderName(titleHint);
+    candidates.set("folder_structure", {
+      title: parsed.title,
+      authors: parsed.authors,
+      narrators: parsed.narrators,
+      year: parsed.year ?? null
+    });
   }
 
   const merged: SourceCandidate = {};

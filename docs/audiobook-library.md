@@ -34,6 +34,17 @@ Recommended folder structure:
 
 The scanner treats each leaf folder containing audio files as one book. The parent folder is the author name hint when no embedded metadata is present.
 
+With **Treat folder as book** enabled (the `folder_structure` source), a flat
+one-folder-per-book layout works too, and the folder name is read as
+`Author - Title [Narrator]`:
+
+```
+/audiobooks
+  /Andy Weir - The Martian [R.C. Bray]
+    cover.jpg
+    The Martian.m4b
+```
+
 ---
 
 ## Implementation Phases
@@ -62,7 +73,7 @@ the type defaults — older rows never break a scan.
 | `scan_sources` | see below | Ordered list of metadata sources, `{ id, enabled }`. Position = priority: index 0 wins per field. See "Scan metadata sources" below |
 | `tag_encoding` | unset | (audiobook) Default legacy charset (`windows-1251`, `windows-1250`, `windows-1252`, `koi8-r`) for repairing mojibake in audio tags on every scan; a rescan can override it for one run |
 | `show_narrator` | `true` | (audiobook) Display narrator prominently in the UI |
-| `cover_filenames` | `cover,folder,artwork` | (audiobook) Image filenames to recognise as folder cover art (if none match, the largest image file in the folder is used as fallback) |
+| `cover_filenames` | `cover,folder,artwork` | (audiobook) Image filenames to recognise as folder cover art. `.jpg/.jpeg/.png/.webp` plus `.tif/.tiff` (transcoded to webp on import) qualify; the book folder is searched first, then a sidecar art subfolder (`Covers/`, `Artwork/`, `Art/`, `Scans/`). If no filename matches, the largest image found is used as fallback |
 
 Default `scan_extensions` (audiobook):
 
@@ -98,7 +109,7 @@ extractor in the relevant scanner.**
 |---|---|---|
 | `metadata_files` | audiobook | `metadata.json` sidecars next to the book files (native + Audiobookshelf formats) |
 | `file_metadata` | audiobook, ebook | Embedded metadata: audio tags / EPUB details. Also gates embedded-cover extraction and tag-based disc/track ordering and chapter titles |
-| `folder_structure` | audiobook | **Grouping + names.** When enabled, each *top-level folder* under the library root becomes one book and every audio file anywhere beneath it becomes a track of that book; folder names supply book titles and file names supply track titles at this source's priority position |
+| `folder_structure` | audiobook | **Grouping + names.** When enabled, each *top-level folder* under the library root becomes one book and every audio file anywhere beneath it becomes a track of that book. The folder name is parsed as `Author - Title (Year) [Narrator]` (trailing `(Year)`/`[Narrator]` optional, either order; a bare leading number like `1 - …` is treated as an ordering prefix, not an author) to supply book title, author, and narrator; file names supply track titles — all at this source's priority position |
 | `online_metadata` | audiobook | **Internet lookup, gap-fill only** (off by default). For books still missing narrator, description, or cover after the local sources merge, queries LibriVox (narrators from section readers, description, genres, year; cover from the archive.org item) and falls back to Open Library. After the scan it also fetches missing author/narrator photos & bios from Wikipedia (library language first, then English) with an Open Library fallback. See "Online lookup" below |
 
 How the scanner uses them (`prepareBookScan`):

@@ -37,7 +37,7 @@ export const METADATA_SOURCES: MetadataSourceDefinition[] = [
   {
     id: "folder_structure",
     label: "Treat folder as book",
-    description: "Each folder will be treated as a book. All audio files inside will be grouped together, regardless of author.",
+    description: "Each top-level folder is treated as one book, grouping all audio inside it. The folder name is read as \"Author - Title [Narrator]\" when it follows that pattern.",
     appliesTo: ["audiobook"],
     defaultEnabled: false,
     affectsGrouping: true
