@@ -337,6 +337,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.8",
+          label: "Smarter audiobook folder scanning",
+          changes: [
+            "With \"Treat folder as book\" turned on, a folder named like \"Author - Title [Narrator]\" is now read for its author, title, and narrator — so books organised that way get the right people even without embedded tags or an online lookup.",
+            "Cover art is now picked up from TIFF (.tif) images and from a sidecar art folder (Covers/, Artwork/, …) next to the book, not just JPEG/PNG inside the book folder — handy for CD rips that keep scans separate."
+          ]
+        },
+        {
           version: "1.2.7",
           label: "Ebook sharing",
           changes: [
