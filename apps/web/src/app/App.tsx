@@ -24,7 +24,7 @@ import { CollectionDetailPage } from "../features/collections/CollectionDetailPa
 import { SharePage } from "../pages/SharePage";
 import { PlayerPage } from "../features/audiobooks/PlayerPage";
 import { PersonListPage } from "../features/audiobooks/PersonListPage";
-import { PersonDetailPage } from "../features/audiobooks/PersonDetailPage";
+import { PersonPage } from "../features/audiobooks/PersonPage";
 import { SeriesListPage } from "../features/audiobooks/SeriesListPage";
 import { SeriesDetailPage } from "../features/audiobooks/SeriesDetailPage";
 import { CategoryListPage } from "../features/audiobooks/CategoryListPage";
@@ -294,7 +294,7 @@ export function App() {
   }
 
   if (route.name === "ebookAuthorDetail") {
-    return <PersonDetailPage personName={route.personName} role="author" kind="ebook" user={session.user} logout={logout} />;
+    return <PersonPage personName={route.personName} user={session.user} logout={logout} />;
   }
 
   if (route.name === "ebookSeries") {
@@ -309,8 +309,8 @@ export function App() {
     return <PersonListPage role="author" user={session.user} logout={logout} />;
   }
 
-  if (route.name === "audiobookAuthorDetail") {
-    return <PersonDetailPage personName={route.personName} role="author" user={session.user} logout={logout} />;
+  if (route.name === "personDetail" || route.name === "audiobookAuthorDetail") {
+    return <PersonPage personName={route.personName} user={session.user} logout={logout} />;
   }
 
   if (route.name === "audiobookNarrators") {
@@ -318,7 +318,7 @@ export function App() {
   }
 
   if (route.name === "audiobookNarratorDetail") {
-    return <PersonDetailPage personName={route.personName} role="narrator" user={session.user} logout={logout} />;
+    return <PersonPage personName={route.personName} user={session.user} logout={logout} />;
   }
 
   if (route.name === "audiobookSeries") {

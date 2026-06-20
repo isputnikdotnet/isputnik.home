@@ -21,6 +21,7 @@ export type Route =
   | { name: "ebookSeriesDetail"; seriesId: string }
   | { name: "collections" }
   | { name: "collectionDetail"; id: string }
+  | { name: "personDetail"; personName: string }
   | { name: "audiobookAuthors" }
   | { name: "audiobookAuthorDetail"; personName: string }
   | { name: "audiobookNarrators" }
@@ -88,6 +89,14 @@ export function getRoute(): Route {
   const collectionDetailMatch = path.match(/^\/collections\/([^/]+)$/);
   if (collectionDetailMatch) {
     return { name: "collectionDetail", id: collectionDetailMatch[1] };
+  }
+
+  // Canonical, cross-type person page: one author/narrator across audiobooks +
+  // ebooks. The per-type /audiobooks|ebooks/(authors|narrators)/:name paths
+  // below still resolve and render the same page (kept for existing links).
+  const personDetailMatch = path.match(/^\/people\/(.+)$/);
+  if (personDetailMatch) {
+    return { name: "personDetail", personName: decodeURIComponent(personDetailMatch[1]) };
   }
 
   const ebookBookMatch = path.match(/^\/ebooks\/books\/([^/]+)$/);
