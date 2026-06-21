@@ -142,6 +142,85 @@ function pdfMetadata(file: EbookFileEntry): EbookMetadata {
   };
 }
 
+// ── FB2 parsing (FictionBook is XML; the <title-info> block holds the catalog
+// metadata, and the cover is a base64 <binary> referenced from <coverpage>) ──
+
+// FB2 splits names across <first-name>/<middle-name>/<last-name>; join them,
+// falling back to <nickname> when a person has no real-name parts.
+function fb2PersonName(block: string): string | null {
+  const parts = [
+    firstMatch(block, /<first-name[^>]*>([\s\S]*?)<\/first-name>/i),
+    firstMatch(block, /<middle-name[^>]*>([\s\S]*?)<\/middle-name>/i),
+    firstMatch(block, /<last-name[^>]*>([\s\S]*?)<\/last-name>/i)
+  ].filter(Boolean);
+  return parts.join(" ").trim() || firstMatch(block, /<nickname[^>]*>([\s\S]*?)<\/nickname>/i);
+}
+
+function fb2Cover(xml: string, titleInfo: string): Buffer | null {
+  // <coverpage><image l:href="#id"/></coverpage> → <binary id="id">base64</binary>.
+  const href = titleInfo.match(/<coverpage[\s\S]*?<image[^>]*?(?:l:href|xlink:href|href)=["']#?([^"']+)["']/i)?.[1];
+  if (!href) return null;
+  const b64 = xml.match(new RegExp(`<binary[^>]*\\bid=["']${escapeRegex(href)}["'][^>]*>([\\s\\S]*?)</binary>`, "i"))?.[1];
+  if (!b64) return null;
+  try {
+    const buf = Buffer.from(b64.replace(/\s+/g, ""), "base64");
+    return buf.length > 0 ? buf : null;
+  } catch {
+    return null;
+  }
+}
+
+// Parse catalog metadata out of an FB2 document. Pure (takes the file bytes) so it
+// can be unit-tested, and so we can honour the charset the XML prolog declares —
+// older Russian FB2 files are commonly windows-1251 and would otherwise decode to
+// mojibake if read as UTF-8.
+export function parseFb2Metadata(raw: Buffer): EbookMetadata {
+  const declared = raw.subarray(0, 200).toString("latin1")
+    .match(/<\?xml[^>]*\bencoding=["']([^"']+)["']/i)?.[1]?.toLowerCase() || "utf-8";
+  let xml: string;
+  try {
+    xml = new TextDecoder(declared).decode(raw);
+  } catch {
+    xml = raw.toString("utf8");
+  }
+
+  // Restrict to <title-info>; the body can repeat <author>/<genre> in citations.
+  const titleInfo = xml.match(/<title-info\b[^>]*>([\s\S]*?)<\/title-info>/i)?.[1] ?? xml;
+
+  const authors = [...titleInfo.matchAll(/<author\b[^>]*>([\s\S]*?)<\/author>/gi)]
+    .map((m) => fb2PersonName(m[1]))
+    .filter((v): v is string => Boolean(v));
+  const keywords = (firstMatch(titleInfo, /<keywords[^>]*>([\s\S]*?)<\/keywords>/i) ?? "")
+    .split(",").map((k) => k.trim()).filter(Boolean);
+  const dateRaw = firstMatch(titleInfo, /<date[^>]*>([\s\S]*?)<\/date>/i);
+  const yearNum = dateRaw ? parseInt(dateRaw.match(/\d{4}/)?.[0] ?? "", 10) : NaN;
+  // The annotation wraps its text in <p>/<empty-line> markup; drop those tags so
+  // the stored description is plain text.
+  const annotation = titleInfo.match(/<annotation[^>]*>([\s\S]*?)<\/annotation>/i)?.[1];
+
+  return {
+    title: firstMatch(titleInfo, /<book-title[^>]*>([\s\S]*?)<\/book-title>/i),
+    authors,
+    language: firstMatch(titleInfo, /<lang[^>]*>([\s\S]*?)<\/lang>/i),
+    description: annotation ? decodeXml(annotation.replace(/<[^>]+>/g, " ")) : null,
+    // FB2 genre codes (e.g. "sf_action") plus free-form keywords both become
+    // subjects — feeding the primary category match and the item's tags, exactly
+    // as EPUB <dc:subject> values do.
+    subjects: [...allMatches(titleInfo, /<genre[^>]*>([\s\S]*?)<\/genre>/gi), ...keywords],
+    year: Number.isFinite(yearNum) ? yearNum : null,
+    isbn: null,
+    coverBuffer: fb2Cover(xml, titleInfo)
+  };
+}
+
+function extractFb2Metadata(filePath: string): EbookMetadata | null {
+  try {
+    return parseFb2Metadata(fs.readFileSync(filePath));
+  } catch {
+    return null;
+  }
+}
+
 // ── Shared lookups (alias-aware author upsert, mirrors the audiobook scanner) ──
 
 function resolvePersonName(name: string): string {
@@ -246,12 +325,17 @@ export async function ingestEbookGroup(
   const manual = metaRow?.source === "manual";
   const bookId = existing?.id ?? nanoid(16);
 
-  // Prefer the EPUB for metadata + cover (it carries an OPF); otherwise fall back to
-  // the first file's name. A PDF/FB2-only group is titled from its filename.
-  const metaFile = files.find((entry) => entry.extension === ".epub") ?? files[0];
-  const meta = fileMetaEnabled && metaFile.extension === ".epub"
-    ? (extractEpubMetadata(metaFile.absolutePath) ?? pdfMetadata(metaFile))
-    : pdfMetadata(metaFile);
+  // Prefer the EPUB for metadata + cover (richest, via its OPF), then an FB2 (XML
+  // metadata + embedded cover); any other lone format is titled from its filename.
+  const metaFile = files.find((entry) => entry.extension === ".epub")
+    ?? files.find((entry) => entry.extension === ".fb2")
+    ?? files[0];
+  const scanned = fileMetaEnabled
+    ? metaFile.extension === ".epub" ? extractEpubMetadata(metaFile.absolutePath)
+      : metaFile.extension === ".fb2" ? extractFb2Metadata(metaFile.absolutePath)
+      : null
+    : null;
+  const meta = scanned ?? pdfMetadata(metaFile);
   const title = meta.title || path.basename(metaFile.fileName, metaFile.extension);
   const coverKey = (!manual && meta.coverBuffer) ? await generateEbookCover(libraryId, bookId, meta.coverBuffer) : null;
 
@@ -362,7 +446,7 @@ async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {
 
   const settings = normalizeLibrarySettings("ebook", library.settings_json);
   const sources = options.sources ? normalizeScanSources("ebook", options.sources) : settings.scan_sources;
-  // file_metadata gates EPUB OPF extraction; off = filename-derived records only.
+  // file_metadata gates in-file extraction (EPUB OPF, FB2 XML); off = filename-derived only.
   const fileMetaEnabled = sourceEnabled(sources, "file_metadata");
   const rootPath = validateLibrarySource(library.source_path);
   const files = walkEbookFiles(rootPath, new Set(settings.scan_extensions.map((extension) => `.${extension}`)));
