@@ -123,6 +123,70 @@
   min-width: 0;
 }
 
+/* Icon-only header actions (Upload, Select) on the main library pages. Square
+   controls that sit alongside the filter/sort buttons so the row reads as one
+   consistent set; same look on desktop and mobile. */
+.audiobook-page-action-icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.audiobook-page-action-icon:hover {
+  background: var(--hover);
+}
+
+/* Filter and sort run in compact (icon-only) mode on the main pages, so the
+   whole actions row reads as one set of matching square controls. The components
+   are always rendered with `compact`; these rules size that mode at every width
+   (desktop included) and align the sort box's radius/shadow with the rest. */
+.audiobook-main-page .audiobook-page-actions .filter-button.compact {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  height: 44px;
+  gap: 5px;
+  padding: 0 10px;
+  justify-content: center;
+}
+
+.audiobook-main-page .audiobook-page-actions .audiobook-sort-control.compact {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: none;
+  width: 44px;
+  min-width: 0;
+  min-height: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.audiobook-main-page .audiobook-page-actions .audiobook-sort-control.compact:hover {
+  background: var(--hover);
+}
+
+.audiobook-main-page .audiobook-sort-control.compact .audiobook-sort-trigger {
+  width: auto;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
 .audiobook-page-search {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -1150,52 +1214,5 @@
     flex: 1;
     width: auto;
     min-width: 0;
-  }
-
-  .audiobook-main-page .audiobook-page-actions .filter-button.compact {
-    flex: 0 0 auto;
-    width: auto;
-    min-width: 44px;
-    min-height: 44px;
-    height: 44px;
-    gap: 5px;
-    padding: 0 10px;
-    justify-content: center;
-  }
-
-  .audiobook-main-page .audiobook-page-actions .audiobook-sort-control.compact {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    grid-template-columns: none;
-    width: 44px;
-    min-width: 0;
-    min-height: 44px;
-    height: 44px;
-    padding: 0;
-  }
-
-  .audiobook-main-page .audiobook-sort-control.compact .audiobook-sort-trigger {
-    width: auto;
-    min-width: 0;
-    padding: 0;
-    background: transparent;
-  }
-
-  .audiobook-main-page .audiobook-page-actions .audiobook-page-action-icon {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    min-height: 44px;
-    height: 44px;
-    padding: 0;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--field);
-    color: var(--ink);
-    cursor: pointer;
   }
 }

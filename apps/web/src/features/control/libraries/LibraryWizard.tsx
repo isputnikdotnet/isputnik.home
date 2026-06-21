@@ -16,7 +16,7 @@ import {
   X,
   type LucideIcon
 } from "lucide-react";
-import { api, type PublicUser } from "../../../api";
+import { api } from "../../../api";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { Field } from "../../../shared/Field";
@@ -123,7 +123,6 @@ export function LibraryWizard({
   groups,
   storageRoots,
   initialRootId,
-  currentUser,
   metadataSources,
   typeDefaults,
   onClose,
@@ -134,7 +133,6 @@ export function LibraryWizard({
   groups: ManagedGroup[];
   storageRoots: StorageRoot[];
   initialRootId: string;
-  currentUser: PublicUser;
   metadataSources: MetadataSourceInfo[];
   typeDefaults: Record<string, LibraryTypeDefaults>;
   onClose: () => void;
@@ -146,9 +144,10 @@ export function LibraryWizard({
   const [selectedRootId, setSelectedRootId] = useState(initialRootId);
   const [storageBrowse, setStorageBrowse] = useState<StorageBrowse | null>(null);
   const [visibility, setVisibility] = useState<"public" | "private">("public");
-  const initialOwnerId = users.some((user) => user.id === currentUser.id) ? currentUser.id : "";
-  const [ownerId, setOwnerId] = useState(initialOwnerId);
-  const [ownerType, setOwnerType] = useState<"user" | "group" | "">(initialOwnerId ? "user" : "");
+  // Default to a system-owned library (no owner); the creator can still pick
+  // themselves or a group from the Owner select.
+  const [ownerId, setOwnerId] = useState("");
+  const [ownerType, setOwnerType] = useState<"user" | "group" | "">("");
   const [publicRole, setPublicRole] = useState<PublicRole>("member");
   const [mode, setMode] = useState<LibraryMode>("managed");
   const [extensions, setExtensions] = useState<string[]>(typeDefaults[initialType]?.extensions ?? []);

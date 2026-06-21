@@ -665,7 +665,36 @@
 
 /* ── Audiobook grid ─────────────────────────────────────────────── */
 
-/* Two-column field layout, shared by the bulk book-edit dialog. */
+/* Bulk book-edit dialog: a touch wider than the default confirm card so the
+   two-column field grid stays comfortable, with Tags split onto their own tab. */
+.bulk-edit-modal {
+  width: min(100%, 600px);
+}
+
+/* The tab strip and panel live inside the card's 24px padding, so drop the
+   global edge-to-edge insets and let the strip span the card's content width. */
+.bulk-edit-modal .modal-tabs {
+  padding: 0;
+  margin-bottom: 16px;
+}
+
+.bulk-edit-modal .modal-tab-content {
+  padding: 0;
+  overflow: visible;
+}
+
+.bulk-edit-modal .bulk-tags-tab {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.bulk-edit-modal .bulk-tags-note {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* Two-column field layout for the bulk book-edit dialog's Details tab. */
 .override-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -574,6 +574,7 @@ function BulkEditModal({
   const [language, setLanguage] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [description, setDescription] = useState("");
+  const [tab, setTab] = useState<"details" | "tags">("details");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -605,39 +606,68 @@ function BulkEditModal({
   return (
     <Modal
       title={`Edit ${count} ${count === 1 ? "book" : "books"}`}
-      className="edit-library-modal"
+      className="bulk-edit-modal"
       busy={saving}
       onClose={onClose}
       onSubmit={submit}
     >
-        <p className="muted">Overwrites scanned metadata for every selected book. Leave a field blank to keep each book's current value. Tags replace existing tags.</p>
-        <div className="override-grid">
-          <div className="field">
-            <span>Author</span>
-            <PeopleCombobox value={authors} onChange={setAuthors} suggestions={peopleSuggestions} placeholder="Add author…" />
-          </div>
-          <div className="field">
-            <span>Narrator</span>
-            <PeopleCombobox value={narrators} onChange={setNarrators} suggestions={peopleSuggestions} placeholder="Add narrator…" />
-          </div>
-          <label className="field">
-            <span>Category</span>
-            <select value={categoryKey} onChange={(event) => setCategoryKey(event.target.value)}>
-              <option value="">Keep current</option>
-              {categories.map((category) => (
-                <option key={category.key} value={category.key}>{category.name}</option>
-              ))}
-            </select>
-          </label>
-          <Field label="Language (e.g. en)" value={language} onChange={setLanguage} required={false} />
-          <div className="field">
-            <span>Tags <span className="muted">(replace existing)</span></span>
-            <PeopleCombobox value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="Add tag…" />
-          </div>
-          <label className="field override-desc">
-            <span>Description</span>
-            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
-          </label>
+        <p className="muted">Overwrites scanned metadata for every selected book. Leave a field blank to keep each book's current value.</p>
+        <div className="modal-tabs" role="tablist" aria-label="Bulk edit sections">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "details"}
+            className={`modal-tab${tab === "details" ? " active" : ""}`}
+            onClick={() => setTab("details")}
+          >
+            Details
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "tags"}
+            className={`modal-tab${tab === "tags" ? " active" : ""}`}
+            onClick={() => setTab("tags")}
+          >
+            Tags
+          </button>
+        </div>
+        <div className="modal-tab-content">
+          {tab === "details" && (
+            <div className="override-grid">
+              <div className="field">
+                <span>Author</span>
+                <PeopleCombobox value={authors} onChange={setAuthors} suggestions={peopleSuggestions} placeholder="Add author…" />
+              </div>
+              <div className="field">
+                <span>Narrator</span>
+                <PeopleCombobox value={narrators} onChange={setNarrators} suggestions={peopleSuggestions} placeholder="Add narrator…" />
+              </div>
+              <label className="field">
+                <span>Category</span>
+                <select value={categoryKey} onChange={(event) => setCategoryKey(event.target.value)}>
+                  <option value="">Keep current</option>
+                  {categories.map((category) => (
+                    <option key={category.key} value={category.key}>{category.name}</option>
+                  ))}
+                </select>
+              </label>
+              <Field label="Language (e.g. en)" value={language} onChange={setLanguage} required={false} />
+              <label className="field override-desc">
+                <span>Description</span>
+                <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
+              </label>
+            </div>
+          )}
+          {tab === "tags" && (
+            <div className="bulk-tags-tab">
+              <div className="field">
+                <span>Tags</span>
+                <PeopleCombobox value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="Add tag…" />
+              </div>
+              <p className="muted bulk-tags-note">Tags replace the existing tags on every selected book — leave empty to keep each book's current tags.</p>
+            </div>
+          )}
         </div>
         {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
         <div className="modal-actions">
@@ -1292,24 +1322,16 @@ export function AudiobooksPage({
           searchPlaceholder="Search audiobooks..."
           actions={
             <>
-              <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} compact={isMobile} />
-              <AudiobookHeaderSort value={sort} onChange={setSort} compact={isMobile} />
+              <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} compact />
+              <AudiobookHeaderSort value={sort} onChange={setSort} compact />
               {uploadLibraries.length > 0 && !selectionMode && (
-                isMobile ? (
-                  <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setBulkNotice(""); }} aria-label="Upload" title="Upload">
-                    <UploadCloud size={18} aria-hidden="true" />
-                  </button>
-                ) : (
-                  <button type="button" className="secondary-button" onClick={() => { setUploadOpen(true); setBulkNotice(""); }}>
-                    <UploadCloud size={17} aria-hidden="true" />
-                    <span>Upload</span>
-                  </button>
-                )
+                <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setBulkNotice(""); }} aria-label="Upload" title="Upload">
+                  <UploadCloud size={18} aria-hidden="true" />
+                </button>
               )}
               {!isMobile && canEditScope && !selectionMode && (
-                <button type="button" className="secondary-button" onClick={() => { setSelectionMode(true); setBulkNotice(""); }}>
-                  <CheckSquare size={17} aria-hidden="true" />
-                  <span>Select</span>
+                <button type="button" className="audiobook-page-action-icon" onClick={() => { setSelectionMode(true); setBulkNotice(""); }} aria-label="Select" title="Select">
+                  <CheckSquare size={18} aria-hidden="true" />
                 </button>
               )}
             </>

@@ -30,6 +30,11 @@ export function PeopleCombobox({
       onChange([...value, trimmed]);
     }
     setInputValue("");
+    // Close after a pick — otherwise the now-empty input matches every remaining
+    // suggestion, so the floating list lingers over the form (and over the Save
+    // button below it, intercepting the click). Re-typing or clicking the field
+    // reopens it for adding more.
+    setOpen(false);
   };
 
   const remove = (name: string) => {
@@ -61,7 +66,7 @@ export function PeopleCombobox({
 
   return (
     <div className="people-combobox" ref={containerRef}>
-      <div className="people-combobox-input-area" onClick={() => inputRef.current?.focus()}>
+      <div className="people-combobox-input-area" onClick={() => { inputRef.current?.focus(); setOpen(true); }}>
         {value.map((name) => (
           <span key={name} className="people-chip">
             {name}
