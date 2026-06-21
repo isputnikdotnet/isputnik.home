@@ -17,13 +17,13 @@ import { formatBytes, isFoliateFormat } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { EbookReader } from "./reader/EbookReader";
-import { AddToSeriesModal, GroupAsEditionsModal, AudiobookPageHeader, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
+import { AddToSeriesModal, GroupAsEditionsModal, BulkEditModal, AudiobookPageHeader, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
 import { useMediaCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import {
   EBOOK_SORT_OPTIONS, FilterButton, FilterChips, activeFilterCount,
   type BookFilters, type SortKey
 } from "./BookFilter";
-import type { AudiobookBook, AudiobookBookDetail } from "./types";
+import type { AudiobookBook, AudiobookBookDetail, CategorySummary } from "./types";
 
 // The shared book shape plus the primary document's format/id (for the Read button
 // and the direct download link) and the full list of available formats (for the
@@ -351,6 +351,8 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
   // Source-writing actions: upload new ebooks, plus multi-select bulk add-to-series / delete.
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [seriesModalOpen, setSeriesModalOpen] = useState(false);
   const [editionsModalOpen, setEditionsModalOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -394,6 +396,13 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
     return () => { alive = false; };
   }, [isMobile]);
 
+  // Cross-type category taxonomy, for the bulk-edit category picker.
+  useEffect(() => {
+    api<{ categories: CategorySummary[] }>("/api/library/categories")
+      .then((payload) => setCategories(payload.categories))
+      .catch(() => setCategories([]));
+  }, []);
+
   const scope: CatalogScope = selectedLibraryId === "all"
     ? { kind: "all" }
     : { kind: "library", libraryId: selectedLibraryId };
@@ -412,6 +421,9 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
   // Libraries accepting uploads drive the Upload button + modal choices.
   const uploadLibraries = libraries.filter((library) => library.canUpload);
 
+  // Existing authors in the current scope, for the bulk-edit author combobox.
+  const peopleSuggestions = cat.facets.authors;
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -423,6 +435,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
   const exitSelection = () => {
     setSelectionMode(false);
     setSelectedIds(new Set());
+    setBulkOpen(false);
     setSeriesModalOpen(false);
     setEditionsModalOpen(false);
     setBulkDeleteOpen(false);
@@ -458,6 +471,23 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
     if (result.skipped > 0) parts.push(`${result.skipped} already in series or skipped`);
     setNotice(parts.join(" · "));
     cat.refresh();
+    exitSelection();
+  };
+
+  const runBulk = async (ids: string[], fields: Record<string, unknown>) => {
+    const result = await api<{ updated: number; forbidden: number; missing: number }>(
+      "/api/library/books/bulk-metadata",
+      { method: "POST", body: JSON.stringify({ bookIds: ids, ...fields }) }
+    );
+    const parts = [`Updated ${result.updated} ${result.updated === 1 ? "ebook" : "ebooks"}`];
+    if (result.forbidden > 0) parts.push(`${result.forbidden} skipped (no write access)`);
+    if (result.missing > 0) parts.push(`${result.missing} not found`);
+    setNotice(parts.join(" · "));
+    cat.refresh();
+  };
+
+  const submitBulk = async (fields: Record<string, unknown>) => {
+    await runBulk([...selectedIds], fields);
     exitSelection();
   };
 
@@ -796,6 +826,16 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                     <button
                       type="button"
                       className="primary-button compact-button"
+                      onClick={() => setBulkOpen(true)}
+                      disabled={selectedIds.size === 0}
+                    >
+                      Edit metadata
+                    </button>
+                  )}
+                  {canEditScope && (
+                    <button
+                      type="button"
+                      className="primary-button compact-button"
                       onClick={() => setEditionsModalOpen(true)}
                       disabled={selectedIds.size < 2}
                       title="Group the selected ebooks as editions of one title"
@@ -891,6 +931,18 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
             book={editDetail}
             onBookUpdated={(updated) => { setEditDetail(updated); cat.refresh(); }}
             onClose={() => setEditDetail(null)}
+          />
+        )}
+
+        {bulkOpen && (
+          <BulkEditModal
+            count={selectedIds.size}
+            categories={categories}
+            peopleSuggestions={peopleSuggestions}
+            tagSuggestions={cat.facets.tags}
+            showNarrator={false}
+            onClose={() => setBulkOpen(false)}
+            onSubmit={submitBulk}
           />
         )}
 
