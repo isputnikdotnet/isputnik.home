@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, Download, FastForward, Headphones, List, Pause, Play, Rewind, SkipBack, SkipForward, X } from "lucide-react";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
+import { isFoliateFormat } from "../shared/utils";
 
 interface ShareFile {
   id: string;
@@ -107,7 +108,8 @@ function EbookShareView({ token, payload }: { token: string; payload: EbookShare
   const [reading, setReading] = useState(false);
   const fileUrl = `/api/share/${token}/file`;
   const downloadUrl = `/api/share/${token}/download`;
-  const isEpub = book.format === "epub";
+  // EPUB and FB2 render in the foliate reader; anything else (PDF) uses the iframe.
+  const isReadable = isFoliateFormat(book.format);
 
   return (
     <>
@@ -138,10 +140,11 @@ function EbookShareView({ token, payload }: { token: string; payload: EbookShare
         </div>
       </div>
 
-      {reading && isEpub && createPortal(
+      {reading && isReadable && createPortal(
         <EbookReader
           bookId="share"
           documentId="share"
+          format={book.format}
           url={fileUrl}
           storageKey={`isputnik:epub-share:${token}`}
           initialProgress={null}
@@ -155,7 +158,7 @@ function EbookShareView({ token, payload }: { token: string; payload: EbookShare
         document.body
       )}
 
-      {reading && !isEpub && createPortal(
+      {reading && !isReadable && createPortal(
         <div className="share-doc-viewer" role="dialog" aria-modal="true" aria-label={book.title}>
           <div className="share-doc-viewer-head">
             <span className="share-doc-viewer-title">{book.title}</span>

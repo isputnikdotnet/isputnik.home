@@ -37,6 +37,23 @@ export function formatLogName(event: string) {
   return event.replaceAll(".", " ");
 }
 
+// Document formats the in-app foliate reader can render (its EPUB engine plus the
+// FB2 parser). PDFs are deliberately excluded — they use the native <iframe>
+// viewer, not foliate.
+export type FoliateFormat = "epub" | "fb2";
+
+export function isFoliateFormat(format: string | null | undefined): format is FoliateFormat {
+  return format === "epub" || format === "fb2";
+}
+
+// foliate-js detects a book's format from the File *name* (and falls back to the
+// MIME type), so any blob handed to the reader must be named to match its format.
+export function foliateFileInfo(format: string): { name: string; mime: string } {
+  return format === "fb2"
+    ? { name: "book.fb2", mime: "application/x-fictionbook+xml" }
+    : { name: "book.epub", mime: "application/epub+zip" };
+}
+
 // Compact "time ago" label (e.g. "8 min ago", "2 days ago"). Accepts the app's
 // ISO timestamps (with or without the trailing Z) the same way formatManagedDate does.
 export function relativeTime(value: string): string {

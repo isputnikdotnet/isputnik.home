@@ -12,6 +12,7 @@ import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedList
 import { useIsMobile } from "../shared/useIsMobile";
 import { useOnlineStatus } from "../pwa/useOnlineStatus";
 import { getDownloadedEpubBlob, getEbookDownload, listDownloads, listEbookDownloads } from "../offline/downloads";
+import { isFoliateFormat } from "../shared/utils";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
 
@@ -117,6 +118,7 @@ function StatTile({ card }: { card: StatCard }) {
 interface ViewerState {
   bookId: string;
   docId: string;
+  format: string;
   url: string;
   title: string;
   author: string;
@@ -156,11 +158,12 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const handleRead = useCallback(async (item: FeedItem) => {
     const offlineRecord = await getEbookDownload(item.id).catch(() => null);
     let docId: string | null = offlineRecord?.documentId ?? null;
+    let format: string = offlineRecord?.format ?? "epub";
     let networkUrl: string | null = null;
     try {
       const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
-      const doc = book.documents.find((d) => d.format === "epub") ?? book.documents[0] ?? null;
-      if (doc) { docId = doc.id; networkUrl = doc.url; }
+      const doc = book.documents.find((d) => isFoliateFormat(d.format)) ?? book.documents[0] ?? null;
+      if (doc) { docId = doc.id; networkUrl = doc.url; format = doc.format; }
     } catch {
       // Server unreachable — fall back to the offline record's document id below.
     }
@@ -178,6 +181,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     setViewer({
       bookId: item.id,
       docId,
+      format,
       url,
       title: item.title,
       author: item.authors.join(", "),
@@ -343,6 +347,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       <EbookReader
         bookId={viewer.bookId}
         documentId={viewer.docId}
+        format={viewer.format}
         url={viewer.url}
         storageKey={`isputnik:epub-progress:${user.id}:${viewer.bookId}:${viewer.docId}`}
         initialProgress={viewer.initialProgress}

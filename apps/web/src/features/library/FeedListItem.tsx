@@ -4,7 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
 import { downloadBook, downloadEbook } from "../../offline/downloads";
 import { navigate } from "../../router";
-import { formatBytes, formatDuration } from "../../shared/utils";
+import { formatBytes, formatDuration, isFoliateFormat } from "../../shared/utils";
 import type { AudiobookBookDetail } from "../audiobooks/types";
 import { DEFAULT_COVERS } from "../audiobooks/covers";
 import { authorLine, feedHref, type FeedItem } from "./feed";
@@ -99,13 +99,14 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
     try {
       const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
       if (isEbook) {
-        const doc = book.documents.find((d) => d.format === "epub") ?? book.documents[0] ?? null;
+        const doc = book.documents.find((d) => isFoliateFormat(d.format)) ?? book.documents[0] ?? null;
         if (doc) {
           await downloadEbook(item.id, doc.id, doc.url, {
             title: item.title,
             authors: item.authors,
             coverUrl: item.coverUrl,
-            totalBytes: doc.size
+            totalBytes: doc.size,
+            format: doc.format
           }, onProgress);
         }
       } else {
