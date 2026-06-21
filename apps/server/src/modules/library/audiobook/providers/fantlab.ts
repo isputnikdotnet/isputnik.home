@@ -1,6 +1,10 @@
 import { MetadataLinkError, type MetadataCandidate, type MetadataSearchInput } from "./types.js";
 
+// FantLab exposes a clean JSON API, which we use instead of scraping the HTML site
+// (its markup shifts and had broken the old search parser). The API host serves the
+// data; cover images come from the main site under /images/editions/…
 const fantlabBaseUrl = "https://fantlab.ru";
+const fantlabApiUrl = "https://api.fantlab.ru";
 
 function decodeHtml(value: string) {
   return value
@@ -13,106 +17,103 @@ function decodeHtml(value: string) {
     .trim();
 }
 
-function stripTags(value: string) {
-  return decodeHtml(value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "));
+// Descriptions can carry inline HTML (e.g. <a> links inside an edition's blurb);
+// flatten the markup to plain text.
+function cleanText(value?: string | null) {
+  if (!value) return undefined;
+  return decodeHtml(value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")) || undefined;
 }
 
-function matchFirst(value: string, pattern: RegExp) {
-  return value.match(pattern)?.[1]?.trim();
+interface FantlabAuthor { name?: string }
+
+interface FantlabSearchMatch {
+  work_id?: number;
+  rusname?: string;
+  name?: string;
+  all_autor_rusname?: string;
+  year?: number;
+  pic_edition_id?: number;
+  pic_edition_id_auto?: number;
 }
 
-function normaliseFantlabUrl(value?: string) {
-  if (!value) {
-    return undefined;
-  }
-
-  if (value.startsWith("https:/images/")) {
-    return `${fantlabBaseUrl}${value.slice("https:".length)}`;
-  }
-  if (value.startsWith("https:/img/logo")) {
-    return undefined;
-  }
-  if (value.startsWith("https:/img/")) {
-    return `${fantlabBaseUrl}${value.slice("https:".length)}`;
-  }
-  if (value.startsWith("https://") || value.startsWith("http://")) {
-    return value;
-  }
-  if (value.startsWith("/")) {
-    return `${fantlabBaseUrl}${value}`;
-  }
-  return `${fantlabBaseUrl}/${value}`;
+interface FantlabWork {
+  work_name?: string;
+  work_name_orig?: string;
+  work_year?: number;
+  work_description?: string;
+  image?: string;
+  lang_code?: string;
+  authors?: FantlabAuthor[];
 }
 
-function yearFromPlus(value?: string) {
-  const match = value?.match(/\b(\d{4})\b/);
-  return match ? Number(match[1]) : undefined;
+interface FantlabEdition {
+  edition_name?: string;
+  year?: number;
+  description?: string;
+  image?: string;
+  lang_code?: string;
+  isbns?: string[];
+  creators?: { authors?: FantlabAuthor[] };
 }
 
-function genreFromPlus(value?: string) {
-  const genre = value?.split(",").slice(1).join(",").trim();
-  return genre ? [genre] : undefined;
-}
-
-async function fetchFantlabHtml(url: string) {
+async function fetchFantlabJson<T>(url: string): Promise<T> {
   const response = await fetch(url, {
-    headers: {
-      "Accept": "text/html",
-      "User-Agent": "isputnik.home metadata lookup"
-    }
+    headers: { "Accept": "application/json", "User-Agent": "isputnik.home metadata lookup" }
   });
-  if (!response.ok) {
-    throw new Error("FantLab search failed.");
+  if (response.status === 404) {
+    throw new MetadataLinkError("That FantLab record was not found.");
   }
-
-  return response.text();
+  if (!response.ok) {
+    throw new Error("FantLab request failed.");
+  }
+  return response.json() as Promise<T>;
 }
 
-function parseWorkPageDetail(html: string) {
-  const description = decodeHtml(matchFirst(html, /<meta\s+property="og:description"\s+content="([^"]*)"/i) ?? "");
-  const coverUrl = normaliseFantlabUrl(matchFirst(html, /<meta\s+property="og:image"\s+content="([^"]*)"/i));
-
-  // Original (non-Russian) title — shown on translated work pages
-  const rawOriginal =
-    matchFirst(html, /class="[^"]*altname[^"]*"[^>]*>([\s\S]*?)<\//i) ??
-    matchFirst(html, /class="[^"]*original-name[^"]*"[^>]*>([\s\S]*?)<\//i) ??
-    matchFirst(html, /Другие\s+названия[\s\S]*?<[^>]+>([\s\S]*?)<\//i);
-  const originalTitle = rawOriginal ? stripTags(rawOriginal).trim() || undefined : undefined;
-
-  return { description: description || undefined, coverUrl, originalTitle };
+// The API gives an /images/editions/… path; fall back to building one from a
+// search hit's representative edition id when no explicit image is present.
+function coverUrl(image?: string | null, editionId?: number) {
+  if (image) return image.startsWith("http") ? image : `${fantlabBaseUrl}${image}`;
+  return editionId && editionId > 0 ? `${fantlabBaseUrl}/images/editions/big/${editionId}` : undefined;
 }
 
-async function enrichFromWorkPage(relativeUrl: string) {
+function authorNames(authors?: FantlabAuthor[]) {
+  return (authors ?? []).map((author) => decodeHtml(author.name ?? "").trim()).filter(Boolean);
+}
+
+// Filename-derived titles often carry a sequence prefix ("1. ", "01 - ", "3) ").
+// The works API matches strictly and finds nothing for those, so drop a leading
+// ordinal — but leave a bare year like "1984" (no separator) intact.
+function cleanQuery(value: string) {
+  return value.replace(/^\s*\d{1,3}\s*[.)\-]\s+/, "").trim();
+}
+
+// Search hits omit the blurb and original title; pull them from the work record.
+async function enrichFromWork(workId?: number): Promise<{ description?: string; originalTitle?: string }> {
+  if (!workId) return {};
   try {
-    return parseWorkPageDetail(await fetchFantlabHtml(normaliseFantlabUrl(relativeUrl)!));
+    const work = await fetchFantlabJson<FantlabWork>(`${fantlabApiUrl}/work/${workId}`);
+    return { description: cleanText(work.work_description), originalTitle: work.work_name_orig?.trim() || undefined };
   } catch {
-    return { description: undefined, coverUrl: undefined, originalTitle: undefined };
+    return {};
   }
 }
 
 export async function searchFantlab(input: MetadataSearchInput): Promise<MetadataCandidate[]> {
-  const params = new URLSearchParams({ searchstr: [input.query, input.author].filter(Boolean).join(" ") });
-  const html = await fetchFantlabHtml(`${fantlabBaseUrl}/searchmain?${params}`);
-  const worksSection = html.match(/<div class="search-block works">([\s\S]*?)(?:<div class="search-block|\<\/div>\s*<\/div>\s*<\/main>)/i)?.[1] ?? html;
-  const blocks = Array.from(worksSection.matchAll(/<div class="one">([\s\S]*?)<div class="one-line">/gi))
-    .slice(0, input.limit ?? 8);
+  const query = [cleanQuery(input.query), input.author].filter(Boolean).join(" ").trim();
+  if (!query) return [];
+  const params = new URLSearchParams({ q: query, page: "1" });
+  const data = await fetchFantlabJson<{ matches?: FantlabSearchMatch[] }>(`${fantlabApiUrl}/search-works?${params}`);
+  const matches = (data.matches ?? []).slice(0, input.limit ?? 8);
 
-  const candidates = await Promise.all(blocks.map(async (block) => {
-    const chunk = block[1];
-    const relativeUrl = matchFirst(chunk, /<div class="title">[\s\S]*?<a\s+href="([^"]+)"/i);
-    const rawTitle = matchFirst(chunk, /<div class="title">[\s\S]*?<a\s+href="[^"]+"\s*[^>]*>([\s\S]*?)<\/a>/i);
-    const author = matchFirst(chunk, /<div class="autor">[\s\S]*?<a\s+href="[^"]+"\s*[^>]*>([\s\S]*?)<\/a>/i);
-    const plus = stripTags(matchFirst(chunk, /<div class="plus">([\s\S]*?)<\/div>/i) ?? "");
-    const detail: { description?: string; coverUrl?: string; originalTitle?: string } = relativeUrl ? await enrichFromWorkPage(relativeUrl) : {};
-
+  const candidates = await Promise.all(matches.map(async (match) => {
+    const detail = await enrichFromWork(match.work_id);
     return {
-      title: stripTags(rawTitle ?? ""),
+      title: decodeHtml(match.rusname ?? match.name ?? "").trim(),
       subtitle: detail.originalTitle,
-      authors: author ? [stripTags(author)] : [],
-      year: yearFromPlus(plus),
-      description: detail.description || undefined,
-      coverUrl: detail.coverUrl,
-      genres: genreFromPlus(plus),
+      authors: (match.all_autor_rusname ?? "").split(",").map((name) => name.trim()).filter(Boolean),
+      year: match.year || undefined,
+      description: detail.description,
+      coverUrl: coverUrl(undefined, match.pic_edition_id_auto || match.pic_edition_id),
       language: "ru",
       source: "fantlab" as const
     };
@@ -121,38 +122,45 @@ export async function searchFantlab(input: MetadataSearchInput): Promise<Metadat
   return candidates.filter((candidate) => candidate.title);
 }
 
-// A single work page (https://fantlab.ru/workNNNN). Title/author/year come from
-// the page's schema.org microdata (work authors link to /autorN; comment
-// authors link to /userN, so the href guard excludes them); description, cover,
-// and original title reuse the same og:/altname parsing as search enrichment.
+// Resolve a pasted FantLab link. Both works (/workNNNN — the abstract title) and
+// editions (/editionNNNN — a specific published book) are supported; the API
+// returns the same shape of fields from each.
 export async function fetchFantlabByUrl(url: string): Promise<MetadataCandidate[]> {
   const pathname = new URL(url).pathname;
-  if (!/^\/work\d+\/?$/.test(pathname)) {
-    throw new MetadataLinkError("That doesn't look like a FantLab work link (expected fantlab.ru/workNNNN).");
+
+  const work = pathname.match(/^\/work(\d+)\/?$/);
+  if (work) {
+    const data = await fetchFantlabJson<FantlabWork>(`${fantlabApiUrl}/work/${work[1]}`);
+    const title = decodeHtml(data.work_name ?? "").trim();
+    if (!title) throw new MetadataLinkError("Could not read a title from that FantLab work.");
+    return [{
+      title,
+      subtitle: data.work_name_orig?.trim() || undefined,
+      authors: authorNames(data.authors),
+      year: data.work_year || undefined,
+      description: cleanText(data.work_description),
+      coverUrl: coverUrl(data.image),
+      language: data.lang_code || "ru",
+      source: "fantlab"
+    }];
   }
 
-  const html = await fetchFantlabHtml(`${fantlabBaseUrl}${pathname}`);
-  const ogTitle = decodeHtml(matchFirst(html, /<meta\s+property="og:title"\s+content="([^"]*)"/i) ?? "");
-  const title = ogTitle.match(/«([^»]+)»/)?.[1]?.trim()
-    || stripTags(matchFirst(html, /itemprop="name"[^>]*>([\s\S]*?)<\//i) ?? "");
-  if (!title) {
-    throw new MetadataLinkError("Could not read a title from that FantLab page.");
+  const edition = pathname.match(/^\/edition(\d+)\/?$/);
+  if (edition) {
+    const data = await fetchFantlabJson<FantlabEdition>(`${fantlabApiUrl}/edition/${edition[1]}`);
+    const title = decodeHtml(data.edition_name ?? "").trim();
+    if (!title) throw new MetadataLinkError("Could not read a title from that FantLab edition.");
+    return [{
+      title,
+      authors: authorNames(data.creators?.authors),
+      year: data.year || undefined,
+      description: cleanText(data.description),
+      coverUrl: coverUrl(data.image),
+      isbn: data.isbns?.[0]?.replace(/[^0-9Xx]/g, "") || undefined,
+      language: data.lang_code || "ru",
+      source: "fantlab"
+    }];
   }
 
-  const authors = Array.from(html.matchAll(/itemprop="author"\s+href="\/autor\d+"[^>]*>([\s\S]*?)<\/a>/gi))
-    .map((match) => stripTags(match[1]).replace(/^[^\p{L}(]+/u, "").trim())
-    .filter(Boolean);
-  const year = matchFirst(html, /itemprop="datePublished"[^>]*>\s*(\d{4})/i);
-  const detail = parseWorkPageDetail(html);
-
-  return [{
-    title,
-    subtitle: detail.originalTitle,
-    authors: Array.from(new Set(authors)),
-    year: year ? Number(year) : undefined,
-    description: detail.description,
-    coverUrl: detail.coverUrl,
-    language: "ru",
-    source: "fantlab"
-  }];
+  throw new MetadataLinkError("That doesn't look like a FantLab link (expected fantlab.ru/workNNNN or /editionNNNN).");
 }
