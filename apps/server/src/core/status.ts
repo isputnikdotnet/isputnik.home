@@ -337,6 +337,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.12",
+          label: "Read FB2 ebooks",
+          changes: [
+            "FB2 ebooks now open in the in-app reader, the same as EPUB — with the table of contents, search, bookmarks, themes, and reading-position sync all working the same way. Until now an FB2 book could only be downloaded. PDFs still open in their own viewer.",
+            "FB2 books can also be saved for offline reading on a phone or tablet, just like EPUB."
+          ]
+        },
+        {
           version: "1.2.11",
           label: "Book editions & multi-format ebooks",
           changes: [
