@@ -553,11 +553,12 @@ export function CatalogTail({
 // Bulk-edit dialog: overwrite shared metadata across the selected books. Any
 // field left blank is skipped (keeps each book's existing value); Tags replace
 // the existing tags on every selected book.
-function BulkEditModal({
+export function BulkEditModal({
   count,
   categories,
   peopleSuggestions,
   tagSuggestions,
+  showNarrator = true,
   onClose,
   onSubmit
 }: {
@@ -565,6 +566,8 @@ function BulkEditModal({
   categories: CategorySummary[];
   peopleSuggestions: string[];
   tagSuggestions: string[];
+  // Audiobooks edit narrators; ebooks have none, so that field is hidden there.
+  showNarrator?: boolean;
   onClose: () => void;
   onSubmit: (fields: Record<string, unknown>) => Promise<void>;
 }) {
@@ -639,10 +642,12 @@ function BulkEditModal({
                 <span>Author</span>
                 <PeopleCombobox value={authors} onChange={setAuthors} suggestions={peopleSuggestions} placeholder="Add author…" />
               </div>
-              <div className="field">
-                <span>Narrator</span>
-                <PeopleCombobox value={narrators} onChange={setNarrators} suggestions={peopleSuggestions} placeholder="Add narrator…" />
-              </div>
+              {showNarrator && (
+                <div className="field">
+                  <span>Narrator</span>
+                  <PeopleCombobox value={narrators} onChange={setNarrators} suggestions={peopleSuggestions} placeholder="Add narrator…" />
+                </div>
+              )}
               <label className="field">
                 <span>Category</span>
                 <select value={categoryKey} onChange={(event) => setCategoryKey(event.target.value)}>
