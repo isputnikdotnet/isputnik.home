@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { PublicUser } from "../api";
 import type { AudiobookBookDetail } from "../features/audiobooks/types";
+import { foliateFileInfo } from "../shared/utils";
 
 // Offline storage is namespaced per user so a shared family device never exposes
 // one account's downloads to another login. The current user's id is stashed in
@@ -82,6 +83,10 @@ export interface QueuedProgress {
 export interface EbookDownloadRecord {
   bookId: string;
   documentId: string;
+  // Document format ("epub" | "fb2") so the offline reader names the blob
+  // correctly. Records saved before FB2 support predate this field — treat a
+  // missing value as "epub".
+  format: string;
   title: string;
   authors: string[];
   coverUrl: string | null;
@@ -421,16 +426,17 @@ export async function deleteEbookDownload(bookId: string): Promise<void> {
 }
 
 /**
- * Download an EPUB document into local IndexedDB storage. The url must be the
- * server-side document URL (credentials are included automatically).
+ * Download an ebook document (EPUB or FB2) into local IndexedDB storage. The url
+ * must be the server-side document URL (credentials are included automatically).
  */
 export async function downloadEbook(
   bookId: string,
   documentId: string,
   url: string,
-  meta: { title: string; authors: string[]; coverUrl: string | null; totalBytes: number },
+  meta: { title: string; authors: string[]; coverUrl: string | null; totalBytes: number; format?: string },
   onProgress?: (fraction: number) => void
 ): Promise<EbookDownloadRecord> {
+  const format = meta.format ?? "epub";
   const handle = db();
   if (!handle) throw new Error("Sign in to download books for offline use.");
   const database = await handle;
@@ -440,6 +446,7 @@ export async function downloadEbook(
   const record: EbookDownloadRecord = {
     bookId,
     documentId,
+    format,
     title: meta.title,
     authors: meta.authors,
     coverUrl: meta.coverUrl,
@@ -456,7 +463,7 @@ export async function downloadEbook(
     const res = await fetch(url, { credentials: "include" });
     if (!res.ok || !res.body) throw new Error(`Couldn't download ebook (status ${res.status}).`);
 
-    const blob = await responseBlobWithProgress(res, "application/epub+zip", (bytes) => {
+    const blob = await responseBlobWithProgress(res, foliateFileInfo(format).mime, (bytes) => {
       downloaded += bytes;
       onProgress?.(meta.totalBytes > 0 ? Math.min(downloaded / meta.totalBytes, 0.999) : 0);
     });
@@ -477,8 +484,8 @@ export async function downloadEbook(
 }
 
 /**
- * Retrieve a downloaded EPUB as a Blob. Returns null when not stored locally.
- * Caller is responsible for revoking any object URL created from the blob.
+ * Retrieve a downloaded ebook (EPUB or FB2) as a Blob. Returns null when not
+ * stored locally. Caller is responsible for revoking any object URL created from it.
  */
 export async function getDownloadedEpubBlob(bookId: string, documentId: string): Promise<Blob | null> {
   const handle = db();

@@ -13,7 +13,7 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { FileUpload } from "../../shared/FileUpload";
-import { formatBytes } from "../../shared/utils";
+import { formatBytes, isFoliateFormat } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { EbookReader } from "./reader/EbookReader";
@@ -555,10 +555,10 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
     };
   }, [browseOpen]);
 
-  // The tile's read button opens EPUBs straight into the reader; other formats
+  // The tile's read button opens EPUB/FB2 straight into the reader; other formats
   // (PDF) fall back to the detail page, which has the right viewer for them.
   const openReader = (book: EbookBook) => {
-    if (book.format === "epub" && book.documentId) setReaderBook(book);
+    if (isFoliateFormat(book.format) && book.documentId) setReaderBook(book);
     else navigate(`/ebooks/books/${book.id}`);
   };
 
@@ -973,6 +973,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
           <EbookReader
             bookId={readerBook.id}
             documentId={readerBook.documentId}
+            format={readerBook.format ?? "epub"}
             url={`/api/library/books/${readerBook.id}/documents/${readerBook.documentId}`}
             storageKey={`isputnik:epub-progress:${user.id}:${readerBook.id}:${readerBook.documentId}`}
             initialProgress={null}

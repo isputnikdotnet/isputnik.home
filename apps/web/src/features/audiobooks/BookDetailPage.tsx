@@ -16,7 +16,7 @@ import { getDownloadedBookDetail, getDownloadedEpubBlob } from "../../offline/do
 import { useDownload } from "../../offline/useDownload";
 import { useEbookDownload } from "../../offline/useEbookDownload";
 import { isStandalone } from "../../pwa/platform";
-import { formatBytes, formatDuration } from "../../shared/utils";
+import { formatBytes, formatDuration, isFoliateFormat } from "../../shared/utils";
 import { ProgressRing } from "../../shared/ProgressRing";
 import type { AudiobookBookDetail, AudiobookFile, BookCapabilities, BookSave, PlaybackProgress, ReadingProgress, TrackProgress, WorkEdition, WorkEditions } from "./types";
 
@@ -30,9 +30,10 @@ const FULL_CAPABILITIES: BookCapabilities = { canEdit: true, canDownload: true, 
 // so allow re-download; editing/sharing need the server and stay off.
 const OFFLINE_CAPABILITIES: BookCapabilities = { canEdit: false, canDownload: true, canCurate: false, canShare: false, canDelete: false };
 
-// Document formats we can render in the in-app reader overlay. Others (mobi,
-// azw3) get download-only — no in-browser renderer.
-const VIEWABLE_DOC_FORMATS = new Set(["pdf", "epub"]);
+// Document formats we can render in the in-app reader overlay: EPUB and FB2 go to
+// the foliate reader, PDF to the native <iframe> viewer. Others (mobi, azw3) get
+// download-only — no in-browser renderer.
+const VIEWABLE_DOC_FORMATS = new Set(["pdf", "epub", "fb2"]);
 
 export function AudiobookBookPage({
   id,
@@ -420,14 +421,15 @@ function BookDetailView({
   const primaryReaderStorageKey = primaryReadableDoc
     ? `isputnik:epub-progress:${userId}:${book.id}:${primaryReadableDoc.id}`
     : "";
-  const ebookMeta = isEbook && primaryReadableDoc?.format === "epub" ? {
+  const ebookMeta = isEbook && isFoliateFormat(primaryReadableDoc?.format) ? {
     bookId: book.id,
     documentId: primaryReadableDoc.id,
     documentUrl: primaryReadableDoc.url,
     title: book.title,
     authors: book.authors,
     coverUrl: book.coverLargeUrl ?? book.coverUrl,
-    totalBytes: primaryReadableDoc.size
+    totalBytes: primaryReadableDoc.size,
+    format: primaryReadableDoc.format
   } : null;
   const ebookOffline = useEbookDownload(ebookMeta);
   const [progressAction, setProgressAction] = useState<"complete" | "reset" | "">("");
@@ -443,7 +445,7 @@ function BookDetailView({
   useEffect(() => {
     let cancelled = false;
     setReadingProgress(null);
-    if (!primaryReadableDoc || primaryReadableDoc.format !== "epub") {
+    if (!primaryReadableDoc || !isFoliateFormat(primaryReadableDoc.format)) {
       return () => { cancelled = true; };
     }
 
@@ -556,7 +558,7 @@ function BookDetailView({
     setProgressAction("reset");
     setProgressActionError("");
     try {
-      if (isEbook && primaryReadableDoc?.format === "epub") {
+      if (isEbook && isFoliateFormat(primaryReadableDoc?.format)) {
         await api(`/api/library/books/${book.id}/reading-progress?documentId=${encodeURIComponent(primaryReadableDoc.id)}`, { method: "DELETE" });
         try { localStorage.removeItem(primaryReaderStorageKey); } catch { /* ignore */ }
         setReadingProgress(null);
@@ -718,7 +720,7 @@ function BookDetailView({
   const openPrimaryReader = () => {
     const doc = primaryReadableDoc;
     if (!doc || !VIEWABLE_DOC_FORMATS.has(doc.format)) return;
-    if (doc.format === "epub" && ebookOffline.record?.state === "complete") {
+    if (isFoliateFormat(doc.format) && ebookOffline.record?.state === "complete") {
       void getDownloadedEpubBlob(book.id, doc.id).then((blob) => {
         const blobUrl = blob ? URL.createObjectURL(blob) : undefined;
         setViewerDoc({ id: doc.id, fileName: doc.fileName, url: blobUrl ?? doc.url, format: doc.format, blobUrl });
@@ -860,7 +862,7 @@ function BookDetailView({
                   {offline.record?.state === "complete" ? <CheckCircle2 size={18} /> : <Download size={18} />}
                 </button>
               )}
-              {isEbook && isStandalone() && capabilities.canDownload && primaryReadableDoc?.format === "epub" && (
+              {isEbook && isStandalone() && capabilities.canDownload && isFoliateFormat(primaryReadableDoc?.format) && (
                 <button
                   className={`book-detail-icon-action${ebookOffline.record?.state === "complete" ? " offline-saved" : ""}`}
                   type="button"
@@ -964,7 +966,7 @@ function BookDetailView({
                   )}
                 </>
               )}
-              {(!isEbook || primaryReadableDoc?.format === "epub") && (
+              {(!isEbook || isFoliateFormat(primaryReadableDoc?.format)) && (
                 <div className="book-progress-menu-wrap" ref={progressMenuRef}>
                   <button
                     className="book-progress-menu-trigger"
@@ -1244,10 +1246,11 @@ function BookDetailView({
       )}
 
       {viewerDoc && createPortal(
-        viewerDoc.format === "epub" ? (
+        isFoliateFormat(viewerDoc.format) ? (
           <EbookReader
             bookId={book.id}
             documentId={viewerDoc.id}
+            format={viewerDoc.format}
             url={viewerDoc.url}
             storageKey={`isputnik:epub-progress:${userId}:${book.id}:${viewerDoc.id}`}
             initialProgress={viewerDoc.id === primaryReadableDoc?.id ? readingProgress : null}

@@ -12,6 +12,9 @@ export interface EbookMeta {
   authors: string[];
   coverUrl: string | null;
   totalBytes: number;
+  // The document's format ("epub" | "fb2"), so the offline blob keeps its real
+  // type and the reader names it correctly — rather than assuming EPUB.
+  format: string;
 }
 
 export interface UseEbookDownload {
@@ -52,7 +55,7 @@ export function useEbookDownload(meta: EbookMeta | null): UseEbookDownload {
         meta.bookId,
         meta.documentId,
         meta.documentUrl,
-        { title: meta.title, authors: meta.authors, coverUrl: meta.coverUrl, totalBytes: meta.totalBytes },
+        { title: meta.title, authors: meta.authors, coverUrl: meta.coverUrl, totalBytes: meta.totalBytes, format: meta.format },
         setProgress
       );
       setRecord(done);

@@ -64,6 +64,7 @@ function ebookRecordToFeedItem(book: EbookDownloadRecord): FeedItem {
 interface ViewerState {
   bookId: string;
   docId: string;
+  format: string;
   url: string;
   title: string;
   author: string;
@@ -129,6 +130,7 @@ export function DownloadsPage({
     setViewer({
       bookId: record.bookId,
       docId: record.documentId,
+      format: record.format ?? "epub",
       url: blobUrl,
       title: record.title,
       author: record.authors.length > 0 ? record.authors.join(", ") : "Unknown author",
@@ -348,6 +350,7 @@ export function DownloadsPage({
       <EbookReader
         bookId={viewer.bookId}
         documentId={viewer.docId}
+        format={viewer.format}
         url={viewer.url}
         storageKey={`isputnik:epub-progress:${user.id}:${viewer.bookId}:${viewer.docId}`}
         initialProgress={viewer.initialProgress}

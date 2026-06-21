@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { api } from "../../../api";
 import { useIsMobile } from "../../../shared/useIsMobile";
+import { foliateFileInfo } from "../../../shared/utils";
 import type { EbookBookmark, ReadingProgress } from "../types";
 import {
   applyLayout, countToc, createFoliateView, themeColors, themeCSS,
@@ -15,6 +16,9 @@ import {
 interface EbookReaderProps {
   bookId: string;
   documentId: string;
+  // The document's format ("epub" | "fb2"). foliate detects the book type from the
+  // File name, so this decides how the fetched blob is named before view.open().
+  format: string;
   url: string;
   storageKey: string;
   initialProgress: ReadingProgress | null;
@@ -193,6 +197,7 @@ function TocList({
 export function EbookReader({
   bookId,
   documentId,
+  format,
   url,
   storageKey,
   initialProgress,
@@ -326,10 +331,11 @@ export function EbookReader({
         const res = await fetch(url, { credentials: "include" });
         if (!res.ok) throw new Error("Could not load this ebook.");
         // foliate's makeBook does format detection on the file *name* (e.g.
-        // name.endsWith('.cbz')), so it needs a File, not a bare Blob. Give it an
-        // .epub name so it takes the EPUB path.
+        // name.endsWith('.fb2')), so it needs a File, not a bare Blob. Name it to
+        // match this document's format so foliate picks the right parser.
         const data = await res.blob();
-        const file = new File([data], "book.epub", { type: data.type || "application/epub+zip" });
+        const { name, mime } = foliateFileInfo(format);
+        const file = new File([data], name, { type: data.type || mime });
         if (cancelled) return;
 
         let startCfi = startingProgress?.cfi ?? null;
@@ -390,7 +396,7 @@ export function EbookReader({
         try { view.remove(); } catch { /* ignore */ }
       }
     };
-  }, [bookId, documentId, url, storageKey, startingProgress, sendProgress, onRelocate, onLoad, guest]);
+  }, [bookId, documentId, format, url, storageKey, startingProgress, sendProgress, onRelocate, onLoad, guest]);
 
   // Typography / theme changes — applied live, no view rebuild.
   useEffect(() => {
