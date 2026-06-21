@@ -337,6 +337,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.13",
+          label: "Ebook metadata, bulk edit & FantLab",
+          changes: [
+            "FB2 ebooks now have their author, title, year, genres (as tags), description and cover read from the file during scanning — previously only EPUBs were read, so FB2-only libraries showed bare filenames with no author or tags to filter by. Books saved in the older windows-1251 Russian encoding are decoded correctly too. Heads up: existing FB2 books won't gain this until you rescan that ebook library (Control panel → the library → Rescan); newly added FB2 files are read automatically.",
+            "Edit several ebooks at once: on the Ebooks page choose Select, tick the books, then \"Edit metadata\" to overwrite author, category, language, tags or description across all of them — the same bulk editor audiobooks already had. The editor is a little wider now and keeps Tags on their own tab.",
+            "Fixed Metadata Lookup for FantLab: search returns results again, titles that start with a number like \"1. …\" now match, and you can paste either a work link (fantlab.ru/work…) or an edition link (fantlab.ru/edition…).",
+            "Filter panels show a search box as soon as a list has more than one option, so authors, tags and categories are quick to find in the Ebooks filters too — not just the long audiobook lists.",
+            "Smaller touches: new libraries default to no owner (a \"system\" library) rather than being owned by you, and the Upload, Select, Filter and Sort controls at the top of the Audiobooks and Ebooks pages are now compact icons."
+          ]
+        },
+        {
           version: "1.2.12",
           label: "Read FB2 ebooks",
           changes: [
