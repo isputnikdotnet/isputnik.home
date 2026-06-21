@@ -53,7 +53,7 @@ export function ControlPanelPage({
           {section === "config"    && <ConfigSection />}
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
-          {section === "libraries" && <LibrariesSection currentUser={user} />}
+          {section === "libraries" && <LibrariesSection />}
           {section === "recycleBin" && <RecycleBinSection />}
           {section === "categories" && categoryId !== undefined && <CategoryEditorPage categoryId={categoryId} />}
           {section === "categories" && categoryId === undefined && <TaxonomySection section="categories" />}

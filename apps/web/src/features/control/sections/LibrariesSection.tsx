@@ -14,7 +14,7 @@ import {
   LayoutGrid,
   LibraryBig
 } from "lucide-react";
-import { api, type PublicUser } from "../../../api";
+import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
@@ -97,7 +97,7 @@ function capabilityLabels(library: ManagedLibrary) {
   ].filter(Boolean) as string[];
 }
 
-export function LibrariesSection({ currentUser }: { currentUser: PublicUser }) {
+export function LibrariesSection() {
   const [libraries, setLibraries] = useState<ManagedLibrary[]>([]);
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
   const [metadataSources, setMetadataSources] = useState<MetadataSourceInfo[]>([]);
@@ -571,7 +571,6 @@ export function LibrariesSection({ currentUser }: { currentUser: PublicUser }) {
           groups={groups}
           storageRoots={storageRoots}
           initialRootId={selectedRootId || storageRoots[0]?.id || ""}
-          currentUser={currentUser}
           metadataSources={metadataSources}
           typeDefaults={typeDefaults}
           onClose={() => setCreateLibraryOpen(false)}

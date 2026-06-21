@@ -650,24 +650,16 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
           searchPlaceholder="Search ebooks..."
           actions={
             <>
-              <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} fields={EBOOK_FILTER_FIELDS} compact={isMobile} />
-              <AudiobookHeaderSort value={sort} onChange={setSort} options={EBOOK_SORT_OPTIONS} ariaLabel="Sort ebooks" compact={isMobile} />
+              <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} fields={EBOOK_FILTER_FIELDS} compact />
+              <AudiobookHeaderSort value={sort} onChange={setSort} options={EBOOK_SORT_OPTIONS} ariaLabel="Sort ebooks" compact />
               {uploadLibraries.length > 0 && !selectionMode && (
-                isMobile ? (
-                  <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setNotice(""); }} aria-label="Upload" title="Upload">
-                    <UploadCloud size={18} aria-hidden="true" />
-                  </button>
-                ) : (
-                  <button type="button" className="secondary-button" onClick={() => { setUploadOpen(true); setNotice(""); }}>
-                    <UploadCloud size={17} aria-hidden="true" />
-                    <span>Upload</span>
-                  </button>
-                )
+                <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setNotice(""); }} aria-label="Upload" title="Upload">
+                  <UploadCloud size={18} aria-hidden="true" />
+                </button>
               )}
               {!isMobile && (canEditScope || canDeleteScope) && !selectionMode && (
-                <button type="button" className="secondary-button" onClick={() => { setSelectionMode(true); setNotice(""); }}>
-                  <CheckSquare size={17} aria-hidden="true" />
-                  <span>Select</span>
+                <button type="button" className="audiobook-page-action-icon" onClick={() => { setSelectionMode(true); setNotice(""); }} aria-label="Select" title="Select">
+                  <CheckSquare size={18} aria-hidden="true" />
                 </button>
               )}
             </>
