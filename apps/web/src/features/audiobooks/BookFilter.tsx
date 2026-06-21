@@ -188,7 +188,11 @@ function FacetSection({
       </button>
       {open && (
         <div className="facet-body">
-          {searchable && options.length > 8 && (
+          {/* Offer the type-ahead as soon as a facet has more than one option, so
+              shorter lists (e.g. ebook authors/tags/categories) are filterable too —
+              not just the long audiobook lists. It only renders inside an expanded
+              facet, so it never clutters the collapsed view. */}
+          {searchable && options.length > 1 && (
             <label className="facet-search">
               <Search size={14} aria-hidden="true" />
               <input
