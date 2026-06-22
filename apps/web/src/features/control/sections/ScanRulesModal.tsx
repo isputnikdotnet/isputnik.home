@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Wand2, Plus, Pencil, Trash2, Eye, Folder, ArrowUp, X } from "lucide-react";
+import { Wand2, Plus, Pencil, Trash2, Eye, Folder, FolderSearch, ArrowUp, X } from "lucide-react";
 import { api } from "../../../api";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
@@ -30,6 +30,7 @@ interface BrowseFolder { name: string; relativePath: string }
 interface FoldersResponse { path: string; parent: string | null; folders: BrowseFolder[] }
 
 interface RuleForm { id: string; name: string; folders: string[]; pattern: string }
+type FormTab = "folders" | "rule";
 
 const PRESETS: { label: string; pattern: string }[] = [
   { label: "Series / Book", pattern: "{series}/{position}. {title}" },
@@ -48,11 +49,13 @@ export function ScanRulesModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [form, setForm] = useState<RuleForm | null>(null);
+  const [activeTab, setActiveTab] = useState<FormTab>("folders");
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ScanRule | null>(null);
 
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [browsePath, setBrowsePath] = useState("");
   const [browseParent, setBrowseParent] = useState<string | null>(null);
   const [browseFolders, setBrowseFolders] = useState<BrowseFolder[]>([]);
@@ -113,16 +116,21 @@ export function ScanRulesModal({
     setForm(rule
       ? { id: rule.id, name: rule.name, folders: [...rule.paths], pattern: rule.pattern }
       : { id: "", name: "", folders: [], pattern: "" });
+    setActiveTab("folders");
     setPreview(null);
     setError("");
-    void browse("");
   };
+
+  // Open the browser rooted at the library source so the user can drill into any
+  // subfolder and pick it. Reset to root each time, matching "browse from the top".
+  const openPicker = () => { setError(""); setPickerOpen(true); void browse(""); };
 
   const addFolder = (relativePath: string) =>
     setForm((current) => (current && !current.folders.includes(relativePath) ? { ...current, folders: [...current.folders, relativePath] } : current));
   const removeFolder = (relativePath: string) =>
     setForm((current) => (current ? { ...current, folders: current.folders.filter((path) => path !== relativePath) } : current));
 
+  const previewReady = Boolean(form && form.pattern.trim() && form.folders.length > 0);
   const formReady = Boolean(form && form.name.trim() && form.pattern.trim() && form.folders.length > 0);
 
   const runPreview = async () => {
@@ -185,22 +193,20 @@ export function ScanRulesModal({
     }
   };
 
-  const chip = { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 6px 2px 10px", border: "1px solid var(--line)", borderRadius: 999, fontSize: "0.82rem" } as const;
-
   return (
     <>
       <Modal title={`Scan rules — ${library.name}`} variant="panel" icon={<Wand2 size={28} />} className="scan-rules-modal" busy={saving} onClose={onClose}>
-        <div style={{ display: "grid", gap: 14, padding: "4px 2px" }}>
-          <p className="muted" style={{ margin: 0 }}>
-            Custom rules scan specific folders with their own layout, overriding the default scan there. Changes take effect on the next rescan.
-          </p>
-          {library.type !== "ebook" && (
-            <MessageBox tone="info" title="Ebook libraries only">Scan rules currently apply when scanning ebook libraries.</MessageBox>
-          )}
+        <div className="scan-rules-body">
           {error && <MessageBox tone="error" title="Scan rules">{error}</MessageBox>}
 
-          {!form && (
-            <>
+          {!form ? (
+            <div className="modal-tab-content scan-rules-list">
+              <p className="muted" style={{ margin: 0 }}>
+                Custom rules scan specific folders with their own layout, overriding the default scan there. Changes take effect on the next rescan.
+              </p>
+              {library.type !== "ebook" && (
+                <MessageBox tone="info" title="Ebook libraries only">Scan rules currently apply when scanning ebook libraries.</MessageBox>
+              )}
               <div className="modal-actions" style={{ justifyContent: "flex-start", marginTop: 0 }}>
                 <Button variant="primary" onClick={() => openForm()}><Plus size={16} aria-hidden="true" /> Add rule</Button>
               </div>
@@ -209,13 +215,13 @@ export function ScanRulesModal({
               ) : rules.length === 0 ? (
                 <p className="muted">No scan rules yet. Add one to organize an unusual folder.</p>
               ) : (
-                <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+                <ul className="scan-rules-rule-list">
                   {rules.map((rule) => (
-                    <li key={rule.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 8 }}>
-                      <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
+                    <li key={rule.id} className="scan-rules-rule-item">
+                      <div className="scan-rules-rule-meta">
                         <strong>{rule.name}</strong>
-                        <code style={{ fontSize: "0.85rem", color: "var(--muted)", wordBreak: "break-all" }}>{rule.pattern}</code>
-                        <small className="muted" style={{ wordBreak: "break-word" }}>{rule.paths.join(" · ")}</small>
+                        <code>{rule.pattern}</code>
+                        <small className="muted">{rule.paths.join(" · ")}</small>
                       </div>
                       <label className="field-checkbox" style={{ flex: "0 0 auto" }}>
                         <input type="checkbox" checked={rule.enabled} onChange={() => toggle(rule)} />
@@ -229,114 +235,182 @@ export function ScanRulesModal({
                   ))}
                 </ul>
               )}
-            </>
-          )}
+            </div>
+          ) : (
+            <>
+              <div className="modal-tabs scan-rules-tabs">
+                <button className={`modal-tab${activeTab === "folders" ? " active" : ""}`} onClick={() => setActiveTab("folders")}>
+                  Name &amp; folders{form.folders.length > 0 ? ` (${form.folders.length})` : ""}
+                </button>
+                <button className={`modal-tab${activeTab === "rule" ? " active" : ""}`} onClick={() => setActiveTab("rule")}>
+                  Rule
+                </button>
+              </div>
 
-          {form && (
-            <section style={{ display: "grid", gap: 12 }}>
-              <h3 style={{ margin: 0 }}>{form.id ? "Edit rule" : "New rule"}</h3>
-              <Field label="Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} placeholder="e.g. Круз Андрей" />
+              <div className="modal-tab-content scan-rules-content">
+                {activeTab === "folders" ? (
+                  <>
+                    <Field label="Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} placeholder="e.g. Brandon Sanderson" />
 
-              <div className="field">
-                <span>Folders</span>
-                {form.folders.length === 0 ? (
-                  <small className="muted">No folders selected — browse below and choose one or more.</small>
-                ) : (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {form.folders.map((path) => (
-                      <span key={path} style={chip}>
-                        {path}
-                        <button type="button" aria-label={`Remove ${path}`} title="Remove" onClick={() => removeFolder(path)} style={{ border: 0, background: "transparent", cursor: "pointer", color: "var(--muted)", lineHeight: 1, padding: 2 }}>
-                          <X size={13} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div style={{ marginTop: 8, border: "1px solid var(--line)", borderRadius: 8, overflow: "hidden" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderBottom: "1px solid var(--line)", background: "var(--field)" }}>
-                    <Button variant="icon" title="Up one level" aria-label="Up one level" disabled={browseParent === null} onClick={() => browse(browseParent ?? "")}>
-                      <ArrowUp size={15} />
-                    </Button>
-                    <code className="muted" style={{ wordBreak: "break-all" }}>/{browsePath}</code>
-                  </div>
-                  <ul style={{ listStyle: "none", margin: 0, padding: 0, maxHeight: 180, overflowY: "auto" }}>
-                    {browseFolders.length === 0 ? (
-                      <li style={{ padding: "8px 10px" }}><small className="muted">No subfolders here.</small></li>
-                    ) : browseFolders.map((entry) => (
-                      <li key={entry.relativePath} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 10px", borderTop: "1px solid var(--line)" }}>
-                        <button type="button" onClick={() => browse(entry.relativePath)} title="Open folder" style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, border: 0, background: "transparent", cursor: "pointer", textAlign: "left", color: "var(--ink)" }}>
-                          <Folder size={15} aria-hidden="true" /> <span style={{ wordBreak: "break-word" }}>{entry.name}</span>
-                        </button>
-                        <Button variant="secondary" compact disabled={form.folders.includes(entry.relativePath)} onClick={() => addFolder(entry.relativePath)}>
-                          {form.folders.includes(entry.relativePath) ? "Added" : "Add"}
+                    <div className="field">
+                      <div className="scan-rules-folders-head">
+                        <span>Folders</span>
+                        <Button variant="secondary" compact onClick={openPicker}>
+                          <FolderSearch size={15} aria-hidden="true" /> Browse folders
                         </Button>
-                      </li>
+                      </div>
+                      {form.folders.length === 0 ? (
+                        <button type="button" className="scan-rules-folder-empty" onClick={openPicker}>
+                          <Folder size={20} aria-hidden="true" />
+                          <span>No folders chosen yet — browse the library to add one or more.</span>
+                        </button>
+                      ) : (
+                        <div className="scan-rules-folder-grid">
+                          {form.folders.map((path) => {
+                            const segments = path.split("/");
+                            const name = segments[segments.length - 1];
+                            const parent = segments.slice(0, -1).join("/");
+                            return (
+                              <div key={path} className="scan-rules-folder-card">
+                                <Folder size={16} aria-hidden="true" />
+                                <div className="scan-rules-folder-label">
+                                  <strong title={path}>{name}</strong>
+                                  {parent && <small className="muted">{parent}</small>}
+                                </div>
+                                <Button variant="icon" danger compact title="Remove folder" aria-label={`Remove ${path}`} onClick={() => removeFolder(path)}>
+                                  <X size={14} />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label className="field">
+                      <span>Layout preset</span>
+                      <select value="" onChange={(event) => { const preset = PRESETS.find((option) => option.label === event.target.value); if (preset) setForm({ ...form, pattern: preset.pattern }); }}>
+                        <option value="">Choose a preset…</option>
+                        {PRESETS.map((preset) => <option key={preset.label} value={preset.label}>{preset.label} — {preset.pattern}</option>)}
+                      </select>
+                    </label>
+
+                    <label className="field">
+                      <span>Pattern</span>
+                      <input ref={patternRef} type="text" value={form.pattern} onChange={(event) => setForm({ ...form, pattern: event.target.value })} placeholder="{series}/{position}. {title}" style={{ fontFamily: "monospace" }} />
+                      <div className="scan-rules-token-palette">
+                        <small className="muted">Insert:</small>
+                        {tokens.map((tok) => (
+                          <Button key={tok.token} variant="secondary" compact title={tok.desc} onClick={() => insertToken(tok.token)} style={{ fontFamily: "monospace" }}>{tok.token}</Button>
+                        ))}
+                      </div>
+                      <small className="muted" style={{ marginTop: 6 }}>
+                        Folders are separated by “/”; text between tokens is matched literally. Use {"{ignore}"} for a folder level you don't want to map.
+                      </small>
+                    </label>
+
+                    <div className="modal-actions" style={{ justifyContent: "flex-start", marginTop: 0 }}>
+                      <Button variant="secondary" onClick={runPreview} disabled={previewing || !previewReady}>
+                        <Eye size={16} aria-hidden="true" /> {previewing ? "Previewing…" : "Preview"}
+                      </Button>
+                      {!previewReady && <small className="muted">Choose folders and a pattern to preview.</small>}
+                    </div>
+                    {preview && (preview.length === 0 ? (
+                      <p className="muted">No files matched in those folders.</p>
+                    ) : (
+                      <div className="scan-rules-preview">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th style={{ width: "30%" }}>From file</th>
+                              <th style={{ width: "20%" }}>Author</th>
+                              <th style={{ width: "22%" }}>Series</th>
+                              <th style={{ width: "8%", textAlign: "center" }}>#</th>
+                              <th style={{ width: "20%" }}>Title</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {preview.map((row) => (
+                              <tr key={row.path} style={{ opacity: row.matched ? 1 : 0.55 }}>
+                                <td className="muted">{row.path}</td>
+                                <td>{row.author ?? "—"}</td>
+                                <td>{row.series ?? "—"}</td>
+                                <td style={{ textAlign: "center" }}>{row.position ?? "—"}</td>
+                                <td>{row.title ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     ))}
-                  </ul>
+                  </>
+                )}
+              </div>
+
+              <div className="scan-rules-footer">
+                {!formReady && <small className="muted">Add a name, at least one folder, and a pattern to save.</small>}
+                <div className="modal-actions" style={{ marginTop: 0 }}>
+                  <Button variant="secondary" onClick={() => { setForm(null); setPreview(null); }} disabled={saving}>Cancel</Button>
+                  <Button variant="primary" onClick={save} disabled={saving || !formReady}>{saving ? "Saving…" : "Save rule"}</Button>
                 </div>
               </div>
-
-              <label className="field">
-                <span>Layout preset</span>
-                <select value="" onChange={(event) => { const preset = PRESETS.find((option) => option.label === event.target.value); if (preset) setForm({ ...form, pattern: preset.pattern }); }}>
-                  <option value="">Choose a preset…</option>
-                  {PRESETS.map((preset) => <option key={preset.label} value={preset.label}>{preset.label} — {preset.pattern}</option>)}
-                </select>
-              </label>
-
-              <label className="field">
-                <span>Pattern</span>
-                <input ref={patternRef} type="text" value={form.pattern} onChange={(event) => setForm({ ...form, pattern: event.target.value })} placeholder="{series}/{position}. {title}" style={{ fontFamily: "monospace" }} />
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, alignItems: "center" }}>
-                  <small className="muted">Insert:</small>
-                  {tokens.map((tok) => (
-                    <Button key={tok.token} variant="secondary" compact title={tok.desc} onClick={() => insertToken(tok.token)} style={{ fontFamily: "monospace" }}>{tok.token}</Button>
-                  ))}
-                </div>
-                <small className="muted" style={{ marginTop: 6 }}>
-                  Folders are separated by “/”; text between tokens is matched literally. Use {"{ignore}"} for a folder level you don't want to map.
-                </small>
-              </label>
-
-              <div className="modal-actions" style={{ justifyContent: "flex-start", marginTop: 0 }}>
-                <Button variant="secondary" onClick={runPreview} disabled={previewing || !formReady}>
-                  <Eye size={16} aria-hidden="true" /> {previewing ? "Previewing…" : "Preview"}
-                </Button>
-              </div>
-              {preview && (preview.length === 0 ? (
-                <p className="muted">No files matched in those folders.</p>
-              ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem", tableLayout: "fixed" }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: "left", width: "36%", padding: "0 8px 6px 0", color: "var(--muted)", fontWeight: 600 }}>From file</th>
-                      <th style={{ textAlign: "left", width: "26%", padding: "0 8px 6px", color: "var(--muted)", fontWeight: 600 }}>Series</th>
-                      <th style={{ textAlign: "center", width: "8%", padding: "0 8px 6px", color: "var(--muted)", fontWeight: 600 }}>#</th>
-                      <th style={{ textAlign: "left", width: "30%", padding: "0 0 6px 8px", color: "var(--muted)", fontWeight: 600 }}>Title</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.map((row) => (
-                      <tr key={row.path} style={{ borderTop: "1px solid var(--line)", opacity: row.matched ? 1 : 0.55 }}>
-                        <td style={{ padding: "6px 8px 6px 0", color: "var(--muted)", wordBreak: "break-word" }}>{row.path}</td>
-                        <td style={{ padding: "6px 8px", wordBreak: "break-word" }}>{row.series ?? "—"}</td>
-                        <td style={{ padding: "6px 8px", textAlign: "center" }}>{row.position ?? "—"}</td>
-                        <td style={{ padding: "6px 0 6px 8px", wordBreak: "break-word" }}>{row.title ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ))}
-
-              <div className="modal-actions">
-                <Button variant="secondary" onClick={() => { setForm(null); setPreview(null); }} disabled={saving}>Cancel</Button>
-                <Button variant="primary" onClick={save} disabled={saving || !formReady}>{saving ? "Saving…" : "Save rule"}</Button>
-              </div>
-            </section>
+            </>
           )}
         </div>
       </Modal>
+
+      {pickerOpen && form && (
+        <Modal title="Add folders" variant="card" icon={<FolderSearch size={22} />} className="folder-picker-modal scan-rules-picker" onClose={() => setPickerOpen(false)}>
+          <p>Browsing <strong>{library.name}</strong>. Open a folder to go deeper, then add the ones this rule should scan.</p>
+
+          <div className="folder-picker-browser">
+            <div className="folder-picker-head">
+              <div>
+                <strong>Current folder</strong>
+                <span>{browsePath ? `/${browsePath}` : "Library root"}</span>
+              </div>
+              <div className="row-actions">
+                {browsePath && (
+                  <Button variant="secondary" compact disabled={form.folders.includes(browsePath)} onClick={() => addFolder(browsePath)}>
+                    {form.folders.includes(browsePath) ? "Added" : <><Plus size={14} aria-hidden="true" /> Add this folder</>}
+                  </Button>
+                )}
+                <Button variant="icon" title="Up one level" aria-label="Up one level" disabled={browseParent === null} onClick={() => browse(browseParent ?? "")}>
+                  <ArrowUp size={16} />
+                </Button>
+              </div>
+            </div>
+
+            <div className="folder-picker-list">
+              {browseFolders.length === 0 ? (
+                <small className="muted" style={{ padding: "6px 4px" }}>No subfolders here.</small>
+              ) : browseFolders.map((entry) => {
+                const added = form.folders.includes(entry.relativePath);
+                return (
+                  <div key={entry.relativePath} className="scan-rules-pick-row">
+                    <button type="button" className="folder-picker-row text-button" onClick={() => browse(entry.relativePath)} title="Open folder">
+                      <Folder size={18} aria-hidden="true" />
+                      <span>{entry.name}</span>
+                    </button>
+                    <Button variant="secondary" compact disabled={added} onClick={() => addFolder(entry.relativePath)}>
+                      {added ? "Added" : <><Plus size={14} aria-hidden="true" /> Add</>}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="modal-actions" style={{ alignItems: "center" }}>
+            <small className="muted" style={{ marginRight: "auto" }}>
+              {form.folders.length === 0 ? "No folders selected" : `${form.folders.length} folder${form.folders.length === 1 ? "" : "s"} selected`}
+            </small>
+            <Button variant="primary" onClick={() => setPickerOpen(false)}>Done</Button>
+          </div>
+        </Modal>
+      )}
 
       {deleteTarget && (
         <ConfirmDialog

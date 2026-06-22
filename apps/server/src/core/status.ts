@@ -337,6 +337,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.14",
+          label: "Custom scan rules",
+          changes: [
+            "New: custom scan rules for ebook libraries. When a folder is organised its own way — say Author / Series / \"01. Title\" — you can teach the scanner that exact shape instead of living with the default grouping. Open Control panel → the ebook library → Scan rules, give the rule a name, browse to the folder(s) it should cover, then describe the layout with a pattern made of {author}, {series}, {position} and {title} tokens (there are ready-made presets and a click-to-insert palette). A Preview button dry-runs the pattern over the real files so you can see how each book will be read before you save. Rules apply on the next rescan.",
+            "The rule editor is split into two clear tabs — \"Name & folders\" and \"Rule\". A Browse-folders button opens a picker rooted at the library, and the folders you choose appear as a grid below, each removable with one click.",
+            "Matching copes with how files are really named: \"1. Title\" and \"1.Title\" (no space after the number) are both understood, while genuine decimals like \"2.5\" stay intact. If a folder nests an extra level — for example a \"universe\" folder holding several sub-series — add a second rule on that deeper folder and use the {ignore} token to skip the wrapping level."
+          ]
+        },
+        {
           version: "1.2.13",
           label: "Ebook metadata, bulk edit & FantLab",
           changes: [

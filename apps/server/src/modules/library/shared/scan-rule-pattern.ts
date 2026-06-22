@@ -40,12 +40,21 @@ function escapeRe(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// A literal matches verbatim, except any run of whitespace matches one-or-more
-// whitespace (so "1.  Title" with a double space still matches "{position}. {title}").
+// A literal matches verbatim, with two conveniences. Any run of whitespace matches
+// one-or-more whitespace (so "1.  Title" with a double space still matches
+// "{position}. {title}"). And a literal's REQUIRED trailing space is also satisfied
+// by a zero-width boundary right before a NON-digit — so "{position}. {title}" matches
+// both "1. Начало" and the space-less "1.Начало" (FB2 libraries mix the two). The
+// non-digit guard keeps real numbers intact: "2.5. Title" still parses position "2.5"
+// because the inner dot is followed by a digit, so it isn't treated as the boundary.
+// A purely whitespace literal still requires real whitespace, so "{author} {title}"
+// never collapses onto "AuthorTitle".
 function literalRegex(literal: string, anchored: boolean): RegExp {
-  const body = literal.split(/\s+/).filter(Boolean).map(escapeRe).join("\\s+")
-    + (/\s$/.test(literal) ? "\\s+" : "");
-  return new RegExp((anchored ? "^" : "") + (body || ""));
+  const core = literal.split(/\s+/).filter(Boolean);
+  const body = core.length === 0
+    ? (literal.length > 0 ? "\\s+" : "")
+    : core.map(escapeRe).join("\\s+") + (/\s$/.test(literal) ? "(?:\\s+|(?=\\D)|$)" : "");
+  return new RegExp((anchored ? "^" : "") + body);
 }
 
 function clean(value: string): string {
