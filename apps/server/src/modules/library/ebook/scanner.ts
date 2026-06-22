@@ -14,7 +14,9 @@ import {
   sourceEnabled,
   type ScanSourceConfig
 } from "../shared/library-settings.js";
-import { matchPattern } from "../shared/scan-rule-pattern.js";
+import { matchPattern, type PatternResult } from "../shared/scan-rule-pattern.js";
+import { listScanRules, resolveOwner } from "../shared/scan-rules.js";
+import { applyScannedSeries } from "../shared/series.js";
 
 const scanJobType = "SCAN_EBOOK_LIBRARY";
 
@@ -315,11 +317,16 @@ export async function ingestEbookGroup(
   libraryId: string,
   files: EbookFileEntry[],
   settings: ReturnType<typeof normalizeLibrarySettings>,
-  fileMetaEnabled: boolean
+  fileMetaEnabled: boolean,
+  // A custom scan rule may own this group: it tags the item with scanRuleId and
+  // supplies pattern-derived fields (series/author/position/title). Omitted = the
+  // default scanner (scanRuleId NULL).
+  opts: { scanRuleId?: string | null; fields?: PatternResult } = {}
 ): Promise<string> {
+  const scanRuleId = opts.scanRuleId ?? null;
   const groupKey = ebookGroupKey(files[0].relativePath);
-  const existing = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
-    .get(libraryId, groupKey) as { id: string } | undefined;
+  const existing = db.prepare("SELECT id, scan_rule_id FROM library_items WHERE library_id = ? AND folder_path = ?")
+    .get(libraryId, groupKey) as { id: string; scan_rule_id: string | null } | undefined;
   const metaRow = existing
     ? db.prepare("SELECT source FROM item_metadata WHERE item_id = ?").get(existing.id) as { source: string } | undefined
     : undefined;
@@ -337,15 +344,16 @@ export async function ingestEbookGroup(
       : null
     : null;
   const meta = scanned ?? pdfMetadata(metaFile);
-  const title = meta.title || path.basename(metaFile.fileName, metaFile.extension);
+  const title = opts.fields?.title || meta.title || path.basename(metaFile.fileName, metaFile.extension);
   const coverKey = (!manual && meta.coverBuffer) ? await generateEbookCover(libraryId, bookId, meta.coverBuffer) : null;
 
   db.transaction(() => {
     if (existing) {
-      db.prepare("UPDATE library_items SET status = 'ready', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL WHERE id = ?").run(bookId);
+      db.prepare("UPDATE library_items SET status = 'ready', scan_rule_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), deleted_at = NULL WHERE id = ?")
+        .run(scanRuleId, bookId);
     } else {
-      db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status) VALUES (?, ?, 'ebook', ?, 'ready')")
-        .run(bookId, libraryId, groupKey);
+      db.prepare("INSERT INTO library_items (id, library_id, type, folder_path, status, scan_rule_id) VALUES (?, ?, 'ebook', ?, 'ready', ?)")
+        .run(bookId, libraryId, groupKey, scanRuleId);
     }
 
     if (!manual) {
@@ -374,14 +382,25 @@ export async function ingestEbookGroup(
         ON CONFLICT(item_id, category_id) DO UPDATE SET is_primary = 1, source = 'scan'
       `).run(bookId, categoryId);
 
+      // A rule pattern's author takes precedence (it reads clean folder names);
+      // otherwise use the authors embedded in the file.
+      const authors = opts.fields?.author ? [opts.fields.author] : meta.authors;
       db.prepare("DELETE FROM item_people WHERE item_id = ? AND role = 'author'").run(bookId);
-      meta.authors.forEach((name, index) => {
+      authors.forEach((name, index) => {
         const authorId = upsertAuthor(libraryId, name);
         db.prepare("INSERT OR IGNORE INTO item_people (item_id, person_id, role, sort_order) VALUES (?, ?, 'author', ?)")
           .run(bookId, authorId, index);
       });
 
       setEntityTags("library_item", bookId, meta.subjects);
+
+      // Series come from the rule pattern (clean folder structure). An item that
+      // has just left a rule (now default-owned) has its scanned series cleared.
+      if (scanRuleId !== null) {
+        applyScannedSeries(bookId, libraryId, opts.fields?.series ?? null, opts.fields?.position ?? null);
+      } else if (existing?.scan_rule_id) {
+        applyScannedSeries(bookId, libraryId, null, null);
+      }
     }
 
     // Every file in the group is a content document. Mark all current content docs
@@ -437,7 +456,16 @@ export async function scanSingleEbookFile(libraryId: string, relativePath: strin
     files.push({ absolutePath: abs, relativePath: normaliseRelativePath(path.relative(rootPath, abs)), fileName: entry.name, extension, size });
   }
   if (files.length === 0) return null;
-  return ingestEbookGroup(libraryId, files, settings, fileMetaEnabled);
+
+  // An upload into a rule-owned folder is scanned by that rule (pattern applied);
+  // otherwise the default scanner owns it.
+  const groupKey = ebookGroupKey(files[0].relativePath);
+  const owner = resolveOwner(libraryId, groupKey);
+  if (owner) {
+    const relativeKey = groupKey.startsWith(`${owner.anchor}/`) ? groupKey.slice(owner.anchor.length + 1) : groupKey;
+    return ingestEbookGroup(libraryId, files, settings, fileMetaEnabled, { scanRuleId: owner.rule.id, fields: matchPattern(owner.rule.pattern, relativeKey) });
+  }
+  return ingestEbookGroup(libraryId, files, settings, fileMetaEnabled, { scanRuleId: null });
 }
 
 export interface RulePreviewRow {
@@ -477,6 +505,22 @@ export function previewEbookRulePattern(libraryId: string, folders: string[], pa
   return rows;
 }
 
+// Soft-delete items belonging to one owner (the default scanner = scanRuleId null,
+// or a specific rule) that are no longer present on disk. Scoped by owner so a
+// default scan never removes rule-owned items and vice versa.
+export function reconcileOwnedItems(libraryId: string, scanRuleId: string | null, presentKeys: Set<string>): void {
+  const known = (scanRuleId === null
+    ? db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND scan_rule_id IS NULL").all(libraryId)
+    : db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND scan_rule_id = ?").all(libraryId, scanRuleId)
+  ) as { id: string; folder_path: string }[];
+  for (const book of known) {
+    if (!presentKeys.has(book.folder_path)) {
+      db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(book.id);
+      db.prepare("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.id);
+    }
+  }
+}
+
 async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {}) {
   const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
     .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
@@ -489,31 +533,51 @@ async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {
   const rootPath = validateLibrarySource(library.source_path);
   const files = walkEbookFiles(rootPath, new Set(settings.scan_extensions.map((extension) => `.${extension}`)));
 
-  // Group files by folder + basename so the same book in several formats is one item.
-  const groups = new Map<string, EbookFileEntry[]>();
+  // Partition each book group by its owner: a most-specific enabled rule, or the
+  // default scanner. Files under an enabled rule's folders are excluded from the
+  // default walk and scanned by that rule with its pattern.
+  const rules = listScanRules(libraryId);
+  const defaultGroups = new Map<string, EbookFileEntry[]>();
+  const ruleGroups = new Map<string, Map<string, EbookFileEntry[]>>();
   for (const file of files) {
     const key = ebookGroupKey(file.relativePath);
-    const list = groups.get(key);
-    if (list) list.push(file); else groups.set(key, [file]);
-  }
-
-  for (const groupFiles of groups.values()) {
-    await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled);
-  }
-
-  // Soft-delete books whose every format vanished (their group key is gone).
-  const known = db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL")
-    .all(libraryId) as { id: string; folder_path: string }[];
-  for (const book of known) {
-    if (!groups.has(book.folder_path)) {
-      db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(book.id);
-      db.prepare("UPDATE document_files SET status = 'missing', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(book.id);
+    const owner = resolveOwner(libraryId, key);
+    let bucket: Map<string, EbookFileEntry[]>;
+    if (owner) {
+      bucket = ruleGroups.get(owner.rule.id) ?? new Map<string, EbookFileEntry[]>();
+      ruleGroups.set(owner.rule.id, bucket);
+    } else {
+      bucket = defaultGroups;
     }
+    const list = bucket.get(key);
+    if (list) list.push(file); else bucket.set(key, [file]);
+  }
+
+  for (const groupFiles of defaultGroups.values()) {
+    await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled, { scanRuleId: null });
+  }
+  for (const [ruleId, groups] of ruleGroups) {
+    const rule = rules.find((r) => r.id === ruleId);
+    if (!rule) continue;
+    for (const groupFiles of groups.values()) {
+      const key = ebookGroupKey(groupFiles[0].relativePath);
+      const owner = resolveOwner(libraryId, key);
+      const relativeKey = owner && key.startsWith(`${owner.anchor}/`) ? key.slice(owner.anchor.length + 1) : key;
+      const fields = matchPattern(rule.pattern, relativeKey);
+      await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled, { scanRuleId: ruleId, fields });
+    }
+  }
+
+  // Reconcile each owner independently — including rules whose folders are now empty.
+  reconcileOwnedItems(libraryId, null, new Set(defaultGroups.keys()));
+  for (const rule of rules) {
+    reconcileOwnedItems(libraryId, rule.id, new Set((ruleGroups.get(rule.id) ?? new Map<string, EbookFileEntry[]>()).keys()));
   }
 
   db.prepare("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
     .run(libraryId);
-  return { books: groups.size };
+  const bookCount = defaultGroups.size + [...ruleGroups.values()].reduce((sum, group) => sum + group.size, 0);
+  return { books: bookCount };
 }
 
 // ── Job queue (mirrors the audiobook scan worker) ──
