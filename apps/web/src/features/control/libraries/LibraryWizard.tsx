@@ -155,7 +155,6 @@ export function LibraryWizard({
   const [scanSources, setScanSources] = useState<ScanSource[]>(typeDefaults[initialType]?.sources ?? []);
   const [maxUploadMB, setMaxUploadMB] = useState("");
   const [tagEncoding, setTagEncoding] = useState("");
-  const [autoSeries, setAutoSeries] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [advancedTab, setAdvancedTab] = useState<AdvancedTab>("access");
   const [advancedError, setAdvancedError] = useState("");
@@ -166,7 +165,6 @@ export function LibraryWizard({
   const [draftScanSources, setDraftScanSources] = useState<ScanSource[]>(typeDefaults[initialType]?.sources ?? []);
   const [draftMaxUploadMB, setDraftMaxUploadMB] = useState("");
   const [draftTagEncoding, setDraftTagEncoding] = useState("");
-  const [draftAutoSeries, setDraftAutoSeries] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -211,7 +209,6 @@ export function LibraryWizard({
     setDraftScanSources(scanSources.map((source) => ({ ...source })));
     setDraftMaxUploadMB(maxUploadMB);
     setDraftTagEncoding(tagEncoding);
-    setDraftAutoSeries(autoSeries);
     setAdvancedError("");
     setAdvancedTab("access");
     setAdvancedOpen(true);
@@ -230,7 +227,6 @@ export function LibraryWizard({
     setScanSources(draftScanSources.map((source) => ({ ...source })));
     setMaxUploadMB(draftMaxUploadMB);
     setTagEncoding(draftTagEncoding);
-    setAutoSeries(draftAutoSeries);
     setAdvancedError("");
     setAdvancedOpen(false);
   };
@@ -306,8 +302,7 @@ export function LibraryWizard({
           companionExtensions: companions,
           scanSources,
           maxUploadMB: Number.isFinite(maxUpload) && maxUpload > 0 ? maxUpload : null,
-          tagEncoding: libraryType === "audiobook" && tagEncoding ? tagEncoding : null,
-          autoSeries: libraryType === "ebook" ? autoSeries : undefined
+          tagEncoding: libraryType === "audiobook" && tagEncoding ? tagEncoding : null
         })
       });
       onCreated(libraryType);
@@ -594,18 +589,6 @@ export function LibraryWizard({
                         onChange={setDraftTagEncoding}
                         noneLabel="Auto Detect"
                       />
-                    )}
-                    {libraryType === "ebook" && (
-                      <div className="field">
-                        <span>Series</span>
-                        <label className="field-checkbox">
-                          <input type="checkbox" checked={draftAutoSeries} onChange={(event) => setDraftAutoSeries(event.target.checked)} />
-                          <span>Auto-organize into series from folders and book metadata</span>
-                        </label>
-                        <small className="muted">
-                          Groups numbered folders (and books with embedded series info) into series. Series you set by hand are kept.
-                        </small>
-                      </div>
                     )}
                   </section>
                 )}

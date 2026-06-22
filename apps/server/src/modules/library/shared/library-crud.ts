@@ -49,9 +49,7 @@ export const coreLibraryCreateSchema = z.object({
   // Default legacy charset for tag mojibake repair (audiobook); null clears it.
   tagEncoding: z.enum(TAG_ENCODINGS).nullable().optional(),
   // Progress model (audiobook): linear book cursor vs. per-episode tracking.
-  progressMode: z.enum(["linear", "episodic"]).optional(),
-  // Infer series from in-file metadata + folder shape during scan (ebook).
-  autoSeries: z.boolean().optional()
+  progressMode: z.enum(["linear", "episodic"]).optional()
 });
 
 export const coreLibraryUpdateSchema = coreLibraryCreateSchema.omit({ sourcePath: true });
@@ -139,8 +137,7 @@ export function createLibraryRecord(opts: {
       : defaultCompanionExtensions(type),
     scan_sources: normalizeScanSources(type, data.scanSources),
     ...(data.tagEncoding ? { tag_encoding: data.tagEncoding } : {}),
-    ...(data.progressMode ? { progress_mode: data.progressMode } : {}),
-    ...(data.autoSeries ? { auto_series: true } : {})
+    ...(data.progressMode ? { progress_mode: data.progressMode } : {})
   };
 
   const libraryId = nanoid(16);
@@ -220,9 +217,6 @@ export function updateLibraryRecord(opts: {
   if (data.progressMode !== undefined) {
     settings.progress_mode = data.progressMode;
   }
-  if (data.autoSeries !== undefined) {
-    settings.auto_series = data.autoSeries;
-  }
 
   db.prepare(`
     UPDATE libraries
@@ -262,7 +256,6 @@ export interface AdminLibrarySettings {
   maxUploadMB: number | null;
   tagEncoding: TagEncoding | null;
   progressMode: ProgressMode;
-  autoSeries: boolean;
 }
 
 // Settings payload for admin views (create/edit/rescan dialogs in the Control Panel).
@@ -280,7 +273,6 @@ export function serializeLibrarySettingsForAdmin(
     scanSources: settings.scan_sources,
     maxUploadMB: policy.maxUploadMB ?? null,
     tagEncoding: (settings as { tag_encoding?: TagEncoding }).tag_encoding ?? null,
-    progressMode: (settings as { progress_mode?: ProgressMode }).progress_mode ?? "linear",
-    autoSeries: settings.auto_series === true
+    progressMode: (settings as { progress_mode?: ProgressMode }).progress_mode ?? "linear"
   };
 }

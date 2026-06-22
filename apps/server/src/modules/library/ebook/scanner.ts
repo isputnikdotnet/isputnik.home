@@ -14,8 +14,6 @@ import {
   sourceEnabled,
   type ScanSourceConfig
 } from "../shared/library-settings.js";
-import { inferSeries, leadingPosition, type FolderContext } from "../shared/structure-inference.js";
-import { applyScannedSeries } from "../shared/series.js";
 
 const scanJobType = "SCAN_EBOOK_LIBRARY";
 
@@ -53,8 +51,6 @@ interface EbookMetadata {
   year: number | null;
   isbn: string | null;
   coverBuffer: Buffer | null;
-  // Series carried by the file itself (FB2 <sequence>, EPUB calibre:series).
-  series: { name: string; index?: number } | null;
 }
 
 // ── EPUB parsing (OPF is simple XML; targeted extraction, no XML dependency) ──
@@ -112,15 +108,6 @@ function extractEpubMetadata(filePath: string): EbookMetadata | null {
   const isbn = identifiers.map((id) => id.replace(/^isbn:?/i, "").replace(/[^0-9Xx]/g, ""))
     .find((id) => id.length === 10 || id.length === 13) ?? null;
 
-  // Calibre records series in OPF <meta> (attribute order varies).
-  const seriesName = firstMatch(opf, /<meta[^>]*name=["']calibre:series["'][^>]*content=["']([^"']+)["']/i)
-    ?? firstMatch(opf, /<meta[^>]*content=["']([^"']+)["'][^>]*name=["']calibre:series["']/i);
-  const seriesIndexRaw = firstMatch(opf, /<meta[^>]*name=["']calibre:series_index["'][^>]*content=["']([^"']+)["']/i)
-    ?? firstMatch(opf, /<meta[^>]*content=["']([^"']+)["'][^>]*name=["']calibre:series_index["']/i);
-  const series = seriesName
-    ? { name: seriesName, index: seriesIndexRaw && Number.isFinite(Number(seriesIndexRaw)) ? Number(seriesIndexRaw) : undefined }
-    : null;
-
   // Cover: <meta name="cover" content="id"> -> manifest item href, or an item
   // flagged properties="cover-image".
   let coverHref: string | null = null;
@@ -144,14 +131,14 @@ function extractEpubMetadata(filePath: string): EbookMetadata | null {
     coverBuffer = zip.getEntry(coverPath)?.getData() ?? null;
   }
 
-  return { title, authors, language, description, subjects, year, isbn, coverBuffer, series };
+  return { title, authors, language, description, subjects, year, isbn, coverBuffer };
 }
 
 function pdfMetadata(file: EbookFileEntry): EbookMetadata {
   // PDFs carry little reliable metadata; use the filename as the title.
   return {
     title: path.basename(file.fileName, file.extension).replace(/[_]+/g, " ").trim() || null,
-    authors: [], language: null, description: null, subjects: [], year: null, isbn: null, coverBuffer: null, series: null
+    authors: [], language: null, description: null, subjects: [], year: null, isbn: null, coverBuffer: null
   };
 }
 
@@ -210,10 +197,6 @@ export function parseFb2Metadata(raw: Buffer): EbookMetadata {
   // The annotation wraps its text in <p>/<empty-line> markup; drop those tags so
   // the stored description is plain text.
   const annotation = titleInfo.match(/<annotation[^>]*>([\s\S]*?)<\/annotation>/i)?.[1];
-  // Series from <sequence name=… number=…/> (attribute order varies).
-  const seqTag = titleInfo.match(/<sequence\b[^>]*>/i)?.[0] ?? "";
-  const seqName = decodeXml(seqTag.match(/\bname=["']([^"']*)["']/i)?.[1] ?? null);
-  const seqNumber = seqTag.match(/\bnumber=["']([^"']*)["']/i)?.[1];
 
   return {
     title: firstMatch(titleInfo, /<book-title[^>]*>([\s\S]*?)<\/book-title>/i),
@@ -226,8 +209,7 @@ export function parseFb2Metadata(raw: Buffer): EbookMetadata {
     subjects: [...allMatches(titleInfo, /<genre[^>]*>([\s\S]*?)<\/genre>/gi), ...keywords],
     year: Number.isFinite(yearNum) ? yearNum : null,
     isbn: null,
-    coverBuffer: fb2Cover(xml, titleInfo),
-    series: seqName ? { name: seqName, index: seqNumber && Number.isFinite(Number(seqNumber)) ? Number(seqNumber) : undefined } : null
+    coverBuffer: fb2Cover(xml, titleInfo)
   };
 }
 
@@ -332,10 +314,7 @@ export async function ingestEbookGroup(
   libraryId: string,
   files: EbookFileEntry[],
   settings: ReturnType<typeof normalizeLibrarySettings>,
-  fileMetaEnabled: boolean,
-  // Sibling-book counts for the group's folder; drives series inference. Defaults
-  // to "not a series" so callers that don't compute it keep today's flat result.
-  folder: FolderContext = { bookCount: 1, numberedBookCount: 0 }
+  fileMetaEnabled: boolean
 ): Promise<string> {
   const groupKey = ebookGroupKey(files[0].relativePath);
   const existing = db.prepare("SELECT id FROM library_items WHERE library_id = ? AND folder_path = ?")
@@ -402,13 +381,6 @@ export async function ingestEbookGroup(
       });
 
       setEntityTags("library_item", bookId, meta.subjects);
-
-      // Series: opt-in inference (in-file metadata + numbered-folder shape). When
-      // off we still reconcile — clearing any previously scan-derived series — so
-      // disabling and rescanning undoes it. applyScannedSeries always leaves a
-      // hand-pinned series (series_source = 'manual') untouched.
-      const inferred = settings.auto_series ? inferSeries({ groupKey, fileSeries: meta.series, folder }) : null;
-      applyScannedSeries(bookId, libraryId, inferred?.series ?? null, inferred?.position ?? null);
     }
 
     // Every file in the group is a content document. Mark all current content docs
@@ -464,18 +436,7 @@ export async function scanSingleEbookFile(libraryId: string, relativePath: strin
     files.push({ absolutePath: abs, relativePath: normaliseRelativePath(path.relative(rootPath, abs)), fileName: entry.name, extension, size });
   }
   if (files.length === 0) return null;
-
-  // Folder context for series inference: distinct book stems in this folder.
-  const stems = new Map<string, boolean>();
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    const ext = path.extname(entry.name).toLowerCase();
-    if (!allowed.has(ext)) continue;
-    const st = path.basename(entry.name, path.extname(entry.name));
-    if (!stems.has(st)) stems.set(st, leadingPosition(st) !== undefined);
-  }
-  const folder: FolderContext = { bookCount: stems.size, numberedBookCount: [...stems.values()].filter(Boolean).length };
-  return ingestEbookGroup(libraryId, files, settings, fileMetaEnabled, folder);
+  return ingestEbookGroup(libraryId, files, settings, fileMetaEnabled);
 }
 
 async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {}) {
@@ -498,20 +459,8 @@ async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {
     if (list) list.push(file); else groups.set(key, [file]);
   }
 
-  // Per-folder book counts drive series inference (a numbered set ⇒ a series).
-  const folderStats = new Map<string, FolderContext>();
-  for (const key of groups.keys()) {
-    const dir = key.includes("/") ? key.slice(0, key.lastIndexOf("/")) : ".";
-    const stem = key.includes("/") ? key.slice(key.lastIndexOf("/") + 1) : key;
-    const stat = folderStats.get(dir) ?? { bookCount: 0, numberedBookCount: 0 };
-    stat.bookCount += 1;
-    if (leadingPosition(stem) !== undefined) stat.numberedBookCount += 1;
-    folderStats.set(dir, stat);
-  }
-
-  for (const [key, groupFiles] of groups) {
-    const dir = key.includes("/") ? key.slice(0, key.lastIndexOf("/")) : ".";
-    await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled, folderStats.get(dir) ?? { bookCount: 1, numberedBookCount: 0 });
+  for (const groupFiles of groups.values()) {
+    await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled);
   }
 
   // Soft-delete books whose every format vanished (their group key is gone).
