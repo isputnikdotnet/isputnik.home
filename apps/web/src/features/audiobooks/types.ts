@@ -49,6 +49,8 @@ export interface AdminLibrarySettings {
   maxUploadMB: number | null;
   tagEncoding: TagEncoding | null;
   progressMode: ProgressMode;
+  // Ebook: infer series from in-file metadata + folder shape during scan.
+  autoSeries: boolean;
 }
 
 export interface AudiobookLibrary {

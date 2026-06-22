@@ -31,6 +31,9 @@ export interface BaseLibrarySettings {
   companion_extensions: string[];
   // Ordered by priority: index 0 = highest. First source providing a field wins.
   scan_sources: ScanSourceConfig[];
+  // Opt-in: infer series + position from in-file metadata and folder shape during
+  // scan. Off by default, so libraries keep today's flat behaviour until enabled.
+  auto_series?: boolean;
 }
 
 // How playback progress is modelled. linear = one resume cursor for the whole book
@@ -132,6 +135,7 @@ export function normalizeLibrarySettings(type: LibraryType, settingsJson: string
       ? defaultCompanionExtensions(type)
       : normalizeExtensions(raw.companion_extensions),
     scan_sources: normalizeScanSources(type, raw.scan_sources),
+    auto_series: raw.auto_series === true,
     tag_encoding: isTagEncoding(raw.tag_encoding) ? raw.tag_encoding : undefined,
     progress_mode: raw.progress_mode === "episodic" ? "episodic" : "linear"
   };
