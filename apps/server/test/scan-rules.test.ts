@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import {
   createScanRule, updateScanRule, deleteScanRule, getScanRule, listScanRules,
-  resolveOwningRule, isScanRuleError
+  resolveOwningRule, resolveOwner, isScanRuleError
 } from "../src/modules/library/shared/scan-rules.js";
 import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
@@ -57,6 +57,15 @@ describe("resolveOwningRule", () => {
     updateScanRule(b.id, { name: "Box", pattern: "{title}", paths: ["Collections/Box Sets"], enabled: false });
     expect(resolveOwningRule("L1", "Collections/Box Sets/Dune")).toBeNull();
     expect(resolveOwningRule("L1", "Collections/Other/X")?.id).toBe(a.id);
+  });
+
+  it("resolveOwner returns the most-specific owning folder as the anchor", () => {
+    const a = createScanRule("L1", { name: "Coll", pattern: "{title}", paths: ["Collections"] });
+    const b = createScanRule("L1", { name: "Box", pattern: "{title}", paths: ["Collections/Box Sets"] });
+    if (isScanRuleError(a) || isScanRuleError(b)) throw new Error("setup failed");
+    expect(resolveOwner("L1", "Collections/Box Sets/Dune")).toMatchObject({ rule: { id: b.id }, anchor: "Collections/Box Sets" });
+    expect(resolveOwner("L1", "Collections/Other/X")).toMatchObject({ rule: { id: a.id }, anchor: "Collections" });
+    expect(resolveOwner("L1", "Elsewhere/Y")).toBeNull();
   });
 });
 

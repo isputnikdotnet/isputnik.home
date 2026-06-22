@@ -141,11 +141,17 @@ export function deleteScanRule(id: string): boolean {
   return db.prepare("DELETE FROM library_scan_rules WHERE id = ?").run(id).changes > 0;
 }
 
-// The rule that owns a given item path: the most-specific (longest) rule folder
-// containing it. If that most-specific match is disabled, the default scanner owns
-// the path — a broader enabled rule does not reach through the disabled one — so
-// this returns null (default-owned). Null also means "no rule covers this path".
-export function resolveOwningRule(libraryId: string, itemPath: string): ScanRule | null {
+export interface ResolvedOwner {
+  rule: ScanRule;
+  anchor: string; // the rule folder (relative path) that owns the item
+}
+
+// The rule + the specific folder (anchor) that owns a given item path: the
+// most-specific (longest) rule folder containing it. If that most-specific match
+// is disabled, the default scanner owns the path — a broader enabled rule does not
+// reach through the disabled one — so this returns null. Null also means "no rule
+// covers this path". The anchor is what the pattern is matched relative to.
+export function resolveOwner(libraryId: string, itemPath: string): ResolvedOwner | null {
   const norm = normalizePath(itemPath);
   const rows = db.prepare(`
     SELECT p.relative_path AS path, p.rule_id AS ruleId, r.enabled AS enabled
@@ -154,12 +160,19 @@ export function resolveOwningRule(libraryId: string, itemPath: string): ScanRule
     WHERE p.library_id = ?
   `).all(libraryId) as { path: string; ruleId: string; enabled: number }[];
 
-  let best: { len: number; ruleId: string; enabled: number } | null = null;
+  let best: { len: number; ruleId: string; enabled: number; path: string } | null = null;
   for (const row of rows) {
     if (norm === row.path || norm.startsWith(`${row.path}/`)) {
-      if (!best || row.path.length > best.len) best = { len: row.path.length, ruleId: row.ruleId, enabled: row.enabled };
+      if (!best || row.path.length > best.len) {
+        best = { len: row.path.length, ruleId: row.ruleId, enabled: row.enabled, path: row.path };
+      }
     }
   }
-  if (!best) return null;
-  return best.enabled === 1 ? getScanRule(best.ruleId) : null;
+  if (!best || best.enabled !== 1) return null;
+  const rule = getScanRule(best.ruleId);
+  return rule ? { rule, anchor: best.path } : null;
+}
+
+export function resolveOwningRule(libraryId: string, itemPath: string): ScanRule | null {
+  return resolveOwner(libraryId, itemPath)?.rule ?? null;
 }
