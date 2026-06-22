@@ -11,7 +11,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // applied to existing databases once there is data worth keeping.
 const baseline = 1;
 const migrations: { version: number; up: (db: Database.Database) => void }[] = [
-  // { version: 2, up: (db) => db.exec("ALTER TABLE library_items ADD COLUMN ...") },
+  // Custom scan rules: items can be owned by a rule (NULL = the default scanner).
+  // The library_scan_rules table is created by schema.sql before migrations run.
+  { version: 2, up: (db) => db.exec("ALTER TABLE library_items ADD COLUMN scan_rule_id TEXT REFERENCES library_scan_rules(id) ON DELETE SET NULL") }
 ];
 
 function userVersion(db: Database.Database): number {

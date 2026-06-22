@@ -168,6 +168,34 @@ CREATE TABLE IF NOT EXISTS ebook_details (
   page_count  INTEGER
 );
 
+-- Custom scan rules: a path-scoped override of the default scanner for specific
+-- folders in a library (docs/custom-scan-rules-proposal.md). An enabled rule owns
+-- and scans its folders with its own layout pattern; the default scanner skips
+-- them. Items it catalogs carry library_items.scan_rule_id = the rule's id.
+CREATE TABLE IF NOT EXISTS library_scan_rules (
+  id          TEXT PRIMARY KEY,
+  library_id  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  enabled     INTEGER NOT NULL DEFAULT 1,   -- 0 = disabled; the default scanner owns its scope
+  preset      TEXT,                          -- optional preset id the pattern came from (UI label)
+  pattern     TEXT NOT NULL,                 -- declarative layout pattern (see scan-rule-pattern.ts)
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- Folders a rule owns, relative to the library source. A folder belongs to at most
+-- one rule (UNIQUE per library), so path specificity alone resolves ownership.
+CREATE TABLE IF NOT EXISTS library_scan_rule_paths (
+  rule_id        TEXT NOT NULL REFERENCES library_scan_rules(id) ON DELETE CASCADE,
+  library_id     TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  relative_path  TEXT NOT NULL,
+  PRIMARY KEY (rule_id, relative_path),
+  UNIQUE (library_id, relative_path)
+);
+
+CREATE INDEX IF NOT EXISTS idx_scan_rules_library      ON library_scan_rules(library_id);
+CREATE INDEX IF NOT EXISTS idx_scan_rule_paths_library ON library_scan_rule_paths(library_id);
+
 -- ════════════════════════════════════════════════════════════════════════════
 --  People, series, categories, tags  (all global / cross-library)
 -- ════════════════════════════════════════════════════════════════════════════
