@@ -133,7 +133,6 @@ export function LibrariesSection() {
   const [editMaxUploadMB, setEditMaxUploadMB] = useState("");
   const [editTagEncoding, setEditTagEncoding] = useState("");
   const [editProgressMode, setEditProgressMode] = useState<"linear" | "episodic">("linear");
-  const [editAutoSeries, setEditAutoSeries] = useState(false);
   const [editTab, setEditTab] = useState<"access" | "upload" | "scanning">("access");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -212,7 +211,6 @@ export function LibrariesSection() {
     setEditMaxUploadMB(library.settings?.maxUploadMB != null ? String(library.settings.maxUploadMB) : "");
     setEditTagEncoding(library.settings?.tagEncoding ?? "");
     setEditProgressMode(library.settings?.progressMode ?? "linear");
-    setEditAutoSeries(library.settings?.autoSeries ?? false);
     setEditTab("access");
     setError("");
   };
@@ -251,8 +249,7 @@ export function LibrariesSection() {
           companionExtensions: editCompanions,
           scanSources: editSources,
           maxUploadMB: maxUploadValue(editMaxUploadMB),
-          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null, progressMode: editProgressMode } : {}),
-          ...(editingLibrary.type === "ebook" ? { autoSeries: editAutoSeries } : {})
+          ...(editingLibrary.type === "audiobook" ? { tagEncoding: editTagEncoding || null, progressMode: editProgressMode } : {})
         })
       });
       setEditingLibrary(null);
@@ -742,18 +739,6 @@ export function LibrariesSection() {
                   onChange={setEditSources}
                   sourceInfo={sourceInfoFor(editingLibrary.type)}
                 />
-                {editingLibrary.type === "ebook" && (
-                  <div className="field">
-                    <span>Series</span>
-                    <label className="field-checkbox">
-                      <input type="checkbox" checked={editAutoSeries} onChange={(event) => setEditAutoSeries(event.target.checked)} />
-                      <span>Auto-organize into series from folders and book metadata</span>
-                    </label>
-                    <small className="muted">
-                      Groups numbered folders (and books with embedded series info) into series on the next scan. Series you set by hand are kept.
-                    </small>
-                  </div>
-                )}
                 {editingLibrary.type === "audiobook" && (
                   <TagEncodingField value={editTagEncoding} onChange={setEditTagEncoding} />
                 )}
