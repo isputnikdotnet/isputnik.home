@@ -57,11 +57,14 @@ and the server must verify that every submitted folder belongs to that library.
 The folder selector supports assigning multiple folders to the same rule and
 must only browse beneath the current library's source path.
 
-Creating or changing a rule rebuilds catalog entries within its assigned scope.
-Preserving existing item ids, progress, shares, or manual metadata across a
-layout change is not required. Source files are never changed. Reassigning or
-rebuilding an already-indexed folder must use `ConfirmDialog` and clearly state
-the catalog data that will be removed.
+Creating or changing a rule re-derives metadata within its assigned scope while
+preserving catalog identity. Items are keyed by their book key (the folder/group
+path), so a rule that only changes derived fields (series, author, position)
+keeps the same `library_items` rows — and with them reading progress, bookmarks,
+shares, favourites, collections, and manual edits. New rows are created only when
+a rule changes the book *boundary* (which files make up a book); that is the only
+case that drops attached data, and the preview flags it so `ConfirmDialog` can
+warn before it happens. Source files are never changed.
 
 ### Rule resolution
 
@@ -103,17 +106,18 @@ that disabled rule is the most-specific match:
   that scope from the default walk.
 
 Changing the enabled state changes which scanner owns the affected catalog
-entries. To prevent duplicate or incorrectly grouped items, either transition
-must rebuild every partition whose effective owner changes:
+entries, but ownership transfer is an update, not a rebuild: the items keep their
+identity (matched by book key) and only their `scan_rule_id` and derived metadata
+change.
 
-- disabling a rule removes its custom-rule catalog entries and scans its
-  effective scope with the default scanner;
-- enabling a rule removes default-scanner entries from its effective scope and
-  scans them with the custom rule.
+- disabling a rule hands its scope back to the default scanner, which re-derives
+  the items in place;
+- enabling a rule takes its scope over from the default scanner, re-deriving in
+  place.
 
-This scoped rebuild may remove progress, shares, and manual metadata, but never
-modifies source files. The enable/disable action must therefore use
-`ConfirmDialog` when affected catalog entries exist.
+Because identity is preserved, progress, shares, and manual edits carry across a
+toggle; a `ConfirmDialog` is only needed when the preview shows items whose book
+boundary will actually change. Source files are never modified.
 
 ## Layout patterns and presets
 
@@ -376,7 +380,6 @@ data-loss exposure — once the core proves out.
 
 ## Initial non-goals
 
-- Preserving catalog identity or user data when a layout rule changes.
 - Executing user-authored code or unrestricted regular expressions.
 - Assigning two rules to the exact same folder or supporting manual numeric
   priorities.
