@@ -14,6 +14,7 @@ import {
   sourceEnabled,
   type ScanSourceConfig
 } from "../shared/library-settings.js";
+import { matchPattern } from "../shared/scan-rule-pattern.js";
 
 const scanJobType = "SCAN_EBOOK_LIBRARY";
 
@@ -437,6 +438,43 @@ export async function scanSingleEbookFile(libraryId: string, relativePath: strin
   }
   if (files.length === 0) return null;
   return ingestEbookGroup(libraryId, files, settings, fileMetaEnabled);
+}
+
+export interface RulePreviewRow {
+  path: string;
+  matched: boolean;
+  author?: string;
+  series?: string;
+  position?: number;
+  title?: string;
+}
+
+// Dry-run a scan rule's pattern over its selected folders, writing nothing. Each
+// folder is the pattern anchor (so the pattern matches the book key relative to
+// that folder), reusing the same walk + grouping as a real ebook scan so the
+// preview can't drift from what an actual scan would produce.
+export function previewEbookRulePattern(libraryId: string, folders: string[], pattern: string, limit = 50): RulePreviewRow[] {
+  const library = db.prepare("SELECT source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
+    .get(libraryId) as { source_path: string; settings_json: string } | undefined;
+  if (!library) return [];
+
+  const settings = normalizeLibrarySettings("ebook", library.settings_json);
+  const rootPath = validateLibrarySource(library.source_path);
+  const extensions = new Set(settings.scan_extensions.map((extension) => `.${extension}`));
+
+  const rows: RulePreviewRow[] = [];
+  for (const folder of folders) {
+    const anchor = folder.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+    const anchorAbs = anchor ? path.join(rootPath, anchor) : rootPath;
+    const keys = new Set<string>();
+    for (const file of walkEbookFiles(anchorAbs, extensions)) keys.add(ebookGroupKey(file.relativePath));
+    for (const key of [...keys].sort()) {
+      const m = matchPattern(pattern, key);
+      rows.push({ path: anchor ? `${anchor}/${key}` : key, matched: m.matched, author: m.author, series: m.series, position: m.position, title: m.title });
+      if (rows.length >= limit) return rows;
+    }
+  }
+  return rows;
 }
 
 async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {}) {
