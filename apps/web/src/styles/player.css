@@ -404,6 +404,12 @@
   color: var(--gold);
 }
 
+/* An armed sleep timer reads as active (gold), like the favourited state. */
+.player-speed-btn.active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
 .player-speed-menu {
   position: absolute;
   right: 0;

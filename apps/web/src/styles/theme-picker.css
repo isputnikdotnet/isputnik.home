@@ -102,3 +102,28 @@
   margin: 0 0 6px;
   max-width: 560px;
 }
+
+/* SMTP settings form (Email block under Config). */
+.mail-form {
+  display: grid;
+  gap: 14px;
+  max-width: 520px;
+}
+
+.mail-secure {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.mail-secure input {
+  flex: 0 0 auto;
+}
+
+.mail-actions {
+  display: flex;
+  gap: 10px;
+}

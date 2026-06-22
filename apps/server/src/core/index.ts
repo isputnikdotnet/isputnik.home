@@ -6,10 +6,12 @@ import { apiTokensPlugin } from "./api-tokens.js";
 import { logsPlugin } from "./logs.js";
 import { statusPlugin } from "./status.js";
 import { appConfigPlugin } from "./app-config.js";
+import { mailPlugin } from "./mail-routes.js";
 
 export async function corePlugin(app: FastifyInstance) {
   await app.register(setupPlugin);
   await app.register(appConfigPlugin);
+  await app.register(mailPlugin);
   await app.register(authPlugin);
   await app.register(sessionsPlugin);
   await app.register(apiTokensPlugin);

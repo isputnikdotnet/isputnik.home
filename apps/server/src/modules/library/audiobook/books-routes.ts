@@ -1,13 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { db } from "../../../db.js";
+import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { rescanSingleBook } from "./scanner.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { getAccessibleLibrary, canUserWriteLibrary, getLibraryForBook, canUserAccessBook, canUserDownloadBook, libraryCapabilities, getReadableDocument } from "../shared/library-access.js";
 import { mediaKind } from "../shared/library-types.js";
+import { sendBookToEreader } from "../shared/send-to-ereader.js";
 import { getAudiobookBookDetail, progressUpdateSchema, bulkMetadataSchema, BULK_METADATA_FIELDS, applyBulkMetadata, BOOK_LIST_COLUMNS, BOOK_LIST_JOINS, mapBookListRow, type BookListRow } from "./book-helpers.js";
 import { resolveScopeLibraryIds, queryCatalog, catalogFacets } from "./catalog.js";
 
@@ -169,6 +170,27 @@ export function registerBookRoutes(app: FastifyInstance) {
         canDelete: caps.canDelete
       }
     });
+  });
+
+
+  // Email the book's EPUB/PDF to the user's configured e-reader address (Send to
+  // e-reader). Sending is an export, so it requires the same download capability.
+  app.post("/api/library/books/:id/send-to-ereader", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const result = await sendBookToEreader(id, request.user!);
+    if (!result.ok) {
+      reply.code(result.status).send({ error: result.error });
+      return;
+    }
+    logActivity({
+      event: "library.sent_to_ereader",
+      actorUserId: request.user!.id,
+      targetType: "book",
+      targetId: id,
+      detail: `Sent "${result.title}" to e-reader (${request.user!.ereader_email}).`,
+      ipAddress: request.ip
+    });
+    reply.send({ ok: true });
   });
 
 

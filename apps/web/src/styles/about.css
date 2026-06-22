@@ -284,6 +284,43 @@
   width: min(100%, 460px);
 }
 
+/* ── Email ──────────────────────────────────────────────────────── */
+
+.email-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.email-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.email-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.email-current {
+  margin: 0;
+}
+
+.email-actions {
+  display: flex;
+}
+
+.email-form-modal {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 460px);
+}
+
 /* ── Appearance (theme) ─────────────────────────────────────────── */
 
 .appearance-section {
@@ -305,6 +342,45 @@
   margin: 0;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+/* ── Send to e-reader ───────────────────────────────────────────── */
+
+.ereader-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.ereader-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.ereader-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.ereader-intro code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--player-field, color-mix(in srgb, var(--muted) 18%, transparent));
+  font-size: 0.85em;
+}
+
+.ereader-form {
+  display: grid;
+  gap: 14px;
+}
+
+.ereader-actions {
+  display: flex;
 }
 
 /* ── Reader access (OPDS) ───────────────────────────────────────── */

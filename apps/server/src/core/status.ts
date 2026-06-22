@@ -337,6 +337,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.2.15",
+          label: "Send to e-reader, sleep timer & email change",
+          changes: [
+            "New: send any ebook to your Kindle or Kobo by email. Open an EPUB or PDF book's page and choose Send to e-reader, and it arrives on your device. Setup is two steps: an admin fills in the server's email (SMTP) details under Control panel → Config → Email and sends a test, and each person adds their own e-reader address — for example you@kindle.com — under Profile → Send to e-reader. For Kindle, also add the server's sender address to Amazon's approved-senders list. EPUB and PDF can be sent.",
+            "New: a sleep timer in the audiobook player. Tap the moon button next to the speed control and pick 15, 30, 45 or 60 minutes, or End of chapter — playback pauses when the time is up, the button shows a live countdown, and the timer pauses whenever you pause.",
+            "You can now change the email address you sign in with. Under Profile → Email, choose Change email and confirm with your current password; your other devices stay signed in."
+          ]
+        },
+        {
           version: "1.2.14",
           label: "Custom scan rules",
           changes: [

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { nanoid } from "nanoid";
 import { config } from "./config.js";
-import { db, publicUser, type User } from "./db.js";
+import { db, selfUser, type User } from "./db.js";
 import { sha256 } from "./crypto.js";
 
 const cookieName = "isputnik_sid";
@@ -78,7 +78,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
 }
 
 export function currentUserPayload(request: FastifyRequest) {
-  return request.user ? publicUser(request.user) : null;
+  return request.user ? selfUser(request.user) : null;
 }
 
 export function revokeCurrentSession(request: FastifyRequest) {
