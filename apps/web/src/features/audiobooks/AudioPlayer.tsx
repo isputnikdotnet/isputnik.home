@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bookmark, BookmarkPlus, CheckCircle2, ChevronDown, ChevronUp, Clock, FastForward, Heart, List, Pause, Pencil, PieChart, Play, Rewind, SkipBack, SkipForward, StickyNote, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { Bookmark, BookmarkPlus, CheckCircle2, ChevronDown, ChevronUp, Clock, FastForward, Heart, List, Moon, Pause, Pencil, PieChart, Play, Rewind, SkipBack, SkipForward, StickyNote, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { api } from "../../api";
 import { getDownloadedFileUrl } from "../../offline/downloads";
 import { getLocalProgress, persistProgress } from "../../offline/progress";
@@ -23,6 +23,11 @@ function formatTimeRemaining(seconds: number) {
 }
 
 const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
+
+// Sleep-timer options. Numeric values are minutes; "chapter" stops at the end of
+// the chapter that was playing when the timer was armed.
+const SLEEP_MINUTES = [15, 30, 45, 60] as const;
+type SleepMode = "off" | "chapter" | (typeof SLEEP_MINUTES)[number];
 
 // A navigable chapter, flattened across files. For multi-file books each file is
 // one chapter; for a single m4b/MP3 the file's embedded markers become many. Offsets
@@ -83,6 +88,11 @@ export function AudioPlayer({
   const [muted, setMuted] = useState(false);
   const [speedOpen, setSpeedOpen] = useState(false);
   const [chaptersOpen, setChaptersOpen] = useState(false);
+  const [sleepMode, setSleepMode] = useState<SleepMode>("off");
+  const [sleepRemaining, setSleepRemaining] = useState<number | null>(null);
+  const [sleepOpen, setSleepOpen] = useState(false);
+  // The chapter index to finish on when sleepMode === "chapter".
+  const sleepChapterTargetRef = useRef<number | null>(null);
   const [playerError, setPlayerError] = useState("");
   const [bookmarkSaved, setBookmarkSaved] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
@@ -429,6 +439,44 @@ export function AudioPlayer({
     return () => window.removeEventListener("click", close);
   }, [speedOpen]);
 
+  useEffect(() => {
+    if (!sleepOpen) return;
+    const close = () => setSleepOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [sleepOpen]);
+
+  // Sleep timer (timed modes): tick down once a second while playing, then pause
+  // playback and disarm. Counting only while playing means a manual pause also
+  // pauses the timer, which is what listeners expect.
+  useEffect(() => {
+    if (typeof sleepMode !== "number" || !playing) return;
+    const id = window.setInterval(() => {
+      setSleepRemaining((prev) => {
+        const next = (prev ?? sleepMode * 60) - 1;
+        if (next <= 0) {
+          audioRef.current?.pause();
+          setSleepMode("off");
+          return null;
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [sleepMode, playing]);
+
+  // Sleep timer ("end of chapter"): pause once playback crosses out of the chapter
+  // that was active when the timer was armed.
+  useEffect(() => {
+    if (sleepMode !== "chapter") return;
+    const target = sleepChapterTargetRef.current;
+    if (target !== null && currentChapterIndex > target) {
+      audioRef.current?.pause();
+      setSleepMode("off");
+      sleepChapterTargetRef.current = null;
+    }
+  }, [sleepMode, currentChapterIndex]);
+
   // Report the current chapter's position to the OS so the lock-screen / car
   // scrubber stays in sync. Guards against the not-yet-known duration.
   const updateMediaPositionState = () => {
@@ -546,6 +594,16 @@ export function AudioPlayer({
     e.stopPropagation();
     setSpeedOpen((open) => !open);
   };
+  const toggleSleepMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSleepOpen((open) => !open);
+  };
+  const chooseSleep = (mode: SleepMode) => {
+    setSleepMode(mode);
+    setSleepRemaining(typeof mode === "number" ? mode * 60 : null);
+    sleepChapterTargetRef.current = mode === "chapter" ? currentChapterIndex : null;
+    setSleepOpen(false);
+  };
 
   // Keep the lock-screen action handlers pointed at the latest closures.
   mediaHandlersRef.current = {
@@ -651,6 +709,42 @@ export function AudioPlayer({
           {rate === 1 ? "1×" : `${rate}×`}
         </button>
       ))}
+    </div>
+  );
+
+  // Compact label for the armed sleep timer: a live mm:ss countdown, or "Chapter".
+  const sleepLabel = sleepMode === "off"
+    ? null
+    : sleepMode === "chapter"
+      ? "Chapter"
+      : formatTime(sleepRemaining ?? sleepMode * 60);
+
+  const sleepMenu = sleepOpen && (
+    <div className="player-speed-menu player-sleep-menu" onClick={(e) => e.stopPropagation()}>
+      <button
+        className={`player-speed-option${sleepMode === "off" ? " active" : ""}`}
+        onClick={() => chooseSleep("off")}
+        aria-pressed={sleepMode === "off"}
+      >
+        Off
+      </button>
+      {SLEEP_MINUTES.map((min) => (
+        <button
+          key={min}
+          className={`player-speed-option${sleepMode === min ? " active" : ""}`}
+          onClick={() => chooseSleep(min)}
+          aria-pressed={sleepMode === min}
+        >
+          {min} min
+        </button>
+      ))}
+      <button
+        className={`player-speed-option${sleepMode === "chapter" ? " active" : ""}`}
+        onClick={() => chooseSleep("chapter")}
+        aria-pressed={sleepMode === "chapter"}
+      >
+        End of chapter
+      </button>
     </div>
   );
 
@@ -827,6 +921,19 @@ export function AudioPlayer({
                   <span className="player-popup-aux-label">Speed</span>
                 </button>
                 {speedMenu}
+              </div>
+
+              <div className="player-popup-aux-item player-speed">
+                <button
+                  className="player-popup-aux-btn"
+                  onClick={toggleSleepMenu}
+                  aria-expanded={sleepOpen}
+                  aria-label="Sleep timer"
+                >
+                  <span className="player-popup-aux-value">{sleepLabel ?? <Moon size={18} />}</span>
+                  <span className="player-popup-aux-label">Sleep</span>
+                </button>
+                {sleepMenu}
               </div>
 
               {onToggleSave && (
@@ -1014,6 +1121,20 @@ export function AudioPlayer({
             <ChevronDown size={13} />
           </button>
           {speedMenu}
+        </div>
+
+        <div className="player-speed player-sleep">
+          <button
+            className={`player-speed-btn${sleepOpen ? " open" : ""}${sleepMode !== "off" ? " active" : ""}`}
+            onClick={toggleSleepMenu}
+            aria-expanded={sleepOpen}
+            aria-label="Sleep timer"
+            title="Sleep timer"
+          >
+            <Moon size={15} />
+            <span>{sleepLabel ?? "Sleep"}</span>
+          </button>
+          {sleepMenu}
         </div>
 
         <button

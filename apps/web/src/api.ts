@@ -8,6 +8,9 @@ export interface PublicUser {
   isActive: boolean;
   createdAt: string;
   deletedAt: string | null;
+  // Self-only: present on the signed-in user (session + profile), absent on the
+  // admin user list. Used by Send-to-e-reader and the Profile field.
+  ereaderEmail?: string | null;
 }
 
 interface ApiErrorPayload {

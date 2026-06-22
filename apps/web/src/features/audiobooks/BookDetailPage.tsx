@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Layers, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Share2, Trash2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, BookOpen, Calendar, CheckCircle2, ChevronDown, ChevronUp, Clock, Download, File as FileIcon, FileText, Globe, HardDrive, Headphones, Heart, Layers, Library, ListMusic, MoreHorizontal, Pencil, Play, RotateCcw, Send, Share2, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, isAccessOrMissingApiError, type PublicUser } from "../../api";
 import { ShareModal } from "../share/ShareModal";
@@ -34,6 +34,9 @@ const OFFLINE_CAPABILITIES: BookCapabilities = { canEdit: false, canDownload: tr
 // the foliate reader, PDF to the native <iframe> viewer. Others (mobi, azw3) get
 // download-only — no in-browser renderer.
 const VIEWABLE_DOC_FORMATS = new Set(["pdf", "epub", "fb2"]);
+
+// Formats the server can email to an e-reader (Amazon/Kobo accept these directly).
+const SENDABLE_DOC_FORMATS = new Set(["epub", "pdf"]);
 
 export function AudiobookBookPage({
   id,
@@ -300,7 +303,23 @@ function BookDetailView({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendNotice, setSendNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const offline = useDownload(book);
+
+  const sendToEreader = async () => {
+    if (sending) return;
+    setSending(true);
+    setSendNotice(null);
+    try {
+      await api(`/api/library/books/${book.id}/send-to-ereader`, { method: "POST" });
+      setSendNotice({ tone: "success", text: "Sent to your e-reader. Delivery can take a few minutes." });
+    } catch (err) {
+      setSendNotice({ tone: "error", text: err instanceof Error ? err.message : "Unable to send to your e-reader." });
+    } finally {
+      setSending(false);
+    }
+  };
 
   // Revoke any blob URL created for offline reading when the viewer closes.
   useEffect(() => {
@@ -417,6 +436,7 @@ function BookDetailView({
     if (nextEpisode) playEpisode(nextEpisode);
   };
   const primaryReadableDoc = book.documents.find((doc) => VIEWABLE_DOC_FORMATS.has(doc.format)) ?? book.documents[0] ?? null;
+  const sendableDoc = book.documents.find((doc) => SENDABLE_DOC_FORMATS.has(doc.format)) ?? null;
   const canReadPrimaryDoc = Boolean(primaryReadableDoc && VIEWABLE_DOC_FORMATS.has(primaryReadableDoc.format));
   const primaryReaderStorageKey = primaryReadableDoc
     ? `isputnik:epub-progress:${userId}:${book.id}:${primaryReadableDoc.id}`
@@ -903,6 +923,18 @@ function BookDetailView({
                   <Download size={18} />
                 </a>
               )}
+              {isEbook && capabilities.canDownload && sendableDoc && (
+                <button
+                  className="book-detail-icon-action"
+                  type="button"
+                  onClick={() => void sendToEreader()}
+                  disabled={sending}
+                  aria-label="Send to e-reader"
+                  title={sending ? "Sending…" : "Send to e-reader (Kindle/Kobo)"}
+                >
+                  <Send size={18} />
+                </button>
+              )}
               <button
                 className="book-detail-icon-action"
                 type="button"
@@ -1037,6 +1069,11 @@ function BookDetailView({
           {saveError && <MessageBox tone="error" title="Favorites error">{saveError}</MessageBox>}
           {progressActionError && <MessageBox tone="error" title="Progress error">{progressActionError}</MessageBox>}
           {offline.error && <MessageBox tone="error" title="Download error">{offline.error}</MessageBox>}
+          {sendNotice && (
+            <MessageBox tone={sendNotice.tone} title={sendNotice.tone === "success" ? "Sent to e-reader" : "Send failed"}>
+              {sendNotice.text}
+            </MessageBox>
+          )}
         </div>
       </div>
 

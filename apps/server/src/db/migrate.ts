@@ -13,7 +13,9 @@ const baseline = 1;
 const migrations: { version: number; up: (db: Database.Database) => void }[] = [
   // Custom scan rules: items can be owned by a rule (NULL = the default scanner).
   // The library_scan_rules table is created by schema.sql before migrations run.
-  { version: 2, up: (db) => db.exec("ALTER TABLE library_items ADD COLUMN scan_rule_id TEXT REFERENCES library_scan_rules(id) ON DELETE SET NULL") }
+  { version: 2, up: (db) => db.exec("ALTER TABLE library_items ADD COLUMN scan_rule_id TEXT REFERENCES library_scan_rules(id) ON DELETE SET NULL") },
+  // Per-user e-reader (Kindle/Kobo) delivery address for "Send to e-reader".
+  { version: 3, up: (db) => db.exec("ALTER TABLE users ADD COLUMN ereader_email TEXT") }
 ];
 
 function userVersion(db: Database.Database): number {

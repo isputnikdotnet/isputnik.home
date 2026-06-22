@@ -17,6 +17,7 @@ export interface User {
   display_name: string;
   role: Role;
   theme: ThemePreference;
+  ereader_email: string | null;
   protected_from_delete: 0 | 1;
   is_active: 0 | 1;
   created_at: string;
@@ -112,4 +113,11 @@ export function publicUser(user: User) {
     createdAt: user.created_at,
     deletedAt: user.deleted_at
   };
+}
+
+// The authenticated user's own view — adds self-only fields that must never leak
+// through publicUser (which is reused for the admin user list and people pickers).
+// Use only when returning the current user to themselves (session + profile).
+export function selfUser(user: User) {
+  return { ...publicUser(user), ereaderEmail: user.ereader_email ?? null };
 }

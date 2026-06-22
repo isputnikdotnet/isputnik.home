@@ -4,9 +4,11 @@ import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { LibraryNavTabs } from "../features/library/LibraryNavTabs";
 import { Field } from "../shared/Field";
+import { Button } from "../shared/Button";
 import { MessageBox } from "../shared/MessageBox";
 import { ThemePicker, type Theme } from "../shared/ThemePicker";
 import { InstallCard } from "../pwa/InstallCard";
+import { ChangeEmailSection } from "../features/profile/ChangeEmailSection";
 import { ChangePasswordSection } from "../features/profile/ChangePasswordSection";
 
 export function ProfilePage({
@@ -23,6 +25,9 @@ export function ProfilePage({
   const [error, setError] = useState("");
   const [themeSaving, setThemeSaving] = useState(false);
   const [themeError, setThemeError] = useState("");
+  const [ereaderEmail, setEreaderEmail] = useState(user.ereaderEmail ?? "");
+  const [ereaderStatus, setEreaderStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [ereaderError, setEreaderError] = useState("");
 
   const saveProfile = async (event: FormEvent) => {
     event.preventDefault();
@@ -64,6 +69,25 @@ export function ProfilePage({
     }
   };
 
+  // Saved on its own (a blank value clears it). Other fields are passed through
+  // unchanged so this never disturbs the display name or theme.
+  const saveEreader = async (event: FormEvent) => {
+    event.preventDefault();
+    setEreaderStatus("saving");
+    setEreaderError("");
+    try {
+      const payload = await api<{ user: PublicUser }>("/api/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ displayName: user.displayName, theme: user.theme, ereaderEmail: ereaderEmail.trim() })
+      });
+      onUpdated(payload.user);
+      setEreaderStatus("saved");
+    } catch (err) {
+      setEreaderError(err instanceof Error ? err.message : "Unable to save e-reader email");
+      setEreaderStatus("idle");
+    }
+  };
+
   return (
     <DashboardShell active="profile" user={user} logout={logout}>
       <section className="work-area profile-area">
@@ -86,6 +110,8 @@ export function ProfilePage({
           </button>
         </form>
 
+        <ChangeEmailSection email={user.email} onChanged={onUpdated} />
+
         <ChangePasswordSection />
 
         <section className="appearance-section" aria-labelledby="appearance-heading">
@@ -93,6 +119,33 @@ export function ProfilePage({
           <p className="appearance-intro">Choose how iSputnik looks. Your choice is saved to your account and applies right away.</p>
           <ThemePicker value={user.theme} onChange={chooseTheme} disabled={themeSaving} />
           {themeError && <MessageBox tone="error" title="Unable to save">{themeError}</MessageBox>}
+        </section>
+
+        <section className="ereader-section" aria-labelledby="ereader-heading">
+          <h2 id="ereader-heading">Send to e-reader</h2>
+          <p className="ereader-intro">
+            The address your Kindle or Kobo receives documents at (e.g. <code>you@kindle.com</code>). From any
+            ebook's page you can then send its EPUB or PDF straight to your device. Add the server's sender
+            address to your device's approved-senders list first — and an admin must set up email delivery.
+          </p>
+          <form className="ereader-form" onSubmit={saveEreader}>
+            <Field
+              label="E-reader email"
+              value={ereaderEmail}
+              onChange={setEreaderEmail}
+              type="email"
+              autoComplete="email"
+              placeholder="you@kindle.com"
+              required={false}
+            />
+            {ereaderError && <MessageBox tone="error" title="Unable to save">{ereaderError}</MessageBox>}
+            {ereaderStatus === "saved" && <MessageBox tone="success" title="Saved">Your e-reader email has been updated.</MessageBox>}
+            <div className="ereader-actions">
+              <Button variant="primary" type="submit" disabled={ereaderStatus === "saving"}>
+                {ereaderStatus === "saving" ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </form>
         </section>
 
         <InstallCard
