@@ -34,6 +34,20 @@ describe("matchPattern", () => {
       .toEqual({ matched: true, position: 1, title: "Foundation" });
   });
 
+  it("treats a digit-ordinal dot as a separator even without the trailing space", () => {
+    // Real FB2 libraries mix "1. Title" and "1.Title"; both map under "{position}. {title}".
+    expect(matchPattern("{series}/{position}. {title}", "Эпоха мертвых/1.Начало"))
+      .toEqual({ matched: true, series: "Эпоха мертвых", position: 1, title: "Начало" });
+    expect(matchPattern("{position}. {title}", "10.Title")).toEqual({ matched: true, position: 10, title: "Title" });
+  });
+
+  it("keeps a decimal position intact when relaxing the ordinal space", () => {
+    // The relaxed (space-less) boundary only fires before a NON-digit, so the dot
+    // inside a decimal is never mistaken for the separator.
+    expect(matchPattern("{series}/{position}. {title}", "S/2.5.Novella"))
+      .toEqual({ matched: true, series: "S", position: 2.5, title: "Novella" });
+  });
+
   it("requires the depth to match exactly", () => {
     expect(matchPattern("{author}/{title}", "A/B/C")).toEqual({ matched: false });
     expect(matchPattern("{author}/{series}/{title}", "A/B")).toEqual({ matched: false });

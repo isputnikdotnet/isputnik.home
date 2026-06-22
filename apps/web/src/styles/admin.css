@@ -661,3 +661,203 @@
 .backup-list-card .datagrid-wrap {
   background: var(--surface);
 }
+
+/* ── Scan rules modal ───────────────────────────────────────────── */
+
+/* Two-row shell (header + body) so the body owns its own scroll region; the
+   list/form switch and the form's pinned footer live inside .scan-rules-body. */
+.metadata-modal.scan-rules-modal {
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(100%, 760px);
+  height: min(648px, calc(100vh - 40px));
+  min-height: min(520px, calc(100vh - 40px));
+}
+
+.scan-rules-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scan-rules-body > .message-box {
+  margin: 14px 16px 0;
+}
+
+.scan-rules-body > .modal-tab-content {
+  flex: 1 1 auto;
+}
+
+/* List view */
+.scan-rules-rule-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.scan-rules-rule-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.scan-rules-rule-meta {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.scan-rules-rule-meta code {
+  font-size: 0.85rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.scan-rules-rule-meta small {
+  word-break: break-word;
+}
+
+/* Folders tab */
+.scan-rules-folders-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.scan-rules-folders-head > span {
+  color: var(--muted);
+}
+
+.scan-rules-folder-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scan-rules-folder-empty:hover {
+  border-color: color-mix(in srgb, var(--mint) 40%, var(--line));
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.scan-rules-folder-empty svg {
+  flex: 0 0 auto;
+  color: var(--mint);
+}
+
+.scan-rules-folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.scan-rules-folder-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 9px 8px 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.scan-rules-folder-card > svg {
+  flex: 0 0 auto;
+  color: var(--mint);
+}
+
+.scan-rules-folder-label {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.scan-rules-folder-label strong {
+  overflow: hidden;
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan-rules-folder-label small {
+  overflow: hidden;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rule tab */
+.scan-rules-token-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.scan-rules-preview {
+  overflow-x: auto;
+}
+
+.scan-rules-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  table-layout: fixed;
+}
+
+.scan-rules-preview th {
+  padding: 0 8px 6px 0;
+  color: var(--muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+.scan-rules-preview td {
+  padding: 6px 8px 6px 0;
+  border-top: 1px solid var(--line);
+  word-break: break-word;
+}
+
+/* Pinned footer shared by both tabs */
+.scan-rules-footer {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  padding: 14px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+
+.scan-rules-footer .modal-actions {
+  margin-top: 0;
+}
+
+/* Nested folder picker — reuses the .folder-picker-* family, adds a per-row
+   Add button beside the navigate-into control. */
+.scan-rules-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scan-rules-pick-row .folder-picker-row {
+  flex: 1 1 auto;
+}
