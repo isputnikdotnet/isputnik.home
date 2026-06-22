@@ -12,7 +12,8 @@ import {
   Search,
   Folder,
   LayoutGrid,
-  LibraryBig
+  LibraryBig,
+  Wand2
 } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -31,6 +32,7 @@ import { UploadSettingsFields } from "../libraries/UploadSettingsFields";
 import { TagEncodingField } from "../libraries/TagEncodingField";
 import { LibraryWizard } from "../libraries/LibraryWizard";
 import { LibraryMembersModal } from "./LibraryMembersModal";
+import { ScanRulesModal } from "./ScanRulesModal";
 
 type ManagedLibraryType = "audiobook" | "ebook";
 
@@ -115,6 +117,7 @@ export function LibrariesSection() {
   const [rescanRunning, setRescanRunning] = useState(false);
   const [rescanningId, setRescanningId] = useState("");
   const [membersLibrary, setMembersLibrary] = useState<ManagedLibrary | null>(null);
+  const [scanRulesLibrary, setScanRulesLibrary] = useState<ManagedLibrary | null>(null);
   const [takeOwnershipConfirmLibrary, setTakeOwnershipConfirmLibrary] = useState<ManagedLibrary | null>(null);
   const [takingOwnership, setTakingOwnership] = useState(false);
   const [deleteConfirmLibrary, setDeleteConfirmLibrary] = useState<ManagedLibrary | null>(null);
@@ -506,6 +509,16 @@ export function LibrariesSection() {
                             >
                               <Users size={15} />
                             </Button>
+                            {library.type === "ebook" && (
+                              <Button
+                                variant="icon"
+                                title="Scan rules"
+                                aria-label={`Scan rules for ${library.name}`}
+                                onClick={() => setScanRulesLibrary(library)}
+                              >
+                                <Wand2 size={15} />
+                              </Button>
+                            )}
                             <Button
                               variant="icon"
                               title="Edit library"
@@ -586,6 +599,13 @@ export function LibrariesSection() {
           users={users}
           groups={groups}
           onClose={() => setMembersLibrary(null)}
+        />
+      )}
+
+      {scanRulesLibrary && (
+        <ScanRulesModal
+          library={scanRulesLibrary}
+          onClose={() => setScanRulesLibrary(null)}
         />
       )}
 
