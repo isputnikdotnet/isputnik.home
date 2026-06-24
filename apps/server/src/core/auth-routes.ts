@@ -3,6 +3,7 @@ import { db, logActivity, publicUser, type User } from "../db.js";
 import { verifyPassword } from "../crypto.js";
 import { clearSession, currentUserPayload, issueSession, revokeCurrentSession } from "../auth.js";
 import { parseBody, credentialsSchema, getUserByEmail } from "./shared.js";
+import { createMfaChallenge, setMfaChallengeCookie } from "./mfa-routes.js";
 
 export async function authPlugin(app: FastifyInstance) {
   app.post("/api/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
@@ -20,6 +21,23 @@ export async function authPlugin(app: FastifyInstance) {
         ipAddress: request.ip
       });
       reply.code(401).send({ error: "Invalid email or password" });
+      return;
+    }
+
+    // With MFA on, password success only earns a short-lived challenge — the full
+    // session is issued by /api/auth/mfa/verify once the second factor checks out.
+    if (user.mfa_enabled) {
+      const challengeId = createMfaChallenge(user.id);
+      setMfaChallengeCookie(reply, challengeId);
+      logActivity({
+        event: "auth.mfa_required",
+        actorUserId: user.id,
+        targetType: "user",
+        targetId: user.id,
+        detail: "Password accepted; awaiting a two-factor code.",
+        ipAddress: request.ip
+      });
+      reply.send({ mfaRequired: true });
       return;
     }
 
