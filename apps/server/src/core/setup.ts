@@ -12,7 +12,7 @@ export async function setupPlugin(app: FastifyInstance) {
     defaultTheme: getDefaultTheme()
   }));
 
-  app.post("/api/setup/admin", async (request, reply) => {
+  app.post("/api/setup/admin", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     if (hasUsers()) {
       reply.code(409).send({ error: "Setup has already been completed" });
       return;

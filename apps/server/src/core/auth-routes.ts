@@ -5,7 +5,7 @@ import { clearSession, currentUserPayload, issueSession, revokeCurrentSession } 
 import { parseBody, credentialsSchema, getUserByEmail } from "./shared.js";
 
 export async function authPlugin(app: FastifyInstance) {
-  app.post("/api/auth/login", async (request, reply) => {
+  app.post("/api/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const parsed = parseBody(credentialsSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid login details", details: parsed.error });

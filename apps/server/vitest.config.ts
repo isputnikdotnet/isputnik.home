@@ -22,6 +22,6 @@ export default defineConfig({
     include: ["test/**/*.test.ts"],
     // In-memory SQLite: importing src/db.ts builds the full, freshly-migrated
     // schema in a throwaway database, never touching the real data/ files.
-    env: { DB_PATH: ":memory:" }
+    env: { DB_PATH: ":memory:", MFA_ENCRYPTION_KEY: "test-mfa-key" }
   }
 });
