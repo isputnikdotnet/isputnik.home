@@ -96,27 +96,45 @@ Two Fastify preHandlers enforce access:
 
 ---
 
-## Planned Hardening
+## Hardening status
 
-- CSRF protection on mutating authenticated routes
-- Rate limiting on login, invite acceptance, and future recovery flows
-- Session ID rotation for any future multi-step authentication flow
+Shipped:
+
+- **Rate limiting** — a generous global per-IP limit, with tight limits on the
+  sensitive endpoints (login and admin setup 10/min; invite lookup 20/min, invite
+  accept 5/min; MFA verify 10/min).
+- **Multi-factor authentication (TOTP)** — see below.
+- **Security headers** — `@fastify/helmet` (CSP currently report-only; see
+  [`users/exposing-to-the-internet.md`](users/exposing-to-the-internet.md)).
+- **Scoped proxy trust** — `TRUST_PROXY_HOPS`, so a client can't spoof its IP.
+
+Planned:
+
+- CSRF tokens on mutating authenticated routes (today relies on `SameSite=Lax`).
+- Account lockout after repeated failed sign-ins.
+- IP allow/block zones and suspicious-activity email alerts.
 
 ---
 
-## MFA — Future Update
+## Multi-Factor Authentication (TOTP)
 
-TOTP-based multi-factor authentication. Implementation is deferred until the core content milestones (Digital Library, Notes) are stable.
+Optional time-based one-time-password (TOTP) second factor, compatible with Google Authenticator, Authy, Apple Passwords, and similar apps. No external service. User-facing guide: [`users/two-factor-authentication.md`](users/two-factor-authentication.md).
 
-### Database additions
+### Storage
 
 ```sql
-users (additions)
+users (additions)              -- migration v4
 -----------------
-mfa_enabled           -- 0 or 1
-mfa_secret_encrypted  -- encrypted TOTP secret, set during MFA setup
-mfa_backup_codes      -- JSON array of hashed single-use recovery codes
+mfa_enabled        -- 0 or 1
+mfa_secret         -- TOTP secret, AES-256-GCM encrypted at rest
+mfa_backup_codes   -- JSON array of sha256 hashes, single-use
+
+mfa_challenges     -- a pending second-factor step between password and session
+-----------------
+id, user_id, created_at, expires_at, attempts
 ```
+
+The TOTP secret is **encrypted** (not hashed) because it must be recoverable to verify codes. The key comes from `MFA_ENCRYPTION_KEY` (any string, sha256-derived to 32 bytes); if unset, a random key is persisted beside the database as `mfa.key`. Keep the key stable — changing it makes stored secrets undecryptable and forces re-enrolment (relevant when restoring a backup onto a new host). Backup codes are hashed like every other secret and consumed on use. Secret/code handling lives in `core/mfa.ts`; routes and the challenge in `core/mfa-routes.ts`.
 
 ### Login flow with MFA enabled
 
@@ -124,23 +142,24 @@ mfa_backup_codes      -- JSON array of hashed single-use recovery codes
 POST /api/auth/login
   → verify email + password
   → if mfa_enabled:
-      issue short-lived mfa_pending cookie (5 min)
-      return { mfaRequired: true }
-  → frontend shows 6-digit code entry
+      create an mfa_challenges row, set a short-lived (5 min) challenge cookie
+      return { mfaRequired: true }   (no session issued yet)
 
 POST /api/auth/mfa/verify
-  → validate mfa_pending cookie
-  → verify TOTP code (or backup code) against stored secret
-  → if valid: create full session, clear mfa_pending cookie
-  → if invalid: increment attempt counter (lock after 5 failures)
+  → resolve the challenge cookie
+  → verify a TOTP code, or consume a single-use backup code
+  → valid:   issue the full session, clear the challenge
+  → invalid: count the attempt; after 5, destroy the challenge (re-enter password)
 ```
 
-### Backup recovery codes
+### Enrollment & recovery
 
-Generated during MFA setup, shown once, stored as hashed values. Single-use — consumed on successful use. A new set can be regenerated from the profile security screen.
+- **Enroll** (Profile, password-gated): `setup` (returns the secret + a QR data URL) → `enable` (confirms a code, reveals backup codes once).
+- **Manage**: turn off (password-gated) and regenerate backup codes.
+- **Admin reset**: `POST /api/users/:id/mfa/reset` clears MFA for a member who lost their authenticator and backup codes — there is no email-based recovery.
 
 ### Technology
 
-- `otplib` — TOTP generation and verification
-- `qrcode` — QR code for authenticator app setup (Google Authenticator, Authy, Apple Passwords)
+- `otplib` (v12 — the stable line; v13 is an incompatible rewrite) — TOTP generation/verification
+- `qrcode` — setup QR as a data URL (Google Authenticator, Authy, Apple Passwords)
 - No external service required

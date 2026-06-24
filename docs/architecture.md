@@ -49,7 +49,7 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 - Cross-type Favorites and Collections — user-curated lists spanning audiobooks and ebooks
 - Home dashboard — Continue and Recently added feeds across types
 - PWA/offline — installable app shell, account-aware cache cleanup, durable downloaded-book metadata, offline player/detail fallback, reconnect progress sync, and cover-cache revalidation
-- Security hardening — per-IP rate limiting, SSRF DNS-rebinding fix on remote image fetches, ReDoS fixes, and path-traversal-safe static serving
+- Security hardening — per-IP rate limiting (tight on auth endpoints), optional TOTP two-factor auth, security headers (helmet), scoped proxy trust (`TRUST_PROXY_HOPS`), SSRF DNS-rebinding fix on remote image fetches, ReDoS fixes, and path-traversal-safe static serving
 
 ### Planned
 
@@ -58,7 +58,6 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 
 ### Future Updates
 
-- MFA (TOTP) — see [`auth.md`](auth.md)
 - Photo and video library types
 - Mobile app
 
@@ -71,7 +70,7 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 | Admin | Invite users, manage accounts, view logs, configure app, monitor status |
 | Member | Use all modules, manage own profile and content |
 
-Registration is invite-only. Admins generate a single-use invite link and share it directly. No SMTP required. See [`auth.md`](auth.md) for session, invite, and future MFA detail.
+Registration is invite-only. Admins generate a single-use invite link and share it directly. No SMTP required. See [`auth.md`](auth.md) for session, invite, and MFA detail.
 
 ---
 
@@ -142,7 +141,7 @@ See [`permissions.md`](permissions.md) for the access engine, [`sharing.md`](sha
 | Audio metadata | `music-metadata` (npm) | Reads ID3, MP4, FLAC, OGG tags |
 | Image processing | `sharp` (npm) | Thumbnail generation and WebP conversion |
 | Auth | Session cookies + `scrypt` | Simple, secure, easy revocation |
-| MFA (future) | `otplib` + `qrcode` | TOTP, no external service |
+| MFA | `otplib` + `qrcode` | TOTP two-factor, no external service |
 | Background jobs | SQLite job queue | No external infrastructure |
 | Metadata providers | `undici` / native `fetch` | OpenLibrary, LibriVox, Audible, FantLab, iTunes; SSRF-pinned remote image fetch |
 
@@ -237,7 +236,7 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 11. **Done** — Security hardening — rate limiting, SSRF/ReDoS/path-traversal fixes
 12. **Future** — Notes module
 13. **Future** — Group ownership/membership for libraries
-14. **Future** — MFA, photo/video library types, mobile app
+14. **Future** — Photo/video library types, mobile app
 
 ---
 
@@ -248,7 +247,7 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 | [`permissions.md`](permissions.md) | Access engine — unified `assignments` model, roles, write policies, admin rules |
 | [`sharing.md`](sharing.md) | Item-level sharing — `shares` / `share_links` schema, access resolution |
 | [`library-sharing.md`](library-sharing.md) | Library access model and roadmap |
-| [`auth.md`](auth.md) | Authentication detail — sessions, invite flow, future MFA |
+| [`auth.md`](auth.md) | Authentication detail — sessions, invite flow, MFA (TOTP), hardening status |
 | [`audiobook-library.md`](audiobook-library.md) | Audiobook library type — scan pipeline, metadata, phases, schema |
 | [`database.md`](database.md) | Database schema — unified `library_items` model, conventions, old→new map, table reference |
 | [`ebook-library.md`](ebook-library.md) | Ebook library type — EPUB/PDF catalog, in-app reader, per-type series |
