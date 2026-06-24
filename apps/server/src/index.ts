@@ -3,6 +3,7 @@ import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
+import helmet from "@fastify/helmet";
 import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
@@ -11,6 +12,13 @@ import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
 import { libraryPlugin } from "./modules/library/index.js";
 import { collectionsPlugin } from "./modules/collections/index.js";
+
+// X-Forwarded-For is only trusted when TRUST_PROXY_HOPS names how many reverse
+// proxies sit in front (e.g. 1 for a single nginx/Caddy/NPM). Left unset we trust
+// nothing and use the raw socket IP, so a direct client can't forge its address —
+// which would otherwise poison audit logs and hand out fresh rate-limit buckets.
+// Operators exposing the app set this to match their proxy chain (see docs/hosting.md).
+const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS);
 
 const app = fastify({
   logger: {
@@ -30,12 +38,42 @@ const app = fastify({
       }
     }
   },
-  trustProxy: true
+  trustProxy: Number.isInteger(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : false
 });
 
 await app.register(cors, {
   origin: config.appUrl,
   credentials: true
+});
+// Security headers. The CSP ships in report-only mode first: the PWA serves covers
+// and EPUB content from blob:/data: URLs and the foliate reader spawns workers and
+// iframes, so the policy needs real-world verification before it's enforced — until
+// then a mismatch is reported to the browser console instead of breaking the page.
+// The remaining headers (no-sniff, frame-ancestors, referrer policy) are enforced now.
+await app.register(helmet, {
+  crossOriginEmbedderPolicy: false,
+  referrerPolicy: { policy: "no-referrer" },
+  // HSTS belongs to the TLS-terminating proxy and stays off here until HTTPS is
+  // confirmed, so a mis-set max-age can't strand the http LAN deployment.
+  hsts: false,
+  contentSecurityPolicy: {
+    useDefaults: false,
+    reportOnly: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      mediaSrc: ["'self'", "blob:"],
+      fontSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      workerSrc: ["'self'", "blob:"],
+      frameSrc: ["'self'", "blob:"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      frameAncestors: ["'self'"]
+    }
+  }
 });
 await app.register(cookie);
 // Global per-client-IP rate limit, registered before the route plugins so it

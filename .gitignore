@@ -8,6 +8,9 @@ dist/
 # Runtime data: SQLite DB, WAL/SHM, backups, uploaded media — never sync to remote
 data/
 
+# MFA secret-encryption key, persisted beside the DB when MFA_ENCRYPTION_KEY is unset
+mfa.key
+
 # Personal scratch notes under Documents — keep local only (case-insensitive)
 Documents/notes/
 Documents/Notes/

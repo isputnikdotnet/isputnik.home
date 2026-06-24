@@ -15,7 +15,17 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
   // The library_scan_rules table is created by schema.sql before migrations run.
   { version: 2, up: (db) => db.exec("ALTER TABLE library_items ADD COLUMN scan_rule_id TEXT REFERENCES library_scan_rules(id) ON DELETE SET NULL") },
   // Per-user e-reader (Kindle/Kobo) delivery address for "Send to e-reader".
-  { version: 3, up: (db) => db.exec("ALTER TABLE users ADD COLUMN ereader_email TEXT") }
+  { version: 3, up: (db) => db.exec("ALTER TABLE users ADD COLUMN ereader_email TEXT") },
+  // Two-factor auth (TOTP): per-user enable flag, encrypted TOTP secret, and hashed
+  // single-use backup codes (JSON array). Secret/code handling lives in core/mfa.ts.
+  {
+    version: 4,
+    up: (db) => {
+      db.exec("ALTER TABLE users ADD COLUMN mfa_enabled INTEGER NOT NULL DEFAULT 0");
+      db.exec("ALTER TABLE users ADD COLUMN mfa_secret TEXT");
+      db.exec("ALTER TABLE users ADD COLUMN mfa_backup_codes TEXT");
+    }
+  }
 ];
 
 function userVersion(db: Database.Database): number {

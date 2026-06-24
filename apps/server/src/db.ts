@@ -18,6 +18,9 @@ export interface User {
   role: Role;
   theme: ThemePreference;
   ereader_email: string | null;
+  mfa_enabled: 0 | 1;
+  mfa_secret: string | null;
+  mfa_backup_codes: string | null;
   protected_from_delete: 0 | 1;
   is_active: 0 | 1;
   created_at: string;
