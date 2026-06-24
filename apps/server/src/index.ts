@@ -45,11 +45,11 @@ await app.register(cors, {
   origin: config.appUrl,
   credentials: true
 });
-// Security headers. The CSP ships in report-only mode first: the PWA serves covers
-// and EPUB content from blob:/data: URLs and the foliate reader spawns workers and
-// iframes, so the policy needs real-world verification before it's enforced — until
-// then a mismatch is reported to the browser console instead of breaking the page.
-// The remaining headers (no-sniff, frame-ancestors, referrer policy) are enforced now.
+// Security headers. The CSP is tailored to exactly what the app loads: same-origin
+// scripts and styles (the build has no inline scripts; styles allow inline), cover
+// and reader content from blob:/data:, audio from blob:, and the foliate reader's
+// blob iframe. Verified against the production bundle (no eval/WASM, no external
+// resources, workers disabled) before switching from report-only to enforcing.
 await app.register(helmet, {
   crossOriginEmbedderPolicy: false,
   referrerPolicy: { policy: "no-referrer" },
@@ -58,7 +58,6 @@ await app.register(helmet, {
   hsts: false,
   contentSecurityPolicy: {
     useDefaults: false,
-    reportOnly: true,
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
