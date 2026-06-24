@@ -51,7 +51,8 @@ export async function usersPlugin(app: FastifyInstance) {
     return {
       users: users.map((user) => ({
         ...publicUser(user),
-        activeSessions: user.active_sessions
+        activeSessions: user.active_sessions,
+        mfaEnabled: Boolean(user.mfa_enabled)
       }))
     };
   });

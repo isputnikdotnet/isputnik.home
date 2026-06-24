@@ -383,6 +383,78 @@
   display: flex;
 }
 
+/* ── Two-factor authentication ──────────────────────────────────── */
+
+.mfa-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.mfa-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.mfa-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.mfa-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mfa-qr {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.mfa-qr img {
+  background: #ffffff;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.mfa-secret {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.mfa-secret code {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  word-break: break-all;
+}
+
+.mfa-backup-codes {
+  list-style: none;
+  margin: 0;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.06));
+}
+
+.mfa-backup-codes code {
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+}
+
 /* ── Reader access (OPDS) ───────────────────────────────────────── */
 
 .opds-access {
