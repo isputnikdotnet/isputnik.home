@@ -7,6 +7,7 @@ import helmet from "@fastify/helmet";
 import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
+import { isIpBlocked, isTrustedIp } from "./core/security.js";
 import { corePlugin } from "./core/index.js";
 import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
@@ -82,7 +83,16 @@ await app.register(cookie);
 // honours the trustProxy setting above. Routes may tighten this individually.
 await app.register(rateLimit, {
   max: 1000,
-  timeWindow: "1 minute"
+  timeWindow: "1 minute",
+  // Trusted networks (admin-configured) are exempt from rate limiting.
+  allowList: (request) => isTrustedIp(request.ip)
+});
+// Reject blocked source IPs everywhere — manual or auto-blocked — but never a
+// trusted network. isIpBlocked is the cheap, usually-false common-case check.
+app.addHook("onRequest", async (request, reply) => {
+  if (isIpBlocked(request.ip) && !isTrustedIp(request.ip)) {
+    await reply.code(403).send({ error: "Your network has been blocked." });
+  }
 });
 // Generic file uploads. No global fileSize cap — each upload route enforces its
 // own size/extension policy while streaming (see modules/uploads). One file per
