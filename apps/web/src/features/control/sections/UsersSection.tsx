@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
-import { KeyRound, Pencil, Plus, Search, ShieldCheck, Trash2, User, Users } from "lucide-react";
+import { KeyRound, Pencil, Plus, Search, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
 import { api, type PublicUser } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -45,6 +45,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
   const [pendingDelete, setPendingDelete] = useState<ManagedUser | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [pendingMfaReset, setPendingMfaReset] = useState<ManagedUser | null>(null);
+  const [resettingMfa, setResettingMfa] = useState(false);
 
   const loadUsers = useCallback(async () => {
     const payload = await api<{ users: ManagedUser[] }>("/api/users");
@@ -176,6 +179,22 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     }
   };
 
+  const resetMfa = async () => {
+    if (!pendingMfaReset) return;
+
+    setResettingMfa(true);
+    setModalError("");
+    try {
+      await api(`/api/users/${pendingMfaReset.id}/mfa/reset`, { method: "POST" });
+      setPendingMfaReset(null);
+      await loadUsers();
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : "Unable to reset two-factor");
+    } finally {
+      setResettingMfa(false);
+    }
+  };
+
   const roleLocked = editingUser ? editingUser.protectedFromDelete || editingUser.id === currentUser.id : false;
 
   return (
@@ -272,6 +291,18 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                           onClick={() => openPassword(account)}
                         >
                           <KeyRound size={15} />
+                        </Button>
+                        <Button
+                          variant="icon"
+                          title={account.mfaEnabled ? "Reset two-factor authentication" : "This user doesn't have two-factor on"}
+                          aria-label={`Reset two-factor for ${account.displayName}`}
+                          disabled={!account.mfaEnabled}
+                          onClick={() => {
+                            setModalError("");
+                            setPendingMfaReset(account);
+                          }}
+                        >
+                          <ShieldOff size={15} />
                         </Button>
                         <Button
                           variant="icon"
@@ -419,6 +450,24 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
         >
           <p>This will deactivate the account and sign the user out on all devices.</p>
           <p><strong>Libraries, groups, activity history, and files are not deleted.</strong></p>
+        </ConfirmDialog>
+      )}
+
+      {pendingMfaReset && (
+        <ConfirmDialog
+          title={`Reset two-factor for "${pendingMfaReset.displayName}"?`}
+          confirmLabel="Reset two-factor"
+          busyLabel="Resetting…"
+          confirmIcon={<ShieldOff size={15} />}
+          danger
+          rich
+          busy={resettingMfa}
+          error={modalError}
+          onConfirm={resetMfa}
+          onCancel={() => setPendingMfaReset(null)}
+        >
+          <p>This turns off two-factor and clears their authenticator and backup codes.</p>
+          <p><strong>They'll sign in with just their password until they set it up again.</strong></p>
         </ConfirmDialog>
       )}
     </>

@@ -11,6 +11,9 @@ export interface PublicUser {
   // Self-only: present on the signed-in user (session + profile), absent on the
   // admin user list. Used by Send-to-e-reader and the Profile field.
   ereaderEmail?: string | null;
+  // Whether two-factor is on. Self-only on the session/profile payload; also
+  // surfaced on the admin user list so an admin can reset a locked-out member.
+  mfaEnabled?: boolean;
 }
 
 interface ApiErrorPayload {

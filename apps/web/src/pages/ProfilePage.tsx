@@ -10,6 +10,7 @@ import { ThemePicker, type Theme } from "../shared/ThemePicker";
 import { InstallCard } from "../pwa/InstallCard";
 import { ChangeEmailSection } from "../features/profile/ChangeEmailSection";
 import { ChangePasswordSection } from "../features/profile/ChangePasswordSection";
+import { MfaSection } from "../features/profile/MfaSection";
 
 export function ProfilePage({
   user,
@@ -113,6 +114,8 @@ export function ProfilePage({
         <ChangeEmailSection email={user.email} onChanged={onUpdated} />
 
         <ChangePasswordSection />
+
+        <MfaSection />
 
         <section className="appearance-section" aria-labelledby="appearance-heading">
           <h2 id="appearance-heading">Appearance</h2>
