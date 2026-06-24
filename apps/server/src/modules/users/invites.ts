@@ -7,6 +7,7 @@ import { addDays, issueSession } from "../../auth.js";
 import { config } from "../../config.js";
 import { parseBody, setupSchema, getUserByEmail } from "../../core/shared.js";
 import { getDefaultTheme } from "../../core/app-config.js";
+import { alertNewAdmin } from "../../core/security-alerts.js";
 
 const inviteSchema = z.object({
   role: z.enum(["admin", "member"]).default("member"),
@@ -195,6 +196,7 @@ export async function invitesPlugin(app: FastifyInstance) {
     })();
 
     issueSession(reply, user.id, request);
+    if (invite.role === "admin") alertNewAdmin(user.email, "an invite link");
     logActivity({
       event: "invite.accepted",
       actorUserId: user.id,
