@@ -122,5 +122,5 @@ export function publicUser(user: User) {
 // through publicUser (which is reused for the admin user list and people pickers).
 // Use only when returning the current user to themselves (session + profile).
 export function selfUser(user: User) {
-  return { ...publicUser(user), ereaderEmail: user.ereader_email ?? null };
+  return { ...publicUser(user), ereaderEmail: user.ereader_email ?? null, mfaEnabled: Boolean(user.mfa_enabled) };
 }

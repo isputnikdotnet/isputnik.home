@@ -6,6 +6,7 @@ import { hashPassword } from "../../crypto.js";
 import { currentSessionHash } from "../../auth.js";
 import { getDefaultTheme } from "../../core/app-config.js";
 import { parseBody } from "../../core/shared.js";
+import { resetMfa } from "../../core/mfa-routes.js";
 
 const roleSchema = z.object({
   role: z.enum(["admin", "member"])
@@ -197,6 +198,28 @@ export async function usersPlugin(app: FastifyInstance) {
       targetType: "user",
       targetId: id,
       detail: `Changed password for ${user.display_name}.`,
+      ipAddress: request.ip
+    });
+    reply.send({ ok: true });
+  });
+
+  // Rescue a member who lost their authenticator and backup codes — no email-based
+  // recovery exists, so an admin clears MFA and the user re-enrolls on next sign-in.
+  app.post("/api/users/:id/mfa/reset", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
+    if (!user) {
+      reply.code(404).send({ error: "User not found" });
+      return;
+    }
+
+    resetMfa(id);
+    logActivity({
+      event: "user.mfa_reset",
+      actorUserId: request.user!.id,
+      targetType: "user",
+      targetId: id,
+      detail: `Reset two-factor authentication for ${user.display_name}.`,
       ipAddress: request.ip
     });
     reply.send({ ok: true });
