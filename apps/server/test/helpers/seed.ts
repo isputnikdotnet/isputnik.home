@@ -11,6 +11,7 @@ export function resetDb(): void {
   db.pragma("foreign_keys = OFF");
   const tables = [
     "assignments", "group_members", "shares", "share_links", "api_tokens", "mfa_challenges",
+    "login_attempts", "blocked_ips", "trusted_networks",
     "item_saves", "item_categories", "item_people", "series_items",
     "audio_chapters", "audio_files", "document_files",
     "playback_progress", "track_progress", "reading_progress",
