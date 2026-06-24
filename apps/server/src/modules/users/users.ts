@@ -7,6 +7,7 @@ import { currentSessionHash } from "../../auth.js";
 import { getDefaultTheme } from "../../core/app-config.js";
 import { parseBody } from "../../core/shared.js";
 import { resetMfa } from "../../core/mfa-routes.js";
+import { alertNewAdmin, alertMfaDisabled } from "../../core/security-alerts.js";
 
 const roleSchema = z.object({
   role: z.enum(["admin", "member"])
@@ -88,6 +89,7 @@ export async function usersPlugin(app: FastifyInstance) {
       detail: `Created ${user.display_name}'s account.`,
       ipAddress: request.ip
     });
+    if (parsed.data.role === "admin") alertNewAdmin(parsed.data.email, `admin ${request.user!.display_name}`);
     reply.code(201).send({ user: { ...publicUser(user), activeSessions: 0 } });
   });
 
@@ -130,6 +132,9 @@ export async function usersPlugin(app: FastifyInstance) {
       detail: `Updated ${parsed.data.displayName}'s account.`,
       ipAddress: request.ip
     });
+    if (parsed.data.role === "admin" && user.role !== "admin") {
+      alertNewAdmin(parsed.data.email, `admin ${request.user!.display_name}`);
+    }
     const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as User;
     reply.send({ user: publicUser(updated) });
   });
@@ -162,6 +167,9 @@ export async function usersPlugin(app: FastifyInstance) {
       detail: `Changed ${user.display_name}'s role to ${parsed.data.role}.`,
       ipAddress: request.ip
     });
+    if (parsed.data.role === "admin" && user.role !== "admin") {
+      alertNewAdmin(user.email, `admin ${request.user!.display_name}`);
+    }
     const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as User;
     reply.send({ user: publicUser(updated) });
   });
@@ -215,6 +223,7 @@ export async function usersPlugin(app: FastifyInstance) {
     }
 
     resetMfa(id);
+    if (user.mfa_enabled) alertMfaDisabled(user.email, true);
     logActivity({
       event: "user.mfa_reset",
       actorUserId: request.user!.id,

@@ -5,6 +5,7 @@ import { clearSession, currentUserPayload, issueSession, revokeCurrentSession } 
 import { parseBody, credentialsSchema, getUserByEmail } from "./shared.js";
 import { createMfaChallenge, setMfaChallengeCookie } from "./mfa-routes.js";
 import { isTrustedIp, isAccountLocked, recordLoginAttempt, maybeAutoBlockIp } from "./security.js";
+import { alertAccountLocked, alertIpAutoBlocked } from "./security-alerts.js";
 
 export async function authPlugin(app: FastifyInstance) {
   app.post("/api/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
@@ -38,8 +39,11 @@ export async function authPlugin(app: FastifyInstance) {
         detail: "A sign-in attempt failed.",
         ipAddress: request.ip
       });
-      // Trusted networks are never auto-blocked.
-      if (!trusted) maybeAutoBlockIp(request.ip);
+      // Trusted networks are never auto-blocked or locked out.
+      if (!trusted) {
+        if (maybeAutoBlockIp(request.ip)) alertIpAutoBlocked(request.ip);
+        if (isAccountLocked(email)) alertAccountLocked(email, request.ip);
+      }
       reply.code(401).send({ error: "Invalid email or password" });
       return;
     }

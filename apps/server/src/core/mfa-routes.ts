@@ -6,6 +6,7 @@ import { config } from "../config.js";
 import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody } from "./shared.js";
+import { alertMfaDisabled } from "./security-alerts.js";
 import {
   encryptSecret,
   decryptSecret,
@@ -202,6 +203,7 @@ export async function mfaRoutes(app: FastifyInstance) {
       return;
     }
     resetMfa(request.user!.id);
+    alertMfaDisabled(request.user!.email, false);
     logActivity({
       event: "profile.mfa_disabled",
       actorUserId: request.user!.id,
