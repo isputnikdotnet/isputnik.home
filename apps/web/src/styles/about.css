@@ -455,6 +455,19 @@
   letter-spacing: 0.06em;
 }
 
+/* ── Security (control panel) ────────────────────────────────────── */
+
+.security-block {
+  margin-top: 28px;
+}
+
+.security-add-form {
+  display: grid;
+  gap: 10px;
+  max-width: 440px;
+  margin-top: 16px;
+}
+
 /* ── Reader access (OPDS) ───────────────────────────────────────── */
 
 .opds-access {

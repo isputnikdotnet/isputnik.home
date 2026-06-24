@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "about" | "libraries" | "storage" | "recycleBin" | "groups" | "jobs" | "backup" | "categories" | "tags" | "config";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "about" | "libraries" | "storage" | "recycleBin" | "groups" | "jobs" | "backup" | "categories" | "tags" | "config" | "security";
 
 export type Route =
   | { name: "install" }
@@ -241,6 +241,10 @@ export function getRoute(): Route {
 
   if (path === "/control/config") {
     return { name: "control", section: "config" };
+  }
+
+  if (path === "/control/security") {
+    return { name: "control", section: "security" };
   }
 
   // Maintenance defaults to Jobs.

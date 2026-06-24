@@ -9,6 +9,7 @@ import {
   LibraryBig,
   ScrollText,
   Settings,
+  ShieldCheck,
   Tags,
   Trash2,
   UsersRound,
@@ -29,6 +30,7 @@ import { TagsSection } from "./sections/TagsSection";
 import { GroupsSection } from "./sections/GroupsSection";
 import { JobsSection } from "./sections/JobsSection";
 import { ConfigSection } from "./sections/ConfigSection";
+import { SecuritySection } from "./sections/SecuritySection";
 import { RecycleBinSection } from "./sections/RecycleBinSection";
 
 export function ControlPanelPage({
@@ -51,6 +53,7 @@ export function ControlPanelPage({
           {(section === "jobs" || section === "backup") && <MaintenanceSection section={section} />}
           {(section === "status" || section === "statusStats") && <StatusControl section={section} />}
           {section === "config"    && <ConfigSection />}
+          {section === "security"  && <SecuritySection />}
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
           {section === "libraries" && <LibrariesSection />}
@@ -73,6 +76,7 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
         <p>Application</p>
         <ControlNavLink icon={Activity} label="Status" href="/control/status" active={["status", "statusStats"].includes(section)} />
         <ControlNavLink icon={Settings} label="Config" href="/control/config" active={section === "config"} />
+        <ControlNavLink icon={ShieldCheck} label="Security" href="/control/security" active={section === "security"} />
         <ControlNavLink icon={Tags} label="Labels" href="/control/categories" active={section === "categories" || section === "tags"} />
         <ControlNavLink icon={ScrollText} label="Logs" href="/control/logs" active={section === "logs"} />
         <ControlNavLink icon={Wrench} label="Maintenance" href="/control/maintenance" active={["jobs", "backup"].includes(section)} />
