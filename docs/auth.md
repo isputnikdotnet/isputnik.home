@@ -107,12 +107,12 @@ Shipped:
 - **Security headers** — `@fastify/helmet` (CSP currently report-only; see
   [`users/exposing-to-the-internet.md`](users/exposing-to-the-internet.md)).
 - **Scoped proxy trust** — `TRUST_PROXY_HOPS`, so a client can't spoof its IP.
+- **Account lockout & IP access control** — accounts lock after 5 failed sign-ins (30 min); an IP auto-blocks after repeated failures; admins manage trusted networks (which relax rate limits, lockout, and MFA) and manual IP blocks under Control panel → Security. Engine in `core/security.ts`.
+- **Suspicious-activity email alerts** — admins are emailed on lockouts, auto-blocks, a new/elevated admin, and two-factor being turned off (when SMTP is configured; `core/security-alerts.ts`).
 
 Planned:
 
 - CSRF tokens on mutating authenticated routes (today relies on `SameSite=Lax`).
-- Account lockout after repeated failed sign-ins.
-- IP allow/block zones and suspicious-activity email alerts.
 
 ---
 
