@@ -61,6 +61,39 @@ CREATE TABLE IF NOT EXISTS mfa_challenges (
   attempts    INTEGER NOT NULL DEFAULT 0
 );
 
+-- Brute-force defense & source-IP access control.
+-- Every sign-in attempt, used to derive per-account lockout and per-IP auto-block.
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id          TEXT PRIMARY KEY,
+  email       TEXT,
+  ip_address  TEXT,
+  successful  INTEGER NOT NULL DEFAULT 0 CHECK (successful IN (0, 1)),
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts (email, created_at);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts (ip_address, created_at);
+
+-- Blocked source IPs: manual (auto = 0, usually no expiry) or automatic
+-- (auto = 1, with a cooldown expiry).
+CREATE TABLE IF NOT EXISTS blocked_ips (
+  ip_address  TEXT PRIMARY KEY,
+  reason      TEXT,
+  auto        INTEGER NOT NULL DEFAULT 0 CHECK (auto IN (0, 1)),
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  expires_at  TEXT,
+  created_by  TEXT REFERENCES users(id)
+);
+
+-- Trusted networks (CIDR). A request from one is a relaxed zone: rate limits,
+-- lockout, and MFA are skipped. Empty by default — admins opt in their LAN range.
+CREATE TABLE IF NOT EXISTS trusted_networks (
+  id          TEXT PRIMARY KEY,
+  cidr        TEXT NOT NULL UNIQUE,
+  label       TEXT,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  created_by  TEXT REFERENCES users(id)
+);
+
 CREATE TABLE IF NOT EXISTS invites (
   id          TEXT PRIMARY KEY,
   token_hash  TEXT NOT NULL UNIQUE,
