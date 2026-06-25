@@ -337,6 +337,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.3.3",
+          label: "Refreshed navigation & consistent tabbed layouts",
+          changes: [
+            "Your library and account pages now use a left-hand menu — the same style the Control panel uses. Profile, Favorites, Bookmarks, Collections, Shared with me, and Downloads are grouped under \"Account\" and \"My Library\" in the sidebar, replacing the old row of tabs across the top of the page.",
+            "Polish: the Profile, Config, and Security pages now share one tabbed layout. Each has a heading with an icon and a short description, and every tab carries its own icon. Nothing moved — the same settings are in the same places — it's just easier to scan and visually consistent across the app."
+          ]
+        },
+        {
           version: "1.3.2",
           label: "Admin sign-in unlock & clearer auth logs",
           changes: [
