@@ -45,6 +45,8 @@ ENV THUMBNAIL_PATH=/config/thumbnails
 ENV METADATA_PATH=/config/metadata
 # Set to "true" only when served over HTTPS
 ENV COOKIE_SECURE=false
+# Number of reverse proxies in front (usually 1). 0 = trust nothing / direct access.
+ENV TRUST_PROXY_HOPS=0
 
 EXPOSE 4000
 
