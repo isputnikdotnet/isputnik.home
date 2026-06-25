@@ -29,6 +29,11 @@ interface SecurityPolicy {
   ipAutoblockMinutes: number;
 }
 
+interface PasswordPolicy {
+  minLength: number;
+  requireComplexity: boolean;
+}
+
 interface SecurityData {
   policy: SecurityPolicy;
   proxy: {
@@ -36,6 +41,7 @@ interface SecurityData {
     configured: boolean;
     forwardedHeaderSeen: boolean;
   };
+  passwordPolicy: PasswordPolicy;
   trustedNetworks: TrustedNetwork[];
   blockedIps: BlockedIp[];
 }
@@ -48,6 +54,11 @@ export function SecuritySection() {
   const [savingPolicy, setSavingPolicy] = useState(false);
   const [policyError, setPolicyError] = useState("");
   const [policySaved, setPolicySaved] = useState(false);
+
+  const [pwForm, setPwForm] = useState<PasswordPolicy | null>(null);
+  const [savingPw, setSavingPw] = useState(false);
+  const [pwError, setPwError] = useState("");
+  const [pwSaved, setPwSaved] = useState(false);
 
   const [cidr, setCidr] = useState("");
   const [label, setLabel] = useState("");
@@ -64,6 +75,7 @@ export function SecuritySection() {
       const fresh = await api<SecurityData>("/api/security");
       setData(fresh);
       setPolicyForm((prev) => prev ?? { ...fresh.policy });
+      setPwForm((prev) => prev ?? { ...fresh.passwordPolicy });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load security settings");
     }
@@ -91,6 +103,27 @@ export function SecuritySection() {
       setPolicyError(err instanceof Error ? err.message : "Unable to save thresholds");
     } finally {
       setSavingPolicy(false);
+    }
+  };
+
+  const savePwPolicy = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!pwForm) return;
+    setSavingPw(true);
+    setPwError("");
+    setPwSaved(false);
+    try {
+      const res = await api<{ passwordPolicy: PasswordPolicy }>("/api/security/password-policy", {
+        method: "PATCH",
+        body: JSON.stringify(pwForm)
+      });
+      setPwForm(res.passwordPolicy);
+      setPwSaved(true);
+      await load();
+    } catch (err) {
+      setPwError(err instanceof Error ? err.message : "Unable to save password policy");
+    } finally {
+      setSavingPw(false);
     }
   };
 
@@ -230,6 +263,38 @@ export function SecuritySection() {
                 {policySaved && <MessageBox tone="success" title="Saved">Thresholds updated.</MessageBox>}
                 <Button variant="primary" type="submit" disabled={savingPolicy}>
                   {savingPolicy ? "Saving…" : "Save thresholds"}
+                </Button>
+              </form>
+            )}
+          </section>
+
+          <section className="security-block" aria-labelledby="pw-heading">
+            <h2 id="pw-heading">Password policy</h2>
+            <p className="section-description">Applies when a password is set or changed. Existing passwords keep working.</p>
+            {pwForm && (
+              <form className="security-add-form" onSubmit={savePwPolicy}>
+                <label className="field">
+                  <span>Minimum length</span>
+                  <input
+                    type="number"
+                    min={8}
+                    max={128}
+                    value={pwForm.minLength}
+                    onChange={(event) => setPwForm({ ...pwForm, minLength: Number(event.target.value) })}
+                  />
+                </label>
+                <label className="security-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={pwForm.requireComplexity}
+                    onChange={(event) => setPwForm({ ...pwForm, requireComplexity: event.target.checked })}
+                  />
+                  <span>Require a mix of letters, numbers, and symbols (at least 3 of 4)</span>
+                </label>
+                {pwError && <MessageBox tone="error" title="Unable to save">{pwError}</MessageBox>}
+                {pwSaved && <MessageBox tone="success" title="Saved">Password policy updated.</MessageBox>}
+                <Button variant="primary" type="submit" disabled={savingPw}>
+                  {savingPw ? "Saving…" : "Save password policy"}
                 </Button>
               </form>
             )}

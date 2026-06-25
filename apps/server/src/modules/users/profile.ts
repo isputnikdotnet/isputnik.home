@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { db, logActivity, selfUser, THEME_PREFERENCES, type User } from "../../db.js";
-import { parseBody } from "../../core/shared.js";
+import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { hashPassword, verifyPassword } from "../../crypto.js";
 import { currentSessionHash } from "../../auth.js";
 
@@ -14,7 +14,7 @@ const profileSchema = z.object({
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Enter your current password").max(200),
-  newPassword: z.string().min(8, "Password must be at least 8 characters").max(200)
+  newPassword: passwordPolicyField()
 });
 
 const emailSchema = z.object({
