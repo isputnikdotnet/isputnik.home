@@ -26,6 +26,13 @@ WORKDIR /app
 # Runtime node_modules (with compiled native bindings from the build stage)
 COPY --from=deps /build/node_modules ./node_modules
 
+# Workspace-nested modules npm chose NOT to hoist to root. otplib is the first such
+# dep (its @otplib/core@12 conflicts with the version the presets pull in, so npm
+# nests otplib + @otplib/core under apps/server instead of root). Without this copy
+# they're absent at runtime → ERR_MODULE_NOT_FOUND. Copying the whole dir is
+# future-proof: any later non-hoisted server dep comes along automatically.
+COPY --from=deps /build/apps/server/node_modules ./apps/server/node_modules
+
 # Compiled server
 COPY --from=server-build /build/apps/server/dist ./apps/server/dist
 

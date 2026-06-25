@@ -337,6 +337,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.3.1",
+          label: "Fix: container could fail to start (two-factor dependency)",
+          changes: [
+            "Fixed a packaging bug in the 1.3.0 container image: a two-factor sign-in dependency (otplib) was missing from the published image, so the app could crash on startup with a \"Cannot find package 'otplib'\" error before it finished loading. The image now bundles it. If you ran into this, just update to 1.3.1 — there's nothing to configure and no data is affected."
+          ]
+        },
+        {
           version: "1.3.0",
           label: "Security: two-factor sign-in & internet-ready hardening",
           changes: [
