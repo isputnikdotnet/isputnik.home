@@ -1,15 +1,25 @@
 import { useEffect, useState } from "react";
 import { api } from "../../../api";
+import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ThemePicker, type Theme } from "../../../shared/ThemePicker";
 import { MailSection } from "./MailSection";
 import { OpdsAccessSection } from "./OpdsAccessSection";
+
+type ConfigTab = "appearance" | "email" | "reader";
+
+const CONFIG_TABS: { key: ConfigTab; label: string }[] = [
+  { key: "appearance", label: "Appearance" },
+  { key: "email", label: "Email" },
+  { key: "reader", label: "Reader access" }
+];
 
 export function ConfigSection() {
   const [defaultTheme, setDefaultTheme] = useState<Theme | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState<ConfigTab>("appearance");
 
   useEffect(() => {
     api<{ config: { defaultTheme: Theme } }>("/api/config")
@@ -44,20 +54,66 @@ export function ConfigSection() {
         </div>
       </div>
 
-      <section className="config-block">
-        <h2>Default theme</h2>
-        <p className="muted">
-          The look the sign-in screen uses and the theme new members start with. Each member can still change their own
-          appearance under the Theme menu.
-        </p>
-        {defaultTheme && <ThemePicker value={defaultTheme} onChange={choose} disabled={saving} />}
-        {saved && <MessageBox tone="success" title="Saved">Default theme updated.</MessageBox>}
-        {error && <MessageBox tone="error" title="Config error">{error}</MessageBox>}
-      </section>
+      <div className="control-tabs config-tabs" role="tablist" aria-label="Configuration sections">
+        {CONFIG_TABS.map((tab) => {
+          const selected = activeTab === tab.key;
+          return (
+            <Button
+              key={tab.key}
+              variant="text"
+              className={`config-tab${selected ? " active" : ""}`}
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`config-panel-${tab.key}`}
+              id={`config-tab-${tab.key}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </Button>
+          );
+        })}
+      </div>
 
-      <MailSection />
+      <div className="config-tab-panels">
+        <div
+          className="config-tab-panel"
+          role="tabpanel"
+          id="config-panel-appearance"
+          aria-labelledby="config-tab-appearance"
+          hidden={activeTab !== "appearance"}
+        >
+          <section className="config-block">
+            <h2>Default theme</h2>
+            <p className="muted">
+              The look the sign-in screen uses and the theme new members start with. Each member can still change their own
+              appearance under the Theme menu.
+            </p>
+            {defaultTheme && <ThemePicker value={defaultTheme} onChange={choose} disabled={saving} />}
+            {saved && <MessageBox tone="success" title="Saved">Default theme updated.</MessageBox>}
+            {error && <MessageBox tone="error" title="Config error">{error}</MessageBox>}
+          </section>
+        </div>
 
-      <OpdsAccessSection />
+        <div
+          className="config-tab-panel"
+          role="tabpanel"
+          id="config-panel-email"
+          aria-labelledby="config-tab-email"
+          hidden={activeTab !== "email"}
+        >
+          <MailSection />
+        </div>
+
+        <div
+          className="config-tab-panel"
+          role="tabpanel"
+          id="config-panel-reader"
+          aria-labelledby="config-tab-reader"
+          hidden={activeTab !== "reader"}
+        >
+          <OpdsAccessSection />
+        </div>
+      </div>
     </>
   );
 }
