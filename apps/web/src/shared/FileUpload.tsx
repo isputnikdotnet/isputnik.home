@@ -3,6 +3,7 @@ import { UploadCloud, FileUp, FolderUp } from "lucide-react";
 import { Button } from "./Button";
 import { MessageBox } from "./MessageBox";
 import { formatBytes } from "./utils";
+import { csrfToken } from "../api";
 
 // The single way to upload a file. A drag-and-drop / pick dropzone that validates
 // the client's choice against the same policy the server enforces (extensions +
@@ -164,6 +165,8 @@ export function FileUpload({
     xhrRef.current = xhr;
     xhr.open("POST", url);
     xhr.withCredentials = true;
+    const token = csrfToken();
+    if (token) xhr.setRequestHeader("X-CSRF-Token", token);
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) setProgress(Math.round((event.loaded / event.total) * 100));
     };

@@ -8,6 +8,7 @@ import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
 import { isIpBlocked, isTrustedIp, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader } from "./core/security.js";
+import { registerCsrf } from "./core/csrf.js";
 import { corePlugin } from "./core/index.js";
 import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
@@ -108,6 +109,8 @@ app.addHook("onRequest", async (request, reply) => {
     await reply.code(403).send({ error: "Your network has been blocked." });
   }
 });
+// CSRF: a double-submit token validated on every state-changing request.
+registerCsrf(app);
 // Generic file uploads. No global fileSize cap — each upload route enforces its
 // own size/extension policy while streaming (see modules/uploads). One file per
 // request; small text fields only (the file streams to disk, never to memory).

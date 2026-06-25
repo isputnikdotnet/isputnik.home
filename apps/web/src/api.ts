@@ -38,10 +38,23 @@ export function isAccessOrMissingApiError(error: unknown): boolean {
   return error instanceof ApiError && [401, 403, 404].includes(error.status);
 }
 
+// The double-submit CSRF token the server issued as a JS-readable cookie. Echoed
+// in the X-CSRF-Token header on every state-changing request (see core/csrf.ts).
+export function csrfToken(): string {
+  const match = document.cookie.match(/(?:^|;\s*)isputnik_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   if (options.body != null && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+
+  const method = (options.method ?? "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD") {
+    const token = csrfToken();
+    if (token) headers.set("X-CSRF-Token", token);
   }
 
   const response = await fetch(path, {
