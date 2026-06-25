@@ -337,12 +337,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
-          version: "1.3.1",
-          label: "Admin sign-in unlock, clearer auth logs & a startup fix",
+          version: "1.3.2",
+          label: "Admin sign-in unlock & clearer auth logs",
           changes: [
             "New (admin): unlock a locked account without waiting. After too many failed sign-ins an account is temporarily locked; Control panel → User management now shows a red \"Locked\" badge on that account with an Unlock button, so you can clear the lockout and let the person try again right away instead of waiting it out.",
-            "The activity log now records which email address a failed or refused sign-in was for, so you can tell which account someone was trying to reach — useful for spotting who's locked out or being targeted.",
-            "Fixed a packaging bug in the 1.3.0 container image: a two-factor sign-in dependency (otplib) was missing from the published image, so the app could crash on startup with a \"Cannot find package 'otplib'\" error before it finished loading. The image now bundles it; if you ran into this, just update — there's nothing to configure and no data is affected."
+            "The activity log now records which email address a failed or refused sign-in was for, so you can tell which account someone was trying to reach — useful for spotting who's locked out or being targeted."
+          ]
+        },
+        {
+          version: "1.3.1",
+          label: "Fix: container could fail to start (two-factor dependency)",
+          changes: [
+            "Fixed a packaging bug in the 1.3.0 container image: a two-factor sign-in dependency (otplib) was missing from the published image, so the app could crash on startup with a \"Cannot find package 'otplib'\" error before it finished loading. The image now bundles it. If you ran into this, just update to 1.3.1 — there's nothing to configure and no data is affected."
           ]
         },
         {
