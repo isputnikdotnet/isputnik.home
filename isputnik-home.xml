@@ -102,4 +102,14 @@ Private self-hosted family media library for audiobooks, ebooks, photos, and oth
           Required="false"
           Mask="false">7</Config>
 
+  <Config Name="Trusted Proxy Hops"
+          Target="TRUST_PROXY_HOPS"
+          Default=""
+          Mode=""
+          Description="Number of reverse proxies in front of the app (usually 1 behind a reverse proxy or Cloudflare Tunnel). Leave blank for direct LAN access. Needed for correct per-IP rate limiting, auto-block, and trusted networks — set it to match your proxy count, no higher."
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="false"></Config>
+
 </Container>
