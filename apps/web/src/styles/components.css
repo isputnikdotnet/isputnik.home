@@ -3085,6 +3085,11 @@
   background: var(--active);
 }
 
+.status-badge.locked {
+  color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 16%, transparent);
+}
+
 .status-badge.manager {
   color: var(--gold);
   background: color-mix(in srgb, var(--gold) 18%, transparent);

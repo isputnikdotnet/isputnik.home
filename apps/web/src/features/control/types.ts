@@ -2,6 +2,7 @@ import type { PublicUser } from "../../api";
 
 export interface ManagedUser extends PublicUser {
   activeSessions: number;
+  locked: boolean;
 }
 
 export interface ManagedInvite {

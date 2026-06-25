@@ -22,7 +22,7 @@ export async function authPlugin(app: FastifyInstance) {
     if (!trusted && isAccountLocked(email)) {
       logActivity({
         event: "auth.login_locked",
-        detail: "Sign-in refused: account temporarily locked after repeated failures.",
+        detail: `Sign-in refused for ${email}: account temporarily locked after repeated failures.`,
         ipAddress: request.ip
       });
       reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes." });
@@ -36,7 +36,7 @@ export async function authPlugin(app: FastifyInstance) {
     if (!ok) {
       logActivity({
         event: "auth.login_failed",
-        detail: "A sign-in attempt failed.",
+        detail: `A sign-in attempt for ${email} failed.`,
         ipAddress: request.ip
       });
       // Trusted networks are never auto-blocked or locked out.

@@ -149,6 +149,16 @@ export function isAccountLocked(email: string): boolean {
   return accountFailureCount(email) >= getSecurityPolicy().lockoutThreshold;
 }
 
+// Admin rescue: clear an account's failed-sign-in tally so it's no longer locked,
+// without waiting out the window. The lock is derived purely from these rows (see
+// accountFailureCount), so deleting the failures unlocks it. Returns how many were
+// cleared. Successful attempts are left intact.
+export function clearAccountLockout(email: string): number {
+  return db
+    .prepare("DELETE FROM login_attempts WHERE email = ? AND successful = 0")
+    .run(email.toLowerCase()).changes;
+}
+
 // ── IP blocking ──────────────────────────────────────────────────────────────
 
 export interface BlockedIp {

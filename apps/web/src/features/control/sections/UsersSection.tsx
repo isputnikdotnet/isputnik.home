@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
-import { KeyRound, Pencil, Plus, Search, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
+import { KeyRound, LockOpen, Pencil, Plus, Search, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
 import { api, type PublicUser } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -48,6 +48,8 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
   const [pendingMfaReset, setPendingMfaReset] = useState<ManagedUser | null>(null);
   const [resettingMfa, setResettingMfa] = useState(false);
+
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
 
   const loadUsers = useCallback(async () => {
     const payload = await api<{ users: ManagedUser[] }>("/api/users");
@@ -195,6 +197,19 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     }
   };
 
+  const unlockUser = async (account: ManagedUser) => {
+    setUnlockingId(account.id);
+    setError("");
+    try {
+      await api(`/api/users/${account.id}/unlock`, { method: "POST" });
+      await loadUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to unlock account");
+    } finally {
+      setUnlockingId(null);
+    }
+  };
+
   const roleLocked = editingUser ? editingUser.protectedFromDelete || editingUser.id === currentUser.id : false;
 
   return (
@@ -264,6 +279,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                             <strong>{account.displayName}</strong>
                             {isCurrent && <span className="status-badge current">Current</span>}
                             {account.protectedFromDelete && <span className="status-badge protected">Protected</span>}
+                            {account.locked && <span className="status-badge locked">Locked</span>}
                           </span>
                           <small>{account.email}</small>
                         </div>
@@ -303,6 +319,15 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                           }}
                         >
                           <ShieldOff size={15} />
+                        </Button>
+                        <Button
+                          variant="icon"
+                          title={account.locked ? "Clear sign-in lockout" : "This account isn't locked"}
+                          aria-label={`Clear sign-in lockout for ${account.displayName}`}
+                          disabled={!account.locked || unlockingId === account.id}
+                          onClick={() => unlockUser(account)}
+                        >
+                          <LockOpen size={15} />
                         </Button>
                         <Button
                           variant="icon"

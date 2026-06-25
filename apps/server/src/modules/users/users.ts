@@ -7,6 +7,7 @@ import { currentSessionHash } from "../../auth.js";
 import { getDefaultTheme } from "../../core/app-config.js";
 import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { resetMfa } from "../../core/mfa-routes.js";
+import { isAccountLocked, clearAccountLockout } from "../../core/security.js";
 import { alertNewAdmin, alertMfaDisabled } from "../../core/security-alerts.js";
 
 const roleSchema = z.object({
@@ -53,7 +54,8 @@ export async function usersPlugin(app: FastifyInstance) {
       users: users.map((user) => ({
         ...publicUser(user),
         activeSessions: user.active_sessions,
-        mfaEnabled: Boolean(user.mfa_enabled)
+        mfaEnabled: Boolean(user.mfa_enabled),
+        locked: isAccountLocked(user.email)
       }))
     };
   });
@@ -233,6 +235,29 @@ export async function usersPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     reply.send({ ok: true });
+  });
+
+  // Admin rescue: clear a brute-force sign-in lockout so the user can try again
+  // immediately instead of waiting out the lockout window. The lock is derived from
+  // recent failed attempts (see core/security.ts), so this just clears them.
+  app.post("/api/users/:id/unlock", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
+    if (!user) {
+      reply.code(404).send({ error: "User not found" });
+      return;
+    }
+
+    const cleared = clearAccountLockout(user.email);
+    logActivity({
+      event: "user.unlocked",
+      actorUserId: request.user!.id,
+      targetType: "user",
+      targetId: id,
+      detail: `Cleared the sign-in lockout for ${user.display_name}.`,
+      ipAddress: request.ip
+    });
+    reply.send({ ok: true, cleared });
   });
 
   app.delete("/api/users/:id", { preHandler: app.requireAdmin }, async (request, reply) => {

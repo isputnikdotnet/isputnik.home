@@ -8,6 +8,7 @@ import {
   removeTrustedNetwork,
   recordLoginAttempt,
   isAccountLocked,
+  clearAccountLockout,
   isIpBlocked,
   blockIp,
   unblockIp,
@@ -71,6 +72,19 @@ describe("account lockout", () => {
       ).run(`old-${i}`, old);
     }
     expect(isAccountLocked("a@test.local")).toBe(false);
+  });
+
+  it("clearAccountLockout unlocks the account and reports how many it cleared", () => {
+    for (let i = 0; i < LOCKOUT_THRESHOLD; i += 1) recordLoginAttempt("locked@test.local", "9.9.9.9", false);
+    for (let i = 0; i < LOCKOUT_THRESHOLD; i += 1) recordLoginAttempt("other@test.local", "9.9.9.9", false);
+    expect(isAccountLocked("locked@test.local")).toBe(true);
+
+    // case-insensitive match; returns the number of failed attempts removed
+    expect(clearAccountLockout("Locked@Test.Local")).toBe(LOCKOUT_THRESHOLD);
+    expect(isAccountLocked("locked@test.local")).toBe(false);
+
+    // other accounts are untouched
+    expect(isAccountLocked("other@test.local")).toBe(true);
   });
 });
 
