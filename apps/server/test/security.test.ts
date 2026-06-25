@@ -13,11 +13,19 @@ import {
   unblockIp,
   listBlockedIps,
   maybeAutoBlockIp,
-  LOCKOUT_THRESHOLD,
-  IP_FAIL_THRESHOLD
+  DEFAULT_SECURITY_POLICY,
+  getSecurityPolicy,
+  setSecurityPolicy,
+  hasForwardedHeader
 } from "../src/core/security.js";
 
-beforeEach(() => resetDb());
+const LOCKOUT_THRESHOLD = DEFAULT_SECURITY_POLICY.lockoutThreshold;
+const IP_FAIL_THRESHOLD = DEFAULT_SECURITY_POLICY.ipFailThreshold;
+
+beforeEach(() => {
+  resetDb();
+  db.prepare("DELETE FROM app_settings WHERE key = 'security_policy'").run();
+});
 
 describe("trusted zones", () => {
   it("trusts nothing by default", () => {
@@ -88,5 +96,31 @@ describe("IP blocking", () => {
     expect(maybeAutoBlockIp("203.0.113.7")).toBe(true);
     expect(isIpBlocked("203.0.113.7")).toBe(true);
     expect(maybeAutoBlockIp("203.0.113.7")).toBe(false);
+  });
+});
+
+describe("configurable thresholds", () => {
+  it("defaults when unset and round-trips through setSecurityPolicy", () => {
+    expect(getSecurityPolicy()).toEqual(DEFAULT_SECURITY_POLICY);
+    const custom = { ...DEFAULT_SECURITY_POLICY, lockoutThreshold: 2, lockoutMinutes: 10 };
+    setSecurityPolicy(custom, null);
+    expect(getSecurityPolicy()).toEqual(custom);
+  });
+
+  it("a lower lockout threshold takes effect immediately", () => {
+    setSecurityPolicy({ ...DEFAULT_SECURITY_POLICY, lockoutThreshold: 2 }, null);
+    recordLoginAttempt("a@test.local", "9.9.9.9", false);
+    expect(isAccountLocked("a@test.local")).toBe(false);
+    recordLoginAttempt("a@test.local", "9.9.9.9", false);
+    expect(isAccountLocked("a@test.local")).toBe(true);
+  });
+});
+
+describe("hasForwardedHeader", () => {
+  it("detects proxy forwarding headers", () => {
+    expect(hasForwardedHeader({ "x-forwarded-for": "1.2.3.4" })).toBe(true);
+    expect(hasForwardedHeader({ forwarded: "for=1.2.3.4" })).toBe(true);
+    expect(hasForwardedHeader({ "user-agent": "x" })).toBe(false);
+    expect(hasForwardedHeader({})).toBe(false);
   });
 });

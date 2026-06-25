@@ -1,6 +1,6 @@
 import { db } from "../db.js";
 import { isMailConfigured, sendMail } from "./mail.js";
-import { LOCKOUT_MINUTES } from "./security.js";
+import { getSecurityPolicy } from "./security.js";
 
 // Best-effort email alerts to admins on suspicious activity. Every entry point is
 // fire-and-forget (`void alert…()`): a mail failure or missing SMTP config must
@@ -40,11 +40,12 @@ async function notifyAdmins(subject: string, lines: string[]): Promise<void> {
 }
 
 export function alertAccountLocked(email: string, ip: string | null): void {
-  if (throttled(`lock:${email.toLowerCase()}`, LOCKOUT_MINUTES * 60_000)) return;
+  const { lockoutMinutes } = getSecurityPolicy();
+  if (throttled(`lock:${email.toLowerCase()}`, lockoutMinutes * 60_000)) return;
   void notifyAdmins("An account was locked after repeated failed sign-ins", [
     `Account: ${email}`,
     `Source IP: ${ip ?? "unknown"}`,
-    `The account is locked for ${LOCKOUT_MINUTES} minutes. If this wasn't the owner, their password may be under attack.`
+    `The account is locked for ${lockoutMinutes} minutes. If this wasn't the owner, their password may be under attack.`
   ]);
 }
 

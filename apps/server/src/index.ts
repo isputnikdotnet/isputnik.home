@@ -7,7 +7,7 @@ import helmet from "@fastify/helmet";
 import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
-import { isIpBlocked, isTrustedIp } from "./core/security.js";
+import { isIpBlocked, isTrustedIp, hasForwardedHeader } from "./core/security.js";
 import { corePlugin } from "./core/index.js";
 import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
@@ -20,6 +20,8 @@ import { collectionsPlugin } from "./modules/collections/index.js";
 // which would otherwise poison audit logs and hand out fresh rate-limit buckets.
 // Operators exposing the app set this to match their proxy chain (see docs/hosting.md).
 const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS);
+const trustProxyConfigured = Number.isInteger(trustProxyHops) && trustProxyHops > 0;
+let proxyMisconfigWarned = false;
 
 const app = fastify({
   logger: {
@@ -90,6 +92,15 @@ await app.register(rateLimit, {
 // Reject blocked source IPs everywhere — manual or auto-blocked — but never a
 // trusted network. isIpBlocked is the cheap, usually-false common-case check.
 app.addHook("onRequest", async (request, reply) => {
+  // A forwarded header with TRUST_PROXY_HOPS unset means a proxy is in front but
+  // we're ignoring it — request.ip is the proxy, which silently breaks the per-IP
+  // controls (and can let everyone match a trusted network). Warn once.
+  if (!trustProxyConfigured && !proxyMisconfigWarned && hasForwardedHeader(request.headers)) {
+    proxyMisconfigWarned = true;
+    request.log.warn(
+      "Detected an X-Forwarded-For header but TRUST_PROXY_HOPS is unset — request.ip is the proxy's address, not the client's. This breaks per-IP rate limiting and auto-block, and can let every client match a trusted network (bypassing MFA). Set TRUST_PROXY_HOPS to the number of proxies in front (usually 1). See docs/users/exposing-to-the-internet.md."
+    );
+  }
   if (isIpBlocked(request.ip) && !isTrustedIp(request.ip)) {
     await reply.code(403).send({ error: "Your network has been blocked." });
   }
