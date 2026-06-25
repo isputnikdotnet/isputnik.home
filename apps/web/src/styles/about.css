@@ -468,6 +468,12 @@
   margin-top: 16px;
 }
 
+.security-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ── Reader access (OPDS) ───────────────────────────────────────── */
 
 .opds-access {

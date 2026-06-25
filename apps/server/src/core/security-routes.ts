@@ -15,6 +15,7 @@ import {
   getTrustProxyHops,
   wasForwardedHeaderSeen
 } from "./security.js";
+import { getPasswordPolicy, setPasswordPolicy } from "./password-policy.js";
 
 const trustedSchema = z.object({
   cidr: z.string().trim().min(1).max(64),
@@ -34,6 +35,11 @@ const policySchema = z.object({
   ipAutoblockMinutes: z.number().int().min(1).max(10080)
 });
 
+const passwordPolicySchema = z.object({
+  minLength: z.number().int().min(8).max(128),
+  requireComplexity: z.boolean()
+});
+
 // Admin management of the access-control layer: trusted networks (relaxed zone)
 // and blocked source IPs (manual + the read-out of auto-blocks). Brute-force
 // thresholds are fixed in code and surfaced read-only for the UI to explain.
@@ -45,6 +51,7 @@ export async function securityRoutes(app: FastifyInstance) {
       configured: getTrustProxyHops() > 0,
       forwardedHeaderSeen: wasForwardedHeaderSeen()
     },
+    passwordPolicy: getPasswordPolicy(),
     trustedNetworks: listTrustedNetworks().map((network) => ({
       id: network.id,
       cidr: network.cidr,
@@ -74,6 +81,22 @@ export async function securityRoutes(app: FastifyInstance) {
       ipAddress: request.ip
     });
     reply.send({ policy: parsed.data });
+  });
+
+  app.patch("/api/security/password-policy", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(passwordPolicySchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid password policy", details: parsed.error });
+      return;
+    }
+    setPasswordPolicy(parsed.data, request.user!.id);
+    logActivity({
+      event: "security.password_policy_updated",
+      actorUserId: request.user!.id,
+      detail: "Updated the password policy.",
+      ipAddress: request.ip
+    });
+    reply.send({ passwordPolicy: parsed.data });
   });
 
   app.post("/api/security/trusted-networks", { preHandler: app.requireAdmin }, async (request, reply) => {

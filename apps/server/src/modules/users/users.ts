@@ -5,7 +5,7 @@ import { db, logActivity, publicUser, type User } from "../../db.js";
 import { hashPassword } from "../../crypto.js";
 import { currentSessionHash } from "../../auth.js";
 import { getDefaultTheme } from "../../core/app-config.js";
-import { parseBody } from "../../core/shared.js";
+import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { resetMfa } from "../../core/mfa-routes.js";
 import { alertNewAdmin, alertMfaDisabled } from "../../core/security-alerts.js";
 
@@ -16,7 +16,7 @@ const roleSchema = z.object({
 const createUserSchema = z.object({
   email: z.string().email().transform((value) => value.trim().toLowerCase()),
   displayName: z.string().trim().min(2).max(80),
-  password: z.string().min(8, "Password must be at least 8 characters").max(200),
+  password: passwordPolicyField(),
   role: z.enum(["admin", "member"]).default("member")
 });
 
@@ -27,7 +27,7 @@ const updateUserSchema = z.object({
 });
 
 const passwordSchema = z.object({
-  password: z.string().min(8, "Password must be at least 8 characters").max(200)
+  password: passwordPolicyField()
 });
 
 interface UserListRow extends User {
