@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { resetDb } from "./helpers/seed.js";
 import {
@@ -16,7 +16,8 @@ import {
   DEFAULT_SECURITY_POLICY,
   getSecurityPolicy,
   setSecurityPolicy,
-  hasForwardedHeader
+  hasForwardedHeader,
+  getTrustProxyHops
 } from "../src/core/security.js";
 
 const LOCKOUT_THRESHOLD = DEFAULT_SECURITY_POLICY.lockoutThreshold;
@@ -122,5 +123,22 @@ describe("hasForwardedHeader", () => {
     expect(hasForwardedHeader({ forwarded: "for=1.2.3.4" })).toBe(true);
     expect(hasForwardedHeader({ "user-agent": "x" })).toBe(false);
     expect(hasForwardedHeader({})).toBe(false);
+  });
+});
+
+describe("getTrustProxyHops", () => {
+  const original = process.env.TRUST_PROXY_HOPS;
+  afterEach(() => {
+    if (original === undefined) delete process.env.TRUST_PROXY_HOPS;
+    else process.env.TRUST_PROXY_HOPS = original;
+  });
+
+  it("is 0 when unset or invalid, the number when valid", () => {
+    delete process.env.TRUST_PROXY_HOPS;
+    expect(getTrustProxyHops()).toBe(0);
+    process.env.TRUST_PROXY_HOPS = "1";
+    expect(getTrustProxyHops()).toBe(1);
+    process.env.TRUST_PROXY_HOPS = "abc";
+    expect(getTrustProxyHops()).toBe(0);
   });
 });
