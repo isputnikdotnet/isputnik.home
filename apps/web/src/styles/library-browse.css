@@ -1,41 +1,5 @@
 /* main audiobook catalog / landing page — split from library.css */
 
-/* Shared toolbar across the personal library pages (Favorites, Bookmarks,
-   Collections, Shared with me, Downloads). */
-.library-nav-tabs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 22px;
-}
-
-.library-nav-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 42px;
-  padding: 0 16px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.92rem;
-  font-weight: 680;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.library-nav-tab:hover {
-  color: var(--mint);
-  background: var(--active);
-}
-
-.library-nav-tab.is-active {
-  color: var(--mint);
-  background: var(--active);
-}
-
 .audiobook-head {
   align-items: end;
 }
@@ -1070,44 +1034,6 @@
 @media (max-width: 740px) {
   .audiobook-main-page {
     gap: 22px;
-  }
-
-  .library-nav-tabs {
-    gap: 8px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .library-nav-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .library-nav-tab {
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 44px;
-    min-height: 44px;
-    padding: 0;
-    border-color: var(--line);
-    background: color-mix(in srgb, var(--surface-raised) 72%, transparent);
-  }
-
-  .library-nav-tab span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .library-nav-tab svg {
-    width: 19px;
-    height: 19px;
   }
 
   .audiobook-page-actions,

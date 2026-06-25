@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BookOpen, Headphones, Heart, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { LibraryNavTabs } from "./LibraryNavTabs";
+import { UserAreaNav } from "./UserAreaNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { MediaKindBadge } from "../../shared/MediaKindBadge";
@@ -39,10 +39,8 @@ export function MyListPage({
   };
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="favorites" />}>
       <section className="work-area audiobook-area">
-        <LibraryNavTabs active="saved" />
-
         <div className="section-head audiobook-head">
           <div>
             <p className="eyebrow">Digital Library</p>

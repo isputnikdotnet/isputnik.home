@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { BookOpen, DownloadCloud, HardDrive, Play, ShieldCheck, Trash2 } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { LibraryNavTabs } from "./LibraryNavTabs";
+import { UserAreaNav } from "./UserAreaNav";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { useIsMobile } from "../../shared/useIsMobile";
@@ -157,10 +157,8 @@ export function DownloadsPage({
 
   return (
     <>
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="downloads" />}>
       <section className="work-area audiobook-area downloads-page">
-        {!isMobile && <LibraryNavTabs active="downloads" />}
-
         <div className="section-head audiobook-head">
           <div>
             <h1>Downloads</h1>

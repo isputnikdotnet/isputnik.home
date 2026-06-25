@@ -215,8 +215,57 @@
   width: min(100%, 1040px);
 }
 
-.profile-area > :not(.library-nav-tabs) {
+.profile-area > * {
   width: min(100%, 660px);
+}
+
+.profile-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 22px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.profile-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.profile-tab.text-button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  margin-bottom: -1px;
+  padding: 0 14px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.profile-tab.text-button:hover,
+.profile-tab.text-button:focus-visible {
+  color: var(--ink);
+  outline: 0;
+}
+
+.profile-tab.text-button.is-active {
+  color: var(--mint);
+  border-bottom-color: var(--mint);
+}
+
+.profile-tab-panels {
+  margin-top: 24px;
+}
+
+.profile-tab-panel[hidden] {
+  display: none;
+}
+
+.profile-tab-panel > :first-child {
+  margin-top: 0;
 }
 
 .profile-form {
@@ -244,10 +293,6 @@
 
 .profile-heading span {
   color: var(--muted);
-}
-
-#profile-theme {
-  scroll-margin-top: 32px;
 }
 
 /* ── Password ───────────────────────────────────────────────────── */
@@ -585,4 +630,3 @@
   display: grid;
   min-width: 0;
 }
-

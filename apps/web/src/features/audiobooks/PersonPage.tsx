@@ -58,7 +58,7 @@ export function PersonPage({
 
   const backTo = getReferrer();
   // The page spans types; highlight the nav the visitor most likely came from.
-  const dashActive = backTo?.startsWith("/ebooks") ? "ebooks" : "audiobooks";
+  const dashActive = backTo === "/authors" ? "authors" : backTo?.startsWith("/ebooks") ? "ebooks" : "audiobooks";
 
   // Photo + bio for the header; re-fetched after the profile modal closes so
   // edits show up immediately.

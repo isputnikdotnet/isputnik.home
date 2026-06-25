@@ -6,6 +6,7 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatDuration } from "../../shared/utils";
+import { UserAreaNav } from "../library/UserAreaNav";
 import type { CollectionDetail, CollectionItem } from "./types";
 
 const PLAYER_FEATURES = "width=500,height=700,resizable=yes,scrollbars=yes";
@@ -99,7 +100,7 @@ export function CollectionDetailPage({
   };
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="collections" />}>
       <section className="work-area audiobook-area">
         <div className="book-detail-topbar">
           <button className="audiobook-back-button" type="button" onClick={() => navigate("/collections")}>
