@@ -219,54 +219,8 @@
   width: min(100%, 660px);
 }
 
-.profile-tabs {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 22px;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--line);
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.profile-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.profile-tab.text-button {
-  flex: 0 0 auto;
-  min-height: 42px;
-  margin-bottom: -1px;
-  padding: 0 14px;
-  border-radius: 0;
-  border-bottom: 2px solid transparent;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.profile-tab.text-button:hover,
-.profile-tab.text-button:focus-visible {
-  color: var(--ink);
-  outline: 0;
-}
-
-.profile-tab.text-button.is-active {
-  color: var(--mint);
-  border-bottom-color: var(--mint);
-}
-
-.profile-tab-panels {
-  margin-top: 24px;
-}
-
-.profile-tab-panel[hidden] {
-  display: none;
-}
-
-.profile-tab-panel > :first-child {
-  margin-top: 0;
-}
+/* Profile tab chrome (grid, icons, active state, panels) is shared with
+   Security + Config in the control-panel section-tabs block above. */
 
 .profile-form {
   display: grid;
@@ -500,23 +454,35 @@
   letter-spacing: 0.06em;
 }
 
-/* ── Security (control panel) ────────────────────────────────────── */
+/* ── Control-panel section tabs (shared: Security + Config) ──────── */
 
 .security-tabs,
 .security-tab-panels {
   max-width: 1040px;
 }
 
-.security-tabs.control-tabs {
+.security-tabs.control-tabs,
+.config-tabs.control-tabs,
+.profile-tabs.control-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin: 4px 0 32px;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
 
-.security-tab.text-button {
+.security-tabs.control-tabs,
+.profile-tabs.control-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.config-tabs.control-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.security-tab.text-button,
+.config-tab.text-button,
+.profile-tab.text-button {
   min-width: 0;
   min-height: 74px;
   margin-bottom: -1px;
@@ -530,28 +496,40 @@
 }
 
 .security-tab.text-button:hover,
-.security-tab.text-button:focus-visible {
+.security-tab.text-button:focus-visible,
+.config-tab.text-button:hover,
+.config-tab.text-button:focus-visible,
+.profile-tab.text-button:hover,
+.profile-tab.text-button:focus-visible {
   color: var(--ink);
   background: color-mix(in srgb, var(--surface-raised) 58%, transparent);
   outline: 0;
 }
 
-.security-tab.text-button.active {
+.security-tab.text-button.active,
+.config-tab.text-button.active,
+.profile-tab.text-button.active {
   color: var(--control-primary-button, var(--mint));
   border-color: var(--line);
   border-bottom-color: var(--control-primary-button, var(--mint));
   background: var(--surface-raised);
 }
 
-.security-tab-icon {
+.security-tab-icon,
+.config-tab-icon,
+.profile-tab-icon {
   flex: 0 0 auto;
 }
 
-.security-tab-panel[hidden] {
+.security-tab-panel[hidden],
+.config-tab-panel[hidden],
+.profile-tab-panel[hidden] {
   display: none;
 }
 
-.security-tab-panel > :first-child {
+.security-tab-panel > :first-child,
+.config-tab-panel > :first-child,
+.profile-tab-panel > :first-child {
   margin-top: 0;
 }
 
@@ -1027,12 +1005,19 @@
 }
 
 @media (max-width: 720px) {
-  .security-tabs.control-tabs {
+  .security-tabs.control-tabs,
+  .profile-tabs.control-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-bottom: 24px;
   }
 
-  .security-tab.text-button {
+  .config-tabs.control-tabs {
+    margin-bottom: 24px;
+  }
+
+  .security-tab.text-button,
+  .config-tab.text-button,
+  .profile-tab.text-button {
     min-height: 62px;
     padding: 0 14px;
     white-space: normal;

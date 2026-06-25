@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { UserRound } from "lucide-react";
+import { Palette, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { UserAreaNav } from "../features/library/UserAreaNav";
@@ -14,11 +14,11 @@ import { MfaSection } from "../features/profile/MfaSection";
 
 type ProfileTab = "account" | "security" | "appearance" | "devices";
 
-const PROFILE_TABS: { key: ProfileTab; label: string }[] = [
-  { key: "account", label: "Account" },
-  { key: "security", label: "Security" },
-  { key: "appearance", label: "Appearance" },
-  { key: "devices", label: "Devices" }
+const PROFILE_TABS: { key: ProfileTab; label: string; icon: LucideIcon }[] = [
+  { key: "account", label: "Account", icon: UserRound },
+  { key: "security", label: "Security", icon: ShieldCheck },
+  { key: "appearance", label: "Appearance", icon: Palette },
+  { key: "devices", label: "Devices", icon: Smartphone }
 ];
 
 export function ProfilePage({
@@ -102,24 +102,36 @@ export function ProfilePage({
   return (
     <DashboardShell active="user" user={user} logout={logout} sideNav={<UserAreaNav active="profile" />}>
       <section className="work-area profile-area">
-        <p className="eyebrow">Profile</p>
-        <h1>Your account</h1>
+        <div className="section-head">
+          <div className="user-title-wrap">
+            <span className="user-page-icon" aria-hidden="true">
+              <UserRound size={30} />
+            </span>
+            <div className="user-heading-copy">
+              <p className="eyebrow">Profile</p>
+              <h1>Your account</h1>
+              <p className="section-description">Your details, sign-in security, appearance, and devices.</p>
+            </div>
+          </div>
+        </div>
 
-        <div className="profile-tabs" role="tablist" aria-label="Profile sections">
+        <div className="control-tabs profile-tabs" role="tablist" aria-label="Profile sections">
           {PROFILE_TABS.map((tab) => {
             const selected = activeTab === tab.key;
+            const Icon = tab.icon;
             return (
               <Button
                 key={tab.key}
                 variant="text"
-                className={`profile-tab${selected ? " is-active" : ""}`}
+                className={`profile-tab${selected ? " active" : ""}`}
                 role="tab"
                 aria-selected={selected}
                 aria-controls={`profile-panel-${tab.key}`}
                 id={`profile-tab-${tab.key}`}
                 onClick={() => setActiveTab(tab.key)}
               >
-                {tab.label}
+                <Icon className="profile-tab-icon" size={18} aria-hidden="true" />
+                <span>{tab.label}</span>
               </Button>
             );
           })}
