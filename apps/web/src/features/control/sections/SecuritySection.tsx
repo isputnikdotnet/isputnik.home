@@ -21,14 +21,16 @@ interface BlockedIp {
   expiresAt: string | null;
 }
 
+interface SecurityPolicy {
+  lockoutThreshold: number;
+  lockoutMinutes: number;
+  ipFailThreshold: number;
+  ipFailWindowMinutes: number;
+  ipAutoblockMinutes: number;
+}
+
 interface SecurityData {
-  policy: {
-    lockoutThreshold: number;
-    lockoutMinutes: number;
-    ipFailThreshold: number;
-    ipFailWindowMinutes: number;
-    ipAutoblockMinutes: number;
-  };
+  policy: SecurityPolicy;
   trustedNetworks: TrustedNetwork[];
   blockedIps: BlockedIp[];
 }
@@ -36,6 +38,11 @@ interface SecurityData {
 export function SecuritySection() {
   const [data, setData] = useState<SecurityData | null>(null);
   const [error, setError] = useState("");
+
+  const [policyForm, setPolicyForm] = useState<SecurityPolicy | null>(null);
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [policyError, setPolicyError] = useState("");
+  const [policySaved, setPolicySaved] = useState(false);
 
   const [cidr, setCidr] = useState("");
   const [label, setLabel] = useState("");
@@ -49,7 +56,9 @@ export function SecuritySection() {
 
   const load = useCallback(async () => {
     try {
-      setData(await api<SecurityData>("/api/security"));
+      const fresh = await api<SecurityData>("/api/security");
+      setData(fresh);
+      setPolicyForm((prev) => prev ?? { ...fresh.policy });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load security settings");
     }
@@ -58,6 +67,27 @@ export function SecuritySection() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const savePolicy = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!policyForm) return;
+    setSavingPolicy(true);
+    setPolicyError("");
+    setPolicySaved(false);
+    try {
+      const res = await api<{ policy: SecurityPolicy }>("/api/security/policy", {
+        method: "PATCH",
+        body: JSON.stringify(policyForm)
+      });
+      setPolicyForm(res.policy);
+      setPolicySaved(true);
+      await load();
+    } catch (err) {
+      setPolicyError(err instanceof Error ? err.message : "Unable to save thresholds");
+    } finally {
+      setSavingPolicy(false);
+    }
+  };
 
   const addTrusted = async (event: FormEvent) => {
     event.preventDefault();
@@ -141,6 +171,40 @@ export function SecuritySection() {
             IP is auto-blocked for {data.policy.ipAutoblockMinutes} minutes after {data.policy.ipFailThreshold} failed
             sign-ins within {data.policy.ipFailWindowMinutes} minutes.
           </MessageBox>
+
+          <section className="security-block" aria-labelledby="policy-heading">
+            <h2 id="policy-heading">Protection thresholds</h2>
+            <p className="section-description">Tune the lockout and IP auto-block. Changes apply immediately.</p>
+            {policyForm && (
+              <form className="security-add-form" onSubmit={savePolicy}>
+                <label className="field">
+                  <span>Lock account after (failed sign-ins)</span>
+                  <input type="number" min={1} value={policyForm.lockoutThreshold} onChange={(event) => setPolicyForm({ ...policyForm, lockoutThreshold: Number(event.target.value) })} />
+                </label>
+                <label className="field">
+                  <span>Lockout duration (minutes)</span>
+                  <input type="number" min={1} value={policyForm.lockoutMinutes} onChange={(event) => setPolicyForm({ ...policyForm, lockoutMinutes: Number(event.target.value) })} />
+                </label>
+                <label className="field">
+                  <span>Auto-block IP after (failed sign-ins)</span>
+                  <input type="number" min={1} value={policyForm.ipFailThreshold} onChange={(event) => setPolicyForm({ ...policyForm, ipFailThreshold: Number(event.target.value) })} />
+                </label>
+                <label className="field">
+                  <span>IP failure window (minutes)</span>
+                  <input type="number" min={1} value={policyForm.ipFailWindowMinutes} onChange={(event) => setPolicyForm({ ...policyForm, ipFailWindowMinutes: Number(event.target.value) })} />
+                </label>
+                <label className="field">
+                  <span>Auto-block duration (minutes)</span>
+                  <input type="number" min={1} value={policyForm.ipAutoblockMinutes} onChange={(event) => setPolicyForm({ ...policyForm, ipAutoblockMinutes: Number(event.target.value) })} />
+                </label>
+                {policyError && <MessageBox tone="error" title="Unable to save">{policyError}</MessageBox>}
+                {policySaved && <MessageBox tone="success" title="Saved">Thresholds updated.</MessageBox>}
+                <Button variant="primary" type="submit" disabled={savingPolicy}>
+                  {savingPolicy ? "Saving…" : "Save thresholds"}
+                </Button>
+              </form>
+            )}
+          </section>
 
           <section className="security-block" aria-labelledby="trusted-heading">
             <h2 id="trusted-heading">Trusted networks</h2>

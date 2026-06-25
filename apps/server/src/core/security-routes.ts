@@ -10,11 +10,8 @@ import {
   listBlockedIps,
   blockIp,
   unblockIp,
-  LOCKOUT_THRESHOLD,
-  LOCKOUT_MINUTES,
-  IP_FAIL_THRESHOLD,
-  IP_FAIL_WINDOW_MINUTES,
-  IP_AUTOBLOCK_MINUTES
+  getSecurityPolicy,
+  setSecurityPolicy
 } from "./security.js";
 
 const trustedSchema = z.object({
@@ -27,18 +24,20 @@ const blockSchema = z.object({
   reason: z.string().trim().max(120).optional()
 });
 
+const policySchema = z.object({
+  lockoutThreshold: z.number().int().min(1).max(100),
+  lockoutMinutes: z.number().int().min(1).max(1440),
+  ipFailThreshold: z.number().int().min(1).max(10000),
+  ipFailWindowMinutes: z.number().int().min(1).max(1440),
+  ipAutoblockMinutes: z.number().int().min(1).max(10080)
+});
+
 // Admin management of the access-control layer: trusted networks (relaxed zone)
 // and blocked source IPs (manual + the read-out of auto-blocks). Brute-force
 // thresholds are fixed in code and surfaced read-only for the UI to explain.
 export async function securityRoutes(app: FastifyInstance) {
   app.get("/api/security", { preHandler: app.requireAdmin }, async () => ({
-    policy: {
-      lockoutThreshold: LOCKOUT_THRESHOLD,
-      lockoutMinutes: LOCKOUT_MINUTES,
-      ipFailThreshold: IP_FAIL_THRESHOLD,
-      ipFailWindowMinutes: IP_FAIL_WINDOW_MINUTES,
-      ipAutoblockMinutes: IP_AUTOBLOCK_MINUTES
-    },
+    policy: getSecurityPolicy(),
     trustedNetworks: listTrustedNetworks().map((network) => ({
       id: network.id,
       cidr: network.cidr,
@@ -53,6 +52,22 @@ export async function securityRoutes(app: FastifyInstance) {
       expiresAt: entry.expires_at
     }))
   }));
+
+  app.patch("/api/security/policy", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(policySchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid thresholds", details: parsed.error });
+      return;
+    }
+    setSecurityPolicy(parsed.data, request.user!.id);
+    logActivity({
+      event: "security.policy_updated",
+      actorUserId: request.user!.id,
+      detail: "Updated brute-force protection thresholds.",
+      ipAddress: request.ip
+    });
+    reply.send({ policy: parsed.data });
+  });
 
   app.post("/api/security/trusted-networks", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(trustedSchema, request.body);

@@ -7,11 +7,54 @@ import { ipInAnyCidr } from "./cidr.js";
 // global request hook call into it (see auth-routes.ts and index.ts). Platform
 // infrastructure with no product knowledge, so it lives in core/.
 
-export const LOCKOUT_THRESHOLD = 5; // failed sign-ins before an account locks
-export const LOCKOUT_MINUTES = 30; // …and how long it stays locked
-export const IP_FAIL_THRESHOLD = 20; // failures from one IP before an auto-block
-export const IP_FAIL_WINDOW_MINUTES = 15; // …counted within this window
-export const IP_AUTOBLOCK_MINUTES = 60; // …how long the auto-block lasts
+export interface SecurityPolicy {
+  lockoutThreshold: number; // failed sign-ins before an account locks
+  lockoutMinutes: number; // …and how long it stays locked
+  ipFailThreshold: number; // failures from one IP before an auto-block
+  ipFailWindowMinutes: number; // …counted within this window
+  ipAutoblockMinutes: number; // …how long the auto-block lasts
+}
+
+export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
+  lockoutThreshold: 5,
+  lockoutMinutes: 30,
+  ipFailThreshold: 20,
+  ipFailWindowMinutes: 15,
+  ipAutoblockMinutes: 60
+};
+
+const POLICY_KEY = "security_policy";
+
+// Thresholds are admin-tunable at runtime (Control panel → Security), stored as a
+// JSON blob in app_settings and merged over the defaults so a partial/old blob
+// still resolves every field.
+export function getSecurityPolicy(): SecurityPolicy {
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(POLICY_KEY) as { value: string } | undefined;
+  if (!row) return { ...DEFAULT_SECURITY_POLICY };
+  try {
+    return { ...DEFAULT_SECURITY_POLICY, ...(JSON.parse(row.value) as Partial<SecurityPolicy>) };
+  } catch {
+    return { ...DEFAULT_SECURITY_POLICY };
+  }
+}
+
+export function setSecurityPolicy(policy: SecurityPolicy, userId: string | null): void {
+  db.prepare(
+    `INSERT INTO app_settings (key, value, updated_by, updated_at)
+     VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(key) DO UPDATE SET
+       value = excluded.value,
+       updated_by = excluded.updated_by,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  ).run(POLICY_KEY, JSON.stringify(policy), userId);
+}
+
+// True when the request carries a proxy's forwarding header. Used to warn when
+// TRUST_PROXY_HOPS is unset — then request.ip is the proxy, not the client, which
+// breaks the per-IP controls below. Node lowercases header names.
+export function hasForwardedHeader(headers: Record<string, unknown>): boolean {
+  return Boolean(headers["x-forwarded-for"] || headers["forwarded"]);
+}
 
 // ── Trusted zones ────────────────────────────────────────────────────────────
 
@@ -69,6 +112,7 @@ export function recordLoginAttempt(email: string | null, ip: string | null, succ
 // successful sign-in (a success clears the slate).
 export function accountFailureCount(email: string): number {
   const value = email.toLowerCase();
+  const { lockoutMinutes } = getSecurityPolicy();
   const row = db
     .prepare(
       `SELECT COUNT(*) AS count FROM login_attempts
@@ -80,12 +124,12 @@ export function accountFailureCount(email: string): number {
            '1970-01-01'
          ))`
     )
-    .get(value, `-${LOCKOUT_MINUTES} minutes`, value) as { count: number };
+    .get(value, `-${lockoutMinutes} minutes`, value) as { count: number };
   return row.count;
 }
 
 export function isAccountLocked(email: string): boolean {
-  return accountFailureCount(email) >= LOCKOUT_THRESHOLD;
+  return accountFailureCount(email) >= getSecurityPolicy().lockoutThreshold;
 }
 
 // ── IP blocking ──────────────────────────────────────────────────────────────
@@ -136,12 +180,12 @@ export function listBlockedIps(): BlockedIp[] {
     .all() as BlockedIp[];
 }
 
-function recentIpFailures(ip: string): number {
+function recentIpFailures(ip: string, windowMinutes: number): number {
   const row = db
     .prepare(
       "SELECT COUNT(*) AS count FROM login_attempts WHERE ip_address = ? AND successful = 0 AND datetime(created_at) > datetime('now', ?)"
     )
-    .get(ip, `-${IP_FAIL_WINDOW_MINUTES} minutes`) as { count: number };
+    .get(ip, `-${windowMinutes} minutes`) as { count: number };
   return row.count;
 }
 
@@ -149,11 +193,12 @@ function recentIpFailures(ip: string): number {
 // newly blocks, so the caller can raise an alert exactly once.
 export function maybeAutoBlockIp(ip: string | null | undefined): boolean {
   if (!ip || isIpBlocked(ip)) return false;
-  if (recentIpFailures(ip) < IP_FAIL_THRESHOLD) return false;
+  const policy = getSecurityPolicy();
+  if (recentIpFailures(ip, policy.ipFailWindowMinutes) < policy.ipFailThreshold) return false;
   blockIp(ip, {
-    reason: `Automatic: ${IP_FAIL_THRESHOLD}+ failed sign-ins in ${IP_FAIL_WINDOW_MINUTES} min`,
+    reason: `Automatic: ${policy.ipFailThreshold}+ failed sign-ins in ${policy.ipFailWindowMinutes} min`,
     auto: true,
-    minutes: IP_AUTOBLOCK_MINUTES
+    minutes: policy.ipAutoblockMinutes
   });
   return true;
 }
