@@ -337,6 +337,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.3.0",
+          label: "Security: two-factor sign-in & internet-ready hardening",
+          changes: [
+            "New: two-factor authentication (2FA). Add a one-time code from an authenticator app (Google Authenticator, Authy, Apple Passwords, 1Password…) to your sign-in, so a stolen password alone can't reach your account. Turn it on under Profile → Two-factor authentication: scan the QR code, enter a code to confirm, then save the backup codes it shows (each works once if you ever lose your phone). You can regenerate the codes or turn it off at any time. Locked out with no phone and no backup codes? An admin can reset it for you from Control panel → Users.",
+            "New: a Security page in the control panel (admin) that gathers the new protections in one place. Accounts now lock for a while after several failed sign-ins, and an IP address that keeps failing is blocked automatically — the thresholds (how many tries, how long) are adjustable there. You can also block or unblock specific IPs by hand, mark trusted home-network ranges that skip the extra checks, and set a password policy (minimum length, and optionally requiring a mix of letters, numbers and symbols) that applies whenever a password is set.",
+            "New: suspicious-activity email alerts. When email is set up, admins are notified about things worth a look — an account getting locked, an IP being auto-blocked, a new administrator account, or two-factor being turned off. (Configure email under Control panel → Config → Email.)",
+            "Hardening so the library can be opened to the internet safely: enforced browser security headers (Content-Security-Policy and friends), CSRF protection on every change you make, sign-in rate limiting, and a TRUST_PROXY_HOPS setting so the per-IP protections see the real visitor when you run behind a reverse proxy. A new guide — docs/users/exposing-to-the-internet.md — walks through doing it properly (HTTPS, secure cookies, proxy setup), and a bundled dependency carrying security advisories was updated.",
+            "Everything here is optional and off by default, so a home-network install is unchanged until you choose to turn it on."
+          ]
+        },
+        {
           version: "1.2.15",
           label: "Send to e-reader, sleep timer & email change",
           changes: [
