@@ -104,15 +104,16 @@ Shipped:
   sensitive endpoints (login and admin setup 10/min; invite lookup 20/min, invite
   accept 5/min; MFA verify 10/min).
 - **Multi-factor authentication (TOTP)** — see below.
-- **Security headers** — `@fastify/helmet` (CSP currently report-only; see
-  [`users/exposing-to-the-internet.md`](users/exposing-to-the-internet.md)).
+- **Security headers** — `@fastify/helmet` with an enforced CSP tailored to the app, plus no-sniff, frame-ancestors, and a no-referrer policy.
+- **CSRF protection** — a double-submit `isputnik_csrf` token validated on every state-changing request (`core/csrf.ts`), layered on `SameSite=Lax`.
+- **Configurable password policy** — admin-tunable minimum length and optional complexity, enforced on every password-set flow but not on login (`core/password-policy.ts`).
 - **Scoped proxy trust** — `TRUST_PROXY_HOPS`, so a client can't spoof its IP.
-- **Account lockout & IP access control** — accounts lock after 5 failed sign-ins (30 min); an IP auto-blocks after repeated failures; admins manage trusted networks (which relax rate limits, lockout, and MFA) and manual IP blocks under Control panel → Security. Engine in `core/security.ts`.
+- **Account lockout & IP access control** — accounts lock after repeated failures (defaults: 5 fails / 30 min); an IP auto-blocks after repeated failures; admins manage trusted networks (which relax rate limits, lockout, and MFA), manual IP blocks, and the configurable thresholds under Control panel → Security. Engine in `core/security.ts`.
 - **Suspicious-activity email alerts** — admins are emailed on lockouts, auto-blocks, a new/elevated admin, and two-factor being turned off (when SMTP is configured; `core/security-alerts.ts`).
 
 Planned:
 
-- CSRF tokens on mutating authenticated routes (today relies on `SameSite=Lax`).
+- Optional "require MFA for admins" enforcement (MFA is opt-in today).
 
 ---
 
