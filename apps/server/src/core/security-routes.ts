@@ -11,7 +11,9 @@ import {
   blockIp,
   unblockIp,
   getSecurityPolicy,
-  setSecurityPolicy
+  setSecurityPolicy,
+  getTrustProxyHops,
+  wasForwardedHeaderSeen
 } from "./security.js";
 
 const trustedSchema = z.object({
@@ -38,6 +40,11 @@ const policySchema = z.object({
 export async function securityRoutes(app: FastifyInstance) {
   app.get("/api/security", { preHandler: app.requireAdmin }, async () => ({
     policy: getSecurityPolicy(),
+    proxy: {
+      trustProxyHops: getTrustProxyHops(),
+      configured: getTrustProxyHops() > 0,
+      forwardedHeaderSeen: wasForwardedHeaderSeen()
+    },
     trustedNetworks: listTrustedNetworks().map((network) => ({
       id: network.id,
       cidr: network.cidr,

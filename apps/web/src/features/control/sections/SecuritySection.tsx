@@ -31,6 +31,11 @@ interface SecurityPolicy {
 
 interface SecurityData {
   policy: SecurityPolicy;
+  proxy: {
+    trustProxyHops: number;
+    configured: boolean;
+    forwardedHeaderSeen: boolean;
+  };
   trustedNetworks: TrustedNetwork[];
   blockedIps: BlockedIp[];
 }
@@ -166,6 +171,30 @@ export function SecuritySection() {
 
       {data && (
         <>
+          <section className="security-block" aria-labelledby="proxy-heading">
+            <h2 id="proxy-heading">Reverse proxy</h2>
+            <p className="section-description">
+              Per-IP controls (rate limiting, auto-block) and trusted zones rely on the real client IP. Behind a proxy
+              that's only correct when <code>TRUST_PROXY_HOPS</code> matches the number of proxies in front. It's an
+              environment variable, read at startup.
+            </p>
+            <p>
+              Current setting:{" "}
+              <strong>
+                {data.proxy.configured
+                  ? `trusting ${data.proxy.trustProxyHops} proxy hop${data.proxy.trustProxyHops === 1 ? "" : "s"}`
+                  : "not set — request IP is the direct connection"}
+              </strong>
+            </p>
+            {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
+              <MessageBox tone="warning" title="A proxy appears to be in front">
+                Requests are arriving with an <code>X-Forwarded-For</code> header but <code>TRUST_PROXY_HOPS</code> isn't
+                set, so every visitor looks like the proxy's IP — which breaks the controls below and lets anyone match a
+                trusted network. Set it (usually <code>1</code>) and restart. See the exposing-to-the-internet guide.
+              </MessageBox>
+            )}
+          </section>
+
           <MessageBox tone="info" title="Automatic protection is on">
             Accounts lock for {data.policy.lockoutMinutes} minutes after {data.policy.lockoutThreshold} failed sign-ins. An
             IP is auto-blocked for {data.policy.ipAutoblockMinutes} minutes after {data.policy.ipFailThreshold} failed

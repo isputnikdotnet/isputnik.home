@@ -56,6 +56,23 @@ export function hasForwardedHeader(headers: Record<string, unknown>): boolean {
   return Boolean(headers["x-forwarded-for"] || headers["forwarded"]);
 }
 
+// The configured reverse-proxy hop count from TRUST_PROXY_HOPS (0 = trust nothing,
+// i.e. request.ip is the direct socket). Read live so admin UI can surface it.
+export function getTrustProxyHops(): number {
+  const value = Number(process.env.TRUST_PROXY_HOPS);
+  return Number.isInteger(value) && value > 0 ? value : 0;
+}
+
+// Runtime signal: has any request arrived with a proxy forwarding header? Lets the
+// admin see "a proxy is in front" even when TRUST_PROXY_HOPS hasn't been set.
+let forwardedHeaderSeen = false;
+export function noteForwardedHeader(): void {
+  forwardedHeaderSeen = true;
+}
+export function wasForwardedHeaderSeen(): boolean {
+  return forwardedHeaderSeen;
+}
+
 // ── Trusted zones ────────────────────────────────────────────────────────────
 
 export interface TrustedNetwork {
