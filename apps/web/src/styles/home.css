@@ -701,15 +701,15 @@ a.home-overview-card:focus-visible {
 }
 
 @media (max-width: 740px) {
-  .app-dashboard-shell:not(.home-control-shell) .home-sidebar {
+  .app-dashboard-shell:not(.home-control-shell):not(.home-user-shell) .home-sidebar {
     display: none;
   }
 
-  .app-dashboard-shell:not(.home-control-shell) .home-main {
+  .app-dashboard-shell:not(.home-control-shell):not(.home-user-shell) .home-main {
     padding: 18px 14px calc(90px + env(safe-area-inset-bottom));
   }
 
-  .app-dashboard-shell:not(.home-control-shell) .work-area {
+  .app-dashboard-shell:not(.home-control-shell):not(.home-user-shell) .work-area {
     padding-right: 0;
     padding-left: 0;
   }
@@ -1146,7 +1146,7 @@ a.home-overview-card:focus-visible {
   }
 }
 
-/* ── "Media" tab drop-up sheet (Audiobooks / Ebooks / Gallery / Others) ────── */
+/* ── "Media" tab drop-up sheet (libraries + browse views) ─────────────────── */
 @media (max-width: 740px) {
   .mobile-media-backdrop {
     position: fixed;
@@ -1172,7 +1172,7 @@ a.home-overview-card:focus-visible {
 
   .mobile-media-menu-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
     gap: 10px;
   }
 

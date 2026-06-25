@@ -12,7 +12,6 @@ import {
   Info,
   Library,
   ListMusic,
-  MoreHorizontal,
   LogOut,
   Settings,
   Shapes,
@@ -28,7 +27,7 @@ import { followRoute } from "../router";
 
 const APP_VERSION = packageInfo.version;
 
-type DashboardActive = "home" | "audiobooks" | "ebooks" | "authors" | "categories" | "tags" | "about" | "profile" | "control";
+type DashboardActive = "home" | "audiobooks" | "ebooks" | "authors" | "categories" | "tags" | "about" | "control" | "user";
 
 interface MainNavLink {
   label: string;
@@ -81,6 +80,9 @@ function mainNavItems(active: DashboardActive): MainNavItem[] {
     { label: "Home", href: "/", icon: Home, active: active === "home" },
     { label: "Audiobooks", href: "/audiobooks", icon: Headphones, active: active === "audiobooks" },
     { label: "Ebooks", href: "/ebooks", icon: BookOpen, active: active === "ebooks" },
+    { label: "Authors", href: "/authors", icon: UserRound, active: active === "authors" },
+    { label: "Categories", href: "/categories", icon: Shapes, active: active === "categories" },
+    { label: "Tags", href: "/tags", icon: Tag, active: active === "tags" },
     { label: "Gallery", icon: Image, disabled: true },
     { label: "Documents", icon: FileText, disabled: true }
   ];
@@ -92,9 +94,6 @@ function userMenuLinks(): UserMenuLink[] {
     { label: "Favorites", href: "/favorites", icon: Heart },
     { label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
     { label: "Collections", href: "/collections", icon: ListMusic },
-    { label: "Authors", href: "/authors", icon: UserRound },
-    { label: "Categories", href: "/categories", icon: Shapes },
-    { label: "Tags", href: "/tags", icon: Tag },
     // Offline downloads only exist in the installed app, so only surface the
     // Downloads screen there.
     ...(isStandalone() ? [{ label: "Downloads", href: "/downloads", icon: DownloadCloud }] : [])
@@ -103,13 +102,17 @@ function userMenuLinks(): UserMenuLink[] {
 
 // Four-tab bottom nav for the installed app / phones: Home, Media, Offline,
 // Profile. "Media" isn't a page — it opens a drop-up sheet to pick a library
-// (Audiobooks / Ebooks, with Gallery + Others reserved for later).
+// or cross-library browse view.
 function MobileNav({ active, currentPath }: { active: DashboardActive; currentPath: string }) {
   const [mediaOpen, setMediaOpen] = useState(false);
 
   const downloadsActive = currentPath === "/downloads" || currentPath === "/audiobooks/downloads";
   const mediaActive =
     currentPath.startsWith("/ebooks") ||
+    currentPath.startsWith("/authors") ||
+    currentPath.startsWith("/people") ||
+    currentPath.startsWith("/categories") ||
+    currentPath.startsWith("/tags") ||
     (currentPath.startsWith("/audiobooks") && !downloadsActive);
 
   useEffect(() => {
@@ -135,13 +138,25 @@ function MobileNav({ active, currentPath }: { active: DashboardActive; currentPa
               <BookOpen size={26} aria-hidden="true" />
               <span>Ebooks</span>
             </a>
+            <a className="mobile-media-option" href="/authors" onClick={(event) => { followRoute(event, "/authors"); close(); }}>
+              <UserRound size={26} aria-hidden="true" />
+              <span>Authors</span>
+            </a>
+            <a className="mobile-media-option" href="/categories" onClick={(event) => { followRoute(event, "/categories"); close(); }}>
+              <Shapes size={26} aria-hidden="true" />
+              <span>Categories</span>
+            </a>
+            <a className="mobile-media-option" href="/tags" onClick={(event) => { followRoute(event, "/tags"); close(); }}>
+              <Tag size={26} aria-hidden="true" />
+              <span>Tags</span>
+            </a>
             <button className="mobile-media-option is-future" type="button" disabled title="Gallery is coming soon">
               <Image size={26} aria-hidden="true" />
               <span>Gallery</span>
             </button>
-            <button className="mobile-media-option is-future" type="button" disabled title="More media types are coming soon">
-              <MoreHorizontal size={26} aria-hidden="true" />
-              <span>Others</span>
+            <button className="mobile-media-option is-future" type="button" disabled title="Documents are coming soon">
+              <FileText size={26} aria-hidden="true" />
+              <span>Documents</span>
             </button>
           </div>
         </div>
@@ -174,7 +189,7 @@ function MobileNav({ active, currentPath }: { active: DashboardActive; currentPa
           <span>Offline</span>
         </a>
         <a
-          className={`home-mobile-nav-item${active === "profile" ? " is-active" : ""}`}
+          className={`home-mobile-nav-item${currentPath === "/profile" ? " is-active" : ""}`}
           href="/profile"
           onClick={(event) => { followRoute(event, "/profile"); close(); }}
         >
@@ -200,8 +215,10 @@ export function DashboardShell({
   children: ReactNode;
 }) {
   const isControlPanel = active === "control";
+  const isUserArea = active === "user";
+  const hasSectionNav = isControlPanel || isUserArea;
   const mainClasses = `home-main app-dashboard-main scene-page ${isControlPanel ? "control-scene" : "sputnik-scene"}`;
-  const settingsHref = user.role === "admin" && !isControlPanel ? "/control/status" : "/profile";
+  const settingsHref = user.role === "admin" && !hasSectionNav ? "/control/status" : "/profile";
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const currentPath = window.location.pathname;
@@ -231,12 +248,12 @@ export function DashboardShell({
   }, [userMenuOpen]);
 
   return (
-    <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}`}>
-      <aside className="home-sidebar" aria-label={isControlPanel ? "Control panel navigation" : "App navigation"}>
-        {!isControlPanel && (
+    <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}${isUserArea ? " home-user-shell" : ""}`}>
+      <aside className="home-sidebar" aria-label={isControlPanel ? "Control panel navigation" : isUserArea ? "User navigation" : "App navigation"}>
+        {!hasSectionNav && (
           <div className="home-user-menu-wrap" ref={userMenuRef}>
             <button
-              className={`home-user-link${userMenuOpen || active === "profile" ? " is-active" : ""}`}
+              className={`home-user-link${userMenuOpen || currentPath === "/profile" ? " is-active" : ""}`}
               type="button"
               onClick={() => setUserMenuOpen((open) => !open)}
               aria-haspopup="menu"
@@ -273,7 +290,7 @@ export function DashboardShell({
                   );
                 })}
                 <a
-                  className={`home-user-menu-link${active === "profile" ? " is-active" : ""}`}
+                  className={`home-user-menu-link${currentPath === "/profile" ? " is-active" : ""}`}
                   href="/profile"
                   role="menuitem"
                   onClick={(event) => {
@@ -302,7 +319,7 @@ export function DashboardShell({
           </div>
         )}
 
-        {isControlPanel && sideNav ? (
+        {hasSectionNav && sideNav ? (
           <div className="home-control-nav-wrap">{sideNav}</div>
         ) : (
           <nav className="home-primary-nav" aria-label="Primary">
@@ -313,10 +330,10 @@ export function DashboardShell({
         )}
 
         <div className="home-sidebar-bottom">
-          {!isControlPanel && (
+          {!hasSectionNav && (
             <>
               <a
-                className={`home-nav-link${active === "profile" && settingsHref === "/profile" ? " is-active" : ""}`}
+                className={`home-nav-link${currentPath === settingsHref ? " is-active" : ""}`}
                 href={settingsHref}
                 onClick={(event) => followRoute(event, settingsHref)}
               >
@@ -333,7 +350,7 @@ export function DashboardShell({
               </a>
             </>
           )}
-          {isControlPanel && (
+          {hasSectionNav && (
             <button className="home-nav-link home-logout-link" type="button" onClick={logout}>
               <LogOut size={21} aria-hidden="true" />
               <span>Logout</span>
@@ -353,7 +370,7 @@ export function DashboardShell({
         </div>
       </section>
 
-      {!isControlPanel && <MobileNav active={active} currentPath={currentPath} />}
+      {!hasSectionNav && <MobileNav active={active} currentPath={currentPath} />}
     </main>
   );
 }
