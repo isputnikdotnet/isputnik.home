@@ -502,21 +502,606 @@
 
 /* ── Security (control panel) ────────────────────────────────────── */
 
+.security-tabs,
+.security-tab-panels {
+  max-width: 1040px;
+}
+
+.security-tabs.control-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 4px 0 32px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.security-tab.text-button {
+  min-width: 0;
+  min-height: 74px;
+  margin-bottom: -1px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.security-tab.text-button:hover,
+.security-tab.text-button:focus-visible {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface-raised) 58%, transparent);
+  outline: 0;
+}
+
+.security-tab.text-button.active {
+  color: var(--control-primary-button, var(--mint));
+  border-color: var(--line);
+  border-bottom-color: var(--control-primary-button, var(--mint));
+  background: var(--surface-raised);
+}
+
+.security-tab-icon {
+  flex: 0 0 auto;
+}
+
+.security-tab-panel[hidden] {
+  display: none;
+}
+
+.security-tab-panel > :first-child {
+  margin-top: 0;
+}
+
 .security-block {
   margin-top: 28px;
 }
 
-.security-add-form {
+.security-overview-dashboard {
   display: grid;
-  gap: 10px;
-  max-width: 440px;
-  margin-top: 16px;
+  gap: 24px;
 }
 
-.security-checkbox {
+.security-overview-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.security-overview-card {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 108px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 44%, transparent);
+}
+
+.security-overview-card-icon,
+.security-dashboard-message-icon {
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+}
+
+.security-overview-card-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.security-overview-card-icon.info {
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 13%, transparent);
+}
+
+.security-overview-card-icon.warning {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+}
+
+.security-overview-card-icon.success {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+}
+
+.security-overview-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.security-overview-card-label {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 780;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.security-overview-card strong {
+  color: var(--ink);
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+.security-overview-card span:last-child {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.security-overview-card .security-overview-success {
+  color: var(--success);
+}
+
+.security-dashboard-message {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  padding: clamp(20px, 3vw, 26px);
+  border: 1px solid;
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.security-dashboard-message-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+}
+
+.security-dashboard-message h2 {
+  margin: 0 0 10px;
+  font-size: 1.12rem;
+}
+
+.security-dashboard-message p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.security-dashboard-message p + p {
+  margin-top: 4px;
+}
+
+.security-dashboard-message .security-help-link {
+  margin-top: 10px;
+  font-weight: 740;
+}
+
+.security-dashboard-message .security-help-link a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.security-dashboard-message code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  font-size: 0.9em;
+}
+
+.security-dashboard-message.info {
+  border-color: color-mix(in srgb, var(--blue) 34%, var(--line));
+  background: color-mix(in srgb, var(--blue) 8%, var(--surface-raised));
+}
+
+.security-dashboard-message.info .security-dashboard-message-icon {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.security-dashboard-message.warning {
+  border-color: color-mix(in srgb, var(--amber) 34%, var(--line));
+  background: color-mix(in srgb, var(--amber) 8%, var(--surface-raised));
+}
+
+.security-dashboard-message.warning .security-dashboard-message-icon {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+}
+
+.security-dashboard-message.success {
+  border-color: color-mix(in srgb, var(--success) 34%, var(--line));
+  background: color-mix(in srgb, var(--success) 8%, var(--surface-raised));
+}
+
+.security-dashboard-message.success .security-dashboard-message-icon {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+}
+
+.security-policy-card {
+  padding: clamp(20px, 3vw, 30px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 18px 42px color-mix(in srgb, var(--shadow) 58%, transparent);
+}
+
+.security-policy-card-head {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.security-policy-card-head h2 {
+  margin: 0;
+  font-size: 1.22rem;
+}
+
+.security-policy-card-head .section-description {
+  margin: 7px 0 0;
+}
+
+.security-policy-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 13%, transparent);
+}
+
+.security-policy-form {
+  display: grid;
+}
+
+.security-setting-row {
+  display: grid;
+  gap: clamp(14px, 4vw, 36px);
+  align-items: center;
+  padding: 18px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
+}
+
+.security-setting-row:not(.security-setting-row-checkbox) {
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 420px);
+}
+
+.security-setting-copy {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.security-setting-label {
+  color: var(--ink);
+  font-weight: 760;
+}
+
+.security-setting-help {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.security-setting-row input[type="number"] {
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--field);
+  font: inherit;
+}
+
+.security-setting-row input[type="number"]:focus {
+  border-color: var(--control-primary-button, var(--mint));
+  outline: 3px solid color-mix(in srgb, var(--control-primary-button, var(--mint)) 24%, transparent);
+}
+
+.security-setting-row-checkbox {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.security-setting-row-checkbox input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  accent-color: var(--control-primary-button, var(--mint));
+}
+
+.security-policy-form > .message-box {
+  margin-top: 18px;
+}
+
+.security-policy-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.security-save-button.primary-button {
+  min-width: 220px;
+}
+
+.security-network-view {
+  display: grid;
+  gap: 22px;
+}
+
+.security-network-head {
+  display: grid;
+  gap: 12px;
+}
+
+.security-network-head h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+}
+
+.security-network-head .section-description {
+  max-width: 820px;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.security-network-callout.message-box {
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  padding: 22px;
+  border-radius: 8px;
+  border-color: color-mix(in srgb, var(--control-primary-button, var(--mint)) 34%, var(--line));
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 7%, var(--surface-raised));
+}
+
+.security-network-callout.message-box > svg {
+  width: 56px;
+  height: 56px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--control-primary-button, var(--mint)) 22%, var(--line));
+  border-radius: 8px;
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 10%, transparent);
+}
+
+.security-network-callout.message-box strong {
+  margin-bottom: 8px;
+  font-size: 1.05rem;
+}
+
+.security-network-callout.message-box p {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.security-network-callout.message-box code {
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 14%, transparent);
+}
+
+.security-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: -2px;
+  margin-bottom: 4px;
+}
+
+.security-network-view .security-list-actions .primary-button,
+.security-network-view .security-list-actions .danger-button {
+  min-width: 168px;
+}
+
+.security-list-actions + .message-box {
+  margin-bottom: 18px;
+}
+
+.security-network-empty {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.38fr) minmax(0, 0.62fr);
+  align-items: center;
+  gap: clamp(22px, 4vw, 46px);
+  min-height: 210px;
+  padding: clamp(22px, 4vw, 34px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 18px 42px color-mix(in srgb, var(--shadow) 44%, transparent);
+}
+
+.security-network-empty.trusted {
+  border-color: color-mix(in srgb, var(--control-primary-button, var(--mint)) 24%, var(--line));
+}
+
+.security-network-empty.blocked {
+  border-color: color-mix(in srgb, var(--rose) 24%, var(--line));
+}
+
+.security-network-empty-visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 142px;
+  color: var(--control-primary-button, var(--mint));
+}
+
+.security-empty-main-icon {
+  width: 116px;
+  height: 116px;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, var(--line));
+  border-radius: 30px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, currentColor 18%, transparent), transparent 64%),
+    var(--surface);
+  box-shadow: 0 18px 34px color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.security-network-empty.blocked .security-network-empty-visual {
+  color: var(--rose);
+}
+
+.security-empty-spark {
+  position: absolute;
+  color: color-mix(in srgb, currentColor 68%, var(--muted));
+}
+
+.security-empty-spark.spark-a {
+  top: 18px;
+  left: 18%;
+}
+
+.security-empty-spark.spark-b {
+  right: 16%;
+  bottom: 18px;
+}
+
+.security-network-empty-copy {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.security-network-empty-copy h3 {
+  margin: 0;
+  font-size: 1.28rem;
+}
+
+.security-network-empty-copy p {
+  margin: 0;
+  max-width: 540px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.security-network-empty-note {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.security-network-empty-note svg {
+  color: var(--control-primary-button, var(--mint));
+}
+
+.security-network-empty.blocked .security-network-empty-note svg {
+  color: var(--success);
+}
+
+.security-network-table.datagrid-wrap {
+  margin-top: 8px;
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 34%, transparent);
+}
+
+.security-form-modal {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 520px);
+}
+
+@media (max-width: 980px) {
+  .security-overview-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .security-tabs.control-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 24px;
+  }
+
+  .security-tab.text-button {
+    min-height: 62px;
+    padding: 0 14px;
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .security-overview-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .security-overview-card {
+    grid-template-columns: 50px minmax(0, 1fr);
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .security-dashboard-message {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .security-network-callout.message-box {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .security-network-empty {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .security-network-empty-visual {
+    min-height: 118px;
+  }
+
+  .security-empty-main-icon {
+    width: 96px;
+    height: 96px;
+    padding: 18px;
+  }
+
+  .security-policy-card {
+    padding: 18px;
+  }
+
+  .security-policy-card-head {
+    grid-template-columns: 50px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .security-policy-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .security-setting-row:not(.security-setting-row-checkbox) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .security-policy-actions {
+    justify-content: stretch;
+  }
+
+  .security-save-button.primary-button {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 /* ── Reader access (OPDS) ───────────────────────────────────────── */

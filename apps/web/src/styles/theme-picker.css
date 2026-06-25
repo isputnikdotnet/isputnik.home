@@ -93,6 +93,22 @@
   max-width: 720px;
 }
 
+.config-tabs {
+  max-width: 720px;
+}
+
+.config-tab-panels {
+  max-width: 720px;
+}
+
+.config-tab-panel[hidden] {
+  display: none;
+}
+
+.config-tab-panel > :first-child {
+  margin-top: 0;
+}
+
 .config-block h2 {
   margin: 0 0 4px;
   font-size: 1.05rem;

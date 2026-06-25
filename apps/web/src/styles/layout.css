@@ -102,25 +102,36 @@
   margin-bottom: 18px;
 }
 
-.control-tabs a {
+.control-tabs a,
+.control-tabs button {
   padding: 8px 14px;
   margin-bottom: -1px;
+  border: 0;
+  border-radius: 0;
   border-bottom: 2px solid transparent;
   color: var(--muted);
+  background: transparent;
+  font: inherit;
   font-weight: 650;
   text-decoration: none;
+  cursor: pointer;
 }
 
-.control-tabs a:hover {
+.control-tabs a:hover,
+.control-tabs button:hover,
+.control-tabs button:focus-visible {
   color: var(--ink);
+  outline: 0;
 }
 
-.control-tabs a.active {
+.control-tabs a.active,
+.control-tabs button.active {
   color: var(--mint);
   border-bottom-color: var(--mint);
 }
 
-.control-tabs a.control-tab-soon {
+.control-tabs a.control-tab-soon,
+.control-tabs button.control-tab-soon {
   display: inline-flex;
   align-items: center;
   gap: 6px;
