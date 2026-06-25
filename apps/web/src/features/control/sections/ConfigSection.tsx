@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { BookOpen, Mail, Palette, Settings, type LucideIcon } from "lucide-react";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -8,10 +9,10 @@ import { OpdsAccessSection } from "./OpdsAccessSection";
 
 type ConfigTab = "appearance" | "email" | "reader";
 
-const CONFIG_TABS: { key: ConfigTab; label: string }[] = [
-  { key: "appearance", label: "Appearance" },
-  { key: "email", label: "Email" },
-  { key: "reader", label: "Reader access" }
+const CONFIG_TABS: { key: ConfigTab; label: string; icon: LucideIcon }[] = [
+  { key: "appearance", label: "Appearance", icon: Palette },
+  { key: "email", label: "Email", icon: Mail },
+  { key: "reader", label: "Reader access", icon: BookOpen }
 ];
 
 export function ConfigSection() {
@@ -48,15 +49,22 @@ export function ConfigSection() {
   return (
     <>
       <div className="section-head">
-        <div>
-          <p className="eyebrow">Application</p>
-          <h1>Config</h1>
+        <div className="user-title-wrap">
+          <span className="user-page-icon" aria-hidden="true">
+            <Settings size={30} />
+          </span>
+          <div className="user-heading-copy">
+            <p className="eyebrow">Application</p>
+            <h1>Config</h1>
+            <p className="section-description">Appearance, email delivery, and reader access.</p>
+          </div>
         </div>
       </div>
 
       <div className="control-tabs config-tabs" role="tablist" aria-label="Configuration sections">
         {CONFIG_TABS.map((tab) => {
           const selected = activeTab === tab.key;
+          const Icon = tab.icon;
           return (
             <Button
               key={tab.key}
@@ -68,7 +76,8 @@ export function ConfigSection() {
               id={`config-tab-${tab.key}`}
               onClick={() => setActiveTab(tab.key)}
             >
-              {tab.label}
+              <Icon className="config-tab-icon" size={18} aria-hidden="true" />
+              <span>{tab.label}</span>
             </Button>
           );
         })}

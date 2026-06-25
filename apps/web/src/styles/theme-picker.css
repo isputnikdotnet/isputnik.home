@@ -93,20 +93,10 @@
   max-width: 720px;
 }
 
-.config-tabs {
-  max-width: 720px;
-}
-
+/* Tab chrome (grid, icons, active state) is shared with Security in about.css. */
+.config-tabs,
 .config-tab-panels {
   max-width: 720px;
-}
-
-.config-tab-panel[hidden] {
-  display: none;
-}
-
-.config-tab-panel > :first-child {
-  margin-top: 0;
 }
 
 .config-block h2 {
