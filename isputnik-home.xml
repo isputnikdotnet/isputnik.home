@@ -13,14 +13,18 @@
   <Network>bridge</Network>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
+  <Support>https://github.com/isputnikdotnet/isputnik.home/issues</Support>
+  <Project>https://github.com/isputnikdotnet/isputnik.home</Project>
 
   <Overview>
 Private self-hosted family media library for audiobooks, ebooks, photos, and other digital media. Includes a modern web interface, installable PWA, offline listening support, user management, and library scanning. On first run, open the web UI to create an administrator account.
   </Overview>
 
-  <Category>MediaApp:Music</Category>
+  <Category>MediaApp:Books MediaServer:Books MediaApp:Other</Category>
 
   <WebUI>http://[IP]:[PORT:4000]/</WebUI>
+
+  <TemplateURL>https://raw.githubusercontent.com/isputnikdotnet/isputnik.home/main/isputnik-home.xml</TemplateURL>
 
   <Icon>https://raw.githubusercontent.com/isputnikdotnet/isputnik.home/main/Assets/brand/isputnik-app-icon.png</Icon>
 
@@ -108,7 +112,7 @@ Private self-hosted family media library for audiobooks, ebooks, photos, and oth
           Mode=""
           Description="Number of reverse proxies in front of the app (usually 1 behind a reverse proxy or Cloudflare Tunnel). Leave blank for direct LAN access. Needed for correct per-IP rate limiting, auto-block, and trusted networks — set it to match your proxy count, no higher."
           Type="Variable"
-          Display="advanced"
+          Display="always"
           Required="false"
           Mask="false"></Config>
 
