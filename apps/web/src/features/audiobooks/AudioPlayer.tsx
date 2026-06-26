@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bookmark, BookmarkPlus, CheckCircle2, ChevronDown, ChevronUp, Clock, FastForward, Heart, List, Moon, Pause, Pencil, PieChart, Play, Rewind, SkipBack, SkipForward, StickyNote, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { Bookmark, BookmarkPlus, ChevronDown, Clock, FastForward, Heart, List, Moon, Pause, Pencil, PieChart, Play, Rewind, SkipBack, SkipForward, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { api } from "../../api";
 import { getDownloadedFileUrl } from "../../offline/downloads";
 import { getLocalProgress, persistProgress } from "../../offline/progress";
@@ -48,8 +48,6 @@ export function AudioPlayer({
   saved,
   onToggleSave,
   savingSave,
-  onAddNote,
-  onMarkFinished,
   autoPlay,
   onEndReached
 }: {
@@ -59,8 +57,6 @@ export function AudioPlayer({
   saved?: boolean;
   onToggleSave?: () => void;
   savingSave?: boolean;
-  onAddNote?: () => void;
-  onMarkFinished?: () => void;
   // Begin playing as soon as the first chapter loads (used when auto-advancing
   // to the next book in a collection/playlist).
   autoPlay?: boolean;
@@ -892,50 +888,52 @@ export function AudioPlayer({
           </div>
 
           <div className="player-volume-popup">
-            <button className="player-vol-icon" onClick={toggleMute} aria-label={muted ? "Unmute" : "Mute"}>
-              {muted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-            </button>
-            <input
-              type="range"
-              className="player-vol-slider"
-              min={0}
-              max={1}
-              step={0.02}
-              value={muted ? 0 : volume}
-              onChange={handleVolumeChange}
-              aria-label="Volume"
-            />
-            <Volume2 size={16} className="player-vol-max" aria-hidden="true" />
+            <div className="player-volume-control">
+              <button className="player-vol-icon" onClick={toggleMute} aria-label={muted ? "Unmute" : "Mute"}>
+                {muted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              </button>
+              <input
+                type="range"
+                className="player-vol-slider"
+                min={0}
+                max={1}
+                step={0.02}
+                value={muted ? 0 : volume}
+                onChange={handleVolumeChange}
+                aria-label="Volume"
+              />
+              <Volume2 size={16} className="player-vol-max" aria-hidden="true" />
+            </div>
+
+            <div className="player-volume-menu player-speed">
+              <button
+                className={`player-volume-action-btn${speedOpen ? " open" : ""}`}
+                onClick={toggleSpeedMenu}
+                aria-expanded={speedOpen}
+                aria-label="Playback speed"
+              >
+                <span>{playbackRate === 1 ? "1.0×" : `${playbackRate}×`}</span>
+              </button>
+              {speedMenu}
+            </div>
+
+            <div className="player-volume-menu player-speed">
+              <button
+                className={`player-volume-action-btn${sleepOpen ? " open" : ""}${sleepMode !== "off" ? " active" : ""}`}
+                onClick={toggleSleepMenu}
+                aria-expanded={sleepOpen}
+                aria-label="Sleep timer"
+                title="Sleep timer"
+              >
+                <Moon size={15} aria-hidden="true" />
+                <span>{sleepLabel ?? "Sleep"}</span>
+              </button>
+              {sleepMenu}
+            </div>
           </div>
 
           <div className="player-aux player-aux--popup">
             <div className="player-popup-aux-row">
-              <div className="player-popup-aux-item player-speed">
-                <button
-                  className="player-popup-aux-btn"
-                  onClick={toggleSpeedMenu}
-                  aria-expanded={speedOpen}
-                  aria-label="Playback speed"
-                >
-                  <span className="player-popup-aux-value">{playbackRate === 1 ? "1.0×" : `${playbackRate}×`}</span>
-                  <span className="player-popup-aux-label">Speed</span>
-                </button>
-                {speedMenu}
-              </div>
-
-              <div className="player-popup-aux-item player-speed">
-                <button
-                  className="player-popup-aux-btn"
-                  onClick={toggleSleepMenu}
-                  aria-expanded={sleepOpen}
-                  aria-label="Sleep timer"
-                >
-                  <span className="player-popup-aux-value">{sleepLabel ?? <Moon size={18} />}</span>
-                  <span className="player-popup-aux-label">Sleep</span>
-                </button>
-                {sleepMenu}
-              </div>
-
               {onToggleSave && (
                 <div className="player-popup-aux-item">
                   <button
@@ -965,34 +963,18 @@ export function AudioPlayer({
                 </div>
               )}
 
-              {onAddNote && (
-                <div className="player-popup-aux-item">
-                  <button className="player-popup-aux-btn" onClick={onAddNote} aria-label="Add a note">
-                    <StickyNote size={18} />
-                    <span className="player-popup-aux-label">Add Note</span>
-                  </button>
-                </div>
-              )}
-
-              {onMarkFinished && (
-                <div className="player-popup-aux-item">
-                  <button className="player-popup-aux-btn" onClick={onMarkFinished} aria-label="Mark as finished">
-                    <CheckCircle2 size={18} />
-                    <span className="player-popup-aux-label">Mark as Finished</span>
-                  </button>
-                </div>
-              )}
+              <div className="player-popup-aux-item">
+                <button
+                  className={`player-popup-aux-btn${chaptersOpen ? " open" : ""}`}
+                  onClick={() => setChaptersOpen((o) => !o)}
+                  aria-expanded={chaptersOpen}
+                  aria-label="Chapter list"
+                >
+                  <List size={18} />
+                  <span className="player-popup-aux-label">Chapters</span>
+                </button>
+              </div>
             </div>
-
-            <button
-              className="player-popup-chapters-btn"
-              onClick={() => setChaptersOpen((o) => !o)}
-              aria-expanded={chaptersOpen}
-              aria-label="Chapter list"
-            >
-              <span className="player-popup-chapters-btn-label"><List size={16} /> Chapters</span>
-              {chaptersOpen ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronUp size={16} aria-hidden="true" />}
-            </button>
           </div>
 
           {playerError && <MessageBox tone="error" title="Playback error">{playerError}</MessageBox>}
