@@ -529,12 +529,17 @@
   text-align: center;
 }
 
-/* Playlist position chip — pushed to the left of the top bar. */
+/* Dismiss control (close popup window / step back from the full-screen route).
+   Sits at the far left and pushes the playlist chip + ⋮ menu to the right. */
+.popup-back-btn {
+  margin-right: auto;
+}
+
+/* Playlist position chip. */
 .popup-queue-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-right: auto;
   padding: 4px 10px;
   border: 1px solid color-mix(in srgb, var(--mint) 30%, transparent);
   border-radius: 999px;

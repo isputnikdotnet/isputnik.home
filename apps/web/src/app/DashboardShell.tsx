@@ -119,11 +119,25 @@ function userMenuLinks(): UserMenuLink[] {
   ];
 }
 
+// The user-area routes reachable from the Profile drop-up sheet. The Profile
+// tab highlights for any of them (not just /profile itself).
+const PROFILE_ROUTES = ["/profile", "/favorites", "/bookmarks", "/collections", "/shared"];
+
 // Four-tab bottom nav for the installed app / phones: Home, Media, Offline,
-// Profile. "Media" isn't a page — it opens a drop-up sheet to pick a library
-// or cross-library browse view.
-function MobileNav({ active, currentPath }: { active: DashboardActive; currentPath: string }) {
-  const [mediaOpen, setMediaOpen] = useState(false);
+// Profile. "Media" and "Profile" aren't pages — each opens a drop-up sheet:
+// Media to pick a library / browse view, Profile for account & library options.
+function MobileNav({
+  active,
+  currentPath,
+  user,
+  logout
+}: {
+  active: DashboardActive;
+  currentPath: string;
+  user: PublicUser;
+  logout: () => Promise<void>;
+}) {
+  const [openSheet, setOpenSheet] = useState<"media" | "profile" | null>(null);
 
   const downloadsActive = currentPath === "/downloads" || currentPath === "/audiobooks/downloads";
   const mediaActive =
@@ -133,20 +147,21 @@ function MobileNav({ active, currentPath }: { active: DashboardActive; currentPa
     currentPath.startsWith("/categories") ||
     currentPath.startsWith("/tags") ||
     (currentPath.startsWith("/audiobooks") && !downloadsActive);
+  const profileActive = PROFILE_ROUTES.some((route) => currentPath === route || currentPath.startsWith(`${route}/`));
 
   useEffect(() => {
-    if (!mediaOpen) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setMediaOpen(false); };
+    if (!openSheet) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpenSheet(null); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [mediaOpen]);
+  }, [openSheet]);
 
-  const close = () => setMediaOpen(false);
+  const close = () => setOpenSheet(null);
 
   return (
     <>
-      {mediaOpen && <div className="mobile-media-backdrop" onClick={close} aria-hidden="true" />}
-      {mediaOpen && (
+      {openSheet && <div className="mobile-media-backdrop" onClick={close} aria-hidden="true" />}
+      {openSheet === "media" && (
         <div className="mobile-media-menu" role="dialog" aria-label="Choose library">
           <div className="mobile-media-menu-grid">
             <a className="mobile-media-option" href="/audiobooks" onClick={(event) => { followRoute(event, "/audiobooks"); close(); }}>
@@ -180,6 +195,42 @@ function MobileNav({ active, currentPath }: { active: DashboardActive; currentPa
           </div>
         </div>
       )}
+      {openSheet === "profile" && (
+        <div className="mobile-media-menu" role="dialog" aria-label="Account & library">
+          <div className="mobile-media-menu-grid">
+            <a className="mobile-media-option" href="/profile" onClick={(event) => { followRoute(event, "/profile"); close(); }}>
+              <UserRound size={26} aria-hidden="true" />
+              <span>Profile</span>
+            </a>
+            <a className="mobile-media-option" href="/favorites" onClick={(event) => { followRoute(event, "/favorites"); close(); }}>
+              <Heart size={26} aria-hidden="true" />
+              <span>Favorites</span>
+            </a>
+            <a className="mobile-media-option" href="/bookmarks" onClick={(event) => { followRoute(event, "/bookmarks"); close(); }}>
+              <Bookmark size={26} aria-hidden="true" />
+              <span>Bookmarks</span>
+            </a>
+            <a className="mobile-media-option" href="/collections" onClick={(event) => { followRoute(event, "/collections"); close(); }}>
+              <ListMusic size={26} aria-hidden="true" />
+              <span>Collections</span>
+            </a>
+            <a className="mobile-media-option" href="/shared" onClick={(event) => { followRoute(event, "/shared"); close(); }}>
+              <UsersRound size={26} aria-hidden="true" />
+              <span>Shared</span>
+            </a>
+            {user.role === "admin" && (
+              <a className="mobile-media-option" href="/control/status" onClick={(event) => { followRoute(event, "/control/status"); close(); }}>
+                <Settings size={26} aria-hidden="true" />
+                <span>Settings</span>
+              </a>
+            )}
+            <button className="mobile-media-option" type="button" onClick={() => { close(); void logout(); }}>
+              <LogOut size={26} aria-hidden="true" />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      )}
       <nav className="home-mobile-nav" aria-label="Primary app tabs">
         <a
           className={`home-mobile-nav-item${active === "home" && currentPath === "/" ? " is-active" : ""}`}
@@ -191,10 +242,10 @@ function MobileNav({ active, currentPath }: { active: DashboardActive; currentPa
         </a>
         <button
           type="button"
-          className={`home-mobile-nav-item${mediaActive || mediaOpen ? " is-active" : ""}`}
-          onClick={() => setMediaOpen((open) => !open)}
+          className={`home-mobile-nav-item${mediaActive || openSheet === "media" ? " is-active" : ""}`}
+          onClick={() => setOpenSheet((current) => (current === "media" ? null : "media"))}
           aria-haspopup="dialog"
-          aria-expanded={mediaOpen}
+          aria-expanded={openSheet === "media"}
         >
           <Library size={17} aria-hidden="true" />
           <span>Media</span>
@@ -207,14 +258,16 @@ function MobileNav({ active, currentPath }: { active: DashboardActive; currentPa
           <DownloadCloud size={17} aria-hidden="true" />
           <span>Offline</span>
         </a>
-        <a
-          className={`home-mobile-nav-item${currentPath === "/profile" ? " is-active" : ""}`}
-          href="/profile"
-          onClick={(event) => { followRoute(event, "/profile"); close(); }}
+        <button
+          type="button"
+          className={`home-mobile-nav-item${profileActive || openSheet === "profile" ? " is-active" : ""}`}
+          onClick={() => setOpenSheet((current) => (current === "profile" ? null : "profile"))}
+          aria-haspopup="dialog"
+          aria-expanded={openSheet === "profile"}
         >
           <UserRound size={17} aria-hidden="true" />
           <span>Profile</span>
-        </a>
+        </button>
       </nav>
     </>
   );
@@ -236,6 +289,10 @@ export function DashboardShell({
   const isControlPanel = active === "control";
   const isUserArea = active === "user";
   const hasSectionNav = isControlPanel || isUserArea;
+  // User-area pages (Profile, Favorites, Downloads, …) drop their top section
+  // nav on phones and rely on the bottom tab bar instead — its Profile sheet
+  // exposes every user-area destination. The control panel keeps its top nav.
+  const mobileTabBar = isUserArea;
   const mainClasses = `home-main app-dashboard-main scene-page ${isControlPanel ? "control-scene" : "sputnik-scene"}`;
   const settingsHref = user.role === "admin" && !hasSectionNav ? "/control/status" : "/profile";
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -267,7 +324,7 @@ export function DashboardShell({
   }, [userMenuOpen]);
 
   return (
-    <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}${isUserArea ? " home-user-shell" : ""}`}>
+    <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}${isUserArea ? " home-user-shell" : ""}${mobileTabBar ? " home-mobile-tabbar-shell" : ""}`}>
       <aside className="home-sidebar" aria-label={isControlPanel ? "Control panel navigation" : isUserArea ? "User navigation" : "App navigation"}>
         {!hasSectionNav && (
           <div className="home-user-menu-wrap" ref={userMenuRef}>
@@ -381,7 +438,7 @@ export function DashboardShell({
         </div>
       </section>
 
-      {!hasSectionNav && <MobileNav active={active} currentPath={currentPath} />}
+      {(!hasSectionNav || mobileTabBar) && <MobileNav active={active} currentPath={currentPath} user={user} logout={logout} />}
     </main>
   );
 }

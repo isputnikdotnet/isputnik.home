@@ -1,25 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronRight, Headphones, Heart, Loader2, Play } from "lucide-react";
+import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Headphones, Heart, Loader2, Play } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, navigate } from "../router";
 import { MessageBox } from "../shared/MessageBox";
-import { fetchFeed, type FeedItem, type FeedMode } from "../features/library/feed";
+import { authorLine, audioRecordToFeedItem, ebookRecordToFeedItem, fetchFeed, saveFeedItemOffline, type FeedItem, type FeedMode } from "../features/library/feed";
 import { FeedTile, FeedTileSkeleton } from "../features/library/FeedTile";
 import { FeedListItem, FeedListItemSkeleton } from "../features/library/FeedListItem";
+import { DEFAULT_COVERS } from "../features/audiobooks/covers";
 import { useIsMobile } from "../shared/useIsMobile";
 import { useOnlineStatus } from "../pwa/useOnlineStatus";
-import { getDownloadedEpubBlob, getEbookDownload, listDownloads, listEbookDownloads } from "../offline/downloads";
+import { getDownloadedEpubBlob, getEbookDownload, listDownloads, listEbookDownloads, type DownloadRecord, type EbookDownloadRecord } from "../offline/downloads";
 import { isFoliateFormat } from "../shared/utils";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
 
-// Upper bound fetched per row. Each row renders one line of fixed-size tiles and
-// clips whatever doesn't fit (no horizontal scroll, no wrap) — so we fetch enough
-// to fill a wide screen and let CSS decide how many actually show.
-const FETCH = 16;
+// How many books each home row shows. Continue is capped at 5 (one of which
+// becomes the mobile resume hero), Recently added at 10. Desktop clips its row
+// to a single line within these counts; mobile lists them all.
+const CONTINUE_LIMIT = 5;
+const RECENT_LIMIT = 10;
 
 type Tone = "violet" | "green" | "blue" | "rose";
 
@@ -100,6 +102,112 @@ function FeedRow({ id, title, mobileTitle, href, mode, items, emptyText, mobile,
   );
 }
 
+// Mobile "pick up where you left off" hero — the single most-recent in-progress
+// book, blown up above the Continue row. Tapping the main area resumes (plays an
+// audiobook / opens the inline reader for an ebook); a side column carries the
+// save-for-offline button and the play/read action.
+function ResumeHero({ item, onRead, downloaded, onDownloaded, onDownload, onToast }: {
+  item: FeedItem;
+  onRead: (item: FeedItem) => Promise<void>;
+  downloaded: boolean;
+  onDownloaded: (id: string) => void;
+  onDownload: (info: { title: string; progress: number } | null) => void;
+  onToast: (message: string) => void;
+}) {
+  const isEbook = item.kind === "ebook";
+  const percent = Math.round((item.percentComplete ?? 0) * 100);
+  const [opening, setOpening] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const resume = () => {
+    if (isEbook) {
+      setOpening(true);
+      void onRead(item).finally(() => setOpening(false));
+    } else {
+      navigate(`/player/${item.id}`);
+    }
+  };
+
+  const saveOffline = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    onDownload({ title: item.title, progress: 0 });
+    try {
+      await saveFeedItemOffline(item, (fraction) => onDownload({ title: item.title, progress: fraction }));
+      onDownloaded(item.id);
+      onToast("Saved for offline");
+    } catch {
+      onToast("Download failed");
+    } finally {
+      onDownload(null);
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <section className="home-resume" aria-label="Pick up where you left off">
+      <div className="home-resume-card">
+        <button type="button" className="home-resume-main" onClick={resume} disabled={opening} aria-label={`Resume ${item.title}`}>
+          <span className="home-resume-cover">
+            <img src={item.coverUrl ?? DEFAULT_COVERS[item.kind]} alt="" />
+          </span>
+          <span className="home-resume-body">
+            <span className="home-resume-eyebrow">{isEbook ? "Continue reading" : "Continue listening"}</span>
+            <strong className="home-resume-title">{item.title}</strong>
+            <small className="home-resume-author">{authorLine(item)}</small>
+            {percent > 0 && (
+              <span className="home-resume-progress">
+                <span className="home-resume-bar" aria-hidden="true"><span style={{ width: `${percent}%` }} /></span>
+                <span className="home-resume-pct">{percent}%</span>
+              </span>
+            )}
+          </span>
+        </button>
+        <div className="home-resume-side">
+          {downloaded ? (
+            <button
+              type="button"
+              className="home-resume-dl is-saved"
+              onClick={() => navigate("/downloads")}
+              title="Saved for offline"
+              aria-label="Available offline"
+            >
+              <HardDrive size={16} aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="home-resume-dl"
+              onClick={saveOffline}
+              disabled={downloading}
+              title={downloading ? "Downloading…" : "Save for offline"}
+              aria-label={downloading ? "Downloading…" : "Save for offline"}
+            >
+              {downloading
+                ? <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
+                : <DownloadCloud size={16} aria-hidden="true" />}
+            </button>
+          )}
+          <button
+            type="button"
+            className="home-resume-action"
+            onClick={resume}
+            disabled={opening}
+            aria-label={isEbook ? `Read ${item.title}` : `Play ${item.title}`}
+            title={isEbook ? "Read" : "Play"}
+          >
+            {isEbook && opening
+              ? <Loader2 size={22} className="home-feed-spin" />
+              : isEbook
+                ? <BookOpen size={22} />
+                : <Play size={22} fill="currentColor" />}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function StatTile({ card }: { card: StatCard }) {
   const Icon = card.icon;
   return (
@@ -135,6 +243,8 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const isMobile = useIsMobile();
   const online = useOnlineStatus();
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+  const [downloads, setDownloads] = useState<DownloadRecord[] | null>(null);
+  const [ebookDownloads, setEbookDownloads] = useState<EbookDownloadRecord[] | null>(null);
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -196,25 +306,31 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     return () => { if (current?.blobUrl) URL.revokeObjectURL(current.blobUrl); };
   }, [viewer]);
 
+  // Local (IndexedDB) download records — both the id set used to flag rows as
+  // saved, and the full records that drive the offline home when disconnected.
   useEffect(() => {
     if (!isMobile) return;
     let alive = true;
     Promise.allSettled([listDownloads(), listEbookDownloads()]).then(([audio, ebooks]) => {
       if (!alive) return;
-      const ids = new Set<string>();
-      if (audio.status === "fulfilled") audio.value.forEach((d) => ids.add(d.bookId));
-      if (ebooks.status === "fulfilled") ebooks.value.forEach((d) => ids.add(d.bookId));
-      setDownloadedIds(ids);
+      const audioList = audio.status === "fulfilled" ? audio.value : [];
+      const ebookList = ebooks.status === "fulfilled" ? ebooks.value : [];
+      setDownloads(audioList);
+      setEbookDownloads(ebookList);
+      setDownloadedIds(new Set([...audioList, ...ebookList].map((d) => d.bookId)));
     });
     return () => { alive = false; };
   }, [isMobile]);
 
+  // The home feed lives on the server. Skip it while offline (the offline home
+  // renders downloaded books instead) and refetch when the connection returns.
   useEffect(() => {
+    if (!online) return;
     let alive = true;
 
     Promise.allSettled([
-      fetchFeed("continue", FETCH),
-      fetchFeed("recent", FETCH),
+      fetchFeed("continue", CONTINUE_LIMIT),
+      fetchFeed("recent", RECENT_LIMIT),
       api<{ libraries: LibraryCountRow[] }>("/api/library/audiobook-libraries"),
       api<{ libraries: LibraryCountRow[] }>("/api/library/ebook-libraries"),
       api<{ books: unknown[] }>("/api/library/saved")
@@ -242,7 +358,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     });
 
     return () => { alive = false; };
-  }, []);
+  }, [online]);
 
   const statCards: StatCard[] = [
     { label: "Audiobooks", value: stats.audiobooks, tone: "violet", icon: Headphones, href: "/audiobooks" },
@@ -250,6 +366,19 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     { label: "In progress", value: stats.inProgress, tone: "blue", icon: Play, href: "/continue" },
     { label: "Favorites", value: stats.favorites, tone: "rose", icon: Heart, href: "/favorites" }
   ];
+
+  // When offline on a phone, the home becomes a browser for downloaded books
+  // (the server feed is unreachable). Online, the top in-progress book is lifted
+  // out of the Continue row into the resume hero.
+  const offlineMode = isMobile && !online;
+  const heroItem = isMobile && online && continueItems && continueItems.length > 0 ? continueItems[0] : null;
+  const continueRest = heroItem ? continueItems!.slice(1) : continueItems;
+  const showContinueRow = !heroItem || (continueRest != null && continueRest.length > 0);
+
+  const offlineLoaded = downloads !== null && ebookDownloads !== null;
+  const offlineAudioItems = downloads ? downloads.map(audioRecordToFeedItem) : null;
+  const offlineEbookItems = ebookDownloads ? ebookDownloads.map(ebookRecordToFeedItem) : null;
+  const offlineEmpty = offlineLoaded && (offlineAudioItems?.length ?? 0) === 0 && (offlineEbookItems?.length ?? 0) === 0;
 
   return (
     <>
@@ -284,43 +413,110 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
           </header>
         )}
 
-        {error && <MessageBox tone="error" title="Unable to load home">{error}</MessageBox>}
+        {error && !offlineMode && <MessageBox tone="error" title="Unable to load home">{error}</MessageBox>}
 
         <div className="home-stats" aria-label="Library overview">
           {statCards.map((card) => <StatTile card={card} key={card.label} />)}
         </div>
 
-        <div className="home-content">
-          <FeedRow
-            id="home-continue-title"
-            title="Continue listening & reading"
-            mobileTitle="Continue"
-            href="/continue"
-            mode="continue"
-            items={continueItems}
-            emptyText="Nothing in progress yet — open a book to start."
-            mobile={isMobile}
-            downloadedIds={downloadedIds}
-            onDownloaded={handleDownloaded}
-            onRead={handleRead}
-            onToast={showToast}
-            onDownload={setActiveDownload}
-          />
-          <FeedRow
-            id="home-recent-title"
-            title="Recently added"
-            href="/recent"
-            mode="recent"
-            items={recentItems}
-            emptyText="No books yet. Newly added audiobooks and ebooks show up here."
-            mobile={isMobile}
-            downloadedIds={downloadedIds}
-            onDownloaded={handleDownloaded}
-            onRead={handleRead}
-            onToast={showToast}
-            onDownload={setActiveDownload}
-          />
-        </div>
+        {offlineMode ? (
+          <div className="home-content">
+            {!offlineLoaded ? (
+              <FeedRow
+                id="home-offline-title"
+                title="Downloaded"
+                href="/downloads"
+                mode="recent"
+                items={null}
+                emptyText=""
+                mobile
+                downloadedIds={downloadedIds}
+              />
+            ) : offlineEmpty ? (
+              <div className="empty-state home-offline-empty">
+                <DownloadCloud size={52} aria-hidden="true" />
+                <h2>Nothing saved offline</h2>
+                <p className="muted">You're offline. Books you save while connected show up here, ready to play or read without a connection.</p>
+              </div>
+            ) : (
+              <>
+                {offlineAudioItems && offlineAudioItems.length > 0 && (
+                  <FeedRow
+                    id="home-offline-audio"
+                    title="Downloaded audiobooks"
+                    mobileTitle="Audiobooks"
+                    href="/downloads"
+                    mode="recent"
+                    items={offlineAudioItems}
+                    emptyText=""
+                    mobile
+                    downloadedIds={downloadedIds}
+                    onToast={showToast}
+                  />
+                )}
+                {offlineEbookItems && offlineEbookItems.length > 0 && (
+                  <FeedRow
+                    id="home-offline-ebooks"
+                    title="Downloaded ebooks"
+                    mobileTitle="Ebooks"
+                    href="/downloads"
+                    mode="recent"
+                    items={offlineEbookItems}
+                    emptyText=""
+                    mobile
+                    downloadedIds={downloadedIds}
+                    onRead={handleRead}
+                    onToast={showToast}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="home-content">
+            {heroItem && (
+              <ResumeHero
+                item={heroItem}
+                onRead={handleRead}
+                downloaded={downloadedIds.has(heroItem.id)}
+                onDownloaded={handleDownloaded}
+                onDownload={setActiveDownload}
+                onToast={showToast}
+              />
+            )}
+            {showContinueRow && (
+              <FeedRow
+                id="home-continue-title"
+                title="Continue listening & reading"
+                mobileTitle="Continue"
+                href="/continue"
+                mode="continue"
+                items={continueRest}
+                emptyText="Nothing in progress yet — open a book to start."
+                mobile={isMobile}
+                downloadedIds={downloadedIds}
+                onDownloaded={handleDownloaded}
+                onRead={handleRead}
+                onToast={showToast}
+                onDownload={setActiveDownload}
+              />
+            )}
+            <FeedRow
+              id="home-recent-title"
+              title="Recently added"
+              href="/recent"
+              mode="recent"
+              items={recentItems}
+              emptyText="No books yet. Newly added audiobooks and ebooks show up here."
+              mobile={isMobile}
+              downloadedIds={downloadedIds}
+              onDownloaded={handleDownloaded}
+              onRead={handleRead}
+              onToast={showToast}
+              onDownload={setActiveDownload}
+            />
+          </div>
+        )}
       </section>
     </DashboardShell>
 

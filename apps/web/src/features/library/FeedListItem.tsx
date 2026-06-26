@@ -2,12 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { BookOpen, DownloadCloud, HardDrive, Heart, Info, Loader2, MoreVertical, Play, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../api";
-import { downloadBook, downloadEbook } from "../../offline/downloads";
 import { navigate } from "../../router";
-import { formatBytes, formatDuration, isFoliateFormat } from "../../shared/utils";
-import type { AudiobookBookDetail } from "../audiobooks/types";
+import { formatBytes, formatDuration } from "../../shared/utils";
 import { DEFAULT_COVERS } from "../audiobooks/covers";
-import { authorLine, feedHref, type FeedItem } from "./feed";
+import { authorLine, feedHref, saveFeedItemOffline, type FeedItem } from "./feed";
 
 // A single ⋮-menu entry. When `menuItems` is supplied the row renders these
 // instead of the default favourites/details menu — this lets the library pages
@@ -90,28 +88,13 @@ export function FeedListItem({ item, progress, downloaded, onDownloaded, onRead,
   };
 
   // Fetch the full detail (the feed item lacks file info) then hand off to the
-  // audiobook or ebook offline-download helper.
+  // shared offline-save helper.
   const startDownload = async () => {
     if (downloading) return;
     setDownloading(true);
     onDownload?.({ title: item.title, progress: 0 });
-    const onProgress = (fraction: number) => onDownload?.({ title: item.title, progress: fraction });
     try {
-      const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
-      if (isEbook) {
-        const doc = book.documents.find((d) => isFoliateFormat(d.format)) ?? book.documents[0] ?? null;
-        if (doc) {
-          await downloadEbook(item.id, doc.id, doc.url, {
-            title: item.title,
-            authors: item.authors,
-            coverUrl: item.coverUrl,
-            totalBytes: doc.size,
-            format: doc.format
-          }, onProgress);
-        }
-      } else {
-        await downloadBook(book, onProgress);
-      }
+      await saveFeedItemOffline(item, (fraction) => onDownload?.({ title: item.title, progress: fraction }));
       onDownloaded?.(item.id);
       onToast?.("Saved for offline");
     } catch {

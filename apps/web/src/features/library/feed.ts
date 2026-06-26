@@ -1,4 +1,7 @@
 import { api } from "../../api";
+import { downloadBook, downloadEbook, type DownloadRecord, type EbookDownloadRecord } from "../../offline/downloads";
+import { isFoliateFormat } from "../../shared/utils";
+import type { AudiobookBookDetail } from "../audiobooks/types";
 
 // A cross-type home-feed entry (audiobook or ebook), from /api/library/feed/*.
 export interface FeedItem {
@@ -34,6 +37,64 @@ export function feedHref(item: FeedItem): string {
 
 export function authorLine(item: FeedItem): string {
   return item.authors.length > 0 ? item.authors.join(", ") : "Unknown author";
+}
+
+// Fetch a feed item's full detail and save it to the offline store — all the
+// audiobook's chapters, or the ebook's primary (foliate-readable) document —
+// reporting 0..1 progress. Shared by the home resume hero and the feed rows so
+// the "save for offline" behaviour stays identical everywhere.
+export async function saveFeedItemOffline(item: FeedItem, onProgress?: (fraction: number) => void): Promise<void> {
+  const { book } = await api<{ book: AudiobookBookDetail }>(`/api/library/books/${item.id}`);
+  if (item.kind === "ebook") {
+    const doc = book.documents.find((d) => isFoliateFormat(d.format)) ?? book.documents[0] ?? null;
+    if (doc) {
+      await downloadEbook(item.id, doc.id, doc.url, {
+        title: item.title,
+        authors: item.authors,
+        coverUrl: item.coverUrl,
+        totalBytes: doc.size,
+        format: doc.format
+      }, onProgress);
+    }
+  } else {
+    await downloadBook(book, onProgress);
+  }
+}
+
+// Offline records → the home-feed FeedItem shape, so offline surfaces (the
+// Downloads page and the offline home) reuse the exact home row layout. No
+// progress is carried (offline rows don't show a bar); audiobooks surface their
+// saved duration when present, ebooks surface "EPUB · size".
+export function audioRecordToFeedItem(book: DownloadRecord): FeedItem {
+  return {
+    id: book.bookId,
+    kind: "audiobook",
+    title: book.title,
+    authors: book.authors,
+    coverUrl: book.coverUrl,
+    percentComplete: null,
+    completedAt: null,
+    discoveredAt: book.createdAt,
+    durationSeconds: book.bookDetail?.durationSeconds ?? null,
+    format: null,
+    totalSize: null
+  };
+}
+
+export function ebookRecordToFeedItem(book: EbookDownloadRecord): FeedItem {
+  return {
+    id: book.bookId,
+    kind: "ebook",
+    title: book.title,
+    authors: book.authors,
+    coverUrl: book.coverUrl,
+    percentComplete: null,
+    completedAt: null,
+    discoveredAt: book.createdAt,
+    durationSeconds: null,
+    format: "epub",
+    totalSize: book.totalBytes
+  };
 }
 
 // SQLite timestamps come back as "YYYY-MM-DD HH:MM:SS" (UTC, no zone) — normalize

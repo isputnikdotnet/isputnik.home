@@ -337,6 +337,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.3.5",
+          label: "A real installed-app experience on your phone",
+          changes: [
+            "Pick up where you left off, front and center. On phones, the Home screen now opens with a large \"Continue listening\" / \"Continue reading\" card for your most recent in-progress book — one tap to jump straight back in, with a Save-for-offline button right on the card.",
+            "A true offline Home. When your phone has no connection, the installed app's Home screen now shows just the books you've saved to the device — ready to play or read — instead of a page of covers it can't load.",
+            "Phone navigation that behaves like an app. The bottom tab bar (Home · Media · Offline · Profile) now stays put on the Downloads and account pages, and the Profile tab opens a quick sheet with your account and library shortcuts (Favorites, Bookmarks, Collections, Shared with me, and sign-out). The duplicate top menu on small screens is gone.",
+            "An easy way out of the player. The full-screen player on phones now has a back button in the top-left, so you can step back to where you were — previously there was no on-screen way to leave it.",
+            "Cleaner Home, consistent lists. The Home screen now shows your 5 most recent in-progress books and 10 newest additions, with the full lists one tap away under \"View all\" — and those lists now match the Home screen's look on phones. Also refined the pop-out audiobook player controls."
+          ]
+        },
+        {
           version: "1.3.4",
           label: "Sidebar quick-links & a new Help page",
           changes: [

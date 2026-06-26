@@ -735,15 +735,18 @@ a.home-overview-card:focus-visible {
 }
 
 @media (max-width: 740px) {
-  .app-dashboard-shell:not(.home-control-shell):not(.home-user-shell) .home-sidebar {
+  .app-dashboard-shell:not(.home-control-shell):not(.home-user-shell) .home-sidebar,
+  .app-dashboard-shell.home-mobile-tabbar-shell .home-sidebar {
     display: none;
   }
 
-  .app-dashboard-shell:not(.home-control-shell):not(.home-user-shell) .home-main {
+  .app-dashboard-shell:not(.home-control-shell):not(.home-user-shell) .home-main,
+  .app-dashboard-shell.home-mobile-tabbar-shell .home-main {
     padding: 18px 14px calc(90px + env(safe-area-inset-bottom));
   }
 
-  .app-dashboard-shell:not(.home-control-shell):not(.home-user-shell) .work-area {
+  .app-dashboard-shell:not(.home-control-shell):not(.home-user-shell) .work-area,
+  .app-dashboard-shell.home-mobile-tabbar-shell .work-area {
     padding-right: 0;
     padding-left: 0;
   }
@@ -860,6 +863,15 @@ a.home-overview-card:focus-visible {
   .home-content {
     gap: 22px;
     margin-top: 18px;
+    /* Pin the single column to the container width (minmax floor of 0) and let
+       every child shrink — otherwise the implicit `auto` track grows to a
+       child's content width (grid blowout) and pushes the feed rows past the
+       screen edge, hiding the ⋮ menu. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-content > * {
+    min-width: 0;
   }
 
   .home-section-title {
@@ -1092,6 +1104,167 @@ a.home-overview-card:focus-visible {
 
   .home-feed-row.is-skeleton .home-feed-row-cover {
     animation: home-pulse 1.3s ease-in-out infinite;
+  }
+}
+
+/* ── Mobile Home "pick up where you left off" resume hero ────────────────────
+   The single most-recent in-progress book, lifted above the Continue row as a
+   one-tap resume card. Mobile only — desktop keeps the tile grid. */
+@media (max-width: 740px) {
+  .home-resume-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--home-accent) 30%, var(--home-line));
+    border-radius: 16px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--home-accent) 14%, var(--home-panel)), var(--home-panel));
+  }
+
+  .home-resume-main {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .home-resume-main:disabled {
+    cursor: default;
+  }
+
+  .home-resume-side {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .home-resume-dl {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--home-ink);
+    color: var(--home-canvas);
+    cursor: pointer;
+  }
+
+  .home-resume-dl.is-saved {
+    background: color-mix(in srgb, var(--home-accent) 22%, transparent);
+    color: var(--home-accent);
+  }
+
+  .home-resume-dl:disabled {
+    cursor: default;
+  }
+
+  .home-resume-cover {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 60px;
+    height: 84px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--home-soft-strong);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--home-shadow-color) 50%, transparent);
+  }
+
+  .home-resume-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .home-resume-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .home-resume-eyebrow {
+    color: var(--home-accent-strong);
+    font-size: 0.68rem;
+    font-weight: 760;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .home-resume-title {
+    overflow: hidden;
+    color: var(--home-ink);
+    font-size: 1rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-resume-author {
+    overflow: hidden;
+    color: var(--home-muted);
+    font-size: 0.8rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-resume-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .home-resume-bar {
+    display: block;
+    flex: 1;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--home-soft-strong);
+    overflow: hidden;
+  }
+
+  .home-resume-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--home-accent);
+  }
+
+  .home-resume-pct {
+    flex: 0 0 auto;
+    color: var(--home-muted);
+    font-size: 0.72rem;
+    font-weight: 650;
+  }
+
+  .home-resume-action {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--home-accent);
+    color: var(--home-canvas);
+  }
+
+  .home-offline-empty {
+    margin-top: 8px;
   }
 }
 
