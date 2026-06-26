@@ -337,6 +337,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.3.4",
+          label: "Sidebar quick-links & a new Help page",
+          changes: [
+            "New Help page, plus quick links in the sidebar. Every page's side menu now ends with a small footer — Logout, plus one-tap icons for About, Help, and Report a bug. The new Help page gathers the user guides (two-factor sign-in, putting your library on the internet) and a direct \"report a bug\" link to GitHub all in one place.",
+            "Tidier, more consistent navigation. The main side menu is a little more compact, and the main, Control panel, and account/library menus now share the same row sizing so things feel consistent as you move around. (Logout now lives in the sidebar footer instead of the account drop-down menu.)"
+          ]
+        },
+        {
           version: "1.3.3",
           label: "Refreshed navigation & consistent tabbed layouts",
           changes: [
