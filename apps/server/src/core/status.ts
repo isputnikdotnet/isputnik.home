@@ -337,6 +337,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.3.6",
+          label: "Layout fixes for tablets & phones",
+          changes: [
+            "Tablets keep the left menu. On iPad-sized screens (and other tablet widths) the navigation no longer collapses into an awkward strip across the top — the familiar left sidebar stays put, and only actual phones switch to the bottom tab bar.",
+            "Long menus scroll instead of overlapping. When a side menu is taller than the screen (e.g. the Control panel on a short window), the menu now scrolls on its own while Logout and the footer stay pinned at the bottom, so nothing overlaps or gets pushed off-screen.",
+            "Tidier book rows. Fixed a glitch where the tops of the next row of book covers could peek out below the \"Continue\" and \"Recently added\" rows on some screen sizes; each row now ends cleanly on one line.",
+            "Theme picker fits phones. On the Profile → Appearance page, the theme tiles now lay out as two neat columns on a phone instead of cutting a third tile off the edge."
+          ]
+        },
+        {
           version: "1.3.5",
           label: "A real installed-app experience on your phone",
           changes: [
