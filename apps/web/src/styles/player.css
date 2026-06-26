@@ -514,8 +514,8 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  height: 40px;
-  padding: 6px 14px 0;
+  height: 36px;
+  padding: 4px 12px 0;
   flex-shrink: 0;
 }
 
@@ -524,8 +524,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 0 24px 10px;
+  gap: 4px;
+  padding: 0 20px 8px;
   text-align: center;
 }
 
@@ -573,7 +573,7 @@
   top: calc(100% + 4px);
   right: 0;
   z-index: 100;
-  min-width: 156px;
+  min-width: 188px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--muted) 18%, transparent);
   border-radius: 10px;
@@ -601,6 +601,15 @@
   color: var(--mint);
 }
 
+.popup-more-item.danger {
+  color: var(--rose);
+}
+
+.popup-more-item.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--rose) 10%, transparent);
+  color: var(--rose);
+}
+
 .popup-more-item:disabled {
   opacity: 0.5;
   cursor: default;
@@ -615,8 +624,8 @@
 }
 
 .popup-cover {
-  width: 172px;
-  height: 172px;
+  width: 158px;
+  height: 158px;
   border-radius: 14px;
   object-fit: cover;
   box-shadow:
@@ -634,7 +643,7 @@
 }
 
 .popup-title {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: 1.05rem;
   font-weight: 900;
   line-height: 1.3;
@@ -663,11 +672,11 @@
 }
 
 .popup-player-body {
-  padding: 4px 16px 16px;
+  padding: 2px 14px 12px;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 /* "Up next" affordance under the player when walking a collection. */
@@ -732,7 +741,7 @@
   background: none;
   box-shadow: none;
   padding: 0;
-  gap: 12px;
+  gap: 10px;
 }
 
 /* The chapter stays tucked under the cover/title; the flexible space sits below
@@ -771,11 +780,11 @@
   align-self: center;
   align-items: center;
   gap: 10px;
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--muted) 12%, transparent);
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
 }
 
@@ -808,14 +817,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.98rem;
+  font-size: 0.94rem;
   font-weight: 800;
   color: var(--mint);
   line-height: 1.25;
 }
 
 .player-popup-chapter span {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 500;
   color: var(--muted);
   line-height: 1.25;
@@ -825,23 +834,35 @@
   white-space: nowrap;
 }
 
-/* Volume row — speaker icons flank a centered slider */
+/* Compact volume row — slider plus the fast speed/sleep controls. */
 .player-volume-popup {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 2px 0;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--muted) 16%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--muted) 5%, transparent);
 }
 
-.player-volume-popup .player-vol-slider {
-  width: auto;
+.player-volume-control {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.player-volume-control .player-vol-slider {
   flex: 1;
-  max-width: 200px;
+  min-width: 72px;
+  max-width: none;
 }
 
 .player-volume-popup .player-vol-icon {
   display: flex;
+  flex-shrink: 0;
   border: none;
   background: transparent;
   color: var(--muted);
@@ -851,6 +872,45 @@
 .player-volume-popup .player-vol-max {
   color: var(--muted);
   flex-shrink: 0;
+}
+
+.player-volume-menu {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.player-volume-menu.player-speed {
+  gap: 0;
+  margin-left: 0;
+}
+
+.player-volume-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  min-width: 54px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--muted) 18%, transparent);
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--surface);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.player-volume-action-btn:hover,
+.player-volume-action-btn:focus-visible,
+.player-volume-action-btn.open,
+.player-volume-action-btn.active {
+  border-color: color-mix(in srgb, var(--mint) 45%, transparent);
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 10%, transparent);
 }
 
 /* Seek row */
@@ -875,7 +935,7 @@
   gap: 8px;
   border: none;
   background: none;
-  padding: 8px 0 4px;
+  padding: 6px 0 2px;
 }
 
 /* Small nav buttons (prev/next chapter) */
@@ -977,11 +1037,11 @@
   color: var(--mint);
 }
 
-/* Popup aux bar — three equal columns */
+/* Popup aux bar — equal destination buttons. */
 .player-aux--popup {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
   padding: 0;
 }
 
@@ -1001,38 +1061,6 @@
   gap: 0;
 }
 
-/* Chapters — full-width row beneath the Speed / Bookmarks / My List row. */
-.player-popup-chapters-btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 16px;
-  border: 1px solid color-mix(in srgb, var(--muted) 20%, transparent);
-  border-radius: 12px;
-  color: var(--ink);
-  background: transparent;
-  font-size: 0.84rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
-}
-
-.player-popup-chapters-btn-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.player-popup-chapters-btn:hover,
-.player-popup-chapters-btn:focus-visible {
-  border-color: color-mix(in srgb, var(--mint) 45%, transparent);
-  background: color-mix(in srgb, var(--mint) 10%, transparent);
-  color: var(--mint);
-}
-
 :root[data-theme="light"] .player-aux--popup,
 :root[data-theme="plain-light"] .player-aux--popup {
   border-color: color-mix(in srgb, var(--ink) 10%, transparent);
@@ -1044,8 +1072,8 @@
    also narrow — keeps its compact cover. */
 @media (max-width: 480px) and (min-height: 640px) {
   .popup-cover {
-    width: min(56vw, 220px);
-    height: min(56vw, 220px);
+    width: min(52vw, 198px);
+    height: min(52vw, 198px);
   }
 
   .popup-title {
@@ -1065,12 +1093,13 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 6px;
+  gap: 5px;
   width: 100%;
   min-width: 0;
-  padding: 11px 4px;
+  min-height: 50px;
+  padding: 8px 4px;
   border: 1px solid var(--player-line-soft);
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--ink);
   background: transparent;
   cursor: pointer;
@@ -1088,6 +1117,12 @@
   color: var(--mint);
 }
 
+.player-popup-aux-btn.open {
+  border-color: color-mix(in srgb, var(--mint) 45%, transparent);
+  background: color-mix(in srgb, var(--mint) 10%, transparent);
+  color: var(--mint);
+}
+
 .player-popup-aux-value {
   font-size: 1rem;
   font-weight: 900;
@@ -1098,7 +1133,11 @@
   font-size: 0.68rem;
   font-weight: 700;
   line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: inherit;
 }
 

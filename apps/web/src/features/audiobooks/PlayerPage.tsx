@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Download, ListMusic, Menu, RotateCcw, SkipForward, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, Download, ListMusic, MoreVertical, RotateCcw, SkipForward, StickyNote, X } from "lucide-react";
 import { api, isAccessOrMissingApiError } from "../../api";
 import { getDownloadedBookDetail } from "../../offline/downloads";
 import { AudioPlayer } from "./AudioPlayer";
@@ -205,15 +205,26 @@ export function PlayerPage({ id }: { id: string }) {
           <button
             className="popup-menu-btn"
             onClick={() => setMenuOpen((o) => !o)}
-            aria-label="Menu"
+            aria-haspopup="menu"
+            aria-label="More options"
             aria-expanded={menuOpen}
+            title="More options"
           >
-            <Menu size={22} />
+            <MoreVertical size={22} />
           </button>
           {menuOpen && (
-            <div className="popup-more-menu">
+            <div className="popup-more-menu" role="menu" aria-label="Player options">
+              <button className="popup-more-item" role="menuitem" onClick={openNoteEditor}>
+                <StickyNote size={15} />
+                <span>Add note</span>
+              </button>
+              <button className="popup-more-item" role="menuitem" onClick={markFinished} disabled={marking}>
+                <CheckCircle2 size={15} />
+                <span>{marking ? "Marking..." : "Mark as finished"}</span>
+              </button>
               <a
                 className="popup-more-item"
+                role="menuitem"
                 href={`/api/library/books/${currentId}/download`}
                 download
                 onClick={() => setMenuOpen(false)}
@@ -221,7 +232,7 @@ export function PlayerPage({ id }: { id: string }) {
                 <Download size={15} />
                 <span>Download</span>
               </a>
-              <button className="popup-more-item" onClick={resetProgress} disabled={resetting}>
+              <button className="popup-more-item danger" role="menuitem" onClick={resetProgress} disabled={resetting}>
                 <RotateCcw size={15} />
                 <span>{resetting ? "Resetting…" : "Reset progress"}</span>
               </button>
@@ -282,8 +293,6 @@ export function PlayerPage({ id }: { id: string }) {
           saved={save?.saved ?? false}
           onToggleSave={toggleSave}
           savingSave={savingSave}
-          onAddNote={openNoteEditor}
-          onMarkFinished={markFinished}
         />
 
         {nextEntry && (
