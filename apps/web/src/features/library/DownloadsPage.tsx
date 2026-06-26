@@ -9,7 +9,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { formatBytes } from "../../shared/utils";
 import { FeedListItem } from "./FeedListItem";
-import type { FeedItem } from "./feed";
+import { audioRecordToFeedItem, ebookRecordToFeedItem } from "./feed";
 import { EbookReader } from "../audiobooks/reader/EbookReader";
 import type { ReadingProgress } from "../audiobooks/types";
 import {
@@ -24,42 +24,6 @@ import {
   type EbookDownloadRecord,
   type StorageEstimate
 } from "../../offline/downloads";
-
-// Offline records → the home-feed FeedItem shape, so the mobile Downloads list
-// reuses the exact home row layout. No progress is carried (offline rows don't
-// show a bar); audiobooks surface their duration when the saved detail has it,
-// ebooks surface "EPUB · size".
-function audioRecordToFeedItem(book: DownloadRecord): FeedItem {
-  return {
-    id: book.bookId,
-    kind: "audiobook",
-    title: book.title,
-    authors: book.authors,
-    coverUrl: book.coverUrl,
-    percentComplete: null,
-    completedAt: null,
-    discoveredAt: book.createdAt,
-    durationSeconds: book.bookDetail?.durationSeconds ?? null,
-    format: null,
-    totalSize: null
-  };
-}
-
-function ebookRecordToFeedItem(book: EbookDownloadRecord): FeedItem {
-  return {
-    id: book.bookId,
-    kind: "ebook",
-    title: book.title,
-    authors: book.authors,
-    coverUrl: book.coverUrl,
-    percentComplete: null,
-    completedAt: null,
-    discoveredAt: book.createdAt,
-    durationSeconds: null,
-    format: "epub",
-    totalSize: book.totalBytes
-  };
-}
 
 interface ViewerState {
   bookId: string;

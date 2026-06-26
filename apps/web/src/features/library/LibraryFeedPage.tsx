@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
-import { Clock, Headphones, type LucideIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Clock, Headphones, Loader2, type LucideIcon } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { MessageBox } from "../../shared/MessageBox";
+import { useIsMobile } from "../../shared/useIsMobile";
+import { listDownloads, listEbookDownloads } from "../../offline/downloads";
 import { fetchFeed, type FeedItem, type FeedMode } from "./feed";
 import { FeedTile, FeedTileSkeleton } from "./FeedTile";
+import { FeedListItem, FeedListItemSkeleton } from "./FeedListItem";
 
 // The page shows the most recent N — no pagination, just the latest slice.
 const LIMIT = 50;
@@ -28,11 +32,42 @@ const count = (value: number) => new Intl.NumberFormat().format(value);
 
 // Unified, cross-type feed page behind the home rows' "View all" links. `recent`
 // lists newest additions across audiobooks + ebooks; `continue` lists in-progress.
-// Capped at the latest LIMIT items.
+// Capped at the latest LIMIT items. Renders the same way the home rows do:
+// list rows on phones, the catalog tile grid on desktop.
 export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: PublicUser; logout: () => Promise<void> }) {
+  const isMobile = useIsMobile();
   const [items, setItems] = useState<FeedItem[] | null>(null);
   const [error, setError] = useState("");
+  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activeDownload, setActiveDownload] = useState<{ title: string; progress: number } | null>(null);
   const meta = MODES[mode];
+
+  const showToast = useCallback((message: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(message);
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
+  }, []);
+
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
+  const handleDownloaded = useCallback((id: string) => {
+    setDownloadedIds((prev) => new Set([...prev, id]));
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    let alive = true;
+    Promise.allSettled([listDownloads(), listEbookDownloads()]).then(([audio, ebooks]) => {
+      if (!alive) return;
+      const ids = new Set<string>();
+      if (audio.status === "fulfilled") audio.value.forEach((d) => ids.add(d.bookId));
+      if (ebooks.status === "fulfilled") ebooks.value.forEach((d) => ids.add(d.bookId));
+      setDownloadedIds(ids);
+    });
+    return () => { alive = false; };
+  }, [isMobile]);
 
   useEffect(() => {
     let alive = true;
@@ -51,6 +86,7 @@ export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: 
   const EmptyIcon = meta.icon;
 
   return (
+    <>
     <DashboardShell active="home" user={user} logout={logout}>
       {/* Same full-width wrapper the Audiobooks page uses, so the catalog grid
           fits the same number of columns (work-area caps width at 1040px). */}
@@ -73,6 +109,22 @@ export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: 
             <h2>{meta.emptyHeading}</h2>
             <p className="muted">{meta.empty}</p>
           </div>
+        ) : isMobile ? (
+          <div className="home-feed-list">
+            {items === null
+              ? Array.from({ length: 8 }).map((_, index) => <FeedListItemSkeleton key={index} />)
+              : items.map((item) => (
+                <FeedListItem
+                  key={`${item.kind}-${item.id}`}
+                  item={item}
+                  progress={mode === "continue"}
+                  downloaded={downloadedIds.has(item.id)}
+                  onDownloaded={handleDownloaded}
+                  onToast={showToast}
+                  onDownload={setActiveDownload}
+                />
+              ))}
+          </div>
         ) : (
           <div className="library-feed-grid">
             {items === null
@@ -84,5 +136,25 @@ export function LibraryFeedPage({ mode, user, logout }: { mode: FeedMode; user: 
         )}
       </section>
     </DashboardShell>
+
+    {toast && createPortal(
+      <div className="home-toast" role="status" aria-live="polite">{toast}</div>,
+      document.body
+    )}
+
+    {activeDownload && createPortal(
+      <div className="home-dl-banner" role="status" aria-live="polite">
+        <Loader2 size={16} className="home-feed-spin" aria-hidden="true" />
+        <div className="home-dl-banner-body">
+          <span className="home-dl-banner-label">Downloading {activeDownload.title}</span>
+          <span className="home-dl-banner-track">
+            <span style={{ width: `${Math.round(activeDownload.progress * 100)}%` }} />
+          </span>
+        </div>
+        <span className="home-dl-banner-pct">{Math.round(activeDownload.progress * 100)}%</span>
+      </div>,
+      document.body
+    )}
+    </>
   );
 }

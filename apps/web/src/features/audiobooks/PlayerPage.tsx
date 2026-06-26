@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, ChevronRight, Download, ListMusic, MoreVertical, RotateCcw, SkipForward, StickyNote, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, Download, ListMusic, MoreVertical, RotateCcw, SkipForward, StickyNote, X } from "lucide-react";
 import { api, isAccessOrMissingApiError } from "../../api";
+import { navigate } from "../../router";
 import { getDownloadedBookDetail } from "../../offline/downloads";
 import { AudioPlayer } from "./AudioPlayer";
 import { DEFAULT_COVERS } from "./covers";
@@ -17,6 +18,20 @@ export function PlayerPage({ id }: { id: string }) {
   // being played is tracked separately so we can advance through the queue
   // without reopening the window.
   const collectionId = useMemo(() => new URLSearchParams(window.location.search).get("collection"), []);
+
+  // The player is reached two ways: a desktop popup window (window.open, so it
+  // has an opener) the user closes with the OS chrome, or an in-app full-screen
+  // route on mobile/PWA (navigate()) that otherwise has no way out. The dismiss
+  // control adapts: close the popup window, else step back through app history.
+  const isPopupWindow = useMemo(
+    () => typeof window !== "undefined" && (window.opener != null || window.name === "isputnik-player"),
+    []
+  );
+  const dismiss = () => {
+    if (isPopupWindow) { window.close(); return; }
+    if (window.history.length > 1) window.history.back();
+    else navigate("/");
+  };
 
   const [currentId, setCurrentId] = useState(id);
   const [autoPlay, setAutoPlay] = useState(false);
@@ -195,6 +210,14 @@ export function PlayerPage({ id }: { id: string }) {
   return (
     <div className="popup-player-page">
       <div className="popup-topbar">
+        <button
+          className="popup-menu-btn popup-back-btn"
+          onClick={dismiss}
+          aria-label={isPopupWindow ? "Close player" : "Back"}
+          title={isPopupWindow ? "Close" : "Back"}
+        >
+          {isPopupWindow ? <X size={22} /> : <ChevronDown size={24} />}
+        </button>
         {collectionId && queue.length > 0 && (
           <div className="popup-queue-badge" title={collectionName}>
             <ListMusic size={15} />
