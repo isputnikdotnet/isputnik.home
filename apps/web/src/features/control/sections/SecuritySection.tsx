@@ -20,6 +20,7 @@ import { Button } from "../../../shared/Button";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
+import { repoFileUrl } from "../../../shared/links";
 import { formatManagedDate } from "../../../shared/utils";
 
 interface TrustedNetwork {
@@ -389,7 +390,7 @@ export function SecuritySection() {
                         </p>
                         <p className="security-help-link">
                           <a
-                            href="https://github.com/isputnikdotnet/isputnik.home/blob/main/docs/users/exposing-to-the-internet.md"
+                            href={repoFileUrl("docs/users/exposing-to-the-internet.md")}
                             target="_blank"
                             rel="noreferrer"
                           >
