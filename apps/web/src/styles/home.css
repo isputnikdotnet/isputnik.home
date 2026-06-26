@@ -39,6 +39,8 @@
 }
 
 .home-sidebar {
+  /* Left inset of every nav row's content (icon column); the footer aligns to it. */
+  --home-nav-inset: 15px;
   position: sticky;
   top: 0;
   display: flex;
@@ -59,7 +61,7 @@
   width: 100%;
   min-width: 0;
   min-height: 54px;
-  padding: 0 15px;
+  padding: 0 var(--home-nav-inset);
   border: 0;
   border-radius: 8px;
   color: var(--home-ink);
@@ -189,16 +191,10 @@
   color: var(--home-accent);
 }
 
-.home-user-menu-divider {
-  height: 1px;
-  margin: 7px 10px;
-  background: var(--home-line);
-}
-
 .home-primary-nav {
   display: grid;
-  gap: 11px;
-  margin-top: 30px;
+  gap: 7px;
+  margin-top: 22px;
 }
 
 .home-sidebar-bottom {
@@ -220,11 +216,11 @@
 .home-nav-link {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
   width: 100%;
-  min-height: 54px;
+  min-height: 46px;
   min-width: 0;
-  padding: 0 15px;
+  padding: 0 var(--home-nav-inset);
   border: 0;
   border-radius: 8px;
   color: var(--home-muted);
@@ -276,13 +272,53 @@
 .home-footer {
   flex: 0 0 auto;
   display: grid;
-  gap: 6px;
+  gap: 10px;
   margin-top: 14px;
   color: var(--home-muted);
-  font-size: 0.88rem;
 }
 
-.home-footer strong {
+.home-footer-actions {
+  display: flex;
+  justify-content: flex-start;
+  /* Land the icon glyphs on --home-nav-inset: back off the icon box's own
+     centering ((40px box - 18px icon) / 2 = 11px) so they line up with the nav. */
+  padding-left: calc(var(--home-nav-inset) - 11px);
+  gap: 4px;
+}
+
+.home-footer-action {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--home-muted);
+  text-decoration: none;
+}
+
+.home-footer-action:hover,
+.home-footer-action:focus-visible {
+  color: var(--home-ink);
+  background: var(--home-soft-strong);
+  outline: 0;
+}
+
+.home-footer-action.is-active {
+  color: var(--home-accent-strong);
+  background: var(--home-soft);
+}
+
+.home-footer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding-left: var(--home-nav-inset);
+  color: var(--home-muted);
+  font-size: 0.72rem;
+}
+
+.home-footer-meta strong {
   color: var(--home-muted);
   font-weight: 650;
 }
@@ -378,10 +414,8 @@
   text-transform: uppercase;
 }
 
-.home-control-group .home-nav-link {
-  min-height: 45px;
-  gap: 12px;
-}
+/* Control- and user-area nav links inherit the base .home-nav-link size
+   (46px row, 14px icon gap) so they match the main-page nav exactly. */
 
 .control-panel-single {
   grid-template-columns: minmax(0, 1fr);

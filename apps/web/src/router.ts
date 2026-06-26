@@ -34,6 +34,7 @@ export type Route =
   | { name: "control"; section: ControlSection }
   | { name: "controlCategoryEditor"; categoryId: string | null }
   | { name: "about" }
+  | { name: "help" }
   | { name: "profile" }
   | { name: "invite"; token: string }
   | { name: "share"; token: string }
@@ -297,6 +298,10 @@ export function getRoute(): Route {
 
   if (path === "/about") {
     return { name: "about" };
+  }
+
+  if (path === "/help") {
+    return { name: "help" };
   }
 
   return { name: "home" };

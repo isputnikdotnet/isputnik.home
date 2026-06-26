@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Bookmark,
   BookOpen,
+  Bug,
   ChevronDown,
   DownloadCloud,
   FileText,
   Headphones,
   Heart,
+  HelpCircle,
   Home,
   Image,
   Info,
@@ -24,10 +26,27 @@ import packageInfo from "../../../../package.json";
 import type { PublicUser } from "../api";
 import { isStandalone } from "../pwa/platform";
 import { followRoute } from "../router";
+import { REPO_ISSUES_URL } from "../shared/links";
 
 const APP_VERSION = packageInfo.version;
 
-type DashboardActive = "home" | "audiobooks" | "ebooks" | "authors" | "categories" | "tags" | "about" | "control" | "user";
+type DashboardActive = "home" | "audiobooks" | "ebooks" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
+
+interface FooterAction {
+  href: string;
+  icon: LucideIcon;
+  title: string;
+  aria: string;
+  external?: boolean;
+  activeKey?: DashboardActive;
+}
+
+// About / Report-a-bug / Help — the icon row shared by every nav footer.
+const FOOTER_ACTIONS: FooterAction[] = [
+  { href: "/about", icon: Info, title: "About", aria: "About this app", activeKey: "about" },
+  { href: REPO_ISSUES_URL, icon: Bug, title: "Report a bug", aria: "Report a bug on GitHub", external: true },
+  { href: "/help", icon: HelpCircle, title: "Help", aria: "Help and guides", activeKey: "help" }
+];
 
 interface MainNavLink {
   label: string;
@@ -301,19 +320,6 @@ export function DashboardShell({
                   <UserRound size={19} aria-hidden="true" />
                   <span>Profile</span>
                 </a>
-                <span className="home-user-menu-divider" aria-hidden="true"></span>
-                <button
-                  className="home-user-menu-link"
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    void logout();
-                  }}
-                >
-                  <LogOut size={19} aria-hidden="true" />
-                  <span>Logout</span>
-                </button>
               </div>
             )}
           </div>
@@ -331,36 +337,41 @@ export function DashboardShell({
 
         <div className="home-sidebar-bottom">
           {!hasSectionNav && (
-            <>
-              <a
-                className={`home-nav-link${currentPath === settingsHref ? " is-active" : ""}`}
-                href={settingsHref}
-                onClick={(event) => followRoute(event, settingsHref)}
-              >
-                <Settings size={21} aria-hidden="true" />
-                <span>Settings</span>
-              </a>
-              <a
-                className={`home-nav-link${active === "about" ? " is-active" : ""}`}
-                href="/about"
-                onClick={(event) => followRoute(event, "/about")}
-              >
-                <Info size={21} aria-hidden="true" />
-                <span>About</span>
-              </a>
-            </>
+            <a
+              className={`home-nav-link${currentPath === settingsHref ? " is-active" : ""}`}
+              href={settingsHref}
+              onClick={(event) => followRoute(event, settingsHref)}
+            >
+              <Settings size={21} aria-hidden="true" />
+              <span>Settings</span>
+            </a>
           )}
-          {hasSectionNav && (
-            <button className="home-nav-link home-logout-link" type="button" onClick={logout}>
-              <LogOut size={21} aria-hidden="true" />
-              <span>Logout</span>
-            </button>
-          )}
+          <button className="home-nav-link home-logout-link" type="button" onClick={logout}>
+            <LogOut size={21} aria-hidden="true" />
+            <span>Logout</span>
+          </button>
         </div>
 
         <footer className="home-footer">
-          <strong>v{APP_VERSION}</strong>
-          <span>&copy; 2026 iSputnik</span>
+          <div className="home-footer-actions">
+            {FOOTER_ACTIONS.map(({ href, icon: Icon, title, aria, external, activeKey }) => {
+              const className = `home-footer-action${activeKey && active === activeKey ? " is-active" : ""}`;
+              return external ? (
+                <a className={className} key={title} href={href} target="_blank" rel="noreferrer" title={title} aria-label={aria}>
+                  <Icon size={18} aria-hidden="true" />
+                </a>
+              ) : (
+                <a className={className} key={title} href={href} onClick={(event) => followRoute(event, href)} title={title} aria-label={aria}>
+                  <Icon size={18} aria-hidden="true" />
+                </a>
+              );
+            })}
+          </div>
+          <div className="home-footer-meta">
+            <strong>v{APP_VERSION}</strong>
+            <span aria-hidden="true">&middot;</span>
+            <span>iSputnik.com</span>
+          </div>
         </footer>
       </aside>
 

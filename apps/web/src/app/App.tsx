@@ -11,6 +11,7 @@ import { InvitePage } from "../pages/InvitePage";
 import { HomePage } from "../pages/HomePage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { AboutPage } from "../pages/AboutPage";
+import { HelpPage } from "../pages/HelpPage";
 import { AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
 import { AudiobookBookPage } from "../features/audiobooks/BookDetailPage";
 import { MyListPage } from "../features/library/MyListPage";
@@ -240,6 +241,10 @@ export function App() {
 
   if (route.name === "about") {
     return <AboutPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "help") {
+    return <HelpPage user={session.user} logout={logout} />;
   }
 
   if (route.name === "audiobooks") {
