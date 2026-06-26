@@ -6,6 +6,16 @@
   max-width: 640px;
 }
 
+/* Phones: lock to two even columns. The minmax floor of 0 lets them shrink to
+   the available width, instead of auto-fill's 150px floor packing a third
+   column that spills off the right edge on narrow screens. */
+@media (max-width: 740px) {
+  .theme-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+  }
+}
+
 .theme-card {
   display: flex;
   flex-direction: column;

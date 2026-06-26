@@ -49,7 +49,10 @@
   min-height: 0;
   padding: 28px 18px 24px;
   border-right: 1px solid var(--home-line);
-  overflow-y: auto;
+  /* The sidebar itself never scrolls; only the nav region (below) does, so the
+     user menu at the top and the logout + footer at the bottom stay pinned even
+     when the nav (e.g. the long Control panel list) is taller than the screen. */
+  overflow: hidden;
   background: color-mix(in srgb, var(--home-panel) 88%, transparent);
   backdrop-filter: blur(18px);
 }
@@ -80,6 +83,7 @@
 
 .home-user-menu-wrap {
   position: relative;
+  flex: 0 0 auto;
   min-width: 0;
 }
 
@@ -193,8 +197,15 @@
 
 .home-primary-nav {
   display: grid;
+  flex: 1 1 auto;
+  align-content: start;
   gap: 7px;
   margin-top: 22px;
+  /* min-height:0 lets this flex child shrink below its content so overflow-y
+     can take effect; the nav scrolls while the rest of the sidebar stays put. */
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .home-sidebar-bottom {
@@ -393,7 +404,10 @@
 }
 
 .home-control-nav-wrap {
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .home-control-nav {
@@ -464,7 +478,11 @@
   grid-template-columns: repeat(auto-fill, var(--home-tile-w));
   grid-template-rows: 1fr;
   grid-auto-rows: 0;
-  gap: 16px;
+  /* Column gap only. A row gap would still be inserted above each clipped
+     0-height overflow row, padding the grid's height by 16px per wrapped row
+     and letting the tops of the next row's covers bleed below the line. */
+  column-gap: 16px;
+  row-gap: 0;
   overflow: hidden;
 }
 
@@ -622,7 +640,10 @@ a.home-overview-card:focus-visible {
   }
 }
 
-@media (max-width: 920px) {
+/* Tablets keep the desktop left sidebar — only collapse the nav to a horizontal
+   bar / hand off to the bottom-tab mobile layout at the phone breakpoint (740px).
+   Above 740px the shell stays a left rail + content grid (see the 1240px rule). */
+@media (max-width: 740px) {
   .home-dashboard-shell {
     display: block;
   }
