@@ -1,0 +1,73 @@
+// Serve the original photo/video for an asset, with HTTP range support so the
+// browser's <video> element can seek. Mirrors the audiobook file streamer
+// (reply.hijack() + parseRangeHeader + pipe(reply.raw)). Photos are usually served
+// whole; videos arrive as 206 partial responses.
+import fs from "node:fs";
+import path from "node:path";
+import type { FastifyInstance } from "fastify";
+import { db } from "../../../db.js";
+import { pathIsInside } from "../shared/storage-roots.js";
+import { canUserAccessBook } from "../shared/library-access.js";
+import { parseRangeHeader } from "../shared/document-stream.js";
+
+export async function galleryStreamPlugin(app: FastifyInstance) {
+  app.get("/api/library/gallery/assets/:id/file", { preHandler: app.authenticate }, (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const row = db.prepare(`
+      SELECT gallery_details.relative_path, gallery_details.mime_type, libraries.source_path, libraries.id AS id
+      FROM gallery_details
+      JOIN library_items ON library_items.id = gallery_details.item_id
+      JOIN libraries ON libraries.id = library_items.library_id
+      WHERE gallery_details.item_id = ? AND library_items.deleted_at IS NULL
+    `).get(id) as { relative_path: string; mime_type: string | null; source_path: string; id: string } | undefined;
+
+    if (!row) {
+      reply.code(404).send({ error: "Asset not found" });
+      return;
+    }
+
+    const user = request.user!;
+    if (!canUserAccessBook(id, row, user.id, user.role, "gallery")) {
+      reply.code(404).send({ error: "Asset not found" });
+      return;
+    }
+
+    const filePath = path.join(row.source_path, ...row.relative_path.split("/"));
+    if (!pathIsInside(filePath, row.source_path) || !fs.existsSync(filePath)) {
+      reply.code(404).send({ error: "Asset not found" });
+      return;
+    }
+
+    const stat = fs.statSync(filePath);
+    const totalSize = stat.size;
+    const mimeType = row.mime_type ?? "application/octet-stream";
+    const rangeHeader = request.headers["range"];
+    const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
+
+    if (rangeHeader && !range) {
+      reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
+      return;
+    }
+
+    reply.hijack();
+    if (range) {
+      reply.raw.writeHead(206, {
+        "Content-Type": mimeType,
+        "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`,
+        "Content-Length": range.size,
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, no-cache"
+      });
+      fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(reply.raw);
+    } else {
+      reply.raw.writeHead(200, {
+        "Content-Type": mimeType,
+        "Content-Length": totalSize,
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, no-cache"
+      });
+      fs.createReadStream(filePath).pipe(reply.raw);
+    }
+  });
+}

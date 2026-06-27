@@ -23,6 +23,11 @@ RUN npm run build --workspace apps/server
 FROM node:22-slim
 WORKDIR /app
 
+# ffmpeg/ffprobe — gallery libraries use them to read video metadata and extract
+# poster frames for thumbnails. Photos need only sharp (a node_modules dependency).
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Runtime node_modules (with compiled native bindings from the build stage)
 COPY --from=deps /build/node_modules ./node_modules
 

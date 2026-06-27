@@ -18,7 +18,7 @@ export function AddToCollectionModal({
   title,
   onClose
 }: {
-  entityType: "audiobook" | "ebook";
+  entityType: "audiobook" | "ebook" | "gallery";
   entityId: string;
   title: string;
   onClose: () => void;

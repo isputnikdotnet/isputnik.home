@@ -25,6 +25,36 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
       db.exec("ALTER TABLE users ADD COLUMN mfa_secret TEXT");
       db.exec("ALTER TABLE users ADD COLUMN mfa_backup_codes TEXT");
     }
+  },
+  // Gallery (photo/video) library type: per-asset detail table. schema.sql creates
+  // it via CREATE TABLE IF NOT EXISTS on fresh databases; this applies it to
+  // existing ones. Idempotent so it's safe to run after the baseline create.
+  {
+    version: 5,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS gallery_details (
+          item_id             TEXT PRIMARY KEY REFERENCES library_items(id) ON DELETE CASCADE,
+          kind                TEXT NOT NULL DEFAULT 'photo' CHECK (kind IN ('photo', 'video')),
+          relative_path       TEXT NOT NULL,
+          mime_type           TEXT,
+          size                INTEGER,
+          width               INTEGER,
+          height              INTEGER,
+          orientation         INTEGER,
+          duration_seconds    REAL,
+          taken_at            TEXT,
+          modified_at         TEXT,
+          gps_lat             REAL,
+          gps_lng             REAL,
+          camera_make         TEXT,
+          camera_model        TEXT,
+          preview_storage_key TEXT,
+          updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        )
+      `);
+      db.exec("CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at)");
+    }
   }
 ];
 

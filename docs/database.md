@@ -15,7 +15,7 @@ document explains the model and the conventions behind it.
 1. **Generic spine, typed extensions.** Every item — audiobook, ebook, future
    gallery/document — is one row in **`library_items`**. Shared descriptive data
    lives in **`item_metadata`** (1:1); media-specific columns live in per-type
-   detail tables (**`audiobook_details`**, **`ebook_details`**) keyed 1:1 by
+   detail tables (**`audiobook_details`**, **`ebook_details`**, **`gallery_details`**) keyed 1:1 by
    `item_id`. Adding a media type = one library `type`, one `*_details` table,
    and its file/progress tables — never a reshape of the core.
 2. **Shared concerns are media-agnostic.** Categories, tags, collections,
@@ -162,6 +162,18 @@ erDiagram
     TEXT item_id PK "FK"
     INTEGER page_count
   }
+  gallery_details {
+    TEXT item_id PK "FK"
+    TEXT kind "photo|video"
+    TEXT relative_path
+    INTEGER width
+    INTEGER height
+    REAL duration_seconds
+    TEXT taken_at
+    REAL gps_lat
+    REAL gps_lng
+    TEXT preview_storage_key
+  }
   people {
     TEXT id PK
     TEXT name UK
@@ -299,6 +311,7 @@ erDiagram
   library_items ||--|| item_metadata : "described by"
   library_items ||--o| audiobook_details : "if audiobook"
   library_items ||--o| ebook_details : "if ebook"
+  library_items ||--o| gallery_details : "if gallery"
 
   library_items ||--o{ item_people : "credits"
   people ||--o{ item_people : "credited on"

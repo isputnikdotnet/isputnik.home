@@ -16,7 +16,7 @@ export function resetDb(): void {
     "audio_chapters", "audio_files", "document_files",
     "playback_progress", "track_progress", "reading_progress",
     "audio_bookmarks", "reading_bookmarks",
-    "audiobook_details", "ebook_details", "item_metadata",
+    "audiobook_details", "ebook_details", "gallery_details", "item_metadata",
     "taggables", "collection_items", "collections", "work_items", "works",
     "library_scan_rule_paths", "library_scan_rules",
     "library_items", "people", "series", "libraries", "user_groups", "users"

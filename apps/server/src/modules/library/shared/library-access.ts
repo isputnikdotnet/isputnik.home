@@ -3,7 +3,7 @@
 // the codebase migrates. All role resolution now goes through `assignments`.
 import { db } from "../../../db.js";
 import { userHasItemShare } from "./share-access.js";
-import { mediaKind, type BookLibraryType } from "./library-types.js";
+import { mediaKind, type MediaModule } from "./library-types.js";
 import {
   EVERYONE_GROUP_ID,
   resolveObjectRole,
@@ -186,13 +186,13 @@ export function getAccessibleLibrary(
 // share of this single book even when its library is private. `module` is the
 // item's share namespace ("audiobook" | "ebook") — pass the right one or a share
 // of the wrong type silently fails to resolve.
-export function canUserAccessBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: BookLibraryType): boolean {
+export function canUserAccessBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: MediaModule): boolean {
   if (canUserAccessLibrary(library, userId, userRole)) return true;
   return userHasItemShare(module, bookId, userId);
 }
 
 // Book-level download: needs the Member+ download capability, OR a user share.
-export function canUserDownloadBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: BookLibraryType): boolean {
+export function canUserDownloadBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: MediaModule): boolean {
   if (canUserDownloadLibrary(library, userId, userRole)) return true;
   return userHasItemShare(module, bookId, userId);
 }

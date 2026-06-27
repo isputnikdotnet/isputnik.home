@@ -58,7 +58,7 @@ isputnik.home is a private, self-hosted web app for friends and family. It provi
 
 ### Future Updates
 
-- Photo and video library types
+- Gallery enhancements — map view (GPS), face detection / semantic search, shareable albums
 - Mobile app
 
 ---
@@ -86,8 +86,7 @@ The primary content module. Supports multiple **library types** — each type ha
 |---|---|---|
 | Audiobook | Active | [`audiobook-library.md`](audiobook-library.md) |
 | Ebook | Active (EPUB/PDF, in-app reader) | [`ebook-library.md`](ebook-library.md) |
-| Photo | Planned | — |
-| Video | Planned | — |
+| Gallery | Active (photos + videos, timeline + folder views) | [`gallery-library.md`](gallery-library.md) |
 | Podcast | Future | — |
 
 **Shared across all library types:**
@@ -251,6 +250,7 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 | [`audiobook-library.md`](audiobook-library.md) | Audiobook library type — scan pipeline, metadata, phases, schema |
 | [`database.md`](database.md) | Database schema — unified `library_items` model, conventions, old→new map, table reference |
 | [`ebook-library.md`](ebook-library.md) | Ebook library type — EPUB/PDF catalog, in-app reader, per-type series |
+| [`gallery-library.md`](gallery-library.md) | Gallery library type — photos/videos, asset-as-item, timeline + folder views |
 | [`categories.md`](categories.md) | Categories — global genre taxonomy, scan matching, cross-type browse |
 | [`tags.md`](tags.md) | Tags — polymorphic labels, cross-type browse, admin management |
 | [`uploads.md`](uploads.md) | Upload process — end-to-end flow, streaming primitive, adding consumers |

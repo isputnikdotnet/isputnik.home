@@ -22,8 +22,8 @@ export const METADATA_SOURCES: MetadataSourceDefinition[] = [
   {
     id: "file_metadata",
     label: "File metadata",
-    description: "Scan files and extract embedded metadata (title, author, narrator, tags, etc.).",
-    appliesTo: ["audiobook", "ebook"],
+    description: "Scan files and extract embedded metadata (title, author, narrator, tags, EXIF date, etc.).",
+    appliesTo: ["audiobook", "ebook", "gallery"],
     defaultEnabled: true,
     recommended: true
   },
