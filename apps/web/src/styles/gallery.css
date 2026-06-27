@@ -237,6 +237,56 @@
 .gallery-lightbox-nav.prev { left: 14px; }
 .gallery-lightbox-nav.next { right: 14px; }
 
+/* Details pane — slides in over the right of the stage (Google Photos style). */
+.gallery-lightbox-info {
+  position: absolute;
+  top: 58px;
+  right: 0;
+  bottom: 0;
+  width: min(340px, 86vw);
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+  background: rgba(18, 18, 20, 0.94);
+  color: #fff;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px);
+}
+
+.gallery-lightbox-info h3 {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+}
+
+.gallery-lightbox-info dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gallery-lightbox-info dl > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gallery-lightbox-info dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.gallery-lightbox-info dd {
+  margin: 0;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.gallery-lightbox-info a {
+  color: #8eb4bf;
+}
+
 @media (max-width: 740px) {
   .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); }
 }

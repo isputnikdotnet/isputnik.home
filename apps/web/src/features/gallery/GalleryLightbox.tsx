@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import type { GalleryAsset } from "./types";
 
@@ -188,13 +189,36 @@ export function GalleryLightbox({
       </div>
 
       {showInfo && (
-        <div className="gallery-lightbox-bar" style={{ flexWrap: "wrap", gap: 12 }}>
-          <span>{asset.folderPath}</span>
-          {asset.camera && (asset.camera.make || asset.camera.model) && (
-            <span>{[asset.camera.make, asset.camera.model].filter(Boolean).join(" ")}</span>
-          )}
-          {asset.tags.length > 0 && <span>Tags: {asset.tags.join(", ")}</span>}
-        </div>
+        <aside className="gallery-lightbox-info" aria-label="Details">
+          <h3>Details</h3>
+          <dl>
+            <div><dt>Name</dt><dd>{asset.title}</dd></div>
+            {asset.takenAt && <div><dt>Date</dt><dd>{formatTaken(asset.takenAt)}</dd></div>}
+            <div><dt>Type</dt><dd>{asset.kind === "video" ? "Video" : "Photo"}</dd></div>
+            {asset.width != null && asset.height != null && (
+              <div><dt>Dimensions</dt><dd>{asset.width} × {asset.height}</dd></div>
+            )}
+            {asset.kind === "video" && asset.durationSeconds != null && (
+              <div><dt>Duration</dt><dd>{formatDuration(asset.durationSeconds)}</dd></div>
+            )}
+            {asset.size != null && <div><dt>Size</dt><dd>{formatBytes(asset.size)}</dd></div>}
+            {asset.camera && (asset.camera.make || asset.camera.model) && (
+              <div><dt>Camera</dt><dd>{[asset.camera.make, asset.camera.model].filter(Boolean).join(" ")}</dd></div>
+            )}
+            {asset.gps && (
+              <div>
+                <dt>Location</dt>
+                <dd>
+                  <a href={`https://www.openstreetmap.org/?mlat=${asset.gps.lat}&mlon=${asset.gps.lng}#map=15/${asset.gps.lat}/${asset.gps.lng}`} target="_blank" rel="noreferrer">
+                    {asset.gps.lat.toFixed(5)}, {asset.gps.lng.toFixed(5)}
+                  </a>
+                </dd>
+              </div>
+            )}
+            <div><dt>Folder</dt><dd>{asset.folder || "/"}</dd></div>
+            {asset.tags.length > 0 && <div><dt>Tags</dt><dd>{asset.tags.join(", ")}</dd></div>}
+          </dl>
+        </aside>
       )}
 
       {collectionOpen && (
