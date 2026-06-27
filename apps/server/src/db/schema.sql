@@ -228,6 +228,9 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   orientation         INTEGER,
   duration_seconds    REAL,
   taken_at            TEXT,
+  -- 'manual' = the date was set by a user (edit modal) and a rescan must not
+  -- overwrite it; 'scan' = derived from EXIF / file mtime.
+  taken_at_source     TEXT NOT NULL DEFAULT 'scan' CHECK (taken_at_source IN ('scan', 'manual')),
   modified_at         TEXT,
   gps_lat             REAL,
   gps_lng             REAL,

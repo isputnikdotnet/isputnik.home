@@ -6,6 +6,7 @@ export interface GalleryAsset {
   folder: string;
   kind: "photo" | "video";
   title: string;
+  description: string | null;
   takenAt: string | null;
   width: number | null;
   height: number | null;
@@ -34,6 +35,7 @@ export interface GalleryLibrary {
   name: string;
   bookCount: number;
   scanStatus: "idle" | "scanning" | "error";
+  canWrite: boolean;
   canDelete: boolean;
   canDownload: boolean;
 }

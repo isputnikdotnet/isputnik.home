@@ -211,9 +211,11 @@ export function GalleryPage({
     : lightbox?.source === "folder" ? folderAssets : assets;
 
   const libraryFor = (libraryId: string) => libraries.find((library) => library.id === libraryId);
-  const canDeleteCurrent = lightbox != null && activeAssets[lightbox.index]
-    ? libraryFor(activeAssets[lightbox.index].libraryId)?.canDelete ?? false
-    : false;
+  const currentLibrary = lightbox != null && activeAssets[lightbox.index]
+    ? libraryFor(activeAssets[lightbox.index].libraryId)
+    : undefined;
+  const canDeleteCurrent = currentLibrary?.canDelete ?? false;
+  const canEditCurrent = currentLibrary?.canWrite ?? false;
 
   const selectedLibraryLabel = scopeId === "all" ? "All Libraries" : libraryFor(scopeId)?.name ?? "All Libraries";
 
@@ -423,6 +425,7 @@ export function GalleryPage({
           assets={activeAssets}
           index={lightbox.index}
           canDelete={canDeleteCurrent}
+          canEdit={canEditCurrent}
           onClose={closeLightbox}
           onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
           onChanged={() => {

@@ -55,6 +55,18 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
       `);
       db.exec("CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at)");
     }
+  },
+  // Manual-date protection: a user-set gallery date (edit modal) must survive
+  // rescans. Existing rows default to 'scan'. Conditional because schema.sql (run
+  // before migrations) already creates the column on fresh databases.
+  {
+    version: 6,
+    up: (db) => {
+      const columns = db.pragma("table_info(gallery_details)") as { name: string }[];
+      if (!columns.some((column) => column.name === "taken_at_source")) {
+        db.exec("ALTER TABLE gallery_details ADD COLUMN taken_at_source TEXT NOT NULL DEFAULT 'scan'");
+      }
+    }
   }
 ];
 

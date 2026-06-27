@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
+import { updateGalleryAsset } from "../src/modules/library/gallery/edit.js";
 import {
   queryGalleryTimeline,
   queryGalleryFolders,
@@ -105,6 +106,28 @@ describe("gallery folder view", () => {
     const spring = queryGalleryFolders("u1", ["GAL"], "2024/spring", 100, 0);
     expect(spring.folders).toHaveLength(0);
     expect(spring.assets.map((a) => a.title).sort()).toEqual(["x.jpg", "y.jpg"]);
+  });
+});
+
+describe("gallery manual edits", () => {
+  it("keeps a hand-edited title, date, and tags across a rescan", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    updateGalleryAsset(id, {
+      title: "Sunset at the lake",
+      description: "Golden hour",
+      takenAt: "2019-07-04T18:30:00.000Z",
+      tags: ["vacation", "lake"]
+    });
+
+    // A rescan sees the file as changed (new mtime) and re-ingests it.
+    await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-09-09T00:00:00Z")), false);
+
+    const { assets } = queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0 });
+    const row = assets.find((a) => a.id === id)!;
+    expect(row.title).toBe("Sunset at the lake");
+    expect(row.description).toBe("Golden hour");
+    expect(row.takenAt).toBe("2019-07-04T18:30:00.000Z"); // manual date preserved, not the mtime
+    expect(row.tags.sort()).toEqual(["lake", "vacation"]);
   });
 });
 
