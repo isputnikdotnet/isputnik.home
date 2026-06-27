@@ -8,7 +8,15 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import exifr from "exifr";
+import ffmpegStatic from "ffmpeg-static";
+import ffprobeStatic from "ffprobe-static";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
+
+// Prefer the bundled static binaries — they ship in node_modules, so video probing
+// works on a dev box and in the Docker image without a system ffmpeg install. Fall
+// back to a PATH lookup if a binary is somehow missing.
+const FFMPEG_BIN: string = (ffmpegStatic as unknown as string | null) || "ffmpeg";
+const FFPROBE_BIN: string = ffprobeStatic?.path || "ffprobe";
 
 const PHOTO_EXTENSIONS = new Set([
   ".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".tiff", ".tif", ".bmp", ".avif"
@@ -122,7 +130,7 @@ async function readPhotoMetadata(absolutePath: string): Promise<AssetMetadata> {
 // Video metadata via ffprobe (JSON). Missing ffprobe → empty metadata.
 async function readVideoMetadata(absolutePath: string): Promise<AssetMetadata> {
   const meta: AssetMetadata = { ...EMPTY_METADATA };
-  const probe = await run("ffprobe", [
+  const probe = await run(FFPROBE_BIN, [
     "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", absolutePath
   ]);
   if (!probe.ok) return meta;
@@ -152,13 +160,13 @@ export function readAssetMetadata(kind: AssetKind, absolutePath: string): Promis
 // Extract a poster frame from a video as a JPEG buffer (ffmpeg). Seeks ~1s in to
 // skip black intro frames; null when ffmpeg is unavailable or the seek fails.
 async function videoPosterBuffer(absolutePath: string): Promise<Buffer | null> {
-  const result = await run("ffmpeg", [
+  const result = await run(FFMPEG_BIN, [
     "-v", "quiet", "-ss", "1", "-i", absolutePath,
     "-frames:v", "1", "-f", "image2", "-vcodec", "mjpeg", "pipe:1"
   ]);
   if (result.ok && result.stdout.length > 0) return result.stdout;
   // Retry from the very start for clips shorter than the 1s seek.
-  const retry = await run("ffmpeg", [
+  const retry = await run(FFMPEG_BIN, [
     "-v", "quiet", "-i", absolutePath,
     "-frames:v", "1", "-f", "image2", "-vcodec", "mjpeg", "pipe:1"
   ]);
