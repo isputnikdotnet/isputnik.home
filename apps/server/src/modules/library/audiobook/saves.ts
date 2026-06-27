@@ -4,7 +4,7 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { getLibraryForBook, canUserAccessLibrary } from "../shared/library-access.js";
+import { getLibraryForBook, canUserAccessLibrary, accessibleLibraryIds } from "../shared/library-access.js";
 import { bookLibraryIds } from "../feed.js";
 
 const saveSchema = z.object({
@@ -80,9 +80,10 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/saved", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
-    // Favorites span every book-like library type (audiobooks + ebooks). The save
-    // itself is book-id based and type-agnostic; this just lists across them.
-    const libIds = bookLibraryIds(user);
+    // Favorites span every library type the save applies to (audiobooks + ebooks +
+    // gallery). The save itself is item-id based and type-agnostic; this just lists
+    // across them. Gallery rows carry no authors and link to the lightbox.
+    const libIds = [...bookLibraryIds(user), ...accessibleLibraryIds(user.id, user.role, "gallery")];
     if (libIds.length === 0) {
       reply.send({ books: [] });
       return;

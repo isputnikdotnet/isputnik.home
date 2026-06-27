@@ -302,7 +302,7 @@ export type SavedBookmark = SavedListenBookmark | SavedReadBookmark;
 
 export interface SavedBook {
   id: string;
-  kind: "audiobook" | "ebook";
+  kind: "audiobook" | "ebook" | "gallery";
   title: string;
   authors: string[];
   coverUrl: string | null;

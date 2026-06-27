@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Headphones, Heart, Trash2 } from "lucide-react";
+import { BookOpen, Headphones, Heart, Image as ImageIcon, Trash2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
@@ -63,10 +63,13 @@ export function MyListPage({
           <div className="audiobook-grid">
             {(books ?? []).map((book) => {
               const removing = removingIds.includes(book.id);
-              const FallbackIcon = book.kind === "ebook" ? BookOpen : Headphones;
+              const FallbackIcon = book.kind === "ebook" ? BookOpen : book.kind === "gallery" ? ImageIcon : Headphones;
+              const href = book.kind === "ebook" ? `/ebooks/books/${book.id}`
+                : book.kind === "gallery" ? `/gallery/assets/${book.id}`
+                : `/audiobooks/books/${book.id}`;
               return (
                 <article className="saved-audiobook-card" key={book.id}>
-                  <button className="audiobook-card" onClick={() => navigate(book.kind === "ebook" ? `/ebooks/books/${book.id}` : `/audiobooks/books/${book.id}`)}>
+                  <button className="audiobook-card" onClick={() => navigate(href)}>
                     <div className="audiobook-cover" aria-hidden="true">
                       {book.coverUrl ? (
                         <img src={book.coverUrl} alt="" />
@@ -80,7 +83,9 @@ export function MyListPage({
                     </div>
                     <div className="audiobook-card-body">
                       <strong>{book.title}</strong>
-                      <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
+                      {book.kind !== "gallery" && (
+                        <span>{book.authors.length > 0 ? book.authors.join(", ") : "Unknown author"}</span>
+                      )}
                       {book.note && <p className="audiobook-card-note">{book.note}</p>}
                     </div>
                   </button>
