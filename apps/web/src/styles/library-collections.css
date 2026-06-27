@@ -156,6 +156,7 @@
 }
 
 .series-card-cover {
+  position: relative;
   display: grid;
   place-items: center;
   gap: 6px;
@@ -166,6 +167,8 @@
 }
 
 .series-card-cover img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
