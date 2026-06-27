@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronRight, FolderOpen, Image as ImageIcon, Play, Heart, Folder } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { CalendarDays, ChevronDown, ChevronRight, FolderOpen, Image as ImageIcon, Images, Play, Heart, Folder } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiobooks/AudiobooksPage";
+import type { SortKey } from "../audiobooks/BookFilter";
 import { GalleryLightbox } from "./GalleryLightbox";
 import type { GalleryAsset, GalleryFolder, GalleryLibrary } from "./types";
 
@@ -11,6 +14,14 @@ const PAGE_SIZE = 80;
 
 type GalleryView = "timeline" | "folder";
 type KindFilter = "all" | "photo" | "video";
+
+// The media-type filter is presented through the same compact dropdown the
+// audiobooks/ebooks header uses for sorting, so the controls line up visually.
+const KIND_OPTIONS = [
+  { value: "all" as const, label: "All media" },
+  { value: "photo" as const, label: "Photos" },
+  { value: "video" as const, label: "Videos" }
+];
 
 // Month label for the timeline header from an asset's takenAt.
 function monthLabel(takenAt: string | null): string {
@@ -53,6 +64,10 @@ export function GalleryPage({
   const [scopeId, setScopeId] = useState<string>("all");
   const [kind, setKind] = useState<KindFilter>("all");
 
+  // Search box drives the timeline `q`; a debounce keeps typing from spamming the API.
+  const [searchText, setSearchText] = useState("");
+  const [query, setQuery] = useState("");
+
   // Timeline state.
   const [assets, setAssets] = useState<GalleryAsset[]>([]);
   const [total, setTotal] = useState(0);
@@ -62,6 +77,12 @@ export function GalleryPage({
   const [parent, setParent] = useState("");
   const [folders, setFolders] = useState<GalleryFolder[]>([]);
   const [folderAssets, setFolderAssets] = useState<GalleryAsset[]>([]);
+
+  // Library selector dropdown (mirrors the audiobooks/ebooks main page chip).
+  const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
+  const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const libraryTriggerRef = useRef<HTMLButtonElement>(null);
+  const libraryMenuRef = useRef<HTMLDivElement>(null);
 
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
   const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single"; index: number } | null>(null);
@@ -83,13 +104,23 @@ export function GalleryPage({
 
   useEffect(() => { void loadLibraries(); }, [loadLibraries]);
 
+  // Debounce the search box into the query that hits the API.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setQuery(searchText.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [searchText]);
+
+  // Searching is a timeline operation (folder view is structural); a query pulls
+  // the user into the timeline so results are visible.
+  useEffect(() => { if (query && view === "folder") setView("timeline"); }, [query, view]);
+
   const loadTimeline = useCallback(async (offset: number) => {
     setLoading(true);
     setError("");
     try {
       const payload = await api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
         method: "POST",
-        body: JSON.stringify({ ...scopeParams(), kinds: kind === "all" ? [] : [kind], limit: PAGE_SIZE, offset })
+        body: JSON.stringify({ ...scopeParams(), q: query, kinds: kind === "all" ? [] : [kind], limit: PAGE_SIZE, offset })
       });
       setAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setTotal(payload.total);
@@ -98,7 +129,7 @@ export function GalleryPage({
     } finally {
       setLoading(false);
     }
-  }, [scopeParams, kind]);
+  }, [scopeParams, kind, query]);
 
   const loadFolder = useCallback(async (nextParent: string) => {
     setLoading(true);
@@ -118,12 +149,12 @@ export function GalleryPage({
     }
   }, [scopeParams]);
 
-  // Reload the active view when scope/kind/view changes.
+  // Reload the active view when scope/kind/query/view changes.
   useEffect(() => {
     if (view === "timeline") void loadTimeline(0);
     else void loadFolder("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, scopeId, kind]);
+  }, [view, scopeId, kind, query]);
 
   // Deep link: fetch the asset and open a standalone lightbox.
   useEffect(() => {
@@ -145,6 +176,36 @@ export function GalleryPage({
     return () => window.clearInterval(timer);
   }, [libraries, view, parent, loadLibraries, loadTimeline, loadFolder]);
 
+  // Library selector dropdown open/close + outside-click dismissal.
+  const toggleLibraryMenu = () => {
+    setLibraryMenuOpen((open) => {
+      if (!open && libraryTriggerRef.current) {
+        const rect = libraryTriggerRef.current.getBoundingClientRect();
+        setLibraryMenuPos({ top: rect.bottom + 8, left: rect.left });
+      }
+      return !open;
+    });
+  };
+
+  useEffect(() => {
+    if (!libraryMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (libraryTriggerRef.current?.contains(target)) return;
+      if (libraryMenuRef.current?.contains(target)) return;
+      setLibraryMenuOpen(false);
+    };
+    const dismiss = () => setLibraryMenuOpen(false);
+    window.addEventListener("mousedown", close);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
+  }, [libraryMenuOpen]);
+
   const activeAssets = lightbox?.source === "single" && singleAsset
     ? [singleAsset]
     : lightbox?.source === "folder" ? folderAssets : assets;
@@ -153,6 +214,8 @@ export function GalleryPage({
   const canDeleteCurrent = lightbox != null && activeAssets[lightbox.index]
     ? libraryFor(activeAssets[lightbox.index].libraryId)?.canDelete ?? false
     : false;
+
+  const selectedLibraryLabel = scopeId === "all" ? "All Libraries" : libraryFor(scopeId)?.name ?? "All Libraries";
 
   const closeLightbox = () => {
     setLightbox(null);
@@ -173,43 +236,29 @@ export function GalleryPage({
   }, [assets]);
 
   const breadcrumbParts = parent ? parent.split("/") : [];
+  const subtitle = view === "timeline"
+    ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
+    : "Browsing by folder";
 
   return (
     <DashboardShell active="gallery" user={user} logout={logout}>
-      <section className="gallery-page">
-        <div className="gallery-header">
-          <div>
-            <h1>Gallery</h1>
-            <p className="gallery-subtitle">
-              {view === "timeline" ? `${total.toLocaleString()} ${total === 1 ? "item" : "items"}` : "Browsing by folder"}
-            </p>
-          </div>
-          <div className="gallery-toolbar">
-            <div className="gallery-viewtoggle" role="tablist" aria-label="View">
-              <button type="button" role="tab" aria-selected={view === "timeline"} className={view === "timeline" ? "is-active" : ""} onClick={() => setView("timeline")}>
-                <CalendarDays size={16} aria-hidden="true" /> Timeline
-              </button>
-              <button type="button" role="tab" aria-selected={view === "folder"} className={view === "folder" ? "is-active" : ""} onClick={() => setView("folder")}>
-                <FolderOpen size={16} aria-hidden="true" /> Folders
-              </button>
-            </div>
-            {view === "timeline" && (
-              <select className="gallery-select" value={kind} onChange={(event) => setKind(event.target.value as KindFilter)} aria-label="Filter by type">
-                <option value="all">All media</option>
-                <option value="photo">Photos</option>
-                <option value="video">Videos</option>
-              </select>
-            )}
-            {libraries.length > 1 && (
-              <select className="gallery-select" value={scopeId} onChange={(event) => setScopeId(event.target.value)} aria-label="Select library">
-                <option value="all">All libraries</option>
-                {libraries.map((library) => (
-                  <option key={library.id} value={library.id}>{library.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
+      <section className="audiobook-main-page gallery-page">
+        <AudiobookPageHeader
+          title="Gallery"
+          subtitle={subtitle}
+          search={searchText}
+          onSearchChange={setSearchText}
+          searchPlaceholder="Search photos & videos..."
+          actions={
+            <AudiobookHeaderSort
+              value={kind as unknown as SortKey}
+              onChange={(value) => setKind(value as unknown as KindFilter)}
+              options={KIND_OPTIONS as unknown as { value: SortKey; label: string }[]}
+              ariaLabel="Filter by media type"
+              compact
+            />
+          }
+        />
 
         {error && <MessageBox tone="error" title="Gallery error">{error}</MessageBox>}
 
@@ -219,76 +268,151 @@ export function GalleryPage({
             <h2>No gallery libraries yet</h2>
             <p className="muted">An administrator can add a gallery library from the control panel.</p>
           </div>
-        ) : libraries.some((library) => library.scanStatus === "scanning") ? (
-          <MessageBox tone="info" title="Scanning">Thumbnails appear as the scan finishes.</MessageBox>
-        ) : null}
-
-        {view === "timeline" ? (
-          <>
-            {months.map((month) => (
-              <div key={month.label}>
-                <h2 className="gallery-month-label">{month.label}</h2>
-                <div className="gallery-grid">
-                  {month.items.map(({ asset, index }) => (
-                    <AssetTile key={asset.id} asset={asset} onOpen={() => setLightbox({ source: "timeline", index })} />
-                  ))}
-                </div>
-              </div>
-            ))}
-            {!loading && assets.length === 0 && <p className="management-empty">No photos or videos to show.</p>}
-            {assets.length < total && (
-              <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-                <button type="button" className="secondary-button" onClick={() => void loadTimeline(assets.length)} disabled={loading}>
-                  {loading ? "Loading…" : "Load more"}
-                </button>
-              </div>
-            )}
-          </>
         ) : (
           <>
-            <div className="gallery-breadcrumb">
-              <button type="button" onClick={() => void loadFolder("")}>All folders</button>
-              {breadcrumbParts.map((part, i) => {
-                const target = breadcrumbParts.slice(0, i + 1).join("/");
-                return (
-                  <span key={target} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    <ChevronRight size={14} aria-hidden="true" />
-                    <button type="button" onClick={() => void loadFolder(target)}>{part}</button>
-                  </span>
-                );
-              })}
+            <div className="audiobook-page-nav-row audiobook-main-nav-row">
+              <div className="audiobook-page-tabs-with-library">
+                <div className="audiobook-library-shortcuts">
+                  <button
+                    ref={libraryTriggerRef}
+                    type="button"
+                    className="audiobook-library-tab"
+                    onClick={toggleLibraryMenu}
+                    aria-haspopup="menu"
+                    aria-expanded={libraryMenuOpen}
+                    aria-label="Select library"
+                  >
+                    <Images size={19} aria-hidden="true" />
+                    <span>{selectedLibraryLabel}</span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </button>
+                  {libraryMenuOpen && libraryMenuPos && createPortal(
+                    <div
+                      ref={libraryMenuRef}
+                      className="book-detail-action-menu audiobook-library-menu"
+                      role="menu"
+                      aria-label="Select library"
+                      style={{ position: "fixed", top: libraryMenuPos.top, left: libraryMenuPos.left, right: "auto" }}
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={scopeId === "all" ? "active" : ""}
+                        onClick={() => { setScopeId("all"); setLibraryMenuOpen(false); }}
+                      >
+                        <span>All Libraries</span>
+                      </button>
+                      {libraries.map((library) => (
+                        <button
+                          key={library.id}
+                          type="button"
+                          role="menuitem"
+                          className={scopeId === library.id ? "active" : ""}
+                          onClick={() => { setScopeId(library.id); setLibraryMenuOpen(false); }}
+                        >
+                          <span>{library.name}</span>
+                        </button>
+                      ))}
+                    </div>,
+                    document.body
+                  )}
+                </div>
+
+                <nav className="audiobook-page-tabs" aria-label="Gallery views">
+                  <a
+                    href="/gallery"
+                    className={view === "timeline" ? "active" : ""}
+                    onClick={(event) => { event.preventDefault(); setView("timeline"); }}
+                  >
+                    <CalendarDays size={19} aria-hidden="true" />
+                    <span>Timeline</span>
+                  </a>
+                  <a
+                    href="/gallery"
+                    className={view === "folder" ? "active" : ""}
+                    onClick={(event) => { event.preventDefault(); setSearchText(""); setView("folder"); }}
+                  >
+                    <FolderOpen size={19} aria-hidden="true" />
+                    <span>Folders</span>
+                  </a>
+                </nav>
+              </div>
             </div>
 
-            {folders.length > 0 && (
+            {libraries.some((library) => library.scanStatus === "scanning") && (
+              <MessageBox tone="info" title="Scanning">Thumbnails appear as the scan finishes.</MessageBox>
+            )}
+
+            {view === "timeline" ? (
               <>
-                <p className="gallery-section-label">Folders</p>
-                <div className="gallery-folder-grid">
-                  {folders.map((folder) => (
-                    <button key={folder.path} type="button" className="gallery-folder-tile" onClick={() => void loadFolder(folder.path)}>
-                      <span className="gallery-folder-thumb">
-                        {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
-                      </span>
-                      <strong>{folder.name}</strong>
-                      <small>{folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}</small>
+                {months.map((month) => (
+                  <div key={month.label}>
+                    <h2 className="gallery-month-label">{month.label}</h2>
+                    <div className="gallery-grid">
+                      {month.items.map(({ asset, index }) => (
+                        <AssetTile key={asset.id} asset={asset} onOpen={() => setLightbox({ source: "timeline", index })} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {!loading && assets.length === 0 && (
+                  <p className="management-empty">{query ? "No photos or videos match this search." : "No photos or videos to show."}</p>
+                )}
+                {assets.length < total && (
+                  <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
+                    <button type="button" className="secondary-button" onClick={() => void loadTimeline(assets.length)} disabled={loading}>
+                      {loading ? "Loading…" : "Load more"}
                     </button>
-                  ))}
-                </div>
+                  </div>
+                )}
               </>
-            )}
-
-            {folderAssets.length > 0 && (
+            ) : (
               <>
-                <p className="gallery-section-label">Photos &amp; videos</p>
-                <div className="gallery-grid">
-                  {folderAssets.map((asset, index) => (
-                    <AssetTile key={asset.id} asset={asset} onOpen={() => setLightbox({ source: "folder", index })} />
-                  ))}
+                <div className="gallery-breadcrumb">
+                  <button type="button" onClick={() => void loadFolder("")}>All folders</button>
+                  {breadcrumbParts.map((part, i) => {
+                    const target = breadcrumbParts.slice(0, i + 1).join("/");
+                    return (
+                      <span key={target} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <ChevronRight size={14} aria-hidden="true" />
+                        <button type="button" onClick={() => void loadFolder(target)}>{part}</button>
+                      </span>
+                    );
+                  })}
                 </div>
-              </>
-            )}
 
-            {!loading && folders.length === 0 && folderAssets.length === 0 && (
-              <p className="management-empty">This folder is empty.</p>
+                {folders.length > 0 && (
+                  <>
+                    <p className="gallery-section-label">Folders</p>
+                    <div className="gallery-folder-grid">
+                      {folders.map((folder) => (
+                        <button key={folder.path} type="button" className="gallery-folder-tile" onClick={() => void loadFolder(folder.path)}>
+                          <span className="gallery-folder-thumb">
+                            {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
+                          </span>
+                          <strong>{folder.name}</strong>
+                          <small>{folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {folderAssets.length > 0 && (
+                  <>
+                    <p className="gallery-section-label">Photos &amp; videos</p>
+                    <div className="gallery-grid">
+                      {folderAssets.map((asset, index) => (
+                        <AssetTile key={asset.id} asset={asset} onOpen={() => setLightbox({ source: "folder", index })} />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {!loading && folders.length === 0 && folderAssets.length === 0 && (
+                  <p className="management-empty">This folder is empty.</p>
+                )}
+              </>
             )}
           </>
         )}
