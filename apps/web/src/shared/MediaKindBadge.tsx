@@ -1,10 +1,11 @@
-import { BookOpen, Headphones, type LucideIcon } from "lucide-react";
+import { BookOpen, Headphones, Image as ImageIcon, type LucideIcon } from "lucide-react";
 
-export type MediaKind = "audiobook" | "ebook";
+export type MediaKind = "audiobook" | "ebook" | "gallery";
 
 const KIND_META: Record<MediaKind, { label: string; Icon: LucideIcon }> = {
   audiobook: { label: "Audiobook", Icon: Headphones },
-  ebook: { label: "Ebook", Icon: BookOpen }
+  ebook: { label: "Ebook", Icon: BookOpen },
+  gallery: { label: "Gallery", Icon: ImageIcon }
 };
 
 // Global indicator of an item's media type, for surfaces that mix audiobooks and

@@ -3349,6 +3349,11 @@
   border-color: #5da76d;
 }
 
+.media-kind-badge.gallery {
+  background: #553a6b;
+  border-color: #a585c6;
+}
+
 /* Pinned to the top-right of a cover/thumbnail. */
 .media-kind-badge.overlay {
   position: absolute;
