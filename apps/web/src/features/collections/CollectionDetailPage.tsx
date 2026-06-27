@@ -113,7 +113,7 @@ export function CollectionDetailPage({
 
         {collection && (
           <>
-            <div className="section-head audiobook-head">
+            <div className="section-head audiobook-head collection-head">
               <div className="collection-title-row">
                 {editingName ? (
                   <div className="collection-create-row">
@@ -188,9 +188,11 @@ export function CollectionDetailPage({
                       disabled={!item.available}
                       onClick={() => item.available && navigate(item.href)}
                     >
-                      <span className="collection-item-cover" aria-hidden="true">
-                        {item.coverUrl ? <img src={item.coverUrl} alt="" /> : <BookOpen size={16} />}
-                      </span>
+                      {item.coverUrl && (
+                        <span className="collection-item-cover" aria-hidden="true">
+                          <img src={item.coverUrl} alt="" />
+                        </span>
+                      )}
                       <span className="collection-item-text">
                         <strong>{item.title}</strong>
                         <small>
@@ -203,6 +205,11 @@ export function CollectionDetailPage({
                       {item.available && item.playable && (
                         <button className="icon-button" onClick={() => playFrom(item)} aria-label={`Play ${item.title}`} title="Play from here">
                           <Play size={15} />
+                        </button>
+                      )}
+                      {item.available && !item.playable && item.entityType === "ebook" && (
+                        <button className="icon-button" onClick={() => navigate(`${item.href}?read=1`)} aria-label={`Read ${item.title}`} title="Read">
+                          <BookOpen size={15} />
                         </button>
                       )}
                       <button className="icon-button" onClick={() => moveItem(index, -1)} disabled={index === 0 || busy} aria-label="Move up">
