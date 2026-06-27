@@ -18,6 +18,7 @@ interface AssetRow {
   folder_path: string;
   kind: string;
   title: string | null;
+  description: string | null;
   taken_at: string | null;
   width: number | null;
   height: number | null;
@@ -40,6 +41,7 @@ const ASSET_COLUMNS = `
   library_items.folder_path,
   gallery_details.kind,
   item_metadata.title,
+  item_metadata.description,
   gallery_details.taken_at,
   gallery_details.width,
   gallery_details.height,
@@ -78,6 +80,7 @@ function mapAsset(row: AssetRow) {
     folder: row.folder_path.includes("/") ? row.folder_path.slice(0, row.folder_path.lastIndexOf("/")) : "",
     kind: row.kind,
     title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
+    description: row.description,
     takenAt: row.taken_at,
     width: row.width,
     height: row.height,

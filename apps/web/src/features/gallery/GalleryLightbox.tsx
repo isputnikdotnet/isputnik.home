@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Pencil, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
+import { GalleryEditModal } from "./GalleryEditModal";
 import type { GalleryAsset } from "./types";
 
 function formatDuration(seconds: number | null): string {
@@ -31,7 +32,8 @@ export function GalleryLightbox({
   onClose,
   onIndexChange,
   onChanged,
-  canDelete
+  canDelete,
+  canEdit
 }: {
   assets: GalleryAsset[];
   index: number;
@@ -39,9 +41,11 @@ export function GalleryLightbox({
   onIndexChange: (next: number) => void;
   onChanged: () => void;
   canDelete: boolean;
+  canEdit: boolean;
 }) {
   const asset = assets[index];
   const [showInfo, setShowInfo] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -56,14 +60,14 @@ export function GalleryLightbox({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (collectionOpen || deleteOpen) return;
+      if (collectionOpen || deleteOpen || editOpen) return;
       if (event.key === "Escape") onClose();
       else if (event.key === "ArrowLeft" && index > 0) onIndexChange(index - 1);
       else if (event.key === "ArrowRight" && index < assets.length - 1) onIndexChange(index + 1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, assets.length, onClose, onIndexChange, collectionOpen, deleteOpen]);
+  }, [index, assets.length, onClose, onIndexChange, collectionOpen, deleteOpen, editOpen]);
 
   if (!asset) return null;
 
@@ -153,6 +157,17 @@ export function GalleryLightbox({
           >
             <Info size={18} aria-hidden="true" />
           </button>
+          {canEdit && (
+            <button
+              className="gallery-lightbox-action"
+              type="button"
+              onClick={() => setEditOpen(true)}
+              aria-label="Edit details"
+              title="Edit details"
+            >
+              <Pencil size={18} aria-hidden="true" />
+            </button>
+          )}
           {canDelete && (
             <button
               className="gallery-lightbox-action"
@@ -193,6 +208,7 @@ export function GalleryLightbox({
           <h3>Details</h3>
           <dl>
             <div><dt>Name</dt><dd>{asset.title}</dd></div>
+            {asset.description && <div><dt>Description</dt><dd>{asset.description}</dd></div>}
             {asset.takenAt && <div><dt>Date</dt><dd>{formatTaken(asset.takenAt)}</dd></div>}
             <div><dt>Type</dt><dd>{asset.kind === "video" ? "Video" : "Photo"}</dd></div>
             {asset.width != null && asset.height != null && (
@@ -219,6 +235,14 @@ export function GalleryLightbox({
             {asset.tags.length > 0 && <div><dt>Tags</dt><dd>{asset.tags.join(", ")}</dd></div>}
           </dl>
         </aside>
+      )}
+
+      {editOpen && (
+        <GalleryEditModal
+          asset={asset}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => { setEditOpen(false); onChanged(); }}
+        />
       )}
 
       {collectionOpen && (

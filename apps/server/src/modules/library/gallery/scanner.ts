@@ -98,6 +98,13 @@ export async function ingestGalleryAsset(
   const itemId = existing?.id ?? nanoid(16);
   const modifiedIso = new Date(file.modifiedAtMs).toISOString();
 
+  // Hand-edited title/description (item_metadata.source) and a user-set date
+  // (gallery_details.taken_at_source) are owned by the user — the scanner must not
+  // overwrite them on a rescan.
+  const metaManual = existing
+    ? (db.prepare("SELECT source FROM item_metadata WHERE item_id = ?").get(itemId) as { source: string } | undefined)?.source === "manual"
+    : false;
+
   if (existing) {
     const prior = db.prepare("SELECT size, modified_at, preview_storage_key FROM gallery_details WHERE item_id = ?")
       .get(itemId) as { size: number | null; modified_at: string | null; preview_storage_key: string | null } | undefined;
@@ -125,15 +132,23 @@ export async function ingestGalleryAsset(
         .run(itemId, libraryId, file.relativePath);
     }
 
-    db.prepare(`
-      INSERT INTO item_metadata (item_id, source, title, sort_title, cover_storage_key)
-      VALUES (?, 'scan', ?, ?, ?)
-      ON CONFLICT(item_id) DO UPDATE SET
-        title = excluded.title,
-        sort_title = excluded.sort_title,
-        cover_storage_key = COALESCE(excluded.cover_storage_key, item_metadata.cover_storage_key),
-        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-    `).run(itemId, title, sortName(title), thumbs?.coverKey ?? null);
+    if (metaManual) {
+      // Keep the hand-edited title/description; only refresh the derived thumbnail.
+      if (thumbs?.coverKey) {
+        db.prepare("UPDATE item_metadata SET cover_storage_key = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
+          .run(thumbs.coverKey, itemId);
+      }
+    } else {
+      db.prepare(`
+        INSERT INTO item_metadata (item_id, source, title, sort_title, cover_storage_key)
+        VALUES (?, 'scan', ?, ?, ?)
+        ON CONFLICT(item_id) DO UPDATE SET
+          title = excluded.title,
+          sort_title = excluded.sort_title,
+          cover_storage_key = COALESCE(excluded.cover_storage_key, item_metadata.cover_storage_key),
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+      `).run(itemId, title, sortName(title), thumbs?.coverKey ?? null);
+    }
 
     db.prepare(`
       INSERT INTO gallery_details
@@ -142,7 +157,9 @@ export async function ingestGalleryAsset(
       ON CONFLICT(item_id) DO UPDATE SET
         kind = excluded.kind, relative_path = excluded.relative_path, mime_type = excluded.mime_type,
         size = excluded.size, width = excluded.width, height = excluded.height, orientation = excluded.orientation,
-        duration_seconds = excluded.duration_seconds, taken_at = excluded.taken_at, modified_at = excluded.modified_at,
+        duration_seconds = excluded.duration_seconds, modified_at = excluded.modified_at,
+        -- A user-set date is preserved; a scan-owned date tracks the file.
+        taken_at = CASE WHEN gallery_details.taken_at_source = 'manual' THEN gallery_details.taken_at ELSE excluded.taken_at END,
         gps_lat = excluded.gps_lat, gps_lng = excluded.gps_lng, camera_make = excluded.camera_make,
         camera_model = excluded.camera_model,
         preview_storage_key = COALESCE(excluded.preview_storage_key, gallery_details.preview_storage_key),

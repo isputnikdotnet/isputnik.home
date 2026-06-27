@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
-import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
+import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
@@ -17,6 +17,7 @@ import {
   getGalleryAsset,
   galleryFacets
 } from "./catalog.js";
+import { updateGalleryAsset } from "./edit.js";
 
 const GALLERY_LIBRARY_LIST_SQL = `
   SELECT
@@ -196,5 +197,52 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       return;
     }
     reply.send({ asset });
+  });
+
+  // Manual metadata edit: title/caption, description, date taken, tags. Requires
+  // write access to the asset's library; protects the fields from future rescans.
+  const editSchema = z.object({
+    title: z.string().trim().min(1).max(300),
+    description: z.string().trim().max(5000).nullable().optional(),
+    takenAt: z.string().datetime().nullable().optional(),
+    tags: z.array(z.string().trim().min(1).max(80)).max(50).default([])
+  });
+
+  app.patch("/api/library/gallery/assets/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required to edit this item." });
+      return;
+    }
+
+    const parsed = parseBody(editSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid details", details: parsed.error });
+      return;
+    }
+
+    const ok = updateGalleryAsset(id, {
+      title: parsed.data.title,
+      description: parsed.data.description ?? null,
+      takenAt: parsed.data.takenAt ?? null,
+      tags: parsed.data.tags ?? []
+    });
+    if (!ok) {
+      reply.code(404).send({ error: "Asset not found" });
+      return;
+    }
+
+    logActivity({
+      event: "library.gallery.edited",
+      actorUserId: user.id,
+      targetType: "library_item",
+      targetId: id,
+      detail: `Edited gallery item "${parsed.data.title}".`,
+      ipAddress: request.ip
+    });
+
+    reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
   });
 }

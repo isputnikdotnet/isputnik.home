@@ -83,7 +83,15 @@ item-keyed systems:
 | GET | `/api/library/gallery/folders` | Folder listing (subfolders + assets) |
 | GET | `/api/library/gallery/facets` | Kind counts + year list |
 | GET | `/api/library/gallery/assets/:id` | Single asset detail |
+| PATCH | `/api/library/gallery/assets/:id` | Edit title/caption, description, date taken, tags (write access) |
 | GET | `/api/library/gallery/assets/:id/file` | Original photo/video (range) |
+
+**Editing.** The lightbox offers a metadata edit (write access required) for
+title/caption, description, **date taken** (drives the Timeline), and tags. Edits
+set `item_metadata.source = 'manual'` and `gallery_details.taken_at_source =
+'manual'`, so a later rescan refreshes the thumbnail/technical fields but never
+clobbers the hand-edited values. Technical fields (dimensions, size, camera) and
+GPS stay read-only.
 
 ## Not yet (future phases)
 
