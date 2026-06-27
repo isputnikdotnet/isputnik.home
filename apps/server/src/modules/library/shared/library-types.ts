@@ -1,4 +1,4 @@
-export const LIBRARY_TYPES = ["audiobook", "ebook", "photo", "video"] as const;
+export const LIBRARY_TYPES = ["audiobook", "ebook", "gallery"] as const;
 export type LibraryType = typeof LIBRARY_TYPES[number];
 
 // Library types whose items are rows in `library_items` with a primary category
@@ -11,10 +11,15 @@ export type LibraryType = typeof LIBRARY_TYPES[number];
 export const BOOK_LIBRARY_TYPES = ["audiobook", "ebook"] as const;
 export type BookLibraryType = typeof BOOK_LIBRARY_TYPES[number];
 
-// Map a library type onto the share/bookmark module namespace it uses. Books only
-// live in audiobook / ebook libraries, so anything unexpected folds into
-// "audiobook" to keep routing valid. This is the single source of truth for the
-// libraries.type → module mapping used by shares, bookmarks, and book access.
-export function mediaKind(libraryType: string): BookLibraryType {
-  return libraryType === "ebook" ? "ebook" : "audiobook";
+// Every media module namespace used by shares, item access, and collections. A
+// superset of BookLibraryType — gallery items are shareable/collectable but are
+// not "book-like" (no authors/categories/reading progress).
+export const MEDIA_MODULES = ["audiobook", "ebook", "gallery"] as const;
+export type MediaModule = typeof MEDIA_MODULES[number];
+
+// Map a library type onto the share/collection module namespace it uses. Anything
+// unexpected folds into "audiobook" to keep routing valid. This is the single
+// source of truth for the libraries.type → module mapping.
+export function mediaKind(libraryType: string): MediaModule {
+  return libraryType === "ebook" ? "ebook" : libraryType === "gallery" ? "gallery" : "audiobook";
 }

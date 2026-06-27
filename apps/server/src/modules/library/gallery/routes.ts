@@ -1,0 +1,200 @@
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
+import { db, logActivity } from "../../../db.js";
+import { parseBody } from "../../../core/shared.js";
+import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "../shared/library-access.js";
+import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
+import { deleteSharesForLibrary } from "../shared/share-access.js";
+import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
+import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
+import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
+import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
+import { enqueueGalleryScan, processGalleryScanQueue } from "./scanner.js";
+import {
+  resolveGalleryScopeLibraryIds,
+  queryGalleryTimeline,
+  queryGalleryFolders,
+  getGalleryAsset,
+  galleryFacets
+} from "./catalog.js";
+
+const GALLERY_LIBRARY_LIST_SQL = `
+  SELECT
+    libraries.*,
+    COUNT(DISTINCT library_items.id) AS book_count,
+    COUNT(gallery_details.item_id) AS file_count,
+    COALESCE(SUM(COALESCE(gallery_details.size, 0)), 0) AS total_size_bytes
+  FROM libraries
+  LEFT JOIN library_items ON library_items.library_id = libraries.id AND library_items.deleted_at IS NULL
+  LEFT JOIN gallery_details ON gallery_details.item_id = library_items.id
+  WHERE libraries.type = 'gallery' %WHERE%
+  GROUP BY libraries.id
+  ORDER BY datetime(libraries.created_at) DESC
+`;
+
+export async function galleryRoutesPlugin(app: FastifyInstance) {
+  app.post("/api/library/gallery-libraries", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(coreLibraryCreateSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid gallery library details", details: parsed.error });
+      return;
+    }
+
+    const result = createLibraryRecord({ type: "gallery", data: parsed.data, userId: request.user!.id, ip: request.ip });
+    if ("error" in result) {
+      reply.code(result.status).send({ error: result.error });
+      return;
+    }
+
+    const jobId = enqueueGalleryScan(result.libraryId);
+    void processGalleryScanQueue();
+    reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_GALLERY_LIBRARY" } });
+  });
+
+  app.get("/api/library/gallery-libraries", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const rows = db.prepare(GALLERY_LIBRARY_LIST_SQL.replace("%WHERE%", "")).all() as LibraryListRow[];
+    const manageAll = (request.query as { manage?: string }).manage != null && user.role === "admin";
+    const visible = manageAll ? rows : rows.filter((row) => canUserAccessLibrary(row, user.id, user.role));
+    return { libraries: visible.map((row) => publicLibrary(row, user.role === "admin", libraryCapabilities(row, user.id, user.role))) };
+  });
+
+  app.patch("/api/library/gallery-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const parsed = parseBody(coreLibraryUpdateSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid library details", details: parsed.error });
+      return;
+    }
+
+    const result = updateLibraryRecord({ type: "gallery", id, data: parsed.data, userId: request.user!.id, ip: request.ip });
+    if ("error" in result) {
+      reply.code(result.status).send({ error: result.error });
+      return;
+    }
+
+    const updated = db.prepare(GALLERY_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as LibraryListRow;
+    reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
+  });
+
+  app.delete("/api/library/gallery-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
+      .get(id) as { id: string; name: string } | undefined;
+    if (!exists) {
+      reply.code(404).send({ error: "Gallery library not found" });
+      return;
+    }
+
+    db.transaction(() => {
+      db.prepare("DELETE FROM taggables WHERE entity_type = 'library_item' AND entity_id IN (SELECT id FROM library_items WHERE library_id = ?)").run(id);
+      deleteSharesForLibrary("gallery", id);
+      deleteCollectionItemsForLibrary("gallery", id);
+      deleteLibraryAccess(id);
+      db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
+    })();
+
+    logActivity({
+      event: "library.gallery.deleted",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: id,
+      detail: `Deleted gallery library "${exists.name}". Files on disk were not removed.`,
+      ipAddress: request.ip
+    });
+    reply.send({ deleted: true });
+  });
+
+  const rescanOptionsSchema = z.object({
+    sources: z.array(z.object({ id: z.enum(METADATA_SOURCE_IDS), enabled: z.boolean() })).max(20).optional()
+  });
+
+  app.post("/api/library/gallery-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const exists = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
+      .get(id) as { id: string; source_path: string } | undefined;
+    if (!exists) {
+      reply.code(404).send({ error: "Gallery library not found" });
+      return;
+    }
+
+    const parsed = parseBody(rescanOptionsSchema, request.body ?? {});
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
+      return;
+    }
+
+    try {
+      validateLibrarySource(exists.source_path);
+    } catch (err) {
+      if (err instanceof LibrarySourceError) {
+        reply.code(422).send({ error: err.message });
+        return;
+      }
+      throw err;
+    }
+
+    const jobId = enqueueGalleryScan(id, parsed.data);
+    void processGalleryScanQueue();
+    logActivity({
+      event: "library.gallery.rescan",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: id,
+      detail: "Queued a gallery library rescan.",
+      ipAddress: request.ip
+    });
+    reply.send({ job: { id: jobId, type: "SCAN_GALLERY_LIBRARY" } });
+  });
+
+  // ── Browse: Timeline (by date) and Folders (by on-disk structure) ──
+
+  const timelineSchema = z.object({
+    scope: z.enum(["all", "library"]).default("all"),
+    libraryId: z.string().trim().min(1).optional(),
+    q: z.string().trim().max(200).default(""),
+    kinds: z.array(z.enum(["photo", "video"])).default([]),
+    limit: z.number().int().min(1).max(200).default(80),
+    offset: z.number().int().min(0).default(0)
+  });
+
+  app.post("/api/library/gallery/timeline", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(timelineSchema, request.body ?? {});
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid timeline query", details: parsed.error });
+      return;
+    }
+    const p = parsed.data;
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, p.scope ?? "all", p.libraryId);
+    reply.send(queryGalleryTimeline(request.user!.id, libIds, {
+      q: p.q ?? "", kinds: p.kinds ?? [], limit: p.limit ?? 80, offset: p.offset ?? 0
+    }));
+  });
+
+  app.get("/api/library/gallery/folders", { preHandler: app.authenticate }, async (request) => {
+    const qp = request.query as { scope?: string; libraryId?: string; parent?: string; limit?: string; offset?: string };
+    const scope = qp.scope === "library" ? qp.scope : "all";
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
+    const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
+    return queryGalleryFolders(request.user!.id, libIds, qp.parent ?? "", limit, offset);
+  });
+
+  app.get("/api/library/gallery/facets", { preHandler: app.authenticate }, async (request) => {
+    const qp = request.query as { scope?: string; libraryId?: string };
+    const scope = qp.scope === "library" ? qp.scope : "all";
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    return galleryFacets(libIds);
+  });
+
+  app.get("/api/library/gallery/assets/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
+    const asset = getGalleryAsset(request.user!.id, libIds, id);
+    if (!asset) {
+      reply.code(404).send({ error: "Asset not found" });
+      return;
+    }
+    reply.send({ asset });
+  });
+}

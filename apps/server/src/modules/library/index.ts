@@ -4,6 +4,7 @@ import { coversPlugin } from "./covers.js";
 import { storagePlugin } from "./storage.js";
 import { audiobookPlugin } from "./audiobook/index.js";
 import { ebookPlugin } from "./ebook/index.js";
+import { galleryPlugin } from "./gallery/index.js";
 import { libraryMembersPlugin } from "./shared/members.js";
 import { scanRulesPlugin } from "./shared/scan-rules-routes.js";
 import { registerTrashRoutes } from "./shared/trash-routes.js";
@@ -22,6 +23,7 @@ export async function libraryPlugin(app: FastifyInstance) {
   await app.register(libraryMembersPlugin);
   await app.register(audiobookPlugin);
   await app.register(ebookPlugin);
+  await app.register(galleryPlugin);
 
   // Custom scan rules (cross-type; preview dispatches to the media scanner).
   await app.register(scanRulesPlugin);

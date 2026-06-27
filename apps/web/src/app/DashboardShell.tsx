@@ -30,7 +30,7 @@ import { REPO_ISSUES_URL } from "../shared/links";
 
 const APP_VERSION = packageInfo.version;
 
-type DashboardActive = "home" | "audiobooks" | "ebooks" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
+type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
 
 interface FooterAction {
   href: string;
@@ -102,7 +102,7 @@ function mainNavItems(active: DashboardActive): MainNavItem[] {
     { label: "Authors", href: "/authors", icon: UserRound, active: active === "authors" },
     { label: "Categories", href: "/categories", icon: Shapes, active: active === "categories" },
     { label: "Tags", href: "/tags", icon: Tag, active: active === "tags" },
-    { label: "Gallery", icon: Image, disabled: true },
+    { label: "Gallery", href: "/gallery", icon: Image, active: active === "gallery" },
     { label: "Documents", icon: FileText, disabled: true }
   ];
 }
@@ -146,6 +146,7 @@ function MobileNav({
     currentPath.startsWith("/people") ||
     currentPath.startsWith("/categories") ||
     currentPath.startsWith("/tags") ||
+    currentPath.startsWith("/gallery") ||
     (currentPath.startsWith("/audiobooks") && !downloadsActive);
   const profileActive = PROFILE_ROUTES.some((route) => currentPath === route || currentPath.startsWith(`${route}/`));
 
@@ -184,10 +185,10 @@ function MobileNav({
               <Tag size={26} aria-hidden="true" />
               <span>Tags</span>
             </a>
-            <button className="mobile-media-option is-future" type="button" disabled title="Gallery is coming soon">
+            <a className="mobile-media-option" href="/gallery" onClick={(event) => { followRoute(event, "/gallery"); close(); }}>
               <Image size={26} aria-hidden="true" />
               <span>Gallery</span>
-            </button>
+            </a>
             <button className="mobile-media-option is-future" type="button" disabled title="Documents are coming soon">
               <FileText size={26} aria-hidden="true" />
               <span>Documents</span>

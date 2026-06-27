@@ -8,6 +8,7 @@ import {
   KeyRound,
   Headphones,
   BookOpen,
+  Image,
   Info,
   Search,
   Folder,
@@ -34,7 +35,7 @@ import { LibraryWizard } from "../libraries/LibraryWizard";
 import { LibraryMembersModal } from "./LibraryMembersModal";
 import { ScanRulesModal } from "./ScanRulesModal";
 
-type ManagedLibraryType = "audiobook" | "ebook";
+type ManagedLibraryType = "audiobook" | "ebook" | "gallery";
 
 // One row shape for every library type (the server serializes them identically).
 interface ManagedLibrary extends Omit<AudiobookLibrary, "type" | "fileCount"> {
@@ -44,13 +45,15 @@ interface ManagedLibrary extends Omit<AudiobookLibrary, "type" | "fileCount"> {
 
 const TYPE_META: Record<ManagedLibraryType, { label: string; icon: typeof Headphones }> = {
   audiobook: { label: "Audiobooks", icon: Headphones },
-  ebook: { label: "Ebooks", icon: BookOpen }
+  ebook: { label: "Ebooks", icon: BookOpen },
+  gallery: { label: "Gallery", icon: Image }
 };
 
 const TYPE_FILTERS: { value: "all" | ManagedLibraryType; label: string }[] = [
   { value: "all", label: "All" },
   { value: "audiobook", label: "Audiobooks" },
-  { value: "ebook", label: "Ebooks" }
+  { value: "ebook", label: "Ebooks" },
+  { value: "gallery", label: "Gallery" }
 ];
 
 const MODE_LABEL: Record<LibraryMode, string> = {
@@ -165,14 +168,15 @@ export function LibrariesSection() {
 
   const loadLibraries = useCallback(async () => {
     await loadStorage();
-    const [audiobooksPayload, ebooksPayload, usersPayload, groupsPayload] = await Promise.all([
+    const [audiobooksPayload, ebooksPayload, galleryPayload, usersPayload, groupsPayload] = await Promise.all([
       api<{ libraries: ManagedLibrary[] }>("/api/library/audiobook-libraries?manage=1"),
       api<{ libraries: ManagedLibrary[] }>("/api/library/ebook-libraries?manage=1"),
+      api<{ libraries: ManagedLibrary[] }>("/api/library/gallery-libraries?manage=1"),
       api<{ users: ManagedUser[] }>("/api/users"),
       api<{ groups: ManagedGroup[] }>("/api/groups")
     ]);
     setLibraries(
-      [...audiobooksPayload.libraries, ...ebooksPayload.libraries]
+      [...audiobooksPayload.libraries, ...ebooksPayload.libraries, ...galleryPayload.libraries]
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     );
     setUsers(usersPayload.users);
@@ -579,7 +583,7 @@ export function LibrariesSection() {
 
       {createLibraryOpen && (
         <LibraryWizard
-          initialType={typeFilter === "ebook" ? "ebook" : "audiobook"}
+          initialType={typeFilter === "ebook" || typeFilter === "gallery" ? typeFilter : "audiobook"}
           users={users}
           groups={groups}
           storageRoots={storageRoots}
@@ -602,9 +606,9 @@ export function LibrariesSection() {
         />
       )}
 
-      {scanRulesLibrary && (
+      {scanRulesLibrary && scanRulesLibrary.type !== "gallery" && (
         <ScanRulesModal
-          library={scanRulesLibrary}
+          library={{ id: scanRulesLibrary.id, name: scanRulesLibrary.name, type: scanRulesLibrary.type }}
           onClose={() => setScanRulesLibrary(null)}
         />
       )}

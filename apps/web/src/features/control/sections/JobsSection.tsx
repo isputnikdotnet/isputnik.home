@@ -6,7 +6,7 @@ import { formatManagedDate } from "../../../shared/utils";
 import type { Job } from "../types";
 
 function jobTypeLabel(type: string) {
-  if (type === "SCAN_AUDIOBOOK_LIBRARY") return "Scan library";
+  if (type === "SCAN_AUDIOBOOK_LIBRARY" || type === "SCAN_EBOOK_LIBRARY" || type === "SCAN_GALLERY_LIBRARY") return "Scan library";
   return type;
 }
 

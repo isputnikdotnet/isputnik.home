@@ -15,6 +15,8 @@ export type Route =
   | { name: "audiobookPlayer"; id: string }
   | { name: "ebooks" }
   | { name: "ebookBook"; id: string }
+  | { name: "gallery" }
+  | { name: "galleryAsset"; id: string }
   | { name: "ebookAuthorDetail"; personName: string }
   | { name: "ebookSeries" }
   | { name: "ebookSeriesDetail"; seriesId: string }
@@ -71,6 +73,16 @@ export function getRoute(): Route {
 
   if (path === "/ebooks") {
     return { name: "ebooks" };
+  }
+
+  // Gallery (photos + videos). The asset route opens the lightbox over the timeline.
+  if (path === "/gallery") {
+    return { name: "gallery" };
+  }
+
+  const galleryAssetMatch = path.match(/^\/gallery\/assets\/([^/]+)$/);
+  if (galleryAssetMatch) {
+    return { name: "galleryAsset", id: galleryAssetMatch[1] };
   }
 
   // Cross-type home feeds behind the dashboard's "View all" links.

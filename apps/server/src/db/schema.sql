@@ -211,6 +211,33 @@ CREATE TABLE IF NOT EXISTS ebook_details (
   page_count  INTEGER
 );
 
+-- Gallery (photo/video) detail, 1:1 with library_items. Unlike book-like types a
+-- gallery item is a SINGLE asset (one file = one item, like ebooks), so the file
+-- itself is described here rather than in a separate media-files table.
+-- `taken_at` (from EXIF, falling back to file mtime) drives the date Timeline;
+-- `relative_path`'s directory drives the Folder view. GPS/camera are stored when
+-- present for a future map view; there is no map UI yet.
+CREATE TABLE IF NOT EXISTS gallery_details (
+  item_id             TEXT PRIMARY KEY REFERENCES library_items(id) ON DELETE CASCADE,
+  kind                TEXT NOT NULL DEFAULT 'photo' CHECK (kind IN ('photo', 'video')),
+  relative_path       TEXT NOT NULL,
+  mime_type           TEXT,
+  size                INTEGER,
+  width               INTEGER,
+  height              INTEGER,
+  orientation         INTEGER,
+  duration_seconds    REAL,
+  taken_at            TEXT,
+  modified_at         TEXT,
+  gps_lat             REAL,
+  gps_lng             REAL,
+  camera_make         TEXT,
+  camera_model        TEXT,
+  preview_storage_key TEXT,
+  updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);
+
 -- Custom scan rules: a path-scoped override of the default scanner for specific
 -- folders in a library (docs/custom-scan-rules-proposal.md). An enabled rule owns
 -- and scans its folders with its own layout pattern; the default scanner skips

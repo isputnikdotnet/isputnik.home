@@ -31,8 +31,8 @@ import { TagEncodingField } from "./TagEncodingField";
 import { UploadSettingsFields } from "./UploadSettingsFields";
 import { ModeSelect, OwnerSelect, PublicRoleSelect } from "./access-selects";
 
-type WizardLibraryType = "audiobook" | "ebook";
-type LibraryTypeChoice = WizardLibraryType | "gallery" | "files";
+type WizardLibraryType = "audiobook" | "ebook" | "gallery";
+type LibraryTypeChoice = WizardLibraryType | "files";
 type StepKey = "type" | "basics" | "review";
 type AdvancedTab = "access" | "upload" | "scanning";
 
@@ -61,10 +61,9 @@ const TYPE_OPTIONS: {
   {
     type: "gallery",
     label: "Gallery",
-    caption: "Photos and videos become albums with previews and sharing.",
+    caption: "Photos and videos become a date timeline and folder view.",
     icon: ImageIcon,
-    available: false,
-    badge: "Coming soon"
+    available: true
   },
   {
     type: "files",
@@ -198,7 +197,7 @@ export function LibraryWizard({
 
   const basicsReady = name.trim().length >= 2 && Boolean(storageBrowse?.selectedPath);
 
-  const typeRoving = useRovingRadio<WizardLibraryType>(["audiobook", "ebook"], libraryType, pickType);
+  const typeRoving = useRovingRadio<WizardLibraryType>(["audiobook", "ebook", "gallery"], libraryType, pickType);
   const visibilityRoving = useRovingRadio<"public" | "private">(["public", "private"], visibility, setVisibility);
 
   const openAdvanced = () => {
@@ -387,9 +386,9 @@ export function LibraryWizard({
                   aria-disabled={!available}
                   disabled={!available}
                   className={`library-type-option${selected ? " selected" : ""}${!available ? " disabled" : ""}`}
-                  {...(type === "audiobook" || type === "ebook" ? typeRoving(type) : { tabIndex: -1 })}
+                  {...(type !== "files" ? typeRoving(type) : { tabIndex: -1 })}
                   onClick={() => {
-                    if (type === "audiobook" || type === "ebook") pickType(type);
+                    if (type !== "files") pickType(type);
                   }}
                 >
                   <span className="library-type-choice-icon" aria-hidden="true">

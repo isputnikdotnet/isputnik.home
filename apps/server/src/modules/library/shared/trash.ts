@@ -23,6 +23,7 @@ import { deleteSharesForResource } from "./share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
 import { rescanSingleBook } from "../audiobook/scanner.js";
 import { enqueueEbookScan, processEbookScanQueue } from "../ebook/scanner.js";
+import { enqueueGalleryScan, processGalleryScanQueue } from "../gallery/scanner.js";
 
 const TRASH_DIR = ".trash";
 const TRASH_RETENTION_KEY = "trash_retention_days";
@@ -79,9 +80,11 @@ function loadBookForTrash(bookId: string): TrashBookRow | undefined {
       COALESCE(item_metadata.title, library_items.folder_path) AS title,
       item_metadata.cover_storage_key,
       (SELECT COUNT(*) FROM audio_files WHERE audio_files.item_id = library_items.id AND audio_files.deleted_at IS NULL)
-        + (SELECT COUNT(*) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.deleted_at IS NULL) AS file_count,
+        + (SELECT COUNT(*) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.deleted_at IS NULL)
+        + (SELECT COUNT(*) FROM gallery_details WHERE gallery_details.item_id = library_items.id) AS file_count,
       (SELECT COALESCE(SUM(size), 0) FROM audio_files WHERE audio_files.item_id = library_items.id AND audio_files.deleted_at IS NULL)
-        + (SELECT COALESCE(SUM(size), 0) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.deleted_at IS NULL) AS size_bytes
+        + (SELECT COALESCE(SUM(size), 0) FROM document_files WHERE document_files.item_id = library_items.id AND document_files.deleted_at IS NULL)
+        + (SELECT COALESCE(SUM(size), 0) FROM gallery_details WHERE gallery_details.item_id = library_items.id) AS size_bytes
     FROM library_items
     JOIN libraries ON libraries.id = library_items.library_id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
@@ -306,6 +309,10 @@ export async function restoreTrashedItem(id: string): Promise<TrashResult> {
         .run(bookId, item.library_id, item.library_type, restoredPath);
     }
     try { await rescanSingleBook(bookId); } catch { /* files are back; a library rescan will finish it */ }
+  } else if (item.library_type === "gallery") {
+    // gallery: a library scan re-discovers the restored asset by its path.
+    enqueueGalleryScan(item.library_id);
+    void processGalleryScanQueue();
   } else {
     // ebook (and future types): the library scan re-discovers the restored file by its path.
     enqueueEbookScan(item.library_id);

@@ -124,9 +124,52 @@ const hydrateEbooks = makeBookHydrator({
   playable: false
 });
 
+// Gallery assets (photos/videos) are single files, not rows in `books`-style
+// detail tables. One file = one item, so the title is the filename, the cover is
+// the generated thumbnail, and "duration" only applies to video. Collectable so a
+// Collection works as a photo album; opens in the gallery lightbox (href).
+const hydrateGallery: Hydrator = (entityIds, user) => {
+  const result = new Map<string, HydratedEntity>();
+  if (entityIds.length === 0) return result;
+
+  const placeholders = entityIds.map(() => "?").join(", ");
+  const rows = db.prepare(`
+    SELECT
+      library_items.id,
+      library_items.folder_path,
+      library_items.library_id,
+      item_metadata.title,
+      item_metadata.cover_storage_key,
+      gallery_details.duration_seconds
+    FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    LEFT JOIN gallery_details ON gallery_details.item_id = library_items.id
+    WHERE library_items.id IN (${placeholders})
+      AND library_items.deleted_at IS NULL
+      AND libraries.type = 'gallery'
+  `).all(...entityIds) as (Omit<BookRow, "author_names" | "file_count"> & { duration_seconds: number | null })[];
+
+  for (const row of rows) {
+    if (!canUserAccessBook(row.id, { id: row.library_id }, user.id, user.role, "gallery")) continue;
+    result.set(row.id, {
+      available: true,
+      title: row.title ?? path.basename(row.folder_path),
+      subtitle: null,
+      coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
+      durationSeconds: row.duration_seconds != null ? Math.round(row.duration_seconds) : null,
+      fileCount: 1,
+      href: `/gallery/assets/${row.id}`,
+      playable: false
+    });
+  }
+  return result;
+};
+
 const HYDRATORS: Record<string, Hydrator> = {
   audiobook: hydrateAudiobooks,
-  ebook: hydrateEbooks
+  ebook: hydrateEbooks,
+  gallery: hydrateGallery
 };
 
 export const COLLECTABLE_ENTITY_TYPES = Object.keys(HYDRATORS);
