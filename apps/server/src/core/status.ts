@@ -337,6 +337,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.3.7",
+          label: "Reliable offline ebook reading & tidier collections",
+          changes: [
+            "Downloaded ebooks open reliably. Opening an ebook you'd saved for offline reading could fail with a hard-to-read \"could not load\" message, even while online. Saved ebooks now open straight from the downloaded copy every time, and any reader error is now clearly legible instead of washed out.",
+            "Collections look right on phones. On a collection's page the title no longer gets squeezed next to the \"Play all\" and \"Delete\" buttons — those drop onto their own line — each book's controls move to their own row so the title stays readable, and the empty book placeholder icon is gone.",
+            "Read button for ebooks in a collection. Ebook entries in a collection now have a Read button that jumps straight into the reader, matching the Play button audiobooks already had."
+          ]
+        },
+        {
           version: "1.3.6",
           label: "Layout fixes for tablets & phones",
           changes: [

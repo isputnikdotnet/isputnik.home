@@ -296,7 +296,7 @@ function BookDetailView({
   const [confirmRemoveEbookDownload, setConfirmRemoveEbookDownload] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false);
-  const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string; blobUrl?: string } | null>(null);
+  const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string; blob?: Blob | null } | null>(null);
   const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
   const [progressMenuOpen, setProgressMenuOpen] = useState(false);
   const progressMenuRef = useRef<HTMLDivElement>(null);
@@ -321,11 +321,6 @@ function BookDetailView({
     }
   };
 
-  // Revoke any blob URL created for offline reading when the viewer closes.
-  useEffect(() => {
-    const doc = viewerDoc;
-    return () => { if (doc?.blobUrl) URL.revokeObjectURL(doc.blobUrl); };
-  }, [viewerDoc]);
 
   // Move this item to the Recycle Bin, then return to the list (where it's now gone).
   // Recoverable from Control Panel → Recycle Bin until it's purged. Shared by both types.
@@ -742,8 +737,7 @@ function BookDetailView({
     if (!doc || !VIEWABLE_DOC_FORMATS.has(doc.format)) return;
     if (isFoliateFormat(doc.format) && ebookOffline.record?.state === "complete") {
       void getDownloadedEpubBlob(book.id, doc.id).then((blob) => {
-        const blobUrl = blob ? URL.createObjectURL(blob) : undefined;
-        setViewerDoc({ id: doc.id, fileName: doc.fileName, url: blobUrl ?? doc.url, format: doc.format, blobUrl });
+        setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format, blob });
       });
     } else {
       setViewerDoc({ id: doc.id, fileName: doc.fileName, url: doc.url, format: doc.format });
@@ -1289,6 +1283,7 @@ function BookDetailView({
             documentId={viewerDoc.id}
             format={viewerDoc.format}
             url={viewerDoc.url}
+            blob={viewerDoc.blob}
             storageKey={`isputnik:epub-progress:${userId}:${book.id}:${viewerDoc.id}`}
             initialProgress={viewerDoc.id === primaryReadableDoc?.id ? readingProgress : null}
             onProgressChange={(next) => {

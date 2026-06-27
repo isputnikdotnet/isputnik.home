@@ -227,11 +227,11 @@ interface ViewerState {
   bookId: string;
   docId: string;
   format: string;
-  url: string;
+  url?: string;
   title: string;
   author: string;
   coverUrl: string | null;
-  blobUrl?: string;
+  blob?: Blob | null;
   initialProgress: ReadingProgress | null;
 }
 
@@ -280,9 +280,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     if (!docId) { navigate(`/ebooks/books/${item.id}`); return; }
 
     const offlineBlob = await getDownloadedEpubBlob(item.id, docId).catch(() => null);
-    const blobUrl = offlineBlob ? URL.createObjectURL(offlineBlob) : undefined;
-    const url = blobUrl ?? networkUrl;
-    if (!url) { showToast("Not available offline"); return; }
+    if (!offlineBlob && !networkUrl) { showToast("Not available offline"); return; }
 
     const progressData = await api<{ progress: ReadingProgress | null }>(
       `/api/library/books/${item.id}/reading-progress?documentId=${encodeURIComponent(docId)}`
@@ -292,19 +290,14 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       bookId: item.id,
       docId,
       format,
-      url,
+      url: networkUrl ?? undefined,
       title: item.title,
       author: item.authors.join(", "),
       coverUrl: item.coverUrl,
-      blobUrl,
+      blob: offlineBlob,
       initialProgress: progressData.progress
     });
   }, [showToast]);
-
-  useEffect(() => {
-    const current = viewer;
-    return () => { if (current?.blobUrl) URL.revokeObjectURL(current.blobUrl); };
-  }, [viewer]);
 
   // Local (IndexedDB) download records — both the id set used to flag rows as
   // saved, and the full records that drive the offline home when disconnected.
@@ -545,6 +538,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
         documentId={viewer.docId}
         format={viewer.format}
         url={viewer.url}
+        blob={viewer.blob}
         storageKey={`isputnik:epub-progress:${user.id}:${viewer.bookId}:${viewer.docId}`}
         initialProgress={viewer.initialProgress}
         title={viewer.title}

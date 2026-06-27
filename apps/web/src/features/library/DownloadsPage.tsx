@@ -29,11 +29,10 @@ interface ViewerState {
   bookId: string;
   docId: string;
   format: string;
-  url: string;
+  blob: Blob;
   title: string;
   author: string;
   coverUrl: string | null;
-  blobUrl: string;
   initialProgress: ReadingProgress | null;
 }
 
@@ -90,25 +89,17 @@ export function DownloadsPage({
   const openReader = useCallback(async (record: EbookDownloadRecord) => {
     const blob = await getDownloadedEpubBlob(record.bookId, record.documentId).catch(() => null);
     if (!blob) { navigate(`/ebooks/books/${record.bookId}`); return; }
-    const blobUrl = URL.createObjectURL(blob);
     setViewer({
       bookId: record.bookId,
       docId: record.documentId,
       format: record.format ?? "epub",
-      url: blobUrl,
+      blob,
       title: record.title,
       author: record.authors.length > 0 ? record.authors.join(", ") : "Unknown author",
       coverUrl: record.coverUrl,
-      blobUrl,
       initialProgress: null
     });
   }, []);
-
-  // Revoke the blob URL when the reader closes or switches books.
-  useEffect(() => {
-    const current = viewer;
-    return () => { if (current?.blobUrl) URL.revokeObjectURL(current.blobUrl); };
-  }, [viewer]);
 
   const totalDownloadedBytes =
     (downloads ?? []).reduce((sum, d) => sum + d.totalBytes, 0) +
@@ -313,13 +304,12 @@ export function DownloadsPage({
         bookId={viewer.bookId}
         documentId={viewer.docId}
         format={viewer.format}
-        url={viewer.url}
+        blob={viewer.blob}
         storageKey={`isputnik:epub-progress:${user.id}:${viewer.bookId}:${viewer.docId}`}
         initialProgress={viewer.initialProgress}
         title={viewer.title}
         author={viewer.author}
         coverUrl={viewer.coverUrl}
-        downloadUrl={viewer.url}
         onExit={() => setViewer(null)}
       />,
       document.body

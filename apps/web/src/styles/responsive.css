@@ -340,6 +340,43 @@
   .datagrid td.col-scan {
     display: none;
   }
+
+  /* Collection detail — narrow screens. Stack the title and the action buttons
+     so a short name no longer gets crushed into two lines beside "Play all /
+     Delete", and let those buttons share the row at a compact size. */
+  .collection-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .collection-head-actions {
+    width: 100%;
+  }
+
+  .collection-head-actions .compact-button {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  /* Drop the per-item action buttons (play / reorder / remove) onto their own
+     row so the book title gets the full width and stays readable. */
+  .collection-item-row {
+    grid-template-columns: 22px minmax(0, 1fr);
+    grid-template-areas:
+      "pos main"
+      "actions actions";
+    row-gap: 6px;
+  }
+
+  .collection-item-pos { grid-area: pos; }
+  .collection-item-main { grid-area: main; }
+
+  .collection-item-actions {
+    grid-area: actions;
+    justify-content: flex-end;
+    gap: 6px;
+  }
 }
 
 @media (min-width: 741px) and (max-width: 1040px) {

@@ -19,7 +19,14 @@ interface EbookReaderProps {
   // The document's format ("epub" | "fb2"). foliate detects the book type from the
   // File name, so this decides how the fetched blob is named before view.open().
   format: string;
-  url: string;
+  // Network URL for the document. Optional because a downloaded book is read
+  // straight from its offline `blob` and may have no reachable URL.
+  url?: string;
+  // When set, the document is loaded directly from this Blob (offline download)
+  // instead of being fetched. This keeps the blob's lifecycle inside the reader
+  // so a parent revoking an object URL can't pull the data out mid-load — the
+  // bug that broke opening downloaded books under React StrictMode.
+  blob?: Blob | null;
   storageKey: string;
   initialProgress: ReadingProgress | null;
   onProgressChange?: (progress: ReadingProgress) => void;
@@ -199,6 +206,7 @@ export function EbookReader({
   documentId,
   format,
   url,
+  blob,
   storageKey,
   initialProgress,
   onProgressChange,
@@ -226,6 +234,10 @@ export function EbookReader({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Download href for an offline book is derived from its Blob here so the
+  // object URL is created and revoked inside this component (StrictMode-safe),
+  // never handed in from a parent that might revoke it early.
+  const [blobDownloadHref, setBlobDownloadHref] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [toc, setToc] = useState<FoliateTocItem[]>([]);
   const [panel, setPanel] = useState<Panel>(null);
@@ -320,6 +332,16 @@ export function EbookReader({
     onProgressChangeRef.current = onProgressChange;
   }, [onProgressChange]);
 
+  // Own the object URL for the offline-download button: create on mount, revoke
+  // on cleanup, so it can never be revoked out from under us.
+  useEffect(() => {
+    if (!blob) { setBlobDownloadHref(null); return undefined; }
+    const href = URL.createObjectURL(blob);
+    setBlobDownloadHref(href);
+    return () => URL.revokeObjectURL(href);
+  }, [blob]);
+  const downloadHref = blob ? blobDownloadHref : downloadUrl;
+
   // Engine lifecycle — runs once per opened document.
   useEffect(() => {
     let cancelled = false;
@@ -328,12 +350,21 @@ export function EbookReader({
 
     (async () => {
       try {
-        const res = await fetch(url, { credentials: "include" });
-        if (!res.ok) throw new Error("Could not load this ebook.");
+        // Downloaded books are read from their stored Blob directly; only fall
+        // back to the network when no offline copy was handed in.
+        let data: Blob;
+        if (blob) {
+          data = blob;
+        } else {
+          if (!url) throw new Error("Could not load this ebook.");
+          const res = await fetch(url, { credentials: "include" });
+          if (!res.ok) throw new Error("Could not load this ebook.");
+          data = await res.blob();
+        }
+        if (cancelled) return;
         // foliate's makeBook does format detection on the file *name* (e.g.
         // name.endsWith('.fb2')), so it needs a File, not a bare Blob. Name it to
         // match this document's format so foliate picks the right parser.
-        const data = await res.blob();
         const { name, mime } = foliateFileInfo(format);
         const file = new File([data], name, { type: data.type || mime });
         if (cancelled) return;
@@ -396,7 +427,7 @@ export function EbookReader({
         try { view.remove(); } catch { /* ignore */ }
       }
     };
-  }, [bookId, documentId, format, url, storageKey, startingProgress, sendProgress, onRelocate, onLoad, guest]);
+  }, [bookId, documentId, format, url, blob, storageKey, startingProgress, sendProgress, onRelocate, onLoad, guest]);
 
   // Typography / theme changes — applied live, no view rebuild.
   useEffect(() => {
@@ -565,7 +596,7 @@ export function EbookReader({
 
   if (error) {
     return (
-      <div className="ebk-reader" data-theme={theme}>
+      <div className="ebk-reader" data-theme={theme} style={{ background: colors.bg, color: colors.fg }}>
         <div className="ebk-status">
           <p>{error}</p>
           <button type="button" className="ebk-text-button" onClick={onExit}>Close</button>
@@ -748,8 +779,8 @@ export function EbookReader({
                     </div>
                   </div>
                   <div className="ebk-setting-actions">
-                    {downloadUrl && (
-                      <a className="ebk-menu-item" href={downloadUrl} download onClick={closePanels}>
+                    {downloadHref && (
+                      <a className="ebk-menu-item" href={downloadHref} download onClick={closePanels}>
                         <Download size={16} /> Download
                       </a>
                     )}
