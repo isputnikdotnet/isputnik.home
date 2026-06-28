@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
-import { BookOpen, Clock3, HardDrive, Library, Mic2, RefreshCw, UserRound } from "lucide-react";
+import { BookOpen, FileText, HardDrive, Library, RefreshCw, UserRound } from "lucide-react";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatBytes } from "../../../shared/utils";
-import type { PersonStatusStats, SystemStatus } from "../types";
-import { StatusMetric, formatHours } from "./StatusMetric";
+import type { EbookPersonStatusStats, SystemStatus } from "../types";
+import { StatusMetric } from "./StatusMetric";
 
-function PeopleTable({ people }: { people: PersonStatusStats[] }) {
+function AuthorsTable({ people }: { people: EbookPersonStatusStats[] }) {
   if (people.length === 0) {
-    return <p className="status-empty">No books with this metadata yet.</p>;
+    return <p className="status-empty">No ebooks with author metadata yet.</p>;
   }
 
   return (
@@ -20,7 +20,6 @@ function PeopleTable({ people }: { people: PersonStatusStats[] }) {
             <th>Rank</th>
             <th>Name</th>
             <th className="col-num">Books</th>
-            <th className="col-num">Hours</th>
           </tr>
         </thead>
         <tbody>
@@ -29,7 +28,6 @@ function PeopleTable({ people }: { people: PersonStatusStats[] }) {
               <td className="datagrid-muted">#{index + 1}</td>
               <td><strong className="status-person-name">{person.name}</strong></td>
               <td className="col-num datagrid-muted">{person.bookCount}</td>
-              <td className="col-num datagrid-muted">{formatHours(person.totalDurationSeconds)}</td>
             </tr>
           ))}
         </tbody>
@@ -38,7 +36,7 @@ function PeopleTable({ people }: { people: PersonStatusStats[] }) {
   );
 }
 
-export function AudiobookStatsSection() {
+export function EbookStatsSection() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [error, setError] = useState("");
 
@@ -51,12 +49,14 @@ export function AudiobookStatsSection() {
     loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to load stats"));
   }, []);
 
+  const stats = systemStatus?.ebookStats;
+
   return (
     <>
       <div className="section-head">
         <div>
           <p className="eyebrow">Digital Library</p>
-          <h1>Audiobook stats</h1>
+          <h1>Ebook stats</h1>
         </div>
         <Button variant="secondary" compact onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh stats"))}>
           <RefreshCw size={15} aria-hidden="true" />
@@ -66,7 +66,7 @@ export function AudiobookStatsSection() {
 
       {error && <MessageBox tone="error" title="Stats error">{error}</MessageBox>}
 
-      {systemStatus && (
+      {stats && (
         <div className="status-stack">
           <section className="status-block">
             <div className="status-block-head">
@@ -77,19 +77,19 @@ export function AudiobookStatsSection() {
             </div>
 
             <div className="status-grid status-grid-four">
-              <StatusMetric icon={Library} label="Total libraries" value={String(systemStatus.libraryStats.totalLibraries)} />
-              <StatusMetric icon={BookOpen} label="Total books" value={String(systemStatus.libraryStats.totalBooks)} />
-              <StatusMetric icon={HardDrive} label="Total size" value={formatBytes(systemStatus.libraryStats.totalSizeBytes)} />
-              <StatusMetric icon={Clock3} label="Total hours" value={formatHours(systemStatus.libraryStats.totalDurationSeconds)} />
+              <StatusMetric icon={Library} label="Total libraries" value={String(stats.totalLibraries)} />
+              <StatusMetric icon={BookOpen} label="Total books" value={String(stats.totalBooks)} />
+              <StatusMetric icon={HardDrive} label="Total size" value={formatBytes(stats.totalSizeBytes)} />
+              <StatusMetric icon={FileText} label="File formats" value={String(stats.formats.length)} />
             </div>
 
             <div className="status-subsection">
               <div className="status-table-title">
                 <h3>Libraries</h3>
-                <span>{systemStatus.libraryStats.libraries.length} total</span>
+                <span>{stats.libraries.length} total</span>
               </div>
-              {systemStatus.libraryStats.libraries.length === 0 ? (
-                <p className="status-empty">No audiobook libraries have been added yet.</p>
+              {stats.libraries.length === 0 ? (
+                <p className="status-empty">No ebook libraries have been added yet.</p>
               ) : (
                 <div className="datagrid-wrap">
                   <table className="datagrid">
@@ -98,11 +98,10 @@ export function AudiobookStatsSection() {
                         <th>Library</th>
                         <th className="col-num">Books</th>
                         <th className="col-num">Size</th>
-                        <th className="col-num">Hours</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {systemStatus.libraryStats.libraries.map((library) => (
+                      {stats.libraries.map((library) => (
                         <tr key={library.id}>
                           <td>
                             <div className="datagrid-primary">
@@ -112,7 +111,6 @@ export function AudiobookStatsSection() {
                           </td>
                           <td className="col-num datagrid-muted">{library.bookCount}</td>
                           <td className="col-num datagrid-muted">{formatBytes(library.totalSizeBytes)}</td>
-                          <td className="col-num datagrid-muted">{formatHours(library.totalDurationSeconds)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -125,22 +123,43 @@ export function AudiobookStatsSection() {
           <section className="status-block">
             <div className="status-block-head">
               <div>
-                <p className="eyebrow">People</p>
-                <h2>Top 10</h2>
+                <p className="eyebrow">Authors & Formats</p>
+                <h2>Breakdown</h2>
               </div>
             </div>
             <div className="status-rank-grid">
               <div className="status-subsection">
                 <div className="status-table-title">
-                  <h3><UserRound size={17} aria-hidden="true" /> Authors</h3>
+                  <h3><UserRound size={17} aria-hidden="true" /> Top 10 Authors</h3>
                 </div>
-                <PeopleTable people={systemStatus.libraryStats.topAuthors} />
+                <AuthorsTable people={stats.topAuthors} />
               </div>
               <div className="status-subsection">
                 <div className="status-table-title">
-                  <h3><Mic2 size={17} aria-hidden="true" /> Narrators</h3>
+                  <h3><FileText size={17} aria-hidden="true" /> Formats</h3>
                 </div>
-                <PeopleTable people={systemStatus.libraryStats.topNarrators} />
+                {stats.formats.length === 0 ? (
+                  <p className="status-empty">No ebook files have been catalogued yet.</p>
+                ) : (
+                  <div className="datagrid-wrap">
+                    <table className="datagrid status-rank-table">
+                      <thead>
+                        <tr>
+                          <th>Format</th>
+                          <th className="col-num">Files</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stats.formats.map((row) => (
+                          <tr key={row.format}>
+                            <td><strong className="status-person-name">{row.format}</strong></td>
+                            <td className="col-num datagrid-muted">{row.count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -148,12 +167,12 @@ export function AudiobookStatsSection() {
           <section className="status-block">
             <div className="status-block-head">
               <div>
-                <p className="eyebrow">Longest listens</p>
-                <h2>Top 10 Books by Hour</h2>
+                <p className="eyebrow">Largest files</p>
+                <h2>Top 10 Books by Size</h2>
               </div>
             </div>
-            {systemStatus.libraryStats.longestBooks.length === 0 ? (
-              <p className="status-empty">No audiobook durations are available yet.</p>
+            {stats.largestBooks.length === 0 ? (
+              <p className="status-empty">No ebooks have been catalogued yet.</p>
             ) : (
               <div className="datagrid-wrap">
                 <table className="datagrid">
@@ -161,12 +180,12 @@ export function AudiobookStatsSection() {
                     <tr>
                       <th>Book</th>
                       <th>Library</th>
-                      <th className="col-num">Hours</th>
+                      <th>Formats</th>
                       <th className="col-num">Size</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {systemStatus.libraryStats.longestBooks.map((book, index) => (
+                    {stats.largestBooks.map((book, index) => (
                       <tr key={book.id}>
                         <td>
                           <div className="datagrid-primary">
@@ -175,7 +194,7 @@ export function AudiobookStatsSection() {
                           </div>
                         </td>
                         <td className="datagrid-muted">{book.libraryName}</td>
-                        <td className="col-num datagrid-muted">{formatHours(book.totalDurationSeconds)}</td>
+                        <td className="datagrid-muted">{book.formats.length > 0 ? book.formats.join(", ") : "—"}</td>
                         <td className="col-num datagrid-muted">{formatBytes(book.totalSizeBytes)}</td>
                       </tr>
                     ))}

@@ -24,6 +24,8 @@ import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
 import { AudiobookStatsSection } from "./sections/AudiobookStatsSection";
+import { EbookStatsSection } from "./sections/EbookStatsSection";
+import { GalleryStatsSection } from "./sections/GalleryStatsSection";
 import { BackupSection } from "./sections/BackupSection";
 import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
 import { TagsSection } from "./sections/TagsSection";
@@ -51,7 +53,7 @@ export function ControlPanelPage({
           {(section === "users" || section === "groups" || section === "invites" || section === "sessions") && <AccountsSection section={section} currentUser={user} />}
           {section === "logs"      && <LogsSection />}
           {(section === "jobs" || section === "backup") && <MaintenanceSection section={section} />}
-          {(section === "status" || section === "statusStats") && <StatusControl section={section} />}
+          {(section === "status" || section === "statusStats" || section === "statusEbookStats" || section === "statusGalleryStats") && <StatusControl section={section} />}
           {section === "config"    && <ConfigSection />}
           {section === "security"  && <SecuritySection />}
           {section === "about"     && <AboutSection />}
@@ -74,7 +76,7 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
 
       <div className="home-control-group">
         <p>Application</p>
-        <ControlNavLink icon={Activity} label="Status" href="/control/status" active={["status", "statusStats"].includes(section)} />
+        <ControlNavLink icon={Activity} label="Status" href="/control/status" active={["status", "statusStats", "statusEbookStats", "statusGalleryStats"].includes(section)} />
         <ControlNavLink icon={Settings} label="Config" href="/control/config" active={section === "config"} />
         <ControlNavLink icon={ShieldCheck} label="Security" href="/control/security" active={section === "security"} />
         <ControlNavLink icon={Tags} label="Labels" href="/control/categories" active={section === "categories" || section === "tags"} />
@@ -149,15 +151,19 @@ function ControlTabs({ tabs }: { tabs: ControlTab[] }) {
   );
 }
 
-function StatusControl({ section }: { section: "status" | "statusStats" }) {
+function StatusControl({ section }: { section: "status" | "statusStats" | "statusEbookStats" | "statusGalleryStats" }) {
   return (
     <>
       <ControlTabs tabs={[
         { label: "System", href: "/control/status", active: section === "status" },
-        { label: "Audiobook stats", href: "/control/status/audiobook-stats", active: section === "statusStats" }
+        { label: "Audiobook stats", href: "/control/status/audiobook-stats", active: section === "statusStats" },
+        { label: "Ebook stats", href: "/control/status/ebook-stats", active: section === "statusEbookStats" },
+        { label: "Gallery stats", href: "/control/status/gallery-stats", active: section === "statusGalleryStats" }
       ]} />
-      {section === "status"      && <StatusSection />}
-      {section === "statusStats" && <AudiobookStatsSection />}
+      {section === "status"             && <StatusSection />}
+      {section === "statusStats"        && <AudiobookStatsSection />}
+      {section === "statusEbookStats"   && <EbookStatsSection />}
+      {section === "statusGalleryStats" && <GalleryStatsSection />}
     </>
   );
 }
