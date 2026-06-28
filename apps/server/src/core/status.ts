@@ -573,6 +573,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.3.8",
+          label: "Save quotes & highlights from your books",
+          changes: [
+            "Highlight as you read. Select any passage in the ebook reader and a small toolbar appears — pick a colour to highlight and save it, or copy the text. Your highlights stay marked on the page, and tapping one lets you recolour, copy, or remove it.",
+            "A new Quotes page. Everything you've saved lives under My Library → Quotes, grouped by book. From there you can copy a quote, edit its note, jump straight back to the exact spot in the reader, or delete it.",
+            "Bring in quotes from anywhere. Use \"Add quote\" to save a passage from any book — including ones that aren't in your library — by typing the text and the title and author yourself. If a book is later removed, its quotes are kept (with the title and author preserved) rather than lost."
+          ]
+        },
+        {
           version: "1.3.7",
           label: "Reliable offline ebook reading & tidier collections",
           changes: [
