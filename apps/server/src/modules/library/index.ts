@@ -14,6 +14,7 @@ import { registerCategoryRoutes } from "./categories.js";
 import { registerTagRoutes } from "./tags.js";
 import { registerWorkRoutes } from "./works.js";
 import { registerBookmarkRoutes } from "./bookmarks.js";
+import { registerQuoteRoutes } from "./quotes.js";
 import { librarySharesPlugin } from "./shared/shares.js";
 
 export async function libraryPlugin(app: FastifyInstance) {
@@ -43,6 +44,9 @@ export async function libraryPlugin(app: FastifyInstance) {
 
   // …the cross-type "all my bookmarks" listing (audiobook position + epub reader)…
   registerBookmarkRoutes(app);
+
+  // …quotes / highlights (cross-type; in-reader captures + externally-typed quotes)…
+  registerQuoteRoutes(app);
 
   // …item-level sharing (guest links + user shares) for every book type, with
   // public guest routes that dispatch by the share's module…

@@ -183,6 +183,50 @@
   background: #2c2c2a; color: #fff; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
+/* Selection capture toolbar + highlight popover. Positioned fixed at coordinates
+   mapped out of the reader's blob iframe, so they float over the page text. */
+.ebk-sel-toolbar,
+.ebk-quote-pop {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: #2c2c2a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.ebk-sel-toolbar { transform: translate(-50%, calc(-100% - 10px)); }
+.ebk-quote-pop { transform: translate(-50%, 10px); }
+
+.ebk-sel-lead { display: grid; place-items: center; color: #cdc8bf; padding-left: 2px; }
+
+.ebk-sel-color {
+  width: 18px; height: 18px; flex: none;
+  border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 50%;
+  padding: 0; cursor: pointer;
+}
+.ebk-sel-color:hover { transform: scale(1.12); }
+.ebk-sel-color.active { box-shadow: 0 0 0 2px #fff; }
+
+.ebk-sel-divider { width: 1px; align-self: stretch; margin: 2px 2px; background: rgba(255, 255, 255, 0.18); }
+
+.ebk-sel-btn {
+  display: grid; place-items: center;
+  width: 28px; height: 28px; flex: none;
+  border: none; border-radius: 7px; background: transparent; color: #e8e4dc; cursor: pointer;
+}
+.ebk-sel-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.ebk-sel-btn.danger { color: #ef9a9a; }
+.ebk-sel-btn.danger:hover { background: rgba(239, 154, 154, 0.16); }
+
+.ebk-quote-scrim {
+  position: fixed; inset: 0; z-index: 29;
+  border: none; background: transparent; cursor: default;
+}
+
 /* Mobile / PWA reader chrome — these classes only render ≤740px (useIsMobile),
    so no media query is needed to scope them. */
 .ebk-topbar-mobile { padding: 8px 12px; }

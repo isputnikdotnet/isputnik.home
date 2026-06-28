@@ -10,6 +10,7 @@ export type Route =
   | { name: "audiobooks" }
   | { name: "favorites" }
   | { name: "bookmarks" }
+  | { name: "quotes" }
   | { name: "downloads" }
   | { name: "audiobookBook"; id: string }
   | { name: "audiobookPlayer"; id: string }
@@ -148,6 +149,10 @@ export function getRoute(): Route {
   // Cross-type personal-library pages; old /audiobooks/* paths kept as aliases.
   if (path === "/bookmarks" || path === "/audiobooks/bookmarks") {
     return { name: "bookmarks" };
+  }
+
+  if (path === "/quotes") {
+    return { name: "quotes" };
   }
 
   if (path === "/downloads" || path === "/audiobooks/downloads") {

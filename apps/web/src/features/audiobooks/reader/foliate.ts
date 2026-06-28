@@ -3,6 +3,7 @@
 // feed it EPUB blobs; everything navigation/CFI-related goes through foliate's
 // own book model (goTo / relocate), which is what makes it reliable.
 import "../../../vendor/foliate-js/view.js";
+import { Overlayer } from "../../../vendor/foliate-js/overlayer.js";
 
 export interface FoliateTocItem {
   label: string;
@@ -47,6 +48,30 @@ interface FoliateRenderer {
   removeAttribute(name: string): void;
 }
 
+// An annotation is identified by its CFI range string (`value`); foliate stores
+// and hit-tests overlays by that key. `color` rides along so our draw handler can
+// tint the highlight per the user's saved colour.
+export interface FoliateAnnotation {
+  value: string;
+  color?: string;
+}
+
+// Fired (cancelable) when foliate is ready to paint an annotation: call
+// `detail.draw(fn, options)` with one of Overlayer's static draw functions.
+export interface FoliateDrawAnnotationDetail {
+  draw: (func: unknown, options?: Record<string, unknown>) => void;
+  annotation: FoliateAnnotation;
+  doc?: Document;
+  range: Range;
+}
+
+// Fired when the user taps an existing on-page highlight.
+export interface FoliateShowAnnotationDetail {
+  value: string;
+  index: number;
+  range: Range;
+}
+
 export interface FoliateView extends HTMLElement {
   open(book: Blob | File | string): Promise<void>;
   init(options: { lastLocation?: string | null; showTextStart?: boolean }): Promise<void>;
@@ -58,6 +83,13 @@ export interface FoliateView extends HTMLElement {
   next(distance?: number): Promise<void>;
   search(options: { query: string; index?: number }): AsyncGenerator<FoliateSearchYield, void, unknown>;
   clearSearch?(): void;
+  // Build a CFI range string from a selection Range within section `index`
+  // (the index handed to the `load` event for that document).
+  getCFI(index: number, range: Range): string;
+  // Paint / remove an on-page overlay for the annotation's CFI range. addAnnotation
+  // fires the `draw-annotation` event so the host decides how to render it.
+  addAnnotation(annotation: FoliateAnnotation, remove?: boolean): Promise<{ index: number; label: string } | undefined>;
+  deleteAnnotation(annotation: FoliateAnnotation): Promise<unknown>;
   close?(): void;
   renderer?: FoliateRenderer;
   book: { toc?: FoliateTocItem[] };
@@ -65,6 +97,28 @@ export interface FoliateView extends HTMLElement {
 
 export function createFoliateView(): FoliateView {
   return document.createElement("foliate-view") as FoliateView;
+}
+
+// Soft highlight palette — keys are stored on the quote (`color`), values are the
+// fill used by Overlayer.highlight (which applies its own ~0.3 opacity). "yellow"
+// is the default so an un-coloured quote still gets a sensible mark.
+export const HIGHLIGHT_COLORS: Record<string, string> = {
+  yellow: "#f6c945",
+  green: "#7fc46b",
+  blue: "#5aa9e6",
+  pink: "#ef8fb6",
+  orange: "#f0974a"
+};
+
+export const DEFAULT_HIGHLIGHT_COLOR = "yellow";
+
+export function highlightFill(color: string | null | undefined): string {
+  return HIGHLIGHT_COLORS[color ?? DEFAULT_HIGHLIGHT_COLOR] ?? HIGHLIGHT_COLORS[DEFAULT_HIGHLIGHT_COLOR];
+}
+
+// Paint a highlight for a draw-annotation event using foliate's Overlayer.
+export function drawHighlight(detail: FoliateDrawAnnotationDetail): void {
+  detail.draw(Overlayer.highlight, { color: highlightFill(detail.annotation.color) });
 }
 
 // ── reading theme + typography ───────────────────────────────────────────────

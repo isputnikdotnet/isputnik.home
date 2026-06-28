@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ALargeSmall, ArrowLeft, Bookmark, BookmarkPlus, BookOpen, ChevronLeft, ChevronRight, Columns2, Download,
-  List, Minus, Pencil, Plus, RotateCcw, ScrollText, Search, Settings, Sun, Trash2
+  ALargeSmall, ArrowLeft, Bookmark, BookmarkPlus, BookOpen, ChevronLeft, ChevronRight, Columns2, Copy, Download,
+  Highlighter, List, Minus, Pencil, Plus, RotateCcw, ScrollText, Search, Settings, Sun, Trash2
 } from "lucide-react";
 import { api } from "../../../api";
 import { useIsMobile } from "../../../shared/useIsMobile";
 import { foliateFileInfo } from "../../../shared/utils";
-import type { EbookBookmark, ReadingProgress } from "../types";
+import type { EbookBookmark, Quote, ReadingProgress } from "../types";
 import {
-  applyLayout, countToc, createFoliateView, themeColors, themeCSS,
-  type FoliateRelocateDetail, type FoliateLoadDetail, type FoliateTocItem, type FoliateView,
+  applyLayout, countToc, createFoliateView, drawHighlight, highlightFill, themeColors, themeCSS,
+  HIGHLIGHT_COLORS,
+  type FoliateRelocateDetail, type FoliateLoadDetail, type FoliateDrawAnnotationDetail,
+  type FoliateShowAnnotationDetail, type FoliateTocItem, type FoliateView,
   type ReaderFont, type ReaderLayout, type ReaderTheme
 } from "./foliate";
 
@@ -29,6 +31,9 @@ interface EbookReaderProps {
   blob?: Blob | null;
   storageKey: string;
   initialProgress: ReadingProgress | null;
+  // When opened from a quote/bookmark deep link, start at this exact CFI regardless
+  // of stored progress (so "open in reader" lands on the quoted passage).
+  initialCfi?: string | null;
   onProgressChange?: (progress: ReadingProgress) => void;
   title?: string;
   author?: string;
@@ -209,6 +214,7 @@ export function EbookReader({
   blob,
   storageKey,
   initialProgress,
+  initialCfi,
   onProgressChange,
   title,
   author,
@@ -260,6 +266,15 @@ export function EbookReader({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
+
+  // Quotes / highlights. `quotesRef` mirrors the document's saved quotes so the
+  // load handler can redraw their overlays without re-rendering React; `selection`
+  // anchors the capture toolbar over a fresh text selection; `activeQuote` anchors
+  // the popover shown when an existing highlight is tapped.
+  const quotesRef = useRef<Quote[]>([]);
+  const sectionIndexRef = useRef(0);
+  const [selection, setSelection] = useState<{ x: number; y: number; text: string; cfi: string } | null>(null);
+  const [activeQuote, setActiveQuote] = useState<{ quote: Quote; x: number; y: number } | null>(null);
 
   const sendProgress = useCallback((progress: ProgressDraft) => {
     // Guests have no account to sync to — localStorage (in persistProgress) is the
@@ -316,15 +331,83 @@ export function EbookReader({
       : null);
     const label = detail.tocItem?.label ?? null;
     if (label) setSectionLabel(label);
+    // A page turn invalidates the on-screen anchors for the capture toolbar and the
+    // highlight popover, so dismiss them.
+    setSelection(null);
+    setActiveQuote(null);
     persistProgress({ cfi: detail.cfi, percentComplete: fraction, label });
   }, [persistProgress]);
 
   const onLoad = useCallback((event: Event) => {
-    const doc = (event as CustomEvent<FoliateLoadDetail>).detail?.doc;
+    const detail = (event as CustomEvent<FoliateLoadDetail>).detail;
+    const doc = detail?.doc;
     if (!doc) return;
+    const index = detail.index ?? 0;
+    sectionIndexRef.current = index;
+
     doc.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") { e.preventDefault(); void viewRef.current?.goLeft(); }
       else if (e.key === "ArrowRight") { e.preventDefault(); void viewRef.current?.goRight(); }
+    });
+
+    // Repaint this freshly-loaded section's highlights. addAnnotation only draws on
+    // the section whose overlayer currently exists, so this must run on every load.
+    const view = viewRef.current;
+    if (view) {
+      for (const quote of quotesRef.current) {
+        if (quote.cfi) void view.addAnnotation({ value: quote.cfi, color: quote.color ?? undefined }).catch(() => undefined);
+      }
+    }
+
+    // Text selection → quote toolbar. mouseup/touchend finalise a drag or long-press;
+    // selectionchange only clears the toolbar when the selection collapses. Coordinates
+    // are mapped from the blob iframe's viewport into the top document.
+    const captureSelection = () => {
+      const v = viewRef.current;
+      if (!v) return;
+      const sel = doc.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) { setSelection(null); return; }
+      const text = sel.toString().trim();
+      if (!text) { setSelection(null); return; }
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      if (!rect || (rect.width === 0 && rect.height === 0)) { setSelection(null); return; }
+      const frameRect = (doc.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+      let cfi = "";
+      try { cfi = v.getCFI(index, range); } catch { /* range not addressable */ }
+      setSelection({
+        x: (frameRect?.left ?? 0) + rect.left + rect.width / 2,
+        y: (frameRect?.top ?? 0) + rect.top,
+        text,
+        cfi
+      });
+    };
+    doc.addEventListener("mouseup", captureSelection);
+    doc.addEventListener("touchend", captureSelection);
+    doc.addEventListener("selectionchange", () => {
+      const sel = doc.getSelection();
+      if (!sel || sel.isCollapsed) setSelection(null);
+    });
+  }, []);
+
+  // Paint a highlight when foliate asks, and open the highlight popover when an
+  // existing one is tapped. Both stable so the engine effect never rebuilds.
+  const onDrawAnnotation = useCallback((event: Event) => {
+    drawHighlight((event as CustomEvent<FoliateDrawAnnotationDetail>).detail);
+  }, []);
+
+  const onShowAnnotation = useCallback((event: Event) => {
+    const detail = (event as CustomEvent<FoliateShowAnnotationDetail>).detail;
+    const quote = quotesRef.current.find((q) => q.cfi === detail.value);
+    if (!quote) return;
+    const rect = detail.range.getBoundingClientRect();
+    const doc = detail.range.startContainer.ownerDocument;
+    const frameRect = (doc?.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+    setSelection(null);
+    setActiveQuote({
+      quote,
+      x: (frameRect?.left ?? 0) + rect.left + rect.width / 2,
+      y: (frameRect?.top ?? 0) + rect.bottom
     });
   }, []);
 
@@ -369,7 +452,7 @@ export function EbookReader({
         const file = new File([data], name, { type: data.type || mime });
         if (cancelled) return;
 
-        let startCfi = startingProgress?.cfi ?? null;
+        let startCfi = initialCfi ?? startingProgress?.cfi ?? null;
         if (!startCfi && !guest) {
           try {
             const payload = await api<{ progress: ReadingProgress | null }>(
@@ -392,6 +475,8 @@ export function EbookReader({
         viewRef.current = view;
         view.addEventListener("relocate", onRelocate);
         view.addEventListener("load", onLoad);
+        view.addEventListener("draw-annotation", onDrawAnnotation);
+        view.addEventListener("show-annotation", onShowAnnotation);
         host.append(view);
 
         await view.open(file);
@@ -405,6 +490,20 @@ export function EbookReader({
         }
         await view.init({ lastLocation: startCfi, showTextStart: true });
         if (!cancelled) setLoading(false);
+
+        // Load this document's saved quotes and paint the ones on screen. onLoad
+        // repaints the rest as their sections come into view (via quotesRef).
+        if (!guest) {
+          api<{ quotes: Quote[] }>(`/api/library/quotes?documentId=${encodeURIComponent(documentId)}`)
+            .then(({ quotes }) => {
+              if (cancelled) return;
+              quotesRef.current = quotes;
+              for (const quote of quotes) {
+                if (quote.cfi) void view.addAnnotation({ value: quote.cfi, color: quote.color ?? undefined }).catch(() => undefined);
+              }
+            })
+            .catch(() => undefined);
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Could not load this ebook.");
@@ -427,7 +526,7 @@ export function EbookReader({
         try { view.remove(); } catch { /* ignore */ }
       }
     };
-  }, [bookId, documentId, format, url, blob, storageKey, startingProgress, sendProgress, onRelocate, onLoad, guest]);
+  }, [bookId, documentId, format, url, blob, storageKey, startingProgress, initialCfi, sendProgress, onRelocate, onLoad, onDrawAnnotation, onShowAnnotation, guest]);
 
   // Typography / theme changes — applied live, no view rebuild.
   useEffect(() => {
@@ -459,13 +558,22 @@ export function EbookReader({
       if (e.key === "ArrowLeft") { e.preventDefault(); goLeft(); }
       else if (e.key === "ArrowRight") { e.preventDefault(); goRight(); }
       else if (e.key === "Escape") {
-        if (panel) setPanel(null);
+        if (activeQuote) setActiveQuote(null);
+        else if (selection) setSelection(null);
+        else if (panel) setPanel(null);
         else onExit?.();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goLeft, goRight, panel, onExit]);
+  }, [goLeft, goRight, panel, selection, activeQuote, onExit]);
+
+  // Transient quote/copy notices clear themselves so the toast never lingers.
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = window.setTimeout(() => setNotice(""), 2400);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   // Load this document's bookmarks. Best-effort. Guests have no account, so the
   // bookmarks UI is hidden and there is nothing to load.
@@ -588,6 +696,79 @@ export function EbookReader({
   const cycleTheme = useCallback(() => {
     setTheme((current) => THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]);
   }, []);
+
+  // ── quotes / highlights ──────────────────────────────────────────────────────
+  // These read the live `selection`/`activeQuote` state, so they stay plain closures
+  // recreated each render rather than memoised callbacks.
+  const saveSelectionQuote = async (color: string) => {
+    if (!selection || guest) return;
+    const { text, cfi } = selection;
+    setSelection(null);
+    try {
+      const { quote } = await api<{ quote: Quote }>("/api/library/quotes", {
+        method: "POST",
+        body: JSON.stringify({
+          itemId: bookId,
+          documentId,
+          cfi: cfi || null,
+          text,
+          color,
+          percentComplete: latestProgressRef.current?.percentComplete ?? null
+        })
+      });
+      quotesRef.current = [...quotesRef.current, quote];
+      if (quote.cfi) void viewRef.current?.addAnnotation({ value: quote.cfi, color: quote.color ?? undefined });
+      setNotice("Quote saved.");
+    } catch {
+      setNotice("Unable to save this quote.");
+    }
+  };
+
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setNotice("Copied to clipboard.");
+    } catch {
+      setNotice("Couldn't copy — clipboard access was blocked.");
+    }
+  };
+
+  const copySelection = async () => {
+    if (!selection) return;
+    const text = selection.text;
+    setSelection(null);
+    await copyText(text);
+  };
+
+  const recolorActiveQuote = async (color: string) => {
+    if (!activeQuote) return;
+    const target = activeQuote.quote;
+    setActiveQuote(null);
+    try {
+      const { quote } = await api<{ quote: Quote }>(`/api/library/quotes/${target.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ color })
+      });
+      quotesRef.current = quotesRef.current.map((q) => (q.id === quote.id ? quote : q));
+      if (quote.cfi) void viewRef.current?.addAnnotation({ value: quote.cfi, color: quote.color ?? undefined });
+    } catch {
+      setNotice("Unable to update this highlight.");
+    }
+  };
+
+  const deleteActiveQuote = async () => {
+    if (!activeQuote) return;
+    const target = activeQuote.quote;
+    setActiveQuote(null);
+    try {
+      await api(`/api/library/quotes/${target.id}`, { method: "DELETE" });
+      quotesRef.current = quotesRef.current.filter((q) => q.id !== target.id);
+      if (target.cfi) void viewRef.current?.deleteAnnotation({ value: target.cfi });
+      setNotice("Highlight removed.");
+    } catch {
+      setNotice("Unable to remove this highlight.");
+    }
+  };
 
   const colors = themeColors(theme);
   const pct = percentComplete ?? 0;
@@ -823,6 +1004,77 @@ export function EbookReader({
         </div>
         <span className="ebk-pageno">{pageLabel}</span>
       </footer>
+
+      {/* Floating capture toolbar over a fresh text selection. */}
+      {selection && (
+        <div
+          className="ebk-sel-toolbar"
+          style={{ left: `${selection.x}px`, top: `${selection.y}px` }}
+          role="toolbar"
+          aria-label="Selection actions"
+        >
+          {!guest && (
+            <>
+              <span className="ebk-sel-lead" aria-hidden="true"><Highlighter size={15} /></span>
+              {Object.keys(HIGHLIGHT_COLORS).map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  className="ebk-sel-color"
+                  style={{ background: highlightFill(color) }}
+                  onClick={() => void saveSelectionQuote(color)}
+                  aria-label={`Highlight ${color}`}
+                  title={`Highlight ${color}`}
+                />
+              ))}
+              <span className="ebk-sel-divider" aria-hidden="true" />
+            </>
+          )}
+          <button type="button" className="ebk-sel-btn" onClick={() => void copySelection()} aria-label="Copy" title="Copy">
+            <Copy size={15} />
+          </button>
+        </div>
+      )}
+
+      {/* Popover shown when an existing highlight is tapped. */}
+      {activeQuote && (
+        <>
+          <button type="button" className="ebk-quote-scrim" aria-label="Close" onClick={() => setActiveQuote(null)} />
+          <div
+            className="ebk-quote-pop"
+            style={{ left: `${activeQuote.x}px`, top: `${activeQuote.y}px` }}
+            role="dialog"
+            aria-label="Highlight actions"
+          >
+            {!guest && Object.keys(HIGHLIGHT_COLORS).map((color) => (
+              <button
+                key={color}
+                type="button"
+                className={`ebk-sel-color${activeQuote.quote.color === color ? " active" : ""}`}
+                style={{ background: highlightFill(color) }}
+                onClick={() => void recolorActiveQuote(color)}
+                aria-label={`Recolor ${color}`}
+                title={`Recolor ${color}`}
+              />
+            ))}
+            <span className="ebk-sel-divider" aria-hidden="true" />
+            <button
+              type="button"
+              className="ebk-sel-btn"
+              onClick={() => { const t = activeQuote.quote.text; setActiveQuote(null); void copyText(t); }}
+              aria-label="Copy"
+              title="Copy"
+            >
+              <Copy size={15} />
+            </button>
+            {!guest && (
+              <button type="button" className="ebk-sel-btn danger" onClick={() => void deleteActiveQuote()} aria-label="Delete highlight" title="Delete highlight">
+                <Trash2 size={15} />
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {notice && <div className="ebk-toast" role="status">{notice}</div>}
     </div>

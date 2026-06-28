@@ -1015,6 +1015,198 @@
   }
 }
 
+/* ── Quotes ─────────────────────────────────────────────────────────────────── */
+
+.quote-groups {
+  display: grid;
+  gap: 26px;
+}
+
+.quote-group {
+  display: grid;
+  gap: 12px;
+}
+
+.quote-group-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 2px;
+}
+
+.quote-group-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 12%, var(--surface));
+}
+
+.quote-group-meta {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.quote-group-meta strong {
+  color: var(--ink);
+  font-size: 1.02rem;
+}
+
+.quote-group-meta span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote-count {
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.quote-list {
+  display: grid;
+  gap: 10px;
+}
+
+.quote-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid color-mix(in srgb, var(--mint) 55%, var(--line));
+  border-radius: 10px;
+  background: var(--surface);
+  transition: border-color 0.15s ease;
+}
+
+.quote-card:hover {
+  border-color: color-mix(in srgb, var(--mint) 40%, var(--line));
+  border-left-color: var(--mint);
+}
+
+.quote-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.quote-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-style: italic;
+}
+
+.quote-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.quote-time {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.quote-card-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* Add / edit quote form (Modal card). */
+.quote-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.quote-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.quote-field > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.quote-field > span em {
+  font-style: normal;
+  opacity: 0.7;
+}
+
+.quote-field textarea,
+.quote-field input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.quote-field textarea:focus,
+.quote-field input:focus {
+  outline: none;
+  border-color: var(--mint);
+}
+
+.quote-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.quote-form-linked {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.quote-form-linked strong {
+  color: var(--ink);
+}
+
+.quote-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 60;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: #2c2c2a;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 560px) {
+  .quote-field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .audiobook-cover {
   position: relative;
   display: grid;

@@ -4,6 +4,7 @@ import {
   Heart,
   Home,
   ListMusic,
+  Quote,
   UserRound,
   UsersRound
 } from "lucide-react";
@@ -15,6 +16,7 @@ export type UserAreaSection =
   | "profile"
   | "favorites"
   | "bookmarks"
+  | "quotes"
   | "collections"
   | "shared"
   | "downloads";
@@ -30,6 +32,7 @@ export function UserAreaNav({ active }: { active: UserAreaSection }) {
   const libraryLinks: UserNavItem[] = [
     { section: "favorites", label: "Favorites", href: "/favorites", icon: Heart },
     { section: "bookmarks", label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
+    { section: "quotes", label: "Quotes", href: "/quotes", icon: Quote },
     { section: "collections", label: "Collections", href: "/collections", icon: ListMusic },
     { section: "shared", label: "Shared with me", href: "/shared", icon: UsersRound },
     ...(isStandalone() || active === "downloads"
