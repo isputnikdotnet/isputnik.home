@@ -520,6 +520,29 @@ CREATE TABLE IF NOT EXISTS reading_bookmarks (
   updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- Quotes / highlights. A first-class entity, not just an in-book highlight: a
+-- quote may be captured in the reader (item_id + document_id + cfi all set, with
+-- an on-page highlight anchored by the cfi) OR brought in from outside the library
+-- (all three NULL — just `text` plus a free-text source). FKs are ON DELETE SET
+-- NULL (not CASCADE) so removing a book degrades its quotes to external ones rather
+-- than deleting them; source_title/source_author are snapshotted at save time so
+-- attribution survives that. Display prefers the live item when item_id is still set.
+CREATE TABLE IF NOT EXISTS quotes (
+  id               TEXT PRIMARY KEY,
+  user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item_id          TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  document_id      TEXT REFERENCES document_files(id) ON DELETE SET NULL,
+  cfi              TEXT,
+  text             TEXT NOT NULL,
+  note             TEXT,
+  color            TEXT,
+  source_title     TEXT,
+  source_author    TEXT,
+  percent_complete REAL,
+  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- "My List" — per-user saved items, one row per (user, item).
 CREATE TABLE IF NOT EXISTS item_saves (
   id         TEXT PRIMARY KEY,
@@ -695,6 +718,8 @@ CREATE INDEX IF NOT EXISTS idx_reading_user             ON reading_progress(user
 CREATE INDEX IF NOT EXISTS idx_reading_item             ON reading_progress(item_id);
 CREATE INDEX IF NOT EXISTS idx_audio_bookmarks_user     ON audio_bookmarks(user_id, item_id);
 CREATE INDEX IF NOT EXISTS idx_reading_bookmarks_user   ON reading_bookmarks(user_id, item_id);
+CREATE INDEX IF NOT EXISTS idx_quotes_user               ON quotes(user_id, datetime(created_at) DESC);
+CREATE INDEX IF NOT EXISTS idx_quotes_user_document      ON quotes(user_id, document_id);
 CREATE INDEX IF NOT EXISTS idx_item_saves_user          ON item_saves(user_id, updated_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_api_tokens_user          ON api_tokens(user_id);

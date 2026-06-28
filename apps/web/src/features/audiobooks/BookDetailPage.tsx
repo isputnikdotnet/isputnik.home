@@ -297,6 +297,9 @@ function BookDetailView({
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false);
   const [viewerDoc, setViewerDoc] = useState<{ id: string; fileName: string; url: string; format: string; blob?: Blob | null } | null>(null);
+  // Set from a quote/bookmark deep link (?cfi=…) so the reader opens at that spot;
+  // cleared whenever the reader closes or opens from a normal Read.
+  const [readCfi, setReadCfi] = useState<string | null>(null);
   const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
   const [progressMenuOpen, setProgressMenuOpen] = useState(false);
   const progressMenuRef = useRef<HTMLDivElement>(null);
@@ -479,9 +482,11 @@ function BookDetailView({
     const url = new URL(window.location.href);
     if (!url.searchParams.has("read")) return;
     if (primaryReadableDoc && VIEWABLE_DOC_FORMATS.has(primaryReadableDoc.format)) {
+      setReadCfi(url.searchParams.get("cfi"));
       setViewerDoc({ id: primaryReadableDoc.id, fileName: primaryReadableDoc.fileName, url: primaryReadableDoc.url, format: primaryReadableDoc.format });
     }
     url.searchParams.delete("read");
+    url.searchParams.delete("cfi");
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }, [primaryReadableDoc?.id]);
 
@@ -1286,6 +1291,7 @@ function BookDetailView({
             blob={viewerDoc.blob}
             storageKey={`isputnik:epub-progress:${userId}:${book.id}:${viewerDoc.id}`}
             initialProgress={viewerDoc.id === primaryReadableDoc?.id ? readingProgress : null}
+            initialCfi={viewerDoc.id === primaryReadableDoc?.id ? readCfi : null}
             onProgressChange={(next) => {
               if (next.documentId === primaryReadableDoc?.id) setReadingProgress(next);
             }}
@@ -1293,7 +1299,7 @@ function BookDetailView({
             author={book.authors.join(", ")}
             coverUrl={book.coverUrl}
             downloadUrl={`${viewerDoc.url}?download`}
-            onExit={() => setViewerDoc(null)}
+            onExit={() => { setViewerDoc(null); setReadCfi(null); }}
           />
         ) : (
           <div className="doc-viewer-backdrop" role="dialog" aria-modal="true" aria-label={viewerDoc.fileName}>

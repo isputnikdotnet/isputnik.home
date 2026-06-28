@@ -16,6 +16,7 @@ import { AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
 import { AudiobookBookPage } from "../features/audiobooks/BookDetailPage";
 import { MyListPage } from "../features/library/MyListPage";
 import { BookmarksPage } from "../features/library/BookmarksPage";
+import { QuotesPage } from "../features/library/QuotesPage";
 import { DownloadsPage } from "../features/library/DownloadsPage";
 import { SharedWithMePage } from "../features/library/SharedWithMePage";
 import { EbooksPage } from "../features/audiobooks/EbooksPage";
@@ -258,6 +259,10 @@ export function App() {
 
   if (route.name === "bookmarks") {
     return <BookmarksPage user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "quotes") {
+    return <QuotesPage user={session.user} logout={logout} />;
   }
 
   if (route.name === "downloads") {

@@ -270,6 +270,27 @@ export interface BookSave {
   note: string | null;
 }
 
+// A quote / highlight. `itemId`+`cfi` set ⇒ captured in the reader and openable
+// back at its spot; both null ⇒ an externally-brought quote the user typed in.
+// `sourceTitle`/`sourceAuthors` resolve from the live book when linked, else from
+// the snapshot stored at save time. See modules/library/quotes.ts.
+export interface Quote {
+  id: string;
+  itemId: string | null;
+  documentId: string | null;
+  cfi: string | null;
+  text: string;
+  note: string | null;
+  color: string | null;
+  percentComplete: number | null;
+  sourceTitle: string | null;
+  sourceAuthors: string[];
+  libraryType: "audiobook" | "ebook" | "gallery" | null;
+  coverUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // One entry in the cross-type "all my bookmarks" listing. `libraryType` drives the
 // media badge + which detail route a tile opens; `kind` says how to render the
 // position — a "listen" timestamp (audiobook) or a "read" percentage (epub).
