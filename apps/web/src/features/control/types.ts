@@ -62,6 +62,72 @@ export interface BookDurationStats {
   totalDurationSeconds: number;
 }
 
+export interface EbookLibraryStatusStats {
+  id: string;
+  name: string;
+  bookCount: number;
+  totalSizeBytes: number;
+}
+
+export interface EbookPersonStatusStats {
+  name: string;
+  bookCount: number;
+}
+
+export interface FormatStats {
+  format: string;
+  count: number;
+}
+
+export interface EbookSizeStats {
+  id: string;
+  title: string;
+  libraryName: string;
+  authors: string[];
+  formats: string[];
+  totalSizeBytes: number;
+}
+
+export interface EbookStats {
+  totalLibraries: number;
+  totalBooks: number;
+  totalSizeBytes: number;
+  libraries: EbookLibraryStatusStats[];
+  topAuthors: EbookPersonStatusStats[];
+  formats: FormatStats[];
+  largestBooks: EbookSizeStats[];
+}
+
+export interface GalleryLibraryStatusStats {
+  id: string;
+  name: string;
+  itemCount: number;
+  photoCount: number;
+  videoCount: number;
+  totalSizeBytes: number;
+  totalDurationSeconds: number;
+}
+
+export interface GallerySizeStats {
+  id: string;
+  title: string;
+  libraryName: string;
+  kind: string;
+  totalSizeBytes: number;
+  durationSeconds: number;
+}
+
+export interface GalleryStats {
+  totalLibraries: number;
+  totalItems: number;
+  totalPhotos: number;
+  totalVideos: number;
+  totalSizeBytes: number;
+  totalDurationSeconds: number;
+  libraries: GalleryLibraryStatusStats[];
+  largestItems: GallerySizeStats[];
+}
+
 export interface SystemStatus {
   health: string;
   databaseBytes: number;
@@ -81,6 +147,8 @@ export interface SystemStatus {
     topNarrators: PersonStatusStats[];
     longestBooks: BookDurationStats[];
   };
+  ebookStats: EbookStats;
+  galleryStats: GalleryStats;
   uptimeSeconds: number;
   generatedAt: string;
 }
