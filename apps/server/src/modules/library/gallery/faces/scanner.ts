@@ -10,6 +10,7 @@ import { validateLibrarySource, LibrarySourceError } from "../../shared/library-
 import { detectFaces, FACE_EMBEDDING_MODEL } from "./human-session.js";
 import { embeddingToBlob } from "./embedding.js";
 import { clusterGalleryFaces } from "./cluster.js";
+import { generateFaceThumb, backfillFaceThumbnails } from "./thumbnails.js";
 import { faceRecognitionEnabledForLibrary } from "./settings.js";
 
 const faceJobType = "SCAN_GALLERY_FACES";
@@ -49,8 +50,8 @@ async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ it
 
   const insertFace = db.prepare(`
     INSERT INTO gallery_faces
-      (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, assignment, source)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'auto', 'scan')
+      (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, thumb_storage_key, assignment, source)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'auto', 'scan')
   `);
   const markScanned = db.prepare(`
     INSERT INTO gallery_face_scans (item_id, scanned_at, model, face_count)
@@ -68,19 +69,26 @@ async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ it
       faces = []; // an undecodable image is still marked scanned (0 faces) so we don't retry it forever
     }
     const usable = faces.filter((face) => Math.min(face.box[2], face.box[3]) >= MIN_FACE_SIDE);
+    // Crop a face thumbnail per detected face (async, before the write transaction).
+    const prepared: { faceId: string; face: (typeof usable)[number]; thumbKey: string | null }[] = [];
+    for (const face of usable) {
+      const faceId = nanoid(16);
+      const thumbKey = await generateFaceThumb(libraryId, faceId, absolutePath, face.box);
+      prepared.push({ faceId, face, thumbKey });
+    }
     db.transaction(() => {
       // Replace this item's auto-detected faces (idempotent rescan); manual whole-photo
       // tags (source 'manual') are left untouched. Tiny faces are dropped above.
       db.prepare("DELETE FROM gallery_faces WHERE item_id = ? AND source = 'scan'").run(photo.id);
-      for (const face of usable) {
+      for (const { faceId, face, thumbKey } of prepared) {
         insertFace.run(
-          nanoid(16), photo.id, face.box[0], face.box[1], face.box[2], face.box[3],
-          face.score, embeddingToBlob(face.embedding), FACE_EMBEDDING_MODEL
+          faceId, photo.id, face.box[0], face.box[1], face.box[2], face.box[3],
+          face.score, embeddingToBlob(face.embedding), FACE_EMBEDDING_MODEL, thumbKey
         );
       }
-      markScanned.run(photo.id, FACE_EMBEDDING_MODEL, usable.length);
+      markScanned.run(photo.id, FACE_EMBEDDING_MODEL, prepared.length);
     })();
-    totalFaces += usable.length;
+    totalFaces += prepared.length;
   }
 
   clusterGalleryFaces();
@@ -128,9 +136,14 @@ export async function processFaceScanQueue(): Promise<void> {
 
       const payload = JSON.parse(job.payload) as FaceScanPayload;
       try {
-        const result = payload.recompute
-          ? { reclustered: clusterGalleryFaces().clusters }
-          : await scanLibraryFaces(payload.libraryId ?? "", payload.force ?? false);
+        let result;
+        if (payload.recompute) {
+          // Backfill any missing face crops (existing libraries get avatars) then group.
+          const thumbnails = await backfillFaceThumbnails();
+          result = { reclustered: clusterGalleryFaces().clusters, thumbnails };
+        } else {
+          result = await scanLibraryFaces(payload.libraryId ?? "", payload.force ?? false);
+        }
         db.prepare("UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL WHERE id = ?")
           .run(JSON.stringify({ ...payload, result }), job.id);
       } catch (err) {

@@ -46,17 +46,22 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
         COUNT(*) OVER (PARTITION BY person_id) AS cnt
       FROM accessible
     )
-    SELECT gp.id, gp.name, ranked.cover AS cover, ranked.cnt AS cnt
+    SELECT gp.id, gp.name, ranked.cover AS cover, ranked.cnt AS cnt,
+      coverface.thumb_storage_key AS face_thumb
     FROM gallery_people gp
     JOIN ranked ON ranked.person_id = gp.id AND ranked.rn = 1
+    LEFT JOIN gallery_faces coverface ON coverface.id = gp.cover_face_id
     ${includeHidden ? "" : "WHERE gp.hidden = 0"}
     ORDER BY (gp.name = '') ASC, ranked.cnt DESC, gp.name COLLATE NOCASE
-  `).all(...libIds) as { id: string; name: string; cover: string | null; cnt: number }[];
+  `).all(...libIds) as { id: string; name: string; cover: string | null; cnt: number; face_thumb: string | null }[];
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     faceCount: r.cnt,
-    coverUrl: r.cover ? `/api/library/covers/${r.cover}` : null
+    // Prefer a crop of the person's actual face; fall back to the whole-photo cover.
+    coverUrl: r.face_thumb
+      ? `/api/library/covers/${r.face_thumb}`
+      : r.cover ? `/api/library/covers/${r.cover}` : null
   }));
 }
 

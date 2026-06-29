@@ -41,7 +41,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     try {
       await api("/api/library/gallery/faces/settings", { method: "PATCH", body: JSON.stringify({ groupingStrength: value }) });
       await api("/api/library/gallery/faces/recompute", { method: "POST" });
-      setNotice("Regrouping with the new strength… people update in a moment.");
+      setNotice("Regrouping… the first time also prepares face thumbnails, so it can take a minute. Reopen the People tab to see the result.");
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to apply");

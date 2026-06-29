@@ -948,7 +948,7 @@ export function GalleryPage({
       {faceModalOpen && (
         <GalleryFaceSettingsModal
           onClose={() => setFaceModalOpen(false)}
-          onChanged={() => { void loadFaceSettings(); void loadLibraries(); }}
+          onChanged={() => { void loadFaceSettings(); void loadLibraries(); if (view === "people") void loadPeople(); }}
         />
       )}
 
