@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, ChevronDown, ChevronRight, FolderOpen, Image as ImageIcon, Images, Play, Heart, Folder, UploadCloud } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, FolderOpen, Image as ImageIcon, Images, Play, Heart, Folder, SquareCheck, Trash2, UploadCloud, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
+import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiobooks/AudiobooksPage";
 import type { SortKey } from "../audiobooks/BookFilter";
@@ -32,17 +33,40 @@ function monthLabel(takenAt: string | null): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "long" });
 }
 
-function AssetTile({ asset, onOpen }: { asset: GalleryAsset; onOpen: () => void }) {
+function AssetTile({
+  asset,
+  onOpen,
+  selectionMode,
+  selected,
+  onToggleSelect
+}: {
+  asset: GalleryAsset;
+  onOpen: () => void;
+  selectionMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
+}) {
   return (
-    <button type="button" className="gallery-tile" onClick={onOpen} aria-label={`Open ${asset.title}`}>
+    <button
+      type="button"
+      className={`gallery-tile${selectionMode ? " selectable" : ""}${selected ? " selected" : ""}`}
+      onClick={selectionMode ? onToggleSelect : onOpen}
+      aria-pressed={selectionMode ? selected : undefined}
+      aria-label={selectionMode ? `Select ${asset.title}` : `Open ${asset.title}`}
+    >
       {asset.coverUrl ? (
         <img src={asset.coverUrl} alt="" loading="lazy" />
       ) : (
         <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
       )}
-      {asset.saved && <Heart size={14} className="gallery-fav-dot" fill="currentColor" aria-hidden="true" />}
+      {asset.saved && !selectionMode && <Heart size={14} className="gallery-fav-dot" fill="currentColor" aria-hidden="true" />}
       {asset.kind === "video" && (
         <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
+      )}
+      {selectionMode && (
+        <span className="gallery-tile-check" aria-hidden="true">
+          {selected ? <CheckCircle2 size={22} /> : <Circle size={22} />}
+        </span>
       )}
     </button>
   );
@@ -93,6 +117,14 @@ export function GalleryPage({
   // accepts uploads. A notice confirms the batch after the modal closes.
   const [uploadOpen, setUploadOpen] = useState(false);
   const [notice, setNotice] = useState("");
+
+  // Multi-select for bulk delete (mirrors the audiobook/ebook Select mode). Tiles
+  // toggle selection instead of opening; the bulk bar acts on the chosen assets.
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState("");
 
   const scopeParams = useCallback(() => (
     scopeId === "all" ? { scope: "all" as const } : { scope: "library" as const, libraryId: scopeId }
@@ -233,6 +265,50 @@ export function GalleryPage({
     void loadLibraries();
   }, [view, parent, loadTimeline, loadFolder, loadLibraries]);
 
+  // Assets currently shown (the selectable set depends on the active view).
+  const displayedAssets = view === "timeline" ? assets : folderAssets;
+  const canDeleteAny = libraries.some((library) => library.canDelete);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelection = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setBulkError("");
+  };
+
+  // Changing the dataset (view / scope / kind / search) clears any selection so a
+  // stale id from a no-longer-visible asset can't linger.
+  useEffect(() => { setSelectionMode(false); setSelectedIds(new Set()); }, [view, scopeId, kind, query]);
+
+  const confirmBulkDelete = async () => {
+    setBulkBusy(true);
+    setBulkError("");
+    try {
+      const result = await api<{ deleted: number; forbidden: number; failed: number }>(
+        "/api/library/books/bulk-delete",
+        { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
+      );
+      setBulkDeleteOpen(false);
+      exitSelection();
+      const parts: string[] = [`Moved ${result.deleted} item${result.deleted === 1 ? "" : "s"} to the Recycle Bin`];
+      if (result.forbidden > 0) parts.push(`${result.forbidden} skipped (no permission)`);
+      if (result.failed > 0) parts.push(`${result.failed} failed`);
+      setNotice(`${parts.join(" · ")}.`);
+      refreshView();
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : "Unable to move the items to the Recycle Bin");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const closeLightbox = () => {
     setLightbox(null);
     setSingleAsset(null);
@@ -274,7 +350,7 @@ export function GalleryPage({
                 ariaLabel="Filter by media type"
                 compact
               />
-              {uploadLibraries.length > 0 && (
+              {uploadLibraries.length > 0 && !selectionMode && (
                 <button
                   type="button"
                   className="audiobook-page-action-icon"
@@ -283,6 +359,17 @@ export function GalleryPage({
                   title="Upload"
                 >
                   <UploadCloud size={18} aria-hidden="true" />
+                </button>
+              )}
+              {canDeleteAny && !selectionMode && (
+                <button
+                  type="button"
+                  className="audiobook-page-action-icon"
+                  onClick={() => { setNotice(""); setSelectionMode(true); }}
+                  aria-label="Select"
+                  title="Select"
+                >
+                  <SquareCheck size={18} aria-hidden="true" />
                 </button>
               )}
             </>
@@ -373,6 +460,33 @@ export function GalleryPage({
               <MessageBox tone="info" title="Scanning">Thumbnails appear as the scan finishes.</MessageBox>
             )}
 
+            {selectionMode && (
+              <div className="audiobook-bulk-bar">
+                <span className="audiobook-bulk-count">{selectedIds.size} selected</span>
+                <div className="row-actions">
+                  <button
+                    type="button"
+                    className="secondary-button compact-button"
+                    onClick={() => setSelectedIds(new Set(displayedAssets.map((asset) => asset.id)))}
+                    disabled={displayedAssets.length === 0}
+                  >
+                    Select all loaded
+                  </button>
+                  <button
+                    type="button"
+                    className="danger-button compact-button"
+                    onClick={() => { setBulkError(""); setBulkDeleteOpen(true); }}
+                    disabled={selectedIds.size === 0}
+                  >
+                    <Trash2 size={15} aria-hidden="true" /> Delete
+                  </button>
+                  <button type="button" className="icon-button" onClick={exitSelection} aria-label="Cancel selection">
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {view === "timeline" ? (
               <>
                 {months.map((month) => (
@@ -380,7 +494,14 @@ export function GalleryPage({
                     <h2 className="gallery-month-label">{month.label}</h2>
                     <div className="gallery-grid">
                       {month.items.map(({ asset, index }) => (
-                        <AssetTile key={asset.id} asset={asset} onOpen={() => setLightbox({ source: "timeline", index })} />
+                        <AssetTile
+                          key={asset.id}
+                          asset={asset}
+                          onOpen={() => setLightbox({ source: "timeline", index })}
+                          selectionMode={selectionMode}
+                          selected={selectedIds.has(asset.id)}
+                          onToggleSelect={() => toggleSelect(asset.id)}
+                        />
                       ))}
                     </div>
                   </div>
@@ -433,7 +554,14 @@ export function GalleryPage({
                     <p className="gallery-section-label">Photos &amp; videos</p>
                     <div className="gallery-grid">
                       {folderAssets.map((asset, index) => (
-                        <AssetTile key={asset.id} asset={asset} onOpen={() => setLightbox({ source: "folder", index })} />
+                        <AssetTile
+                          key={asset.id}
+                          asset={asset}
+                          onOpen={() => setLightbox({ source: "folder", index })}
+                          selectionMode={selectionMode}
+                          selected={selectedIds.has(asset.id)}
+                          onToggleSelect={() => toggleSelect(asset.id)}
+                        />
                       ))}
                     </div>
                   </>
@@ -471,6 +599,22 @@ export function GalleryPage({
             refreshView();
           }}
         />
+      )}
+
+      {bulkDeleteOpen && (
+        <ConfirmDialog
+          title={`Move ${selectedIds.size} ${selectedIds.size === 1 ? "item" : "items"} to the Recycle Bin?`}
+          confirmLabel={`Move ${selectedIds.size} ${selectedIds.size === 1 ? "item" : "items"}`}
+          busyLabel="Moving…"
+          busy={bulkBusy}
+          error={bulkError}
+          danger
+          onConfirm={() => void confirmBulkDelete()}
+          onCancel={() => { if (!bulkBusy) setBulkDeleteOpen(false); }}
+        >
+          These items move into the Recycle Bin and leave the gallery for everyone. You can restore them
+          from the Recycle Bin, or delete them permanently from there.
+        </ConfirmDialog>
       )}
     </DashboardShell>
   );
