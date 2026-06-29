@@ -761,6 +761,17 @@ CREATE TABLE IF NOT EXISTS gallery_face_scans (
   face_count INTEGER NOT NULL DEFAULT 0
 );
 
+-- User corrections: "this person is NOT in this photo". Recorded whenever a person is
+-- removed from a photo, and re-applied after every clustering pass — so a full rescan
+-- (which re-detects every face from scratch) can't silently put the photo back into
+-- that person. Keyed by (item, person); cascades away if either is deleted.
+CREATE TABLE IF NOT EXISTS gallery_face_exclusions (
+  item_id    TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  person_id  TEXT NOT NULL REFERENCES gallery_people(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (item_id, person_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_audio_files_item         ON audio_files(item_id, track_number);
 CREATE INDEX IF NOT EXISTS idx_audio_chapters_file      ON audio_chapters(audio_file_id);
 CREATE INDEX IF NOT EXISTS idx_document_files_item      ON document_files(item_id);

@@ -164,6 +164,8 @@ export function mergeGalleryPeople(sourceId: string, targetId: string): boolean 
   if (!source || !target) return false;
   db.transaction(() => {
     db.prepare("UPDATE gallery_faces SET person_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE person_id = ?").run(targetId, sourceId);
+    // Carry the source's exclusions over to the target before it's deleted (cascade).
+    db.prepare("UPDATE OR IGNORE gallery_face_exclusions SET person_id = ? WHERE person_id = ?").run(targetId, sourceId);
     db.prepare("DELETE FROM gallery_people WHERE id = ?").run(sourceId);
     recomputeClusterCentroid(targetId);
   })();
@@ -184,6 +186,8 @@ export function tagAssetPerson(itemId: string, personId: string): boolean {
     ).run(nanoid(16), itemId, personId);
     recomputeFaceCount(personId);
   }
+  // Re-adding a person clears any prior "not this person" exclusion for this photo.
+  db.prepare("DELETE FROM gallery_face_exclusions WHERE item_id = ? AND person_id = ?").run(itemId, personId);
   return true;
 }
 
@@ -201,6 +205,8 @@ export function untagAssetPerson(itemId: string, personId: string): void {
     const rejected = db.prepare(
       "UPDATE gallery_faces SET assignment = 'rejected', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ? AND person_id = ? AND source = 'scan' AND assignment != 'rejected'"
     ).run(itemId, personId).changes;
+    // Record the correction so a future rescan re-applies it (durable for named people).
+    db.prepare("INSERT OR IGNORE INTO gallery_face_exclusions (item_id, person_id) VALUES (?, ?)").run(itemId, personId);
     return del + rejected;
   })();
   if (changed > 0) recomputeClusterCentroid(personId);

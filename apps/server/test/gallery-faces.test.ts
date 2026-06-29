@@ -11,7 +11,7 @@ import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary,
   enabledFaceLibraryIds, anyFaceLibraryEnabled
 } from "../src/modules/library/gallery/faces/settings.js";
-import { listGalleryPeople, untagAssetPerson } from "../src/modules/library/gallery/people.js";
+import { listGalleryPeople, untagAssetPerson, renameGalleryPerson } from "../src/modules/library/gallery/people.js";
 import { getGalleryAsset } from "../src/modules/library/gallery/catalog.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
@@ -169,5 +169,30 @@ describe("clusterGalleryFaces (DB)", () => {
     expect(re.assigned).toBe(0);
     expect((db.prepare("SELECT assignment FROM gallery_faces WHERE item_id = ?").get(i1) as { assignment: string }).assignment).toBe("rejected");
     expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(1);
+  });
+
+  it("a removal survives a FULL rescan for a named person (exclusion re-applied)", async () => {
+    const t = Date.parse("2024-04-01T00:00:00Z");
+    const i1 = await addFace("a1.jpg", vec(0, 0.05), t);
+    await addFace("a2.jpg", vec(0, 0.1), t + 1000);
+    clusterGalleryFaces();
+    const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
+    renameGalleryPerson(personId, "Mum"); // naming makes the cluster persist across a rescan
+    untagAssetPerson(i1, personId);        // user removes i1 from Mum → records an exclusion
+    expect(listGalleryPeople(["GAL"]).find((p) => p.id === personId)?.faceCount).toBe(1);
+
+    // Simulate a full rescan: every auto face is deleted and re-detected from scratch.
+    db.prepare("DELETE FROM gallery_faces WHERE source = 'scan'").run();
+    await addFace("a1.jpg", vec(0, 0.05), t);
+    await addFace("a2.jpg", vec(0, 0.1), t + 1000);
+    clusterGalleryFaces();
+
+    // Mum is rebuilt, but i1 stays out (count 1) — the removal was re-applied.
+    const mum = listGalleryPeople(["GAL"]).find((p) => p.id === personId);
+    expect(mum?.name).toBe("Mum");
+    expect(mum?.faceCount).toBe(1);
+    expect((db.prepare("SELECT assignment FROM gallery_faces WHERE item_id = ?").get(i1) as { assignment: string }).assignment).toBe("rejected");
+    const people = (getGalleryAsset("u1", ["GAL"], i1) as { people?: { id: string }[] }).people ?? [];
+    expect(people.some((p) => p.id === personId)).toBe(false);
   });
 });

@@ -104,6 +104,23 @@ export function clusterGalleryFaces(): { newClusters: number; assigned: number }
       touched.add(a.clusterId);
     }
     for (const id of touched) recomputeClusterCentroid(id);
+
+    // Re-apply user removals: reject any freshly-grouped face the user has excluded
+    // from that person, then recompute those people. This is what makes a "not this
+    // person" correction survive a full rescan (which re-detects every face anew).
+    const violating = db.prepare(`
+      SELECT gf.id AS id, gf.person_id AS person_id
+      FROM gallery_faces gf
+      JOIN gallery_face_exclusions ex ON ex.item_id = gf.item_id AND ex.person_id = gf.person_id
+      WHERE gf.source = 'scan' AND gf.assignment != 'rejected' AND gf.person_id IS NOT NULL
+    `).all() as { id: string; person_id: string }[];
+    if (violating.length > 0) {
+      const reject = db.prepare("UPDATE gallery_faces SET assignment = 'rejected', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?");
+      const affected = new Set<string>();
+      for (const v of violating) { reject.run(v.id); affected.add(v.person_id); }
+      for (const id of affected) recomputeClusterCentroid(id);
+    }
+
     // Drop unnamed auto clusters that ended up empty (e.g. after a forced rescan).
     db.prepare("DELETE FROM gallery_people WHERE name = '' AND face_count = 0 AND linked_person_id IS NULL").run();
   })();
