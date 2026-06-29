@@ -7,7 +7,7 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { validateLibrarySource, LibrarySourceError } from "../../shared/library-source.js";
-import { detectFaces, FACE_EMBEDDING_MODEL } from "./human-session.js";
+import { detectFaces, FACE_EMBEDDING_MODEL } from "./arcface.js";
 import { embeddingToBlob } from "./embedding.js";
 import { clusterGalleryFaces } from "./cluster.js";
 import { generateFaceThumb, backfillFaceThumbnails } from "./thumbnails.js";
