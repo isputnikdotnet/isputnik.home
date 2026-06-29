@@ -70,8 +70,10 @@ item-keyed systems:
   `entityType = "library_item"`, `libraries.type = 'gallery'`), so a Collection
   works as a photo album. Surfaced via the **Add to album** action in the lightbox.
 - **Shares** — the `libraries.type → module` map (`mediaKind`) resolves `'gallery'`,
-  so user-to-user item shares are namespaced correctly. (Guest *link* viewing for
-  gallery assets is not implemented yet — a later phase.)
+  so both user-to-user item shares and anonymous **guest links** are namespaced
+  correctly. A guest link opens a self-contained viewer (photo inline / `<video>`
+  with range seeking) plus a single-file download — see `shares.ts` (the
+  `module === "gallery"` branches) and `SharePage`'s `GalleryShareView`.
 
 ## API
 
@@ -79,6 +81,7 @@ item-keyed systems:
 |---|---|---|
 | POST/GET/PATCH/DELETE | `/api/library/gallery-libraries[/:id]` | Library CRUD (admin) |
 | POST | `/api/library/gallery-libraries/:id/rescan` | Queue a rescan |
+| POST | `/api/library/gallery-libraries/:id/assets/upload` | Upload photos/videos (multipart batch; upload permission) |
 | POST | `/api/library/gallery/timeline` | Paged date timeline (scope, kinds, q) |
 | GET | `/api/library/gallery/folders` | Folder listing (subfolders + assets) |
 | GET | `/api/library/gallery/facets` | Kind counts + year list |
@@ -93,9 +96,21 @@ set `item_metadata.source = 'manual'` and `gallery_details.taken_at_source =
 clobbers the hand-edited values. Technical fields (dimensions, size, camera) and
 GPS stay read-only.
 
+## Uploads
+
+Managed galleries accept uploads via `POST …/assets/upload` (gated by the library's
+`upload` permission, refused on external/read-only libraries). It reuses the shared
+streaming uploader (`receiveUploadBatch`) and the multi-file / whole-folder
+`FileUpload` dropzone: every file becomes its own asset, streamed into a hidden
+`.upload-*` staging folder, moved into the library root under a unique name, then
+cataloged immediately with `scanSingleGalleryFile` (EXIF + thumbnails). Folders
+flatten into the filename, like the other library uploaders. Uploaded files land in
+the library root; on-disk subfolder organization is a future nicety.
+
 ## Not yet (future phases)
 
-- **Map view** over the stored GPS coordinates.
+- **Map view** over the stored GPS coordinates (deferred pending a tile-source
+  decision — external tiles vs. a self-contained map — given the hardened CSP).
 - **Face detection / semantic search** (ML — the heavy part of Immich).
-- **Dedicated shareable album object** (v1 uses Collections) and gallery **uploads**
-  into managed libraries.
+- **Dedicated shareable album object** (v1 uses Collections).
+- **Upload into a chosen subfolder** (today everything lands in the library root).

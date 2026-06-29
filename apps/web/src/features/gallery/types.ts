@@ -38,4 +38,8 @@ export interface GalleryLibrary {
   canWrite: boolean;
   canDelete: boolean;
   canDownload: boolean;
+  canUpload: boolean;
+  canCurate: boolean;
+  uploadExtensions: string[];
+  maxUploadMB: number | null;
 }

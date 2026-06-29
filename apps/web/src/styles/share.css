@@ -53,6 +53,23 @@
   color: var(--muted);
 }
 
+/* Gallery share: the photo/video fills the card width, capped in height so a tall
+   portrait shot or a video still fits on screen without scrolling. */
+.share-gallery-media {
+  display: flex;
+  justify-content: center;
+}
+
+.share-gallery-media img,
+.share-gallery-media video {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 14px;
+  object-fit: contain;
+  background: var(--surface-raised);
+  box-shadow: 0 12px 30px var(--shadow);
+}
+
 .share-title {
   font-size: 1.35rem;
   margin: 6px 0 0;

@@ -1274,7 +1274,7 @@ function BookDetailView({
       </section>
 
       {shareModalOpen && (
-        <ShareModal bookId={book.id} bookTitle={book.title} isEbook={isEbook} onClose={() => setShareModalOpen(false)} />
+        <ShareModal bookId={book.id} bookTitle={book.title} kind={isEbook ? "ebook" : "audiobook"} onClose={() => setShareModalOpen(false)} />
       )}
 
       {addToCollectionOpen && (

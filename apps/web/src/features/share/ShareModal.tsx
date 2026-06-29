@@ -38,17 +38,18 @@ const EXPIRY_OPTIONS = [
 export function ShareModal({
   bookId,
   bookTitle,
-  isEbook = false,
+  kind = "audiobook",
   onClose
 }: {
   bookId: string;
   bookTitle: string;
-  isEbook?: boolean;
+  kind?: "audiobook" | "ebook" | "gallery";
   onClose: () => void;
 }) {
-  // Books are read; audiobooks are listened to — the rest of the share flow is identical.
-  const consumeVerb = isEbook ? "read" : "listen";
-  const consumeNoun = isEbook ? "reading" : "playback";
+  // Ebooks are read, audiobooks are listened to, gallery items are viewed — the rest
+  // of the share flow is identical across types.
+  const consumeVerb = kind === "ebook" ? "read" : kind === "gallery" ? "view" : "listen";
+  const consumeNoun = kind === "ebook" ? "reading" : kind === "gallery" ? "viewing" : "playback";
   const [tab, setTab] = useState<Tab>("link");
   const [error, setError] = useState("");
 
