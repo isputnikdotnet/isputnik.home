@@ -335,15 +335,15 @@ export function GalleryLightbox({
                   <div className="gallery-people-tags">
                     {people.length === 0 && !canEdit && <span className="muted">—</span>}
                     {people.map((person) => (
-                      <span key={person.id} className="gallery-person-chip">
-                        {person.name}
+                      <span key={person.id} className={`gallery-person-chip${person.name ? "" : " gallery-person-chip-unnamed"}`}>
+                        {person.name || "Unnamed"}
                         {canEdit && (
                           <button
                             type="button"
                             className="gallery-person-chip-remove"
                             onClick={() => void removePerson(person.id)}
-                            aria-label={`Remove ${person.name}`}
-                            title={`Remove ${person.name}`}
+                            aria-label={`Remove ${person.name || "this person"}`}
+                            title={`Remove ${person.name || "this person"}`}
                           >
                             <X size={12} aria-hidden="true" />
                           </button>

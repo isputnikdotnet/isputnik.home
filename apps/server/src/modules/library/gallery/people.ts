@@ -187,10 +187,21 @@ export function tagAssetPerson(itemId: string, personId: string): boolean {
   return true;
 }
 
-// Remove a manual whole-photo tag (leaves any auto-detected face boxes untouched).
+// Remove a person from a photo — works for both how a person got attached:
+//   • manual whole-photo tags are deleted outright;
+//   • auto-detected faces are marked 'rejected', so they leave the cluster, stop
+//     counting, and are NOT re-clustered back to the same person on the next pass.
+// Recomputes the person's aggregates afterwards. This is the single "not this person
+// in this photo" action used by both the lightbox chip and the person page.
 export function untagAssetPerson(itemId: string, personId: string): void {
-  const res = db.prepare(
-    "DELETE FROM gallery_faces WHERE item_id = ? AND person_id = ? AND box_x IS NULL AND source = 'manual'"
-  ).run(itemId, personId);
-  if (res.changes > 0) recomputeFaceCount(personId);
+  const changed = db.transaction(() => {
+    const del = db.prepare(
+      "DELETE FROM gallery_faces WHERE item_id = ? AND person_id = ? AND box_x IS NULL AND source = 'manual'"
+    ).run(itemId, personId).changes;
+    const rejected = db.prepare(
+      "UPDATE gallery_faces SET assignment = 'rejected', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ? AND person_id = ? AND source = 'scan' AND assignment != 'rejected'"
+    ).run(itemId, personId).changes;
+    return del + rejected;
+  })();
+  if (changed > 0) recomputeClusterCentroid(personId);
 }

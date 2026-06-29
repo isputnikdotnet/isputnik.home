@@ -518,6 +518,41 @@
 }
 
 .gallery-person-unnamed { color: var(--muted); font-style: italic; }
+.gallery-person-chip-unnamed { font-style: italic; opacity: 0.85; }
+
+/* A photo tile that carries a "remove from this person" corner button (person page).
+   The wrapper becomes the square grid cell; the tile button fills it. */
+.gallery-tile-wrap { position: relative; aspect-ratio: 1 / 1; }
+.gallery-tile-wrap .gallery-tile { width: 100%; height: 100%; aspect-ratio: auto; }
+
+.gallery-tile-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(18, 18, 20, 0.72);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+
+.gallery-tile-wrap:hover .gallery-tile-remove,
+.gallery-tile-remove:focus-visible { opacity: 1; }
+.gallery-tile-remove:hover { background: var(--danger, #c0392b); }
+
+/* No hover on touch devices — keep the control visible so it stays usable. */
+@media (hover: none) {
+  .gallery-tile-remove { opacity: 1; }
+}
 
 /* Admin face-recognition bar above the People grid. */
 .gallery-face-admin {
