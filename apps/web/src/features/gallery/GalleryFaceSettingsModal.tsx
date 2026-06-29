@@ -12,8 +12,10 @@ import type { GalleryFaceLibrary, GalleryFaceSettings } from "./types";
 // "Rescan" reprocesses every photo from scratch.
 export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
   const [libraries, setLibraries] = useState<GalleryFaceLibrary[]>([]);
+  const [strength, setStrength] = useState(3);
   const [loaded, setLoaded] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [recomputing, setRecomputing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [confirmRescan, setConfirmRescan] = useState<GalleryFaceLibrary | null>(null);
@@ -22,9 +24,29 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     try {
       const payload = await api<GalleryFaceSettings>("/api/library/gallery/faces/settings");
       setLibraries(payload.libraries);
+      setStrength(payload.groupingStrength);
       setLoaded(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load face-recognition settings");
+    }
+  };
+
+  const anyEnabled = libraries.some((l) => l.enabled);
+
+  // Save the grouping strength then re-cluster existing faces (no re-detection).
+  const applyStrength = async (value: number) => {
+    setRecomputing(true);
+    setError("");
+    setNotice("");
+    try {
+      await api("/api/library/gallery/faces/settings", { method: "PATCH", body: JSON.stringify({ groupingStrength: value }) });
+      await api("/api/library/gallery/faces/recompute", { method: "POST" });
+      setNotice("Regrouping with the new strength… people update in a moment.");
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to apply");
+    } finally {
+      setRecomputing(false);
     }
   };
 
@@ -106,6 +128,19 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
             </li>
           ))}
         </ul>
+      )}
+
+      {anyEnabled && (
+        <div className="gallery-face-tuning">
+          <label className="gallery-face-strength">
+            <span>Grouping strength: <strong>{strength}</strong></span>
+            <input type="range" min={2} max={8} step={1} value={strength} disabled={recomputing} onChange={(event) => setStrength(Number(event.target.value))} />
+            <small>Lower = stricter: fewer different people wrongly merged, but more small groups to combine. Higher = more consolidated.</small>
+          </label>
+          <Button variant="primary" compact disabled={recomputing} onClick={() => void applyStrength(strength)}>
+            {recomputing ? "Regrouping…" : "Regroup people"}
+          </Button>
+        </div>
       )}
 
       <div className="modal-actions">

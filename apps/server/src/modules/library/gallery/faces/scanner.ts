@@ -14,9 +14,15 @@ import { faceRecognitionEnabledForLibrary } from "./settings.js";
 
 const faceJobType = "SCAN_GALLERY_FACES";
 
+// Drop faces smaller than this fraction of the image's short side — tiny/background
+// faces yield unreliable embeddings that pollute clusters.
+const MIN_FACE_SIDE = 0.045;
+
 interface FaceScanPayload {
-  libraryId: string;
+  libraryId?: string;
   force?: boolean;
+  // A "recompute" job re-clusters existing embeddings without re-detecting anything.
+  recompute?: boolean;
 }
 
 interface PhotoRow {
@@ -61,19 +67,20 @@ async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ it
     } catch {
       faces = []; // an undecodable image is still marked scanned (0 faces) so we don't retry it forever
     }
+    const usable = faces.filter((face) => Math.min(face.box[2], face.box[3]) >= MIN_FACE_SIDE);
     db.transaction(() => {
       // Replace this item's auto-detected faces (idempotent rescan); manual whole-photo
-      // tags (source 'manual') are left untouched.
+      // tags (source 'manual') are left untouched. Tiny faces are dropped above.
       db.prepare("DELETE FROM gallery_faces WHERE item_id = ? AND source = 'scan'").run(photo.id);
-      for (const face of faces) {
+      for (const face of usable) {
         insertFace.run(
           nanoid(16), photo.id, face.box[0], face.box[1], face.box[2], face.box[3],
           face.score, embeddingToBlob(face.embedding), FACE_EMBEDDING_MODEL
         );
       }
-      markScanned.run(photo.id, FACE_EMBEDDING_MODEL, faces.length);
+      markScanned.run(photo.id, FACE_EMBEDDING_MODEL, usable.length);
     })();
-    totalFaces += faces.length;
+    totalFaces += usable.length;
   }
 
   clusterGalleryFaces();
@@ -84,6 +91,15 @@ export function enqueueFaceScan(libraryId: string, force = false): string {
   const jobId = nanoid(16);
   db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
     .run(jobId, faceJobType, JSON.stringify({ libraryId, force } satisfies FaceScanPayload));
+  return jobId;
+}
+
+// Re-cluster existing embeddings with the current settings — no re-detection. Cheap
+// relative to a scan, so tuning grouping strength is near-instant.
+export function enqueueFaceRecompute(): string {
+  const jobId = nanoid(16);
+  db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
+    .run(jobId, faceJobType, JSON.stringify({ recompute: true } satisfies FaceScanPayload));
   return jobId;
 }
 
@@ -112,7 +128,9 @@ export async function processFaceScanQueue(): Promise<void> {
 
       const payload = JSON.parse(job.payload) as FaceScanPayload;
       try {
-        const result = await scanLibraryFaces(payload.libraryId, payload.force ?? false);
+        const result = payload.recompute
+          ? { reclustered: clusterGalleryFaces().clusters }
+          : await scanLibraryFaces(payload.libraryId ?? "", payload.force ?? false);
         db.prepare("UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL WHERE id = ?")
           .run(JSON.stringify({ ...payload, result }), job.id);
       } catch (err) {

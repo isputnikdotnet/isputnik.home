@@ -5,8 +5,15 @@ import { db } from "../../../../db.js";
 // threshold stays global.
 const LIB_PREFIX = "face_recognition.lib.";
 const THRESHOLD_KEY = "face_recognition.threshold";
+const K_KEY = "face_recognition.k";
 
+// Edge floor for the mutual-kNN graph (min cosine for two faces to be candidate
+// neighbours). The real grouping dial is K below; the floor just prunes the graph.
 export const DEFAULT_FACE_THRESHOLD = 0.5;
+// "Grouping strength": each pair must be within the other's top-K neighbours to link.
+// Lower K = purer but more fragmented groups; higher K = more consolidated but more
+// risk of merging different people. 3 is the tested sweet spot for the faceres model.
+export const DEFAULT_FACE_K = 3;
 
 function readSetting(key: string): string | null {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(key) as { value: string } | undefined;
@@ -50,4 +57,15 @@ export function faceThreshold(): number {
 
 export function setFaceThreshold(value: number, userId: string): void {
   writeSetting(THRESHOLD_KEY, String(Math.min(0.95, Math.max(0.2, value))), userId);
+}
+
+export function faceGroupingK(): number {
+  const raw = readSetting(K_KEY);
+  const parsed = raw == null ? NaN : Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_FACE_K;
+  return Math.min(8, Math.max(2, parsed));
+}
+
+export function setFaceGroupingK(value: number, userId: string): void {
+  writeSetting(K_KEY, String(Math.min(8, Math.max(2, Math.round(value)))), userId);
 }
