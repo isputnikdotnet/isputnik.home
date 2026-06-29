@@ -1268,3 +1268,52 @@
   display: grid;
   min-width: 0;
 }
+
+/* About page tabs (About / Credits) + the credits list. */
+.about-tabs { margin: 18px 0 16px; }
+
+.about-credits-intro { margin: 0 0 18px; color: var(--muted); }
+
+.about-credit-group { margin-bottom: 18px; }
+
+.about-credit-group-title {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.about-credit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.about-credit-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.about-credit-name { font-weight: 600; color: var(--ink); text-decoration: none; }
+.about-credit-name:hover { text-decoration: underline; }
+
+.about-credit-use { flex: 1; min-width: 12ch; color: var(--muted); font-size: 0.9rem; }
+
+.about-credit-license {
+  font-size: 0.74rem;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 9px;
+  white-space: nowrap;
+}
