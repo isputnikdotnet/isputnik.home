@@ -10,6 +10,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { blobToEmbedding, embeddingToBlob, centroidOf, cosineSimilarity } from "./embedding.js";
 import { faceThreshold, faceGroupingK } from "./settings.js";
+import { FACE_EMBEDDING_MODEL } from "./model-id.js";
 
 // Min centroid cosine for a rebuilt group to reclaim a named person when there's no
 // face overlap (e.g. after a full rescan re-detected every face). High enough to avoid
@@ -110,9 +111,11 @@ export function clusterGalleryFaces(): { clusters: number; assigned: number } {
   const k = faceGroupingK();
   const floor = faceThreshold();
 
+  // Only cluster faces from the CURRENT embedding model — never mix embedding spaces
+  // (e.g. a 512-d ArcFace vector with a stale 1024-d one) which would corrupt cosine.
   const rows = db.prepare(
-    "SELECT id, person_id, embedding FROM gallery_faces WHERE source = 'scan' AND assignment != 'rejected' AND embedding IS NOT NULL"
-  ).all() as { id: string; person_id: string | null; embedding: Buffer }[];
+    "SELECT id, person_id, embedding FROM gallery_faces WHERE source = 'scan' AND assignment != 'rejected' AND embedding IS NOT NULL AND embedding_model = ?"
+  ).all(FACE_EMBEDDING_MODEL) as { id: string; person_id: string | null; embedding: Buffer }[];
   if (rows.length === 0) return { clusters: 0, assigned: 0 };
 
   const faces: FaceVec[] = rows.map((r) => ({ id: r.id, emb: blobToEmbedding(r.embedding) }));
@@ -144,7 +147,8 @@ export function clusterGalleryFaces(): { clusters: number; assigned: number } {
       const groupCentroid = centroidOf(faceIds.map((fid) => embById.get(fid)!).filter(Boolean));
       let bestSim = NAME_REMATCH;
       for (const a of anchoredCentroids) {
-        if (takenAnchor.has(a.id)) continue;
+        // Skip a stale centroid from a different embedding model (different dimension).
+        if (takenAnchor.has(a.id) || a.vec.length !== groupCentroid.length) continue;
         const sim = cosineSimilarity(groupCentroid, a.vec);
         if (sim >= bestSim) { bestSim = sim; claim = a.id; }
       }
@@ -167,8 +171,13 @@ export function clusterGalleryFaces(): { clusters: number; assigned: number } {
     for (const id of enforceExclusions()) touched.add(id);
     // Recompute touched groups plus any anchored person that may have lost its faces.
     for (const id of new Set([...touched, ...anchored])) recomputeClusterCentroid(id);
-    // Drop unnamed, empty, non-anchored people left behind.
-    db.prepare("DELETE FROM gallery_people WHERE name = '' AND linked_person_id IS NULL AND face_count = 0").run();
+    // Drop unnamed, non-anchored people that have no faces left at all (orphans from a
+    // regroup, or stale clusters from a previous embedding model). Keyed on real faces,
+    // not the cached face_count, so a model migration tidies up cleanly.
+    db.prepare(`
+      DELETE FROM gallery_people WHERE name = '' AND linked_person_id IS NULL
+        AND id NOT IN (SELECT person_id FROM gallery_faces WHERE person_id IS NOT NULL AND assignment != 'rejected')
+    `).run();
   })();
 
   return { clusters: groupPlan.length, assigned: faces.length };

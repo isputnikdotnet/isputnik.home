@@ -109,7 +109,7 @@ describe("clusterGalleryFaces (DB)", () => {
     const itemId = await ingestGalleryAsset("GAL", asset(rel, when), false);
     db.prepare(`
       INSERT INTO gallery_faces (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, assignment, source)
-      VALUES (?, ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, 'human/faceres', 'auto', 'scan')
+      VALUES (?, ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, 'buffalo_s/w600k_mbf', 'auto', 'scan')
     `).run(`f_${rel}`, itemId, embeddingToBlob(embedding));
     return itemId;
   }

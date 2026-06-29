@@ -9,7 +9,8 @@ const K_KEY = "face_recognition.k";
 
 // Edge floor for the mutual-kNN graph (min cosine for two faces to be candidate
 // neighbours). The real grouping dial is K below; the floor just prunes the graph.
-export const DEFAULT_FACE_THRESHOLD = 0.5;
+// Tuned for ArcFace, where different people score near 0 and same-person ~0.7.
+export const DEFAULT_FACE_THRESHOLD = 0.3;
 // "Grouping strength": each pair must be within the other's top-K neighbours to link.
 // Lower K = purer but more fragmented groups; higher K = more consolidated but more
 // risk of merging different people. 3 is the tested sweet spot for the faceres model.

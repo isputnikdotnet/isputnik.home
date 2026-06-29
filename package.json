@@ -8,7 +8,6 @@
     "apps/web"
   ],
   "scripts": {
-    "postinstall": "node -e \"process.platform==='win32'&&require('node:child_process').execFileSync(process.execPath,['scripts/fix-tfjs-node-win.mjs'],{stdio:'inherit'})\"",
     "dev": "concurrently \"cross-env PORT=4000 npm run dev --workspace apps/server\" \"npm run dev --workspace apps/web\"",
     "build": "npm run build --workspace apps/server && npm run build --workspace apps/web",
     "typecheck": "npm run typecheck --workspace apps/server && npm run typecheck --workspace apps/web",
