@@ -573,6 +573,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.3.9",
+          label: "Quotes & bookmarks that work in the installed app — even offline",
+          changes: [
+            "Quotes are reachable in the installed app. The Quotes page now appears in the phone app's Profile menu (and the desktop account menu), so you can get to everything you've saved without the desktop sidebar.",
+            "Selecting text works reliably on phones and tablets. The highlight toolbar now appears dependably when you select a passage on a touch screen — previously you'd often get only the system's copy menu. The toolbar also sits clear of the screen edges.",
+            "Highlight and bookmark while reading offline. If you're reading a downloaded book with no connection, the highlights and bookmarks you make are saved on the device and sync automatically the next time you're online — matching how your reading position already worked."
+          ]
+        },
+        {
           version: "1.3.8",
           label: "Save quotes & highlights from your books",
           changes: [
