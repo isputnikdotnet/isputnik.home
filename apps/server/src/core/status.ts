@@ -573,6 +573,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.3.10",
+          label: "Photo & video gallery",
+          changes: [
+            "New: a photo & video gallery. An administrator can add a Gallery library (Control panel → Libraries) pointed at a folder of photos and videos. Browse it three ways — a Timeline grouped by month (using each photo's date), a Folders view that mirrors your folders on disk, and a Map that plots geotagged photos and videos so you can see where they were taken. Opening one shows it full-screen with its details (date, dimensions, camera, location); videos play inline.",
+            "Upload straight from the app. In a gallery you manage, the Upload button takes a batch of photos and videos — or a whole folder — and adds each as its own item, reading its date and building thumbnails automatically. Libraries that point at an existing read-only folder are never written to.",
+            "Share a photo or video. Create a guest link anyone can open without an account to view and download a single photo or video, or share it directly with another person's account — the same sharing audiobooks and ebooks already had.",
+            "Tidy up in bulk. A Select mode lets you tick several photos or videos and move them to the Recycle Bin in one go, where they can be restored.",
+            "See where a photo was taken. A photo's details panel now shows a small map pinned to its location when the photo carries GPS data. Viewing any map loads map tiles from OpenStreetMap — the only thing the app ever fetches from the internet.",
+            "New stats pages. Control panel → Status now has Ebook and Gallery stats alongside Audiobook stats — library sizes and counts, ebook formats, photo/video totals, and the largest items."
+          ]
+        },
+        {
           version: "1.3.9",
           label: "Quotes & bookmarks that work in the installed app — even offline",
           changes: [
