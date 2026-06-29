@@ -52,8 +52,10 @@ await app.register(cors, {
 // Security headers. The CSP is tailored to exactly what the app loads: same-origin
 // scripts and styles (the build has no inline scripts; styles allow inline), cover
 // and reader content from blob:/data:, audio from blob:, and the foliate reader's
-// blob iframe. Verified against the production bundle (no eval/WASM, no external
-// resources, workers disabled) before switching from report-only to enforcing.
+// blob iframe. Verified against the production bundle (no eval/WASM, workers
+// disabled) before switching from report-only to enforcing. The single external
+// resource is the gallery map: Leaflet fetches OpenStreetMap raster tiles as
+// <img>, so imgSrc allows the OSM tile hosts (and nothing else does).
 await app.register(helmet, {
   crossOriginEmbedderPolicy: false,
   referrerPolicy: { policy: "no-referrer" },
@@ -66,7 +68,9 @@ await app.register(helmet, {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:"],
+      // OSM raster tiles for the gallery map (Leaflet loads them as <img>). Both the
+      // subdomain-less host and the a/b/c.tile.* mirrors are covered.
+      imgSrc: ["'self'", "data:", "blob:", "https://tile.openstreetmap.org", "https://*.tile.openstreetmap.org"],
       mediaSrc: ["'self'", "blob:"],
       fontSrc: ["'self'", "data:"],
       connectSrc: ["'self'"],

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, FolderOpen, Image as ImageIcon, Images, Play, Heart, Folder, SquareCheck, Trash2, UploadCloud, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, FolderOpen, Image as ImageIcon, Images, MapPin, Play, Heart, Folder, SquareCheck, Trash2, UploadCloud, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -10,11 +10,15 @@ import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiob
 import type { SortKey } from "../audiobooks/BookFilter";
 import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
-import type { GalleryAsset, GalleryFolder, GalleryLibrary } from "./types";
+import type { GalleryAsset, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint } from "./types";
 
 const PAGE_SIZE = 80;
 
-type GalleryView = "timeline" | "folder";
+// Leaflet (~140 KB) is only needed for the Map view, so it loads on demand — keeping
+// it off the initial bundle for the common Timeline/Folder browsing.
+const GalleryMap = lazy(() => import("./GalleryMap").then((m) => ({ default: m.GalleryMap })));
+
+type GalleryView = "timeline" | "folder" | "map";
 type KindFilter = "all" | "photo" | "video";
 
 // The media-type filter is presented through the same compact dropdown the
@@ -103,6 +107,11 @@ export function GalleryPage({
   const [folders, setFolders] = useState<GalleryFolder[]>([]);
   const [folderAssets, setFolderAssets] = useState<GalleryAsset[]>([]);
 
+  // Map state. `mapCount` (geotagged assets in scope) gates whether the Map tab is
+  // offered at all; `mapPoints` are the markers for the active scope/kind.
+  const [mapPoints, setMapPoints] = useState<GalleryMapPoint[]>([]);
+  const [mapCount, setMapCount] = useState(0);
+
   // Library selector dropdown (mirrors the audiobooks/ebooks main page chip).
   const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
   const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -187,10 +196,42 @@ export function GalleryPage({
     }
   }, [scopeParams]);
 
+  const loadMap = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ ...scopeParams(), kinds: kind === "all" ? "" : kind } as Record<string, string>);
+      const payload = await api<{ points: GalleryMapPoint[] }>(`/api/library/gallery/map?${params}`);
+      setMapPoints(payload.points);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load the map");
+    } finally {
+      setLoading(false);
+    }
+  }, [scopeParams, kind]);
+
+  // How many assets in scope carry GPS — decides whether the Map tab appears.
+  useEffect(() => {
+    let alive = true;
+    const params = new URLSearchParams(scopeParams() as Record<string, string>);
+    api<GalleryFacets>(`/api/library/gallery/facets?${params}`)
+      .then((facets) => { if (alive) setMapCount(facets.withGps); })
+      .catch(() => { /* facets are advisory; the tab just stays hidden */ });
+    return () => { alive = false; };
+  }, [scopeParams]);
+
+  // Fetch one asset and open it standalone in the lightbox (used by map markers).
+  const openAssetById = useCallback((id: string) => {
+    api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${id}`)
+      .then((payload) => { setSingleAsset(payload.asset); setLightbox({ source: "single", index: 0 }); })
+      .catch(() => { /* asset gone / no access */ });
+  }, []);
+
   // Reload the active view when scope/kind/query/view changes.
   useEffect(() => {
     if (view === "timeline") void loadTimeline(0);
-    else void loadFolder("");
+    else if (view === "folder") void loadFolder("");
+    else void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, scopeId, kind, query]);
 
@@ -209,10 +250,12 @@ export function GalleryPage({
     if (!libraries.some((library) => library.scanStatus === "scanning")) return;
     const timer = window.setInterval(() => {
       void loadLibraries();
-      if (view === "timeline") void loadTimeline(0); else void loadFolder(parent);
+      if (view === "timeline") void loadTimeline(0);
+      else if (view === "folder") void loadFolder(parent);
+      else void loadMap();
     }, 3500);
     return () => window.clearInterval(timer);
-  }, [libraries, view, parent, loadLibraries, loadTimeline, loadFolder]);
+  }, [libraries, view, parent, loadLibraries, loadTimeline, loadFolder, loadMap]);
 
   // Library selector dropdown open/close + outside-click dismissal.
   const toggleLibraryMenu = () => {
@@ -261,9 +304,11 @@ export function GalleryPage({
 
   // Reload whichever view is active plus the library list (counts / scan badges).
   const refreshView = useCallback(() => {
-    if (view === "timeline") void loadTimeline(0); else void loadFolder(parent);
+    if (view === "timeline") void loadTimeline(0);
+    else if (view === "folder") void loadFolder(parent);
+    else void loadMap();
     void loadLibraries();
-  }, [view, parent, loadTimeline, loadFolder, loadLibraries]);
+  }, [view, parent, loadTimeline, loadFolder, loadMap, loadLibraries]);
 
   // Assets currently shown (the selectable set depends on the active view).
   const displayedAssets = view === "timeline" ? assets : folderAssets;
@@ -328,9 +373,11 @@ export function GalleryPage({
   }, [assets]);
 
   const breadcrumbParts = parent ? parent.split("/") : [];
-  const subtitle = view === "timeline"
-    ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
-    : "Browsing by folder";
+  const subtitle = view === "map"
+    ? `${formatCount(mapPoints.length)} on the map`
+    : view === "timeline"
+      ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
+      : "Browsing by folder";
 
   return (
     <DashboardShell active="gallery" user={user} logout={logout}>
@@ -361,7 +408,7 @@ export function GalleryPage({
                   <UploadCloud size={18} aria-hidden="true" />
                 </button>
               )}
-              {canDeleteAny && !selectionMode && (
+              {canDeleteAny && !selectionMode && view !== "map" && (
                 <button
                   type="button"
                   className="audiobook-page-action-icon"
@@ -452,6 +499,16 @@ export function GalleryPage({
                     <FolderOpen size={19} aria-hidden="true" />
                     <span>Folders</span>
                   </a>
+                  {mapCount > 0 && (
+                    <a
+                      href="/gallery"
+                      className={view === "map" ? "active" : ""}
+                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("map"); }}
+                    >
+                      <MapPin size={19} aria-hidden="true" />
+                      <span>Map</span>
+                    </a>
+                  )}
                 </nav>
               </div>
             </div>
@@ -487,7 +544,16 @@ export function GalleryPage({
               </div>
             )}
 
-            {view === "timeline" ? (
+            {view === "map" ? (
+              <>
+                <Suspense fallback={<p className="management-empty">Loading map…</p>}>
+                  <GalleryMap points={mapPoints} onOpen={openAssetById} />
+                </Suspense>
+                {!loading && mapPoints.length === 0 && (
+                  <p className="management-empty">No photos or videos with location data{kind !== "all" ? ` of this type` : ""} in this library.</p>
+                )}
+              </>
+            ) : view === "timeline" ? (
               <>
                 {months.map((month) => (
                   <div key={month.label}>

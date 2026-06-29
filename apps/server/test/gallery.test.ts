@@ -7,6 +7,7 @@ import {
   queryGalleryTimeline,
   queryGalleryFolders,
   galleryFacets,
+  queryGalleryMapPoints,
   resolveGalleryScopeLibraryIds
 } from "../src/modules/library/gallery/catalog.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
@@ -154,5 +155,31 @@ describe("gallery access scoping", () => {
     const facets = galleryFacets(["GAL"]);
     expect(facets.kinds.find((k) => k.kind === "photo")?.count).toBe(1);
     expect(facets.kinds.find((k) => k.kind === "video")?.count).toBe(1);
+  });
+});
+
+describe("gallery map points", () => {
+  it("returns only geotagged assets and counts them via the withGps facet", async () => {
+    const t = Date.parse("2024-03-03T00:00:00Z");
+    const geo = await ingestGalleryAsset("GAL", asset("paris.jpg", t), false);
+    await ingestGalleryAsset("GAL", asset("nogps.jpg", t + DAY), false); // no coordinates
+    // metaEnabled=false skips EXIF, so set coordinates directly to exercise the query.
+    db.prepare("UPDATE gallery_details SET gps_lat = ?, gps_lng = ? WHERE item_id = ?").run(48.8584, 2.2945, geo);
+
+    const { points } = queryGalleryMapPoints(["GAL"], { kinds: [], limit: 100 });
+    expect(points.map((p) => p.id)).toEqual([geo]);
+    expect(points[0]).toMatchObject({ lat: 48.8584, lng: 2.2945, title: "paris.jpg" });
+
+    expect(galleryFacets(["GAL"]).withGps).toBe(1);
+  });
+
+  it("respects the kind filter", async () => {
+    const t = Date.now();
+    const photo = await ingestGalleryAsset("GAL", asset("p.jpg", t), false);
+    const video = await ingestGalleryAsset("GAL", asset("v.mp4", t + 1000), false);
+    db.prepare("UPDATE gallery_details SET gps_lat = 1, gps_lng = 1 WHERE item_id IN (?, ?)").run(photo, video);
+
+    const photos = queryGalleryMapPoints(["GAL"], { kinds: ["photo"], limit: 100 });
+    expect(photos.points.map((p) => p.id)).toEqual([photo]);
   });
 });
