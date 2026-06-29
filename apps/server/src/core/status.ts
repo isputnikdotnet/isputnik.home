@@ -584,6 +584,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.4.1",
+          label: "Face recognition: sharper grouping, face thumbnails & fixes",
+          changes: [
+            "Much better grouping. Face recognition now keeps different people apart far more reliably — it no longer lumps several people into one group. The trade-off is that one person can appear as a few separate groups; combine them with Merge, and use the new \"Grouping strength\" slider in the Face recognition popup to make grouping looser or stricter, then press \"Regroup people\" to apply it (no need to rescan your photos).",
+            "Person thumbnails now show the actual face. A group's icon is a close-up crop of the person's face instead of the whole photo, so you can tell who each group is at a glance. Existing libraries fill these in the first time you press Regroup.",
+            "Turn face recognition on per library. The Face recognition popup on the People tab now has a switch for each gallery library plus a Rescan button, instead of a single global on/off.",
+            "Removing a person from a photo now works properly — including faces the app detected automatically. Use the \"×\" on a photo in a person's page to take it out of that group, and it stays out even after a full rescan.",
+            "Rescan now asks for confirmation and keeps your work: your names, manual tags, and the photos you've removed from named people are all preserved."
+          ]
+        },
+        {
           version: "1.4.0",
           label: "People in your photos — tag faces and recognise them automatically",
           changes: [
