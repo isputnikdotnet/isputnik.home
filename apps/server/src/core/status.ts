@@ -3,6 +3,16 @@ import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { db } from "../db.js";
 import { config } from "../config.js";
+import { faceRecognitionEnabled } from "../modules/library/gallery/faces/settings.js";
+
+function faceStats() {
+  return {
+    enabled: faceRecognitionEnabled(),
+    people: (db.prepare("SELECT COUNT(*) n FROM gallery_people").get() as { n: number }).n,
+    faces: (db.prepare("SELECT COUNT(*) n FROM gallery_faces").get() as { n: number }).n,
+    scannedItems: (db.prepare("SELECT COUNT(*) n FROM gallery_face_scans").get() as { n: number }).n
+  };
+}
 
 function databaseSize() {
   return [config.dbPath, `${config.dbPath}-wal`, `${config.dbPath}-shm`].reduce((total, file) => (
@@ -445,6 +455,7 @@ export async function statusPlugin(app: FastifyInstance) {
         libraryStats,
         ebookStats,
         galleryStats,
+        faceStats: faceStats(),
         uptimeSeconds: Math.floor(process.uptime()),
         generatedAt: new Date().toISOString()
       }
@@ -572,6 +583,16 @@ export async function statusPlugin(app: FastifyInstance) {
       server: "Fastify + TypeScript",
       frontend: "React + TypeScript",
       versionUpdates: [
+        {
+          version: "1.4.0",
+          label: "People in your photos — tag faces and recognise them automatically",
+          changes: [
+            "New: a People view in the gallery. Open a photo's details and add the people in it — type a new name or pick someone you've added before — then browse your library by person from the new People tab, where each person shows as a card with how many photos they appear in. Tagging is per photo, so it stays quick.",
+            "New (optional): automatic face recognition that runs entirely on your own server — nothing is ever sent to the internet. An administrator turns it on from the gallery's People tab and presses \"Scan for faces\"; the app then finds faces in your photos and groups the same person together for you. Each group starts out \"Unnamed\" — give it a name once and it becomes a person like any other.",
+            "Tidy up what it finds: rename a group, merge two groups that are really the same person, or delete a group — your photos are never affected, they're just untagged. Naming a group keeps it learning, so a person you've named gathers their new photos automatically on the next scan.",
+            "Private and off by default: face recognition only runs after an admin enables it, and the models it uses are bundled with the app, so there are no downloads and no outside services involved."
+          ]
+        },
         {
           version: "1.3.10",
           label: "Photo & video gallery",

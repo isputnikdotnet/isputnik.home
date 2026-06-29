@@ -403,3 +403,175 @@
   .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); }
   .gallery-map { height: calc(100vh - 300px); }
 }
+
+/* People view: a grid of person cards with a round cover. */
+.gallery-people-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.gallery-person-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 10px;
+  cursor: pointer;
+  color: var(--ink);
+  font: inherit;
+}
+
+.gallery-person-card:hover { border-color: var(--accent, #8eb4bf); }
+
+.gallery-person-avatar {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  color: var(--muted);
+}
+
+.gallery-person-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-person-card strong { font-size: 0.92rem; word-break: break-word; }
+.gallery-person-card small { color: var(--muted); }
+
+/* People tags in the lightbox Info panel. */
+.gallery-people-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.gallery-person-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.85rem;
+}
+
+.gallery-person-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+
+.gallery-person-chip-remove:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+
+.gallery-person-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.gallery-person-add:hover { border-color: rgba(255, 255, 255, 0.6); color: #fff; }
+
+.gallery-person-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.gallery-person-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.gallery-person-error {
+  display: block;
+  margin-top: 6px;
+  color: #f3a3a3;
+  font-size: 0.8rem;
+}
+
+.gallery-person-unnamed { color: var(--muted); font-style: italic; }
+
+/* Admin face-recognition bar above the People grid. */
+.gallery-face-admin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.gallery-face-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gallery-face-hint { font-size: 0.84rem; }
+
+/* Per-person curation row (rename / merge / delete) + the merge picker. */
+.gallery-person-toolbar,
+.gallery-merge-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+.gallery-merge-panel {
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.gallery-person-rename {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gallery-person-rename input,
+.gallery-merge-panel select {
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--input-bg, var(--surface));
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+}

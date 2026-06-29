@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, FolderOpen, Image as ImageIcon, Images, MapPin, Play, Heart, Folder, SquareCheck, Trash2, UploadCloud, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, FolderOpen, Image as ImageIcon, Images, MapPin, Pencil, Play, Heart, Folder, ScanFace, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -10,7 +10,7 @@ import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiob
 import type { SortKey } from "../audiobooks/BookFilter";
 import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
-import type { GalleryAsset, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint } from "./types";
+import type { GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryPerson } from "./types";
 
 const PAGE_SIZE = 80;
 
@@ -18,7 +18,7 @@ const PAGE_SIZE = 80;
 // it off the initial bundle for the common Timeline/Folder browsing.
 const GalleryMap = lazy(() => import("./GalleryMap").then((m) => ({ default: m.GalleryMap })));
 
-type GalleryView = "timeline" | "folder" | "map";
+type GalleryView = "timeline" | "folder" | "map" | "people";
 type KindFilter = "all" | "photo" | "video";
 
 // The media-type filter is presented through the same compact dropdown the
@@ -112,6 +112,19 @@ export function GalleryPage({
   const [mapPoints, setMapPoints] = useState<GalleryMapPoint[]>([]);
   const [mapCount, setMapCount] = useState(0);
 
+  // People state. The People view shows person chips; picking one drills into that
+  // person's photos (`personAssets`), which open in the lightbox like any other list.
+  const [people, setPeople] = useState<GalleryPerson[]>([]);
+  const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string } | null>(null);
+  const [personAssets, setPersonAssets] = useState<GalleryAsset[]>([]);
+  // Face recognition (admin): settings + a busy flag for enable/scan actions.
+  const [faceSettings, setFaceSettings] = useState<GalleryFaceSettings | null>(null);
+  const [faceBusy, setFaceBusy] = useState(false);
+  // Inline rename of the open person.
+  const [renameValue, setRenameValue] = useState<string | null>(null);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [personDeleteOpen, setPersonDeleteOpen] = useState(false);
+
   // Library selector dropdown (mirrors the audiobooks/ebooks main page chip).
   const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
   const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -119,7 +132,7 @@ export function GalleryPage({
   const libraryMenuRef = useRef<HTMLDivElement>(null);
 
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
-  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single"; index: number } | null>(null);
+  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person"; index: number } | null>(null);
   const [singleAsset, setSingleAsset] = useState<GalleryAsset | null>(null);
 
   // Upload (source-writing, policy-gated): the modal is offered when any library
@@ -210,6 +223,117 @@ export function GalleryPage({
     }
   }, [scopeParams, kind]);
 
+  const loadPeople = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams(scopeParams() as Record<string, string>);
+      const payload = await api<{ people: GalleryPerson[] }>(`/api/library/gallery/people?${params}`);
+      setPeople(payload.people);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load people");
+    } finally {
+      setLoading(false);
+    }
+  }, [scopeParams]);
+
+  // Drill into one person's photos (opened from a person chip).
+  const openPerson = useCallback(async (person: { id: string; name: string }) => {
+    setLoading(true);
+    setError("");
+    setSelectedPerson(person);
+    try {
+      const payload = await api<{ assets: GalleryAsset[] }>(`/api/library/gallery/people/${person.id}?limit=200`);
+      setPersonAssets(payload.assets);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load this person's photos");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const isAdmin = user.role === "admin";
+  const canCuratePeople = libraries.some((library) => library.canWrite);
+
+  const loadFaceSettings = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const payload = await api<{ settings: GalleryFaceSettings }>("/api/library/gallery/faces/settings");
+      setFaceSettings(payload.settings);
+    } catch { /* non-admins / errors just hide the controls */ }
+  }, [isAdmin]);
+
+  const toggleFaceRecognition = useCallback(async (enabled: boolean) => {
+    setFaceBusy(true);
+    try {
+      const payload = await api<{ settings: GalleryFaceSettings }>("/api/library/gallery/faces/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ enabled })
+      });
+      setFaceSettings(payload.settings);
+      setNotice(enabled ? "Face recognition enabled. Scan a library to find people." : "Face recognition disabled.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update face recognition");
+    } finally {
+      setFaceBusy(false);
+    }
+  }, []);
+
+  const triggerFaceScan = useCallback(async () => {
+    setFaceBusy(true);
+    setNotice("");
+    try {
+      await api("/api/library/gallery/faces/scan", {
+        method: "POST",
+        body: JSON.stringify(scopeId === "all" ? {} : { libraryId: scopeId })
+      });
+      setNotice("Face scan started. People will appear here as photos are processed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to start the face scan");
+    } finally {
+      setFaceBusy(false);
+    }
+  }, [scopeId]);
+
+  const submitRename = useCallback(async () => {
+    if (!selectedPerson || renameValue == null) return;
+    const name = renameValue.trim();
+    if (!name) return;
+    try {
+      await api(`/api/library/gallery/people/${selectedPerson.id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+      setSelectedPerson({ ...selectedPerson, name });
+      setRenameValue(null);
+      void loadPeople();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to rename");
+    }
+  }, [selectedPerson, renameValue, loadPeople]);
+
+  const confirmMerge = useCallback(async (targetId: string) => {
+    if (!selectedPerson) return;
+    try {
+      await api(`/api/library/gallery/people/${selectedPerson.id}/merge`, { method: "POST", body: JSON.stringify({ intoId: targetId }) });
+      setMergeOpen(false);
+      setSelectedPerson(null);
+      void loadPeople();
+      setNotice("People merged.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to merge");
+    }
+  }, [selectedPerson, loadPeople]);
+
+  const confirmDeletePerson = useCallback(async () => {
+    if (!selectedPerson) return;
+    try {
+      await api(`/api/library/gallery/people/${selectedPerson.id}`, { method: "DELETE" });
+      setPersonDeleteOpen(false);
+      setSelectedPerson(null);
+      void loadPeople();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete");
+    }
+  }, [selectedPerson, loadPeople]);
+
   // How many assets in scope carry GPS — decides whether the Map tab appears.
   useEffect(() => {
     let alive = true;
@@ -231,6 +355,7 @@ export function GalleryPage({
   useEffect(() => {
     if (view === "timeline") void loadTimeline(0);
     else if (view === "folder") void loadFolder("");
+    else if (view === "people") { setSelectedPerson(null); void loadPeople(); void loadFaceSettings(); }
     else void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, scopeId, kind, query]);
@@ -289,7 +414,8 @@ export function GalleryPage({
 
   const activeAssets = lightbox?.source === "single" && singleAsset
     ? [singleAsset]
-    : lightbox?.source === "folder" ? folderAssets : assets;
+    : lightbox?.source === "folder" ? folderAssets
+      : lightbox?.source === "person" ? personAssets : assets;
 
   const libraryFor = (libraryId: string) => libraries.find((library) => library.id === libraryId);
   const currentLibrary = lightbox != null && activeAssets[lightbox.index]
@@ -306,9 +432,10 @@ export function GalleryPage({
   const refreshView = useCallback(() => {
     if (view === "timeline") void loadTimeline(0);
     else if (view === "folder") void loadFolder(parent);
+    else if (view === "people") { void loadPeople(); if (selectedPerson) void openPerson(selectedPerson); }
     else void loadMap();
     void loadLibraries();
-  }, [view, parent, loadTimeline, loadFolder, loadMap, loadLibraries]);
+  }, [view, parent, selectedPerson, loadTimeline, loadFolder, loadPeople, openPerson, loadMap, loadLibraries]);
 
   // Assets currently shown (the selectable set depends on the active view).
   const displayedAssets = view === "timeline" ? assets : folderAssets;
@@ -375,9 +502,11 @@ export function GalleryPage({
   const breadcrumbParts = parent ? parent.split("/") : [];
   const subtitle = view === "map"
     ? `${formatCount(mapPoints.length)} on the map`
-    : view === "timeline"
-      ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
-      : "Browsing by folder";
+    : view === "people"
+      ? (selectedPerson ? `${formatCount(personAssets.length)} ${personAssets.length === 1 ? "photo" : "photos"}` : `${formatCount(people.length)} ${people.length === 1 ? "person" : "people"}`)
+      : view === "timeline"
+        ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
+        : "Browsing by folder";
 
   return (
     <DashboardShell active="gallery" user={user} logout={logout}>
@@ -408,7 +537,7 @@ export function GalleryPage({
                   <UploadCloud size={18} aria-hidden="true" />
                 </button>
               )}
-              {canDeleteAny && !selectionMode && view !== "map" && (
+              {canDeleteAny && !selectionMode && view !== "map" && view !== "people" && (
                 <button
                   type="button"
                   className="audiobook-page-action-icon"
@@ -499,6 +628,14 @@ export function GalleryPage({
                     <FolderOpen size={19} aria-hidden="true" />
                     <span>Folders</span>
                   </a>
+                  <a
+                    href="/gallery"
+                    className={view === "people" ? "active" : ""}
+                    onClick={(event) => { event.preventDefault(); setSearchText(""); setView("people"); }}
+                  >
+                    <Users size={19} aria-hidden="true" />
+                    <span>People</span>
+                  </a>
                   {mapCount > 0 && (
                     <a
                       href="/gallery"
@@ -553,6 +690,122 @@ export function GalleryPage({
                   <p className="management-empty">No photos or videos with location data{kind !== "all" ? ` of this type` : ""} in this library.</p>
                 )}
               </>
+            ) : view === "people" ? (
+              selectedPerson ? (
+                <>
+                  <div className="gallery-breadcrumb">
+                    <button type="button" onClick={() => { setSelectedPerson(null); setRenameValue(null); setMergeOpen(false); void loadPeople(); }}>All people</button>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <ChevronRight size={14} aria-hidden="true" />
+                      <strong>{selectedPerson.name || "Unnamed"}</strong>
+                    </span>
+                  </div>
+
+                  {canCuratePeople && (
+                    <div className="gallery-person-toolbar">
+                      {renameValue == null ? (
+                        <button type="button" className="secondary-button compact-button" onClick={() => setRenameValue(selectedPerson.name)}>
+                          <Pencil size={14} aria-hidden="true" /> {selectedPerson.name ? "Rename" : "Name person"}
+                        </button>
+                      ) : (
+                        <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); void submitRename(); }}>
+                          <input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder="Name" autoFocus maxLength={120} />
+                          <button type="submit" className="primary-button compact-button" disabled={!renameValue.trim()}>Save</button>
+                          <button type="button" className="icon-button" onClick={() => setRenameValue(null)} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
+                        </form>
+                      )}
+                      {people.length > 1 && (
+                        <button type="button" className="secondary-button compact-button" onClick={() => setMergeOpen((v) => !v)}>
+                          <Combine size={14} aria-hidden="true" /> Merge
+                        </button>
+                      )}
+                      <button type="button" className="danger-button compact-button" onClick={() => setPersonDeleteOpen(true)}>
+                        <Trash2 size={14} aria-hidden="true" /> Delete
+                      </button>
+                    </div>
+                  )}
+
+                  {mergeOpen && (
+                    <div className="gallery-merge-panel">
+                      <span>Merge <strong>{selectedPerson.name || "Unnamed"}</strong> into:</span>
+                      <select defaultValue="" onChange={(event) => { if (event.target.value) void confirmMerge(event.target.value); }}>
+                        <option value="" disabled>Choose a person…</option>
+                        {people.filter((p) => p.id !== selectedPerson.id).map((p) => (
+                          <option key={p.id} value={p.id}>{(p.name || "Unnamed")} ({p.faceCount})</option>
+                        ))}
+                      </select>
+                      <button type="button" className="icon-button" onClick={() => setMergeOpen(false)} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
+                    </div>
+                  )}
+
+                  <div className="gallery-grid">
+                    {personAssets.map((asset, index) => (
+                      <AssetTile
+                        key={asset.id}
+                        asset={asset}
+                        onOpen={() => setLightbox({ source: "person", index })}
+                        selectionMode={false}
+                        selected={false}
+                        onToggleSelect={() => { /* selection disabled in People view */ }}
+                      />
+                    ))}
+                  </div>
+                  {!loading && personAssets.length === 0 && (
+                    <p className="management-empty">No photos for this person yet.</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  {isAdmin && faceSettings && (
+                    <div className="gallery-face-admin">
+                      <label className="gallery-face-toggle">
+                        <input
+                          type="checkbox"
+                          checked={faceSettings.enabled}
+                          disabled={faceBusy}
+                          onChange={(event) => void toggleFaceRecognition(event.target.checked)}
+                        />
+                        <span>Face recognition</span>
+                      </label>
+                      {faceSettings.enabled && (
+                        <button type="button" className="secondary-button compact-button" onClick={() => void triggerFaceScan()} disabled={faceBusy}>
+                          <ScanFace size={14} aria-hidden="true" /> {faceBusy ? "Working…" : "Scan for faces"}
+                        </button>
+                      )}
+                      <span className="muted gallery-face-hint">
+                        {faceSettings.enabled
+                          ? "Detects faces in photos and groups them into people automatically."
+                          : "Off — turn on to auto-detect people across your photos."}
+                      </span>
+                    </div>
+                  )}
+
+                  {people.length > 0 && (
+                    <div className="gallery-people-grid">
+                      {people.map((person) => (
+                        <button key={person.id} type="button" className="gallery-person-card" onClick={() => void openPerson(person)}>
+                          <span className="gallery-person-avatar">
+                            {person.coverUrl ? <img src={person.coverUrl} alt="" loading="lazy" /> : <UserRound size={28} aria-hidden="true" />}
+                          </span>
+                          <strong className={person.name ? undefined : "gallery-person-unnamed"}>{person.name || "Unnamed"}</strong>
+                          <small>{person.faceCount.toLocaleString()} {person.faceCount === 1 ? "photo" : "photos"}</small>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!loading && people.length === 0 && (
+                    <div className="empty-state library-empty">
+                      <Users size={48} aria-hidden="true" />
+                      <h2>No people yet</h2>
+                      <p className="muted">
+                        {isAdmin && faceSettings && !faceSettings.enabled
+                          ? "Turn on face recognition above to auto-detect people — or open a photo's details to tag someone by hand."
+                          : "Open a photo, show its details, and add a person to start grouping by who's in them."}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )
             ) : view === "timeline" ? (
               <>
                 {months.map((month) => (
@@ -680,6 +933,19 @@ export function GalleryPage({
         >
           These items move into the Recycle Bin and leave the gallery for everyone. You can restore them
           from the Recycle Bin, or delete them permanently from there.
+        </ConfirmDialog>
+      )}
+
+      {personDeleteOpen && selectedPerson && (
+        <ConfirmDialog
+          title={`Delete "${selectedPerson.name || "Unnamed"}"?`}
+          confirmLabel="Delete person"
+          danger
+          onConfirm={() => void confirmDeletePerson()}
+          onCancel={() => setPersonDeleteOpen(false)}
+        >
+          This removes the person and untags their photos. The photos themselves are not affected, and
+          you can tag them again later.
         </ConfirmDialog>
       )}
     </DashboardShell>
