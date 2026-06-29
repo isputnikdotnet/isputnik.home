@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, ChevronDown, ChevronRight, FolderOpen, Image as ImageIcon, Images, Play, Heart, Folder } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, FolderOpen, Image as ImageIcon, Images, Play, Heart, Folder, UploadCloud } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -8,6 +8,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiobooks/AudiobooksPage";
 import type { SortKey } from "../audiobooks/BookFilter";
 import { GalleryLightbox } from "./GalleryLightbox";
+import { GalleryUploadModal } from "./GalleryUploadModal";
 import type { GalleryAsset, GalleryFolder, GalleryLibrary } from "./types";
 
 const PAGE_SIZE = 80;
@@ -87,6 +88,11 @@ export function GalleryPage({
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
   const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single"; index: number } | null>(null);
   const [singleAsset, setSingleAsset] = useState<GalleryAsset | null>(null);
+
+  // Upload (source-writing, policy-gated): the modal is offered when any library
+  // accepts uploads. A notice confirms the batch after the modal closes.
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const scopeParams = useCallback(() => (
     scopeId === "all" ? { scope: "all" as const } : { scope: "library" as const, libraryId: scopeId }
@@ -216,8 +222,16 @@ export function GalleryPage({
     : undefined;
   const canDeleteCurrent = currentLibrary?.canDelete ?? false;
   const canEditCurrent = currentLibrary?.canWrite ?? false;
+  const canShareCurrent = currentLibrary?.canCurate ?? false;
 
+  const uploadLibraries = libraries.filter((library) => library.canUpload);
   const selectedLibraryLabel = scopeId === "all" ? "All Libraries" : libraryFor(scopeId)?.name ?? "All Libraries";
+
+  // Reload whichever view is active plus the library list (counts / scan badges).
+  const refreshView = useCallback(() => {
+    if (view === "timeline") void loadTimeline(0); else void loadFolder(parent);
+    void loadLibraries();
+  }, [view, parent, loadTimeline, loadFolder, loadLibraries]);
 
   const closeLightbox = () => {
     setLightbox(null);
@@ -252,17 +266,31 @@ export function GalleryPage({
           onSearchChange={setSearchText}
           searchPlaceholder="Search photos & videos..."
           actions={
-            <AudiobookHeaderSort
-              value={kind as unknown as SortKey}
-              onChange={(value) => setKind(value as unknown as KindFilter)}
-              options={KIND_OPTIONS as unknown as { value: SortKey; label: string }[]}
-              ariaLabel="Filter by media type"
-              compact
-            />
+            <>
+              <AudiobookHeaderSort
+                value={kind as unknown as SortKey}
+                onChange={(value) => setKind(value as unknown as KindFilter)}
+                options={KIND_OPTIONS as unknown as { value: SortKey; label: string }[]}
+                ariaLabel="Filter by media type"
+                compact
+              />
+              {uploadLibraries.length > 0 && (
+                <button
+                  type="button"
+                  className="audiobook-page-action-icon"
+                  onClick={() => { setNotice(""); setUploadOpen(true); }}
+                  aria-label="Upload"
+                  title="Upload"
+                >
+                  <UploadCloud size={18} aria-hidden="true" />
+                </button>
+              )}
+            </>
           }
         />
 
         {error && <MessageBox tone="error" title="Gallery error">{error}</MessageBox>}
+        {notice && <MessageBox tone="success" title="Upload complete">{notice}</MessageBox>}
 
         {loaded && libraries.length === 0 ? (
           <div className="empty-state library-empty">
@@ -426,11 +454,21 @@ export function GalleryPage({
           index={lightbox.index}
           canDelete={canDeleteCurrent}
           canEdit={canEditCurrent}
+          canShare={canShareCurrent}
           onClose={closeLightbox}
           onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
-          onChanged={() => {
-            if (view === "timeline") void loadTimeline(0); else void loadFolder(parent);
-            void loadLibraries();
+          onChanged={refreshView}
+        />
+      )}
+
+      {uploadOpen && uploadLibraries.length > 0 && (
+        <GalleryUploadModal
+          libraries={uploadLibraries}
+          onClose={() => setUploadOpen(false)}
+          onUploaded={(count, libraryName) => {
+            setUploadOpen(false);
+            setNotice(`Added ${count} item${count === 1 ? "" : "s"} to ${libraryName}.`);
+            refreshView();
           }}
         />
       )}

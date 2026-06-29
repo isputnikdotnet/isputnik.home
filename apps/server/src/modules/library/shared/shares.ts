@@ -15,7 +15,7 @@ import { thumbnailAbsolutePath } from "./thumbnail.js";
 import { canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook, type LibraryAccessRow } from "./library-access.js";
 import { resolveShareLink } from "./share-access.js";
 import { parseRangeHeader } from "./document-stream.js";
-import { mediaKind, type BookLibraryType } from "./library-types.js";
+import { mediaKind, type MediaModule } from "./library-types.js";
 
 // Item-level sharing for the digital library, shared across media types. Guest
 // links (anonymous, no account) and user-to-user shares both live on the generic
@@ -127,6 +127,25 @@ function loadShareDocument(resourceId: string): ShareDocumentRow | undefined {
     ORDER BY relative_path COLLATE NOCASE
     LIMIT 1
   `).get(resourceId) as ShareDocumentRow | undefined;
+}
+
+// A shared gallery item is a single asset (one photo or video), described directly
+// in gallery_details. Both the inline viewer and the download resolve to this file.
+interface ShareGalleryRow {
+  kind: string;
+  relative_path: string;
+  mime_type: string | null;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+}
+
+function loadShareGalleryAsset(resourceId: string): ShareGalleryRow | undefined {
+  return db.prepare(`
+    SELECT kind, relative_path, mime_type, width, height, duration_seconds
+    FROM gallery_details
+    WHERE item_id = ?
+  `).get(resourceId) as ShareGalleryRow | undefined;
 }
 
 // Stream a single file from disk with range support, inline or as an attachment.
@@ -455,7 +474,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   function resolveOr404(request: FastifyRequest, reply: FastifyReply) {
     const token = (request.params as { token: string }).token;
     const link = resolveShareLink(token);
-    if (!link || (link.module !== "audiobook" && link.module !== "ebook")) {
+    if (!link || (link.module !== "audiobook" && link.module !== "ebook" && link.module !== "gallery")) {
       reply.code(404).send({ error: "Share not found or expired" });
       return null;
     }
@@ -464,7 +483,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       reply.code(404).send({ error: "Share not found or expired" });
       return null;
     }
-    return { token, link, module: link.module as BookLibraryType, item };
+    return { token, link, module: link.module as MediaModule, item };
   }
 
   app.get("/api/share/:token", async (request, reply) => {
@@ -489,6 +508,28 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     const coverUrl = item.cover_storage_key ? `/api/share/${token}/cover` : null;
     const title = item.title ?? path.basename(item.folder_path);
     const authors = splitNames(item.author_names);
+
+    if (module === "gallery") {
+      const gal = loadShareGalleryAsset(link.resource_id);
+      if (!gal) {
+        reply.code(404).send({ error: "Share not found or expired" });
+        return;
+      }
+      reply.send({
+        type: "gallery",
+        share,
+        asset: {
+          title,
+          kind: gal.kind,
+          description: item.description,
+          coverUrl,
+          width: gal.width,
+          height: gal.height,
+          durationSeconds: gal.duration_seconds
+        }
+      });
+      return;
+    }
 
     if (module === "ebook") {
       const doc = loadShareDocument(link.resource_id);
@@ -603,12 +644,34 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     });
   });
 
-  // Ebook only: serve the book's document inline for the guest reader (range
-  // support lets the browser's PDF viewer fetch pages on demand).
+  // Ebook: serve the book's document inline for the guest reader (range support lets
+  // the browser's PDF viewer fetch pages on demand). Gallery: serve the original
+  // photo/video inline, with range so a guest's <video> can seek.
   app.get("/api/share/:token/file", (request, reply) => {
     const resolved = resolveOr404(request, reply);
     if (!resolved) return;
     const { module, item } = resolved;
+
+    if (module === "gallery") {
+      const gal = loadShareGalleryAsset(resolved.link.resource_id);
+      if (!gal) {
+        reply.code(404).send({ error: "File not found" });
+        return;
+      }
+      const galPath = path.join(item.source_path, ...gal.relative_path.split("/"));
+      if (!pathIsInside(galPath, item.source_path) || !fs.existsSync(galPath)) {
+        reply.code(404).send({ error: "File not found" });
+        return;
+      }
+      sendFile(request, reply, {
+        absolutePath: galPath,
+        mimeType: gal.mime_type ?? "application/octet-stream",
+        fileName: gal.relative_path.split("/").pop() ?? "file",
+        download: false
+      });
+      return;
+    }
+
     if (module !== "ebook") {
       reply.code(404).send({ error: "Not found" });
       return;
@@ -639,6 +702,35 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     const { module, item, link } = resolved;
 
     const safeTitle = (item.title ?? path.basename(item.folder_path)).replace(/[/\\?%*:|"<>]/g, "_").trim();
+
+    if (module === "gallery") {
+      const gal = loadShareGalleryAsset(link.resource_id);
+      if (!gal) {
+        reply.code(404).send({ error: "File not found" });
+        return;
+      }
+      const galPath = path.join(item.source_path, ...gal.relative_path.split("/"));
+      if (!pathIsInside(galPath, item.source_path) || !fs.existsSync(galPath)) {
+        reply.code(404).send({ error: "File not found" });
+        return;
+      }
+      logActivity({
+        event: "share.downloaded",
+        actorUserId: null,
+        targetType: "share_link",
+        targetId: link.id,
+        detail: `Downloaded a shared ${gal.kind === "video" ? "video" : "photo"}.`,
+        ipAddress: request.ip
+      });
+      const ext = path.extname(gal.relative_path);
+      sendFile(request, reply, {
+        absolutePath: galPath,
+        mimeType: gal.mime_type ?? "application/octet-stream",
+        fileName: `${safeTitle || "file"}${ext}`,
+        download: true
+      });
+      return;
+    }
 
     if (module === "ebook") {
       const doc = loadShareDocument(link.resource_id);

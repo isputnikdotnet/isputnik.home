@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Download, FastForward, Headphones, List, Pause, Play, Rewind, SkipBack, SkipForward, X } from "lucide-react";
+import { BookOpen, Download, FastForward, Headphones, Image as ImageIcon, List, Pause, Play, Rewind, SkipBack, SkipForward, X } from "lucide-react";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import { isFoliateFormat } from "../shared/utils";
 
@@ -42,7 +42,21 @@ interface EbookSharePayload {
   };
 }
 
-type SharePayload = AudiobookSharePayload | EbookSharePayload;
+interface GallerySharePayload {
+  type: "gallery";
+  share: ShareInfo;
+  asset: {
+    title: string;
+    kind: "photo" | "video";
+    description: string | null;
+    coverUrl: string | null;
+    width: number | null;
+    height: number | null;
+    durationSeconds: number | null;
+  };
+}
+
+type SharePayload = AudiobookSharePayload | EbookSharePayload | GallerySharePayload;
 
 function formatTime(seconds: number) {
   if (!isFinite(seconds) || seconds < 0) seconds = 0;
@@ -68,7 +82,8 @@ export function SharePage({ token }: { token: string }) {
       })
       .then((data) => {
         setPayload(data);
-        document.title = `${data.book.title} — shared on isputnik.home`;
+        const name = data.type === "gallery" ? data.asset.title : data.book.title;
+        document.title = `${name} — shared on isputnik.home`;
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : "This share is no longer available."));
   }, [token]);
@@ -95,9 +110,50 @@ export function SharePage({ token }: { token: string }) {
     );
   }
 
+  if (payload.type === "gallery") return <GalleryShareView token={token} payload={payload} />;
   return payload.type === "ebook"
     ? <EbookShareView token={token} payload={payload} />
     : <AudiobookShareView token={token} payload={payload} />;
+}
+
+// --- Gallery share: a single photo or video shown full-bleed in the card, with a
+// download. The whole file is delivered to view it, so view and download are peers.
+function GalleryShareView({ token, payload }: { token: string; payload: GallerySharePayload }) {
+  const { asset, share } = payload;
+  const fileUrl = `/api/share/${token}/file`;
+  const downloadUrl = `/api/share/${token}/download`;
+
+  return (
+    <div className="share-page">
+      <div className="share-card">
+        <div className="share-gallery-media">
+          {asset.kind === "video" ? (
+            <video src={fileUrl} controls playsInline poster={asset.coverUrl ?? undefined} />
+          ) : (
+            <img src={fileUrl} alt={asset.title} />
+          )}
+        </div>
+
+        <div className="share-book-header">
+          <h1 className="share-title">{asset.title}</h1>
+          <p className="share-authors">{asset.kind === "video" ? "Video" : "Photo"}</p>
+        </div>
+
+        <div className="share-actions">
+          <a className="primary-button" href={downloadUrl} download>
+            <Download size={16} /><span>Download</span>
+          </a>
+        </div>
+
+        {asset.description && <p className="share-description">{asset.description}</p>}
+
+        <p className="share-footer muted">
+          <ImageIcon size={13} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />
+          Shared via isputnik.home · link expires {new Date(share.expiresAt).toLocaleDateString()}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 // --- Ebook share: a landing card that opens the in-browser reader (EPUB) or the

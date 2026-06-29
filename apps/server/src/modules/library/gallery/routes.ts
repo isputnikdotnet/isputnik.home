@@ -1,7 +1,11 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
+import { can, parsePolicy } from "../../../core/permissions.js";
 import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
@@ -9,7 +13,10 @@ import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
-import { enqueueGalleryScan, processGalleryScanQueue } from "./scanner.js";
+import { normaliseRelativePath } from "../shared/storage-roots.js";
+import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
+import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
+import { enqueueGalleryScan, processGalleryScanQueue, scanSingleGalleryFile } from "./scanner.js";
 import {
   resolveGalleryScopeLibraryIds,
   queryGalleryTimeline,
@@ -18,6 +25,36 @@ import {
   galleryFacets
 } from "./catalog.js";
 import { updateGalleryAsset } from "./edit.js";
+
+// Each uploaded file becomes its own asset (one photo/video = one item), so this
+// also bounds assets-per-upload — galleries are dropped in large batches.
+const MAX_GALLERY_UPLOAD_FILES = 200;
+
+// Turn a client filename into a safe, collision-free name within a directory:
+// strip path separators / control chars, refuse a leading dot (the scanner skips
+// dot-entries, and ".upload-*" is reserved for staging), then disambiguate against
+// existing files with " (2)", " (3)", … Returns null if nothing usable remains.
+// Mirrors the ebook uploader.
+function uniqueGalleryFileName(dir: string, filename: string): string | null {
+  const ext = path.extname(filename);
+  const stem = Array.from(path.basename(filename, ext))
+    .filter((ch) => ch.charCodeAt(0) >= 32)
+    .join("")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\.+/, "")
+    .slice(0, 150)
+    .replace(/[\s.]+$/g, "");
+  if (!stem) return null;
+  let candidate = `${stem}${ext}`;
+  let counter = 2;
+  while (fs.existsSync(path.join(dir, candidate))) {
+    candidate = `${stem} (${counter})${ext}`;
+    counter += 1;
+  }
+  return candidate;
+}
 
 const GALLERY_LIBRARY_LIST_SQL = `
   SELECT
@@ -146,6 +183,93 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     reply.send({ job: { id: jobId, type: "SCAN_GALLERY_LIBRARY" } });
+  });
+
+  // Upload photos/videos: every file in the multipart request becomes its OWN asset
+  // (one file = one item). Files stream into a hidden ".upload-*" staging folder under
+  // the library root, then each is moved into the root under a safe, unique name and
+  // cataloged immediately via scanSingleGalleryFile (reads EXIF + builds thumbnails).
+  app.post("/api/library/gallery-libraries/:id/assets/upload", { preHandler: app.authenticate }, async (request, reply) => {
+    const libraryId = (request.params as { id: string }).id;
+    const user = request.user!;
+
+    const library = db.prepare(
+      "SELECT id, name, source_path, settings_json, policy_json FROM libraries WHERE id = ? AND type = 'gallery'"
+    ).get(libraryId) as { id: string; name: string; source_path: string; settings_json: string; policy_json: string } | undefined;
+    if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
+      reply.code(404).send({ error: "Gallery library not found" });
+      return;
+    }
+
+    const policy = parsePolicy(library.policy_json);
+    if (!can(user, { objectType: "library", objectId: library.id, policy }, "upload")) {
+      reply.code(403).send({ error: "Uploading is not allowed in this library." });
+      return;
+    }
+
+    let root: string;
+    try {
+      root = validateLibrarySource(library.source_path);
+    } catch (err) {
+      reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
+      return;
+    }
+
+    const settings = normalizeLibrarySettings("gallery", library.settings_json);
+    const maxBytes = policy.maxUploadMB != null ? policy.maxUploadMB * 1024 * 1024 : null;
+    const stagingDir = path.join(root, `.upload-${nanoid(10)}`);
+
+    let received;
+    try {
+      received = await receiveUploadBatch(
+        request,
+        { accept: uploadAcceptExtensions(settings), maxBytes },
+        stagingDir,
+        MAX_GALLERY_UPLOAD_FILES
+      );
+    } catch (err) {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+      const status = err instanceof UploadError ? err.statusCode : 400;
+      reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
+      return;
+    }
+
+    // Each file moves into the library root under a unique name, then is cataloged on
+    // its own. Files already in place stay even if a later one fails.
+    const createdIds: string[] = [];
+    let totalBytes = 0;
+    try {
+      for (const file of received) {
+        const finalName = uniqueGalleryFileName(root, file.filename);
+        if (!finalName) { fs.rmSync(file.tmpPath, { force: true }); continue; }
+        const finalPath = path.join(root, finalName);
+        fs.renameSync(file.tmpPath, finalPath);
+        const relativePath = normaliseRelativePath(path.relative(root, finalPath));
+        const assetId = await scanSingleGalleryFile(library.id, relativePath);
+        if (assetId) { createdIds.push(assetId); totalBytes += file.sizeBytes; }
+      }
+    } catch (err) {
+      reply.code(500).send({ error: err instanceof Error ? err.message : "Could not store the uploaded files." });
+      return;
+    } finally {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+    }
+
+    if (createdIds.length === 0) {
+      reply.code(400).send({ error: "No photos or videos were added from the upload." });
+      return;
+    }
+
+    logActivity({
+      event: "library.gallery.uploaded",
+      actorUserId: user.id,
+      targetType: "library",
+      targetId: library.id,
+      detail: `Uploaded ${createdIds.length} item${createdIds.length === 1 ? "" : "s"} (${totalBytes} bytes) to gallery "${library.name}".`,
+      ipAddress: request.ip
+    });
+
+    reply.code(201).send({ uploaded: createdIds.length });
   });
 
   // ── Browse: Timeline (by date) and Folders (by on-disk structure) ──

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Pencil, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Pencil, Share2, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
+import { ShareModal } from "../share/ShareModal";
 import { GalleryEditModal } from "./GalleryEditModal";
 import type { GalleryAsset } from "./types";
 
@@ -33,7 +34,8 @@ export function GalleryLightbox({
   onIndexChange,
   onChanged,
   canDelete,
-  canEdit
+  canEdit,
+  canShare
 }: {
   assets: GalleryAsset[];
   index: number;
@@ -42,11 +44,13 @@ export function GalleryLightbox({
   onChanged: () => void;
   canDelete: boolean;
   canEdit: boolean;
+  canShare: boolean;
 }) {
   const asset = assets[index];
   const [showInfo, setShowInfo] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [collectionOpen, setCollectionOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -60,14 +64,14 @@ export function GalleryLightbox({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (collectionOpen || deleteOpen || editOpen) return;
+      if (collectionOpen || deleteOpen || editOpen || shareOpen) return;
       if (event.key === "Escape") onClose();
       else if (event.key === "ArrowLeft" && index > 0) onIndexChange(index - 1);
       else if (event.key === "ArrowRight" && index < assets.length - 1) onIndexChange(index + 1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, assets.length, onClose, onIndexChange, collectionOpen, deleteOpen, editOpen]);
+  }, [index, assets.length, onClose, onIndexChange, collectionOpen, deleteOpen, editOpen, shareOpen]);
 
   if (!asset) return null;
 
@@ -138,6 +142,17 @@ export function GalleryLightbox({
           >
             <ListMusic size={18} aria-hidden="true" />
           </button>
+          {canShare && (
+            <button
+              className="gallery-lightbox-action"
+              type="button"
+              onClick={() => setShareOpen(true)}
+              aria-label="Share"
+              title="Share"
+            >
+              <Share2 size={18} aria-hidden="true" />
+            </button>
+          )}
           <a
             className="gallery-lightbox-action"
             href={`${asset.fileUrl}`}
@@ -251,6 +266,15 @@ export function GalleryLightbox({
           entityId={asset.id}
           title={asset.title}
           onClose={() => setCollectionOpen(false)}
+        />
+      )}
+
+      {shareOpen && (
+        <ShareModal
+          bookId={asset.id}
+          bookTitle={asset.title}
+          kind="gallery"
+          onClose={() => setShareOpen(false)}
         />
       )}
 
