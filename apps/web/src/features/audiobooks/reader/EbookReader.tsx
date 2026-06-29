@@ -4,6 +4,8 @@ import {
   Highlighter, List, Minus, Pencil, Plus, RotateCcw, ScrollText, Search, Settings, Sun, Trash2
 } from "lucide-react";
 import { api } from "../../../api";
+import { saveQuote, getLocalQuotes, deleteLocalQuote, updateLocalQuoteColor, isLocalQuoteId } from "../../../offline/quotes";
+import { saveBookmark, getLocalBookmarks, deleteLocalBookmark, updateLocalBookmarkNote, isLocalBookmarkId } from "../../../offline/bookmarks";
 import { useIsMobile } from "../../../shared/useIsMobile";
 import { foliateFileInfo } from "../../../shared/utils";
 import type { EbookBookmark, Quote, ReadingProgress } from "../types";
@@ -273,7 +275,7 @@ export function EbookReader({
   // the popover shown when an existing highlight is tapped.
   const quotesRef = useRef<Quote[]>([]);
   const sectionIndexRef = useRef(0);
-  const [selection, setSelection] = useState<{ x: number; y: number; text: string; cfi: string } | null>(null);
+  const [selection, setSelection] = useState<{ x: number; top: number; bottom: number; text: string; cfi: string } | null>(null);
   const [activeQuote, setActiveQuote] = useState<{ quote: Quote; x: number; y: number } | null>(null);
 
   const sendProgress = useCallback((progress: ProgressDraft) => {
@@ -359,9 +361,12 @@ export function EbookReader({
       }
     }
 
-    // Text selection → quote toolbar. mouseup/touchend finalise a drag or long-press;
-    // selectionchange only clears the toolbar when the selection collapses. Coordinates
-    // are mapped from the blob iframe's viewport into the top document.
+    // Text selection → quote toolbar. `selectionchange` is the signal that works in
+    // every mode: on touch (PWA / tablet) a long-press selection is finalised through
+    // the native drag handles *after* touchend, and the foliate paginator owns the
+    // touchstart/touchend gestures, so our own touch/mouse listeners on the doc never
+    // see the finished selection. selectionchange fires on the document regardless.
+    // Debounced so it settles before we read it; mouseup keeps desktop instant.
     const captureSelection = () => {
       const v = viewRef.current;
       if (!v) return;
@@ -373,20 +378,25 @@ export function EbookReader({
       const rect = range.getBoundingClientRect();
       if (!rect || (rect.width === 0 && rect.height === 0)) { setSelection(null); return; }
       const frameRect = (doc.defaultView?.frameElement as HTMLElement | null)?.getBoundingClientRect();
+      const offsetX = frameRect?.left ?? 0;
+      const offsetY = frameRect?.top ?? 0;
       let cfi = "";
       try { cfi = v.getCFI(index, range); } catch { /* range not addressable */ }
       setSelection({
-        x: (frameRect?.left ?? 0) + rect.left + rect.width / 2,
-        y: (frameRect?.top ?? 0) + rect.top,
+        x: offsetX + rect.left + rect.width / 2,
+        top: offsetY + rect.top,
+        bottom: offsetY + rect.bottom,
         text,
         cfi
       });
     };
+    let selectionTimer = 0;
     doc.addEventListener("mouseup", captureSelection);
-    doc.addEventListener("touchend", captureSelection);
     doc.addEventListener("selectionchange", () => {
       const sel = doc.getSelection();
-      if (!sel || sel.isCollapsed) setSelection(null);
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) { setSelection(null); return; }
+      window.clearTimeout(selectionTimer);
+      selectionTimer = window.setTimeout(captureSelection, 220);
     });
   }, []);
 
@@ -491,18 +501,30 @@ export function EbookReader({
         await view.init({ lastLocation: startCfi, showTextStart: true });
         if (!cancelled) setLoading(false);
 
-        // Load this document's saved quotes and paint the ones on screen. onLoad
-        // repaints the rest as their sections come into view (via quotesRef).
+        // Load this document's saved quotes — server quotes plus any captured
+        // offline and not yet synced — and paint the ones on screen. onLoad repaints
+        // the rest as their sections come into view (via quotesRef). Works offline:
+        // the server fetch just yields nothing and the local ones still draw.
         if (!guest) {
-          api<{ quotes: Quote[] }>(`/api/library/quotes?documentId=${encodeURIComponent(documentId)}`)
-            .then(({ quotes }) => {
-              if (cancelled) return;
-              quotesRef.current = quotes;
-              for (const quote of quotes) {
-                if (quote.cfi) void view.addAnnotation({ value: quote.cfi, color: quote.color ?? undefined }).catch(() => undefined);
+          void (async () => {
+            const display = { sourceTitle: title ?? null, sourceAuthors: author ? [author] : [] };
+            let merged: Quote[] = [];
+            try {
+              const { quotes } = await api<{ quotes: Quote[] }>(`/api/library/quotes?documentId=${encodeURIComponent(documentId)}`);
+              merged = quotes;
+            } catch { /* offline or older server — fall back to local only */ }
+            try {
+              const seen = new Set(merged.map((q) => q.cfi).filter(Boolean));
+              for (const local of await getLocalQuotes(documentId, display)) {
+                if (!local.cfi || !seen.has(local.cfi)) merged.push(local);
               }
-            })
-            .catch(() => undefined);
+            } catch { /* ignore */ }
+            if (cancelled) return;
+            quotesRef.current = merged;
+            for (const quote of merged) {
+              if (quote.cfi) void view.addAnnotation({ value: quote.cfi, color: quote.color ?? undefined }).catch(() => undefined);
+            }
+          })();
         }
       } catch (err) {
         if (!cancelled) {
@@ -526,7 +548,7 @@ export function EbookReader({
         try { view.remove(); } catch { /* ignore */ }
       }
     };
-  }, [bookId, documentId, format, url, blob, storageKey, startingProgress, initialCfi, sendProgress, onRelocate, onLoad, onDrawAnnotation, onShowAnnotation, guest]);
+  }, [bookId, documentId, format, url, blob, storageKey, startingProgress, initialCfi, title, author, sendProgress, onRelocate, onLoad, onDrawAnnotation, onShowAnnotation, guest]);
 
   // Typography / theme changes — applied live, no view rebuild.
   useEffect(() => {
@@ -575,18 +597,31 @@ export function EbookReader({
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  // Load this document's bookmarks. Best-effort. Guests have no account, so the
+  // Load this document's bookmarks — server bookmarks plus any captured offline and
+  // not yet synced. Best-effort and offline-safe: the server fetch just yields
+  // nothing offline and the local ones still show. Guests have no account, so the
   // bookmarks UI is hidden and there is nothing to load.
   useEffect(() => {
     let cancelled = false;
     setBookmarks([]);
     setEditingBookmarkId(null);
     if (guest) return () => { cancelled = true; };
-    api<{ bookmarks: EbookBookmark[] }>(
-      `/api/library/books/${bookId}/ebook-bookmarks?documentId=${encodeURIComponent(documentId)}`
-    )
-      .then((payload) => { if (!cancelled) setBookmarks(sortBookmarks(payload.bookmarks)); })
-      .catch(() => undefined);
+    void (async () => {
+      let merged: EbookBookmark[] = [];
+      try {
+        const payload = await api<{ bookmarks: EbookBookmark[] }>(
+          `/api/library/books/${bookId}/ebook-bookmarks?documentId=${encodeURIComponent(documentId)}`
+        );
+        merged = payload.bookmarks;
+      } catch { /* offline — fall back to local only */ }
+      try {
+        const seen = new Set(merged.map((b) => b.cfi));
+        for (const local of await getLocalBookmarks(documentId)) {
+          if (!seen.has(local.cfi)) merged.push(local);
+        }
+      } catch { /* ignore */ }
+      if (!cancelled) setBookmarks(sortBookmarks(merged));
+    })();
     return () => { cancelled = true; };
   }, [bookId, documentId, guest]);
 
@@ -595,17 +630,18 @@ export function EbookReader({
     if (!draft?.cfi) return;
     setBookmarkBusy(true);
     try {
-      const { bookmark } = await api<{ bookmark: EbookBookmark }>(`/api/library/books/${bookId}/ebook-bookmarks`, {
-        method: "POST",
-        body: JSON.stringify({
-          documentId,
-          cfi: draft.cfi,
-          percentComplete: draft.percentComplete,
-          label: draft.label ?? sectionLabel ?? null
-        })
+      // saveBookmark POSTs when online and otherwise queues offline, returning a
+      // bookmark (real or local) so the panel updates immediately either way.
+      const bookmark = await saveBookmark({
+        bookId,
+        documentId,
+        cfi: draft.cfi,
+        percentComplete: draft.percentComplete,
+        label: draft.label ?? sectionLabel ?? null,
+        note: null
       });
       setBookmarks((prev) => sortBookmarks([...prev, bookmark]));
-      setNotice("");
+      setNotice(isLocalBookmarkId(bookmark.id) ? "Bookmark saved — will sync when online." : "");
     } catch {
       setNotice("Unable to save this bookmark.");
     } finally {
@@ -621,6 +657,13 @@ export function EbookReader({
 
   const saveBookmarkNote = useCallback(async (id: string, note: string) => {
     try {
+      // A not-yet-synced bookmark has no server row — edit it in the offline queue.
+      if (isLocalBookmarkId(id)) {
+        await updateLocalBookmarkNote(id, note);
+        setBookmarks((prev) => prev.map((entry) => (entry.id === id ? { ...entry, note: note || null } : entry)));
+        setEditingBookmarkId(null);
+        return;
+      }
       const { bookmark } = await api<{ bookmark: EbookBookmark }>(`/api/library/books/${bookId}/ebook-bookmarks/${id}`, {
         method: "PATCH",
         body: JSON.stringify({ note })
@@ -634,7 +677,8 @@ export function EbookReader({
 
   const deleteBookmark = useCallback(async (id: string) => {
     try {
-      await api(`/api/library/books/${bookId}/ebook-bookmarks/${id}`, { method: "DELETE" });
+      if (isLocalBookmarkId(id)) await deleteLocalBookmark(id);
+      else await api(`/api/library/books/${bookId}/ebook-bookmarks/${id}`, { method: "DELETE" });
       setBookmarks((prev) => prev.filter((entry) => entry.id !== id));
       setEditingBookmarkId((current) => (current === id ? null : current));
     } catch {
@@ -705,20 +749,22 @@ export function EbookReader({
     const { text, cfi } = selection;
     setSelection(null);
     try {
-      const { quote } = await api<{ quote: Quote }>("/api/library/quotes", {
-        method: "POST",
-        body: JSON.stringify({
+      // saveQuote POSTs when online and otherwise queues offline, returning a quote
+      // (real or local) either way so the highlight shows immediately.
+      const quote = await saveQuote(
+        {
           itemId: bookId,
           documentId,
           cfi: cfi || null,
           text,
           color,
           percentComplete: latestProgressRef.current?.percentComplete ?? null
-        })
-      });
+        },
+        { sourceTitle: title ?? null, sourceAuthors: author ? [author] : [] }
+      );
       quotesRef.current = [...quotesRef.current, quote];
       if (quote.cfi) void viewRef.current?.addAnnotation({ value: quote.cfi, color: quote.color ?? undefined });
-      setNotice("Quote saved.");
+      setNotice(isLocalQuoteId(quote.id) ? "Quote saved — will sync when online." : "Quote saved.");
     } catch {
       setNotice("Unable to save this quote.");
     }
@@ -745,6 +791,14 @@ export function EbookReader({
     const target = activeQuote.quote;
     setActiveQuote(null);
     try {
+      // A not-yet-synced quote has no server row — update it in the offline queue.
+      if (isLocalQuoteId(target.id)) {
+        await updateLocalQuoteColor(target.id, color);
+        const updated = { ...target, color };
+        quotesRef.current = quotesRef.current.map((q) => (q.id === target.id ? updated : q));
+        if (updated.cfi) void viewRef.current?.addAnnotation({ value: updated.cfi, color });
+        return;
+      }
       const { quote } = await api<{ quote: Quote }>(`/api/library/quotes/${target.id}`, {
         method: "PATCH",
         body: JSON.stringify({ color })
@@ -761,7 +815,8 @@ export function EbookReader({
     const target = activeQuote.quote;
     setActiveQuote(null);
     try {
-      await api(`/api/library/quotes/${target.id}`, { method: "DELETE" });
+      if (isLocalQuoteId(target.id)) await deleteLocalQuote(target.id);
+      else await api(`/api/library/quotes/${target.id}`, { method: "DELETE" });
       quotesRef.current = quotesRef.current.filter((q) => q.id !== target.id);
       if (target.cfi) void viewRef.current?.deleteAnnotation({ value: target.cfi });
       setNotice("Highlight removed.");
@@ -1005,11 +1060,16 @@ export function EbookReader({
         <span className="ebk-pageno">{pageLabel}</span>
       </footer>
 
-      {/* Floating capture toolbar over a fresh text selection. */}
+      {/* Floating capture toolbar over a fresh text selection. On touch we sit it
+          below the selection so it clears the native selection callout above, and
+          clamp its centre so it can't overflow a narrow screen's edges. */}
       {selection && (
         <div
-          className="ebk-sel-toolbar"
-          style={{ left: `${selection.x}px`, top: `${selection.y}px` }}
+          className={`ebk-sel-toolbar${isMobile ? " below" : ""}`}
+          style={{
+            left: `${Math.min(Math.max(selection.x, 120), window.innerWidth - 120)}px`,
+            top: `${isMobile ? selection.bottom : selection.top}px`
+          }}
           role="toolbar"
           aria-label="Selection actions"
         >
@@ -1042,7 +1102,7 @@ export function EbookReader({
           <button type="button" className="ebk-quote-scrim" aria-label="Close" onClick={() => setActiveQuote(null)} />
           <div
             className="ebk-quote-pop"
-            style={{ left: `${activeQuote.x}px`, top: `${activeQuote.y}px` }}
+            style={{ left: `${Math.min(Math.max(activeQuote.x, 120), window.innerWidth - 120)}px`, top: `${activeQuote.y}px` }}
             role="dialog"
             aria-label="Highlight actions"
           >

@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from "react";
 import { api, type PublicUser } from "../api";
 import { cacheCurrentUser, clearCachedUser, getCachedUser } from "../offline/downloads";
 import { flushProgressQueue } from "../offline/progress";
+import { flushQuoteQueue } from "../offline/quotes";
+import { flushBookmarkQueue } from "../offline/bookmarks";
 import { clearPrivateRuntimeCaches } from "../pwa/cache";
 import { Shell } from "./Shell";
 import { useRoute, navigate } from "../router";
@@ -136,14 +138,14 @@ export function App() {
     if (session.user) cacheCurrentUser(session.user);
   }, [session.user]);
 
-  // Push any playback positions saved while offline once we're signed in, and
-  // again whenever connectivity returns.
+  // Push anything saved while offline — playback positions, quotes, and bookmarks —
+  // once we're signed in, and again whenever connectivity returns.
   useEffect(() => {
     if (!session.user) return;
-    void flushProgressQueue();
-    const onOnline = () => { void flushProgressQueue(); };
-    window.addEventListener("online", onOnline);
-    return () => window.removeEventListener("online", onOnline);
+    const flush = () => { void flushProgressQueue(); void flushQuoteQueue(); void flushBookmarkQueue(); };
+    flush();
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
   }, [session.user]);
 
   useEffect(() => {
