@@ -7,7 +7,8 @@ import {
   embeddingToBlob, blobToEmbedding, cosineSimilarity, centroidOf
 } from "../src/modules/library/gallery/faces/embedding.js";
 import { assignFaces, clusterGalleryFaces } from "../src/modules/library/gallery/faces/cluster.js";
-import { listGalleryPeople } from "../src/modules/library/gallery/people.js";
+import { listGalleryPeople, untagAssetPerson } from "../src/modules/library/gallery/people.js";
+import { getGalleryAsset } from "../src/modules/library/gallery/catalog.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 // A unit vector pointing mostly along axis `axis` (8-d), with a little noise so two
@@ -126,5 +127,26 @@ describe("clusterGalleryFaces (DB)", () => {
     expect(second.assigned).toBe(1);
     expect((db.prepare("SELECT COUNT(*) n FROM gallery_people").get() as { n: number }).n).toBe(firstClusters);
     expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(2);
+  });
+
+  it("removing an auto person from a photo rejects the face and never reclusters it back", async () => {
+    const t = Date.parse("2024-03-01T00:00:00Z");
+    const i1 = await addFace("a1.jpg", vec(0, 0.05), t);
+    await addFace("a2.jpg", vec(0, 0.1), t + 1000);
+    clusterGalleryFaces();
+    const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
+    expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(2);
+
+    // The reported bug: removing an auto-detected person must actually detach it.
+    untagAssetPerson(i1, personId);
+    expect((db.prepare("SELECT assignment FROM gallery_faces WHERE item_id = ?").get(i1) as { assignment: string }).assignment).toBe("rejected");
+    expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(1);
+    expect((getGalleryAsset("u1", ["GAL"], i1) as { people?: unknown[] }).people).toEqual([]);
+
+    // A later clustering pass must not pull the rejected face back into the person.
+    const re = clusterGalleryFaces();
+    expect(re.assigned).toBe(0);
+    expect((db.prepare("SELECT assignment FROM gallery_faces WHERE item_id = ?").get(i1) as { assignment: string }).assignment).toBe("rejected");
+    expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(1);
   });
 });

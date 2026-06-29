@@ -42,15 +42,18 @@ function AssetTile({
   onOpen,
   selectionMode,
   selected,
-  onToggleSelect
+  onToggleSelect,
+  onRemove
 }: {
   asset: GalleryAsset;
   onOpen: () => void;
   selectionMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
+  // When set (person page), a corner button detaches this photo from the person.
+  onRemove?: () => void;
 }) {
-  return (
+  const tile = (
     <button
       type="button"
       className={`gallery-tile${selectionMode ? " selectable" : ""}${selected ? " selected" : ""}`}
@@ -73,6 +76,21 @@ function AssetTile({
         </span>
       )}
     </button>
+  );
+  if (!onRemove) return tile;
+  return (
+    <div className="gallery-tile-wrap">
+      {tile}
+      <button
+        type="button"
+        className="gallery-tile-remove"
+        onClick={(event) => { event.stopPropagation(); onRemove(); }}
+        aria-label={`Remove ${asset.title} from this person`}
+        title="Not this person — remove from here"
+      >
+        <X size={14} aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 
@@ -319,6 +337,19 @@ export function GalleryPage({
       setNotice("People merged.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to merge");
+    }
+  }, [selectedPerson, loadPeople]);
+
+  // Detach one photo from the open person (a mismatched auto-cluster member, or a
+  // manual tag). Drops it from the grid optimistically and refreshes counts.
+  const removeFromPerson = useCallback(async (assetId: string) => {
+    if (!selectedPerson) return;
+    try {
+      await api(`/api/library/gallery/assets/${assetId}/people/${selectedPerson.id}`, { method: "DELETE" });
+      setPersonAssets((prev) => prev.filter((a) => a.id !== assetId));
+      void loadPeople();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to remove the photo");
     }
   }, [selectedPerson, loadPeople]);
 
@@ -747,6 +778,7 @@ export function GalleryPage({
                         selectionMode={false}
                         selected={false}
                         onToggleSelect={() => { /* selection disabled in People view */ }}
+                        onRemove={canCuratePeople ? () => void removeFromPerson(asset.id) : undefined}
                       />
                     ))}
                   </div>
