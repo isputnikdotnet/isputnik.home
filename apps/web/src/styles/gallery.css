@@ -72,6 +72,39 @@
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 
+/* Select mode: a check indicator in the top-left, a ring + dim on the chosen tile. */
+.gallery-tile.selectable img,
+.gallery-tile.selectable .gallery-tile-fallback {
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.gallery-tile.selectable.selected img,
+.gallery-tile.selectable.selected .gallery-tile-fallback {
+  opacity: 0.75;
+  transform: scale(0.92);
+}
+
+.gallery-tile.selectable.selected {
+  outline: 3px solid var(--mint);
+  outline-offset: -3px;
+}
+
+.gallery-tile .gallery-tile-check {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  display: inline-flex;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 999px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.gallery-tile.selectable.selected .gallery-tile-check {
+  color: var(--mint);
+  background: rgba(0, 0, 0, 0.65);
+}
+
 /* Folder view */
 .gallery-breadcrumb {
   display: flex;
