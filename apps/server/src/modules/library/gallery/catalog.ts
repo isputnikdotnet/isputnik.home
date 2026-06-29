@@ -201,9 +201,10 @@ export function getGalleryAsset(userId: string, libIds: string[], id: string) {
   return row ? mapAsset(row) : null;
 }
 
-// Facets: which kinds exist + the year range, for the filter UI.
+// Facets: which kinds exist, the year range, and how many assets carry GPS (drives
+// whether the Map view is offered), for the filter UI.
 export function galleryFacets(libIds: string[]) {
-  if (libIds.length === 0) return { kinds: [], years: [] };
+  if (libIds.length === 0) return { kinds: [], years: [], withGps: 0 };
   const libIn = inClause(libIds.length);
   const kinds = (db.prepare(`
     SELECT gallery_details.kind AS v, COUNT(*) AS n
@@ -217,5 +218,69 @@ export function galleryFacets(libIds: string[]) {
     WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL AND gallery_details.taken_at IS NOT NULL
     ORDER BY y DESC
   `).all(...libIds) as { y: string | null }[]).map((r) => r.y).filter((y): y is string => Boolean(y));
-  return { kinds, years };
+  const withGps = (db.prepare(`
+    SELECT COUNT(*) AS n
+    FROM library_items JOIN gallery_details ON gallery_details.item_id = library_items.id
+    WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
+      AND gallery_details.gps_lat IS NOT NULL AND gallery_details.gps_lng IS NOT NULL
+  `).get(...libIds) as { n: number }).n;
+  return { kinds, years, withGps };
+}
+
+interface MapPointRow {
+  id: string;
+  kind: string;
+  title: string | null;
+  folder_path: string;
+  cover_storage_key: string | null;
+  gps_lat: number;
+  gps_lng: number;
+}
+
+export interface GalleryMapQuery {
+  kinds: string[];  // ['photo'|'video'] subset; empty = both
+  limit: number;
+}
+
+// Map points: every geotagged asset (newest first), as lightweight markers. Only the
+// fields a pin + its popup thumbnail need — the lightbox fetches the full asset on
+// click via getGalleryAsset, so this payload stays small even for big libraries.
+export function queryGalleryMapPoints(libIds: string[], opts: GalleryMapQuery) {
+  if (libIds.length === 0) return { points: [] };
+  const where: string[] = [
+    `library_items.library_id IN (${inClause(libIds.length)})`,
+    "library_items.deleted_at IS NULL",
+    "gallery_details.gps_lat IS NOT NULL",
+    "gallery_details.gps_lng IS NOT NULL"
+  ];
+  const args: unknown[] = [...libIds];
+  if (opts.kinds.length > 0) { where.push(`gallery_details.kind IN (${inClause(opts.kinds.length)})`); args.push(...opts.kinds); }
+
+  const rows = db.prepare(`
+    SELECT
+      library_items.id,
+      gallery_details.kind,
+      item_metadata.title,
+      library_items.folder_path,
+      item_metadata.cover_storage_key,
+      gallery_details.gps_lat,
+      gallery_details.gps_lng
+    FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE ${where.join(" AND ")}
+    ORDER BY datetime(gallery_details.taken_at) DESC, library_items.id DESC
+    LIMIT ?
+  `).all(...args, opts.limit) as MapPointRow[];
+
+  return {
+    points: rows.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      title: r.title ?? r.folder_path.split("/").pop() ?? r.folder_path,
+      lat: r.gps_lat,
+      lng: r.gps_lng,
+      coverUrl: r.cover_storage_key ? `/api/library/covers/${r.cover_storage_key}` : null
+    }))
+  };
 }

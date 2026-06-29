@@ -22,7 +22,8 @@ import {
   queryGalleryTimeline,
   queryGalleryFolders,
   getGalleryAsset,
-  galleryFacets
+  galleryFacets,
+  queryGalleryMapPoints
 } from "./catalog.js";
 import { updateGalleryAsset } from "./edit.js";
 
@@ -310,6 +311,16 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const scope = qp.scope === "library" ? qp.scope : "all";
     const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
     return galleryFacets(libIds);
+  });
+
+  // Geotagged assets for the map view. Same scope/kind filtering as the timeline;
+  // capped so a huge library can't return an unbounded marker payload.
+  app.get("/api/library/gallery/map", { preHandler: app.authenticate }, async (request) => {
+    const qp = request.query as { scope?: string; libraryId?: string; kinds?: string };
+    const scope = qp.scope === "library" ? qp.scope : "all";
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    const kinds = (qp.kinds ?? "").split(",").map((k) => k.trim()).filter((k) => k === "photo" || k === "video");
+    return queryGalleryMapPoints(libIds, { kinds, limit: 5000 });
   });
 
   app.get("/api/library/gallery/assets/:id", { preHandler: app.authenticate }, async (request, reply) => {

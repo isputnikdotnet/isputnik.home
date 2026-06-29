@@ -30,6 +30,23 @@ export interface GalleryFolder {
   coverUrl: string | null;
 }
 
+// A lightweight map marker — just what a pin + its popup thumbnail need. The full
+// asset is fetched on click for the lightbox.
+export interface GalleryMapPoint {
+  id: string;
+  kind: "photo" | "video";
+  title: string;
+  lat: number;
+  lng: number;
+  coverUrl: string | null;
+}
+
+export interface GalleryFacets {
+  kinds: { kind: string; count: number }[];
+  years: string[];
+  withGps: number;
+}
+
 export interface GalleryLibrary {
   id: string;
   name: string;

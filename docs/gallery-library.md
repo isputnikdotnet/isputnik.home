@@ -8,14 +8,17 @@ Immich rather than the book-like types. Its defining choice:
 > or ebooks (a basename group of formats). This is what lets the same set of assets
 > be browsed two ways.
 
-## Two views over one asset set
+## Three views over one asset set
 
 - **Timeline** (default) — assets newest-first by `gallery_details.taken_at`
   (EXIF date, falling back to file mtime), grouped into month headers in the UI.
 - **Folder** — a file-explorer over the on-disk directory structure, for libraries
   that keep their own folder layout (the common case for a read-only source).
+- **Map** — geotagged assets plotted on a Leaflet/OpenStreetMap map with clustered
+  thumbnail pins; clicking a pin opens the asset in the lightbox. The tab only
+  appears when the scope has geotagged assets (`galleryFacets().withGps > 0`).
 
-Both are queries over the same rows (`modules/library/gallery/catalog.ts`); the
+All are queries over the same rows (`modules/library/gallery/catalog.ts`); the
 view toggle is pure UI. Source files are never modified — the same safety rule as
 every other library type.
 
@@ -84,7 +87,8 @@ item-keyed systems:
 | POST | `/api/library/gallery-libraries/:id/assets/upload` | Upload photos/videos (multipart batch; upload permission) |
 | POST | `/api/library/gallery/timeline` | Paged date timeline (scope, kinds, q) |
 | GET | `/api/library/gallery/folders` | Folder listing (subfolders + assets) |
-| GET | `/api/library/gallery/facets` | Kind counts + year list |
+| GET | `/api/library/gallery/facets` | Kind counts + year list + geotagged count (`withGps`) |
+| GET | `/api/library/gallery/map` | Geotagged assets as lightweight markers (scope/kind, capped at 5000) |
 | GET | `/api/library/gallery/assets/:id` | Single asset detail |
 | PATCH | `/api/library/gallery/assets/:id` | Edit title/caption, description, date taken, tags (write access) |
 | GET | `/api/library/gallery/assets/:id/file` | Original photo/video (range) |
@@ -107,10 +111,29 @@ cataloged immediately with `scanSingleGalleryFile` (EXIF + thumbnails). Folders
 flatten into the filename, like the other library uploaders. Uploaded files land in
 the library root; on-disk subfolder organization is a future nicety.
 
+## Map view
+
+`GalleryMap.tsx` is plain Leaflet (no react-leaflet) driven via a ref + effects, with
+`leaflet.markercluster` for clustering. It's **lazy-loaded** (`React.lazy`), so the
+~140 KB of Leaflet only ships when a user opens the Map tab — it stays off the
+initial bundle that Timeline/Folder browsing uses. Base tiles come from
+OpenStreetMap; markers are divIcon thumbnail pins, and clicking one fetches the full
+asset (`getGalleryAsset`) to open the lightbox. The lightbox **Info panel** also
+embeds a small one-marker location map (`GalleryMiniMap.tsx`, likewise lazy-loaded
+and sharing the Leaflet chunk) for any geotagged asset, above the plain-coordinate
+OpenStreetMap link.
+
+**CSP exception.** OSM raster tiles are the *only* external resource the app loads.
+Leaflet requests them as `<img>`, so `imgSrc` in the server's helmet config allows
+`https://tile.openstreetmap.org` and `https://*.tile.openstreetmap.org` (nothing uses
+`connect-src` for tiles). This does mean a browser viewing the Map reveals the
+approximate locations of geotagged photos to the OSM tile host — an accepted
+trade-off for the slippy-map UX. A future option is an admin-configurable tile URL so
+a privacy-conscious deployment can self-host tiles.
+
 ## Not yet (future phases)
 
-- **Map view** over the stored GPS coordinates (deferred pending a tile-source
-  decision — external tiles vs. a self-contained map — given the hardened CSP).
 - **Face detection / semantic search** (ML — the heavy part of Immich).
 - **Dedicated shareable album object** (v1 uses Collections).
 - **Upload into a chosen subfolder** (today everything lands in the library root).
+- **Configurable map tile source** (today OSM is hard-wired).

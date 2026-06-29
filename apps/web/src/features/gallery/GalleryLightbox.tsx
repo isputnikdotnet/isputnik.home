@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Pencil, Share2, Trash2, X } from "lucide-react";
 import { api } from "../../api";
@@ -8,6 +8,10 @@ import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { ShareModal } from "../share/ShareModal";
 import { GalleryEditModal } from "./GalleryEditModal";
 import type { GalleryAsset } from "./types";
+
+// Leaflet rides in only when the Info panel shows a geotagged photo — keeps it off
+// the initial bundle (and reuses the same chunk as the gallery Map view).
+const GalleryMiniMap = lazy(() => import("./GalleryMiniMap").then((m) => ({ default: m.GalleryMiniMap })));
 
 function formatDuration(seconds: number | null): string {
   if (seconds == null) return "";
@@ -240,7 +244,15 @@ export function GalleryLightbox({
               <div>
                 <dt>Location</dt>
                 <dd>
-                  <a href={`https://www.openstreetmap.org/?mlat=${asset.gps.lat}&mlon=${asset.gps.lng}#map=15/${asset.gps.lat}/${asset.gps.lng}`} target="_blank" rel="noreferrer">
+                  <Suspense fallback={<div className="gallery-mini-map gallery-mini-map--loading" />}>
+                    <GalleryMiniMap lat={asset.gps.lat} lng={asset.gps.lng} title={asset.title} />
+                  </Suspense>
+                  <a
+                    className="gallery-location-link"
+                    href={`https://www.openstreetmap.org/?mlat=${asset.gps.lat}&mlon=${asset.gps.lng}#map=15/${asset.gps.lat}/${asset.gps.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {asset.gps.lat.toFixed(5)}, {asset.gps.lng.toFixed(5)}
                   </a>
                 </dd>
