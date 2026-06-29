@@ -27,6 +27,9 @@ const ARC_TEMPLATE: [number, number][] = [
   [38.2946, 51.6963], [73.5318, 51.5014], [56.0252, 71.7366], [41.5493, 92.3655], [70.7299, 92.3655]
 ];
 const DET_SIZE = 640;
+// Cap the working image: a face that survives the size gate is still ≥~90px here, plenty
+// for the 112-px ArcFace crop, and capping makes the decode (shrink-on-load) much faster.
+const WORK_MAX = 2048;
 const SCRFD_STRIDES = [
   { s: 8, score: "443", bbox: "446", kps: "449" },
   { s: 16, score: "468", bbox: "471", kps: "474" },
@@ -167,24 +170,32 @@ function l2(vector: Float32Array): Float32Array {
   return out;
 }
 
-// Detect every face in one image and return its normalised box + aligned ArcFace
-// embedding. Decodes once for the detector input (letterboxed 640) and once full-res
-// for the alignment warp.
-export async function detectFaces(absolutePath: string): Promise<DetectedFace[]> {
+// One decoded, EXIF-upright, size-capped image. Decode it ONCE per photo and reuse it
+// for detection and every face crop — re-decoding per face was the scan bottleneck.
+export interface DecodedImage { rgb: Buffer; width: number; height: number }
+
+export async function decodeUpright(absolutePath: string): Promise<DecodedImage> {
+  const { data, info } = await sharp(absolutePath).rotate()
+    .resize(WORK_MAX, WORK_MAX, { fit: "inside", withoutEnlargement: true })
+    .removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  return { rgb: data, width: info.width, height: info.height };
+}
+
+// Detect every face in a pre-decoded image and return its normalised box + aligned
+// ArcFace embedding. The detector input is resized from the already-decoded raw buffer
+// (no second file decode), and the alignment warp samples that same buffer.
+export async function detectFacesFromRaw(image: DecodedImage): Promise<DetectedFace[]> {
   const { det, rec } = await getEngine();
-  const upright = sharp(absolutePath).rotate();
-  const { data: rgb, info } = await upright.clone().removeAlpha().raw().toBuffer({ resolveWithObject: true });
-  const W = info.width;
-  const H = info.height;
+  const { rgb, width: W, height: H } = image;
   if (!W || !H) return [];
 
   const scale = Math.min(DET_SIZE / W, DET_SIZE / H);
   const rw = Math.round(W * scale);
   const rh = Math.round(H * scale);
-  const { data: pad } = await sharp(absolutePath).rotate()
+  const { data: pad } = await sharp(rgb, { raw: { width: W, height: H, channels: 3 } })
     .resize(rw, rh, { fit: "fill" })
     .extend({ top: 0, left: 0, bottom: DET_SIZE - rh, right: DET_SIZE - rw, background: { r: 0, g: 0, b: 0 } })
-    .removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    .raw().toBuffer({ resolveWithObject: true });
 
   const inp = new Float32Array(3 * DET_SIZE * DET_SIZE);
   const dplane = DET_SIZE * DET_SIZE;
@@ -209,4 +220,10 @@ export async function detectFaces(absolutePath: string): Promise<DetectedFace[]>
     });
   }
   return faces;
+}
+
+// Convenience: decode + detect in one call (used by the test and any one-off caller).
+// The scanner decodes once itself and shares the buffer with the thumbnail crops.
+export async function detectFaces(absolutePath: string): Promise<DetectedFace[]> {
+  return detectFacesFromRaw(await decodeUpright(absolutePath));
 }
