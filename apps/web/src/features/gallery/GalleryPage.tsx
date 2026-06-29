@@ -143,6 +143,7 @@ export function GalleryPage({
   const [renameValue, setRenameValue] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [personDeleteOpen, setPersonDeleteOpen] = useState(false);
+  const [showSmallGroups, setShowSmallGroups] = useState(false);
 
   // Library selector dropdown (mirrors the audiobooks/ebooks main page chip).
   const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
@@ -771,19 +772,36 @@ export function GalleryPage({
                     </div>
                   )}
 
-                  {people.length > 0 && (
-                    <div className="gallery-people-grid">
-                      {people.map((person) => (
-                        <button key={person.id} type="button" className="gallery-person-card" onClick={() => void openPerson(person)}>
-                          <span className="gallery-person-avatar">
-                            {person.coverUrl ? <img src={person.coverUrl} alt="" loading="lazy" /> : <UserRound size={28} aria-hidden="true" />}
-                          </span>
-                          <strong className={person.name ? undefined : "gallery-person-unnamed"}>{person.name || "Unnamed"}</strong>
-                          <small>{person.faceCount.toLocaleString()} {person.faceCount === 1 ? "photo" : "photos"}</small>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {(() => {
+                    // Keep named people and multi-photo groups up front; tuck unnamed
+                    // single-photo groups into a collapsible "Small groups" section so a
+                    // long tail of singletons doesn't bury the people that matter.
+                    const main = people.filter((p) => p.name || p.faceCount > 1);
+                    const small = people.filter((p) => !p.name && p.faceCount <= 1);
+                    const card = (person: GalleryPerson) => (
+                      <button key={person.id} type="button" className="gallery-person-card" onClick={() => void openPerson(person)}>
+                        <span className="gallery-person-avatar">
+                          {person.coverUrl ? <img src={person.coverUrl} alt="" loading="lazy" /> : <UserRound size={28} aria-hidden="true" />}
+                        </span>
+                        <strong className={person.name ? undefined : "gallery-person-unnamed"}>{person.name || "Unnamed"}</strong>
+                        <small>{person.faceCount.toLocaleString()} {person.faceCount === 1 ? "photo" : "photos"}</small>
+                      </button>
+                    );
+                    return (
+                      <>
+                        {main.length > 0 && <div className="gallery-people-grid">{main.map(card)}</div>}
+                        {small.length > 0 && (
+                          <div className="gallery-small-groups">
+                            <button type="button" className="gallery-small-toggle" onClick={() => setShowSmallGroups((v) => !v)}>
+                              <ChevronRight size={15} className={showSmallGroups ? "rotated" : ""} aria-hidden="true" />
+                              {small.length.toLocaleString()} small group{small.length === 1 ? "" : "s"} (one photo each)
+                            </button>
+                            {showSmallGroups && <div className="gallery-people-grid">{small.map(card)}</div>}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   {!loading && people.length === 0 && (
                     <div className="empty-state library-empty">
                       <Users size={48} aria-hidden="true" />

@@ -20,9 +20,9 @@ import {
 } from "./people.js";
 import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary, enabledFaceLibraryIds,
-  faceThreshold, setFaceThreshold
+  faceThreshold, setFaceThreshold, faceGroupingK, setFaceGroupingK
 } from "./faces/settings.js";
-import { enqueueFaceScan, processFaceScanQueue } from "./faces/scanner.js";
+import { enqueueFaceScan, enqueueFaceRecompute, processFaceScanQueue } from "./faces/scanner.js";
 
 // People are global, so person management (create/rename/hide/delete) is gated on the
 // user being able to write SOME gallery library — anyone who curates photos can curate
@@ -260,15 +260,17 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/gallery/faces/settings", { preHandler: app.requireAdmin }, async () => ({
     threshold: faceThreshold(),
+    groupingStrength: faceGroupingK(),
     libraries: faceLibraryStatus()
   }));
 
   const faceSettingsSchema = z.object({
     libraryId: z.string().trim().min(1).optional(),
     enabled: z.boolean().optional(),
-    threshold: z.number().min(0.2).max(0.95).optional()
-  }).refine((v) => v.threshold != null || (v.libraryId != null && v.enabled != null), {
-    message: "Provide { libraryId, enabled } and/or { threshold }."
+    threshold: z.number().min(0.2).max(0.95).optional(),
+    groupingStrength: z.number().int().min(2).max(8).optional()
+  }).refine((v) => v.threshold != null || v.groupingStrength != null || (v.libraryId != null && v.enabled != null), {
+    message: "Provide { libraryId, enabled }, { threshold } and/or { groupingStrength }."
   });
 
   app.patch("/api/library/gallery/faces/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -278,6 +280,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       return;
     }
     if (parsed.data.threshold != null) setFaceThreshold(parsed.data.threshold, request.user!.id);
+    if (parsed.data.groupingStrength != null) setFaceGroupingK(parsed.data.groupingStrength, request.user!.id);
 
     if (parsed.data.libraryId != null && parsed.data.enabled != null) {
       const lib = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
@@ -302,7 +305,23 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       });
     }
 
-    reply.send({ threshold: faceThreshold(), libraries: faceLibraryStatus() });
+    reply.send({ threshold: faceThreshold(), groupingStrength: faceGroupingK(), libraries: faceLibraryStatus() });
+  });
+
+  // Re-cluster existing faces with the current grouping settings — no re-detection.
+  // This is the fast "apply my tuning" action; it does not re-read any photos.
+  app.post("/api/library/gallery/faces/recompute", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const jobId = enqueueFaceRecompute();
+    void processFaceScanQueue();
+    logActivity({
+      event: "library.gallery.faces.recompute",
+      actorUserId: request.user!.id,
+      targetType: "setting",
+      targetId: "face_recognition",
+      detail: "Queued a face re-clustering.",
+      ipAddress: request.ip
+    });
+    reply.send({ job: jobId });
   });
 
   // Queue a face scan. With a libraryId, scans just that library (must be enabled);

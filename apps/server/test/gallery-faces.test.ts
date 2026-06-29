@@ -6,7 +6,7 @@ import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import {
   embeddingToBlob, blobToEmbedding, cosineSimilarity, centroidOf
 } from "../src/modules/library/gallery/faces/embedding.js";
-import { assignFaces, clusterGalleryFaces } from "../src/modules/library/gallery/faces/cluster.js";
+import { mutualKnnClusters, clusterGalleryFaces } from "../src/modules/library/gallery/faces/cluster.js";
 import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary,
   enabledFaceLibraryIds, anyFaceLibraryEnabled
@@ -56,25 +56,26 @@ describe("face embedding helpers", () => {
   });
 });
 
-describe("assignFaces (pure greedy clustering)", () => {
-  it("groups similar faces and separates dissimilar ones", () => {
-    let n = 0;
+describe("mutualKnnClusters (pure)", () => {
+  it("links mutual neighbours into one group and isolates a dissimilar face", () => {
     const faces = [
-      { id: "a1", embedding: vec(0, 0.05) },
-      { id: "a2", embedding: vec(0, 0.1) },
-      { id: "b1", embedding: vec(4) }
+      { id: "a1", emb: vec(0, 0.05) },
+      { id: "a2", emb: vec(0, 0.1) },
+      { id: "a3", emb: vec(0, 0.02) },
+      { id: "b1", emb: vec(4) }
     ];
-    const out = assignFaces(faces, [], 0.5, () => `c${n++}`);
-    expect(out[0]).toMatchObject({ faceId: "a1", created: true });
-    expect(out[1]).toMatchObject({ faceId: "a2", clusterId: out[0].clusterId, created: false });
-    expect(out[2].created).toBe(true);
-    expect(out[2].clusterId).not.toBe(out[0].clusterId);
-    expect(new Set(out.map((a) => a.clusterId)).size).toBe(2);
+    const groups = mutualKnnClusters(faces, 3, 0.5);
+    expect(groups.length).toBe(2);
+    expect(groups.find((g) => g.includes("a1"))?.sort()).toEqual(["a1", "a2", "a3"]);
+    expect(groups.find((g) => g.includes("b1"))).toEqual(["b1"]);
   });
 
-  it("attaches a face to a matching pre-existing cluster", () => {
-    const out = assignFaces([{ id: "x", embedding: vec(0, 0.05) }], [{ id: "known", vec: vec(0) }], 0.5, () => "new");
-    expect(out[0]).toMatchObject({ faceId: "x", clusterId: "known", created: false });
+  it("keeps two tight groups apart (hub-chaining resistance)", () => {
+    const faces = [
+      { id: "a1", emb: vec(0, 0.03) }, { id: "a2", emb: vec(0, 0.06) }, { id: "a3", emb: vec(0, 0.09) },
+      { id: "c1", emb: vec(2, 0.03) }, { id: "c2", emb: vec(2, 0.06) }, { id: "c3", emb: vec(2, 0.09) }
+    ];
+    expect(mutualKnnClusters(faces, 3, 0.5).length).toBe(2);
   });
 });
 
@@ -121,7 +122,7 @@ describe("clusterGalleryFaces (DB)", () => {
 
     const result = clusterGalleryFaces();
     expect(result.assigned).toBe(3);
-    expect(result.newClusters).toBe(2);
+    expect(result.clusters).toBe(2);
 
     // Two distinct clusters; the two "a" faces share one.
     const links = db.prepare("SELECT item_id, person_id FROM gallery_faces ORDER BY id").all() as { item_id: string; person_id: string | null }[];
@@ -136,18 +137,19 @@ describe("clusterGalleryFaces (DB)", () => {
     expect(people.every((p) => p.name === "")).toBe(true);
   });
 
-  it("a second pass attaches new faces to the existing cluster (no new cluster)", async () => {
+  it("re-clustering is global and consolidates matching faces into one person", async () => {
     const t = Date.parse("2024-02-01T00:00:00Z");
     await addFace("a1.jpg", vec(0, 0.05), t);
+    await addFace("a2.jpg", vec(0, 0.08), t + 1000);
     clusterGalleryFaces();
-    const firstClusters = (db.prepare("SELECT COUNT(*) n FROM gallery_people").get() as { n: number }).n;
-
-    await addFace("a3.jpg", vec(0, 0.08), t + 1000);
-    const second = clusterGalleryFaces();
-    expect(second.newClusters).toBe(0);
-    expect(second.assigned).toBe(1);
-    expect((db.prepare("SELECT COUNT(*) n FROM gallery_people").get() as { n: number }).n).toBe(firstClusters);
+    expect(listGalleryPeople(["GAL"]).length).toBe(1);
     expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(2);
+
+    await addFace("a3.jpg", vec(0, 0.02), t + 2000);
+    const second = clusterGalleryFaces();
+    expect(second.assigned).toBe(3);
+    expect(listGalleryPeople(["GAL"]).length).toBe(1);
+    expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(3);
   });
 
   it("removing an auto person from a photo rejects the face and never reclusters it back", async () => {
@@ -165,8 +167,7 @@ describe("clusterGalleryFaces (DB)", () => {
     expect((getGalleryAsset("u1", ["GAL"], i1) as { people?: unknown[] }).people).toEqual([]);
 
     // A later clustering pass must not pull the rejected face back into the person.
-    const re = clusterGalleryFaces();
-    expect(re.assigned).toBe(0);
+    clusterGalleryFaces();
     expect((db.prepare("SELECT assignment FROM gallery_faces WHERE item_id = ?").get(i1) as { assignment: string }).assignment).toBe("rejected");
     expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(1);
   });

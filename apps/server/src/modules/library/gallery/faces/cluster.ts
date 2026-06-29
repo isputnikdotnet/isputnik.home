@@ -1,62 +1,75 @@
-// Greedy face clustering. The pure assignment step (assignFaces) is split from the DB
-// layer so it can be unit-tested with synthetic vectors. The strategy is incremental:
-// only faces not yet attached to a person are placed, and existing clusters (including
-// ones the user has named) are never broken up — a new face either joins the nearest
-// cluster above the similarity threshold or starts its own.
+// Face clustering: a GLOBAL mutual-kNN grouping. Two faces are linked only when each
+// is among the other's k most-similar neighbours (above a floor) — this resists the
+// "hub" chaining that makes a centroid/greedy approach merge different people. The
+// pure clusterer (mutualKnnClusters) is split from the DB layer so it's unit-testable.
+//
+// Every clustering pass rebuilds groups from scratch over all of a library's faces and
+// reconciles them with existing people, so a named person keeps its identity (by
+// majority face overlap) and user removals (exclusions) are re-applied.
 import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { blobToEmbedding, embeddingToBlob, centroidOf, cosineSimilarity } from "./embedding.js";
-import { faceThreshold } from "./settings.js";
+import { faceThreshold, faceGroupingK } from "./settings.js";
 
-export interface FaceToCluster {
+// Min centroid cosine for a rebuilt group to reclaim a named person when there's no
+// face overlap (e.g. after a full rescan re-detected every face). High enough to avoid
+// handing a name to a different person.
+const NAME_REMATCH = 0.55;
+
+export interface FaceVec {
   id: string;
-  embedding: Float32Array;
+  emb: Float32Array;
 }
 
-export interface ClusterCentroid {
-  id: string;
-  vec: Float32Array;
-}
+// Mutual k-NN connected components. Returns groups of face ids (singletons included).
+// O(n²) in face count — fine for a per-library recompute (the user triggers it); a
+// very large library would want an ANN index, noted for later.
+export function mutualKnnClusters(faces: FaceVec[], k: number, floor: number): string[][] {
+  const n = faces.length;
+  if (n === 0) return [];
+  const dim = faces[0].emb.length;
 
-export interface FaceAssignment {
-  faceId: string;
-  clusterId: string;
-  created: boolean;
-}
+  // Pack L2-normalised vectors into one flat buffer so cosine is a tight dot product.
+  const flat = new Float32Array(n * dim);
+  for (let i = 0; i < n; i += 1) {
+    const e = faces[i].emb;
+    let norm = 0;
+    for (let d = 0; d < dim; d += 1) norm += e[d] * e[d];
+    norm = Math.sqrt(norm) || 1;
+    for (let d = 0; d < dim; d += 1) flat[i * dim + d] = e[d] / norm;
+  }
 
-// Place each face into the nearest existing centroid at/above `threshold`, else start
-// a new cluster (whose centroid seeds from that face for the rest of this pass). Pure:
-// no DB, deterministic for a given input order.
-export function assignFaces(
-  faces: FaceToCluster[],
-  existing: ClusterCentroid[],
-  threshold: number,
-  makeId: () => string
-): FaceAssignment[] {
-  const centroids: ClusterCentroid[] = existing.map((c) => ({ id: c.id, vec: c.vec }));
-  const out: FaceAssignment[] = [];
-  for (const face of faces) {
-    let bestId: string | null = null;
-    let best = -Infinity;
-    for (const c of centroids) {
-      const score = cosineSimilarity(face.embedding, c.vec);
-      if (score > best) { best = score; bestId = c.id; }
-    }
-    if (bestId && best >= threshold) {
-      out.push({ faceId: face.id, clusterId: bestId, created: false });
-    } else {
-      const id = makeId();
-      centroids.push({ id, vec: face.embedding });
-      out.push({ faceId: face.id, clusterId: id, created: true });
+  const neighbours: { j: number; w: number }[][] = Array.from({ length: n }, () => []);
+  for (let i = 0; i < n; i += 1) {
+    const bi = i * dim;
+    for (let j = i + 1; j < n; j += 1) {
+      const bj = j * dim;
+      let w = 0;
+      for (let d = 0; d < dim; d += 1) w += flat[bi + d] * flat[bj + d];
+      if (w >= floor) { neighbours[i].push({ j, w }); neighbours[j].push({ j: i, w }); }
     }
   }
-  return out;
+  const topk = neighbours.map((list) => {
+    list.sort((a, b) => b.w - a.w);
+    return new Set(list.slice(0, k).map((x) => x.j));
+  });
+
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = (x: number): number => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  for (let i = 0; i < n; i += 1) for (const j of topk[i]) if (j > i && topk[j].has(i)) parent[find(i)] = find(j);
+
+  const groups = new Map<number, string[]>();
+  for (let i = 0; i < n; i += 1) {
+    const root = find(i);
+    const g = groups.get(root) ?? groups.set(root, []).get(root)!;
+    g.push(faces[i].id);
+  }
+  return [...groups.values()];
 }
 
-// Recompute a person's aggregates: distinct-item count over ALL non-rejected faces
-// (manual + scan), and a centroid derived from its scan-face embeddings (NULL when it
-// has none — i.e. a purely manual person stays a non-cluster). Cover face is the
-// highest-scoring scan face that has a crop thumbnail, if any.
+// Recompute a person's aggregates from its current member faces (see also the
+// post-merge/untag callers). face_count counts all non-rejected faces; centroid comes
+// from scan-face embeddings (NULL when none); cover is the best scan face with a crop.
 export function recomputeClusterCentroid(clusterId: string): void {
   const faceCount = (db.prepare(
     "SELECT COUNT(DISTINCT gf.item_id) n FROM gallery_faces gf JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL WHERE gf.person_id = ? AND gf.assignment != 'rejected'"
@@ -73,57 +86,90 @@ export function recomputeClusterCentroid(clusterId: string): void {
   ).run(centroidBlob, faceCount, coverFace, clusterId);
 }
 
-// Cluster every not-yet-assigned auto face, then tidy up. An "auto cluster" is a
-// gallery_people row with a non-NULL centroid (manual whole-photo people keep a NULL
-// centroid and are never touched here).
-export function clusterGalleryFaces(): { newClusters: number; assigned: number } {
-  const threshold = faceThreshold();
-  const existing = (db.prepare("SELECT id, centroid FROM gallery_people WHERE centroid IS NOT NULL").all() as { id: string; centroid: Buffer }[])
-    .map((e) => ({ id: e.id, vec: blobToEmbedding(e.centroid) }));
-  const faceRows = db.prepare(
-    "SELECT id, embedding FROM gallery_faces WHERE source = 'scan' AND person_id IS NULL AND assignment != 'rejected' AND embedding IS NOT NULL ORDER BY id"
-  ).all() as { id: string; embedding: Buffer }[];
-  if (faceRows.length === 0) return { newClusters: 0, assigned: 0 };
+// Reject any scan face whose (item, person) the user has excluded ("not this person"),
+// and report the affected people so callers can recompute them. Makes removals durable.
+function enforceExclusions(): Set<string> {
+  const violating = db.prepare(`
+    SELECT gf.id AS id, gf.person_id AS person_id
+    FROM gallery_faces gf
+    JOIN gallery_face_exclusions ex ON ex.item_id = gf.item_id AND ex.person_id = gf.person_id
+    WHERE gf.source = 'scan' AND gf.assignment != 'rejected' AND gf.person_id IS NOT NULL
+  `).all() as { id: string; person_id: string }[];
+  const affected = new Set<string>();
+  if (violating.length > 0) {
+    const reject = db.prepare("UPDATE gallery_faces SET assignment = 'rejected', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?");
+    for (const v of violating) { reject.run(v.id); affected.add(v.person_id); }
+  }
+  return affected;
+}
 
-  const faces = faceRows.map((r) => ({ id: r.id, embedding: blobToEmbedding(r.embedding) }));
-  const created: string[] = [];
-  const assignments = assignFaces(faces, existing, threshold, () => {
-    const id = nanoid(16);
-    created.push(id);
-    return id;
+// Rebuild every person from scratch over a library's faces (or all libraries). Named
+// people keep their id+name by claiming the new group that holds the plurality of
+// their old faces; unnamed groups get fresh rows. Exclusions are re-applied.
+export function clusterGalleryFaces(): { clusters: number; assigned: number } {
+  const k = faceGroupingK();
+  const floor = faceThreshold();
+
+  const rows = db.prepare(
+    "SELECT id, person_id, embedding FROM gallery_faces WHERE source = 'scan' AND assignment != 'rejected' AND embedding IS NOT NULL"
+  ).all() as { id: string; person_id: string | null; embedding: Buffer }[];
+  if (rows.length === 0) return { clusters: 0, assigned: 0 };
+
+  const faces: FaceVec[] = rows.map((r) => ({ id: r.id, emb: blobToEmbedding(r.embedding) }));
+  const embById = new Map(faces.map((f) => [f.id, f.emb]));
+  const oldPersonOf = new Map(rows.map((r) => [r.id, r.person_id]));
+  // Anchored people must survive with their id + name (named or bridged to global
+  // people). Keep their stored centroid for the rescan-rematch fallback.
+  const anchoredRows = db.prepare("SELECT id, centroid FROM gallery_people WHERE name != '' OR linked_person_id IS NOT NULL").all() as { id: string; centroid: Buffer | null }[];
+  const anchored = new Set(anchoredRows.map((r) => r.id));
+  const anchoredCentroids = anchoredRows.filter((r) => r.centroid).map((r) => ({ id: r.id, vec: blobToEmbedding(r.centroid!) }));
+
+  const groups = mutualKnnClusters(faces, k, floor).sort((a, b) => b.length - a.length);
+
+  // Assign each group a person id (largest group first; each anchor claimed once):
+  //   1. by plurality of its faces' previous anchored person (recompute case), else
+  //   2. by centroid similarity to an anchored person (rescan case — faces are new),
+  //   3. otherwise a fresh unnamed person.
+  const takenAnchor = new Set<string>();
+  const groupPlan = groups.map((faceIds) => {
+    const tally = new Map<string, number>();
+    for (const fid of faceIds) {
+      const p = oldPersonOf.get(fid);
+      if (p && anchored.has(p) && !takenAnchor.has(p)) tally.set(p, (tally.get(p) ?? 0) + 1);
+    }
+    let claim: string | null = null;
+    let best = 0;
+    for (const [p, c] of tally) if (c > best) { best = c; claim = p; }
+    if (!claim && anchoredCentroids.length > 0) {
+      const groupCentroid = centroidOf(faceIds.map((fid) => embById.get(fid)!).filter(Boolean));
+      let bestSim = NAME_REMATCH;
+      for (const a of anchoredCentroids) {
+        if (takenAnchor.has(a.id)) continue;
+        const sim = cosineSimilarity(groupCentroid, a.vec);
+        if (sim >= bestSim) { bestSim = sim; claim = a.id; }
+      }
+    }
+    if (claim) { takenAnchor.add(claim); return { faceIds, personId: claim }; }
+    return { faceIds, personId: nanoid(16) };
   });
 
-  const touched = new Set<string>();
   db.transaction(() => {
-    for (const id of created) {
-      db.prepare("INSERT INTO gallery_people (id, name, centroid) VALUES (?, '', NULL)").run(id);
-    }
-    const update = db.prepare("UPDATE gallery_faces SET person_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?");
-    for (const a of assignments) {
-      update.run(a.clusterId, a.faceId);
-      touched.add(a.clusterId);
-    }
-    for (const id of touched) recomputeClusterCentroid(id);
-
-    // Re-apply user removals: reject any freshly-grouped face the user has excluded
-    // from that person, then recompute those people. This is what makes a "not this
-    // person" correction survive a full rescan (which re-detects every face anew).
-    const violating = db.prepare(`
-      SELECT gf.id AS id, gf.person_id AS person_id
-      FROM gallery_faces gf
-      JOIN gallery_face_exclusions ex ON ex.item_id = gf.item_id AND ex.person_id = gf.person_id
-      WHERE gf.source = 'scan' AND gf.assignment != 'rejected' AND gf.person_id IS NOT NULL
-    `).all() as { id: string; person_id: string }[];
-    if (violating.length > 0) {
-      const reject = db.prepare("UPDATE gallery_faces SET assignment = 'rejected', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?");
-      const affected = new Set<string>();
-      for (const v of violating) { reject.run(v.id); affected.add(v.person_id); }
-      for (const id of affected) recomputeClusterCentroid(id);
+    const personExists = db.prepare("SELECT 1 FROM gallery_people WHERE id = ?");
+    const insertPerson = db.prepare("INSERT INTO gallery_people (id, name, centroid) VALUES (?, '', NULL)");
+    const reassign = db.prepare("UPDATE gallery_faces SET person_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?");
+    const touched = new Set<string>();
+    for (const plan of groupPlan) {
+      if (!personExists.get(plan.personId)) insertPerson.run(plan.personId);
+      for (const fid of plan.faceIds) reassign.run(plan.personId, fid);
+      touched.add(plan.personId);
     }
 
-    // Drop unnamed auto clusters that ended up empty (e.g. after a forced rescan).
-    db.prepare("DELETE FROM gallery_people WHERE name = '' AND face_count = 0 AND linked_person_id IS NULL").run();
+    for (const id of enforceExclusions()) touched.add(id);
+    // Recompute touched groups plus any anchored person that may have lost its faces.
+    for (const id of new Set([...touched, ...anchored])) recomputeClusterCentroid(id);
+    // Drop unnamed, empty, non-anchored people left behind.
+    db.prepare("DELETE FROM gallery_people WHERE name = '' AND linked_person_id IS NULL AND face_count = 0").run();
   })();
 
-  return { newClusters: created.length, assigned: assignments.length };
+  return { clusters: groupPlan.length, assigned: faces.length };
 }

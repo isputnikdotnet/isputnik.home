@@ -604,6 +604,37 @@
 .gallery-face-lib-toggle > span { display: flex; flex-direction: column; gap: 1px; }
 .gallery-face-lib-toggle small { color: var(--muted); font-size: 0.8rem; }
 
+/* Grouping-strength slider + regroup action in the face modal. */
+.gallery-face-tuning {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.gallery-face-strength { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.gallery-face-strength input[type="range"] { width: 100%; }
+.gallery-face-strength small { color: var(--muted); font-size: 0.78rem; }
+
+/* Collapsible "small groups" section on the People tab. */
+.gallery-small-groups { margin-top: 14px; }
+.gallery-small-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.gallery-small-toggle:hover { color: var(--ink); }
+.gallery-small-toggle .rotated { transform: rotate(90deg); }
+.gallery-small-groups .gallery-people-grid { margin-top: 8px; }
+
 /* Per-person curation row (rename / merge / delete) + the merge picker. */
 .gallery-person-toolbar,
 .gallery-merge-panel {

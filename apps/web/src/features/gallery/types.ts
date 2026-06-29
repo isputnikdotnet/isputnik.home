@@ -51,6 +51,7 @@ export interface GalleryFaceLibrary {
 
 export interface GalleryFaceSettings {
   threshold: number;
+  groupingStrength: number; // 2..8: lower = purer/more groups, higher = more consolidated
   libraries: GalleryFaceLibrary[];
 }
 
