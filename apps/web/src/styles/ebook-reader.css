@@ -199,6 +199,7 @@
 }
 
 .ebk-sel-toolbar { transform: translate(-50%, calc(-100% - 10px)); }
+.ebk-sel-toolbar.below { transform: translate(-50%, 12px); }
 .ebk-quote-pop { transform: translate(-50%, 10px); }
 
 .ebk-sel-lead { display: grid; place-items: center; color: #cdc8bf; padding-left: 2px; }

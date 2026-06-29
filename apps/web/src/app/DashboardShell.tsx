@@ -15,6 +15,7 @@ import {
   Library,
   ListMusic,
   LogOut,
+  Quote,
   Settings,
   Shapes,
   Tag,
@@ -112,6 +113,7 @@ function userMenuLinks(): UserMenuLink[] {
     { label: "Shared with me", href: "/shared", icon: UsersRound },
     { label: "Favorites", href: "/favorites", icon: Heart },
     { label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
+    { label: "Quotes", href: "/quotes", icon: Quote },
     { label: "Collections", href: "/collections", icon: ListMusic },
     // Offline downloads only exist in the installed app, so only surface the
     // Downloads screen there.
@@ -121,7 +123,7 @@ function userMenuLinks(): UserMenuLink[] {
 
 // The user-area routes reachable from the Profile drop-up sheet. The Profile
 // tab highlights for any of them (not just /profile itself).
-const PROFILE_ROUTES = ["/profile", "/favorites", "/bookmarks", "/collections", "/shared"];
+const PROFILE_ROUTES = ["/profile", "/favorites", "/bookmarks", "/quotes", "/collections", "/shared"];
 
 // Four-tab bottom nav for the installed app / phones: Home, Media, Offline,
 // Profile. "Media" and "Profile" aren't pages — each opens a drop-up sheet:
@@ -210,6 +212,10 @@ function MobileNav({
             <a className="mobile-media-option" href="/bookmarks" onClick={(event) => { followRoute(event, "/bookmarks"); close(); }}>
               <Bookmark size={26} aria-hidden="true" />
               <span>Bookmarks</span>
+            </a>
+            <a className="mobile-media-option" href="/quotes" onClick={(event) => { followRoute(event, "/quotes"); close(); }}>
+              <Quote size={26} aria-hidden="true" />
+              <span>Quotes</span>
             </a>
             <a className="mobile-media-option" href="/collections" onClick={(event) => { followRoute(event, "/collections"); close(); }}>
               <ListMusic size={26} aria-hidden="true" />

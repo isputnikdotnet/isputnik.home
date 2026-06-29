@@ -80,6 +80,36 @@ export interface QueuedProgress {
   synced: boolean;
 }
 
+// A quote captured offline (or whose POST failed). Keyed by a client-generated
+// `localId`; on flush it's POSTed and the local row is removed once the server has
+// it. The on-page highlight is keyed by `cfi`, so it draws fine before sync.
+export interface QueuedQuote {
+  localId: string;
+  itemId: string;
+  documentId: string;
+  cfi: string | null;
+  text: string;
+  color: string | null;
+  percentComplete: number | null;
+  createdAt: string;
+  synced: boolean;
+}
+
+// A reader bookmark captured offline (or whose POST failed). Keyed by a
+// client-generated `localId`; flushed and removed once the server has it. `bookId`
+// rides along because the create route is per-book (/books/:id/ebook-bookmarks).
+export interface QueuedBookmark {
+  localId: string;
+  bookId: string;
+  documentId: string;
+  cfi: string;
+  percentComplete: number | null;
+  label: string | null;
+  note: string | null;
+  createdAt: string;
+  synced: boolean;
+}
+
 export interface EbookDownloadRecord {
   bookId: string;
   documentId: string;
@@ -107,6 +137,8 @@ interface OfflineDB extends DBSchema {
   progressQueue: { key: string; value: QueuedProgress };
   ebookDownloads: { key: string; value: EbookDownloadRecord };
   ebookFiles: { key: string; value: StoredEbookFile };
+  quotesQueue: { key: string; value: QueuedQuote; indexes: { documentId: string } };
+  bookmarksQueue: { key: string; value: QueuedBookmark; indexes: { documentId: string } };
 }
 
 function dbName(userId: string) {
@@ -121,7 +153,7 @@ function db(): Promise<IDBPDatabase<OfflineDB>> | null {
   if (cached?.userId !== userId) {
     cached = {
       userId,
-      db: openDB<OfflineDB>(dbName(userId), 2, {
+      db: openDB<OfflineDB>(dbName(userId), 4, {
         upgrade(database, oldVersion) {
           if (oldVersion < 1) {
             database.createObjectStore("downloads", { keyPath: "bookId" });
@@ -132,6 +164,14 @@ function db(): Promise<IDBPDatabase<OfflineDB>> | null {
           if (oldVersion < 2) {
             database.createObjectStore("ebookDownloads", { keyPath: "bookId" });
             database.createObjectStore("ebookFiles", { keyPath: "key" });
+          }
+          if (oldVersion < 3) {
+            const quotes = database.createObjectStore("quotesQueue", { keyPath: "localId" });
+            quotes.createIndex("documentId", "documentId");
+          }
+          if (oldVersion < 4) {
+            const bookmarks = database.createObjectStore("bookmarksQueue", { keyPath: "localId" });
+            bookmarks.createIndex("documentId", "documentId");
           }
         }
       })
