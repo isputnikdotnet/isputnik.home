@@ -1,13 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Pencil, Share2, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Pencil, Plus, Share2, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { ShareModal } from "../share/ShareModal";
 import { GalleryEditModal } from "./GalleryEditModal";
-import type { GalleryAsset } from "./types";
+import type { GalleryAsset, GalleryPerson, GalleryPersonTag } from "./types";
 
 // Leaflet rides in only when the Info panel shows a geotagged photo — keeps it off
 // the initial bundle (and reuses the same chunk as the gallery Map view).
@@ -61,7 +61,41 @@ export function GalleryLightbox({
   const [fav, setFav] = useState(asset?.saved ?? false);
   const [favBusy, setFavBusy] = useState(false);
 
+  // People tagged in this asset. The list/timeline rows don't carry `people`, so when
+  // it's absent we fetch the asset detail. `allPeople` feeds the add-box suggestions.
+  const [people, setPeople] = useState<GalleryPersonTag[]>(asset?.people ?? []);
+  const [allPeople, setAllPeople] = useState<GalleryPerson[]>([]);
+  const [addingPerson, setAddingPerson] = useState(false);
+  const [personName, setPersonName] = useState("");
+  const [personBusy, setPersonBusy] = useState(false);
+  const [personError, setPersonError] = useState("");
+
   useEffect(() => { setFav(asset?.saved ?? false); }, [asset?.id, asset?.saved]);
+
+  // Load the current asset's people (from the detail endpoint when the row lacks them).
+  useEffect(() => {
+    if (!asset) return;
+    setAddingPerson(false);
+    setPersonName("");
+    setPersonError("");
+    if (asset.people) { setPeople(asset.people); return; }
+    let alive = true;
+    api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${asset.id}`)
+      .then((p) => { if (alive) setPeople(p.asset.people ?? []); })
+      .catch(() => { /* keep whatever we have */ });
+    return () => { alive = false; };
+  }, [asset?.id, asset?.people, asset]);
+
+  // Suggestions for the add-box: the existing people, refreshed after each change so a
+  // freshly-created person becomes selectable.
+  useEffect(() => {
+    if (!showInfo || !canEdit) return;
+    let alive = true;
+    api<{ people: GalleryPerson[] }>("/api/library/gallery/people")
+      .then((p) => { if (alive) setAllPeople(p.people); })
+      .catch(() => { /* suggestions are advisory */ });
+    return () => { alive = false; };
+  }, [showInfo, canEdit, people]);
 
   const hasPrev = index > 0;
   const hasNext = index < assets.length - 1;
@@ -110,6 +144,42 @@ export function GalleryLightbox({
     } finally {
       setDeleteBusy(false);
     }
+  };
+
+  // Tag a person: link an existing one when the typed name matches (case-insensitive),
+  // otherwise create a new person. The API returns the updated asset with its people.
+  const addPerson = async () => {
+    const name = personName.trim();
+    if (!name || personBusy) return;
+    setPersonBusy(true);
+    setPersonError("");
+    try {
+      const match = allPeople.find((p) => p.name.toLowerCase() === name.toLowerCase());
+      const body = match ? { personId: match.id } : { name };
+      const res = await api<{ asset: GalleryAsset }>(
+        `/api/library/gallery/assets/${asset.id}/people`,
+        { method: "POST", body: JSON.stringify(body) }
+      );
+      setPeople(res.asset.people ?? []);
+      setPersonName("");
+      setAddingPerson(false);
+      onChanged();
+    } catch (err) {
+      setPersonError(err instanceof Error ? err.message : "Unable to tag this person");
+    } finally {
+      setPersonBusy(false);
+    }
+  };
+
+  const removePerson = async (personId: string) => {
+    try {
+      const res = await api<{ asset: GalleryAsset }>(
+        `/api/library/gallery/assets/${asset.id}/people/${personId}`,
+        { method: "DELETE" }
+      );
+      setPeople(res.asset.people ?? []);
+      onChanged();
+    } catch { /* leave the chip; the user can retry */ }
   };
 
   const meta = [
@@ -255,6 +325,64 @@ export function GalleryLightbox({
                   >
                     {asset.gps.lat.toFixed(5)}, {asset.gps.lng.toFixed(5)}
                   </a>
+                </dd>
+              </div>
+            )}
+            {(people.length > 0 || canEdit) && (
+              <div>
+                <dt>People</dt>
+                <dd>
+                  <div className="gallery-people-tags">
+                    {people.length === 0 && !canEdit && <span className="muted">—</span>}
+                    {people.map((person) => (
+                      <span key={person.id} className="gallery-person-chip">
+                        {person.name}
+                        {canEdit && (
+                          <button
+                            type="button"
+                            className="gallery-person-chip-remove"
+                            onClick={() => void removePerson(person.id)}
+                            aria-label={`Remove ${person.name}`}
+                            title={`Remove ${person.name}`}
+                          >
+                            <X size={12} aria-hidden="true" />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                    {canEdit && !addingPerson && (
+                      <button type="button" className="gallery-person-add" onClick={() => setAddingPerson(true)}>
+                        <Plus size={13} aria-hidden="true" /> Add person
+                      </button>
+                    )}
+                  </div>
+                  {canEdit && addingPerson && (
+                    <form className="gallery-person-form" onSubmit={(event) => { event.preventDefault(); void addPerson(); }}>
+                      <input
+                        list="gallery-people-suggestions"
+                        value={personName}
+                        onChange={(event) => setPersonName(event.target.value)}
+                        placeholder="Name"
+                        maxLength={120}
+                        autoFocus
+                      />
+                      <datalist id="gallery-people-suggestions">
+                        {allPeople.map((person) => <option key={person.id} value={person.name} />)}
+                      </datalist>
+                      <button type="submit" className="secondary-button compact-button" disabled={personBusy || !personName.trim()}>
+                        {personBusy ? "Adding…" : "Add"}
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => { setAddingPerson(false); setPersonName(""); setPersonError(""); }}
+                        aria-label="Cancel"
+                      >
+                        <X size={14} aria-hidden="true" />
+                      </button>
+                    </form>
+                  )}
+                  {personError && <span className="gallery-person-error">{personError}</span>}
                 </dd>
               </div>
             )}

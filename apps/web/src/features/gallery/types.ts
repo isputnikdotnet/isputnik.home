@@ -21,6 +21,29 @@ export interface GalleryAsset {
   fileUrl: string;
   tags: string[];
   saved: boolean;
+  // Present only on the single-asset detail (lightbox), not on list/timeline rows.
+  people?: GalleryPersonTag[];
+}
+
+// A person tagged in a photo (id + name), as returned on the asset detail.
+export interface GalleryPersonTag {
+  id: string;
+  name: string;
+}
+
+// A person in the People view: name, how many photos they're in, and a cover. An
+// auto-detected cluster that hasn't been named yet has an empty `name`.
+export interface GalleryPerson {
+  id: string;
+  name: string;
+  faceCount: number;
+  coverUrl: string | null;
+}
+
+// Admin face-recognition settings.
+export interface GalleryFaceSettings {
+  enabled: boolean;
+  threshold: number;
 }
 
 export interface GalleryFolder {

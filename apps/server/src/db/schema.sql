@@ -241,6 +241,48 @@ CREATE TABLE IF NOT EXISTS gallery_details (
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);
 
+-- People in photos. A `gallery_people` row is a named person (e.g. "Mum") that spans
+-- every gallery library (people are global, like book contributors). It doubles as
+-- the auto-grouping "cluster": `centroid` (a mean face embedding) is filled by the
+-- optional face-recognition pass; manual whole-photo tagging leaves it NULL.
+-- `linked_person_id` is a future bridge to the global `people` table (unused today).
+CREATE TABLE IF NOT EXISTS gallery_people (
+  id               TEXT PRIMARY KEY,
+  name             TEXT NOT NULL,
+  linked_person_id TEXT REFERENCES people(id) ON DELETE SET NULL,
+  cover_face_id    TEXT,                          -- chosen representative face (Phase 2)
+  hidden           INTEGER NOT NULL DEFAULT 0,    -- hide a noisy auto-cluster from the People list
+  face_count       INTEGER NOT NULL DEFAULT 0,    -- distinct accessible items; recomputed on change
+  centroid         BLOB,                          -- mean embedding for fast auto-assign (Phase 2)
+  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- One appearance of a person in one asset. A manual whole-photo tag is a row with a
+-- NULL box (box_* / det_score / embedding all NULL, source 'manual'); an
+-- auto-detected face fills the normalised [0,1] box + embedding (source 'scan'). The
+-- two share this table so the manual-first feature and the optional ML pass are one
+-- data model. `assignment` tracks how a face reached its person: a confirmed manual
+-- tag, an auto guess, a user-confirmed/-rejected suggestion.
+CREATE TABLE IF NOT EXISTS gallery_faces (
+  id                TEXT PRIMARY KEY,
+  item_id           TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  person_id         TEXT REFERENCES gallery_people(id) ON DELETE SET NULL,
+  box_x             REAL,                          -- normalised [0,1]; NULL = whole-photo tag
+  box_y             REAL,
+  box_w             REAL,
+  box_h             REAL,
+  det_score         REAL,
+  embedding         BLOB,                          -- face descriptor (Phase 2)
+  embedding_model   TEXT,                          -- tag for invalidation when the model changes
+  assignment        TEXT NOT NULL DEFAULT 'confirmed'
+                      CHECK (assignment IN ('auto', 'suggested', 'confirmed', 'rejected')),
+  source            TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'scan')),
+  thumb_storage_key TEXT,                          -- cropped face thumbnail (Phase 2); NULL = use item cover
+  created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- Custom scan rules: a path-scoped override of the default scanner for specific
 -- folders in a library (docs/custom-scan-rules-proposal.md). An enabled rule owns
 -- and scans its folders with its own layout pattern; the default scanner skips
@@ -706,6 +748,18 @@ CREATE INDEX IF NOT EXISTS idx_item_categories_category ON item_categories(categ
 CREATE INDEX IF NOT EXISTS idx_category_aliases_cat     ON category_aliases(category_id);
 CREATE INDEX IF NOT EXISTS idx_taggables_entity         ON taggables(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_person_aliases_alias     ON person_aliases(alias);
+CREATE INDEX IF NOT EXISTS idx_gallery_faces_item        ON gallery_faces(item_id);
+CREATE INDEX IF NOT EXISTS idx_gallery_faces_person      ON gallery_faces(person_id);
+
+-- Per-item record of the face-detection pass, so a (re)scan only processes items it
+-- hasn't seen. A row is upserted after an item is detected; `force` deletes rows to
+-- reprocess. Separate table (not a gallery_details column) so it needs no migration.
+CREATE TABLE IF NOT EXISTS gallery_face_scans (
+  item_id    TEXT PRIMARY KEY REFERENCES library_items(id) ON DELETE CASCADE,
+  scanned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  model      TEXT,
+  face_count INTEGER NOT NULL DEFAULT 0
+);
 
 CREATE INDEX IF NOT EXISTS idx_audio_files_item         ON audio_files(item_id, track_number);
 CREATE INDEX IF NOT EXISTS idx_audio_chapters_file      ON audio_chapters(audio_file_id);

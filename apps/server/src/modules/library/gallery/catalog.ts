@@ -35,7 +35,7 @@ interface AssetRow {
   saved: number | null;
 }
 
-const ASSET_COLUMNS = `
+export const ASSET_COLUMNS = `
   library_items.id,
   library_items.library_id,
   library_items.folder_path,
@@ -57,7 +57,7 @@ const ASSET_COLUMNS = `
   gallery_details.preview_storage_key,
   (item_saves.id IS NOT NULL) AS saved`;
 
-const ASSET_JOINS = `
+export const ASSET_JOINS = `
   FROM library_items
   JOIN gallery_details ON gallery_details.item_id = library_items.id
   LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
@@ -70,7 +70,9 @@ const tagsFor = db.prepare(`
   ORDER BY tags.display_name COLLATE NOCASE
 `);
 
-function mapAsset(row: AssetRow) {
+export type GalleryAssetRow = AssetRow;
+
+export function mapAsset(row: AssetRow) {
   const coverUrl = row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null;
   const previewUrl = row.preview_storage_key ? `/api/library/covers/${row.preview_storage_key}` : coverUrl;
   return {
@@ -192,13 +194,26 @@ export function queryGalleryFolders(userId: string, libIds: string[], parent: st
   return { parent: cleanParent, folders, assets: rows.map(mapAsset), total };
 }
 
+// People tagged in one asset (distinct, name-sorted). Attached only to the
+// single-asset detail — the lightbox needs it, the list/timeline views do not.
+const peopleForAssetStmt = db.prepare(`
+  SELECT DISTINCT gallery_people.id, gallery_people.name
+  FROM gallery_faces
+  JOIN gallery_people ON gallery_people.id = gallery_faces.person_id
+  WHERE gallery_faces.item_id = ? AND gallery_faces.person_id IS NOT NULL
+    AND gallery_faces.assignment != 'rejected'
+  ORDER BY gallery_people.name COLLATE NOCASE
+`);
+
 export function getGalleryAsset(userId: string, libIds: string[], id: string) {
   if (libIds.length === 0) return null;
   const row = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE library_items.id = ? AND library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
   `).get(userId, id, ...libIds) as AssetRow | undefined;
-  return row ? mapAsset(row) : null;
+  if (!row) return null;
+  const people = peopleForAssetStmt.all(id) as { id: string; name: string }[];
+  return { ...mapAsset(row), people };
 }
 
 // Facets: which kinds exist, the year range, and how many assets carry GPS (drives
