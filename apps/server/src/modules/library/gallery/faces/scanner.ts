@@ -10,7 +10,7 @@ import { validateLibrarySource, LibrarySourceError } from "../../shared/library-
 import { detectFaces, FACE_EMBEDDING_MODEL } from "./human-session.js";
 import { embeddingToBlob } from "./embedding.js";
 import { clusterGalleryFaces } from "./cluster.js";
-import { faceRecognitionEnabled } from "./settings.js";
+import { faceRecognitionEnabledForLibrary } from "./settings.js";
 
 const faceJobType = "SCAN_GALLERY_FACES";
 
@@ -25,7 +25,7 @@ interface PhotoRow {
 }
 
 async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ items: number; faces: number; skipped?: boolean }> {
-  if (!faceRecognitionEnabled()) return { items: 0, faces: 0, skipped: true };
+  if (!faceRecognitionEnabledForLibrary(libraryId)) return { items: 0, faces: 0, skipped: true };
 
   const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
     .get(libraryId) as { id: string; source_path: string } | undefined;

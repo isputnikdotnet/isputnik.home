@@ -3,11 +3,11 @@ import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { db } from "../db.js";
 import { config } from "../config.js";
-import { faceRecognitionEnabled } from "../modules/library/gallery/faces/settings.js";
+import { anyFaceLibraryEnabled } from "../modules/library/gallery/faces/settings.js";
 
 function faceStats() {
   return {
-    enabled: faceRecognitionEnabled(),
+    enabled: anyFaceLibraryEnabled(),
     people: (db.prepare("SELECT COUNT(*) n FROM gallery_people").get() as { n: number }).n,
     faces: (db.prepare("SELECT COUNT(*) n FROM gallery_faces").get() as { n: number }).n,
     scannedItems: (db.prepare("SELECT COUNT(*) n FROM gallery_face_scans").get() as { n: number }).n

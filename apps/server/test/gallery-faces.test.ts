@@ -7,6 +7,10 @@ import {
   embeddingToBlob, blobToEmbedding, cosineSimilarity, centroidOf
 } from "../src/modules/library/gallery/faces/embedding.js";
 import { assignFaces, clusterGalleryFaces } from "../src/modules/library/gallery/faces/cluster.js";
+import {
+  faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary,
+  enabledFaceLibraryIds, anyFaceLibraryEnabled
+} from "../src/modules/library/gallery/faces/settings.js";
 import { listGalleryPeople, untagAssetPerson } from "../src/modules/library/gallery/people.js";
 import { getGalleryAsset } from "../src/modules/library/gallery/catalog.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
@@ -71,6 +75,23 @@ describe("assignFaces (pure greedy clustering)", () => {
   it("attaches a face to a matching pre-existing cluster", () => {
     const out = assignFaces([{ id: "x", embedding: vec(0, 0.05) }], [{ id: "known", vec: vec(0) }], 0.5, () => "new");
     expect(out[0]).toMatchObject({ faceId: "x", clusterId: "known", created: false });
+  });
+});
+
+describe("per-library face recognition settings", () => {
+  beforeEach(() => { resetDb(); makeUser("u1"); });
+
+  it("tracks enablement independently per library", () => {
+    expect(anyFaceLibraryEnabled()).toBe(false);
+    setFaceRecognitionEnabledForLibrary("LIB_A", true, "u1");
+    expect(faceRecognitionEnabledForLibrary("LIB_A")).toBe(true);
+    expect(faceRecognitionEnabledForLibrary("LIB_B")).toBe(false);
+    expect(enabledFaceLibraryIds()).toEqual(["LIB_A"]);
+    expect(anyFaceLibraryEnabled()).toBe(true);
+
+    setFaceRecognitionEnabledForLibrary("LIB_A", false, "u1");
+    expect(enabledFaceLibraryIds()).toEqual([]);
+    expect(anyFaceLibraryEnabled()).toBe(false);
   });
 });
 

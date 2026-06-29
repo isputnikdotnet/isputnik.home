@@ -40,10 +40,18 @@ export interface GalleryPerson {
   coverUrl: string | null;
 }
 
-// Admin face-recognition settings.
-export interface GalleryFaceSettings {
+// Admin face-recognition settings: per-gallery-library enablement + scan progress.
+export interface GalleryFaceLibrary {
+  id: string;
+  name: string;
   enabled: boolean;
+  photos: number;
+  scanned: number;
+}
+
+export interface GalleryFaceSettings {
   threshold: number;
+  libraries: GalleryFaceLibrary[];
 }
 
 export interface GalleryFolder {

@@ -10,6 +10,7 @@ import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiob
 import type { SortKey } from "../audiobooks/BookFilter";
 import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
+import { GalleryFaceSettingsModal } from "./GalleryFaceSettingsModal";
 import type { GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryPerson } from "./types";
 
 const PAGE_SIZE = 80;
@@ -135,9 +136,9 @@ export function GalleryPage({
   const [people, setPeople] = useState<GalleryPerson[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string } | null>(null);
   const [personAssets, setPersonAssets] = useState<GalleryAsset[]>([]);
-  // Face recognition (admin): settings + a busy flag for enable/scan actions.
+  // Face recognition (admin): per-library settings + the settings popup.
   const [faceSettings, setFaceSettings] = useState<GalleryFaceSettings | null>(null);
-  const [faceBusy, setFaceBusy] = useState(false);
+  const [faceModalOpen, setFaceModalOpen] = useState(false);
   // Inline rename of the open person.
   const [renameValue, setRenameValue] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
@@ -276,42 +277,11 @@ export function GalleryPage({
   const loadFaceSettings = useCallback(async () => {
     if (!isAdmin) return;
     try {
-      const payload = await api<{ settings: GalleryFaceSettings }>("/api/library/gallery/faces/settings");
-      setFaceSettings(payload.settings);
+      setFaceSettings(await api<GalleryFaceSettings>("/api/library/gallery/faces/settings"));
     } catch { /* non-admins / errors just hide the controls */ }
   }, [isAdmin]);
 
-  const toggleFaceRecognition = useCallback(async (enabled: boolean) => {
-    setFaceBusy(true);
-    try {
-      const payload = await api<{ settings: GalleryFaceSettings }>("/api/library/gallery/faces/settings", {
-        method: "PATCH",
-        body: JSON.stringify({ enabled })
-      });
-      setFaceSettings(payload.settings);
-      setNotice(enabled ? "Face recognition enabled. Scan a library to find people." : "Face recognition disabled.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update face recognition");
-    } finally {
-      setFaceBusy(false);
-    }
-  }, []);
-
-  const triggerFaceScan = useCallback(async () => {
-    setFaceBusy(true);
-    setNotice("");
-    try {
-      await api("/api/library/gallery/faces/scan", {
-        method: "POST",
-        body: JSON.stringify(scopeId === "all" ? {} : { libraryId: scopeId })
-      });
-      setNotice("Face scan started. People will appear here as photos are processed.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start the face scan");
-    } finally {
-      setFaceBusy(false);
-    }
-  }, [scopeId]);
+  const anyFaceEnabled = (faceSettings?.libraries ?? []).some((library) => library.enabled);
 
   const submitRename = useCallback(async () => {
     if (!selectedPerson || renameValue == null) return;
@@ -788,26 +758,15 @@ export function GalleryPage({
                 </>
               ) : (
                 <>
-                  {isAdmin && faceSettings && (
+                  {isAdmin && (
                     <div className="gallery-face-admin">
-                      <label className="gallery-face-toggle">
-                        <input
-                          type="checkbox"
-                          checked={faceSettings.enabled}
-                          disabled={faceBusy}
-                          onChange={(event) => void toggleFaceRecognition(event.target.checked)}
-                        />
-                        <span>Face recognition</span>
-                      </label>
-                      {faceSettings.enabled && (
-                        <button type="button" className="secondary-button compact-button" onClick={() => void triggerFaceScan()} disabled={faceBusy}>
-                          <ScanFace size={14} aria-hidden="true" /> {faceBusy ? "Working…" : "Scan for faces"}
-                        </button>
-                      )}
+                      <button type="button" className="secondary-button compact-button" onClick={() => setFaceModalOpen(true)}>
+                        <ScanFace size={14} aria-hidden="true" /> Face recognition
+                      </button>
                       <span className="muted gallery-face-hint">
-                        {faceSettings.enabled
-                          ? "Detects faces in photos and groups them into people automatically."
-                          : "Off — turn on to auto-detect people across your photos."}
+                        {anyFaceEnabled
+                          ? "Detecting faces and grouping people automatically — manage per library."
+                          : "Turn on face recognition per library to auto-detect people in your photos."}
                       </span>
                     </div>
                   )}
@@ -830,8 +789,8 @@ export function GalleryPage({
                       <Users size={48} aria-hidden="true" />
                       <h2>No people yet</h2>
                       <p className="muted">
-                        {isAdmin && faceSettings && !faceSettings.enabled
-                          ? "Turn on face recognition above to auto-detect people — or open a photo's details to tag someone by hand."
+                        {isAdmin && !anyFaceEnabled
+                          ? "Turn on face recognition (button above) to auto-detect people — or open a photo's details to tag someone by hand."
                           : "Open a photo, show its details, and add a person to start grouping by who's in them."}
                       </p>
                     </div>
@@ -966,6 +925,13 @@ export function GalleryPage({
           These items move into the Recycle Bin and leave the gallery for everyone. You can restore them
           from the Recycle Bin, or delete them permanently from there.
         </ConfirmDialog>
+      )}
+
+      {faceModalOpen && (
+        <GalleryFaceSettingsModal
+          onClose={() => setFaceModalOpen(false)}
+          onChanged={() => { void loadFaceSettings(); void loadLibraries(); }}
+        />
       )}
 
       {personDeleteOpen && selectedPerson && (

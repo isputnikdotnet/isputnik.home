@@ -577,6 +577,33 @@
 
 .gallery-face-hint { font-size: 0.84rem; }
 
+/* Face-recognition settings popup: a per-library on/off list with rescan. */
+.gallery-face-modal-intro { margin: 0 0 14px; font-size: 0.88rem; }
+
+.gallery-face-lib-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gallery-face-lib-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.gallery-face-lib-toggle { flex: 1; min-width: 0; }
+.gallery-face-lib-toggle > span { display: flex; flex-direction: column; gap: 1px; }
+.gallery-face-lib-toggle small { color: var(--muted); font-size: 0.8rem; }
+
 /* Per-person curation row (rename / merge / delete) + the merge picker. */
 .gallery-person-toolbar,
 .gallery-merge-panel {

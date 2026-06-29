@@ -18,7 +18,10 @@ import {
   untagAssetPerson,
   getGalleryPersonRow
 } from "./people.js";
-import { faceRecognitionEnabled, faceThreshold, setFaceRecognitionEnabled, setFaceThreshold } from "./faces/settings.js";
+import {
+  faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary, enabledFaceLibraryIds,
+  faceThreshold, setFaceThreshold
+} from "./faces/settings.js";
 import { enqueueFaceScan, processFaceScanQueue } from "./faces/scanner.js";
 
 // People are global, so person management (create/rename/hide/delete) is gated on the
@@ -225,15 +228,47 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     reply.send({ merged: true });
   });
 
-  // ── Face recognition (admin): enable + trigger the detection pass ──
+  // ── Face recognition (admin): per-library enablement + the detection pass ──
+
+  // One row per gallery library: its on/off state plus how much has been scanned, so
+  // the settings popup can show "scanned X of Y photos".
+  interface FaceLibraryRow { id: string; name: string; photos: number; scanned: number }
+
+  function faceLibraryStatus() {
+    const rows = db.prepare(`
+      SELECT
+        libraries.id AS id,
+        libraries.name AS name,
+        COUNT(CASE WHEN gallery_details.kind = 'photo' THEN 1 END) AS photos,
+        COUNT(DISTINCT gallery_face_scans.item_id) AS scanned
+      FROM libraries
+      LEFT JOIN library_items ON library_items.library_id = libraries.id AND library_items.deleted_at IS NULL
+      LEFT JOIN gallery_details ON gallery_details.item_id = library_items.id
+      LEFT JOIN gallery_face_scans ON gallery_face_scans.item_id = library_items.id
+      WHERE libraries.type = 'gallery'
+      GROUP BY libraries.id, libraries.name
+      ORDER BY libraries.name COLLATE NOCASE
+    `).all() as FaceLibraryRow[];
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      enabled: faceRecognitionEnabledForLibrary(r.id),
+      photos: r.photos,
+      scanned: r.scanned
+    }));
+  }
 
   app.get("/api/library/gallery/faces/settings", { preHandler: app.requireAdmin }, async () => ({
-    settings: { enabled: faceRecognitionEnabled(), threshold: faceThreshold() }
+    threshold: faceThreshold(),
+    libraries: faceLibraryStatus()
   }));
 
   const faceSettingsSchema = z.object({
+    libraryId: z.string().trim().min(1).optional(),
     enabled: z.boolean().optional(),
     threshold: z.number().min(0.2).max(0.95).optional()
+  }).refine((v) => v.threshold != null || (v.libraryId != null && v.enabled != null), {
+    message: "Provide { libraryId, enabled } and/or { threshold }."
   });
 
   app.patch("/api/library/gallery/faces/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -242,39 +277,58 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       reply.code(400).send({ error: "Invalid settings", details: parsed.error });
       return;
     }
-    if (parsed.data.enabled != null) setFaceRecognitionEnabled(parsed.data.enabled, request.user!.id);
     if (parsed.data.threshold != null) setFaceThreshold(parsed.data.threshold, request.user!.id);
-    logActivity({
-      event: "library.gallery.faces.settings",
-      actorUserId: request.user!.id,
-      targetType: "setting",
-      targetId: "face_recognition",
-      detail: `Face recognition ${faceRecognitionEnabled() ? "enabled" : "disabled"}.`,
-      ipAddress: request.ip
-    });
-    reply.send({ settings: { enabled: faceRecognitionEnabled(), threshold: faceThreshold() } });
+
+    if (parsed.data.libraryId != null && parsed.data.enabled != null) {
+      const lib = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
+        .get(parsed.data.libraryId) as { id: string; name: string } | undefined;
+      if (!lib) {
+        reply.code(404).send({ error: "Gallery library not found" });
+        return;
+      }
+      setFaceRecognitionEnabledForLibrary(lib.id, parsed.data.enabled, request.user!.id);
+      // Turning a library on kicks off an initial scan of its not-yet-processed photos.
+      if (parsed.data.enabled) {
+        enqueueFaceScan(lib.id, false);
+        void processFaceScanQueue();
+      }
+      logActivity({
+        event: "library.gallery.faces.settings",
+        actorUserId: request.user!.id,
+        targetType: "library",
+        targetId: lib.id,
+        detail: `Face recognition ${parsed.data.enabled ? "enabled" : "disabled"} for "${lib.name}".`,
+        ipAddress: request.ip
+      });
+    }
+
+    reply.send({ threshold: faceThreshold(), libraries: faceLibraryStatus() });
   });
 
-  // Queue a face scan for one gallery library, or every gallery library when no id is
-  // given. `force` reprocesses items already scanned.
+  // Queue a face scan. With a libraryId, scans just that library (must be enabled);
+  // without one, scans every enabled gallery library. `force` reprocesses every photo
+  // from scratch — the "completely rescan" action.
   const scanSchema = z.object({
     libraryId: z.string().trim().min(1).optional(),
     force: z.boolean().optional()
   });
 
   app.post("/api/library/gallery/faces/scan", { preHandler: app.requireAdmin }, async (request, reply) => {
-    if (!faceRecognitionEnabled()) {
-      reply.code(409).send({ error: "Enable face recognition before scanning." });
-      return;
-    }
     const parsed = parseBody(scanSchema, request.body ?? {});
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid scan request", details: parsed.error });
       return;
     }
-    const ids = parsed.data.libraryId
-      ? [parsed.data.libraryId]
-      : (db.prepare("SELECT id FROM libraries WHERE type = 'gallery'").all() as { id: string }[]).map((r) => r.id);
+    if (parsed.data.libraryId) {
+      if (!faceRecognitionEnabledForLibrary(parsed.data.libraryId)) {
+        reply.code(409).send({ error: "Enable face recognition for this library before scanning." });
+        return;
+      }
+    } else if (enabledFaceLibraryIds().length === 0) {
+      reply.code(409).send({ error: "Enable face recognition for a library before scanning." });
+      return;
+    }
+    const ids = parsed.data.libraryId ? [parsed.data.libraryId] : enabledFaceLibraryIds();
     const jobs = ids.map((id) => enqueueFaceScan(id, parsed.data.force ?? false));
     void processFaceScanQueue();
     logActivity({
@@ -282,7 +336,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       actorUserId: request.user!.id,
       targetType: "library",
       targetId: parsed.data.libraryId ?? "all",
-      detail: `Queued a face scan for ${ids.length} gallery librar${ids.length === 1 ? "y" : "ies"}.`,
+      detail: `Queued a${parsed.data.force ? " full" : "n incremental"} face scan for ${ids.length} gallery librar${ids.length === 1 ? "y" : "ies"}.`,
       ipAddress: request.ip
     });
     reply.send({ jobs: jobs.length });
