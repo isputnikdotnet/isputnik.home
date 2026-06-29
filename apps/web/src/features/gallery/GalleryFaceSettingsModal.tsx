@@ -3,6 +3,7 @@ import { ScanFace } from "lucide-react";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
+import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import type { GalleryFaceLibrary, GalleryFaceSettings } from "./types";
 
@@ -15,6 +16,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [confirmRescan, setConfirmRescan] = useState<GalleryFaceLibrary | null>(null);
 
   const load = async () => {
     try {
@@ -54,6 +56,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     try {
       await api("/api/library/gallery/faces/scan", { method: "POST", body: JSON.stringify({ libraryId: library.id, force: true }) });
       setNotice(`Full rescan started for "${library.name}". People update as photos are reprocessed.`);
+      setConfirmRescan(null);
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to start the rescan");
@@ -63,6 +66,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   };
 
   return (
+    <>
     <Modal variant="card" title="Face recognition" icon={<ScanFace size={22} />} onClose={onClose}>
       <p className="muted gallery-face-modal-intro">
         Find faces in your photos and group the same person together — entirely on this server, nothing
@@ -95,7 +99,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
                 </span>
               </label>
               {library.enabled && (
-                <Button variant="secondary" compact disabled={busyId === library.id} onClick={() => void rescan(library)}>
+                <Button variant="secondary" compact disabled={busyId === library.id} onClick={() => setConfirmRescan(library)}>
                   {busyId === library.id ? "Working…" : "Rescan"}
                 </Button>
               )}
@@ -108,5 +112,20 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
         <Button variant="secondary" onClick={onClose}>Close</Button>
       </div>
     </Modal>
+
+    {confirmRescan && (
+      <ConfirmDialog
+        title={`Rescan "${confirmRescan.name}"?`}
+        confirmLabel="Rescan"
+        busyLabel="Starting…"
+        busy={busyId === confirmRescan.id}
+        onConfirm={() => void rescan(confirmRescan)}
+        onCancel={() => { if (busyId == null) setConfirmRescan(null); }}
+      >
+        This rebuilds the automatic face groups for this library from scratch. Your person names,
+        manual tags, and the photos you've removed from named people are kept.
+      </ConfirmDialog>
+    )}
+    </>
   );
 }
