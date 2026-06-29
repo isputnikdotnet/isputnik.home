@@ -7,10 +7,10 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { validateLibrarySource, LibrarySourceError } from "../../shared/library-source.js";
-import { detectFaces, FACE_EMBEDDING_MODEL } from "./arcface.js";
+import { decodeUpright, detectFacesFromRaw, FACE_EMBEDDING_MODEL, type DecodedImage } from "./arcface.js";
 import { embeddingToBlob } from "./embedding.js";
 import { clusterGalleryFaces } from "./cluster.js";
-import { generateFaceThumb, backfillFaceThumbnails } from "./thumbnails.js";
+import { cropFaceFromRaw, backfillFaceThumbnails } from "./thumbnails.js";
 import { faceRecognitionEnabledForLibrary } from "./settings.js";
 
 const faceJobType = "SCAN_GALLERY_FACES";
@@ -62,18 +62,25 @@ async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ it
   let totalFaces = 0;
   for (const photo of photos) {
     const absolutePath = path.join(root, ...photo.relative_path.split("/"));
-    let faces: Awaited<ReturnType<typeof detectFaces>> = [];
+    // Decode the photo ONCE and reuse it for detection + every face crop.
+    let image: DecodedImage | null = null;
+    let faces: Awaited<ReturnType<typeof detectFacesFromRaw>> = [];
     try {
-      if (fs.existsSync(absolutePath)) faces = await detectFaces(absolutePath);
+      if (fs.existsSync(absolutePath)) {
+        image = await decodeUpright(absolutePath);
+        faces = await detectFacesFromRaw(image);
+      }
     } catch {
-      faces = []; // an undecodable image is still marked scanned (0 faces) so we don't retry it forever
+      // an undecodable image is still marked scanned (0 faces) so we don't retry it forever
+      image = null;
+      faces = [];
     }
     const usable = faces.filter((face) => Math.min(face.box[2], face.box[3]) >= MIN_FACE_SIDE);
-    // Crop a face thumbnail per detected face (async, before the write transaction).
+    // Crop a face thumbnail per detected face from the shared decode (before the write).
     const prepared: { faceId: string; face: (typeof usable)[number]; thumbKey: string | null }[] = [];
     for (const face of usable) {
       const faceId = nanoid(16);
-      const thumbKey = await generateFaceThumb(libraryId, faceId, absolutePath, face.box);
+      const thumbKey = image ? await cropFaceFromRaw(image, libraryId, faceId, face.box) : null;
       prepared.push({ faceId, face, thumbKey });
     }
     db.transaction(() => {
