@@ -183,3 +183,51 @@ describe("gallery map points", () => {
     expect(photos.points.map((p) => p.id)).toEqual([photo]);
   });
 });
+
+describe("gallery rotation", () => {
+  const at = Date.parse("2024-02-02T00:00:00Z");
+  const rowFor = (id: string) => {
+    const { assets } = queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0 });
+    return assets.find((a) => a.id === id)!;
+  };
+
+  it("defaults rotation to 0 and exposes it on the asset", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", at), false);
+    expect(rowFor(id).rotation).toBe(0);
+  });
+
+  it("swaps the displayed dimensions for a 90/270° rotation, leaving the stored width/height", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", at), false);
+    db.prepare("UPDATE gallery_details SET width = 400, height = 300, rotation = 90 WHERE item_id = ?").run(id);
+
+    const row = rowFor(id);
+    expect(row.rotation).toBe(90);
+    expect([row.width, row.height]).toEqual([300, 400]); // swapped for display
+
+    const raw = db.prepare("SELECT width, height FROM gallery_details WHERE item_id = ?").get(id) as { width: number; height: number };
+    expect([raw.width, raw.height]).toEqual([400, 300]); // raw dims untouched (rescan recomputes them)
+  });
+
+  it("keeps a 180° rotation's dimensions unswapped", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", at), false);
+    db.prepare("UPDATE gallery_details SET width = 400, height = 300, rotation = 180 WHERE item_id = ?").run(id);
+    const row = rowFor(id);
+    expect([row.width, row.height]).toEqual([400, 300]);
+  });
+
+  it("preserves a user-set rotation across a rescan", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", at), false);
+    db.prepare("UPDATE gallery_details SET rotation = 270 WHERE item_id = ?").run(id);
+
+    // A rescan sees a changed mtime and re-ingests; the UPSERT must not reset rotation.
+    await ingestGalleryAsset("GAL", asset("a.jpg", at + DAY), false);
+
+    expect((db.prepare("SELECT rotation FROM gallery_details WHERE item_id = ?").get(id) as { rotation: number }).rotation).toBe(270);
+  });
+
+  it("cache-busts the thumbnail URL so a regenerated image reloads", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", at), false);
+    db.prepare("UPDATE item_metadata SET cover_storage_key = 'gallery/aa/bb/x-cover.webp' WHERE item_id = ?").run(id);
+    expect(rowFor(id).coverUrl).toMatch(/\?v=/);
+  });
+});

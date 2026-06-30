@@ -26,6 +26,7 @@ import {
   queryGalleryMapPoints
 } from "./catalog.js";
 import { updateGalleryAsset } from "./edit.js";
+import { rotateGalleryAsset } from "./rotate.js";
 
 // Each uploaded file becomes its own asset (one photo/video = one item), so this
 // also bounds assets-per-upload — galleries are dropped in large batches.
@@ -375,6 +376,43 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       targetType: "library_item",
       targetId: id,
       detail: `Edited gallery item "${parsed.data.title}".`,
+      ipAddress: request.ip
+    });
+
+    reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
+  });
+
+  // Rotate a photo 90° clockwise/counter-clockwise. Stores the angle and bakes it
+  // into the regenerated thumbnails; videos and the original file are untouched.
+  const rotateSchema = z.object({ direction: z.enum(["cw", "ccw"]) });
+
+  app.post("/api/library/gallery/assets/:id/rotate", { preHandler: app.authenticate }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = request.user!;
+    const lib = getLibraryForBook(id);
+    if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
+      reply.code(403).send({ error: "Write access required to edit this item." });
+      return;
+    }
+
+    const parsed = parseBody(rotateSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid rotation", details: parsed.error });
+      return;
+    }
+
+    const result = await rotateGalleryAsset(id, parsed.data.direction);
+    if (!result.ok) {
+      reply.code(result.status).send({ error: result.error });
+      return;
+    }
+
+    logActivity({
+      event: "library.gallery.rotated",
+      actorUserId: user.id,
+      targetType: "library_item",
+      targetId: id,
+      detail: `Rotated gallery photo ${parsed.data.direction === "cw" ? "right" : "left"} (now ${result.rotation}°).`,
       ipAddress: request.ip
     });
 

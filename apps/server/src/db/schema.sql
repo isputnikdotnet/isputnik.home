@@ -226,6 +226,10 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   width               INTEGER,
   height              INTEGER,
   orientation         INTEGER,
+  -- User-applied clockwise rotation in degrees (0/90/180/270), baked into the
+  -- generated thumbnails on top of EXIF orientation. Owned by the user, so a
+  -- rescan preserves it (the gallery_details UPSERT never writes this column).
+  rotation            INTEGER NOT NULL DEFAULT 0,
   duration_seconds    REAL,
   taken_at            TEXT,
   -- 'manual' = the date was set by a user (edit modal) and a rescan must not

@@ -105,9 +105,14 @@ export async function ingestGalleryAsset(
     ? (db.prepare("SELECT source FROM item_metadata WHERE item_id = ?").get(itemId) as { source: string } | undefined)?.source === "manual"
     : false;
 
+  // A user-applied rotation is owned by the user; carry it onto regenerated
+  // thumbnails when a changed file is re-ingested (the column itself is preserved
+  // by the gallery_details UPSERT, which never writes it).
+  let existingRotation = 0;
   if (existing) {
-    const prior = db.prepare("SELECT size, modified_at, preview_storage_key FROM gallery_details WHERE item_id = ?")
-      .get(itemId) as { size: number | null; modified_at: string | null; preview_storage_key: string | null } | undefined;
+    const prior = db.prepare("SELECT size, modified_at, preview_storage_key, rotation FROM gallery_details WHERE item_id = ?")
+      .get(itemId) as { size: number | null; modified_at: string | null; preview_storage_key: string | null; rotation: number | null } | undefined;
+    existingRotation = prior?.rotation ?? 0;
     const unchanged = prior && prior.size === file.size && prior.modified_at === modifiedIso && prior.preview_storage_key;
     if (unchanged) {
       // Revive a previously-missing row without re-reading the file.
@@ -121,7 +126,7 @@ export async function ingestGalleryAsset(
     : { width: null, height: null, orientation: null, durationSeconds: null, takenAt: null, gpsLat: null, gpsLng: null, cameraMake: null, cameraModel: null };
   // Fall back to the file's mtime so every asset has a Timeline date.
   const takenAt = metadata.takenAt ?? modifiedIso;
-  const thumbs = await generateGalleryThumbnails(libraryId, itemId, file.kind, file.absolutePath);
+  const thumbs = await generateGalleryThumbnails(libraryId, itemId, file.kind, file.absolutePath, existingRotation);
   const title = file.fileName;
 
   db.transaction(() => {

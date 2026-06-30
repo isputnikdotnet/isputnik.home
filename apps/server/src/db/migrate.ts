@@ -67,6 +67,18 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE gallery_details ADD COLUMN taken_at_source TEXT NOT NULL DEFAULT 'scan'");
       }
     }
+  },
+  // Manual photo rotation: a user-applied clockwise angle (0/90/180/270) baked into
+  // the regenerated thumbnails on top of EXIF orientation. Existing rows default to
+  // 0. Conditional because schema.sql (run first) already adds it on fresh databases.
+  {
+    version: 7,
+    up: (db) => {
+      const columns = db.pragma("table_info(gallery_details)") as { name: string }[];
+      if (!columns.some((column) => column.name === "rotation")) {
+        db.exec("ALTER TABLE gallery_details ADD COLUMN rotation INTEGER NOT NULL DEFAULT 0");
+      }
+    }
   }
 ];
 
