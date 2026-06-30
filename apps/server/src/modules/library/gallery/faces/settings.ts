@@ -13,7 +13,7 @@ const K_KEY = "face_recognition.k";
 export const DEFAULT_FACE_THRESHOLD = 0.3;
 // "Grouping strength": each pair must be within the other's top-K neighbours to link.
 // Lower K = purer but more fragmented groups; higher K = more consolidated but more
-// risk of merging different people. 3 is the tested sweet spot for the faceres model.
+// risk of merging different people. 3 is the tested sweet spot for the ArcFace model.
 export const DEFAULT_FACE_K = 3;
 
 function readSetting(key: string): string | null {
@@ -48,7 +48,7 @@ export function anyFaceLibraryEnabled(): boolean {
 }
 
 // Cosine-similarity cut-off for joining a face to an existing cluster. Tuned for the
-// faceres 1024-d descriptor; clamped to a sane range.
+// ArcFace 512-d descriptor; clamped to a sane range.
 export function faceThreshold(): number {
   const raw = readSetting(THRESHOLD_KEY);
   const parsed = raw == null ? NaN : Number.parseFloat(raw);

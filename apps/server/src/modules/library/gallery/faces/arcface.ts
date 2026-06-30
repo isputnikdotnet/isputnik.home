@@ -1,11 +1,14 @@
-// In-process face detection + embedding using InsightFace "buffalo_s" ONNX models on
-// onnxruntime-node (native CPU): SCRFD detector → 5-point alignment (similarity warp to
-// 112×112) → ArcFace MobileFaceNet → 512-d embedding. ArcFace's accuracy lives in the
-// alignment, so the warp is essential. Everything is lazy: the models load on the first
-// detectFaces() call, so a server that never runs a face scan pays nothing.
+// In-process face detection + embedding using InsightFace ONNX models on onnxruntime-node
+// (native CPU): SCRFD detector → 5-point alignment (similarity warp to 112×112) → ArcFace
+// ResNet50 recogniser → 512-d embedding. ArcFace's accuracy lives in the alignment, so the
+// warp is essential. Everything is lazy: the models load on the first detectFaces() call,
+// so a server that never runs a face scan pays nothing.
 //
-// Models are vendored at apps/server/models/face/ (det_500m.onnx, w600k_mbf.onnx) and
-// loaded from there — no download, nothing leaves the machine.
+// Recogniser is the buffalo_l/m ResNet50 (w600k_r50) — far stronger clustering than the
+// buffalo_s MobileFaceNet, which matters for family photos spanning years/ages. Detector
+// stays the lightweight buffalo_s SCRFD-500MF (det_500m). Models are vendored at
+// apps/server/models/face/ (det_500m.onnx, w600k_r50.onnx) and loaded from there — no
+// download, nothing leaves the machine.
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
@@ -42,7 +45,40 @@ function modelsDir(): string {
     path.resolve(process.cwd(), "models/face"),             // cwd = apps/server
     path.resolve(process.cwd(), "../models/face")
   ];
-  return candidates.find((p) => fs.existsSync(path.join(p, "w600k_mbf.onnx"))) ?? candidates[0];
+  return candidates.find((p) => fs.existsSync(path.join(p, "w600k_r50.onnx"))) ?? candidates[0];
+}
+
+// Execution providers are env-driven (FACE_ORT_PROVIDERS, comma-separated, e.g.
+// "cuda,cpu" or "dml,cpu") so a CUDA- or DirectML-enabled onnxruntime build can be
+// switched on without a code change. CPU is always kept as the final fallback, and a
+// requested accelerator the installed binary lacks falls back to CPU rather than failing.
+function requestedProviders(): string[] {
+  const raw = (process.env.FACE_ORT_PROVIDERS ?? "").trim();
+  const list = raw ? raw.split(",").map((p) => p.trim().toLowerCase()).filter(Boolean) : [];
+  if (!list.includes("cpu")) list.push("cpu");
+  return list;
+}
+
+// graphOptimizationLevel "all" lets ORT fuse the graph (the heavier ResNet50 recogniser
+// benefits most). logSeverityLevel 3 (errors only) silences a benign per-run warning: the
+// recogniser's output shape is statically annotated [1,512] from export, so a batched run
+// logs "{1,512} does not match {N,512}" — the result is correct, but it would otherwise
+// spam once per multi-face photo during a scan. Tries the requested providers, then
+// retries CPU-only on failure.
+async function createSession(file: string): Promise<ort.InferenceSession> {
+  const providers = requestedProviders();
+  const opts: ort.InferenceSession.SessionOptions = {
+    graphOptimizationLevel: "all",
+    logSeverityLevel: 3,
+    executionProviders: providers as ort.InferenceSession.SessionOptions["executionProviders"]
+  };
+  try {
+    return await ort.InferenceSession.create(file, opts);
+  } catch (err) {
+    if (providers.length === 1) throw err; // already CPU-only — nothing to fall back to
+    console.warn(`face engine: providers [${providers.join(", ")}] failed (${err instanceof Error ? err.message : err}); falling back to CPU.`);
+    return ort.InferenceSession.create(file, { ...opts, executionProviders: ["cpu"] });
+  }
 }
 
 let enginePromise: Promise<{ det: ort.InferenceSession; rec: ort.InferenceSession }> | null = null;
@@ -55,8 +91,8 @@ function getEngine() {
       sharp.cache(false);
       const dir = modelsDir();
       const [det, rec] = await Promise.all([
-        ort.InferenceSession.create(path.join(dir, "det_500m.onnx")),
-        ort.InferenceSession.create(path.join(dir, "w600k_mbf.onnx"))
+        createSession(path.join(dir, "det_500m.onnx")),
+        createSession(path.join(dir, "w600k_r50.onnx"))
       ]);
       return { det, rec };
     })().catch((err) => { enginePromise = null; throw err; });
@@ -210,16 +246,27 @@ export async function detectFacesFromRaw(image: DecodedImage): Promise<DetectedF
   }
   const detOut = await det.run({ [det.inputNames[0]]: new ort.Tensor("float32", inp, [1, 3, DET_SIZE, DET_SIZE]) });
   const dets = decodeScrfd(detOut, scale, 0.5);
+  if (dets.length === 0) return [];
+
+  // Align every face, then run recognition ONCE over the whole batch. Batching amortises
+  // the per-call overhead and lets onnxruntime parallelise across faces — a real win for
+  // the heavier ResNet50 recogniser, and free for MobileFaceNet. The recogniser has no
+  // cross-image state, so a batched run is numerically identical to per-face runs.
+  const N = dets.length;
+  const FACE = 3 * 112 * 112;
+  const batch = new Float32Array(N * FACE);
+  for (let i = 0; i < N; i += 1) batch.set(warpToArcInput(rgb, W, H, similarityTransform(dets[i].kps)), i * FACE);
+  const recOut = await rec.run({ [rec.inputNames[0]]: new ort.Tensor("float32", batch, [N, 3, 112, 112]) });
+  const out = recOut[rec.outputNames[0]].data as Float32Array;
+  const dim = out.length / N; // 512 for both ArcFace recognisers
 
   const faces: DetectedFace[] = [];
-  for (const d of dets) {
-    const aligned = warpToArcInput(rgb, W, H, similarityTransform(d.kps));
-    const recOut = await rec.run({ [rec.inputNames[0]]: new ort.Tensor("float32", aligned, [1, 3, 112, 112]) });
-    const embedding = l2(Float32Array.from(recOut[rec.outputNames[0]].data as Float32Array));
-    const [x1, y1, x2, y2] = d.box;
+  for (let i = 0; i < N; i += 1) {
+    const embedding = l2(out.slice(i * dim, (i + 1) * dim));
+    const [x1, y1, x2, y2] = dets[i].box;
     faces.push({
       box: [Math.max(0, x1 / W), Math.max(0, y1 / H), Math.max(0, (x2 - x1) / W), Math.max(0, (y2 - y1) / H)],
-      score: d.score,
+      score: dets[i].score,
       embedding
     });
   }

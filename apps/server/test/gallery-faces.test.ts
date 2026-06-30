@@ -7,6 +7,7 @@ import {
   embeddingToBlob, blobToEmbedding, cosineSimilarity, centroidOf
 } from "../src/modules/library/gallery/faces/embedding.js";
 import { mutualKnnClusters, clusterGalleryFaces } from "../src/modules/library/gallery/faces/cluster.js";
+import { FACE_EMBEDDING_MODEL } from "../src/modules/library/gallery/faces/model-id.js";
 import { clearLibraryFaceData } from "../src/modules/library/gallery/faces/clear.js";
 import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary,
@@ -110,8 +111,8 @@ describe("clusterGalleryFaces (DB)", () => {
     const itemId = await ingestGalleryAsset("GAL", asset(rel, when), false);
     db.prepare(`
       INSERT INTO gallery_faces (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, assignment, source)
-      VALUES (?, ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, 'buffalo_s/w600k_mbf', 'auto', 'scan')
-    `).run(`f_${rel}`, itemId, embeddingToBlob(embedding));
+      VALUES (?, ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, ?, 'auto', 'scan')
+    `).run(`f_${rel}`, itemId, embeddingToBlob(embedding), FACE_EMBEDDING_MODEL);
     return itemId;
   }
 
@@ -204,7 +205,7 @@ describe("clusterGalleryFaces (DB)", () => {
     await addFace("a2.jpg", vec(0, 0.1), t + 1000);
     clusterGalleryFaces();
     // A scan marker and an exclusion exist for the library's items.
-    db.prepare("INSERT INTO gallery_face_scans (item_id, model, face_count) VALUES (?, 'buffalo_s/w600k_mbf', 1)").run(i1);
+    db.prepare("INSERT INTO gallery_face_scans (item_id, model, face_count) VALUES (?, ?, 1)").run(i1, FACE_EMBEDDING_MODEL);
     const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
     db.prepare("INSERT INTO gallery_face_exclusions (item_id, person_id) VALUES (?, ?)").run(i1, personId);
     expect(listGalleryPeople(["GAL"]).length).toBe(1);
@@ -231,8 +232,8 @@ describe("clusterGalleryFaces (DB)", () => {
     }, false);
     db.prepare(`
       INSERT INTO gallery_faces (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, assignment, source)
-      VALUES ('f_other', ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, 'buffalo_s/w600k_mbf', 'auto', 'scan')
-    `).run(other, embeddingToBlob(vec(4)));
+      VALUES ('f_other', ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, ?, 'auto', 'scan')
+    `).run(other, embeddingToBlob(vec(4)), FACE_EMBEDDING_MODEL);
     clusterGalleryFaces();
 
     clearLibraryFaceData("GAL");
