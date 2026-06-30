@@ -11,6 +11,7 @@ export interface GalleryAsset {
   width: number | null;
   height: number | null;
   orientation: number | null;
+  rotation: number; // user-applied clockwise angle (0/90/180/270), baked into thumbnails
   durationSeconds: number | null;
   mimeType: string | null;
   size: number | null;

@@ -23,6 +23,7 @@ interface AssetRow {
   width: number | null;
   height: number | null;
   orientation: number | null;
+  rotation: number | null;
   duration_seconds: number | null;
   mime_type: string | null;
   size: number | null;
@@ -32,6 +33,7 @@ interface AssetRow {
   camera_model: string | null;
   cover_storage_key: string | null;
   preview_storage_key: string | null;
+  updated_at: string | null;
   saved: number | null;
 }
 
@@ -46,6 +48,7 @@ export const ASSET_COLUMNS = `
   gallery_details.width,
   gallery_details.height,
   gallery_details.orientation,
+  gallery_details.rotation,
   gallery_details.duration_seconds,
   gallery_details.mime_type,
   gallery_details.size,
@@ -55,6 +58,7 @@ export const ASSET_COLUMNS = `
   gallery_details.camera_model,
   item_metadata.cover_storage_key,
   gallery_details.preview_storage_key,
+  gallery_details.updated_at,
   (item_saves.id IS NOT NULL) AS saved`;
 
 export const ASSET_JOINS = `
@@ -73,8 +77,15 @@ const tagsFor = db.prepare(`
 export type GalleryAssetRow = AssetRow;
 
 export function mapAsset(row: AssetRow) {
-  const coverUrl = row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null;
-  const previewUrl = row.preview_storage_key ? `/api/library/covers/${row.preview_storage_key}` : coverUrl;
+  const rotation = row.rotation ?? 0;
+  // Thumbnails are regenerated in place (same storage key) on rotate/edit, so bust
+  // the image cache with updated_at — otherwise the <img> keeps the stale bytes.
+  const v = row.updated_at ? `?v=${encodeURIComponent(row.updated_at)}` : "";
+  const coverUrl = row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}${v}` : null;
+  const previewUrl = row.preview_storage_key ? `/api/library/covers/${row.preview_storage_key}${v}` : coverUrl;
+  // A 90/270° manual rotation swaps the displayed dimensions; the raw width/height
+  // stay in the DB so a rescan can recompute them from the file.
+  const swap = rotation === 90 || rotation === 270;
   return {
     id: row.id,
     libraryId: row.library_id,
@@ -84,9 +95,10 @@ export function mapAsset(row: AssetRow) {
     title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
     description: row.description,
     takenAt: row.taken_at,
-    width: row.width,
-    height: row.height,
+    width: swap ? row.height : row.width,
+    height: swap ? row.width : row.height,
     orientation: row.orientation,
+    rotation,
     durationSeconds: row.duration_seconds,
     mimeType: row.mime_type,
     size: row.size,

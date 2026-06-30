@@ -179,14 +179,16 @@ export interface ThumbnailKeys {
 }
 
 // Generate a grid thumbnail + a larger preview for one asset. For photos the source
-// is the file; for videos it's an ffmpeg poster frame. Returns null when no image
-// could be produced (e.g. an undecodable HEIC or a video with ffmpeg missing) — the
-// asset is still indexed, just without artwork.
+// is the file; for videos it's an ffmpeg poster frame. `rotation` is a user-applied
+// clockwise angle (0/90/180/270) baked in on top of the EXIF orientation. Returns
+// null when no image could be produced (e.g. an undecodable HEIC or a video with
+// ffmpeg missing) — the asset is still indexed, just without artwork.
 export async function generateGalleryThumbnails(
   libraryId: string,
   itemId: string,
   kind: AssetKind,
-  absolutePath: string
+  absolutePath: string,
+  rotation = 0
 ): Promise<ThumbnailKeys | null> {
   const source: Buffer | string | null = kind === "video" ? await videoPosterBuffer(absolutePath) : absolutePath;
   if (!source) return null;
@@ -196,10 +198,15 @@ export async function generateGalleryThumbnails(
     const coverPath = thumbnailAbsolutePath(coverKey);
     const previewPath = thumbnailAbsolutePath(previewKey);
     fs.mkdirSync(path.dirname(coverPath), { recursive: true });
-    // rotate() applies the EXIF orientation so thumbnails are upright.
+    // rotate() applies the EXIF orientation so thumbnails are upright; a second
+    // rotate(angle) then adds any manual rotation (sharp composes the two).
+    const oriented = () => {
+      const img = sharp(source, { failOn: "none" }).rotate();
+      return rotation ? img.rotate(rotation) : img;
+    };
     await Promise.all([
-      sharp(source, { failOn: "none" }).rotate().resize(400, 400, { fit: "inside", withoutEnlargement: true }).webp({ quality: 80 }).toFile(coverPath),
-      sharp(source, { failOn: "none" }).rotate().resize(1600, 1600, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toFile(previewPath)
+      oriented().resize(400, 400, { fit: "inside", withoutEnlargement: true }).webp({ quality: 80 }).toFile(coverPath),
+      oriented().resize(1600, 1600, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toFile(previewPath)
     ]);
     return { coverKey, previewKey };
   } catch {

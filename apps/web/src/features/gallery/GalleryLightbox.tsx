@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Pencil, Plus, Share2, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Pencil, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
@@ -60,6 +60,7 @@ export function GalleryLightbox({
   const [deleteError, setDeleteError] = useState("");
   const [fav, setFav] = useState(asset?.saved ?? false);
   const [favBusy, setFavBusy] = useState(false);
+  const [rotateBusy, setRotateBusy] = useState(false);
 
   // People tagged in this asset. The list/timeline rows don't carry `people`, so when
   // it's absent we fetch the asset detail. `allPeople` feeds the add-box suggestions.
@@ -126,6 +127,24 @@ export function GalleryLightbox({
       setFav(!next);
     } finally {
       setFavBusy(false);
+    }
+  };
+
+  // Rotate the photo 90° and refetch so the regenerated (cache-busted) thumbnail
+  // loads. Photos only; the button isn't shown for videos.
+  const rotate = async (direction: "cw" | "ccw") => {
+    if (rotateBusy) return;
+    setRotateBusy(true);
+    try {
+      await api(`/api/library/gallery/assets/${asset.id}/rotate`, {
+        method: "POST",
+        body: JSON.stringify({ direction })
+      });
+      onChanged();
+    } catch {
+      /* leave the image as-is; the user can retry */
+    } finally {
+      setRotateBusy(false);
     }
   };
 
@@ -246,6 +265,30 @@ export function GalleryLightbox({
           >
             <Info size={18} aria-hidden="true" />
           </button>
+          {canEdit && asset.kind === "photo" && (
+            <>
+              <button
+                className="gallery-lightbox-action"
+                type="button"
+                onClick={() => void rotate("ccw")}
+                disabled={rotateBusy}
+                aria-label="Rotate left"
+                title="Rotate left"
+              >
+                <RotateCcw size={18} aria-hidden="true" />
+              </button>
+              <button
+                className="gallery-lightbox-action"
+                type="button"
+                onClick={() => void rotate("cw")}
+                disabled={rotateBusy}
+                aria-label="Rotate right"
+                title="Rotate right"
+              >
+                <RotateCw size={18} aria-hidden="true" />
+              </button>
+            </>
+          )}
           {canEdit && (
             <button
               className="gallery-lightbox-action"
