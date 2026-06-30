@@ -31,7 +31,7 @@ interface PhotoRow {
   relative_path: string;
 }
 
-async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ items: number; faces: number; skipped?: boolean }> {
+async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ items: number; faces: number; skipped?: boolean; failed?: number }> {
   if (!faceRecognitionEnabledForLibrary(libraryId)) return { items: 0, faces: 0, skipped: true };
 
   const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
@@ -60,27 +60,29 @@ async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ it
   `);
 
   let totalFaces = 0;
+  let failed = 0;
   for (const photo of photos) {
     const absolutePath = path.join(root, ...photo.relative_path.split("/"));
+    if (!fs.existsSync(absolutePath)) continue; // gone on disk; the gallery scanner reconciles it
     // Decode the photo ONCE and reuse it for detection + every face crop.
-    let image: DecodedImage | null = null;
-    let faces: Awaited<ReturnType<typeof detectFacesFromRaw>> = [];
+    let image: DecodedImage;
+    let faces: Awaited<ReturnType<typeof detectFacesFromRaw>>;
     try {
-      if (fs.existsSync(absolutePath)) {
-        image = await decodeUpright(absolutePath);
-        faces = await detectFacesFromRaw(image);
-      }
-    } catch {
-      // an undecodable image is still marked scanned (0 faces) so we don't retry it forever
-      image = null;
-      faces = [];
+      image = await decodeUpright(absolutePath);
+      faces = await detectFacesFromRaw(image);
+    } catch (err) {
+      // A real decode/detect failure (e.g. memory pressure) must NOT be recorded as a
+      // 0-face photo — leave its faces + scan state untouched so a later scan retries.
+      failed += 1;
+      if (failed <= 5) console.warn(`face scan: skipping ${photo.relative_path}:`, err instanceof Error ? err.message : err);
+      continue;
     }
     const usable = faces.filter((face) => Math.min(face.box[2], face.box[3]) >= MIN_FACE_SIDE);
     // Crop a face thumbnail per detected face from the shared decode (before the write).
     const prepared: { faceId: string; face: (typeof usable)[number]; thumbKey: string | null }[] = [];
     for (const face of usable) {
       const faceId = nanoid(16);
-      const thumbKey = image ? await cropFaceFromRaw(image, libraryId, faceId, face.box) : null;
+      const thumbKey = await cropFaceFromRaw(image, libraryId, faceId, face.box);
       prepared.push({ faceId, face, thumbKey });
     }
     db.transaction(() => {
@@ -99,7 +101,8 @@ async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ it
   }
 
   clusterGalleryFaces();
-  return { items: photos.length, faces: totalFaces };
+  if (failed > 0) console.warn(`face scan: ${failed} of ${photos.length} photos failed to process (left for retry).`);
+  return { items: photos.length, faces: totalFaces, failed };
 }
 
 export function enqueueFaceScan(libraryId: string, force = false): string {
