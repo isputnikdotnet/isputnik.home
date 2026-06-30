@@ -1,7 +1,9 @@
 // Face-detection job: walks a gallery library's photos, runs the in-process detector,
 // and writes one gallery_faces row per detected face (box + embedding), then triggers
-// clustering. Mirrors the gallery scan queue (jobs table, 2s poller). Resumable: an
-// item is skipped once it has a gallery_face_scans row unless `force` is set.
+// clustering. Mirrors the gallery scan queue (jobs table, 2s poller). Resumable and
+// model-aware: an item is skipped only once it has a gallery_face_scans row for the
+// CURRENT embedding model, so bumping FACE_EMBEDDING_MODEL re-embeds stale-model photos
+// on the next normal scan (no `force` needed). `force` reprocesses every photo regardless.
 import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
@@ -39,14 +41,16 @@ async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ it
   if (!library) throw new Error("Gallery library not found.");
   const root = validateLibrarySource(library.source_path);
 
+  // Non-forced: join the scan marker on the CURRENT model only, so a photo last scanned
+  // under a different (old) embedding model fails the join and gets re-embedded.
   const photos = db.prepare(`
     SELECT li.id AS id, gd.relative_path AS relative_path
     FROM library_items li
     JOIN gallery_details gd ON gd.item_id = li.id
-    ${force ? "" : "LEFT JOIN gallery_face_scans s ON s.item_id = li.id"}
+    ${force ? "" : "LEFT JOIN gallery_face_scans s ON s.item_id = li.id AND s.model = ?"}
     WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready' AND gd.kind = 'photo'
     ${force ? "" : "AND s.item_id IS NULL"}
-  `).all(libraryId) as PhotoRow[];
+  `).all(...(force ? [libraryId] : [FACE_EMBEDDING_MODEL, libraryId])) as PhotoRow[];
 
   const insertFace = db.prepare(`
     INSERT INTO gallery_faces

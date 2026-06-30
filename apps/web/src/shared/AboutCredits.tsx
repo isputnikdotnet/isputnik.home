@@ -15,7 +15,7 @@ const CREDITS: { group: string; items: Credit[] }[] = [
   {
     group: "Face recognition",
     items: [
-      { name: "InsightFace · buffalo_s", use: "SCRFD face detector + ArcFace recognition models", license: "Models: non-commercial / research use", url: "https://github.com/deepinsight/insightface" },
+      { name: "InsightFace · buffalo (SCRFD + ArcFace r50)", use: "SCRFD-500MF face detector + ArcFace ResNet50 recognition", license: "Models: non-commercial / research use", url: "https://github.com/deepinsight/insightface" },
       { name: "ONNX Runtime", use: "Runs the face models on your server (onnxruntime-node)", license: "MIT", url: "https://onnxruntime.ai" }
     ]
   },

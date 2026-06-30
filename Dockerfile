@@ -40,8 +40,8 @@ COPY --from=deps /build/apps/server/node_modules ./apps/server/node_modules
 # Compiled server
 COPY --from=server-build /build/apps/server/dist ./apps/server/dist
 
-# Vendored ONNX face-recognition models (InsightFace buffalo_s: SCRFD detector +
-# ArcFace). Resolved at runtime from apps/server/models/face/ (cwd is /app).
+# Vendored ONNX face-recognition models (InsightFace: SCRFD-500MF detector +
+# ArcFace ResNet50 recogniser). Resolved at runtime from apps/server/models/face/ (cwd is /app).
 COPY apps/server/models ./apps/server/models
 
 # Built frontend (served as static files by Fastify)

@@ -3,4 +3,4 @@
 // the current model WITHOUT importing arcface.ts (which would eagerly load the native
 // onnxruntime binding). When the model changes, this id changes and old-model faces are
 // ignored by clustering until the library is rescanned.
-export const FACE_EMBEDDING_MODEL = "buffalo_s/w600k_mbf";
+export const FACE_EMBEDDING_MODEL = "buffalo_l/w600k_r50";
