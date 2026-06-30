@@ -584,6 +584,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.4.2",
+          label: "A stronger face-recognition engine (+ Credits page)",
+          changes: [
+            "Face recognition now runs on a stronger, industry-standard model — InsightFace's SCRFD detector plus ArcFace — entirely on your own server. It tells different people apart far more reliably and finds faces more thoroughly, so the groups it makes are noticeably cleaner.",
+            "One-time rescan needed after you update. Because the underlying face model changed, your existing face data doesn't carry across: open a gallery's People tab → Face recognition → Rescan to rebuild it, and re-name anyone you'd already named (just once). On a large library the rescan is quickest when the app is started normally (a production start) rather than in development.",
+            "Faster, steadier scans: each photo is now decoded a single time instead of several times per face, and a photo that fails to process is skipped and logged rather than being silently recorded as having no faces.",
+            "New Credits tab on the About page, acknowledging the open-source projects this app is built on."
+          ]
+        },
+        {
           version: "1.4.1",
           label: "Face recognition: sharper grouping, face thumbnails & fixes",
           changes: [
