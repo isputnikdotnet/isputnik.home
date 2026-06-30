@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { ScanFace } from "lucide-react";
+import { ScanFace, RefreshCw, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
+import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import type { GalleryFaceLibrary, GalleryFaceSettings } from "./types";
@@ -19,6 +20,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [confirmRescan, setConfirmRescan] = useState<GalleryFaceLibrary | null>(null);
+  const [confirmClear, setConfirmClear] = useState<GalleryFaceLibrary | null>(null);
 
   const load = async () => {
     try {
@@ -87,9 +89,29 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     }
   };
 
+  const clearData = async (library: GalleryFaceLibrary) => {
+    setBusyId(library.id);
+    setError("");
+    setNotice("");
+    try {
+      const payload = await api<GalleryFaceSettings>("/api/library/gallery/faces/data", {
+        method: "DELETE",
+        body: JSON.stringify({ libraryId: library.id })
+      });
+      setLibraries(payload.libraries);
+      setNotice(`Removed all face data for "${library.name}".`);
+      setConfirmClear(null);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to remove face data");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <>
-    <Modal variant="card" title="Face recognition" icon={<ScanFace size={22} />} onClose={onClose}>
+    <Modal variant="card" className="gallery-face-modal" title="Face recognition" icon={<ScanFace size={22} />} onClose={onClose}>
       <p className="muted gallery-face-modal-intro">
         Find faces in your photos and group the same person together — entirely on this server, nothing
         is sent to the internet. Turn it on per library.
@@ -104,12 +126,12 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
         <ul className="gallery-face-lib-list">
           {libraries.map((library) => (
             <li key={library.id} className="gallery-face-lib-row">
-              <label className="field-checkbox gallery-face-lib-toggle">
-                <input
-                  type="checkbox"
+              <div className="gallery-face-lib-toggle">
+                <ToggleSwitch
                   checked={library.enabled}
                   disabled={busyId === library.id}
-                  onChange={(event) => void toggle(library, event.target.checked)}
+                  onChange={(enabled) => void toggle(library, enabled)}
+                  ariaLabel={`Face recognition for ${library.name}`}
                 />
                 <span>
                   {library.name}
@@ -119,11 +141,33 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
                       : `${library.photos.toLocaleString()} photos`}
                   </small>
                 </span>
-              </label>
+              </div>
               {library.enabled && (
-                <Button variant="secondary" compact disabled={busyId === library.id} onClick={() => setConfirmRescan(library)}>
-                  {busyId === library.id ? "Working…" : "Rescan"}
-                </Button>
+                <div className="row-actions gallery-face-row-actions">
+                  <Button
+                    variant="icon"
+                    title="Rescan all photos"
+                    aria-label={`Rescan ${library.name}`}
+                    disabled={busyId === library.id}
+                    onClick={() => setConfirmRescan(library)}
+                  >
+                    {busyId === library.id ? (
+                      <span className="icon-spin" aria-hidden="true"><RefreshCw size={15} /></span>
+                    ) : (
+                      <RefreshCw size={15} />
+                    )}
+                  </Button>
+                  <Button
+                    variant="icon"
+                    danger
+                    title="Remove face data"
+                    aria-label={`Remove face data for ${library.name}`}
+                    disabled={busyId === library.id}
+                    onClick={() => { setError(""); setConfirmClear(library); }}
+                  >
+                    <Trash2 size={15} />
+                  </Button>
+                </div>
               )}
             </li>
           ))}
@@ -159,6 +203,31 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
       >
         This rebuilds the automatic face groups for this library from scratch. Your person names,
         manual tags, and the photos you've removed from named people are kept.
+      </ConfirmDialog>
+    )}
+
+    {confirmClear && (
+      <ConfirmDialog
+        title={`Remove face data for "${confirmClear.name}"?`}
+        confirmLabel="Remove face data"
+        busyLabel="Removing…"
+        confirmIcon={<Trash2 size={15} />}
+        danger
+        rich
+        busy={busyId === confirmClear.id}
+        error={error}
+        onConfirm={() => void clearData(confirmClear)}
+        onCancel={() => { if (busyId == null) setConfirmClear(null); }}
+      >
+        <p>
+          This permanently deletes every detected face, automatic grouping, and face tag for
+          <strong> {confirmClear.name}</strong>. People made up only of this library's faces will
+          disappear from the People tab.
+        </p>
+        <p>
+          <strong>Your photos are not deleted</strong>, and named people who also appear in other
+          libraries are kept. You can run face recognition again later to rebuild the groups.
+        </p>
       </ConfirmDialog>
     )}
     </>

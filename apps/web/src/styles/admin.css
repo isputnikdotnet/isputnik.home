@@ -561,7 +561,8 @@
   border-left: 1px solid var(--line);
 }
 
-.backup-settings-row .field-checkbox {
+.backup-settings-row .field-checkbox,
+.backup-settings-row .toggle-switch {
   align-self: center;
 }
 
@@ -660,6 +661,94 @@
 
 .backup-list-card .datagrid-wrap {
   background: var(--surface);
+}
+
+/* ── Scheduled jobs ─────────────────────────────────────────────── */
+
+.scheduled-jobs-intro {
+  max-width: 760px;
+  margin: 4px 0 22px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.scheduled-jobs {
+  display: grid;
+  gap: 18px;
+}
+
+.scheduled-job-card {
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--shadow) 30%, transparent);
+}
+
+.scheduled-job-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.scheduled-job-copy h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.scheduled-job-copy p {
+  margin: 0;
+  max-width: 640px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.scheduled-job-toggle {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.scheduled-job-controls {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.scheduled-job-frequency {
+  max-width: 180px;
+}
+
+.scheduled-job-status {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 280px;
+  min-width: 0;
+  font-size: 0.86rem;
+}
+
+.scheduled-job-last,
+.scheduled-job-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scheduled-job-last.success { color: var(--success, #2f9e44); }
+.scheduled-job-last.error   { color: var(--danger, #e03131); }
+
+.scheduled-job-last small {
+  color: var(--muted);
+}
+
+.scheduled-job-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
 }
 
 /* ── Scan rules modal ───────────────────────────────────────────── */

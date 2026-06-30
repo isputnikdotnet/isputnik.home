@@ -584,6 +584,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.5.0",
+          label: "Scheduled maintenance jobs + control-panel tidy-up",
+          changes: [
+            "New Scheduled jobs tab (under Control panel → Libraries). Two built-in upkeep tasks — \"Clean job logs\" (trims the job history to the most recent 100) and \"Empty recycle bin\" — that you can switch on, set to run every day, week, or month, or trigger once with \"Run now\". Both are off by default.",
+            "Control panel reorganised: the job history now lives under Libraries (as \"Job logs\", alongside Scheduled jobs), and Backup moved under Config. Old links still work.",
+            "Face recognition: you can now remove all face data for a single gallery library — open a gallery's Face recognition window and use the new delete button (it asks first and explains exactly what's cleared). Your photos and any people who also appear in other libraries are kept. Rescan is now a compact icon too.",
+            "Clearer on/off switches replace the old tick-boxes for automatic backups, scheduled jobs, and per-library face recognition.",
+            "Library list polish: each library's Scan rules and Face recognition actions now lead the row and line up neatly across every library type."
+          ]
+        },
+        {
           version: "1.4.2",
           label: "A stronger face-recognition engine (+ Credits page)",
           changes: [

@@ -256,6 +256,64 @@
   cursor: not-allowed;
 }
 
+/* ── Toggle switch ──────────────────────────────────────────────── */
+
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle-switch-track {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--active);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.toggle-switch-track.is-on {
+  border-color: transparent;
+  background: var(--gold);
+}
+
+.toggle-switch-track:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.toggle-switch-track:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.toggle-switch-knob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  transform: translateY(-50%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: left 0.15s ease;
+}
+
+.toggle-switch-track.is-on .toggle-switch-knob {
+  left: 23px;
+}
+
+.toggle-switch-label {
+  font-size: 0.9rem;
+  color: inherit;
+}
+
 /* ── Select menu ────────────────────────────────────────────────── */
 
 .select-menu {
@@ -918,6 +976,14 @@
   min-width: 34px;
   min-height: 34px;
   padding: 8px;
+}
+
+/* Empty placeholder filling the leading action slot for library types without a
+   scan-rules / face action, so the shared icons stay column-aligned across rows. */
+.library-table .library-action-spacer {
+  display: inline-block;
+  width: 34px;
+  height: 34px;
 }
 
 .library-table .secondary-button.compact-button {

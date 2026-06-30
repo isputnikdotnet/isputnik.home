@@ -7,6 +7,7 @@ import {
   embeddingToBlob, blobToEmbedding, cosineSimilarity, centroidOf
 } from "../src/modules/library/gallery/faces/embedding.js";
 import { mutualKnnClusters, clusterGalleryFaces } from "../src/modules/library/gallery/faces/cluster.js";
+import { clearLibraryFaceData } from "../src/modules/library/gallery/faces/clear.js";
 import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary,
   enabledFaceLibraryIds, anyFaceLibraryEnabled
@@ -195,5 +196,49 @@ describe("clusterGalleryFaces (DB)", () => {
     expect((db.prepare("SELECT assignment FROM gallery_faces WHERE item_id = ?").get(i1) as { assignment: string }).assignment).toBe("rejected");
     const people = (getGalleryAsset("u1", ["GAL"], i1) as { people?: { id: string }[] }).people ?? [];
     expect(people.some((p) => p.id === personId)).toBe(false);
+  });
+
+  it("clearLibraryFaceData wipes faces, scan markers, and exclusions and prunes people", async () => {
+    const t = Date.parse("2024-05-01T00:00:00Z");
+    const i1 = await addFace("a1.jpg", vec(0, 0.05), t);
+    await addFace("a2.jpg", vec(0, 0.1), t + 1000);
+    clusterGalleryFaces();
+    // A scan marker and an exclusion exist for the library's items.
+    db.prepare("INSERT INTO gallery_face_scans (item_id, model, face_count) VALUES (?, 'buffalo_s/w600k_mbf', 1)").run(i1);
+    const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
+    db.prepare("INSERT INTO gallery_face_exclusions (item_id, person_id) VALUES (?, ?)").run(i1, personId);
+    expect(listGalleryPeople(["GAL"]).length).toBe(1);
+
+    const result = clearLibraryFaceData("GAL");
+    expect(result.faces).toBe(2);
+    expect(result.photos).toBe(1);
+
+    expect((db.prepare("SELECT COUNT(*) AS n FROM gallery_faces").get() as { n: number }).n).toBe(0);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM gallery_face_scans").get() as { n: number }).n).toBe(0);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM gallery_face_exclusions").get() as { n: number }).n).toBe(0);
+    // The unnamed person, now faceless, is pruned.
+    expect(listGalleryPeople(["GAL"]).length).toBe(0);
+  });
+
+  it("clearLibraryFaceData keeps another library's faces", async () => {
+    makeLibrary("GAL2", { createdBy: "u1", type: "gallery" });
+    grant("group", EVERYONE_GROUP_ID, "GAL2", "member");
+    const t = Date.parse("2024-06-01T00:00:00Z");
+    await addFace("a1.jpg", vec(0, 0.05), t);
+    // A face in the other library (insert directly against a GAL2 item).
+    const other = await ingestGalleryAsset("GAL2", {
+      ...asset("b1.jpg", t + 1000), absolutePath: "/src/GAL2/b1.jpg"
+    }, false);
+    db.prepare(`
+      INSERT INTO gallery_faces (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, assignment, source)
+      VALUES ('f_other', ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, 'buffalo_s/w600k_mbf', 'auto', 'scan')
+    `).run(other, embeddingToBlob(vec(4)));
+    clusterGalleryFaces();
+
+    clearLibraryFaceData("GAL");
+
+    const remaining = db.prepare("SELECT item_id FROM gallery_faces").all() as { item_id: string }[];
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].item_id).toBe(other);
   });
 });
