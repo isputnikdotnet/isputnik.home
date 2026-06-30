@@ -111,12 +111,22 @@ export function clusterGalleryFaces(): { clusters: number; assigned: number } {
   const k = faceGroupingK();
   const floor = faceThreshold();
 
+  // Prune unnamed people that have no faces left — leftovers from earlier scans/regroups
+  // or a previous embedding model. Runs unconditionally so junk can't accumulate.
+  const pruneEmpty = () => db.prepare(`
+    DELETE FROM gallery_people WHERE name = '' AND linked_person_id IS NULL
+      AND id NOT IN (SELECT person_id FROM gallery_faces WHERE person_id IS NOT NULL AND assignment != 'rejected')
+  `).run();
+
   // Only cluster faces from the CURRENT embedding model — never mix embedding spaces
   // (e.g. a 512-d ArcFace vector with a stale 1024-d one) which would corrupt cosine.
   const rows = db.prepare(
     "SELECT id, person_id, embedding FROM gallery_faces WHERE source = 'scan' AND assignment != 'rejected' AND embedding IS NOT NULL AND embedding_model = ?"
   ).all(FACE_EMBEDDING_MODEL) as { id: string; person_id: string | null; embedding: Buffer }[];
-  if (rows.length === 0) return { clusters: 0, assigned: 0 };
+  if (rows.length === 0) {
+    pruneEmpty();
+    return { clusters: 0, assigned: 0 };
+  }
 
   const faces: FaceVec[] = rows.map((r) => ({ id: r.id, emb: blobToEmbedding(r.embedding) }));
   const embById = new Map(faces.map((f) => [f.id, f.emb]));
@@ -172,12 +182,8 @@ export function clusterGalleryFaces(): { clusters: number; assigned: number } {
     // Recompute touched groups plus any anchored person that may have lost its faces.
     for (const id of new Set([...touched, ...anchored])) recomputeClusterCentroid(id);
     // Drop unnamed, non-anchored people that have no faces left at all (orphans from a
-    // regroup, or stale clusters from a previous embedding model). Keyed on real faces,
-    // not the cached face_count, so a model migration tidies up cleanly.
-    db.prepare(`
-      DELETE FROM gallery_people WHERE name = '' AND linked_person_id IS NULL
-        AND id NOT IN (SELECT person_id FROM gallery_faces WHERE person_id IS NOT NULL AND assignment != 'rejected')
-    `).run();
+    // regroup, or stale clusters from a previous embedding model).
+    pruneEmpty();
   })();
 
   return { clusters: groupPlan.length, assigned: faces.length };

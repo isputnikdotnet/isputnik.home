@@ -49,6 +49,10 @@ let enginePromise: Promise<{ det: ort.InferenceSession; rec: ort.InferenceSessio
 function getEngine() {
   if (!enginePromise) {
     enginePromise = (async () => {
+      // A face scan processes thousands of UNIQUE images, so sharp's operation cache
+      // gives no reuse benefit and only grows memory over a long run (which slows the
+      // scan to a crawl). Disable it while face recognition is active.
+      sharp.cache(false);
       const dir = modelsDir();
       const [det, rec] = await Promise.all([
         ort.InferenceSession.create(path.join(dir, "det_500m.onnx")),
