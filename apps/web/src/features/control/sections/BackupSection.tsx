@@ -5,6 +5,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
+import { ToggleSwitch } from "../../../shared/ToggleSwitch";
 import { FileUpload } from "../../../shared/FileUpload";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 
@@ -156,10 +157,12 @@ export function BackupSection() {
         <section className="backup-card backup-settings">
           <h2>Scheduled backups</h2>
           <div className="backup-settings-row">
-            <label className="field-checkbox backup-auto-toggle">
-              <input type="checkbox" checked={form.enabled} onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))} />
-              <span>Run a backup automatically every day</span>
-            </label>
+            <ToggleSwitch
+              className="backup-auto-toggle"
+              checked={form.enabled}
+              onChange={(v) => setForm((f) => ({ ...f, enabled: v }))}
+              label="Run a backup automatically every day"
+            />
             <label className="field backup-field-time">
               <span>Time</span>
               <input type="time" value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} disabled={!form.enabled} />

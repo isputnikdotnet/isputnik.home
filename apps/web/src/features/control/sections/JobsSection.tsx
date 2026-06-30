@@ -69,8 +69,8 @@ export function JobsSection() {
     <>
       <div className="section-head">
         <div>
-          <p className="eyebrow">Application</p>
-          <h1>Jobs</h1>
+          <p className="eyebrow">Maintenance</p>
+          <h1>Job logs</h1>
         </div>
         <button className="secondary-button" onClick={() => loadJobs().catch(() => undefined)}>
           Refresh

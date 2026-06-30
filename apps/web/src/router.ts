@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "statusEbookStats" | "statusGalleryStats" | "about" | "libraries" | "storage" | "recycleBin" | "groups" | "jobs" | "backup" | "categories" | "tags" | "config" | "security";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "statusEbookStats" | "statusGalleryStats" | "about" | "libraries" | "storage" | "recycleBin" | "groups" | "jobs" | "scheduledJobs" | "backup" | "categories" | "tags" | "config" | "security";
 
 export type Route =
   | { name: "install" }
@@ -273,12 +273,16 @@ export function getRoute(): Route {
     return { name: "control", section: "security" };
   }
 
-  // Maintenance defaults to Jobs.
-  if (["/control/maintenance", "/control/maintenance/jobs", "/control/system", "/control/jobs"].includes(path)) {
+  // Jobs now live under Libraries; backup under Config. Old Maintenance paths still resolve.
+  if (["/control/libraries/jobs", "/control/maintenance", "/control/maintenance/jobs", "/control/system", "/control/jobs"].includes(path)) {
     return { name: "control", section: "jobs" };
   }
 
-  if (["/control/maintenance/backup", "/control/system/backup"].includes(path)) {
+  if (["/control/libraries/scheduled-jobs", "/control/maintenance/scheduled-jobs", "/control/scheduled-jobs"].includes(path)) {
+    return { name: "control", section: "scheduledJobs" };
+  }
+
+  if (["/control/config/backup", "/control/maintenance/backup", "/control/system/backup"].includes(path)) {
     return { name: "control", section: "backup" };
   }
 

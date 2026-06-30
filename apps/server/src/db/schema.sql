@@ -725,6 +725,21 @@ CREATE TABLE IF NOT EXISTS jobs (
   error        TEXT
 );
 
+-- Recurring maintenance tasks (clean job logs, empty recycle bin, …). The set of
+-- jobs is defined in code (modules/maintenance); this table holds only their
+-- per-key state: whether enabled, how often, and the last/next run. A missing row
+-- means "never configured" → disabled with code defaults. Disabled by default.
+CREATE TABLE IF NOT EXISTS scheduled_jobs (
+  key          TEXT PRIMARY KEY,
+  enabled      INTEGER NOT NULL DEFAULT 0,
+  frequency    TEXT NOT NULL DEFAULT 'weekly' CHECK (frequency IN ('daily', 'weekly', 'monthly')),
+  next_run_at  TEXT,
+  last_run_at  TEXT,
+  last_status  TEXT CHECK (last_status IN ('success', 'error')),
+  last_message TEXT,
+  updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- ════════════════════════════════════════════════════════════════════════════
 --  Indexes
 -- ════════════════════════════════════════════════════════════════════════════
@@ -806,3 +821,4 @@ CREATE INDEX IF NOT EXISTS idx_trashed_items_lib        ON trashed_items(library
 CREATE INDEX IF NOT EXISTS idx_trashed_items_at         ON trashed_items(trashed_at);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_status              ON jobs(status, run_at);
+CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_due        ON scheduled_jobs(enabled, next_run_at);

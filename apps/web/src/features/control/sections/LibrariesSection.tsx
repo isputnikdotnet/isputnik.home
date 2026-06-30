@@ -14,7 +14,8 @@ import {
   Folder,
   LayoutGrid,
   LibraryBig,
-  Wand2
+  Wand2,
+  ScanFace
 } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -34,6 +35,7 @@ import { TagEncodingField } from "../libraries/TagEncodingField";
 import { LibraryWizard } from "../libraries/LibraryWizard";
 import { LibraryMembersModal } from "./LibraryMembersModal";
 import { ScanRulesModal } from "./ScanRulesModal";
+import { GalleryFaceSettingsModal } from "../../gallery/GalleryFaceSettingsModal";
 
 type ManagedLibraryType = "audiobook" | "ebook" | "gallery";
 
@@ -121,6 +123,7 @@ export function LibrariesSection() {
   const [rescanningId, setRescanningId] = useState("");
   const [membersLibrary, setMembersLibrary] = useState<ManagedLibrary | null>(null);
   const [scanRulesLibrary, setScanRulesLibrary] = useState<ManagedLibrary | null>(null);
+  const [faceSettingsOpen, setFaceSettingsOpen] = useState(false);
   const [takeOwnershipConfirmLibrary, setTakeOwnershipConfirmLibrary] = useState<ManagedLibrary | null>(null);
   const [takingOwnership, setTakingOwnership] = useState(false);
   const [deleteConfirmLibrary, setDeleteConfirmLibrary] = useState<ManagedLibrary | null>(null);
@@ -505,15 +508,10 @@ export function LibrariesSection() {
                       <div className="row-actions">
                         {library.canManageLibrary ? (
                           <>
-                            <Button
-                              variant="icon"
-                              title="Manage members & roles"
-                              aria-label={`Manage ${library.name} members and roles`}
-                              onClick={() => setMembersLibrary(library)}
-                            >
-                              <Users size={15} />
-                            </Button>
-                            {library.type === "ebook" && (
+                            {/* Leading type-specific slot — always reserved so the shared
+                                icons below line up in the same columns across every library
+                                type (audiobooks have no scan-rules / face action). */}
+                            {library.type === "ebook" ? (
                               <Button
                                 variant="icon"
                                 title="Scan rules"
@@ -522,7 +520,26 @@ export function LibrariesSection() {
                               >
                                 <Wand2 size={15} />
                               </Button>
+                            ) : library.type === "gallery" ? (
+                              <Button
+                                variant="icon"
+                                title="Face recognition"
+                                aria-label={`Face recognition for ${library.name}`}
+                                onClick={() => { setError(""); setFaceSettingsOpen(true); }}
+                              >
+                                <ScanFace size={15} />
+                              </Button>
+                            ) : (
+                              <span className="library-action-spacer" aria-hidden="true" />
                             )}
+                            <Button
+                              variant="icon"
+                              title="Manage members & roles"
+                              aria-label={`Manage ${library.name} members and roles`}
+                              onClick={() => setMembersLibrary(library)}
+                            >
+                              <Users size={15} />
+                            </Button>
                             <Button
                               variant="icon"
                               title="Edit library"
@@ -610,6 +627,13 @@ export function LibrariesSection() {
         <ScanRulesModal
           library={{ id: scanRulesLibrary.id, name: scanRulesLibrary.name, type: scanRulesLibrary.type }}
           onClose={() => setScanRulesLibrary(null)}
+        />
+      )}
+
+      {faceSettingsOpen && (
+        <GalleryFaceSettingsModal
+          onClose={() => setFaceSettingsOpen(false)}
+          onChanged={() => { loadLibraries().catch((err) => setError(err instanceof Error ? err.message : "Unable to load libraries")); }}
         />
       )}
 

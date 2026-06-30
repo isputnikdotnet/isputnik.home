@@ -23,6 +23,7 @@ import {
   faceThreshold, setFaceThreshold, faceGroupingK, setFaceGroupingK
 } from "./faces/settings.js";
 import { enqueueFaceScan, enqueueFaceRecompute, processFaceScanQueue } from "./faces/scanner.js";
+import { clearLibraryFaceData } from "./faces/clear.js";
 
 // People are global, so person management (create/rename/hide/delete) is gated on the
 // user being able to write SOME gallery library — anyone who curates photos can curate
@@ -359,5 +360,33 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     reply.send({ jobs: jobs.length });
+  });
+
+  // Wipe all face-recognition data for one gallery library (faces, scan markers,
+  // exclusions). Leaves the library's photos and any named global people intact.
+  const clearSchema = z.object({ libraryId: z.string().trim().min(1) });
+
+  app.delete("/api/library/gallery/faces/data", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(clearSchema, request.body ?? {});
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid request", details: parsed.error });
+      return;
+    }
+    const lib = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
+      .get(parsed.data.libraryId) as { id: string; name: string } | undefined;
+    if (!lib) {
+      reply.code(404).send({ error: "Gallery library not found" });
+      return;
+    }
+    const removed = clearLibraryFaceData(lib.id);
+    logActivity({
+      event: "library.gallery.faces.cleared",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: lib.id,
+      detail: `Removed face data for "${lib.name}" (${removed.faces} faces across ${removed.photos} photos).`,
+      ipAddress: request.ip
+    });
+    reply.send({ ...removed, threshold: faceThreshold(), groupingStrength: faceGroupingK(), libraries: faceLibraryStatus() });
   });
 }

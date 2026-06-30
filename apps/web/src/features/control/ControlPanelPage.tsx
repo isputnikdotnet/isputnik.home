@@ -12,8 +12,7 @@ import {
   ShieldCheck,
   Tags,
   Trash2,
-  UsersRound,
-  Wrench
+  UsersRound
 } from "lucide-react";
 import { UsersSection } from "./sections/UsersSection";
 import { InvitesSection } from "./sections/InvitesSection";
@@ -31,6 +30,7 @@ import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSect
 import { TagsSection } from "./sections/TagsSection";
 import { GroupsSection } from "./sections/GroupsSection";
 import { JobsSection } from "./sections/JobsSection";
+import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
 import { ConfigSection } from "./sections/ConfigSection";
 import { SecuritySection } from "./sections/SecuritySection";
 import { RecycleBinSection } from "./sections/RecycleBinSection";
@@ -52,13 +52,12 @@ export function ControlPanelPage({
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
           {(section === "users" || section === "groups" || section === "invites" || section === "sessions") && <AccountsSection section={section} currentUser={user} />}
           {section === "logs"      && <LogsSection />}
-          {(section === "jobs" || section === "backup") && <MaintenanceSection section={section} />}
           {(section === "status" || section === "statusStats" || section === "statusEbookStats" || section === "statusGalleryStats") && <StatusControl section={section} />}
-          {section === "config"    && <ConfigSection />}
+          {(section === "config" || section === "backup") && <ConfigControl section={section} />}
           {section === "security"  && <SecuritySection />}
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
-          {section === "libraries" && <LibrariesSection />}
+          {(section === "libraries" || section === "jobs" || section === "scheduledJobs") && <LibrariesControl section={section} />}
           {section === "recycleBin" && <RecycleBinSection />}
           {section === "categories" && categoryId !== undefined && <CategoryEditorPage categoryId={categoryId} />}
           {section === "categories" && categoryId === undefined && <TaxonomySection section="categories" />}
@@ -77,17 +76,16 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
       <div className="home-control-group">
         <p>Application</p>
         <ControlNavLink icon={Activity} label="Status" href="/control/status" active={["status", "statusStats", "statusEbookStats", "statusGalleryStats"].includes(section)} />
-        <ControlNavLink icon={Settings} label="Config" href="/control/config" active={section === "config"} />
+        <ControlNavLink icon={Settings} label="Config" href="/control/config" active={section === "config" || section === "backup"} />
         <ControlNavLink icon={ShieldCheck} label="Security" href="/control/security" active={section === "security"} />
         <ControlNavLink icon={Tags} label="Labels" href="/control/categories" active={section === "categories" || section === "tags"} />
         <ControlNavLink icon={ScrollText} label="Logs" href="/control/logs" active={section === "logs"} />
-        <ControlNavLink icon={Wrench} label="Maintenance" href="/control/maintenance" active={["jobs", "backup"].includes(section)} />
       </div>
 
       <div className="home-control-group">
         <p>Digital Library</p>
         <ControlNavLink icon={HardDrive} label="Storage" href="/control/storage" active={section === "storage"} />
-        <ControlNavLink icon={LibraryBig} label="Libraries" href="/control/libraries" active={section === "libraries"} />
+        <ControlNavLink icon={LibraryBig} label="Libraries" href="/control/libraries" active={section === "libraries" || section === "jobs" || section === "scheduledJobs"} />
         <ControlNavLink icon={Trash2} label="Recycle Bin" href="/control/recycle-bin" active={section === "recycleBin"} />
       </div>
 
@@ -198,15 +196,30 @@ function AccountsSection({ section, currentUser }: { section: "users" | "groups"
   );
 }
 
-function MaintenanceSection({ section }: { section: "jobs" | "backup" }) {
+function ConfigControl({ section }: { section: "config" | "backup" }) {
   return (
     <>
       <ControlTabs tabs={[
-        { label: "Jobs", href: "/control/maintenance", active: section === "jobs" },
-        { label: "Backup", href: "/control/maintenance/backup", active: section === "backup" }
+        { label: "Config", href: "/control/config", active: section === "config" },
+        { label: "Backup", href: "/control/config/backup", active: section === "backup" }
       ]} />
-      {section === "jobs"   && <JobsSection />}
+      {section === "config" && <ConfigSection />}
       {section === "backup" && <BackupSection />}
+    </>
+  );
+}
+
+function LibrariesControl({ section }: { section: "libraries" | "jobs" | "scheduledJobs" }) {
+  return (
+    <>
+      <ControlTabs tabs={[
+        { label: "Libraries", href: "/control/libraries", active: section === "libraries" },
+        { label: "Job logs", href: "/control/libraries/jobs", active: section === "jobs" },
+        { label: "Scheduled jobs", href: "/control/libraries/scheduled-jobs", active: section === "scheduledJobs" }
+      ]} />
+      {section === "libraries"     && <LibrariesSection />}
+      {section === "jobs"          && <JobsSection />}
+      {section === "scheduledJobs" && <ScheduledJobsSection />}
     </>
   );
 }
