@@ -584,6 +584,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.6.1",
+          label: "Automatic maintenance schedules + tidier face-recognition window",
+          changes: [
+            "Maintenance now runs itself. The upkeep tasks under Control panel → Libraries → Scheduled jobs come switched on with sensible schedules — a nightly scan for faces in newly added photos (01:00), plus weekly job-log cleanup (00:30) and recycle-bin emptying (00:45). The face scan only touches new or not-yet-current photos, so it's cheap when nothing has changed. Change the frequency or turn any of them off whenever you like.",
+            "Tidier Face recognition window. The per-library switches and the grouping-strength control are now split into two tabs, and the library list scrolls when you have many libraries. Grouping strength also now defaults to its strongest setting, for cleaner, more consolidated people with the new model. A note marks the feature as experimental — grouping isn't perfect, so expect to merge or rename people occasionally."
+          ]
+        },
+        {
           version: "1.6.0",
           label: "Sharper face recognition + live scan progress",
           changes: [
@@ -591,8 +599,7 @@ export async function statusPlugin(app: FastifyInstance) {
             "One-time rescan needed after you update. Because the face model changed, existing face data doesn't carry across: open a gallery's People tab → Face recognition → Rescan to rebuild it (or turn on the new scheduled job below and let it happen automatically), then re-name anyone you'd already named. On a large library the first rescan is CPU-intensive and can take a while — it keeps running in the background, so you can close the window.",
             "Live scan progress. The Face recognition window now shows a progress ring with \"X of Y photos\" and an estimated time remaining while a scan is running, so you can tell it's working and roughly how much is left.",
             "Faster scans. All the faces in a photo are now recognised together in one pass instead of one at a time, which helps offset the heavier, more accurate model.",
-            "Maintenance now runs itself. The upkeep tasks under Control panel → Libraries → Scheduled jobs come switched on with sensible schedules — a nightly scan for faces in newly added photos (01:00), plus weekly job-log cleanup (00:30) and recycle-bin emptying (00:45). The face scan only touches new or not-yet-current photos, so it's cheap when nothing has changed. Change the frequency or turn any of them off whenever you like.",
-            "Tidier Face recognition window. The per-library switches and the grouping-strength control are now split into two tabs, and the library list scrolls when you have many libraries. Grouping strength also now defaults to its strongest setting, for cleaner, more consolidated people with the new model. A note marks the feature as experimental — grouping isn't perfect, so expect to merge or rename people occasionally."
+            "New \"Scan new photos for faces\" scheduled job (Control panel → Libraries → Scheduled jobs). Switch it on to automatically find faces in newly added photos every day, week, or month. It only processes new or not-yet-current photos, so it's cheap when nothing has changed. Off by default."
           ]
         },
         {
