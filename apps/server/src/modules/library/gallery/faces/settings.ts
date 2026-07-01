@@ -13,8 +13,11 @@ const K_KEY = "face_recognition.k";
 export const DEFAULT_FACE_THRESHOLD = 0.3;
 // "Grouping strength": each pair must be within the other's top-K neighbours to link.
 // Lower K = purer but more fragmented groups; higher K = more consolidated but more
-// risk of merging different people. 3 is the tested sweet spot for the ArcFace model.
-export const DEFAULT_FACE_K = 3;
+// risk of merging different people. Default is the max (8): the ResNet50 embeddings
+// separate people well enough (same-person ~0.65, different ~0.1) that strong
+// consolidation stays safe, and fragmentation is the cheaper error anyway — it's a
+// one-click Merge, whereas a false merge has to be noticed and split.
+export const DEFAULT_FACE_K = 8;
 
 function readSetting(key: string): string | null {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(key) as { value: string } | undefined;

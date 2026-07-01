@@ -581,6 +581,23 @@
 .confirm-modal.gallery-face-modal { width: min(94vw, 560px); }
 .gallery-face-modal-intro { margin: 0 0 14px; font-size: 0.88rem; }
 
+/* Persistent "experimental" note at the top of the Face recognition window. */
+.gallery-face-experimental {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0 0 14px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--amber) 40%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--amber) 8%, var(--surface));
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.gallery-face-experimental strong { color: var(--amber); font-weight: 700; }
+.gallery-face-experimental svg { flex-shrink: 0; margin-top: 1px; color: var(--amber); }
+
 .gallery-face-row-actions { flex-shrink: 0; gap: 6px; }
 
 /* Live scan progress banner (ring + count + ETA) shown while a face scan runs. */
@@ -599,13 +616,23 @@
 .gallery-face-scan-text small { color: var(--muted); font-size: 0.8rem; }
 .gallery-face-scan-hint { font-size: 0.74rem !important; opacity: 0.85; margin-top: 2px; }
 
+/* Tabs (Libraries | Grouping) sit inside the card body — strip the shared padding so
+   they line up with the card's own padding, matching the bulk-edit modal. */
+.gallery-face-modal .modal-tabs { padding: 0; margin-bottom: 12px; }
+.gallery-face-modal .modal-tab-content { padding: 0; overflow: visible; }
+
 .gallery-face-lib-list {
   list-style: none;
-  margin: 0 0 4px;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* Cap the height so a household with many libraries scrolls rather than growing the
+     modal off-screen; leave room for the scrollbar so rows don't hug the edge. */
+  max-height: 46vh;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .gallery-face-lib-row {
@@ -623,18 +650,13 @@
 .gallery-face-lib-toggle > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .gallery-face-lib-toggle small { color: var(--muted); font-size: 0.8rem; }
 
-/* Grouping-strength slider + regroup action in the face modal. */
-.gallery-face-tuning {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-.gallery-face-strength { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.gallery-face-strength input[type="range"] { width: 100%; }
-.gallery-face-strength small { color: var(--muted); font-size: 0.78rem; }
+/* Grouping tab: strength slider + regroup action (its own compact tab now). */
+.gallery-face-grouping { display: grid; gap: 10px; align-content: start; }
+.gallery-face-strength-head { display: flex; align-items: baseline; justify-content: space-between; font-size: 0.9rem; }
+.gallery-face-strength-head strong { font-size: 1.05rem; color: var(--mint); }
+.gallery-face-grouping input[type="range"] { width: 100%; margin: 0; }
+.gallery-face-strength-desc { margin: 0; font-size: 0.78rem; }
+.gallery-face-grouping button { justify-self: start; margin-top: 2px; }
 
 /* Collapsible "small groups" section on the People tab. */
 .gallery-small-groups { margin-top: 14px; }

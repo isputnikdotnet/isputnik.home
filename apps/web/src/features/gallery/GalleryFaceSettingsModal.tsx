@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ScanFace, RefreshCw, Trash2 } from "lucide-react";
+import { ScanFace, RefreshCw, Trash2, FlaskConical } from "lucide-react";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
@@ -24,7 +24,7 @@ function formatEta(seconds: number): string {
 // "Rescan" reprocesses every photo from scratch.
 export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
   const [libraries, setLibraries] = useState<GalleryFaceLibrary[]>([]);
-  const [strength, setStrength] = useState(3);
+  const [strength, setStrength] = useState(8); // matches server DEFAULT_FACE_K until the real value loads
   const [loaded, setLoaded] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [recomputing, setRecomputing] = useState(false);
@@ -33,6 +33,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   const [confirmRescan, setConfirmRescan] = useState<GalleryFaceLibrary | null>(null);
   const [confirmClear, setConfirmClear] = useState<GalleryFaceLibrary | null>(null);
   const [scan, setScan] = useState<GalleryFaceScan | null>(null);
+  const [tab, setTab] = useState<"libraries" | "grouping">("libraries");
   const wasScanning = useRef(false);
 
   const load = async () => {
@@ -141,9 +142,9 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   return (
     <>
     <Modal variant="card" className="gallery-face-modal" title="Face recognition" icon={<ScanFace size={22} />} onClose={onClose}>
-      <p className="muted gallery-face-modal-intro">
-        Find faces in your photos and group the same person together — entirely on this server, nothing
-        is sent to the internet. Turn it on per library.
+      <p className="gallery-face-experimental">
+        <FlaskConical size={14} aria-hidden="true" />
+        <span><strong>Experimental</strong> — face recognition is still being refined. Grouping isn't perfect, so expect to merge or rename people now and then.</span>
       </p>
 
       {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
@@ -166,11 +167,23 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
         </div>
       )}
 
-      {loaded && libraries.length === 0 ? (
-        <p className="management-empty">No gallery libraries yet.</p>
-      ) : (
-        <ul className="gallery-face-lib-list">
-          {libraries.map((library) => (
+      <div className="modal-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === "libraries"} className={`modal-tab${tab === "libraries" ? " active" : ""}`} onClick={() => setTab("libraries")}>Libraries</button>
+        <button type="button" role="tab" aria-selected={tab === "grouping"} className={`modal-tab${tab === "grouping" ? " active" : ""}`} onClick={() => setTab("grouping")}>Grouping</button>
+      </div>
+
+      <div className="modal-tab-content">
+        {tab === "libraries" ? (
+          <>
+            <p className="muted gallery-face-modal-intro">
+              Find faces in your photos and group the same person together — entirely on this server,
+              nothing is sent to the internet. Turn it on per library.
+            </p>
+            {loaded && libraries.length === 0 ? (
+              <p className="management-empty">No gallery libraries yet.</p>
+            ) : (
+              <ul className="gallery-face-lib-list">
+                {libraries.map((library) => (
             <li key={library.id} className="gallery-face-lib-row">
               <div className="gallery-face-lib-toggle">
                 <ToggleSwitch
@@ -217,21 +230,30 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
               )}
             </li>
           ))}
-        </ul>
-      )}
-
-      {anyEnabled && (
-        <div className="gallery-face-tuning">
-          <label className="gallery-face-strength">
-            <span>Grouping strength: <strong>{strength}</strong></span>
+              </ul>
+            )}
+          </>
+        ) : anyEnabled ? (
+          <div className="gallery-face-grouping">
+            <div className="gallery-face-strength-head">
+              <span>Grouping strength</span>
+              <strong>{strength}</strong>
+            </div>
             <input type="range" min={2} max={8} step={1} value={strength} disabled={recomputing} onChange={(event) => setStrength(Number(event.target.value))} />
-            <small>Lower = stricter: fewer different people wrongly merged, but more small groups to combine. Higher = more consolidated.</small>
-          </label>
-          <Button variant="primary" compact disabled={recomputing} onClick={() => void applyStrength(strength)}>
-            {recomputing ? "Regrouping…" : "Regroup people"}
-          </Button>
-        </div>
-      )}
+            <p className="muted gallery-face-strength-desc">
+              Lower = stricter: fewer different people wrongly merged, but more small groups to combine.
+              Higher = more consolidated (8, the default). Applies to every library.
+            </p>
+            <Button variant="primary" compact disabled={recomputing} onClick={() => void applyStrength(strength)}>
+              {recomputing ? "Regrouping…" : "Regroup people"}
+            </Button>
+          </div>
+        ) : (
+          <MessageBox tone="info" title="No libraries enabled">
+            Turn on face recognition for a library on the Libraries tab, then come back here to tune how strongly faces are grouped.
+          </MessageBox>
+        )}
+      </div>
 
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose}>Close</Button>

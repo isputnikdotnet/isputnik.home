@@ -4,7 +4,8 @@ import {
   listScheduledJobs,
   configureScheduledJob,
   runScheduledJob,
-  processDueScheduledJobs
+  processDueScheduledJobs,
+  seedScheduledJobDefaults
 } from "../src/modules/maintenance/index.js";
 
 beforeEach(() => {
@@ -22,12 +23,18 @@ function insertJob(id: string, status: "completed" | "failed" | "pending" | "run
 }
 
 describe("scheduled jobs registry", () => {
-  it("ships every job disabled by default with no run history", () => {
+  it("ships every job enabled by default with its clock-time schedule and a future next run", () => {
     const jobs = listScheduledJobs();
     expect(jobs.map((j) => j.key).sort()).toEqual(["cleanup_job_logs", "empty_recycle_bin", "scan_new_faces"]);
+
+    const byKey = Object.fromEntries(jobs.map((j) => [j.key, j]));
+    expect(byKey.scan_new_faces).toMatchObject({ enabled: true, frequency: "daily", time: "01:00" });
+    expect(byKey.cleanup_job_logs).toMatchObject({ enabled: true, frequency: "weekly", time: "00:30" });
+    expect(byKey.empty_recycle_bin).toMatchObject({ enabled: true, frequency: "weekly", time: "00:45" });
+
     for (const job of jobs) {
-      expect(job.enabled).toBe(false);
-      expect(job.nextRunAt).toBeNull();
+      expect(job.nextRunAt).not.toBeNull();
+      expect(new Date(job.nextRunAt!).getTime()).toBeGreaterThan(Date.now());
       expect(job.lastRunAt).toBeNull();
     }
   });
@@ -35,6 +42,19 @@ describe("scheduled jobs registry", () => {
   it("returns null for an unknown key", () => {
     expect(configureScheduledJob("nope", true, "daily", null)).toBeNull();
     expect(runScheduledJob("nope", null)).toBeNull();
+  });
+
+  it("seeding writes default rows the worker can see, without overriding admin choices", () => {
+    // Admin has already turned one job off; the others were never configured.
+    configureScheduledJob("empty_recycle_bin", false, "weekly", null);
+    seedScheduledJobDefaults();
+
+    const rows = db.prepare("SELECT key, enabled FROM scheduled_jobs ORDER BY key").all() as { key: string; enabled: number }[];
+    expect(rows.map((r) => r.key)).toEqual(["cleanup_job_logs", "empty_recycle_bin", "scan_new_faces"]);
+    // Never-configured jobs seed enabled; the admin-disabled one is left off.
+    expect(rows.find((r) => r.key === "scan_new_faces")!.enabled).toBe(1);
+    expect(rows.find((r) => r.key === "cleanup_job_logs")!.enabled).toBe(1);
+    expect(rows.find((r) => r.key === "empty_recycle_bin")!.enabled).toBe(0);
   });
 });
 
