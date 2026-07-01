@@ -14,18 +14,24 @@ import { embeddingToBlob } from "./embedding.js";
 import { clusterGalleryFaces } from "./cluster.js";
 import { cropFaceFromRaw, backfillFaceThumbnails } from "./thumbnails.js";
 import { faceRecognitionEnabledForLibrary } from "./settings.js";
+import { faceJobType, type FaceScanPayload } from "./queue.js";
 
-const faceJobType = "SCAN_GALLERY_FACES";
+// Re-export the queue helpers so existing importers keep a single entry point.
+export { enqueueFaceScan, enqueueFaceRecompute } from "./queue.js";
 
 // Drop faces smaller than this fraction of the image's short side — tiny/background
 // faces yield unreliable embeddings that pollute clusters.
 const MIN_FACE_SIDE = 0.045;
 
-interface FaceScanPayload {
-  libraryId?: string;
-  force?: boolean;
-  // A "recompute" job re-clusters existing embeddings without re-detecting anything.
-  recompute?: boolean;
+// Snapshot of the currently-running (or next-queued) face scan, for the settings UI.
+export interface FaceScanStatus {
+  libraryId: string | null;
+  status: "pending" | "running";
+  recompute: boolean;
+  processed: number;
+  total: number;
+  startedAt: string | null;
+  etaSeconds: number | null;
 }
 
 interface PhotoRow {
@@ -33,7 +39,11 @@ interface PhotoRow {
   relative_path: string;
 }
 
-async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ items: number; faces: number; skipped?: boolean; failed?: number }> {
+async function scanLibraryFaces(
+  libraryId: string,
+  force: boolean,
+  onProgress?: (processed: number, total: number) => void
+): Promise<{ items: number; faces: number; skipped?: boolean; failed?: number }> {
   if (!faceRecognitionEnabledForLibrary(libraryId)) return { items: 0, faces: 0, skipped: true };
 
   const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
@@ -65,7 +75,12 @@ async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ it
 
   let totalFaces = 0;
   let failed = 0;
-  for (const photo of photos) {
+  // Report progress at the top of each iteration (idx photos finished so far) plus a
+  // final full count; the caller throttles the actual writes. `continue` paths are fine —
+  // the next iteration's call (or the post-loop call) advances the count.
+  for (let idx = 0; idx < photos.length; idx += 1) {
+    onProgress?.(idx, photos.length);
+    const photo = photos[idx];
     const absolutePath = path.join(root, ...photo.relative_path.split("/"));
     if (!fs.existsSync(absolutePath)) continue; // gone on disk; the gallery scanner reconciles it
     // Decode the photo ONCE and reuse it for detection + every face crop.
@@ -103,26 +118,45 @@ async function scanLibraryFaces(libraryId: string, force: boolean): Promise<{ it
     })();
     totalFaces += prepared.length;
   }
+  onProgress?.(photos.length, photos.length);
 
   clusterGalleryFaces();
   if (failed > 0) console.warn(`face scan: ${failed} of ${photos.length} photos failed to process (left for retry).`);
   return { items: photos.length, faces: totalFaces, failed };
 }
 
-export function enqueueFaceScan(libraryId: string, force = false): string {
-  const jobId = nanoid(16);
-  db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
-    .run(jobId, faceJobType, JSON.stringify({ libraryId, force } satisfies FaceScanPayload));
-  return jobId;
-}
+// The face scan that is currently running, or the next one queued (oldest non-finished
+// job wins, so a running job is reported over later pending ones). Returns null when the
+// queue is idle. ETA is a simple processed/elapsed extrapolation over the current run.
+export function activeFaceScan(): FaceScanStatus | null {
+  const job = db.prepare(`
+    SELECT payload, status FROM jobs
+    WHERE type = ? AND status IN ('pending', 'running')
+    ORDER BY datetime(created_at) ASC LIMIT 1
+  `).get(faceJobType) as { payload: string; status: "pending" | "running" } | undefined;
+  if (!job) return null;
 
-// Re-cluster existing embeddings with the current settings — no re-detection. Cheap
-// relative to a scan, so tuning grouping strength is near-instant.
-export function enqueueFaceRecompute(): string {
-  const jobId = nanoid(16);
-  db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
-    .run(jobId, faceJobType, JSON.stringify({ recompute: true } satisfies FaceScanPayload));
-  return jobId;
+  let payload: FaceScanPayload;
+  try { payload = JSON.parse(job.payload) as FaceScanPayload; }
+  catch { payload = {}; }
+
+  const progress = payload.progress;
+  const processed = progress?.processed ?? 0;
+  const total = progress?.total ?? 0;
+  let etaSeconds: number | null = null;
+  if (progress && processed > 0 && total > processed) {
+    const elapsedMs = Date.now() - Date.parse(progress.startedAt);
+    if (elapsedMs > 0) etaSeconds = Math.round((total - processed) * (elapsedMs / processed) / 1000);
+  }
+  return {
+    libraryId: payload.libraryId ?? null,
+    status: job.status,
+    recompute: payload.recompute ?? false,
+    processed,
+    total,
+    startedAt: progress?.startedAt ?? null,
+    etaSeconds
+  };
 }
 
 let queueRunning = false;
@@ -156,7 +190,18 @@ export async function processFaceScanQueue(): Promise<void> {
           const thumbnails = await backfillFaceThumbnails();
           result = { reclustered: clusterGalleryFaces().clusters, thumbnails };
         } else {
-          result = await scanLibraryFaces(payload.libraryId ?? "", payload.force ?? false);
+          // Persist live progress into the job payload (throttled) so the settings UI can
+          // render a bar + ETA; always flush the final count.
+          const startedAt = new Date().toISOString();
+          let lastWrite = 0;
+          const writeProgress = (processed: number, total: number) => {
+            const now = Date.now();
+            if (processed < total && now - lastWrite < 1500) return;
+            lastWrite = now;
+            const next: FaceScanPayload = { ...payload, progress: { processed, total, startedAt } };
+            db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(JSON.stringify(next), job.id);
+          };
+          result = await scanLibraryFaces(payload.libraryId ?? "", payload.force ?? false, writeProgress);
         }
         db.prepare("UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL WHERE id = ?")
           .run(JSON.stringify({ ...payload, result }), job.id);

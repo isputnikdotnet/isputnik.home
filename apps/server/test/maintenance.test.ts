@@ -22,9 +22,9 @@ function insertJob(id: string, status: "completed" | "failed" | "pending" | "run
 }
 
 describe("scheduled jobs registry", () => {
-  it("ships both jobs disabled by default with no run history", () => {
+  it("ships every job disabled by default with no run history", () => {
     const jobs = listScheduledJobs();
-    expect(jobs.map((j) => j.key).sort()).toEqual(["cleanup_job_logs", "empty_recycle_bin"]);
+    expect(jobs.map((j) => j.key).sort()).toEqual(["cleanup_job_logs", "empty_recycle_bin", "scan_new_faces"]);
     for (const job of jobs) {
       expect(job.enabled).toBe(false);
       expect(job.nextRunAt).toBeNull();

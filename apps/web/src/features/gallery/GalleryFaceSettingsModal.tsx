@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScanFace, RefreshCw, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
@@ -6,7 +6,18 @@ import { Button } from "../../shared/Button";
 import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
-import type { GalleryFaceLibrary, GalleryFaceSettings } from "./types";
+import { ProgressRing } from "../../shared/ProgressRing";
+import type { GalleryFaceLibrary, GalleryFaceScan, GalleryFaceSettings } from "./types";
+
+// Coarse "time remaining" phrasing for the scan progress line.
+function formatEta(seconds: number): string {
+  if (seconds < 60) return "less than a minute left";
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `about ${mins} min left`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem === 0 ? `about ${hrs} hr left` : `about ${hrs} hr ${rem} min left`;
+}
 
 // Admin popup: turn face recognition on/off per gallery library and trigger a full
 // rescan. Enabling a library kicks off an initial scan automatically (server side);
@@ -21,12 +32,15 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   const [notice, setNotice] = useState("");
   const [confirmRescan, setConfirmRescan] = useState<GalleryFaceLibrary | null>(null);
   const [confirmClear, setConfirmClear] = useState<GalleryFaceLibrary | null>(null);
+  const [scan, setScan] = useState<GalleryFaceScan | null>(null);
+  const wasScanning = useRef(false);
 
   const load = async () => {
     try {
       const payload = await api<GalleryFaceSettings>("/api/library/gallery/faces/settings");
       setLibraries(payload.libraries);
       setStrength(payload.groupingStrength);
+      setScan(payload.scan);
       setLoaded(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load face-recognition settings");
@@ -54,6 +68,20 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
 
   useEffect(() => { void load(); }, []);
 
+  // While a scan is active, poll for live progress so the ring + ETA advance. When it
+  // finishes, refresh the parent once so the People tab picks up the new groups.
+  const scanning = scan != null;
+  useEffect(() => {
+    if (!scanning) {
+      if (wasScanning.current) { wasScanning.current = false; onChanged(); }
+      return;
+    }
+    wasScanning.current = true;
+    const timer = setInterval(() => { void load(); }, 3000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanning]);
+
   const toggle = async (library: GalleryFaceLibrary, enabled: boolean) => {
     setBusyId(library.id);
     setError("");
@@ -64,7 +92,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
         body: JSON.stringify({ libraryId: library.id, enabled })
       });
       setLibraries(payload.libraries);
-      if (enabled) setNotice(`Face recognition on for "${library.name}" — scanning has started.`);
+      if (enabled) { setNotice(`Face recognition on for "${library.name}" — scanning has started.`); void load(); }
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update");
@@ -81,6 +109,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
       await api("/api/library/gallery/faces/scan", { method: "POST", body: JSON.stringify({ libraryId: library.id, force: true }) });
       setNotice(`Full rescan started for "${library.name}". People update as photos are reprocessed.`);
       setConfirmRescan(null);
+      await load();
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to start the rescan");
@@ -119,6 +148,23 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
 
       {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
       {notice && <MessageBox tone="success" title="Started">{notice}</MessageBox>}
+
+      {scan && (
+        <div className="gallery-face-scan-status" role="status" aria-live="polite">
+          <ProgressRing progress={scan.total > 0 ? scan.processed / scan.total : 0} size={38} strokeWidth={3} />
+          <div className="gallery-face-scan-text">
+            <strong>{scan.recompute ? "Regrouping faces…" : "Scanning faces…"}</strong>
+            <small>
+              {scan.total > 0
+                ? `${scan.processed.toLocaleString()} of ${scan.total.toLocaleString()} photos${scan.etaSeconds != null ? ` · ${formatEta(scan.etaSeconds)}` : ""}`
+                : "Preparing…"}
+            </small>
+            <small className="gallery-face-scan-hint">
+              Runs on the server CPU — large libraries can take a while. It continues in the background; you can close this window.
+            </small>
+          </div>
+        </div>
+      )}
 
       {loaded && libraries.length === 0 ? (
         <p className="management-empty">No gallery libraries yet.</p>

@@ -584,6 +584,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.6.0",
+          label: "Sharper face recognition + live scan progress",
+          changes: [
+            "Face recognition now uses a more accurate recognition model (ArcFace ResNet50). It's noticeably better at telling people apart across years, ages, and lighting, so the groups it makes are cleaner — especially in family photos that span a long time.",
+            "One-time rescan needed after you update. Because the face model changed, existing face data doesn't carry across: open a gallery's People tab → Face recognition → Rescan to rebuild it (or turn on the new scheduled job below and let it happen automatically), then re-name anyone you'd already named. On a large library the first rescan is CPU-intensive and can take a while — it keeps running in the background, so you can close the window.",
+            "Live scan progress. The Face recognition window now shows a progress ring with \"X of Y photos\" and an estimated time remaining while a scan is running, so you can tell it's working and roughly how much is left.",
+            "Faster scans. All the faces in a photo are now recognised together in one pass instead of one at a time, which helps offset the heavier, more accurate model.",
+            "New \"Scan new photos for faces\" scheduled job (Control panel → Libraries → Scheduled jobs). Switch it on to automatically find faces in newly added photos every day, week, or month. It only processes new or not-yet-current photos, so it's cheap when nothing has changed. Off by default."
+          ]
+        },
+        {
           version: "1.5.0",
           label: "Scheduled maintenance jobs + control-panel tidy-up",
           changes: [

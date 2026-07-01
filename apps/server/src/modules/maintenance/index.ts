@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { emptyTrash } from "../library/shared/trash.js";
+import { enqueueFaceScan } from "../library/gallery/faces/queue.js";
+import { enabledFaceLibraryIds } from "../library/gallery/faces/settings.js";
 
 // Recurring maintenance tasks. The set of jobs is fixed and defined here; the
 // scheduled_jobs table only stores per-key state (enabled, frequency, last/next
@@ -44,6 +46,19 @@ const DEFINITIONS: ScheduledJobDef[] = [
     run: () => {
       const purged = emptyTrash();
       return `Emptied the recycle bin — purged ${purged} item${purged === 1 ? "" : "s"}.`;
+    }
+  },
+  {
+    key: "scan_new_faces",
+    label: "Scan new photos for faces",
+    description: "Detect and group faces in photos not yet scanned with the current recognition model, across every library with face recognition enabled. Already-processed photos are skipped, so this is cheap when nothing is new.",
+    run: () => {
+      const ids = enabledFaceLibraryIds();
+      if (ids.length === 0) return "No libraries have face recognition enabled — nothing to scan.";
+      for (const id of ids) enqueueFaceScan(id, false);
+      // The face-scan worker (2s poller) picks these up — no need to kick it here, which
+      // keeps this module free of the ML/onnxruntime import chain.
+      return `Queued a face scan for ${ids.length} librar${ids.length === 1 ? "y" : "ies"} — new or stale-model photos process in the background.`;
     }
   }
 ];

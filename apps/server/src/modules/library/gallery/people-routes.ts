@@ -22,8 +22,9 @@ import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary, enabledFaceLibraryIds,
   faceThreshold, setFaceThreshold, faceGroupingK, setFaceGroupingK
 } from "./faces/settings.js";
-import { enqueueFaceScan, enqueueFaceRecompute, processFaceScanQueue } from "./faces/scanner.js";
+import { enqueueFaceScan, enqueueFaceRecompute, processFaceScanQueue, activeFaceScan } from "./faces/scanner.js";
 import { clearLibraryFaceData } from "./faces/clear.js";
+import { FACE_EMBEDDING_MODEL } from "./faces/model-id.js";
 
 // People are global, so person management (create/rename/hide/delete) is gated on the
 // user being able to write SOME gallery library — anyone who curates photos can curate
@@ -232,7 +233,9 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   // ── Face recognition (admin): per-library enablement + the detection pass ──
 
   // One row per gallery library: its on/off state plus how much has been scanned, so
-  // the settings popup can show "scanned X of Y photos".
+  // the settings popup can show "scanned X of Y photos". `scanned` counts only photos
+  // scanned with the CURRENT embedding model, so after a model change it correctly drops
+  // to "0 of Y" and climbs as the rescan re-embeds — real progress, not a stale total.
   interface FaceLibraryRow { id: string; name: string; photos: number; scanned: number }
 
   function faceLibraryStatus() {
@@ -245,11 +248,11 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       FROM libraries
       LEFT JOIN library_items ON library_items.library_id = libraries.id AND library_items.deleted_at IS NULL
       LEFT JOIN gallery_details ON gallery_details.item_id = library_items.id
-      LEFT JOIN gallery_face_scans ON gallery_face_scans.item_id = library_items.id
+      LEFT JOIN gallery_face_scans ON gallery_face_scans.item_id = library_items.id AND gallery_face_scans.model = ?
       WHERE libraries.type = 'gallery'
       GROUP BY libraries.id, libraries.name
       ORDER BY libraries.name COLLATE NOCASE
-    `).all() as FaceLibraryRow[];
+    `).all(FACE_EMBEDDING_MODEL) as FaceLibraryRow[];
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -262,7 +265,8 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/faces/settings", { preHandler: app.requireAdmin }, async () => ({
     threshold: faceThreshold(),
     groupingStrength: faceGroupingK(),
-    libraries: faceLibraryStatus()
+    libraries: faceLibraryStatus(),
+    scan: activeFaceScan()
   }));
 
   const faceSettingsSchema = z.object({
@@ -359,7 +363,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       detail: `Queued a${parsed.data.force ? " full" : "n incremental"} face scan for ${ids.length} gallery librar${ids.length === 1 ? "y" : "ies"}.`,
       ipAddress: request.ip
     });
-    reply.send({ jobs: jobs.length });
+    reply.send({ jobs: jobs.length, scan: activeFaceScan() });
   });
 
   // Wipe all face-recognition data for one gallery library (faces, scan markers,
