@@ -264,7 +264,10 @@ export function runScheduledJob(key: string, actorUserId: string | null, trigger
 }
 
 // ── Worker ──────────────────────────────────────────────────────────
-const TICK_MS = 15 * 60 * 1000; // check for due jobs every 15 minutes
+// Poll every 5 minutes so a job fires within ~5 min of its scheduled clock time (the
+// query is a cheap indexed lookup). A one-off kickoff shortly after boot catches jobs
+// that came due while the server was down.
+const TICK_MS = 5 * 60 * 1000;
 
 export function processDueScheduledJobs() {
   const due = db.prepare(
