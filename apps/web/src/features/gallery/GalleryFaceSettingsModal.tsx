@@ -184,52 +184,52 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
             ) : (
               <ul className="gallery-face-lib-list">
                 {libraries.map((library) => (
-            <li key={library.id} className="gallery-face-lib-row">
-              <div className="gallery-face-lib-toggle">
-                <ToggleSwitch
-                  checked={library.enabled}
-                  disabled={busyId === library.id}
-                  onChange={(enabled) => void toggle(library, enabled)}
-                  ariaLabel={`Face recognition for ${library.name}`}
-                />
-                <span>
-                  {library.name}
-                  <small>
-                    {library.enabled
-                      ? `${library.scanned.toLocaleString()} of ${library.photos.toLocaleString()} photos scanned`
-                      : `${library.photos.toLocaleString()} photos`}
-                  </small>
-                </span>
-              </div>
-              {library.enabled && (
-                <div className="row-actions gallery-face-row-actions">
-                  <Button
-                    variant="icon"
-                    title="Rescan all photos"
-                    aria-label={`Rescan ${library.name}`}
-                    disabled={busyId === library.id}
-                    onClick={() => setConfirmRescan(library)}
-                  >
-                    {busyId === library.id ? (
-                      <span className="icon-spin" aria-hidden="true"><RefreshCw size={15} /></span>
-                    ) : (
-                      <RefreshCw size={15} />
+                  <li key={library.id} className="gallery-face-lib-row">
+                    <div className="gallery-face-lib-toggle">
+                      <ToggleSwitch
+                        checked={library.enabled}
+                        disabled={busyId === library.id}
+                        onChange={(enabled) => void toggle(library, enabled)}
+                        ariaLabel={`Face recognition for ${library.name}`}
+                      />
+                      <span>
+                        {library.name}
+                        <small>
+                          {library.enabled
+                            ? `${library.scanned.toLocaleString()} of ${library.photos.toLocaleString()} photos scanned`
+                            : `${library.photos.toLocaleString()} photos`}
+                        </small>
+                      </span>
+                    </div>
+                    {library.enabled && (
+                      <div className="row-actions gallery-face-row-actions">
+                        <Button
+                          variant="icon"
+                          title="Rescan all photos"
+                          aria-label={`Rescan ${library.name}`}
+                          disabled={busyId === library.id}
+                          onClick={() => setConfirmRescan(library)}
+                        >
+                          {busyId === library.id ? (
+                            <span className="icon-spin" aria-hidden="true"><RefreshCw size={15} /></span>
+                          ) : (
+                            <RefreshCw size={15} />
+                          )}
+                        </Button>
+                        <Button
+                          variant="icon"
+                          danger
+                          title="Remove face data"
+                          aria-label={`Remove face data for ${library.name}`}
+                          disabled={busyId === library.id}
+                          onClick={() => { setError(""); setConfirmClear(library); }}
+                        >
+                          <Trash2 size={15} />
+                        </Button>
+                      </div>
                     )}
-                  </Button>
-                  <Button
-                    variant="icon"
-                    danger
-                    title="Remove face data"
-                    aria-label={`Remove face data for ${library.name}`}
-                    disabled={busyId === library.id}
-                    onClick={() => { setError(""); setConfirmClear(library); }}
-                  >
-                    <Trash2 size={15} />
-                  </Button>
-                </div>
-              )}
-            </li>
-          ))}
+                  </li>
+                ))}
               </ul>
             )}
           </>
