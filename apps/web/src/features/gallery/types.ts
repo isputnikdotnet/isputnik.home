@@ -50,10 +50,22 @@ export interface GalleryFaceLibrary {
   scanned: number;
 }
 
+// The face scan currently running (or next queued); null when the queue is idle.
+export interface GalleryFaceScan {
+  libraryId: string | null;
+  status: "pending" | "running";
+  recompute: boolean;
+  processed: number;
+  total: number;
+  startedAt: string | null;
+  etaSeconds: number | null;
+}
+
 export interface GalleryFaceSettings {
   threshold: number;
   groupingStrength: number; // 2..8: lower = purer/more groups, higher = more consolidated
   libraries: GalleryFaceLibrary[];
+  scan: GalleryFaceScan | null;
 }
 
 export interface GalleryFolder {

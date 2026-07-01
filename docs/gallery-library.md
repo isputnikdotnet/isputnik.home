@@ -131,9 +131,55 @@ approximate locations of geotagged photos to the OSM tile host — an accepted
 trade-off for the slippy-map UX. A future option is an admin-configurable tile URL so
 a privacy-conscious deployment can self-host tiles.
 
+## Face recognition
+
+On-device face detection + grouping, entirely in-process (no external service, nothing
+leaves the machine). Code lives under `modules/library/gallery/faces/`.
+
+**Pipeline** (`arcface.ts`): InsightFace SCRFD-500MF detector → 5-point similarity-warp
+alignment to 112×112 → ArcFace **ResNet50** recogniser (`w600k_r50`) → 512-d L2-normalised
+embedding (cosine = dot product). Runs on `onnxruntime-node` (CPU by default; set
+`FACE_ORT_PROVIDERS=cuda,cpu` / `dml,cpu` to try an accelerator, with automatic CPU
+fallback). Models are vendored under `apps/server/models/face/` (`det_500m.onnx`,
+`w600k_r50.onnx`). The engine loads lazily on first detection and disables sharp's cache
+for the duration (a scan sees only unique images). Faces of one photo are recognised in a
+single batched `rec.run`.
+
+**Module layout:**
+- `arcface.ts` — detection + embedding engine (native ORT).
+- `queue.ts` — job-enqueue helpers + payload types; dependency-light (db + nanoid only) so
+  callers like the maintenance scheduler don't pull in the ML import chain.
+- `scanner.ts` — the scan worker (own `SCAN_GALLERY_FACES` queue, 2s poller, single-flight
+  guard) + `activeFaceScan()` progress reader.
+- `cluster.ts` — global mutual-kNN grouping (resists hub-chaining); reconciles rebuilt
+  groups with named/anchored people.
+- `settings.ts` — per-library enable flag + global threshold/K; `model-id.ts` — the active
+  `FACE_EMBEDDING_MODEL` id, isolated so the cluster/status layers can read it without
+  loading ORT.
+- `thumbnails.ts` — per-face avatar crops; `clear.ts` — wipe a library's face data.
+
+**Storage:** `gallery_faces` (one row per detected face — box, embedding, `embedding_model`),
+`gallery_people`, `gallery_face_scans` (per-photo scan marker with the model used),
+`gallery_face_exclusions` (durable "not this person" removals).
+
+**Model-aware incremental scan.** A non-forced scan only processes photos lacking a scan
+marker **for the current model**, so bumping `FACE_EMBEDDING_MODEL` re-embeds stale-model
+photos on the next scan (no `force` needed). Clustering and the "scanned X of Y" status
+likewise filter on the current model, so after a model change progress correctly restarts
+from zero and climbs. Changing the model invalidates old embeddings (they're never mixed
+across models) and needs a one-time rescan.
+
+**Progress + ETA.** The scan worker throttle-writes `{processed, total, startedAt}` into the
+job's payload; `activeFaceScan()` reads it and extrapolates an ETA, surfaced on
+`GET /faces/settings` and rendered as a progress ring in the Face recognition window.
+
+**Scheduled job.** The `scan_new_faces` maintenance job (Control panel → Libraries →
+Scheduled jobs) enqueues non-forced scans across every face-enabled library — picking up
+new and stale-model photos. Ships disabled.
+
 ## Not yet (future phases)
 
-- **Face detection / semantic search** (ML — the heavy part of Immich).
+- **Semantic / content search** (ML — the heavy part of Immich).
 - **Dedicated shareable album object** (v1 uses Collections).
 - **Upload into a chosen subfolder** (today everything lands in the library root).
 - **Configurable map tile source** (today OSM is hard-wired).
