@@ -7,8 +7,10 @@ import { enqueueFaceScan } from "../library/gallery/faces/queue.js";
 import { enabledFaceLibraryIds } from "../library/gallery/faces/settings.js";
 
 // Recurring maintenance tasks. The set of jobs is fixed and defined here; the
-// scheduled_jobs table only stores per-key state (enabled, frequency, last/next
-// run). Every job ships disabled — an admin opts in from the Scheduled jobs tab.
+// scheduled_jobs table only stores per-key state (enabled, frequency, last/next run).
+// Each job ships with a built-in default schedule (enabled + frequency + clock time);
+// those defaults are seeded into the table on startup for any job the admin hasn't
+// configured, and remain editable from the Scheduled jobs tab.
 //
 // A single lightweight worker ticks periodically and runs any enabled job whose
 // next_run_at has passed. Jobs can also be triggered on demand ("Run now").
@@ -21,6 +23,10 @@ interface ScheduledJobDef {
   description: string;
   // Runs the task and returns a human-readable summary. Throws on failure.
   run: () => string;
+  // Built-in defaults, applied when the admin hasn't configured this job yet.
+  defaultEnabled: boolean;
+  defaultFrequency: Frequency;
+  time: string; // local clock time "HH:MM" the job runs at
 }
 
 const DEFINITIONS: ScheduledJobDef[] = [
@@ -28,6 +34,9 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "cleanup_job_logs",
     label: "Clean job logs",
     description: `Delete completed and failed job records beyond the most recent ${KEEP_JOB_LOGS}. Active jobs are never removed.`,
+    defaultEnabled: true,
+    defaultFrequency: "weekly",
+    time: "00:30",
     run: () => {
       const result = db.prepare(`
         DELETE FROM jobs
@@ -43,6 +52,9 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "empty_recycle_bin",
     label: "Empty recycle bin",
     description: "Permanently delete every item currently in the recycle bin, regardless of its retention window.",
+    defaultEnabled: true,
+    defaultFrequency: "weekly",
+    time: "00:45",
     run: () => {
       const purged = emptyTrash();
       return `Emptied the recycle bin — purged ${purged} item${purged === 1 ? "" : "s"}.`;
@@ -52,6 +64,9 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "scan_new_faces",
     label: "Scan new photos for faces",
     description: "Detect and group faces in photos not yet scanned with the current recognition model, across every library with face recognition enabled. Already-processed photos are skipped, so this is cheap when nothing is new.",
+    defaultEnabled: true,
+    defaultFrequency: "daily",
+    time: "01:00",
     run: () => {
       const ids = enabledFaceLibraryIds();
       if (ids.length === 0) return "No libraries have face recognition enabled — nothing to scan.";
@@ -90,15 +105,24 @@ interface ScheduledJobRow {
   last_message: string | null;
 }
 
-function defaultState(): ScheduledJobState {
-  return { enabled: false, frequency: "weekly", nextRunAt: null, lastRunAt: null, lastStatus: null, lastMessage: null };
+function defaultState(def?: ScheduledJobDef): ScheduledJobState {
+  const enabled = def?.defaultEnabled ?? false;
+  const frequency = def?.defaultFrequency ?? "weekly";
+  return {
+    enabled,
+    frequency,
+    nextRunAt: enabled && def ? computeNextRun(frequency, def.time) : null,
+    lastRunAt: null,
+    lastStatus: null,
+    lastMessage: null
+  };
 }
 
 function getState(key: string): ScheduledJobState {
   const row = db.prepare(
     "SELECT enabled, frequency, next_run_at, last_run_at, last_status, last_message FROM scheduled_jobs WHERE key = ?"
   ).get(key) as ScheduledJobRow | undefined;
-  if (!row) return defaultState();
+  if (!row) return defaultState(DEFINITIONS.find((d) => d.key === key));
   return {
     enabled: Boolean(row.enabled),
     frequency: row.frequency,
@@ -109,15 +133,27 @@ function getState(key: string): ScheduledJobState {
   };
 }
 
-// Compute an ISO timestamp `frequency` from now, using SQLite so it matches the
-// column defaults exactly.
-function computeNextRun(frequency: Frequency): string {
-  const row = db.prepare("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?) AS t").get(FREQUENCY_MODIFIER[frequency]) as { t: string };
-  return row.t;
+// Next run at the job's local clock time (HH:MM): today at that time if it's still
+// ahead, otherwise advanced by one frequency interval. Uses 'localtime' so "01:00" means
+// the server's 1 AM (falls back to UTC when the container has no TZ set). Computed in
+// SQLite so it matches the stored-timestamp format exactly.
+function computeNextRun(frequency: Frequency, time: string): string {
+  const todayAt = db.prepare(
+    "SELECT strftime('%Y-%m-%dT%H:%M:%fZ', datetime(date('now','localtime') || ' ' || ? || ':00', 'utc')) AS t"
+  ).get(time) as { t: string };
+  const now = db.prepare("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now') AS t").get() as { t: string };
+  // ISO-8601 Z timestamps of identical format compare lexicographically == chronologically.
+  if (todayAt.t > now.t) return todayAt.t;
+  const advanced = db.prepare("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', ?, ?) AS t").get(todayAt.t, FREQUENCY_MODIFIER[frequency]) as { t: string };
+  return advanced.t;
+}
+
+function jobTime(key: string): string {
+  return DEFINITIONS.find((d) => d.key === key)?.time ?? "00:00";
 }
 
 function saveConfig(key: string, enabled: boolean, frequency: Frequency) {
-  const nextRun = enabled ? computeNextRun(frequency) : null;
+  const nextRun = enabled ? computeNextRun(frequency, jobTime(key)) : null;
   db.prepare(`
     INSERT INTO scheduled_jobs (key, enabled, frequency, next_run_at, updated_at)
     VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -142,7 +178,7 @@ function runJob(def: ScheduledJobDef, trigger: "scheduled" | "manual", actorUser
     message = err instanceof Error ? err.message : "Job failed";
     status = "error";
   }
-  const nextRun = before.enabled ? computeNextRun(before.frequency) : before.nextRunAt;
+  const nextRun = before.enabled ? computeNextRun(before.frequency, def.time) : before.nextRunAt;
   db.prepare(`
     INSERT INTO scheduled_jobs (key, enabled, frequency, next_run_at, last_run_at, last_status, last_message, updated_at)
     VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -171,10 +207,26 @@ export interface ScheduledJobView extends ScheduledJobState {
   key: string;
   label: string;
   description: string;
+  time: string; // local clock time the job runs at, e.g. "01:00"
 }
 
 function view(def: ScheduledJobDef): ScheduledJobView {
-  return { key: def.key, label: def.label, description: def.description, ...getState(def.key) };
+  return { key: def.key, label: def.label, description: def.description, time: def.time, ...getState(def.key) };
+}
+
+// Seed a row for each job so the worker (which queries table rows directly) honours the
+// built-in defaults. Existing rows — including any an admin has changed — are left
+// untouched (ON CONFLICT DO NOTHING), so this only ever fills in never-configured jobs.
+export function seedScheduledJobDefaults(): void {
+  const insert = db.prepare(`
+    INSERT INTO scheduled_jobs (key, enabled, frequency, next_run_at, updated_at)
+    VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT(key) DO NOTHING
+  `);
+  for (const def of DEFINITIONS) {
+    const nextRun = def.defaultEnabled ? computeNextRun(def.defaultFrequency, def.time) : null;
+    insert.run(def.key, def.defaultEnabled ? 1 : 0, def.defaultFrequency, nextRun);
+  }
 }
 
 export function listScheduledJobs(): ScheduledJobView[] {
@@ -274,6 +326,7 @@ export async function maintenancePlugin(app: FastifyInstance) {
     reply.send({ job });
   });
 
+  seedScheduledJobDefaults();
   const stopWorker = startScheduledJobsWorker();
   app.addHook("onClose", async () => { stopWorker(); });
 }

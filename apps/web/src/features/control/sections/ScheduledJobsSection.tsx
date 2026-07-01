@@ -13,6 +13,7 @@ interface ScheduledJob {
   description: string;
   enabled: boolean;
   frequency: Frequency;
+  time: string; // local clock time the job runs at, e.g. "01:00"
   nextRunAt: string | null;
   lastRunAt: string | null;
   lastStatus: "success" | "error" | null;
@@ -48,8 +49,8 @@ export function ScheduledJobsSection() {
       </div>
 
       <p className="scheduled-jobs-intro muted">
-        Recurring upkeep tasks. Each ships disabled — turn one on, pick how often it runs, and it
-        runs automatically from then on. You can also run any task once with <strong>Run now</strong>.
+        Recurring upkeep tasks. Each runs automatically on its schedule (shown below); turn one off,
+        or change how often it runs, at any time. You can also run any task once with <strong>Run now</strong>.
       </p>
 
       {error && <MessageBox tone="error" title="Scheduled jobs error">{error}</MessageBox>}
@@ -129,6 +130,7 @@ function ScheduledJobCard({
             <option value="weekly">Every week</option>
             <option value="monthly">Every month</option>
           </select>
+          <small className="muted">Runs at {job.time}</small>
         </label>
 
         <div className="scheduled-job-status">
@@ -145,7 +147,7 @@ function ScheduledJobCard({
           )}
           {enabled && job.enabled && job.nextRunAt && (
             <span className="scheduled-job-next muted">
-              <CalendarClock size={14} /> Next run {formatManagedDate(job.nextRunAt)} ({FREQUENCY_LABEL[job.frequency].toLowerCase()})
+              <CalendarClock size={14} /> Next run {formatManagedDate(job.nextRunAt)} ({FREQUENCY_LABEL[job.frequency].toLowerCase()} at {job.time})
             </span>
           )}
         </div>
