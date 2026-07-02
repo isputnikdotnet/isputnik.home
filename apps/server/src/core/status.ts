@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.2",
+          label: "Security hardening for the photo & video folder view",
+          changes: [
+            "Closed a small denial-of-service opening in the gallery's folder browser: a specially crafted folder-path request could make the server do a lot of needless work. The path is now trimmed with a fast linear scan and capped in length, so browsing behaves exactly as before while the expensive case is gone. No action needed on your part."
+          ]
+        },
+        {
           version: "1.8.1",
           label: "Fixes the 1.8.0 image failing to start",
           changes: [
