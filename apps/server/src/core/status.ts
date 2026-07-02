@@ -502,6 +502,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.0",
+          label: "Gallery search with advanced filters, BMP photos fixed, slimmer Docker image",
+          changes: [
+            "The photo & video timeline now searches and filters like the audiobook catalog. The search box matches titles, captions, folder and file names, and named people. The new Filter button adds People, Years, an exact Date-taken range, Tags, Cameras, File size, and Location (has / has no GPS) — filters combine, every active one shows as a removable chip, and filtering from the Folder view jumps you to the matching Timeline results.",
+            "Old BMP photos finally show up properly. Bitmap files (and any other format the image engine can't read) are now converted through the bundled ffmpeg, so they get grid thumbnails, lightbox previews, dimensions — and faces. Existing BMP items heal on the next library scan, no manual work needed.",
+            "Empty files no longer appear as broken photos. A zero-byte file (usually a failed copy) is skipped by the scan and cleaned out of the gallery if it was indexed before; if the file ever gains content, the next scan picks it up.",
+            "The Docker image lost about 700 MB. It now ships only production dependencies and only this platform's binaries — nothing changes in how you run it, the download and the disk footprint are just much smaller.",
+            "Deleting a library now also reclaims the thumbnails it generated, instead of leaving them behind in the data folder.",
+            "Face scanning can try a GPU (experimental). Set the FACE_ORT_PROVIDERS environment variable (e.g. \"dml,cpu\" on a Windows machine) to run face detection on an accelerator; the scan falls back to CPU automatically — at startup or even mid-scan — if the GPU can't handle the models."
+          ]
+        },
+        {
           version: "1.7.2",
           label: "Face recognition housekeeping: disk cleanup, unreadable photos, leaner nights",
           changes: [
