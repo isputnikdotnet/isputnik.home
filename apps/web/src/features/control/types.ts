@@ -192,15 +192,16 @@ export interface Job {
   completedAt: string | null;
   failedAt: string | null;
   error: string | null;
-  result: {
-    discoveredBooks?: number;
-    discoveredFiles?: number;
-    bookErrors?: string[];
-  } | null;
+  // Human-readable result line for finished tasks, built server-side per job type.
+  summary: string | null;
+  // Live progress, present only while running; unit names what's counted ("books", "photos").
   progress: {
-    booksProcessed: number;
-    booksTotal: number;
+    processed: number;
+    total: number;
+    unit: string;
+    etaSeconds: number | null;
   } | null;
+  bookErrors: string[];
 }
 
 export interface DbInfo {

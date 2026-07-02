@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ScanFace, RefreshCw, Trash2, FlaskConical } from "lucide-react";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
@@ -6,22 +6,12 @@ import { Button } from "../../shared/Button";
 import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
-import { ProgressRing } from "../../shared/ProgressRing";
-import type { GalleryFaceLibrary, GalleryFaceScan, GalleryFaceSettings } from "./types";
-
-// Coarse "time remaining" phrasing for the scan progress line.
-function formatEta(seconds: number): string {
-  if (seconds < 60) return "less than a minute left";
-  const mins = Math.round(seconds / 60);
-  if (mins < 60) return `about ${mins} min left`;
-  const hrs = Math.floor(mins / 60);
-  const rem = mins % 60;
-  return rem === 0 ? `about ${hrs} hr left` : `about ${hrs} hr ${rem} min left`;
-}
+import type { GalleryFaceLibrary, GalleryFaceSettings } from "./types";
 
 // Admin popup: turn face recognition on/off per gallery library and trigger a full
 // rescan. Enabling a library kicks off an initial scan automatically (server side);
-// "Rescan" reprocesses every photo from scratch.
+// "Rescan" reprocesses every photo from scratch. Live scan progress is shown on the
+// Tasks page (Control panel → Libraries → Tasks), not here.
 export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
   const [libraries, setLibraries] = useState<GalleryFaceLibrary[]>([]);
   const [strength, setStrength] = useState(8); // matches server DEFAULT_FACE_K until the real value loads
@@ -32,16 +22,13 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   const [notice, setNotice] = useState("");
   const [confirmRescan, setConfirmRescan] = useState<GalleryFaceLibrary | null>(null);
   const [confirmClear, setConfirmClear] = useState<GalleryFaceLibrary | null>(null);
-  const [scan, setScan] = useState<GalleryFaceScan | null>(null);
   const [tab, setTab] = useState<"libraries" | "grouping">("libraries");
-  const wasScanning = useRef(false);
 
   const load = async () => {
     try {
       const payload = await api<GalleryFaceSettings>("/api/library/gallery/faces/settings");
       setLibraries(payload.libraries);
       setStrength(payload.groupingStrength);
-      setScan(payload.scan);
       setLoaded(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load face-recognition settings");
@@ -69,20 +56,6 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
 
   useEffect(() => { void load(); }, []);
 
-  // While a scan is active, poll for live progress so the ring + ETA advance. When it
-  // finishes, refresh the parent once so the People tab picks up the new groups.
-  const scanning = scan != null;
-  useEffect(() => {
-    if (!scanning) {
-      if (wasScanning.current) { wasScanning.current = false; onChanged(); }
-      return;
-    }
-    wasScanning.current = true;
-    const timer = setInterval(() => { void load(); }, 3000);
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanning]);
-
   const toggle = async (library: GalleryFaceLibrary, enabled: boolean) => {
     setBusyId(library.id);
     setError("");
@@ -93,7 +66,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
         body: JSON.stringify({ libraryId: library.id, enabled })
       });
       setLibraries(payload.libraries);
-      if (enabled) { setNotice(`Face recognition on for "${library.name}" — scanning has started.`); void load(); }
+      if (enabled) setNotice(`Face recognition on for "${library.name}" — scanning has started. Follow progress under Control panel → Libraries → Tasks.`);
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update");
@@ -108,7 +81,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     setNotice("");
     try {
       await api("/api/library/gallery/faces/scan", { method: "POST", body: JSON.stringify({ libraryId: library.id, force: true }) });
-      setNotice(`Full rescan started for "${library.name}". People update as photos are reprocessed.`);
+      setNotice(`Full rescan started for "${library.name}". People update as photos are reprocessed — follow progress under Control panel → Libraries → Tasks.`);
       setConfirmRescan(null);
       await load();
       onChanged();
@@ -149,23 +122,6 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
 
       {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
       {notice && <MessageBox tone="success" title="Started">{notice}</MessageBox>}
-
-      {scan && (
-        <div className="gallery-face-scan-status" role="status" aria-live="polite">
-          <ProgressRing progress={scan.total > 0 ? scan.processed / scan.total : 0} size={38} strokeWidth={3} />
-          <div className="gallery-face-scan-text">
-            <strong>{scan.recompute ? "Regrouping faces…" : "Scanning faces…"}</strong>
-            <small>
-              {scan.total > 0
-                ? `${scan.processed.toLocaleString()} of ${scan.total.toLocaleString()} photos${scan.etaSeconds != null ? ` · ${formatEta(scan.etaSeconds)}` : ""}`
-                : "Preparing…"}
-            </small>
-            <small className="gallery-face-scan-hint">
-              Runs on the server CPU — large libraries can take a while. It continues in the background; you can close this window.
-            </small>
-          </div>
-        </div>
-      )}
 
       <div className="modal-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "libraries"} className={`modal-tab${tab === "libraries" ? " active" : ""}`} onClick={() => setTab("libraries")}>Libraries</button>

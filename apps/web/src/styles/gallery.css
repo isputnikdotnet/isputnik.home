@@ -600,21 +600,9 @@
 
 .gallery-face-row-actions { flex-shrink: 0; gap: 6px; }
 
-/* Live scan progress banner (ring + count + ETA) shown while a face scan runs. */
-.gallery-face-scan-status {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 0 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-.gallery-face-scan-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.gallery-face-scan-text strong { font-size: 0.9rem; }
-.gallery-face-scan-text small { color: var(--muted); font-size: 0.8rem; }
-.gallery-face-scan-hint { font-size: 0.74rem !important; opacity: 0.85; margin-top: 2px; }
+/* Error/"scan started" notices need breathing room before the tabs below them.
+   (Live scan progress moved to Control panel → Libraries → Tasks.) */
+.gallery-face-modal .message-box { margin-bottom: 14px; }
 
 /* Tabs (Libraries | Grouping) sit inside the card body — strip the shared padding so
    they line up with the card's own padding, matching the bulk-edit modal. */

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "statusEbookStats" | "statusGalleryStats" | "about" | "libraries" | "storage" | "recycleBin" | "groups" | "jobs" | "scheduledJobs" | "backup" | "categories" | "tags" | "config" | "security";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "statusEbookStats" | "statusGalleryStats" | "about" | "libraries" | "storage" | "recycleBin" | "groups" | "tasks" | "scheduledJobs" | "backup" | "categories" | "tags" | "config" | "security";
 
 export type Route =
   | { name: "install" }
@@ -273,9 +273,9 @@ export function getRoute(): Route {
     return { name: "control", section: "security" };
   }
 
-  // Jobs now live under Libraries; backup under Config. Old Maintenance paths still resolve.
-  if (["/control/libraries/jobs", "/control/maintenance", "/control/maintenance/jobs", "/control/system", "/control/jobs"].includes(path)) {
-    return { name: "control", section: "jobs" };
+  // Tasks (formerly "Job logs") live under Libraries; backup under Config. Old paths still resolve.
+  if (["/control/libraries/tasks", "/control/libraries/jobs", "/control/maintenance", "/control/maintenance/jobs", "/control/system", "/control/jobs"].includes(path)) {
+    return { name: "control", section: "tasks" };
   }
 
   if (["/control/libraries/scheduled-jobs", "/control/maintenance/scheduled-jobs", "/control/scheduled-jobs"].includes(path)) {

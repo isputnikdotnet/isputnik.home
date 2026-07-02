@@ -38,6 +38,14 @@
   color: var(--mint);
 }
 
+.progress-ring.indeterminate svg {
+  animation: progress-ring-spin 1s linear infinite;
+}
+
+@keyframes progress-ring-spin {
+  to { transform: rotate(360deg); }
+}
+
 .progress-ring-button {
   display: inline-flex;
   padding: 2px;

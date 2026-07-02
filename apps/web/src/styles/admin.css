@@ -663,72 +663,139 @@
   background: var(--surface);
 }
 
+/* ── Tasks ──────────────────────────────────────────────────────── */
+
+.task-idle-note {
+  margin: 4px 0 6px;
+  font-size: 0.9rem;
+}
+
+.task-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 22px 0 10px;
+  font-size: 1rem;
+}
+
+.task-group-count {
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.task-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-queue-pos {
+  width: 32px;
+}
+
+.task-long-running {
+  color: var(--warning, #e8590c);
+}
+
 /* ── Scheduled jobs ─────────────────────────────────────────────── */
 
 .scheduled-jobs-intro {
   max-width: 760px;
-  margin: 4px 0 22px;
+  margin: 4px 0 18px;
   font-size: 0.92rem;
   line-height: 1.55;
 }
 
 .scheduled-jobs {
   display: grid;
-  gap: 18px;
+  gap: 12px;
+  max-width: 860px;
 }
 
 .scheduled-job-card {
-  padding: 22px 24px;
+  display: grid;
+  gap: 10px;
+  padding: 14px 18px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  box-shadow: 0 12px 36px color-mix(in srgb, var(--shadow) 30%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--shadow) 22%, transparent);
 }
 
 .scheduled-job-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
 }
 
 .scheduled-job-copy h2 {
-  margin: 0 0 4px;
-  font-size: 1.05rem;
+  margin: 0;
+  font-size: 0.98rem;
 }
 
 .scheduled-job-copy p {
-  margin: 0;
+  margin: 2px 0 0;
   max-width: 640px;
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: 0.83rem;
+  line-height: 1.45;
 }
 
 .scheduled-job-toggle {
   flex-shrink: 0;
-  align-self: center;
 }
 
-.scheduled-job-controls {
+/* Schedule sentence + actions on one row: "Runs [every week] on [Sunday] at [00:30]" */
+.scheduled-job-foot {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 18px 28px;
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
+  gap: 10px 14px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
 }
 
-.scheduled-job-frequency {
-  max-width: 180px;
+.scheduled-job-when {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.scheduled-job-when select,
+.scheduled-job-when input[type="time"] {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--field);
+  font-size: 0.86rem;
+}
+
+.scheduled-job-when select:focus,
+.scheduled-job-when input[type="time"]:focus {
+  border-color: var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
+.scheduled-job-when select:disabled,
+.scheduled-job-when input[type="time"]:disabled {
+  opacity: 0.55;
 }
 
 .scheduled-job-status {
-  display: grid;
-  gap: 4px;
-  flex: 1 1 280px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 18px;
   min-width: 0;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
 }
 
 .scheduled-job-last,
@@ -747,7 +814,7 @@
 
 .scheduled-job-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-left: auto;
 }
 
