@@ -311,6 +311,17 @@ describe("tasks view", () => {
     expect(byId.ab.progress!.etaSeconds).toBeGreaterThan(0);
   });
 
+  it("exposes batch numbering for pre-queued batch groups, hiding it for single jobs", () => {
+    insertTask("b2", "SCAN_GALLERY_FACES", "pending", { libraryId: "L", batch: 2, batches: 5 }, 10);
+    insertTask("solo", "SCAN_GALLERY_FACES", "pending", { libraryId: "L", batch: 1, batches: 1 }, 9);
+    insertTask("plain", "SCAN_EBOOK_LIBRARY", "pending", { libraryId: "L" }, 8);
+
+    const byId = Object.fromEntries(listTasks().jobs.map((t) => [t.id, t]));
+    expect(byId.b2.batch).toEqual({ index: 2, total: 5 });
+    expect(byId.solo.batch).toBeNull();
+    expect(byId.plain.batch).toBeNull();
+  });
+
   it("summarizes each job type's result shape, exposing skipped-book details", () => {
     insertTask("ab", "SCAN_AUDIOBOOK_LIBRARY", "completed", { result: { discoveredBooks: 5, discoveredFiles: 60, bookErrors: ["a", "b"] } }, 10);
     insertTask("eb", "SCAN_EBOOK_LIBRARY", "completed", { result: { books: 1 } }, 9);

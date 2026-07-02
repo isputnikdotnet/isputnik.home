@@ -201,6 +201,8 @@ export interface Job {
     unit: string;
     etaSeconds: number | null;
   } | null;
+  // Position within a pre-queued batch group ("batch 2 of 5"); null for single jobs.
+  batch: { index: number; total: number } | null;
   bookErrors: string[];
 }
 

@@ -22,7 +22,7 @@ import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary, enabledFaceLibraryIds,
   faceThreshold, setFaceThreshold, faceGroupingK, setFaceGroupingK
 } from "./faces/settings.js";
-import { enqueueFaceScan, enqueueFaceRecompute, processFaceScanQueue, activeFaceScan } from "./faces/scanner.js";
+import { enqueueFaceScan, enqueueFaceScanBatches, enqueueFaceRecompute, processFaceScanQueue, activeFaceScan } from "./faces/scanner.js";
 import { clearLibraryFaceData } from "./faces/clear.js";
 import { FACE_EMBEDDING_MODEL } from "./faces/model-id.js";
 
@@ -295,9 +295,10 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
         return;
       }
       setFaceRecognitionEnabledForLibrary(lib.id, parsed.data.enabled, request.user!.id);
-      // Turning a library on kicks off an initial scan of its not-yet-processed photos.
+      // Turning a library on kicks off an initial scan of its not-yet-processed photos,
+      // pre-queued as numbered batches so the Tasks page shows the whole backlog.
       if (parsed.data.enabled) {
-        enqueueFaceScan(lib.id, false);
+        enqueueFaceScanBatches(lib.id);
         void processFaceScanQueue();
       }
       logActivity({
@@ -353,7 +354,8 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       return;
     }
     const ids = parsed.data.libraryId ? [parsed.data.libraryId] : enabledFaceLibraryIds();
-    const jobs = ids.map((id) => enqueueFaceScan(id, parsed.data.force ?? false));
+    // Forced rescans run as a single uncapped job; incremental scans pre-queue batches.
+    const jobs = ids.flatMap((id) => (parsed.data.force ? [enqueueFaceScan(id, true)] : enqueueFaceScanBatches(id)));
     void processFaceScanQueue();
     logActivity({
       event: "library.gallery.faces.scan",

@@ -8,7 +8,7 @@ import {
 } from "../src/modules/library/gallery/faces/embedding.js";
 import { mutualKnnClusters, mergeClustersByCentroid, clusterGalleryFaces } from "../src/modules/library/gallery/faces/cluster.js";
 import { FACE_EMBEDDING_MODEL } from "../src/modules/library/gallery/faces/model-id.js";
-import { enqueueFaceScan, faceJobType } from "../src/modules/library/gallery/faces/queue.js";
+import { enqueueFaceScan, enqueueFaceScanBatches, faceJobType } from "../src/modules/library/gallery/faces/queue.js";
 import { clearLibraryFaceData } from "../src/modules/library/gallery/faces/clear.js";
 import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary,
@@ -141,6 +141,40 @@ describe("face scan queue (batch chaining)", () => {
     // run_at sits in the future so other queued library jobs can take the lock first.
     expect(new Date(row.run_at).getTime()).toBeGreaterThan(Date.now() + 3000);
     expect(JSON.parse(row.payload)).toEqual({ libraryId: "LIB", force: false, chainStartedAt });
+  });
+
+  it("pre-queues the unscanned backlog as numbered batches sharing one group", async () => {
+    resetDb();
+    makeUser("u1");
+    makeLibrary("GAL", { createdBy: "u1", type: "gallery" });
+    const t = Date.parse("2024-09-01T00:00:00Z");
+    const itemIds: string[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      itemIds.push(await ingestGalleryAsset("GAL", asset(`b${i}.jpg`, t + i * 1000), false) as string);
+    }
+
+    const ids = enqueueFaceScanBatches("GAL", { batchSize: 2 });
+    expect(ids).toHaveLength(3); // ceil(5 / 2)
+
+    const rows = ids.map((id) => JSON.parse((db.prepare("SELECT payload FROM jobs WHERE id = ?").get(id) as { payload: string }).payload));
+    expect(rows.map((r) => r.batch)).toEqual([1, 2, 3]);
+    expect(rows.every((r) => r.batches === 3 && r.libraryId === "GAL" && r.force === false)).toBe(true);
+    expect(new Set(rows.map((r) => r.groupId)).size).toBe(1);
+    expect(rows[0].groupId).toBeTruthy();
+  });
+
+  it("an empty backlog still queues one batch so the no-op run is recorded", async () => {
+    resetDb();
+    makeUser("u1");
+    makeLibrary("GAL", { createdBy: "u1", type: "gallery" });
+    const t = Date.parse("2024-09-02T00:00:00Z");
+    const itemId = await ingestGalleryAsset("GAL", asset("done.jpg", t), false);
+    db.prepare("INSERT INTO gallery_face_scans (item_id, model, face_count) VALUES (?, ?, 0)").run(itemId, FACE_EMBEDDING_MODEL);
+
+    const ids = enqueueFaceScanBatches("GAL", { batchSize: 2 });
+    expect(ids).toHaveLength(1);
+    const payload = JSON.parse((db.prepare("SELECT payload FROM jobs WHERE id = ?").get(ids[0]) as { payload: string }).payload);
+    expect(payload).toMatchObject({ libraryId: "GAL", batch: 1, batches: 1 });
   });
 });
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { emptyTrash } from "../library/shared/trash.js";
-import { enqueueFaceScan } from "../library/gallery/faces/queue.js";
+import { enqueueFaceScanBatches } from "../library/gallery/faces/queue.js";
 import { enabledFaceLibraryIds } from "../library/gallery/faces/settings.js";
 import { enqueueAudiobookScan } from "../library/audiobook/scanner.js";
 import { enqueueEbookScan } from "../library/ebook/scanner.js";
@@ -122,10 +122,11 @@ const DEFINITIONS: ScheduledJobDef[] = [
     run: () => {
       const ids = enabledFaceLibraryIds();
       if (ids.length === 0) return "No libraries have face recognition enabled — nothing to scan.";
-      for (const id of ids) enqueueFaceScan(id, false);
+      // Pre-queued as numbered batch jobs so the Tasks page shows the whole backlog.
       // The face-scan worker (2s poller) picks these up — no need to kick it here, which
       // keeps this module free of the ML/onnxruntime import chain.
-      return `Queued a face scan for ${ids.length} librar${ids.length === 1 ? "y" : "ies"} — new or stale-model photos process in the background.`;
+      const batches = ids.reduce((sum, id) => sum + enqueueFaceScanBatches(id).length, 0);
+      return `Queued ${batches} face-scan batch${batches === 1 ? "" : "es"} across ${ids.length} librar${ids.length === 1 ? "y" : "ies"} — new or stale-model photos process in the background.`;
     }
   }
 ];
@@ -515,6 +516,10 @@ function taskView(row: TaskRow) {
     error: row.error,
     summary: summarizeTaskResult(row.type, payload.result ?? null),
     progress: active ? normalizeTaskProgress(row.type, payload.progress ?? null, row.locked_at ?? row.created_at) : null,
+    // Position within a pre-queued batch group ("batch 2 of 5"); null for single jobs.
+    batch: typeof payload.batch === "number" && typeof payload.batches === "number" && payload.batches > 1
+      ? { index: payload.batch as number, total: payload.batches as number }
+      : null,
     bookErrors: Array.isArray(payload.result?.bookErrors) ? (payload.result.bookErrors as string[]) : []
   };
 }
