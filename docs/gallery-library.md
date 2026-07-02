@@ -150,17 +150,27 @@ single batched `rec.run`.
 - `queue.ts` — job-enqueue helpers + payload types; dependency-light (db + nanoid only) so
   callers like the maintenance scheduler don't pull in the ML import chain.
 - `scanner.ts` — the scan worker (own `SCAN_GALLERY_FACES` queue, 2s poller, single-flight
-  guard) + `activeFaceScan()` progress reader.
-- `cluster.ts` — global mutual-kNN grouping (resists hub-chaining); reconciles rebuilt
-  groups with named/anchored people.
+  guard) + `activeFaceScan()` progress reader. Incremental scans run in **batches of
+  1,000 photos**: each batch clusters (people appear progressively) then re-enqueues a
+  follow-up with a short delay so other queued library jobs can take the one-at-a-time
+  lock; a batch chain stops after **3 hours** (`chainStartedAt` in the payload) and the
+  rest waits for the next nightly run. Forced full rescans are exempt from both limits.
+- `cluster.ts` — two-stage grouping: global mutual-kNN (resists hub-chaining) followed by
+  a **centroid-merge pass** (clusters whose centroids agree ≥ 0.58 cosine re-unite —
+  undoes k-NN fragmentation from burst/near-duplicate photos). Rebuilt groups reconcile
+  with anchored people (named, linked, or **curated** — a user merge target), and ALL
+  groups whose faces belonged to the same anchored person re-union into it, which makes
+  manual merges durable across reclustering. Leftover 1–2-face groups join an anchored
+  person at ≥ 0.5 centroid similarity (singleton absorption).
 - `settings.ts` — per-library enable flag + global threshold/K; `model-id.ts` — the active
   `FACE_EMBEDDING_MODEL` id, isolated so the cluster/status layers can read it without
   loading ORT.
 - `thumbnails.ts` — per-face avatar crops; `clear.ts` — wipe a library's face data.
 
 **Storage:** `gallery_faces` (one row per detected face — box, embedding, `embedding_model`),
-`gallery_people`, `gallery_face_scans` (per-photo scan marker with the model used),
-`gallery_face_exclusions` (durable "not this person" removals).
+`gallery_people` (incl. the `curated` anchor flag set on merge targets), `gallery_face_scans`
+(per-photo scan marker with the model used), `gallery_face_exclusions` (durable "not this
+person" removals).
 
 **Model-aware incremental scan.** A non-forced scan only processes photos lacking a scan
 marker **for the current model**, so bumping `FACE_EMBEDDING_MODEL` re-embeds stale-model
@@ -169,13 +179,17 @@ likewise filter on the current model, so after a model change progress correctly
 from zero and climbs. Changing the model invalidates old embeddings (they're never mixed
 across models) and needs a one-time rescan.
 
-**Progress + ETA.** The scan worker throttle-writes `{processed, total, startedAt}` into the
-job's payload; `activeFaceScan()` reads it and extrapolates an ETA, surfaced on
-`GET /faces/settings` and rendered as a progress ring in the Face recognition window.
+**Progress + ETA.** The scan worker throttle-writes `{processed, total, startedAt,
+etaSeconds}` into the job's payload via `shared/job-progress.ts` (recent-window rate).
+Live progress is rendered on the admin **Tasks** page (Control panel → Libraries →
+Tasks) — a progress ring with counts, percentage, and time remaining; the Face
+recognition window just points there.
 
 **Scheduled job.** The `scan_new_faces` maintenance job (Control panel → Libraries →
 Scheduled jobs) enqueues non-forced scans across every face-enabled library — picking up
-new and stale-model photos. Ships disabled.
+new and stale-model photos. Ships **enabled**, daily at **05:00** — deliberately after
+the nightly library scans (randomized 01:00–04:59), so the day's new photos are already
+cataloged and get their faces the same night.
 
 ## Not yet (future phases)
 

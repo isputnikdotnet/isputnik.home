@@ -172,6 +172,9 @@ export function mergeGalleryPeople(sourceId: string, targetId: string): boolean 
     // Carry the source's exclusions over to the target before it's deleted (cascade).
     db.prepare("UPDATE OR IGNORE gallery_face_exclusions SET person_id = ? WHERE person_id = ?").run(targetId, sourceId);
     db.prepare("DELETE FROM gallery_people WHERE id = ?").run(sourceId);
+    // A merge is deliberate curation — anchor the target so reclustering re-unions the
+    // merged groups instead of re-splitting them on the next scan.
+    db.prepare("UPDATE gallery_people SET curated = 1 WHERE id = ?").run(targetId);
     recomputeClusterCentroid(targetId);
   })();
   return true;

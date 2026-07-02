@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.7.0",
+          label: "Nightly library scans, a new Tasks page + smarter face grouping",
+          changes: [
+            "Your libraries now stay fresh on their own. Three new scheduled jobs scan audiobook, ebook, and photo & video libraries every night, each at its own randomized quiet-hours time (between 01:00 and 04:59) so they don't all start at once. And schedules are fully editable now — pick the day of the week (weekly), day of the month (monthly), and the exact time for every job under Control panel → Libraries → Scheduled jobs.",
+            "\"Job logs\" is now Tasks. Running tasks show a circular progress indicator with live counts and an estimated time remaining (\"1,200 of 5,000 items · 24% · about 40 min left\"), queued tasks list their position in line, and the finished history is paged. Photo, ebook, and face scans all report live progress now — and the estimate is based on the recent scanning rate, so it stays honest even when a scan races through already-cataloged files first.",
+            "One heavy task at a time. Library scans and face recognition now run strictly one after another instead of competing for CPU and disk — whatever else is triggered simply waits in the queue and starts the moment the current task finishes.",
+            "Face grouping fights fragmentation. Groups of the same person that clearly belong together are now merged automatically after every scan, your manual merges are permanent (reclustering re-unites them instead of splitting them back apart overnight), and stray one-photo groups fold into the right named person. Existing fragments start consolidating on the next scan or Regroup — no rescan needed.",
+            "Face scanning is polite about big backlogs. The nightly face scan now runs last (05:00, after the library scans, so tonight's new photos get their faces tonight), works in batches of 1,000 photos with people appearing progressively after each batch, and pauses after 3 hours — the remainder continues the next night automatically. Manual full rescans still run to completion. Live scan progress now lives on the Tasks page; the Face recognition window points you there."
+          ]
+        },
+        {
           version: "1.6.1",
           label: "Automatic maintenance schedules + tidier face-recognition window",
           changes: [

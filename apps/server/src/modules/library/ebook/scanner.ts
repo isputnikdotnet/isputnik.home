@@ -16,6 +16,8 @@ import {
 } from "../shared/library-settings.js";
 import { matchPattern, type PatternResult } from "../shared/scan-rule-pattern.js";
 import { listScanRules, resolveOwner } from "../shared/scan-rules.js";
+import { libraryJobRunning } from "../shared/scan-lock.js";
+import { jobProgressWriter } from "../shared/job-progress.js";
 import { applyScannedSeries } from "../shared/series.js";
 
 const scanJobType = "SCAN_EBOOK_LIBRARY";
@@ -521,7 +523,11 @@ export function reconcileOwnedItems(libraryId: string, scanRuleId: string | null
   }
 }
 
-async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {}) {
+async function scanEbookLibrary(
+  libraryId: string,
+  options: EbookScanOptions = {},
+  onProgress?: (processed: number, total: number) => void
+) {
   const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'ebook'")
     .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
   if (!library) throw new Error("Ebook library not found.");
@@ -553,20 +559,27 @@ async function scanEbookLibrary(libraryId: string, options: EbookScanOptions = {
     if (list) list.push(file); else bucket.set(key, [file]);
   }
 
+  const totalGroups = defaultGroups.size + [...ruleGroups.values()].reduce((sum, group) => sum + group.size, 0);
+  let processedGroups = 0;
   for (const groupFiles of defaultGroups.values()) {
+    onProgress?.(processedGroups, totalGroups);
     await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled, { scanRuleId: null });
+    processedGroups += 1;
   }
   for (const [ruleId, groups] of ruleGroups) {
     const rule = rules.find((r) => r.id === ruleId);
     if (!rule) continue;
     for (const groupFiles of groups.values()) {
+      onProgress?.(processedGroups, totalGroups);
       const key = ebookGroupKey(groupFiles[0].relativePath);
       const owner = resolveOwner(libraryId, key);
       const relativeKey = owner && key.startsWith(`${owner.anchor}/`) ? key.slice(owner.anchor.length + 1) : key;
       const fields = matchPattern(rule.pattern, relativeKey);
       await ingestEbookGroup(libraryId, groupFiles, settings, fileMetaEnabled, { scanRuleId: ruleId, fields });
+      processedGroups += 1;
     }
   }
+  onProgress?.(totalGroups, totalGroups);
 
   // Reconcile each owner independently — including rules whose folders are now empty.
   reconcileOwnedItems(libraryId, null, new Set(defaultGroups.keys()));
@@ -600,6 +613,10 @@ export async function processEbookScanQueue() {
       .run(scanJobType);
 
     for (;;) {
+      // One library job at a time server-wide: while another scan or face job is
+      // running (whatever its type), leave the queue alone until the next poll.
+      if (libraryJobRunning()) break;
+
       const job = db.prepare(`
         SELECT id, payload FROM jobs
         WHERE type = ? AND status = 'pending' AND datetime(run_at) <= datetime('now')
@@ -615,7 +632,9 @@ export async function processEbookScanQueue() {
 
       const payload = JSON.parse(job.payload) as { libraryId: string; options?: EbookScanOptions };
       try {
-        const result = await scanEbookLibrary(payload.libraryId, payload.options ?? {});
+        // Persist live progress into the job payload (throttled) so the Tasks page
+        // shows books scanned + ETA while the scan runs.
+        const result = await scanEbookLibrary(payload.libraryId, payload.options ?? {}, jobProgressWriter(job.id, payload));
         db.prepare(`
           UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL
           WHERE id = ?
