@@ -18,6 +18,12 @@ function taskTypeLabel(type: string) {
   }
 }
 
+// "Face scan · batch 2/5" for jobs that are part of a pre-queued batch group.
+function taskLabel(task: Job) {
+  const base = taskTypeLabel(task.type);
+  return task.batch ? `${base} · batch ${task.batch.index}/${task.batch.total}` : base;
+}
+
 function duration(start: string, end: string | null) {
   if (!end) return null;
   const ms = new Date(end).getTime() - new Date(start).getTime();
@@ -130,7 +136,7 @@ export function TasksSection() {
                       <td>
                         <span className="task-name">
                           <ProgressRing progress={percent ?? 0} indeterminate={percent === null} size={22} strokeWidth={3} />
-                          {taskTypeLabel(task.type)}
+                          {taskLabel(task)}
                         </span>
                       </td>
                       <td className="datagrid-muted">{task.libraryName ?? <span className="muted">—</span>}</td>
@@ -176,7 +182,7 @@ export function TasksSection() {
                 {queued.map((task, index) => (
                   <tr key={task.id}>
                     <td className="task-queue-pos datagrid-muted">{index + 1}</td>
-                    <td>{taskTypeLabel(task.type)}</td>
+                    <td>{taskLabel(task)}</td>
                     <td className="datagrid-muted">{task.libraryName ?? <span className="muted">—</span>}</td>
                     <td className="col-scan datagrid-muted">{formatManagedDate(task.createdAt)}</td>
                     <td className="col-actions">
@@ -223,7 +229,7 @@ export function TasksSection() {
                   return (
                     <>
                       <tr key={task.id}>
-                        <td>{taskTypeLabel(task.type)}</td>
+                        <td>{taskLabel(task)}</td>
                         <td className="datagrid-muted">{task.libraryName ?? <span className="muted">—</span>}</td>
                         <td>
                           <span className={`status-badge ${task.status}`}>{task.status}</span>

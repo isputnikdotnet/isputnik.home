@@ -151,10 +151,13 @@ single batched `rec.run`.
   callers like the maintenance scheduler don't pull in the ML import chain.
 - `scanner.ts` — the scan worker (own `SCAN_GALLERY_FACES` queue, 2s poller, single-flight
   guard) + `activeFaceScan()` progress reader. Incremental scans run in **batches of
-  1,000 photos**: each batch clusters (people appear progressively) then re-enqueues a
-  follow-up with a short delay so other queued library jobs can take the one-at-a-time
-  lock; a batch chain stops after **3 hours** (`chainStartedAt` in the payload) and the
-  rest waits for the next nightly run. Forced full rescans are exempt from both limits.
+  1,000 photos**, pre-queued up front as numbered jobs (`batch 2/5`, shared `groupId`)
+  so the Tasks page shows the whole backlog; each batch clusters when it finishes
+  (people appear progressively), and correctness comes from the scan markers — a stale
+  batch is just a fast no-op. The group's first batch stamps `chainStartedAt` onto its
+  siblings; once **3 hours** pass, the running batch stops and the group's queued
+  remainder is dropped (the next nightly run re-queues what's left). Forced full
+  rescans are exempt from both limits and run as one uncapped job.
 - `cluster.ts` — two-stage grouping: global mutual-kNN (resists hub-chaining) followed by
   a **centroid-merge pass** (clusters whose centroids agree ≥ 0.58 cosine re-unite —
   undoes k-NN fragmentation from burst/near-duplicate photos). Rebuilt groups reconcile

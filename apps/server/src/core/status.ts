@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.7.1",
+          label: "Face-scan batches visible up front",
+          changes: [
+            "The Tasks page now shows a face scan's whole backlog the moment it starts. An initial or nightly scan is queued as numbered batches of 1,000 photos — \"Face scan · batch 1/3\" running, the rest waiting in the Queued list — so you can see exactly how much work is lined up and how far along it is. Each finished batch is recorded in the history with its own counts, and the nightly job's log line reports how many batches it queued.",
+            "Batches stay honest about change: photos added or removed while a scan runs are picked up (or skipped) automatically, and if the 3-hour nightly window runs out, the remaining queued batches step aside and the next night picks up where things left off."
+          ]
+        },
+        {
           version: "1.7.0",
           label: "Nightly library scans, a new Tasks page + smarter face grouping",
           changes: [
