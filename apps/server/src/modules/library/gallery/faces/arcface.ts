@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import * as ort from "onnxruntime-node";
+import { decodePhotoToJpeg } from "../media.js";
 import { FACE_EMBEDDING_MODEL } from "./model-id.js";
 
 export { FACE_EMBEDDING_MODEL };
@@ -231,7 +232,19 @@ function l2(vector: Float32Array): Float32Array {
 export interface DecodedImage { rgb: Buffer; width: number; height: number }
 
 export async function decodeUpright(absolutePath: string): Promise<DecodedImage> {
-  const { data, info } = await sharp(absolutePath).rotate()
+  try {
+    return await decodeRaw(absolutePath);
+  } catch (err) {
+    // A photo sharp has no loader for (BMP is the common case): re-decode via the
+    // bundled ffmpeg — same fallback the thumbnailer uses — so it gets faces too.
+    const converted = await decodePhotoToJpeg(absolutePath);
+    if (!converted) throw err;
+    return decodeRaw(converted);
+  }
+}
+
+async function decodeRaw(input: string | Buffer): Promise<DecodedImage> {
+  const { data, info } = await sharp(input).rotate()
     .resize(WORK_MAX, WORK_MAX, { fit: "inside", withoutEnlargement: true })
     .removeAlpha().raw().toBuffer({ resolveWithObject: true });
   return { rgb: data, width: info.width, height: info.height };

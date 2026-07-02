@@ -68,6 +68,10 @@ function walkGalleryFiles(rootPath: string, extensions: Set<string>): GalleryFil
       if (!kind) continue;
       let stat: fs.Stats;
       try { stat = fs.statSync(absolutePath); } catch { continue; }
+      // An empty file has nothing to render (failed copy, placeholder, or a copy
+      // still in flight) — leave it unindexed; a later scan picks it up if it
+      // gains content, and an already-indexed one is reconciled away.
+      if (stat.size === 0) continue;
       files.push({
         absolutePath,
         relativePath: normaliseRelativePath(path.relative(rootPath, absolutePath)),
@@ -236,6 +240,7 @@ export async function scanSingleGalleryFile(libraryId: string, relativePath: str
   const absolutePath = path.join(rootPath, ...normalized.split("/"));
   let stat: fs.Stats;
   try { stat = fs.statSync(absolutePath); } catch { return null; }
+  if (stat.size === 0) return null; // same empty-file rule as the walk
 
   return ingestGalleryAsset(libraryId, {
     absolutePath,
