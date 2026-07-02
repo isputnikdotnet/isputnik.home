@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.1",
+          label: "Fixes the 1.8.0 image failing to start",
+          changes: [
+            "The 1.8.0 Docker image could crash immediately with \"Cannot find module 'detect-libc'\" — the image-slimming step trusted npm's dev-dependency labels, which wrongly marked two of the image processor's runtime libraries as removable. The build now keeps exactly the server's production dependency tree (computed from the lockfile), and a new build-time check imports every runtime dependency before an image can publish — so this class of breakage can't ship again. If you hit the crash, just update to this version."
+          ]
+        },
+        {
           version: "1.8.0",
           label: "Gallery search with advanced filters, BMP photos fixed, slimmer Docker image",
           changes: [
