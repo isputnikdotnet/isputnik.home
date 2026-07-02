@@ -9,6 +9,7 @@ import { libraryMembersPlugin } from "./shared/members.js";
 import { scanRulesPlugin } from "./shared/scan-rules-routes.js";
 import { registerTrashRoutes } from "./shared/trash-routes.js";
 import { startTrashPurgeWorker } from "./shared/trash.js";
+import { sweepOrphanLibraryThumbnails } from "./shared/thumbnail.js";
 import { registerFeedRoutes } from "./feed.js";
 import { registerCategoryRoutes } from "./categories.js";
 import { registerTagRoutes } from "./tags.js";
@@ -55,7 +56,19 @@ export async function libraryPlugin(app: FastifyInstance) {
   // …and the Recycle Bin, whose sweeper auto-purges items past the retention window.
   registerTrashRoutes(app);
   const stopPurgeWorker = startTrashPurgeWorker();
+
+  // One-shot mop-up for thumbnail buckets orphaned by library deletes from before
+  // the delete routes removed them; deferred so it never slows boot.
+  const orphanSweep = setTimeout(() => {
+    try {
+      const removed = sweepOrphanLibraryThumbnails();
+      if (removed > 0) app.log.info(`Removed ${removed} orphaned library thumbnail bucket${removed === 1 ? "" : "s"}.`);
+    } catch { /* best-effort */ }
+  }, 30_000);
+  orphanSweep.unref?.();
+
   app.addHook("onClose", async () => {
     stopPurgeWorker();
+    clearTimeout(orphanSweep);
   });
 }
