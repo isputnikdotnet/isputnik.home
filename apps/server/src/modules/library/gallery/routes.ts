@@ -321,7 +321,10 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
-    return queryGalleryFolders(request.user!.id, libIds, qp.parent ?? "", limit, offset);
+    // Cap the folder path: real relative paths are short, so a bounded value keeps
+    // the LIKE pattern and all downstream string work sane (defense in depth).
+    const parent = (qp.parent ?? "").slice(0, 1024);
+    return queryGalleryFolders(request.user!.id, libIds, parent, limit, offset);
   });
 
   app.get("/api/library/gallery/facets", { preHandler: app.authenticate }, async (request) => {

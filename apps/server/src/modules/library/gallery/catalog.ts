@@ -255,7 +255,14 @@ export function queryGalleryTimeline(userId: string, libIds: string[], opts: Gal
 // `parent`. `parent` is a normalised relative path ("" = library root).
 export function queryGalleryFolders(userId: string, libIds: string[], parent: string, limit: number, offset: number) {
   if (libIds.length === 0) return { parent, folders: [], assets: [], total: 0 };
-  const cleanParent = parent.replace(/^\/+|\/+$/g, "");
+  // Trim leading/trailing slashes with a linear scan, not /^\/+|\/+$/g: `parent`
+  // is a raw query param, and that regex is quadratic (js/polynomial-redos) on an
+  // input with a long internal slash run (e.g. "a/////…////b").
+  let start = 0;
+  let end = parent.length;
+  while (start < end && parent.charCodeAt(start) === 47) start += 1;   // 47 = '/'
+  while (end > start && parent.charCodeAt(end - 1) === 47) end -= 1;
+  const cleanParent = parent.slice(start, end);
   const libArgs = [...libIds];
   const libIn = inClause(libIds.length);
 
