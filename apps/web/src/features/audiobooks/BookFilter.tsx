@@ -1,7 +1,4 @@
-import { useState } from "react";
-import { Check, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
-import { Modal } from "../../shared/Modal";
-import { Button } from "../../shared/Button";
+import { FacetFilterButton, FacetFilterChips, countActiveFilters, type FacetDef } from "../../shared/FacetFilter";
 import type { AudiobookBook } from "./types";
 
 // A book row in the grids — the list type plus the libraryName the pages attach.
@@ -86,7 +83,7 @@ const DURATION_OPTIONS = [
 
 // Facets keyed to the BookFilters fields, in display order. Status/duration are
 // fixed enumerations; the rest are derived from the loaded books.
-const FACET_ORDER: { key: keyof BookFilters; title: string; searchable: boolean; fixed?: { value: string; label: string }[] }[] = [
+const FACET_ORDER: FacetDef<keyof BookFilters>[] = [
   { key: "status", title: "Status", searchable: false, fixed: STATUS_OPTIONS },
   { key: "authors", title: "Authors", searchable: true },
   { key: "narrators", title: "Narrators", searchable: true },
@@ -119,7 +116,7 @@ function durationBucket(seconds: number | null): string | null {
 }
 
 export function activeFilterCount(filters: BookFilters): number {
-  return Object.values(filters).reduce((sum, list) => sum + list.length, 0);
+  return countActiveFilters(filters);
 }
 
 export function filterBooks(books: FilterableBook[], filters: BookFilters): FilterableBook[] {
@@ -161,71 +158,7 @@ export function sortBooks(books: FilterableBook[], sort: SortKey): FilterableBoo
   }
 }
 
-// ── Components ──────────────────────────────────────────────────────
-
-function FacetSection({
-  title, options, selected, onToggle, searchable
-}: {
-  title: string;
-  options: { value: string; label: string }[];
-  selected: string[];
-  onToggle: (value: string) => void;
-  searchable: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  if (options.length === 0) return null;
-
-  const term = query.trim().toLowerCase();
-  const shown = term ? options.filter((o) => o.label.toLowerCase().includes(term)) : options;
-
-  return (
-    <div className={`facet-section${open ? " open" : ""}`}>
-      <button className="facet-head" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        <span className="facet-title">{title}</span>
-        {selected.length > 0 && <span className="facet-count">{selected.length}</span>}
-        <ChevronDown size={16} className="facet-chevron" aria-hidden="true" />
-      </button>
-      {open && (
-        <div className="facet-body">
-          {/* Offer the type-ahead as soon as a facet has more than one option, so
-              shorter lists (e.g. ebook authors/tags/categories) are filterable too —
-              not just the long audiobook lists. It only renders inside an expanded
-              facet, so it never clutters the collapsed view. */}
-          {searchable && options.length > 1 && (
-            <label className="facet-search">
-              <Search size={14} aria-hidden="true" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Search ${title.toLowerCase()}`}
-                aria-label={`Search ${title}`}
-              />
-            </label>
-          )}
-          <div className="facet-options">
-            {shown.map((opt) => {
-              const checked = selected.includes(opt.value);
-              return (
-                <button
-                  key={opt.value}
-                  className={`facet-option${checked ? " checked" : ""}`}
-                  onClick={() => onToggle(opt.value)}
-                  role="checkbox"
-                  aria-checked={checked}
-                >
-                  <span className="facet-check">{checked && <Check size={13} />}</span>
-                  <span className="facet-option-label">{opt.label}</span>
-                </button>
-              );
-            })}
-            {shown.length === 0 && <p className="facet-empty">No matches</p>}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// ── Components (thin wrappers over the shared generic filter UI) ───────────
 
 export function FilterButton({
   facets, value, onChange, fields, compact = false
@@ -238,48 +171,16 @@ export function FilterButton({
   fields?: (keyof BookFilters)[];
   compact?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const count = activeFilterCount(value);
   const order = fields ? FACET_ORDER.filter((facet) => fields.includes(facet.key)) : FACET_ORDER;
-
-  const toggle = (key: keyof BookFilters, v: string) => {
-    const current = value[key];
-    onChange({ ...value, [key]: current.includes(v) ? current.filter((x) => x !== v) : [...current, v] });
-  };
-
   return (
-    <>
-      <button className={`filter-button${count > 0 ? " active" : ""}${compact ? " compact" : ""}`} onClick={() => setOpen(true)} aria-label="Filters" title={compact ? "Filter" : undefined}>
-        <SlidersHorizontal size={16} aria-hidden="true" />
-        {!compact && <span>Filter</span>}
-        {count > 0 && <span className="filter-badge">{count}</span>}
-      </button>
-      {open && (
-        <Modal variant="panel" title="Filters" surfaceClassName="filter-modal" onClose={() => setOpen(false)}>
-            <div className="filter-modal-body">
-              {order.map((facet) => {
-                const options = facet.fixed ?? (facets[facet.key as keyof FacetOptions] ?? []).map((v) => ({ value: v, label: v }));
-                return (
-                  <FacetSection
-                    key={facet.key}
-                    title={facet.title}
-                    options={options}
-                    selected={value[facet.key]}
-                    onToggle={(v) => toggle(facet.key, v)}
-                    searchable={facet.searchable}
-                  />
-                );
-              })}
-            </div>
-            <div className="filter-modal-foot">
-              <Button variant="secondary" onClick={() => onChange(EMPTY_FILTERS)} disabled={count === 0}>
-                Clear all
-              </Button>
-              <Button variant="primary" onClick={() => setOpen(false)}>Done</Button>
-            </div>
-        </Modal>
-      )}
-    </>
+    <FacetFilterButton
+      order={order}
+      facets={facets}
+      value={value}
+      onChange={onChange}
+      empty={EMPTY_FILTERS}
+      compact={compact}
+    />
   );
 }
 
@@ -297,23 +198,5 @@ export function SortSelect({ value, onChange }: { value: SortKey; onChange: (sor
 }
 
 export function FilterChips({ value, onChange }: { value: BookFilters; onChange: (filters: BookFilters) => void }) {
-  const chips = (Object.keys(value) as (keyof BookFilters)[]).flatMap((key) =>
-    value[key].map((v) => ({ key, value: v, label: CODE_LABELS[v] ?? v }))
-  );
-  if (chips.length === 0) return null;
-
-  const remove = (key: keyof BookFilters, v: string) =>
-    onChange({ ...value, [key]: value[key].filter((x) => x !== v) });
-
-  return (
-    <div className="filter-chips">
-      {chips.map((chip) => (
-        <button key={`${chip.key}:${chip.value}`} className="filter-chip" onClick={() => remove(chip.key, chip.value)}>
-          <span>{chip.label}</span>
-          <X size={13} aria-hidden="true" />
-        </button>
-      ))}
-      <button className="filter-chips-clear" onClick={() => onChange(EMPTY_FILTERS)}>Clear all</button>
-    </div>
-  );
+  return <FacetFilterChips value={value} onChange={onChange} empty={EMPTY_FILTERS} labels={CODE_LABELS} />;
 }

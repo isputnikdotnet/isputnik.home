@@ -24,7 +24,8 @@ import {
   queryGalleryFolders,
   getGalleryAsset,
   galleryFacets,
-  queryGalleryMapPoints
+  queryGalleryMapPoints,
+  EMPTY_GALLERY_FILTERS
 } from "./catalog.js";
 import { updateGalleryAsset } from "./edit.js";
 import { rotateGalleryAsset } from "./rotate.js";
@@ -278,11 +279,23 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
 
   // ── Browse: Timeline (by date) and Folders (by on-disk structure) ──
 
+  // Advanced-filter arrays (audiobook-catalog style): each list is optional and
+  // bounded so a hostile payload can't inflate the SQL placeholder count.
+  const filterList = z.array(z.string().trim().min(1).max(200)).max(100).default([]);
   const timelineSchema = z.object({
     scope: z.enum(["all", "library"]).default("all"),
     libraryId: z.string().trim().min(1).optional(),
     q: z.string().trim().max(200).default(""),
     kinds: z.array(z.enum(["photo", "video"])).default([]),
+    filters: z.object({
+      people: filterList,
+      tags: filterList,
+      years: filterList,
+      taken: z.array(z.string().regex(/^(from|to):\d{4}-\d{2}-\d{2}$/)).max(2).default([]),
+      cameras: filterList,
+      sizes: z.array(z.enum(["small", "medium", "large", "huge"])).max(4).default([]),
+      location: z.array(z.enum(["with_gps", "no_gps"])).max(2).default([])
+    }).default({}),
     limit: z.number().int().min(1).max(200).default(80),
     offset: z.number().int().min(0).default(0)
   });
@@ -296,7 +309,9 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const p = parsed.data;
     const libIds = resolveGalleryScopeLibraryIds(request.user!, p.scope ?? "all", p.libraryId);
     reply.send(queryGalleryTimeline(request.user!.id, libIds, {
-      q: p.q ?? "", kinds: p.kinds ?? [], limit: p.limit ?? 80, offset: p.offset ?? 0
+      q: p.q ?? "", kinds: p.kinds ?? [],
+      filters: { ...EMPTY_GALLERY_FILTERS, ...p.filters },
+      limit: p.limit ?? 80, offset: p.offset ?? 0
     }));
   });
 

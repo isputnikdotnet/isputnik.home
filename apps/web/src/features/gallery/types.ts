@@ -93,6 +93,9 @@ export interface GalleryFacets {
   kinds: { kind: string; count: number }[];
   years: string[];
   withGps: number;
+  people: string[];
+  tags: string[];
+  cameras: string[];
 }
 
 export interface GalleryLibrary {

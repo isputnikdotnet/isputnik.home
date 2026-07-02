@@ -11,6 +11,7 @@ import type { SortKey } from "../audiobooks/BookFilter";
 import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
 import { GalleryFaceSettingsModal } from "./GalleryFaceSettingsModal";
+import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
 import type { GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryPerson } from "./types";
 
 const PAGE_SIZE = 80;
@@ -116,6 +117,11 @@ export function GalleryPage({
   const [searchText, setSearchText] = useState("");
   const [query, setQuery] = useState("");
 
+  // Advanced filters (people/years/tags/cameras/location) — timeline-scoped, like
+  // the audiobook catalog's filter panel. Facets supply the option lists.
+  const [filters, setFilters] = useState<GalleryFilters>(EMPTY_GALLERY_FILTERS);
+  const [facets, setFacets] = useState<GalleryFacets | null>(null);
+
   // Timeline state.
   const [assets, setAssets] = useState<GalleryAsset[]>([]);
   const [total, setTotal] = useState(0);
@@ -126,10 +132,10 @@ export function GalleryPage({
   const [folders, setFolders] = useState<GalleryFolder[]>([]);
   const [folderAssets, setFolderAssets] = useState<GalleryAsset[]>([]);
 
-  // Map state. `mapCount` (geotagged assets in scope) gates whether the Map tab is
-  // offered at all; `mapPoints` are the markers for the active scope/kind.
+  // Map state. `mapCount` (geotagged assets in scope, from the facets) gates whether
+  // the Map tab is offered at all; `mapPoints` are the markers for the active scope/kind.
   const [mapPoints, setMapPoints] = useState<GalleryMapPoint[]>([]);
-  const [mapCount, setMapCount] = useState(0);
+  const mapCount = facets?.withGps ?? 0;
 
   // People state. The People view shows person chips; picking one drills into that
   // person's photos (`personAssets`), which open in the lightbox like any other list.
@@ -190,9 +196,11 @@ export function GalleryPage({
     return () => window.clearTimeout(timer);
   }, [searchText]);
 
-  // Searching is a timeline operation (folder view is structural); a query pulls
-  // the user into the timeline so results are visible.
-  useEffect(() => { if (query && view === "folder") setView("timeline"); }, [query, view]);
+  // Searching/filtering is a timeline operation (folder view is structural); either
+  // pulls the user into the timeline so results are visible.
+  useEffect(() => {
+    if ((query || activeGalleryFilterCount(filters) > 0) && view === "folder") setView("timeline");
+  }, [query, filters, view]);
 
   const loadTimeline = useCallback(async (offset: number) => {
     setLoading(true);
@@ -200,7 +208,7 @@ export function GalleryPage({
     try {
       const payload = await api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
         method: "POST",
-        body: JSON.stringify({ ...scopeParams(), q: query, kinds: kind === "all" ? [] : [kind], limit: PAGE_SIZE, offset })
+        body: JSON.stringify({ ...scopeParams(), q: query, kinds: kind === "all" ? [] : [kind], filters, limit: PAGE_SIZE, offset })
       });
       setAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setTotal(payload.total);
@@ -209,7 +217,7 @@ export function GalleryPage({
     } finally {
       setLoading(false);
     }
-  }, [scopeParams, kind, query]);
+  }, [scopeParams, kind, query, filters]);
 
   const loadFolder = useCallback(async (nextParent: string) => {
     setLoading(true);
@@ -336,13 +344,14 @@ export function GalleryPage({
     }
   }, [selectedPerson, loadPeople]);
 
-  // How many assets in scope carry GPS — decides whether the Map tab appears.
+  // Facets for the current scope: the filter-panel option lists plus the geotagged
+  // count that decides whether the Map tab appears.
   useEffect(() => {
     let alive = true;
     const params = new URLSearchParams(scopeParams() as Record<string, string>);
     api<GalleryFacets>(`/api/library/gallery/facets?${params}`)
-      .then((facets) => { if (alive) setMapCount(facets.withGps); })
-      .catch(() => { /* facets are advisory; the tab just stays hidden */ });
+      .then((payload) => { if (alive) setFacets(payload); })
+      .catch(() => { /* facets are advisory; the filter lists just stay empty */ });
     return () => { alive = false; };
   }, [scopeParams]);
 
@@ -353,14 +362,14 @@ export function GalleryPage({
       .catch(() => { /* asset gone / no access */ });
   }, []);
 
-  // Reload the active view when scope/kind/query/view changes.
+  // Reload the active view when scope/kind/query/filters/view changes.
   useEffect(() => {
     if (view === "timeline") void loadTimeline(0);
     else if (view === "folder") void loadFolder("");
     else if (view === "people") { setSelectedPerson(null); void loadPeople(); void loadFaceSettings(); }
     else void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, scopeId, kind, query]);
+  }, [view, scopeId, kind, query, filters]);
 
   // Deep link: fetch the asset and open a standalone lightbox.
   useEffect(() => {
@@ -521,6 +530,7 @@ export function GalleryPage({
           searchPlaceholder="Search photos & videos..."
           actions={
             <>
+              <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} compact />
               <AudiobookHeaderSort
                 value={kind as unknown as SortKey}
                 onChange={(value) => setKind(value as unknown as KindFilter)}
@@ -651,6 +661,8 @@ export function GalleryPage({
                 </nav>
               </div>
             </div>
+
+            {view === "timeline" && <GalleryFilterChips value={filters} onChange={setFilters} />}
 
             {libraries.some((library) => library.scanStatus === "scanning") && (
               <MessageBox tone="info" title="Scanning">Thumbnails appear as the scan finishes.</MessageBox>

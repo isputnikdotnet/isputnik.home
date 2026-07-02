@@ -158,6 +158,131 @@ describe("gallery access scoping", () => {
   });
 });
 
+describe("gallery advanced filters", () => {
+  const timeline = (filters: Partial<Parameters<typeof queryGalleryTimeline>[2]["filters"] & object>) =>
+    queryGalleryTimeline("u1", ["GAL"], {
+      q: "", kinds: [], limit: 50, offset: 0,
+      filters: { people: [], tags: [], years: [], taken: [], cameras: [], sizes: [], location: [], ...filters }
+    });
+
+  const tagItem = (itemId: string, displayName: string) => {
+    const key = displayName.toLowerCase();
+    db.prepare("INSERT OR IGNORE INTO tags (id, key, display_name) VALUES (?, ?, ?)").run(`tag-${key}`, key, displayName);
+    db.prepare("INSERT INTO taggables (tag_id, entity_type, entity_id) VALUES (?, 'library_item', ?)").run(`tag-${key}`, itemId);
+  };
+
+  const addPersonFace = (itemId: string, personId: string, name: string, assignment = "confirmed") => {
+    db.prepare("INSERT OR IGNORE INTO gallery_people (id, name) VALUES (?, ?)").run(personId, name);
+    db.prepare("INSERT INTO gallery_faces (id, item_id, person_id, assignment, source) VALUES (?, ?, ?, ?, 'manual')")
+      .run(`face-${personId}-${itemId}`, itemId, personId, assignment);
+  };
+
+  it("filters by year of taken_at and lists year facets", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2020-06-01T00:00:00Z")), false);
+    await ingestGalleryAsset("GAL", asset("b.jpg", Date.parse("2023-06-01T00:00:00Z")), false);
+
+    const hit = timeline({ years: ["2020"] });
+    expect(hit.assets.map((x) => x.id)).toEqual([a]);
+    expect(timeline({ years: ["2020", "2023"] }).total).toBe(2);
+    expect(galleryFacets(["GAL"]).years).toEqual(["2023", "2020"]);
+  });
+
+  it("filters by tag and lists tag facets", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.now()), false);
+    await ingestGalleryAsset("GAL", asset("b.jpg", Date.now()), false);
+    tagItem(a, "Holiday");
+
+    expect(timeline({ tags: ["Holiday"] }).assets.map((x) => x.id)).toEqual([a]);
+    expect(timeline({ tags: ["Nope"] }).total).toBe(0);
+    expect(galleryFacets(["GAL"]).tags).toEqual(["Holiday"]);
+  });
+
+  it("filters by person, ignoring rejected faces, and lists named people facets", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.now()), false);
+    const b = await ingestGalleryAsset("GAL", asset("b.jpg", Date.now()), false);
+    addPersonFace(a, "p-mum", "Mum");
+    addPersonFace(b, "p-mum", "Mum", "rejected"); // rejected ≠ appearing in the photo
+    db.prepare("INSERT INTO gallery_people (id, name) VALUES ('p-anon', '')").run(); // unnamed cluster
+
+    expect(timeline({ people: ["Mum"] }).assets.map((x) => x.id)).toEqual([a]);
+    expect(galleryFacets(["GAL"]).people).toEqual(["Mum"]); // unnamed cluster stays out
+  });
+
+  it("filters by camera using the shared display string", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.now()), false);
+    const b = await ingestGalleryAsset("GAL", asset("b.jpg", Date.now()), false);
+    await ingestGalleryAsset("GAL", asset("c.jpg", Date.now()), false); // no camera
+    // Model embeds the make → shown as the model alone; otherwise make + model.
+    db.prepare("UPDATE gallery_details SET camera_make = 'Canon', camera_model = 'Canon EOS 400D' WHERE item_id = ?").run(a);
+    db.prepare("UPDATE gallery_details SET camera_make = 'Apple', camera_model = 'iPhone 12' WHERE item_id = ?").run(b);
+
+    expect(galleryFacets(["GAL"]).cameras).toEqual(["Apple iPhone 12", "Canon EOS 400D"]);
+    expect(timeline({ cameras: ["Canon EOS 400D"] }).assets.map((x) => x.id)).toEqual([a]);
+    expect(timeline({ cameras: ["Apple iPhone 12", "Canon EOS 400D"] }).total).toBe(2);
+  });
+
+  it("filters by an inclusive date-taken range", async () => {
+    const jan = await ingestGalleryAsset("GAL", asset("jan.jpg", Date.parse("2021-01-15T10:00:00Z")), false);
+    const jun = await ingestGalleryAsset("GAL", asset("jun.jpg", Date.parse("2021-06-30T23:00:00Z")), false);
+    const dec = await ingestGalleryAsset("GAL", asset("dec.jpg", Date.parse("2021-12-01T00:00:00Z")), false);
+
+    expect(timeline({ taken: ["from:2021-06-01"] }).assets.map((x) => x.id).sort()).toEqual([dec, jun].sort());
+    expect(timeline({ taken: ["to:2021-06-30"] }).assets.map((x) => x.id).sort()).toEqual([jan, jun].sort());
+    // Both bounds: only June; the boundary day itself is included.
+    expect(timeline({ taken: ["from:2021-06-30", "to:2021-06-30"] }).assets.map((x) => x.id)).toEqual([jun]);
+  });
+
+  it("filters by file-size bucket", async () => {
+    const MIB = 1024 * 1024;
+    const tiny = await ingestGalleryAsset("GAL", asset("tiny.jpg", Date.now()), false);
+    const mid = await ingestGalleryAsset("GAL", asset("mid.jpg", Date.now()), false);
+    const big = await ingestGalleryAsset("GAL", asset("big.mp4", Date.now()), false);
+    db.prepare("UPDATE gallery_details SET size = ? WHERE item_id = ?").run(200 * 1024, tiny);   // under 1 MB
+    db.prepare("UPDATE gallery_details SET size = ? WHERE item_id = ?").run(3 * MIB, mid);       // 1–5 MB
+    db.prepare("UPDATE gallery_details SET size = ? WHERE item_id = ?").run(120 * MIB, big);     // 25 MB+
+
+    expect(timeline({ sizes: ["small"] }).assets.map((x) => x.id)).toEqual([tiny]);
+    expect(timeline({ sizes: ["medium"] }).assets.map((x) => x.id)).toEqual([mid]);
+    expect(timeline({ sizes: ["huge"] }).assets.map((x) => x.id)).toEqual([big]);
+    expect(timeline({ sizes: ["small", "huge"] }).total).toBe(2); // OR within the facet
+    expect(timeline({ sizes: ["large"] }).total).toBe(0);
+  });
+
+  it("filters by location presence", async () => {
+    const geo = await ingestGalleryAsset("GAL", asset("geo.jpg", Date.now()), false);
+    const plain = await ingestGalleryAsset("GAL", asset("plain.jpg", Date.now()), false);
+    db.prepare("UPDATE gallery_details SET gps_lat = 1, gps_lng = 2 WHERE item_id = ?").run(geo);
+
+    expect(timeline({ location: ["with_gps"] }).assets.map((x) => x.id)).toEqual([geo]);
+    expect(timeline({ location: ["no_gps"] }).assets.map((x) => x.id)).toEqual([plain]);
+    expect(timeline({ location: ["with_gps", "no_gps"] }).total).toBe(2); // both = no constraint
+  });
+
+  it("combines filters with AND across facets", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2020-06-01T00:00:00Z")), false);
+    const b = await ingestGalleryAsset("GAL", asset("b.jpg", Date.parse("2020-07-01T00:00:00Z")), false);
+    addPersonFace(a, "p-dad", "Dad");
+    addPersonFace(b, "p-dad", "Dad");
+    tagItem(a, "Holiday");
+
+    expect(timeline({ people: ["Dad"], tags: ["Holiday"] }).assets.map((x) => x.id)).toEqual([a]);
+  });
+
+  it("searches folder path, description, and person names alongside the title", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("2020/summer-trip/beach.jpg", Date.now()), false);
+    const b = await ingestGalleryAsset("GAL", asset("misc/x.jpg", Date.now()), false);
+    const c = await ingestGalleryAsset("GAL", asset("misc/y.jpg", Date.now()), false);
+    db.prepare("UPDATE item_metadata SET description = 'the big cake moment' WHERE item_id = ?").run(b);
+    addPersonFace(c, "p-granny", "Granny");
+
+    const search = (q: string) =>
+      queryGalleryTimeline("u1", ["GAL"], { q, kinds: [], limit: 50, offset: 0 }).assets.map((x) => x.id);
+    expect(search("summer-trip")).toEqual([a]); // folder segment
+    expect(search("big cake")).toEqual([b]);    // description
+    expect(search("granny")).toEqual([c]);      // person name
+  });
+});
+
 describe("gallery map points", () => {
   it("returns only geotagged assets and counts them via the withGps facet", async () => {
     const t = Date.parse("2024-03-03T00:00:00Z");

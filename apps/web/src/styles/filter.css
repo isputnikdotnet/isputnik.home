@@ -132,6 +132,30 @@
   overflow-y: auto;
 }
 
+/* From/To inputs of a date-range facet (e.g. gallery "Date taken"). */
+.facet-daterange {
+  display: flex;
+  gap: 10px;
+}
+.facet-daterange label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.facet-daterange input {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+
 .facet-option {
   display: flex;
   align-items: center;
