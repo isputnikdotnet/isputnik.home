@@ -27,19 +27,15 @@ RUN npm run build --workspace apps/server
 # module has no prebuild for this platform.
 FROM deps AS prod-deps
 RUN npm ci --omit=dev --workspace apps/server
-# npm quirk: that ci still leaves the root-`overrides` target (vite) installed as
-# an extraneous package, plus dev deps it peer-references (tsx → esbuild). And
-# `npm prune` can't fix it — its reify step puts them right back. So sweep
-# whatever npm itself flags as extraneous or dev-only (workspace entries like
-# apps/web are outside node_modules and excluded), and fail the build loudly if
-# anything survives. Uses `location` (relative), not `path` — npm's log redaction
-# can mangle absolute paths.
-RUN node -e 'const {execSync}=require("child_process"),fs=require("fs");\
-const q=()=>JSON.parse(execSync("npm query \":extraneous, .dev\"",{maxBuffer:64e6}).toString())\
-  .filter(p=>p.location.startsWith("node_modules"));\
-for(let i=0;i<5;i++){const hits=q();if(!hits.length)process.exit(0);\
-  for(const p of hits)fs.rmSync(p.location,{recursive:true,force:true})}\
-console.error("dev/extraneous packages survived the sweep");process.exit(1)' \
+# That ci still leaves dev/web-only leftovers (the root-`overrides` target vite
+# plus the tsx → esbuild chain). Do NOT sweep by npm's ":extraneous, .dev" flags:
+# they're computed per hoisted tree node, so a package reachable through both a
+# dev tool and a runtime dep (sharp's detect-libc/semver) gets flagged dev — that
+# sweep shipped a 1.8.0 image whose server crashed at import ("Cannot find module
+# 'detect-libc'"). Instead keep exactly the transitive closure of apps/server's
+# production deps computed from package-lock.json and remove everything else.
+COPY scripts/docker-prune-runtime-deps.mjs ./scripts/
+RUN node scripts/docker-prune-runtime-deps.mjs \
     && find node_modules -mindepth 1 -maxdepth 1 -type d -empty -delete
 # ffprobe-static and onnxruntime-node ship binaries for every OS/arch in one
 # package (~330 MB and ~220 MB of foreign-platform dead weight). Keep only this
@@ -53,6 +49,16 @@ RUN rm -rf node_modules/ffprobe-static/bin/darwin \
             node_modules/onnxruntime-node/bin/napi-v6/linux \
             -mindepth 1 -maxdepth 1 -type d ! -name "$(node -p 'process.arch')" \
             -exec rm -rf {} +
+
+# Import smoke test: every production dependency of the server must load from
+# the pruned tree, so a bad prune fails THIS build instead of the container at
+# startup (native modules included — sharp, better-sqlite3, onnxruntime-node).
+# Runs from apps/server so resolution matches the server code's own view
+# (non-hoisted packages like otplib live in apps/server/node_modules).
+RUN cd apps/server && node -e 'const deps=Object.keys(require("./package.json").dependencies);\
+(async()=>{for(const d of deps){try{await import(d)}catch(e){\
+  console.error("runtime dep failed to load:",d,"-",e.message);process.exit(1)}}\
+console.log(deps.length+" runtime deps load OK")})()'
 
 # ── Stage 5: production image ─────────────────────────────────────
 FROM node:22-slim
