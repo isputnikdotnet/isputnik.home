@@ -256,6 +256,7 @@ CREATE TABLE IF NOT EXISTS gallery_people (
   linked_person_id TEXT REFERENCES people(id) ON DELETE SET NULL,
   cover_face_id    TEXT,                          -- chosen representative face (Phase 2)
   hidden           INTEGER NOT NULL DEFAULT 0,    -- hide a noisy auto-cluster from the People list
+  curated          INTEGER NOT NULL DEFAULT 0,    -- user-shaped (a merge target): anchors reclustering like a name does
   face_count       INTEGER NOT NULL DEFAULT 0,    -- distinct accessible items; recomputed on change
   centroid         BLOB,                          -- mean embedding for fast auto-assign (Phase 2)
   created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),

@@ -92,6 +92,18 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
       if (!has("day_of_week")) db.exec("ALTER TABLE scheduled_jobs ADD COLUMN day_of_week INTEGER");
       if (!has("day_of_month")) db.exec("ALTER TABLE scheduled_jobs ADD COLUMN day_of_month INTEGER");
     }
+  },
+  // Curated gallery people: a face-group the user has merged into keeps its identity
+  // across reclustering, like a named person. Conditional because schema.sql (run
+  // first) already adds the column on fresh databases.
+  {
+    version: 9,
+    up: (db) => {
+      const columns = db.pragma("table_info(gallery_people)") as { name: string }[];
+      if (!columns.some((column) => column.name === "curated")) {
+        db.exec("ALTER TABLE gallery_people ADD COLUMN curated INTEGER NOT NULL DEFAULT 0");
+      }
+    }
   }
 ];
 

@@ -165,7 +165,7 @@ Routes are registered as Fastify plugins, grouped by domain:
 ```
 apps/server/src/
   index.ts                    ← registers corePlugin, usersPlugin, backupsPlugin,
-                                 libraryPlugin, collectionsPlugin
+                                 libraryPlugin, collectionsPlugin, maintenancePlugin
   core/                       ← platform infrastructure ONLY: auth-routes, sessions,
                                  permissions, app-config, setup, logs, status, shared
   modules/                    ← product features
@@ -173,11 +173,14 @@ apps/server/src/
     uploads/                  ← upload streaming helpers
     backups/                  ← backup / restore
     collections/              ← cross-type user collections
+    maintenance/              ← scheduled upkeep jobs + the Tasks view over the job queue
     library/
       shared/                 ← library crud / access / serializer, trash, members,
-                                 metadata, thumbnail, storage-roots, remote-image
+                                 metadata, thumbnail, storage-roots, remote-image,
+                                 scan-lock (one library job at a time), job-progress
       audiobook/              ← scanner, enrich, chapters, people, providers/, routes
       ebook/                  ← scanner, catalog, routes, bookmarks
+      gallery/  └ faces/      ← photo/video scanner + face recognition (see gallery-library.md)
       categories.ts, tags.ts, bookmarks.ts, covers.ts, feed.ts, settings.ts, storage.ts
   db.ts                       ← SQLite singleton, schema, migrations
   auth.ts, config.ts, crypto.ts, categories-seed.ts, types.ts

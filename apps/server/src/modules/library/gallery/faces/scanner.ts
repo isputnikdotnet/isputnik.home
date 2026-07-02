@@ -9,12 +9,14 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { validateLibrarySource, LibrarySourceError } from "../../shared/library-source.js";
+import { libraryJobRunning } from "../../shared/scan-lock.js";
+import { jobProgressWriter } from "../../shared/job-progress.js";
 import { decodeUpright, detectFacesFromRaw, FACE_EMBEDDING_MODEL, type DecodedImage } from "./arcface.js";
 import { embeddingToBlob } from "./embedding.js";
 import { clusterGalleryFaces } from "./cluster.js";
 import { cropFaceFromRaw, backfillFaceThumbnails } from "./thumbnails.js";
 import { faceRecognitionEnabledForLibrary } from "./settings.js";
-import { faceJobType, type FaceScanPayload } from "./queue.js";
+import { faceJobType, enqueueFaceScan, type FaceScanPayload } from "./queue.js";
 
 // Re-export the queue helpers so existing importers keep a single entry point.
 export { enqueueFaceScan, enqueueFaceRecompute } from "./queue.js";
@@ -22,6 +24,18 @@ export { enqueueFaceScan, enqueueFaceRecompute } from "./queue.js";
 // Drop faces smaller than this fraction of the image's short side — tiny/background
 // faces yield unreliable embeddings that pollute clusters.
 const MIN_FACE_SIDE = 0.045;
+
+// Incremental (non-forced) scans work through the backlog in batches: each queue job
+// processes at most this many photos, then re-enqueues a follow-up. Clustering runs
+// after every batch, so people appear progressively during a big initial scan, and the
+// short gap between batches lets other queued library jobs take the one-at-a-time lock.
+const SCAN_BATCH_SIZE = 1000;
+// Overall time box for a CHAIN of incremental batches: once 3 hours have passed since
+// the chain's first batch started, no follow-up is enqueued — the rest waits for the
+// next nightly run. Unprocessed photos keep no scan marker, so nothing is lost.
+// Manual full rescans (force) are exempt from both limits — a forced pass re-stamps
+// markers as it goes, so stopping early would strand the rest.
+const SCAN_TIME_LIMIT_MS = 3 * 60 * 60 * 1000;
 
 // Snapshot of the currently-running (or next-queued) face scan, for the settings UI.
 export interface FaceScanStatus {
@@ -42,8 +56,9 @@ interface PhotoRow {
 async function scanLibraryFaces(
   libraryId: string,
   force: boolean,
-  onProgress?: (processed: number, total: number) => void
-): Promise<{ items: number; faces: number; skipped?: boolean; failed?: number }> {
+  onProgress?: (processed: number, total: number) => void,
+  deadline: number = Number.POSITIVE_INFINITY
+): Promise<{ items: number; faces: number; skipped?: boolean; failed?: number; remaining?: number; timeLimited?: boolean }> {
   if (!faceRecognitionEnabledForLibrary(libraryId)) return { items: 0, faces: 0, skipped: true };
 
   const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
@@ -75,11 +90,17 @@ async function scanLibraryFaces(
 
   let totalFaces = 0;
   let failed = 0;
+  // This job's slice of the backlog; a follow-up batch (enqueued by the worker) takes
+  // the next slice. Forced rescans always run the full set.
+  const batchTarget = force ? photos.length : Math.min(photos.length, SCAN_BATCH_SIZE);
+  let stoppedAt = batchTarget;
+  let timeLimited = false;
   // Report progress at the top of each iteration (idx photos finished so far) plus a
   // final full count; the caller throttles the actual writes. `continue` paths are fine —
   // the next iteration's call (or the post-loop call) advances the count.
-  for (let idx = 0; idx < photos.length; idx += 1) {
-    onProgress?.(idx, photos.length);
+  for (let idx = 0; idx < batchTarget; idx += 1) {
+    onProgress?.(idx, batchTarget);
+    if (Date.now() > deadline) { stoppedAt = idx; timeLimited = true; break; }
     const photo = photos[idx];
     const absolutePath = path.join(root, ...photo.relative_path.split("/"));
     if (!fs.existsSync(absolutePath)) continue; // gone on disk; the gallery scanner reconciles it
@@ -118,11 +139,19 @@ async function scanLibraryFaces(
     })();
     totalFaces += prepared.length;
   }
-  onProgress?.(photos.length, photos.length);
+  onProgress?.(stoppedAt, batchTarget);
 
   clusterGalleryFaces();
-  if (failed > 0) console.warn(`face scan: ${failed} of ${photos.length} photos failed to process (left for retry).`);
-  return { items: photos.length, faces: totalFaces, failed };
+  if (failed > 0) console.warn(`face scan: ${failed} of ${stoppedAt} photos failed to process (left for retry).`);
+  const remaining = photos.length - stoppedAt;
+  if (timeLimited) console.warn(`face scan: paused at the ${SCAN_TIME_LIMIT_MS / 3_600_000}-hour limit — ${remaining} photos continue next run.`);
+  return {
+    items: stoppedAt,
+    faces: totalFaces,
+    failed,
+    ...(remaining > 0 ? { remaining } : {}),
+    ...(timeLimited ? { timeLimited: true } : {})
+  };
 }
 
 // The face scan that is currently running, or the next one queued (oldest non-finished
@@ -169,6 +198,10 @@ export async function processFaceScanQueue(): Promise<void> {
       .run(faceJobType);
 
     for (;;) {
+      // One library job at a time server-wide: while another scan or face job is
+      // running (whatever its type), leave the queue alone until the next poll.
+      if (libraryJobRunning()) break;
+
       const job = db.prepare(`
         SELECT id, payload FROM jobs
         WHERE type = ? AND status = 'pending' AND datetime(run_at) <= datetime('now')
@@ -190,18 +223,22 @@ export async function processFaceScanQueue(): Promise<void> {
           const thumbnails = await backfillFaceThumbnails();
           result = { reclustered: clusterGalleryFaces().clusters, thumbnails };
         } else {
-          // Persist live progress into the job payload (throttled) so the settings UI can
-          // render a bar + ETA; always flush the final count.
-          const startedAt = new Date().toISOString();
-          let lastWrite = 0;
-          const writeProgress = (processed: number, total: number) => {
-            const now = Date.now();
-            if (processed < total && now - lastWrite < 1500) return;
-            lastWrite = now;
-            const next: FaceScanPayload = { ...payload, progress: { processed, total, startedAt } };
-            db.prepare("UPDATE jobs SET payload = ? WHERE id = ?").run(JSON.stringify(next), job.id);
-          };
-          result = await scanLibraryFaces(payload.libraryId ?? "", payload.force ?? false, writeProgress);
+          // The night's time budget spans the whole batch CHAIN, measured from the
+          // first batch's start (carried through follow-up jobs via chainStartedAt).
+          const chainStartedAt = payload.chainStartedAt ?? new Date().toISOString();
+          const deadline = payload.force ? Number.POSITIVE_INFINITY : Date.parse(chainStartedAt) + SCAN_TIME_LIMIT_MS;
+          // Persist live progress into the job payload (throttled) so the Tasks page
+          // shows photos scanned + ETA while the scan runs.
+          result = await scanLibraryFaces(payload.libraryId ?? "", payload.force ?? false, jobProgressWriter(job.id, payload), deadline);
+          // Backlog left with budget to spare → continue in a follow-up batch after a
+          // short delay (other queued library jobs can take the lock in between).
+          // Time-limited leftovers instead wait for the next nightly run.
+          if (!payload.force && payload.libraryId && result.remaining && !result.timeLimited) {
+            const dupe = db.prepare(
+              "SELECT 1 FROM jobs WHERE type = ? AND status = 'pending' AND json_extract(payload, '$.libraryId') = ? LIMIT 1"
+            ).get(faceJobType, payload.libraryId);
+            if (!dupe) enqueueFaceScan(payload.libraryId, false, { delaySeconds: 5, chainStartedAt });
+          }
         }
         db.prepare("UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL WHERE id = ?")
           .run(JSON.stringify({ ...payload, result }), job.id);

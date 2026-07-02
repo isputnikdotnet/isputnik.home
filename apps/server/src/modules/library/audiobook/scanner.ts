@@ -9,6 +9,7 @@ import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.
 import { deleteSharesForResource } from "../shared/share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
+import { libraryJobRunning } from "../shared/scan-lock.js";
 import {
   normalizeLibrarySettings,
   normalizeScanSources,
@@ -1610,6 +1611,12 @@ export async function processAudiobookScanQueue() {
     `).run(scanJobType);
 
     while (true) {
+      // One library job at a time server-wide: while another scan or face job is
+      // running (whatever its type), leave the queue alone until the next poll.
+      if (libraryJobRunning()) {
+        break;
+      }
+
       const job = db.prepare(`
         SELECT id, payload, attempts, max_attempts
         FROM jobs

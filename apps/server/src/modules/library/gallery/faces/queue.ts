@@ -18,14 +18,30 @@ export interface FaceScanPayload {
   force?: boolean;
   // A "recompute" job re-clusters existing embeddings without re-detecting anything.
   recompute?: boolean;
+  // When this job continues a batched backlog: the time the FIRST batch of the chain
+  // started. The scanner's overall time budget is measured from here, not per batch.
+  chainStartedAt?: string;
   // Live per-run progress, written into the job row so the UI can show a bar + ETA.
   progress?: ScanProgress;
 }
 
-export function enqueueFaceScan(libraryId: string, force = false): string {
+export function enqueueFaceScan(
+  libraryId: string,
+  force = false,
+  opts: { delaySeconds?: number; chainStartedAt?: string } = {}
+): string {
   const jobId = nanoid(16);
-  db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
-    .run(jobId, faceJobType, JSON.stringify({ libraryId, force } satisfies FaceScanPayload));
+  const payload: FaceScanPayload = {
+    libraryId,
+    force,
+    ...(opts.chainStartedAt ? { chainStartedAt: opts.chainStartedAt } : {})
+  };
+  // A small delay lets other queued library jobs take the one-at-a-time lock between
+  // follow-up batches (the worker only claims jobs whose run_at has passed).
+  const runAt = opts.delaySeconds ? new Date(Date.now() + opts.delaySeconds * 1000).toISOString() : null;
+  db.prepare(
+    "INSERT INTO jobs (id, type, payload, status, run_at) VALUES (?, ?, ?, 'pending', COALESCE(?, strftime('%Y-%m-%dT%H:%M:%fZ','now')))"
+  ).run(jobId, faceJobType, JSON.stringify(payload), runAt);
   return jobId;
 }
 

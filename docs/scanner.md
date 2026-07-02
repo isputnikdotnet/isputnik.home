@@ -64,6 +64,17 @@ module's Fastify plugin at boot:
   `UPDATE … SET status='running' WHERE id=? AND status='pending'` (so multiple
   pollers can't double-claim), runs it, then marks it `completed` or schedules a
   retry / marks `failed`.
+- **One library job at a time (server-wide):** before every claim, each worker
+  checks `shared/scan-lock.ts` (`libraryJobRunning()`) — while ANY library job
+  (audiobook, ebook, gallery, or face scan) is running, other workers leave
+  their queues untouched until the next poll. Heavy scans therefore run
+  strictly one after another; everything else waits as `pending`.
+- **Live progress:** while a scan runs, the worker throttle-writes
+  `{processed, total, startedAt, etaSeconds}` into the job payload via
+  `shared/job-progress.ts`. The ETA uses the rate over a recent (~30 s)
+  window, not the whole-run average, so racing through already-cataloged
+  items doesn't poison the estimate. The admin Tasks page (Control panel →
+  Libraries → Tasks) renders counts, percentage, and time remaining.
 - **Retries:** transient failures re-queue (`status='pending'`, future `run_at`)
   until `max_attempts` (default 3). Backoff differs by type — ebooks retry after
   a flat **5 s**, audiobooks after **1–5 min** (`min(attempts+1,5) × 60 s`).

@@ -39,7 +39,8 @@ describe("scheduled jobs registry", () => {
     ]);
 
     const byKey = Object.fromEntries(jobs.map((j) => [j.key, j]));
-    expect(byKey.scan_new_faces).toMatchObject({ enabled: true, frequency: "daily", time: "01:00" });
+    // Face scan runs LAST, after the randomized 01:00–04:59 library-scan window.
+    expect(byKey.scan_new_faces).toMatchObject({ enabled: true, frequency: "daily", time: "05:00" });
     expect(byKey.cleanup_job_logs).toMatchObject({ enabled: true, frequency: "weekly", time: "00:30" });
     expect(byKey.empty_recycle_bin).toMatchObject({ enabled: true, frequency: "weekly", time: "00:45" });
     expect(byKey.scan_audiobook_libraries).toMatchObject({ enabled: true, frequency: "daily" });
@@ -285,12 +286,21 @@ describe("tasks view", () => {
     insertTask("ab", "SCAN_AUDIOBOOK_LIBRARY", "running", { progress: { booksProcessed: 3, booksTotal: 12 } }, 10);
     insertTask("ab2", "SCAN_AUDIOBOOK_LIBRARY", "running", { progress: { booksProcessed: 12, booksTotal: 12, authorsProcessed: 1, authorsTotal: 4 } }, 9);
     insertTask("faces", "SCAN_GALLERY_FACES", "running", { progress: { processed: 40, total: 200, startedAt } }, 8);
-    insertTask("bare", "SCAN_EBOOK_LIBRARY", "running", {}, 7);
+    insertTask("eb", "SCAN_EBOOK_LIBRARY", "running", { progress: { processed: 2, total: 9, startedAt } }, 7);
+    insertTask("ph", "SCAN_GALLERY_LIBRARY", "running", { progress: { processed: 15, total: 80, startedAt } }, 6);
+    insertTask("bare", "SCAN_AUDIOBOOK_LIBRARY", "running", {}, 5);
+    // Writers that report their own recent-window ETA: taken verbatim, including null.
+    insertTask("own-eta", "SCAN_GALLERY_LIBRARY", "running", { progress: { processed: 10, total: 100, startedAt, etaSeconds: 777 } }, 4);
+    insertTask("warmup", "SCAN_GALLERY_LIBRARY", "running", { progress: { processed: 1, total: 100, startedAt, etaSeconds: null } }, 3);
 
     const byId = Object.fromEntries(listTasks().jobs.map((t) => [t.id, t]));
     expect(byId.ab.progress).toMatchObject({ processed: 3, total: 12, unit: "books" });
     expect(byId.ab2.progress).toMatchObject({ processed: 1, total: 4, unit: "authors" });
+    expect(byId.eb.progress).toMatchObject({ processed: 2, total: 9, unit: "books" });
+    expect(byId.ph.progress).toMatchObject({ processed: 15, total: 80, unit: "items" });
     expect(byId.bare.progress).toBeNull();
+    expect(byId["own-eta"].progress).toMatchObject({ etaSeconds: 777 });
+    expect(byId.warmup.progress!.etaSeconds).toBeNull();
 
     // 40 photos in ~60s → 160 remaining at 1.5s each ≈ 240s left.
     expect(byId.faces.progress).toMatchObject({ processed: 40, total: 200, unit: "photos" });
@@ -307,7 +317,9 @@ describe("tasks view", () => {
     insertTask("ph", "SCAN_GALLERY_LIBRARY", "completed", { result: { assets: 42 } }, 8);
     insertTask("faces", "SCAN_GALLERY_FACES", "completed", { result: { items: 5, faces: 9 } }, 7);
     insertTask("regroup", "SCAN_GALLERY_FACES", "completed", { result: { reclustered: 4, thumbnails: 0 } }, 6);
-    insertTask("boom", "SCAN_EBOOK_LIBRARY", "failed", {}, 5);
+    insertTask("paused", "SCAN_GALLERY_FACES", "completed", { result: { items: 4000, faces: 900, remaining: 1200, timeLimited: true } }, 5);
+    insertTask("batched", "SCAN_GALLERY_FACES", "completed", { result: { items: 1000, faces: 230, remaining: 4200 } }, 4);
+    insertTask("boom", "SCAN_EBOOK_LIBRARY", "failed", {}, 3);
 
     const byId = Object.fromEntries(listTasks().jobs.map((t) => [t.id, t]));
     expect(byId.ab.summary).toBe("5 books, 60 files · 2 skipped");
@@ -316,6 +328,8 @@ describe("tasks view", () => {
     expect(byId.ph.summary).toBe("42 items");
     expect(byId.faces.summary).toBe("5 photos, 9 faces");
     expect(byId.regroup.summary).toBe("Re-grouped faces into 4 groups");
+    expect(byId.paused.summary).toBe("4000 photos, 900 faces · paused at the 3-hour limit, 1200 photos continue next run");
+    expect(byId.batched.summary).toBe("1000 photos, 230 faces · 4200 more continue in the next batch");
     expect(byId.boom.summary).toBeNull();
   });
 });

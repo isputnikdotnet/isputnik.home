@@ -12,10 +12,18 @@ import { blobToEmbedding, embeddingToBlob, centroidOf, cosineSimilarity } from "
 import { faceThreshold, faceGroupingK } from "./settings.js";
 import { FACE_EMBEDDING_MODEL } from "./model-id.js";
 
-// Min centroid cosine for a rebuilt group to reclaim a named person when there's no
-// face overlap (e.g. after a full rescan re-detected every face). High enough to avoid
-// handing a name to a different person.
+// Min centroid cosine for a rebuilt group to reclaim an anchored person when there's
+// no face overlap (e.g. after a full rescan re-detected every face). High enough to
+// avoid handing a name to a different person.
 const NAME_REMATCH = 0.55;
+// Second-stage merge: after mutual-kNN, clusters whose CENTROIDS agree this strongly
+// are the same person split by k-NN saturation (burst/near-duplicate photos crowd the
+// top-K lists, so cross-era links never become mutual). For this recogniser different
+// people centre around 0.1–0.3 and same-person groups ≥ ~0.55, so 0.58 is safe.
+const CLUSTER_MERGE = 0.58;
+// A leftover 1–2-face group joins an anchored person when it's at least this close to
+// the person's centroid — mops up the singleton tail without risking larger groups.
+const ATTACH_SINGLETON = 0.5;
 
 export interface FaceVec {
   id: string;
@@ -66,6 +74,32 @@ export function mutualKnnClusters(faces: FaceVec[], k: number, floor: number): s
     g.push(faces[i].id);
   }
   return [...groups.values()];
+}
+
+// Second clustering stage: agglomerative merge over CLUSTER centroids. Mutual-kNN
+// fragments one person into per-era/per-event components when near-duplicate faces
+// saturate each other's top-K lists; centroids average that noise out, so components
+// of the same person score far above what two different people ever reach. Merges the
+// closest pair first and re-centres, until no pair clears the threshold.
+export function mergeClustersByCentroid(groups: string[][], embById: Map<string, Float32Array>, threshold: number): string[][] {
+  const centre = (ids: string[]) => centroidOf(ids.map((id) => embById.get(id)!).filter(Boolean));
+  const clusters = groups.map((ids) => ({ ids, centroid: centre(ids) }));
+  for (;;) {
+    let best = threshold;
+    let mi = -1;
+    let mj = -1;
+    for (let i = 0; i < clusters.length; i += 1) {
+      for (let j = i + 1; j < clusters.length; j += 1) {
+        if (clusters[i].centroid.length !== clusters[j].centroid.length) continue;
+        const sim = cosineSimilarity(clusters[i].centroid, clusters[j].centroid);
+        if (sim >= best) { best = sim; mi = i; mj = j; }
+      }
+    }
+    if (mi < 0) return clusters.map((c) => c.ids);
+    const merged = [...clusters[mi].ids, ...clusters[mj].ids];
+    clusters[mi] = { ids: merged, centroid: centre(merged) };
+    clusters.splice(mj, 1);
+  }
 }
 
 // Recompute a person's aggregates from its current member faces (see also the
@@ -131,40 +165,44 @@ export function clusterGalleryFaces(): { clusters: number; assigned: number } {
   const faces: FaceVec[] = rows.map((r) => ({ id: r.id, emb: blobToEmbedding(r.embedding) }));
   const embById = new Map(faces.map((f) => [f.id, f.emb]));
   const oldPersonOf = new Map(rows.map((r) => [r.id, r.person_id]));
-  // Anchored people must survive with their id + name (named or bridged to global
-  // people). Keep their stored centroid for the rescan-rematch fallback.
-  const anchoredRows = db.prepare("SELECT id, centroid FROM gallery_people WHERE name != '' OR linked_person_id IS NOT NULL").all() as { id: string; centroid: Buffer | null }[];
+  // Anchored people must survive with their id + name: named, bridged to global
+  // people, or curated (a user merge target). Keep their stored centroid for the
+  // rescan-rematch fallback.
+  const anchoredRows = db.prepare(
+    "SELECT id, centroid FROM gallery_people WHERE name != '' OR linked_person_id IS NOT NULL OR curated = 1"
+  ).all() as { id: string; centroid: Buffer | null }[];
   const anchored = new Set(anchoredRows.map((r) => r.id));
   const anchoredCentroids = anchoredRows.filter((r) => r.centroid).map((r) => ({ id: r.id, vec: blobToEmbedding(r.centroid!) }));
 
-  const groups = mutualKnnClusters(faces, k, floor).sort((a, b) => b.length - a.length);
+  const groups = mergeClustersByCentroid(mutualKnnClusters(faces, k, floor), embById, CLUSTER_MERGE)
+    .sort((a, b) => b.length - a.length);
 
-  // Assign each group a person id (largest group first; each anchor claimed once):
+  // Assign each group a person id. Several groups may map to the SAME anchored person —
+  // they re-union into it, which is what makes manual merges durable across reclustering:
   //   1. by plurality of its faces' previous anchored person (recompute case), else
-  //   2. by centroid similarity to an anchored person (rescan case — faces are new),
+  //   2. by centroid similarity to an anchored person (rescan case — faces are new;
+  //      1–2-face leftovers use the lower ATTACH_SINGLETON bar to mop up the tail),
   //   3. otherwise a fresh unnamed person.
-  const takenAnchor = new Set<string>();
   const groupPlan = groups.map((faceIds) => {
     const tally = new Map<string, number>();
     for (const fid of faceIds) {
       const p = oldPersonOf.get(fid);
-      if (p && anchored.has(p) && !takenAnchor.has(p)) tally.set(p, (tally.get(p) ?? 0) + 1);
+      if (p && anchored.has(p)) tally.set(p, (tally.get(p) ?? 0) + 1);
     }
     let claim: string | null = null;
     let best = 0;
     for (const [p, c] of tally) if (c > best) { best = c; claim = p; }
     if (!claim && anchoredCentroids.length > 0) {
       const groupCentroid = centroidOf(faceIds.map((fid) => embById.get(fid)!).filter(Boolean));
-      let bestSim = NAME_REMATCH;
+      let bestSim = faceIds.length <= 2 ? ATTACH_SINGLETON : NAME_REMATCH;
       for (const a of anchoredCentroids) {
         // Skip a stale centroid from a different embedding model (different dimension).
-        if (takenAnchor.has(a.id) || a.vec.length !== groupCentroid.length) continue;
+        if (a.vec.length !== groupCentroid.length) continue;
         const sim = cosineSimilarity(groupCentroid, a.vec);
         if (sim >= bestSim) { bestSim = sim; claim = a.id; }
       }
     }
-    if (claim) { takenAnchor.add(claim); return { faceIds, personId: claim }; }
-    return { faceIds, personId: nanoid(16) };
+    return { faceIds, personId: claim ?? nanoid(16) };
   });
 
   db.transaction(() => {

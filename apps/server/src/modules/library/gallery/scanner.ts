@@ -9,6 +9,8 @@ import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
+import { libraryJobRunning } from "../shared/scan-lock.js";
+import { jobProgressWriter } from "../shared/job-progress.js";
 import {
   normalizeLibrarySettings,
   normalizeScanSources,
@@ -191,7 +193,11 @@ function reconcileGalleryItems(libraryId: string, presentPaths: Set<string>): vo
   }
 }
 
-async function scanGalleryLibrary(libraryId: string, options: GalleryScanOptions = {}) {
+async function scanGalleryLibrary(
+  libraryId: string,
+  options: GalleryScanOptions = {},
+  onProgress?: (processed: number, total: number) => void
+) {
   const library = db.prepare("SELECT id, source_path, settings_json FROM libraries WHERE id = ? AND type = 'gallery'")
     .get(libraryId) as { id: string; source_path: string; settings_json: string } | undefined;
   if (!library) throw new Error("Gallery library not found.");
@@ -202,9 +208,11 @@ async function scanGalleryLibrary(libraryId: string, options: GalleryScanOptions
   const rootPath = validateLibrarySource(library.source_path);
   const files = walkGalleryFiles(rootPath, new Set(settings.scan_extensions.map((extension) => `.${extension}`)));
 
-  for (const file of files) {
-    await ingestGalleryAsset(libraryId, file, metaEnabled);
+  for (let i = 0; i < files.length; i += 1) {
+    onProgress?.(i, files.length);
+    await ingestGalleryAsset(libraryId, files[i], metaEnabled);
   }
+  onProgress?.(files.length, files.length);
   reconcileGalleryItems(libraryId, new Set(files.map((file) => file.relativePath)));
 
   db.prepare("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
@@ -260,6 +268,10 @@ export async function processGalleryScanQueue() {
       .run(scanJobType);
 
     for (;;) {
+      // One library job at a time server-wide: while another scan or face job is
+      // running (whatever its type), leave the queue alone until the next poll.
+      if (libraryJobRunning()) break;
+
       const job = db.prepare(`
         SELECT id, payload FROM jobs
         WHERE type = ? AND status = 'pending' AND datetime(run_at) <= datetime('now')
@@ -275,7 +287,9 @@ export async function processGalleryScanQueue() {
 
       const payload = JSON.parse(job.payload) as { libraryId: string; options?: GalleryScanOptions };
       try {
-        const result = await scanGalleryLibrary(payload.libraryId, payload.options ?? {});
+        // Persist live progress into the job payload (throttled) so the Tasks page
+        // shows items scanned + ETA while the scan runs.
+        const result = await scanGalleryLibrary(payload.libraryId, payload.options ?? {}, jobProgressWriter(job.id, payload));
         db.prepare(`
           UPDATE jobs SET status = 'completed', payload = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_at = NULL, locked_by = NULL
           WHERE id = ?

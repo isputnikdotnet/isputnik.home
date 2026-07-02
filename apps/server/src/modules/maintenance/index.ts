@@ -113,10 +113,12 @@ const DEFINITIONS: ScheduledJobDef[] = [
   {
     key: "scan_new_faces",
     label: "Scan new photos for faces",
-    description: "Detect and group faces in photos not yet scanned with the current recognition model, across every library with face recognition enabled. Already-processed photos are skipped, so this is cheap when nothing is new.",
+    description: "Detect and group faces in photos not yet scanned with the current recognition model, across every library with face recognition enabled. Already-processed photos are skipped, and a run pauses after 3 hours — the rest continues the next night.",
     defaultEnabled: true,
     defaultFrequency: "daily",
-    defaultTime: "01:00",
+    // After the nightly library scans (randomized 01:00–04:59), so tonight's new
+    // photos are already cataloged and get their faces the same night.
+    defaultTime: "05:00",
     run: () => {
       const ids = enabledFaceLibraryIds();
       if (ids.length === 0) return "No libraries have face recognition enabled — nothing to scan.";
@@ -427,17 +429,28 @@ function summarizeTaskResult(type: string, result: Record<string, any> | null): 
   if (type === "SCAN_GALLERY_FACES") {
     if (result.reclustered != null) return `Re-grouped faces into ${result.reclustered} groups`;
     if (result.skipped) return "Face recognition disabled — skipped";
-    return `${result.items ?? 0} photos, ${result.faces ?? 0} faces${result.failed ? ` · ${result.failed} failed` : ""}`;
+    const base = `${result.items ?? 0} photos, ${result.faces ?? 0} faces${result.failed ? ` · ${result.failed} failed` : ""}`;
+    if (!(result.remaining > 0)) return base;
+    return result.timeLimited
+      ? `${base} · paused at the 3-hour limit, ${result.remaining} photos continue next run`
+      : `${base} · ${result.remaining} more continue in the next batch`;
   }
   return null;
 }
 
-function normalizeTaskProgress(progress: Record<string, any> | null, startedAt: string | null): TaskProgress | null {
+// What a {processed, total} progress payload counts, per job type.
+const PROGRESS_UNIT: Record<string, string> = {
+  SCAN_GALLERY_FACES: "photos",
+  SCAN_GALLERY_LIBRARY: "items",
+  SCAN_EBOOK_LIBRARY: "books"
+};
+
+function normalizeTaskProgress(type: string, progress: Record<string, any> | null, startedAt: string | null): TaskProgress | null {
   if (!progress) return null;
   let counts: { processed: number; total: number; unit: string } | null = null;
-  // Face scan: { processed, total }.
+  // Face/ebook/gallery scans: { processed, total } via the shared jobProgressWriter.
   if (typeof progress.processed === "number" && typeof progress.total === "number") {
-    counts = { processed: progress.processed, total: progress.total, unit: "photos" };
+    counts = { processed: progress.processed, total: progress.total, unit: PROGRESS_UNIT[type] ?? "items" };
   } else if (typeof progress.authorsProcessed === "number" && typeof progress.authorsTotal === "number") {
     // Audiobook scan: books phase, then an author-enrichment phase.
     counts = { processed: progress.authorsProcessed, total: progress.authorsTotal, unit: "authors" };
@@ -446,9 +459,15 @@ function normalizeTaskProgress(progress: Record<string, any> | null, startedAt: 
   }
   if (!counts) return null;
 
-  // Project time remaining from the observed rate since the work started. Face scans
-  // stamp their own startedAt into the progress payload; otherwise fall back to when
-  // the worker claimed the job (locked_at).
+  // Prefer the writer's own ETA (recent-window rate — see jobProgressWriter): catalog
+  // scans skip already-known items almost instantly, so a whole-run average wildly
+  // underestimates what's left once the slow (new-item) phase starts.
+  if ("etaSeconds" in progress) {
+    return { ...counts, etaSeconds: typeof progress.etaSeconds === "number" ? progress.etaSeconds : null };
+  }
+
+  // Legacy payloads (audiobook scan): project from the whole-run average since the
+  // work started — startedAt from the payload, else when the worker claimed the job.
   const start = typeof progress.startedAt === "string" ? progress.startedAt : startedAt;
   let etaSeconds: number | null = null;
   if (start && counts.processed > 0 && counts.total > counts.processed) {
@@ -495,7 +514,7 @@ function taskView(row: TaskRow) {
     failedAt: row.failed_at,
     error: row.error,
     summary: summarizeTaskResult(row.type, payload.result ?? null),
-    progress: active ? normalizeTaskProgress(payload.progress ?? null, row.locked_at ?? row.created_at) : null,
+    progress: active ? normalizeTaskProgress(row.type, payload.progress ?? null, row.locked_at ?? row.created_at) : null,
     bookErrors: Array.isArray(payload.result?.bookErrors) ? (payload.result.bookErrors as string[]) : []
   };
 }
