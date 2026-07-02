@@ -111,7 +111,13 @@ async function readPhotoMetadata(absolutePath: string): Promise<AssetMetadata> {
     meta.width = finiteOrNull(info.width);
     meta.height = finiteOrNull(info.height);
     meta.orientation = finiteOrNull(info.orientation);
-  } catch { /* undecodable image — still indexed without dimensions */ }
+  } catch {
+    // sharp has no loader for this format (BMP is the common case): ffprobe still
+    // reports the dimensions of most stills, so the asset keeps width/height.
+    const probed = await readVideoMetadata(absolutePath);
+    meta.width = probed.width;
+    meta.height = probed.height;
+  }
   try {
     // Default parse reads TIFF/EXIF/GPS and adds computed latitude/longitude.
     const exif = await exifr.parse(absolutePath);
@@ -173,6 +179,18 @@ async function videoPosterBuffer(absolutePath: string): Promise<Buffer | null> {
   return retry.ok && retry.stdout.length > 0 ? retry.stdout : null;
 }
 
+// Decode a photo sharp has no loader for (BMP is the common case — libvips'
+// prebuilt binaries can't read it) into a JPEG buffer via the bundled ffmpeg.
+// Near-lossless (-q:v 2) so thumbnails and face detection can work from it.
+// Null when ffmpeg is missing or can't decode the file either.
+export async function decodePhotoToJpeg(absolutePath: string): Promise<Buffer | null> {
+  const result = await run(FFMPEG_BIN, [
+    "-v", "quiet", "-i", absolutePath,
+    "-frames:v", "1", "-f", "image2", "-vcodec", "mjpeg", "-q:v", "2", "pipe:1"
+  ]);
+  return result.ok && result.stdout.length > 0 ? result.stdout : null;
+}
+
 export interface ThumbnailKeys {
   coverKey: string;   // grid thumbnail (~400px) → item_metadata.cover_storage_key
   previewKey: string; // lightbox preview (~1600px) → gallery_details.preview_storage_key
@@ -192,7 +210,7 @@ export async function generateGalleryThumbnails(
 ): Promise<ThumbnailKeys | null> {
   const source: Buffer | string | null = kind === "video" ? await videoPosterBuffer(absolutePath) : absolutePath;
   if (!source) return null;
-  try {
+  const render = async (input: Buffer | string): Promise<ThumbnailKeys> => {
     const coverKey = thumbnailStorageKey(libraryId, itemId, `${itemId}-cover.webp`);
     const previewKey = thumbnailStorageKey(libraryId, itemId, `${itemId}-cover-large.webp`);
     const coverPath = thumbnailAbsolutePath(coverKey);
@@ -201,7 +219,7 @@ export async function generateGalleryThumbnails(
     // rotate() applies the EXIF orientation so thumbnails are upright; a second
     // rotate(angle) then adds any manual rotation (sharp composes the two).
     const oriented = () => {
-      const img = sharp(source, { failOn: "none" }).rotate();
+      const img = sharp(input, { failOn: "none" }).rotate();
       return rotation ? img.rotate(rotation) : img;
     };
     await Promise.all([
@@ -209,7 +227,18 @@ export async function generateGalleryThumbnails(
       oriented().resize(1600, 1600, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toFile(previewPath)
     ]);
     return { coverKey, previewKey };
+  };
+  try {
+    return await render(source);
   } catch {
+    // A photo sharp can't read (BMP et al): re-decode via ffmpeg and retry. The
+    // existence guard keeps a missing file failing fast without a pointless spawn.
+    if (kind === "photo" && fs.existsSync(absolutePath)) {
+      const converted = await decodePhotoToJpeg(absolutePath);
+      if (converted) {
+        try { return await render(converted); } catch { return null; }
+      }
+    }
     return null;
   }
 }
