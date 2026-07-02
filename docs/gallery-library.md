@@ -139,11 +139,15 @@ leaves the machine). Code lives under `modules/library/gallery/faces/`.
 **Pipeline** (`arcface.ts`): InsightFace SCRFD-500MF detector → 5-point similarity-warp
 alignment to 112×112 → ArcFace **ResNet50** recogniser (`w600k_r50`) → 512-d L2-normalised
 embedding (cosine = dot product). Runs on `onnxruntime-node` (CPU by default; set
-`FACE_ORT_PROVIDERS=cuda,cpu` / `dml,cpu` to try an accelerator, with automatic CPU
-fallback). Models are vendored under `apps/server/models/face/` (`det_500m.onnx`,
-`w600k_r50.onnx`). The engine loads lazily on first detection and disables sharp's cache
-for the duration (a scan sees only unique images). Faces of one photo are recognised in a
-single batched `rec.run`.
+`FACE_ORT_PROVIDERS=cuda,cpu` / `dml,cpu` to try an accelerator). CPU fallback is
+automatic at both model **load** and — because DirectML can accept a model and still
+reject an op mid-run — at **execution** time: the first runtime failure rebuilds the
+engine CPU-only, retries the photo, and stays on CPU until restart. Models are vendored
+under `apps/server/models/face/` (`det_500m.onnx`, `w600k_r50.onnx`). The engine loads
+lazily on first detection and disables sharp's cache for the duration (a scan sees only
+unique images). Faces of one photo are recognised in a single batched `rec.run` on CPU;
+on a GPU provider they run one at a time instead (DirectML rejects the dynamic batch dim
+at execution time — the model is exported as `[1,3,112,112]`).
 
 **Module layout:**
 - `arcface.ts` — detection + embedding engine (native ORT).

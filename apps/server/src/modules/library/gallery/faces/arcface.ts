@@ -52,7 +52,12 @@ function modelsDir(): string {
 // "cuda,cpu" or "dml,cpu") so a CUDA- or DirectML-enabled onnxruntime build can be
 // switched on without a code change. CPU is always kept as the final fallback, and a
 // requested accelerator the installed binary lacks falls back to CPU rather than failing.
+// `forceCpu` overrides the env once a GPU engine has failed AT EXECUTION time (see
+// detectFacesFromRaw) — load-time fallback can't catch that class of failure.
+let forceCpu = false;
+
 function requestedProviders(): string[] {
+  if (forceCpu) return ["cpu"];
   const raw = (process.env.FACE_ORT_PROVIDERS ?? "").trim();
   const list = raw ? raw.split(",").map((p) => p.trim().toLowerCase()).filter(Boolean) : [];
   if (!list.includes("cpu")) list.push("cpu");
@@ -65,7 +70,9 @@ function requestedProviders(): string[] {
 // logs "{1,512} does not match {N,512}" — the result is correct, but it would otherwise
 // spam once per multi-face photo during a scan. Tries the requested providers, then
 // retries CPU-only on failure.
-async function createSession(file: string): Promise<ort.InferenceSession> {
+// `gpu` records whether the session was actually created with an accelerator in its
+// provider list — false when the request already fell back to CPU at load time.
+async function createSession(file: string): Promise<{ session: ort.InferenceSession; gpu: boolean }> {
   const providers = requestedProviders();
   const opts: ort.InferenceSession.SessionOptions = {
     graphOptimizationLevel: "all",
@@ -73,15 +80,24 @@ async function createSession(file: string): Promise<ort.InferenceSession> {
     executionProviders: providers as ort.InferenceSession.SessionOptions["executionProviders"]
   };
   try {
-    return await ort.InferenceSession.create(file, opts);
+    return { session: await ort.InferenceSession.create(file, opts), gpu: providers.some((p) => p !== "cpu") };
   } catch (err) {
     if (providers.length === 1) throw err; // already CPU-only — nothing to fall back to
     console.warn(`face engine: providers [${providers.join(", ")}] failed (${err instanceof Error ? err.message : err}); falling back to CPU.`);
-    return ort.InferenceSession.create(file, { ...opts, executionProviders: ["cpu"] });
+    return { session: await ort.InferenceSession.create(file, { ...opts, executionProviders: ["cpu"] }), gpu: false };
   }
 }
 
-let enginePromise: Promise<{ det: ort.InferenceSession; rec: ort.InferenceSession }> | null = null;
+interface FaceEngine {
+  det: ort.InferenceSession;
+  rec: ort.InferenceSession;
+  /** Recogniser session has a GPU provider — its runs must use static batch shapes. */
+  recGpu: boolean;
+  /** Any session has a GPU provider — a runtime failure warrants a CPU-only rebuild. */
+  gpu: boolean;
+}
+
+let enginePromise: Promise<FaceEngine> | null = null;
 function getEngine() {
   if (!enginePromise) {
     enginePromise = (async () => {
@@ -94,7 +110,7 @@ function getEngine() {
         createSession(path.join(dir, "det_500m.onnx")),
         createSession(path.join(dir, "w600k_r50.onnx"))
       ]);
-      return { det, rec };
+      return { det: det.session, rec: rec.session, recGpu: rec.gpu, gpu: det.gpu || rec.gpu };
     })().catch((err) => { enginePromise = null; throw err; });
   }
   return enginePromise;
@@ -224,8 +240,26 @@ export async function decodeUpright(absolutePath: string): Promise<DecodedImage>
 // Detect every face in a pre-decoded image and return its normalised box + aligned
 // ArcFace embedding. The detector input is resized from the already-decoded raw buffer
 // (no second file decode), and the alignment warp samples that same buffer.
+//
+// A GPU engine can fail AT EXECUTION time on ops its driver rejects (seen on DirectML:
+// BatchNormalization with a dynamic batch dim) — load-time fallback can't catch that.
+// On the first such failure the whole engine is rebuilt CPU-only and the photo retried,
+// so a scan degrades with one warning instead of recording every photo as failed.
 export async function detectFacesFromRaw(image: DecodedImage): Promise<DetectedFace[]> {
-  const { det, rec } = await getEngine();
+  const engine = await getEngine();
+  try {
+    return await runInference(engine, image);
+  } catch (err) {
+    if (!engine.gpu) throw err;
+    console.warn(`face engine: GPU execution failed (${err instanceof Error ? err.message : err}); rebuilding CPU-only and retrying.`);
+    forceCpu = true;
+    enginePromise = null;
+    return runInference(await getEngine(), image);
+  }
+}
+
+async function runInference(engine: FaceEngine, image: DecodedImage): Promise<DetectedFace[]> {
+  const { det, rec } = engine;
   const { rgb, width: W, height: H } = image;
   if (!W || !H) return [];
 
@@ -248,26 +282,38 @@ export async function detectFacesFromRaw(image: DecodedImage): Promise<DetectedF
   const dets = decodeScrfd(detOut, scale, 0.5);
   if (dets.length === 0) return [];
 
-  // Align every face, then run recognition ONCE over the whole batch. Batching amortises
-  // the per-call overhead and lets onnxruntime parallelise across faces — a real win for
-  // the heavier ResNet50 recogniser, and free for MobileFaceNet. The recogniser has no
-  // cross-image state, so a batched run is numerically identical to per-face runs.
+  // Align every face, then run recognition. On CPU the whole batch goes in ONE run:
+  // batching amortises the per-call overhead and lets onnxruntime parallelise across
+  // faces — a real win for the heavier ResNet50 recogniser. On a GPU provider the
+  // faces run ONE AT A TIME instead: DirectML rejects a dynamic batch dim at execution
+  // time (BatchNormalization fails with N>1 — the model was exported as [1,3,112,112]),
+  // and per-face GPU runs are still far faster than batched CPU. The recogniser has no
+  // cross-face state, so both paths are numerically identical.
   const N = dets.length;
   const FACE = 3 * 112 * 112;
-  const batch = new Float32Array(N * FACE);
-  for (let i = 0; i < N; i += 1) batch.set(warpToArcInput(rgb, W, H, similarityTransform(dets[i].kps)), i * FACE);
-  const recOut = await rec.run({ [rec.inputNames[0]]: new ort.Tensor("float32", batch, [N, 3, 112, 112]) });
-  const out = recOut[rec.outputNames[0]].data as Float32Array;
-  const dim = out.length / N; // 512 for both ArcFace recognisers
+  const embeddings: Float32Array[] = [];
+  if (engine.recGpu) {
+    for (const d of dets) {
+      const input = warpToArcInput(rgb, W, H, similarityTransform(d.kps));
+      const recOut = await rec.run({ [rec.inputNames[0]]: new ort.Tensor("float32", input, [1, 3, 112, 112]) });
+      embeddings.push(l2(recOut[rec.outputNames[0]].data as Float32Array));
+    }
+  } else {
+    const batch = new Float32Array(N * FACE);
+    for (let i = 0; i < N; i += 1) batch.set(warpToArcInput(rgb, W, H, similarityTransform(dets[i].kps)), i * FACE);
+    const recOut = await rec.run({ [rec.inputNames[0]]: new ort.Tensor("float32", batch, [N, 3, 112, 112]) });
+    const out = recOut[rec.outputNames[0]].data as Float32Array;
+    const dim = out.length / N; // 512 for both ArcFace recognisers
+    for (let i = 0; i < N; i += 1) embeddings.push(l2(out.slice(i * dim, (i + 1) * dim)));
+  }
 
   const faces: DetectedFace[] = [];
   for (let i = 0; i < N; i += 1) {
-    const embedding = l2(out.slice(i * dim, (i + 1) * dim));
     const [x1, y1, x2, y2] = dets[i].box;
     faces.push({
       box: [Math.max(0, x1 / W), Math.max(0, y1 / H), Math.max(0, (x2 - x1) / W), Math.max(0, (y2 - y1) / H)],
       score: dets[i].score,
-      embedding
+      embedding: embeddings[i]
     });
   }
   return faces;
