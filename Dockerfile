@@ -19,7 +19,42 @@ FROM deps AS server-build
 COPY apps/server ./apps/server
 RUN npm run build --workspace apps/server
 
-# ── Stage 4: production image ─────────────────────────────────────
+# ── Stage 4: runtime-only node_modules ────────────────────────────
+# The deps stage has dev deps (typescript, vite, esbuild, …) and every web-only
+# package — none of that belongs in the runtime image. All runtime deps are the
+# server workspace's `dependencies` (the root package has only devDependencies),
+# so reinstall just those. Build tools are inherited from deps in case a native
+# module has no prebuild for this platform.
+FROM deps AS prod-deps
+RUN npm ci --omit=dev --workspace apps/server
+# npm quirk: that ci still leaves the root-`overrides` target (vite) installed as
+# an extraneous package, plus dev deps it peer-references (tsx → esbuild). And
+# `npm prune` can't fix it — its reify step puts them right back. So sweep
+# whatever npm itself flags as extraneous or dev-only (workspace entries like
+# apps/web are outside node_modules and excluded), and fail the build loudly if
+# anything survives. Uses `location` (relative), not `path` — npm's log redaction
+# can mangle absolute paths.
+RUN node -e 'const {execSync}=require("child_process"),fs=require("fs");\
+const q=()=>JSON.parse(execSync("npm query \":extraneous, .dev\"",{maxBuffer:64e6}).toString())\
+  .filter(p=>p.location.startsWith("node_modules"));\
+for(let i=0;i<5;i++){const hits=q();if(!hits.length)process.exit(0);\
+  for(const p of hits)fs.rmSync(p.location,{recursive:true,force:true})}\
+console.error("dev/extraneous packages survived the sweep");process.exit(1)' \
+    && find node_modules -mindepth 1 -maxdepth 1 -type d -empty -delete
+# ffprobe-static and onnxruntime-node ship binaries for every OS/arch in one
+# package (~330 MB and ~220 MB of foreign-platform dead weight). Keep only this
+# image's platform. Must happen HERE, not in the final stage — a later RUN rm
+# can't shrink an earlier COPY layer.
+RUN rm -rf node_modules/ffprobe-static/bin/darwin \
+           node_modules/ffprobe-static/bin/win32 \
+           node_modules/onnxruntime-node/bin/napi-v6/darwin \
+           node_modules/onnxruntime-node/bin/napi-v6/win32 \
+    && find node_modules/ffprobe-static/bin/linux \
+            node_modules/onnxruntime-node/bin/napi-v6/linux \
+            -mindepth 1 -maxdepth 1 -type d ! -name "$(node -p 'process.arch')" \
+            -exec rm -rf {} +
+
+# ── Stage 5: production image ─────────────────────────────────────
 FROM node:22-slim
 WORKDIR /app
 
@@ -28,14 +63,14 @@ WORKDIR /app
 # install needed. Photos use sharp.
 
 # Runtime node_modules (with compiled native bindings from the build stage)
-COPY --from=deps /build/node_modules ./node_modules
+COPY --from=prod-deps /build/node_modules ./node_modules
 
 # Workspace-nested modules npm chose NOT to hoist to root. otplib is the first such
 # dep (its @otplib/core@12 conflicts with the version the presets pull in, so npm
 # nests otplib + @otplib/core under apps/server instead of root). Without this copy
 # they're absent at runtime → ERR_MODULE_NOT_FOUND. Copying the whole dir is
 # future-proof: any later non-hoisted server dep comes along automatically.
-COPY --from=deps /build/apps/server/node_modules ./apps/server/node_modules
+COPY --from=prod-deps /build/apps/server/node_modules ./apps/server/node_modules
 
 # Compiled server
 COPY --from=server-build /build/apps/server/dist ./apps/server/dist
