@@ -112,9 +112,105 @@ export function mapAsset(row: AssetRow) {
   };
 }
 
+// One display string per camera, shared by the facet list and the filter WHERE so
+// the two always agree. Models usually embed the make ("Canon EOS 400D"), so the
+// make is only prepended when the model doesn't already start with it.
+const CAMERA_SQL = `
+  CASE
+    WHEN gallery_details.camera_model IS NULL THEN gallery_details.camera_make
+    WHEN gallery_details.camera_make IS NULL THEN gallery_details.camera_model
+    WHEN instr(lower(gallery_details.camera_model), lower(gallery_details.camera_make)) = 1 THEN gallery_details.camera_model
+    ELSE gallery_details.camera_make || ' ' || gallery_details.camera_model
+  END`;
+
+// File-size buckets (the audiobook length buckets, for bytes). Boundaries are
+// binary megabytes; each code maps to a half-open [min, max) range on
+// gallery_details.size.
+const MIB = 1024 * 1024;
+const SIZE_BUCKETS: Record<string, { min: number; max: number | null }> = {
+  small: { min: 0, max: MIB },            // under 1 MB
+  medium: { min: MIB, max: 5 * MIB },     // 1–5 MB
+  large: { min: 5 * MIB, max: 25 * MIB }, // 5–25 MB
+  huge: { min: 25 * MIB, max: null }      // 25 MB+
+};
+
+// Advanced filters (mirrors the audiobook catalog's filter arrays): every list is
+// OR within itself and AND against the others. `location` takes the codes
+// 'with_gps' / 'no_gps' — selecting both is the same as selecting neither.
+export interface GalleryTimelineFilters {
+  people: string[];   // gallery_people names (named face groups / manual tags)
+  tags: string[];     // tag display names
+  years: string[];    // 'YYYY' from taken_at
+  taken: string[];    // date-taken bounds: 'from:YYYY-MM-DD' / 'to:YYYY-MM-DD' (inclusive)
+  cameras: string[];  // CAMERA_SQL display strings
+  sizes: string[];    // SIZE_BUCKETS codes: small | medium | large | huge
+  location: string[]; // 'with_gps' | 'no_gps'
+}
+
+export const EMPTY_GALLERY_FILTERS: GalleryTimelineFilters = {
+  people: [], tags: [], years: [], taken: [], cameras: [], sizes: [], location: []
+};
+
+function galleryFilterClauses(filters: GalleryTimelineFilters): { clauses: string[]; args: unknown[] } {
+  const clauses: string[] = [];
+  const args: unknown[] = [];
+  if (filters.people.length > 0) {
+    clauses.push(`EXISTS (
+      SELECT 1 FROM gallery_faces gf JOIN gallery_people gp ON gp.id = gf.person_id
+      WHERE gf.item_id = library_items.id AND gf.assignment != 'rejected' AND gp.name IN (${inClause(filters.people.length)}))`);
+    args.push(...filters.people);
+  }
+  if (filters.tags.length > 0) {
+    clauses.push(`EXISTS (
+      SELECT 1 FROM taggables JOIN tags ON tags.id = taggables.tag_id
+      WHERE taggables.entity_type = 'library_item' AND taggables.entity_id = library_items.id
+        AND tags.display_name IN (${inClause(filters.tags.length)}))`);
+    args.push(...filters.tags);
+  }
+  if (filters.years.length > 0) {
+    clauses.push(`substr(gallery_details.taken_at, 1, 4) IN (${inClause(filters.years.length)})`);
+    args.push(...filters.years);
+  }
+  // Inclusive date bounds on the calendar day of taken_at. Comparing the date
+  // prefix keeps both ends inclusive whatever the stored time-of-day is; an asset
+  // with no taken_at compares NULL and drops out, which is what a date filter means.
+  for (const bound of filters.taken) {
+    if (bound.startsWith("from:")) {
+      clauses.push("substr(gallery_details.taken_at, 1, 10) >= ?");
+      args.push(bound.slice(5));
+    } else if (bound.startsWith("to:")) {
+      clauses.push("substr(gallery_details.taken_at, 1, 10) <= ?");
+      args.push(bound.slice(3));
+    }
+  }
+  if (filters.cameras.length > 0) {
+    clauses.push(`${CAMERA_SQL} IN (${inClause(filters.cameras.length)})`);
+    args.push(...filters.cameras);
+  }
+  const buckets = filters.sizes.map((code) => SIZE_BUCKETS[code]).filter(Boolean);
+  if (buckets.length > 0) {
+    clauses.push(`(${buckets.map((b) =>
+      b.max == null ? "gallery_details.size >= ?" : "(gallery_details.size >= ? AND gallery_details.size < ?)"
+    ).join(" OR ")})`);
+    for (const b of buckets) {
+      args.push(b.min);
+      if (b.max != null) args.push(b.max);
+    }
+  }
+  const withGps = filters.location.includes("with_gps");
+  const noGps = filters.location.includes("no_gps");
+  if (withGps !== noGps) {
+    clauses.push(withGps
+      ? "gallery_details.gps_lat IS NOT NULL AND gallery_details.gps_lng IS NOT NULL"
+      : "(gallery_details.gps_lat IS NULL OR gallery_details.gps_lng IS NULL)");
+  }
+  return { clauses, args };
+}
+
 export interface GalleryTimelineQuery {
   q: string;
   kinds: string[];      // ['photo'|'video'] subset; empty = both
+  filters?: GalleryTimelineFilters;
   limit: number;
   offset: number;
 }
@@ -126,8 +222,19 @@ export function queryGalleryTimeline(userId: string, libIds: string[], opts: Gal
   if (libIds.length === 0) return { assets: [], total: 0 };
   const where: string[] = [`library_items.library_id IN (${inClause(libIds.length)})`, "library_items.deleted_at IS NULL"];
   const args: unknown[] = [...libIds];
-  if (opts.q) { where.push("item_metadata.title LIKE ?"); args.push(`%${opts.q}%`); }
+  if (opts.q) {
+    // Match what a person would type: the title, the caption, any folder/file-name
+    // segment, or a tagged person's name (audiobook search spans people the same way).
+    where.push(`(item_metadata.title LIKE ? OR item_metadata.description LIKE ? OR library_items.folder_path LIKE ? OR EXISTS (
+      SELECT 1 FROM gallery_faces gf JOIN gallery_people gp ON gp.id = gf.person_id
+      WHERE gf.item_id = library_items.id AND gf.assignment != 'rejected' AND gp.name LIKE ?))`);
+    const like = `%${opts.q}%`;
+    args.push(like, like, like, like);
+  }
   if (opts.kinds.length > 0) { where.push(`gallery_details.kind IN (${inClause(opts.kinds.length)})`); args.push(...opts.kinds); }
+  const extra = galleryFilterClauses(opts.filters ?? EMPTY_GALLERY_FILTERS);
+  where.push(...extra.clauses);
+  args.push(...extra.args);
 
   const whereSql = where.join(" AND ");
   const total = (db.prepare(`SELECT COUNT(*) AS n FROM library_items JOIN gallery_details ON gallery_details.item_id = library_items.id LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id WHERE ${whereSql}`)
@@ -228,10 +335,11 @@ export function getGalleryAsset(userId: string, libIds: string[], id: string) {
   return { ...mapAsset(row), people };
 }
 
-// Facets: which kinds exist, the year range, and how many assets carry GPS (drives
-// whether the Map view is offered), for the filter UI.
+// Facets: which kinds exist, the year range, how many assets carry GPS (drives
+// whether the Map view is offered), and the filter-panel option lists (people,
+// tags, cameras) — all scoped to the libraries the user can see.
 export function galleryFacets(libIds: string[]) {
-  if (libIds.length === 0) return { kinds: [], years: [], withGps: 0 };
+  if (libIds.length === 0) return { kinds: [], years: [], withGps: 0, people: [], tags: [], cameras: [] };
   const libIn = inClause(libIds.length);
   const kinds = (db.prepare(`
     SELECT gallery_details.kind AS v, COUNT(*) AS n
@@ -251,7 +359,33 @@ export function galleryFacets(libIds: string[]) {
     WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
       AND gallery_details.gps_lat IS NOT NULL AND gallery_details.gps_lng IS NOT NULL
   `).get(...libIds) as { n: number }).n;
-  return { kinds, years, withGps };
+  // Named, visible people who appear in at least one asset in scope. Auto-clusters
+  // are unnamed (name = '') and stay out of the filter list.
+  const people = (db.prepare(`
+    SELECT DISTINCT gp.name AS v
+    FROM gallery_people gp
+    WHERE gp.name != '' AND gp.hidden = 0 AND EXISTS (
+      SELECT 1 FROM gallery_faces gf JOIN library_items li ON li.id = gf.item_id
+      WHERE gf.person_id = gp.id AND gf.assignment != 'rejected'
+        AND li.deleted_at IS NULL AND li.library_id IN (${libIn}))
+    ORDER BY v COLLATE NOCASE
+  `).all(...libIds) as { v: string }[]).map((r) => r.v);
+  const tags = (db.prepare(`
+    SELECT DISTINCT tags.display_name AS v
+    FROM tags
+    JOIN taggables ON taggables.tag_id = tags.id AND taggables.entity_type = 'library_item'
+    JOIN library_items ON library_items.id = taggables.entity_id
+    WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
+    ORDER BY v COLLATE NOCASE
+  `).all(...libIds) as { v: string }[]).map((r) => r.v);
+  const cameras = (db.prepare(`
+    SELECT DISTINCT v FROM (
+      SELECT ${CAMERA_SQL} AS v
+      FROM library_items JOIN gallery_details ON gallery_details.item_id = library_items.id
+      WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
+    ) WHERE v IS NOT NULL AND v != '' ORDER BY v COLLATE NOCASE
+  `).all(...libIds) as { v: string }[]).map((r) => r.v);
+  return { kinds, years, withGps, people, tags, cameras };
 }
 
 interface MapPointRow {

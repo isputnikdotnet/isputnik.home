@@ -22,6 +22,24 @@ All are queries over the same rows (`modules/library/gallery/catalog.ts`); the
 view toggle is pure UI. Source files are never modified — the same safety rule as
 every other library type.
 
+## Search & advanced filters
+
+The Timeline is the searchable/filterable view (searching or filtering from the
+Folder view pulls you into it, like the audiobook catalog):
+
+- **Text search** (`q`) matches the title, description/caption, any folder or
+  file-name segment, and tagged people's names.
+- **Advanced filters** (the Filter button, same UI as audiobooks — the shared
+  `web/src/shared/FacetFilter.tsx` panel + chips): **People** (named
+  `gallery_people`), **Years**, **Date taken** (inclusive From/To range),
+  **Tags**, **Cameras** (one display string per make/model, deduplicated when the
+  model embeds the make), **File size** (fixed buckets: <1 MB, 1–5 MB, 5–25 MB,
+  25 MB+), and **Location** (has / has no GPS). Lists are OR within a facet, AND
+  across facets. The media-type filter (photos/videos) stays in the header dropdown.
+- Option lists come from `GET /api/library/gallery/facets` (people/tags/cameras/
+  years, scoped to accessible libraries); filter arrays go in the
+  `POST /api/library/gallery/timeline` body as `filters`.
+
 ## Scan pipeline
 
 `modules/library/gallery/scanner.ts` walks the configured photo/video extensions
@@ -40,6 +58,16 @@ every other library type.
 Every probe degrades gracefully: if `ffmpeg`/`ffprobe` are missing or a file can't
 be decoded, the asset is still indexed (just without dimensions/thumbnail). The scan
 runs on the shared job queue (`SCAN_GALLERY_LIBRARY`), mirroring the ebook worker.
+
+Two edge cases the pipeline handles explicitly:
+
+- **Formats sharp can't read** (BMP is the common one — the prebuilt libvips has no
+  BMP loader): the photo is re-decoded to JPEG via the bundled `ffmpeg` and the
+  thumbnail/metadata/face-detection paths retry from that buffer
+  (`media.ts decodePhotoToJpeg`). Dimensions come from `ffprobe` in that case.
+- **Zero-byte files** (failed copies, placeholders, copies still in flight) are
+  skipped entirely — nothing can render them; a later scan picks them up if they
+  gain content, and an already-indexed empty file is reconciled away.
 
 **External dependencies:** `exifr` (npm) for EXIF; `ffmpeg`/`ffprobe` (system
 binaries, installed in the Docker image) for video. Range *streaming* of the
@@ -85,9 +113,9 @@ item-keyed systems:
 | POST/GET/PATCH/DELETE | `/api/library/gallery-libraries[/:id]` | Library CRUD (admin) |
 | POST | `/api/library/gallery-libraries/:id/rescan` | Queue a rescan |
 | POST | `/api/library/gallery-libraries/:id/assets/upload` | Upload photos/videos (multipart batch; upload permission) |
-| POST | `/api/library/gallery/timeline` | Paged date timeline (scope, kinds, q) |
+| POST | `/api/library/gallery/timeline` | Paged date timeline (scope, kinds, q, `filters`: people/tags/years/taken/cameras/sizes/location) |
 | GET | `/api/library/gallery/folders` | Folder listing (subfolders + assets) |
-| GET | `/api/library/gallery/facets` | Kind counts + year list + geotagged count (`withGps`) |
+| GET | `/api/library/gallery/facets` | Filter options (people/tags/cameras/years) + kind counts + geotagged count (`withGps`) |
 | GET | `/api/library/gallery/map` | Geotagged assets as lightweight markers (scope/kind, capped at 5000) |
 | GET | `/api/library/gallery/assets/:id` | Single asset detail |
 | PATCH | `/api/library/gallery/assets/:id` | Edit title/caption, description, date taken, tags (write access) |
