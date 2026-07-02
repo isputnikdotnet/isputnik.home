@@ -14,6 +14,7 @@ import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, 
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
+import { removeThumbnailsForLibrary } from "../shared/thumbnail.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { enqueueGalleryScan, processGalleryScanQueue, scanSingleGalleryFile } from "./scanner.js";
@@ -133,13 +134,14 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       deleteLibraryAccess(id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();
+    removeThumbnailsForLibrary(id);
 
     logActivity({
       event: "library.gallery.deleted",
       actorUserId: request.user!.id,
       targetType: "library",
       targetId: id,
-      detail: `Deleted gallery library "${exists.name}". Files on disk were not removed.`,
+      detail: `Deleted gallery library "${exists.name}". Source files on disk were not removed; generated thumbnails were deleted.`,
       ipAddress: request.ip
     });
     reply.send({ deleted: true });

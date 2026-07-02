@@ -10,6 +10,7 @@ import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
+import { removeThumbnailsForLibrary } from "../shared/thumbnail.js";
 import type { AudiobookLibraryRow } from "./types.js";
 
 const AUDIOBOOK_LIBRARY_LIST_SQL = `
@@ -120,13 +121,14 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       deleteLibraryAccess(id);
       db.prepare("DELETE FROM libraries WHERE id = ?").run(id);
     })();
+    removeThumbnailsForLibrary(id);
 
     logActivity({
       event: "library.audiobook.deleted",
       actorUserId: request.user!.id,
       targetType: "library",
       targetId: id,
-      detail: `Deleted audiobook library "${exists.name}". Files on disk were not removed.`,
+      detail: `Deleted audiobook library "${exists.name}". Source files on disk were not removed; generated thumbnails were deleted.`,
       ipAddress: request.ip
     });
 
