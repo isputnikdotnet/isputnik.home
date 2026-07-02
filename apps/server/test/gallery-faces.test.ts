@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
@@ -6,15 +9,23 @@ import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import {
   embeddingToBlob, blobToEmbedding, cosineSimilarity, centroidOf
 } from "../src/modules/library/gallery/faces/embedding.js";
-import { mutualKnnClusters, mergeClustersByCentroid, clusterGalleryFaces } from "../src/modules/library/gallery/faces/cluster.js";
+import { mutualKnnClusters, mergeClustersByCentroid, clusterGalleryFaces, recomputeClusterCentroid } from "../src/modules/library/gallery/faces/cluster.js";
+import { sweepOrphanFaceCrops, faceCropKeysForItem } from "../src/modules/library/gallery/faces/crop-files.js";
+import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { FACE_EMBEDDING_MODEL } from "../src/modules/library/gallery/faces/model-id.js";
-import { enqueueFaceScan, enqueueFaceScanBatches, faceJobType } from "../src/modules/library/gallery/faces/queue.js";
+import {
+  enqueueFaceScan, enqueueFaceScanBatches, faceJobType,
+  recordFaceScanFailure, MAX_FACE_SCAN_ATTEMPTS
+} from "../src/modules/library/gallery/faces/queue.js";
 import { clearLibraryFaceData } from "../src/modules/library/gallery/faces/clear.js";
 import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary,
   enabledFaceLibraryIds, anyFaceLibraryEnabled
 } from "../src/modules/library/gallery/faces/settings.js";
-import { listGalleryPeople, untagAssetPerson, renameGalleryPerson, mergeGalleryPeople } from "../src/modules/library/gallery/people.js";
+import {
+  listGalleryPeople, getGalleryPersonPhotos, untagAssetPerson, renameGalleryPerson,
+  mergeGalleryPeople, setGalleryPersonHidden
+} from "../src/modules/library/gallery/people.js";
 import { getGalleryAsset } from "../src/modules/library/gallery/catalog.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
@@ -175,6 +186,58 @@ describe("face scan queue (batch chaining)", () => {
     expect(ids).toHaveLength(1);
     const payload = JSON.parse((db.prepare("SELECT payload FROM jobs WHERE id = ?").get(ids[0]) as { payload: string }).payload);
     expect(payload).toMatchObject({ libraryId: "GAL", batch: 1, batches: 1 });
+  });
+});
+
+describe("face scan failure markers (retry budget)", () => {
+  beforeEach(() => {
+    resetDb();
+    db.prepare("DELETE FROM jobs").run();
+    makeUser("u1");
+    makeLibrary("GAL", { createdBy: "u1", type: "gallery" });
+  });
+
+  const scanRow = (itemId: string) =>
+    db.prepare("SELECT status, attempts, model FROM gallery_face_scans WHERE item_id = ?").get(itemId) as
+      | { status: string; attempts: number; model: string }
+      | undefined;
+
+  it("a failing photo is retried until the cap, then drops out of the backlog", async () => {
+    const t = Date.parse("2024-11-01T00:00:00Z");
+    const bad = await ingestGalleryAsset("GAL", asset("bad.jpg", t), false);
+    await ingestGalleryAsset("GAL", asset("fresh.jpg", t + 1000), false);
+
+    for (let attempt = 1; attempt <= MAX_FACE_SCAN_ATTEMPTS; attempt += 1) {
+      // Retry budget left: the failing photo still counts toward the backlog.
+      db.prepare("DELETE FROM jobs").run();
+      expect(enqueueFaceScanBatches("GAL", { batchSize: 1 })).toHaveLength(2);
+      recordFaceScanFailure(bad);
+      expect(scanRow(bad)).toMatchObject({ status: "failed", attempts: attempt, model: FACE_EMBEDDING_MODEL });
+    }
+
+    // Cap reached: only the fresh photo remains in the backlog.
+    db.prepare("DELETE FROM jobs").run();
+    expect(enqueueFaceScanBatches("GAL", { batchSize: 1 })).toHaveLength(1);
+  });
+
+  it("a failure never downgrades a successful current-model marker (force-rescan case)", async () => {
+    const t = Date.parse("2024-11-02T00:00:00Z");
+    const done = await ingestGalleryAsset("GAL", asset("done.jpg", t), false);
+    db.prepare("INSERT INTO gallery_face_scans (item_id, model, face_count, status, attempts) VALUES (?, ?, 2, 'ok', 0)")
+      .run(done, FACE_EMBEDDING_MODEL);
+
+    recordFaceScanFailure(done);
+    expect(scanRow(done)).toMatchObject({ status: "ok", attempts: 0, model: FACE_EMBEDDING_MODEL });
+  });
+
+  it("a failure under a stale model restarts the count for the current model", async () => {
+    const t = Date.parse("2024-11-03T00:00:00Z");
+    const item = await ingestGalleryAsset("GAL", asset("stale.jpg", t), false);
+    db.prepare("INSERT INTO gallery_face_scans (item_id, model, face_count, status, attempts) VALUES (?, 'old-model', 0, 'failed', 9)")
+      .run(item);
+
+    recordFaceScanFailure(item);
+    expect(scanRow(item)).toMatchObject({ status: "failed", attempts: 1, model: FACE_EMBEDDING_MODEL });
   });
 });
 
@@ -363,6 +426,66 @@ describe("clusterGalleryFaces (DB)", () => {
     expect(after[0].faceCount).toBe(1);
   });
 
+  it("the cover face skips rejected faces and trashed photos, and clears when none qualify", async () => {
+    const t = Date.parse("2024-09-01T00:00:00Z");
+    const i1 = await addFace("c1.jpg", vec(0, 0.05), t);
+    const i2 = await addFace("c2.jpg", vec(0, 0.1), t + 1000);
+    // Both faces have crops; c1's face has the higher det_score, so it starts as cover.
+    db.prepare("UPDATE gallery_faces SET thumb_storage_key = id || '.webp'").run();
+    db.prepare("UPDATE gallery_faces SET det_score = 0.5 WHERE item_id = ?").run(i2);
+    clusterGalleryFaces();
+    const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
+    const cover = () => (db.prepare("SELECT cover_face_id AS c FROM gallery_people WHERE id = ?").get(personId) as { c: string | null }).c;
+    expect(cover()).toBe("f_c1.jpg");
+
+    // "Not this person" on the cover photo must move the avatar off the rejected face.
+    untagAssetPerson(i1, personId);
+    expect(cover()).toBe("f_c2.jpg");
+
+    // Trashing the photo behind the remaining crop clears the cover entirely.
+    db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(i2);
+    recomputeClusterCentroid(personId);
+    expect(cover()).toBeNull();
+  });
+
+  it("the People-list avatar never leaks a face crop from an inaccessible library", async () => {
+    makeLibrary("GAL2", { createdBy: "u1", type: "gallery" });
+    grant("group", EVERYONE_GROUP_ID, "GAL2", "member");
+    const t = Date.parse("2024-10-01T00:00:00Z");
+    await addFace("a1.jpg", vec(0, 0.05), t);
+    // The same person's face in GAL2, with the globally best (highest-score) crop.
+    const other = await ingestGalleryAsset("GAL2", {
+      ...asset("a2.jpg", t + 1000), absolutePath: "/src/GAL2/a2.jpg"
+    }, false);
+    db.prepare(`
+      INSERT INTO gallery_faces (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, assignment, source)
+      VALUES ('f_other', ?, 0.1, 0.1, 0.2, 0.2, 0.995, ?, ?, 'auto', 'scan')
+    `).run(other, embeddingToBlob(vec(0, 0.1)), FACE_EMBEDDING_MODEL);
+    db.prepare("UPDATE gallery_faces SET thumb_storage_key = id || '.webp'").run();
+    clusterGalleryFaces();
+    expect(listGalleryPeople(["GAL", "GAL2"])).toHaveLength(1); // one person across both
+
+    // Full access: the globally best crop (GAL2's) is the avatar.
+    expect(listGalleryPeople(["GAL", "GAL2"])[0].coverUrl).toBe("/api/library/covers/f_other.webp");
+    // GAL-only access: the avatar comes from GAL's face, never the GAL2 crop.
+    expect(listGalleryPeople(["GAL"])[0].coverUrl).toBe("/api/library/covers/f_a1.jpg.webp");
+  });
+
+  it("a hidden person's photos are not reachable by direct id (unless allowed)", async () => {
+    const t = Date.parse("2024-10-02T00:00:00Z");
+    const i1 = await addFace("h1.jpg", vec(0, 0.05), t);
+    clusterGalleryFaces();
+    const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
+    expect(getGalleryPersonPhotos("u1", ["GAL"], personId, 10, 0)?.assets).toHaveLength(1);
+
+    setGalleryPersonHidden(personId, true);
+    // Hidden: gone from the list AND a null (404) by direct id for regular viewers.
+    expect(listGalleryPeople(["GAL"])).toHaveLength(0);
+    expect(getGalleryPersonPhotos("u1", ["GAL"], personId, 10, 0)).toBeNull();
+    // The admin path (includeHidden) still reaches it.
+    expect(getGalleryPersonPhotos("u1", ["GAL"], personId, 10, 0, true)?.assets).toHaveLength(1);
+  });
+
   it("clearLibraryFaceData wipes faces, scan markers, and exclusions and prunes people", async () => {
     const t = Date.parse("2024-05-01T00:00:00Z");
     const i1 = await addFace("a1.jpg", vec(0, 0.05), t);
@@ -405,5 +528,56 @@ describe("clusterGalleryFaces (DB)", () => {
     const remaining = db.prepare("SELECT item_id FROM gallery_faces").all() as { item_id: string }[];
     expect(remaining).toHaveLength(1);
     expect(remaining[0].item_id).toBe(other);
+  });
+});
+
+describe("face-crop files (orphan sweep)", () => {
+  let root: string;
+
+  beforeEach(() => {
+    resetDb();
+    makeUser("u1");
+    makeLibrary("GAL", { createdBy: "u1", type: "gallery" });
+    grant("group", EVERYONE_GROUP_ID, "GAL", "member");
+    root = fs.mkdtempSync(path.join(os.tmpdir(), "face-sweep-"));
+    db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .run(thumbnailPathSettingKey, root);
+  });
+
+  afterEach(() => {
+    db.prepare("DELETE FROM app_settings WHERE key = ?").run(thumbnailPathSettingKey);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  const file = (...segments: string[]) => {
+    const abs = path.join(root, ...segments);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, "x");
+    return abs;
+  };
+
+  it("removes unreferenced *-face.webp files and keeps referenced crops and covers", async () => {
+    const itemId = await ingestGalleryAsset("GAL", asset("a1.jpg", Date.parse("2024-10-01T00:00:00Z")), false);
+    db.prepare(`
+      INSERT INTO gallery_faces (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, thumb_storage_key, assignment, source)
+      VALUES ('f_keep', ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, ?, 'GAL/aa/bb/f_keep-face.webp', 'auto', 'scan')
+    `).run(itemId, embeddingToBlob(vec(0)), FACE_EMBEDDING_MODEL);
+
+    const kept = file("GAL", "aa", "bb", "f_keep-face.webp");   // referenced crop
+    const orphan = file("GAL", "aa", "bb", "f_gone-face.webp"); // no row references it
+    const cover = file("GAL", "aa", "bb", "item-cover.webp");   // not a face crop
+
+    expect(faceCropKeysForItem(itemId)).toEqual(["GAL/aa/bb/f_keep-face.webp"]);
+    expect(sweepOrphanFaceCrops()).toBe(1);
+    expect(fs.existsSync(kept)).toBe(true);
+    expect(fs.existsSync(orphan)).toBe(false);
+    expect(fs.existsSync(cover)).toBe(true);
+  });
+
+  // Skipped if a THUMBNAIL_PATH env fallback exists — the sweep would then walk a real
+  // store, and this test's empty in-memory DB references nothing.
+  it.skipIf(!!process.env.THUMBNAIL_PATH)("is a safe no-op when the thumbnail store is not configured", () => {
+    db.prepare("DELETE FROM app_settings WHERE key = ?").run(thumbnailPathSettingKey);
+    expect(sweepOrphanFaceCrops()).toBe(0);
   });
 });

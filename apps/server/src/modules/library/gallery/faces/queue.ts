@@ -14,6 +14,42 @@ export const faceJobType = "SCAN_GALLERY_FACES";
 // photos, so correctness always comes from the scan markers, never the pre-split.
 export const SCAN_BATCH_SIZE = 1000;
 
+// A photo whose decode/detect keeps failing (corrupt file, unsupported codec) is
+// retried this many times, then skipped by incremental scans — otherwise it would sit
+// in every batch's backlog window forever, and enough of them would starve fresh
+// photos entirely. A force rescan retries regardless; a success resets the counter.
+export const MAX_FACE_SCAN_ATTEMPTS = 3;
+
+// The incremental backlog: photos the CURRENT model still needs — never scanned under
+// it, or failed under it with retry budget left. Shared by the batch pre-count and the
+// scan itself so the two always agree. Binds: [FACE_EMBEDDING_MODEL, libraryId].
+export const UNSCANNED_PHOTOS_SQL = `
+  FROM library_items li
+  JOIN gallery_details gd ON gd.item_id = li.id
+  LEFT JOIN gallery_face_scans s ON s.item_id = li.id AND s.model = ?
+  WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready' AND gd.kind = 'photo'
+    AND (s.item_id IS NULL OR (s.status = 'failed' AND s.attempts < ${MAX_FACE_SCAN_ATTEMPTS}))
+`;
+
+// Record a decode/detect failure for one photo under the current model, bumping its
+// retry counter. Never downgrades a successful current-model marker (a force rescan
+// that fails on a photo keeps its previously-detected faces and 'ok' state); a failure
+// under a DIFFERENT (stale) model starts a fresh count at 1.
+export function recordFaceScanFailure(itemId: string): void {
+  db.prepare(`
+    INSERT INTO gallery_face_scans (item_id, scanned_at, model, face_count, status, attempts)
+    VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?, 0, 'failed', 1)
+    ON CONFLICT(item_id) DO UPDATE SET
+      scanned_at = excluded.scanned_at,
+      attempts = CASE WHEN gallery_face_scans.status = 'failed' AND gallery_face_scans.model = excluded.model
+                      THEN gallery_face_scans.attempts + 1 ELSE 1 END,
+      status = 'failed',
+      model = excluded.model,
+      face_count = 0
+    WHERE NOT (gallery_face_scans.status = 'ok' AND gallery_face_scans.model = excluded.model)
+  `).run(itemId, FACE_EMBEDDING_MODEL);
+}
+
 export interface ScanProgress {
   processed: number;
   total: number;
@@ -59,17 +95,11 @@ export function enqueueFaceScan(
   );
 }
 
-// Photos of a library that the CURRENT model hasn't scanned yet — the same filter the
-// scan itself uses, so the pre-queued batch count matches what will actually run.
+// Photos of a library the CURRENT model still needs — the same filter the scan itself
+// uses, so the pre-queued batch count matches what will actually run.
 function unscannedPhotoCount(libraryId: string): number {
-  const row = db.prepare(`
-    SELECT COUNT(*) AS n
-    FROM library_items li
-    JOIN gallery_details gd ON gd.item_id = li.id
-    LEFT JOIN gallery_face_scans s ON s.item_id = li.id AND s.model = ?
-    WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready' AND gd.kind = 'photo'
-      AND s.item_id IS NULL
-  `).get(FACE_EMBEDDING_MODEL, libraryId) as { n: number };
+  const row = db.prepare(`SELECT COUNT(*) AS n ${UNSCANNED_PHOTOS_SQL}`)
+    .get(FACE_EMBEDDING_MODEL, libraryId) as { n: number };
   return row.n;
 }
 

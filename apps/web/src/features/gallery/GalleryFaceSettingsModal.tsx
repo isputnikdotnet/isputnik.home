@@ -154,6 +154,11 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
                           {library.enabled
                             ? `${library.scanned.toLocaleString()} of ${library.photos.toLocaleString()} photos scanned`
                             : `${library.photos.toLocaleString()} photos`}
+                          {library.enabled && library.unreadable > 0 && (
+                            <span title="These photos could not be read (corrupt or unsupported files) and are skipped. A rescan tries them again.">
+                              {` · ${library.unreadable.toLocaleString()} unreadable`}
+                            </span>
+                          )}
                         </small>
                       </span>
                     </div>

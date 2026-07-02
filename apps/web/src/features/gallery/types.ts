@@ -48,6 +48,9 @@ export interface GalleryFaceLibrary {
   enabled: boolean;
   photos: number;
   scanned: number;
+  // Photos that failed every scan retry (corrupt/unsupported files) and are now
+  // skipped by incremental scans; a full rescan retries them.
+  unreadable: number;
 }
 
 // The face scan currently running (or next queued); null when the queue is idle.

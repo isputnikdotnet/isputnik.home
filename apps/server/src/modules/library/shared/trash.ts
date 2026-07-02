@@ -24,6 +24,7 @@ import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
 import { rescanSingleBook } from "../audiobook/scanner.js";
 import { enqueueEbookScan, processEbookScanQueue } from "../ebook/scanner.js";
 import { enqueueGalleryScan, processGalleryScanQueue } from "../gallery/scanner.js";
+import { faceCropKeysForItem, removeFaceCropFiles } from "../gallery/faces/crop-files.js";
 
 const TRASH_DIR = ".trash";
 const TRASH_RETENTION_KEY = "trash_retention_days";
@@ -247,6 +248,11 @@ export function trashBook(bookId: string, userId: string): TrashResult {
   const token = nanoid(12);
   const trashPath = normaliseRelativePath(path.join(TRASH_DIR, token));
 
+  // Face-crop thumbnails cascade away as DB rows with the item but live on as files —
+  // snapshot their keys now (the teardown deletes the rows) and remove the files once
+  // the teardown commits. They regenerate on a restore, like covers do.
+  const faceCropKeys = row.library_type === "gallery" ? faceCropKeysForItem(row.id) : [];
+
   moveEntryIntoTrash(root, token, row);
 
   try {
@@ -269,6 +275,7 @@ export function trashBook(bookId: string, userId: string): TrashResult {
     throw new TrashError(err instanceof Error ? err.message : "Could not move the item to the Recycle Bin.", 500);
   }
 
+  removeFaceCropFiles(faceCropKeys);
   return { id: bookId, title: row.title, libraryName: row.library_name, fileCount: row.file_count };
 }
 

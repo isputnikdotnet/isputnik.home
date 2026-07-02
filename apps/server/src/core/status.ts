@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.7.2",
+          label: "Face recognition housekeeping: disk cleanup, unreadable photos, leaner nights",
+          changes: [
+            "Face-crop images no longer pile up on disk. The little face avatars are now deleted whenever their photo is rescanned, trashed, or its face data is cleared — and \"Regroup people\" additionally sweeps out any leftovers from before this update, reporting how many it removed on the Tasks page.",
+            "Photos that can't be read stop clogging the scan. A photo that fails to process (a corrupt or unsupported file) is now retried up to 3 times — always after every fresh photo — and then set aside instead of being re-attempted night after night. The Face recognition window shows these as \"unreadable\" next to the scan progress; a full Rescan gives them another chance.",
+            "Nightly face scans got much cheaper. Regrouping people now happens once at the end of a scan run, and only when something actually changed — a night with no new photos finishes in moments instead of re-grouping every library for nothing.",
+            "Person avatars behave. Removing someone from a photo (\"not this person\") also removes that face as their avatar, avatars never show a face from a library you don't have access to, and a hidden person can no longer be opened by a direct link. Database note: this release adds columns to a face-scan table without a migration — recreate the database (it rebuilds and rescans on start) or clear face data and rescan."
+          ]
+        },
+        {
           version: "1.7.1",
           label: "Face-scan batches visible up front",
           changes: [
