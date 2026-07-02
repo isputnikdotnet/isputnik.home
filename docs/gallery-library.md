@@ -152,12 +152,18 @@ single batched `rec.run`.
 - `scanner.ts` — the scan worker (own `SCAN_GALLERY_FACES` queue, 2s poller, single-flight
   guard) + `activeFaceScan()` progress reader. Incremental scans run in **batches of
   1,000 photos**, pre-queued up front as numbered jobs (`batch 2/5`, shared `groupId`)
-  so the Tasks page shows the whole backlog; each batch clusters when it finishes
-  (people appear progressively), and correctness comes from the scan markers — a stale
-  batch is just a fast no-op. The group's first batch stamps `chainStartedAt` onto its
-  siblings; once **3 hours** pass, the running batch stops and the group's queued
-  remainder is dropped (the next nightly run re-queues what's left). Forced full
-  rescans are exempt from both limits and run as one uncapped job.
+  so the Tasks page shows the whole backlog; correctness comes from the scan markers —
+  a stale batch is just a fast no-op. Clustering is global and O(n²), so it runs **once
+  when the queue drains**, and only if a batch actually changed face rows (or a crash
+  left unassigned faces behind) — a no-op nightly pass never pays for it. The group's
+  first batch stamps `chainStartedAt` onto its siblings; once **3 hours** pass, the
+  running batch stops and the group's queued remainder is dropped (the next nightly run
+  re-queues what's left). Forced full rescans are exempt from both limits and run as
+  one uncapped job. Photos that fail to decode/detect get a `failed` marker and are
+  retried on later scans — **after** every fresh photo, and at most
+  `MAX_FACE_SCAN_ATTEMPTS` (3) times — then skipped, so corrupt/unsupported files can't
+  clog or starve the backlog; a force rescan (or a model change) retries them, and the
+  settings window shows them as "unreadable".
 - `cluster.ts` — two-stage grouping: global mutual-kNN (resists hub-chaining) followed by
   a **centroid-merge pass** (clusters whose centroids agree ≥ 0.58 cosine re-unite —
   undoes k-NN fragmentation from burst/near-duplicate photos). Rebuilt groups reconcile
@@ -172,8 +178,10 @@ single batched `rec.run`.
 
 **Storage:** `gallery_faces` (one row per detected face — box, embedding, `embedding_model`),
 `gallery_people` (incl. the `curated` anchor flag set on merge targets), `gallery_face_scans`
-(per-photo scan marker with the model used), `gallery_face_exclusions` (durable "not this
-person" removals).
+(per-photo scan marker with the model used, plus `status`/`attempts` for the bounded
+failure-retry budget), `gallery_face_exclusions` (durable "not this person" removals).
+Face-crop thumbnail files are deleted wherever their rows go away (rescan replaces,
+trash teardown, clear), and the recompute job sweeps any `*-face.webp` no row references.
 
 **Model-aware incremental scan.** A non-forced scan only processes photos lacking a scan
 marker **for the current model**, so bumping `FACE_EMBEDDING_MODEL` re-embeds stale-model
@@ -197,6 +205,7 @@ cataloged and get their faces the same night.
 ## Not yet (future phases)
 
 - **Semantic / content search** (ML — the heavy part of Immich).
-- **Dedicated shareable album object** (v1 uses Collections).
+- **Memories, Albums, photo-pure Collections + slideshow** — planned;
+  see [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md).
 - **Upload into a chosen subfolder** (today everything lands in the library root).
 - **Configurable map tile source** (today OSM is hard-wired).

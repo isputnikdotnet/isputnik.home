@@ -7,10 +7,9 @@
 //
 // Kept separate from scanner.ts so callers (and tests) don't pull in the native
 // onnxruntime detector just to clear data.
-import fs from "node:fs";
 import { db } from "../../../../db.js";
-import { thumbnailAbsolutePath } from "../../shared/thumbnail.js";
 import { clusterGalleryFaces } from "./cluster.js";
+import { removeFaceCropFiles } from "./crop-files.js";
 
 export function clearLibraryFaceData(libraryId: string): { faces: number; photos: number } {
   const itemFilter = "item_id IN (SELECT id FROM library_items WHERE library_id = ?)";
@@ -34,9 +33,7 @@ export function clearLibraryFaceData(libraryId: string): { faces: number; photos
   // Re-cluster the surviving faces (other libraries) and prune now-empty unnamed people.
   clusterGalleryFaces();
 
-  for (const { k } of thumbKeys) {
-    try { fs.rmSync(thumbnailAbsolutePath(k), { force: true }); } catch { /* best-effort */ }
-  }
+  removeFaceCropFiles(thumbKeys.map((r) => r.k));
 
   return { faces, photos };
 }

@@ -104,7 +104,12 @@ export function mergeClustersByCentroid(groups: string[][], embById: Map<string,
 
 // Recompute a person's aggregates from its current member faces (see also the
 // post-merge/untag callers). face_count counts all non-rejected faces; centroid comes
-// from scan-face embeddings (NULL when none); cover is the best scan face with a crop.
+// from scan-face embeddings (NULL when none); cover is the best non-rejected scan face
+// with a crop on a live (non-trashed) photo — NULL when none qualifies, so a rejected
+// or stale cover clears instead of sticking as the person's avatar. cover_face_id is
+// the person's GLOBAL canonical avatar; the People list picks its own per-viewer crop
+// from accessible libraries only (same det_score ordering), so nothing leaks across
+// library access.
 export function recomputeClusterCentroid(clusterId: string): void {
   const faceCount = (db.prepare(
     "SELECT COUNT(DISTINCT gf.item_id) n FROM gallery_faces gf JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL WHERE gf.person_id = ? AND gf.assignment != 'rejected'"
@@ -113,11 +118,14 @@ export function recomputeClusterCentroid(clusterId: string): void {
     "SELECT embedding FROM gallery_faces WHERE person_id = ? AND source = 'scan' AND assignment != 'rejected' AND embedding IS NOT NULL"
   ).all(clusterId) as { embedding: Buffer }[];
   const centroidBlob = scanRows.length > 0 ? embeddingToBlob(centroidOf(scanRows.map((r) => blobToEmbedding(r.embedding)))) : null;
-  const coverFace = (db.prepare(
-    "SELECT id FROM gallery_faces WHERE person_id = ? AND source = 'scan' AND thumb_storage_key IS NOT NULL ORDER BY det_score DESC LIMIT 1"
-  ).get(clusterId) as { id: string } | undefined)?.id ?? null;
+  const coverFace = (db.prepare(`
+    SELECT gf.id FROM gallery_faces gf
+    JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL
+    WHERE gf.person_id = ? AND gf.source = 'scan' AND gf.assignment != 'rejected' AND gf.thumb_storage_key IS NOT NULL
+    ORDER BY gf.det_score DESC LIMIT 1
+  `).get(clusterId) as { id: string } | undefined)?.id ?? null;
   db.prepare(
-    "UPDATE gallery_people SET centroid = ?, face_count = ?, cover_face_id = COALESCE(?, cover_face_id), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+    "UPDATE gallery_people SET centroid = ?, face_count = ?, cover_face_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
   ).run(centroidBlob, faceCount, coverFace, clusterId);
 }
 

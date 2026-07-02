@@ -25,6 +25,7 @@ import {
 import { enqueueFaceScan, enqueueFaceScanBatches, enqueueFaceRecompute, processFaceScanQueue, activeFaceScan } from "./faces/scanner.js";
 import { clearLibraryFaceData } from "./faces/clear.js";
 import { FACE_EMBEDDING_MODEL } from "./faces/model-id.js";
+import { MAX_FACE_SCAN_ATTEMPTS } from "./faces/queue.js";
 
 // People are global, so person management (create/rename/hide/delete) is gated on the
 // user being able to write SOME gallery library — anyone who curates photos can curate
@@ -53,7 +54,8 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
     const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
-    const result = getGalleryPersonPhotos(request.user!.id, libIds, personId, limit, offset);
+    // Hidden people 404 for non-admins, mirroring the list's includeHidden gate.
+    const result = getGalleryPersonPhotos(request.user!.id, libIds, personId, limit, offset, request.user!.role === "admin");
     if (!result) {
       reply.code(404).send({ error: "Person not found" });
       return;
@@ -234,9 +236,11 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
 
   // One row per gallery library: its on/off state plus how much has been scanned, so
   // the settings popup can show "scanned X of Y photos". `scanned` counts only photos
-  // scanned with the CURRENT embedding model, so after a model change it correctly drops
-  // to "0 of Y" and climbs as the rescan re-embeds — real progress, not a stale total.
-  interface FaceLibraryRow { id: string; name: string; photos: number; scanned: number }
+  // successfully scanned with the CURRENT embedding model, so after a model change it
+  // correctly drops to "0 of Y" and climbs as the rescan re-embeds — real progress, not
+  // a stale total. `unreadable` counts photos that failed every retry and are now
+  // skipped (corrupt/unsupported files) — visible instead of silently retried forever.
+  interface FaceLibraryRow { id: string; name: string; photos: number; scanned: number; unreadable: number }
 
   function faceLibraryStatus() {
     const rows = db.prepare(`
@@ -244,7 +248,9 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
         libraries.id AS id,
         libraries.name AS name,
         COUNT(CASE WHEN gallery_details.kind = 'photo' THEN 1 END) AS photos,
-        COUNT(DISTINCT gallery_face_scans.item_id) AS scanned
+        COUNT(DISTINCT CASE WHEN gallery_face_scans.status = 'ok' THEN gallery_face_scans.item_id END) AS scanned,
+        COUNT(DISTINCT CASE WHEN gallery_face_scans.status = 'failed' AND gallery_face_scans.attempts >= ${MAX_FACE_SCAN_ATTEMPTS}
+          THEN gallery_face_scans.item_id END) AS unreadable
       FROM libraries
       LEFT JOIN library_items ON library_items.library_id = libraries.id AND library_items.deleted_at IS NULL
       LEFT JOIN gallery_details ON gallery_details.item_id = library_items.id
@@ -258,7 +264,8 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       name: r.name,
       enabled: faceRecognitionEnabledForLibrary(r.id),
       photos: r.photos,
-      scanned: r.scanned
+      scanned: r.scanned,
+      unreadable: r.unreadable
     }));
   }
 

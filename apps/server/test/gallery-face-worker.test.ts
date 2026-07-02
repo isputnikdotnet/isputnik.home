@@ -1,0 +1,97 @@
+// The face-scan WORKER's drain-time clustering: reclustering is O(n²) over all faces,
+// so it must run once when the queue drains — and only when something changed — never
+// after every batch. These tests drive processFaceScanQueue over empty backlogs (no
+// photo files are ever decoded, so the native ONNX engine is imported but never runs).
+// Kept in its own file so gallery-faces.test.ts stays off the onnxruntime import chain.
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { beforeEach, describe, expect, it } from "vitest";
+import { db } from "../src/db.js";
+import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
+import { kindForExtension } from "../src/modules/library/gallery/media.js";
+import { processFaceScanQueue } from "../src/modules/library/gallery/faces/scanner.js";
+import { enqueueFaceScanBatches } from "../src/modules/library/gallery/faces/queue.js";
+import { setFaceRecognitionEnabledForLibrary } from "../src/modules/library/gallery/faces/settings.js";
+import { embeddingToBlob } from "../src/modules/library/gallery/faces/embedding.js";
+import { FACE_EMBEDDING_MODEL } from "../src/modules/library/gallery/faces/model-id.js";
+import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
+import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
+
+function asset(relativePath: string, modifiedMs: number) {
+  const extension = `.${relativePath.split(".").pop()}`;
+  return {
+    absolutePath: `/src/GAL/${relativePath}`, relativePath, fileName: relativePath.split("/").pop()!,
+    extension, kind: kindForExtension(extension)!, size: 1000, modifiedAtMs: modifiedMs
+  };
+}
+
+// An 8-d unit vector along `axis`.
+function vec(axis: number): Float32Array {
+  const v = new Float32Array(8);
+  v[axis] = 1;
+  return v;
+}
+
+describe("face scan worker (cluster once at queue drain)", () => {
+  beforeEach(() => {
+    resetDb();
+    db.prepare("DELETE FROM jobs").run();
+    makeUser("u1");
+    makeLibrary("GAL", { createdBy: "u1", type: "gallery" });
+    // The scan validates the library source for real: it must exist on disk, sit inside
+    // a configured storage container, and not overlap the (configured) thumbnail store.
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), "face-worker-"));
+    const sourceRoot = path.join(base, "library");
+    const thumbRoot = path.join(base, "thumbs");
+    fs.mkdirSync(sourceRoot);
+    fs.mkdirSync(thumbRoot);
+    db.prepare("INSERT OR REPLACE INTO storage_roots (id, name, path, created_by) VALUES ('sr1', 'test', ?, 'u1')").run(base);
+    db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .run(thumbnailPathSettingKey, thumbRoot);
+    db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'GAL'").run(sourceRoot);
+    setFaceRecognitionEnabledForLibrary("GAL", true, "u1");
+    // Sentinel: clusterGalleryFaces prunes empty unnamed people unconditionally, so this
+    // row surviving a worker cycle proves clustering did NOT run.
+    db.prepare("INSERT INTO gallery_people (id, name) VALUES ('sentinel', '')").run();
+  });
+
+  // A photo that is already scanned under the current model — an empty backlog.
+  async function scannedPhoto(rel: string, when: number): Promise<string> {
+    const itemId = await ingestGalleryAsset("GAL", asset(rel, when), false) as string;
+    db.prepare("INSERT INTO gallery_face_scans (item_id, model, face_count, status, attempts) VALUES (?, ?, 0, 'ok', 0)")
+      .run(itemId, FACE_EMBEDDING_MODEL);
+    return itemId;
+  }
+
+  it("a no-op batch completes without reclustering", async () => {
+    await scannedPhoto("done.jpg", Date.parse("2024-12-01T00:00:00Z"));
+    const [jobId] = enqueueFaceScanBatches("GAL");
+
+    await processFaceScanQueue();
+
+    const job = db.prepare("SELECT status, payload FROM jobs WHERE id = ?").get(jobId) as { status: string; payload: string };
+    expect(job.status).toBe("completed");
+    expect(JSON.parse(job.payload).result.items).toBe(0);
+    // Clustering never ran: the prunable sentinel person is still there.
+    expect(db.prepare("SELECT 1 FROM gallery_people WHERE id = 'sentinel'").get()).toBeTruthy();
+  });
+
+  it("unassigned scan faces left behind get clustered at drain (crash recovery)", async () => {
+    // A completed-but-never-clustered state: the photo is marked scanned, its face has
+    // no person (as if the process died between the batch and its recluster).
+    const itemId = await scannedPhoto("orphan.jpg", Date.parse("2024-12-02T00:00:00Z"));
+    db.prepare(`
+      INSERT INTO gallery_faces (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, assignment, source)
+      VALUES ('f1', ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, ?, 'auto', 'scan')
+    `).run(itemId, embeddingToBlob(vec(0)), FACE_EMBEDDING_MODEL);
+    const [jobId] = enqueueFaceScanBatches("GAL");
+
+    await processFaceScanQueue();
+
+    expect((db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as { status: string }).status).toBe("completed");
+    // The drain-time pass clustered the stray face and pruned the sentinel.
+    expect((db.prepare("SELECT person_id FROM gallery_faces WHERE id = 'f1'").get() as { person_id: string | null }).person_id).toBeTruthy();
+    expect(db.prepare("SELECT 1 FROM gallery_people WHERE id = 'sentinel'").get()).toBeFalsy();
+  });
+});

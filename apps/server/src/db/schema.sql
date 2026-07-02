@@ -780,11 +780,17 @@ CREATE INDEX IF NOT EXISTS idx_gallery_faces_person      ON gallery_faces(person
 -- Per-item record of the face-detection pass, so a (re)scan only processes items it
 -- hasn't seen. A row is upserted after an item is detected; `force` deletes rows to
 -- reprocess. Separate table (not a gallery_details column) so it needs no migration.
+-- A decode/detect failure is recorded too (status 'failed' + attempts), so a photo
+-- that can't be processed (corrupt file, unsupported codec) is retried a bounded
+-- number of times and then skipped, instead of clogging every incremental scan
+-- forever. A force rescan — or a model change — gives it a fresh chance.
 CREATE TABLE IF NOT EXISTS gallery_face_scans (
   item_id    TEXT PRIMARY KEY REFERENCES library_items(id) ON DELETE CASCADE,
   scanned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   model      TEXT,
-  face_count INTEGER NOT NULL DEFAULT 0
+  face_count INTEGER NOT NULL DEFAULT 0,
+  status     TEXT NOT NULL DEFAULT 'ok',      -- 'ok' | 'failed' (decode/detect error)
+  attempts   INTEGER NOT NULL DEFAULT 0       -- consecutive failures under `model`
 );
 
 -- User corrections: "this person is NOT in this photo". Recorded whenever a person is

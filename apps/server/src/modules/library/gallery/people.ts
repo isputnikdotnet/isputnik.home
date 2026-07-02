@@ -45,15 +45,27 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
         ROW_NUMBER() OVER (PARTITION BY person_id ORDER BY datetime(taken_at) DESC) AS rn,
         COUNT(*) OVER (PARTITION BY person_id) AS cnt
       FROM accessible
+    ),
+    -- The avatar crop is picked per viewer, from faces on photos THEY can access — the
+    -- global cover_face_id may point into a library this viewer can't see, and a face
+    -- crop must never leak across library access. Same ordering as the global pick
+    -- (best det_score), so full-access viewers see the same avatar.
+    bestface AS (
+      SELECT gf.person_id AS person_id, gf.thumb_storage_key AS thumb,
+        ROW_NUMBER() OVER (PARTITION BY gf.person_id ORDER BY gf.det_score DESC) AS rn
+      FROM gallery_faces gf
+      JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL AND li.library_id IN (${libIn})
+      WHERE gf.person_id IS NOT NULL AND gf.assignment != 'rejected' AND gf.source = 'scan'
+        AND gf.thumb_storage_key IS NOT NULL
     )
     SELECT gp.id, gp.name, ranked.cover AS cover, ranked.cnt AS cnt,
-      coverface.thumb_storage_key AS face_thumb
+      bestface.thumb AS face_thumb
     FROM gallery_people gp
     JOIN ranked ON ranked.person_id = gp.id AND ranked.rn = 1
-    LEFT JOIN gallery_faces coverface ON coverface.id = gp.cover_face_id
+    LEFT JOIN bestface ON bestface.person_id = gp.id AND bestface.rn = 1
     ${includeHidden ? "" : "WHERE gp.hidden = 0"}
     ORDER BY (gp.name = '') ASC, ranked.cnt DESC, gp.name COLLATE NOCASE
-  `).all(...libIds) as { id: string; name: string; cover: string | null; cnt: number; face_thumb: string | null }[];
+  `).all(...libIds, ...libIds) as { id: string; name: string; cover: string | null; cnt: number; face_thumb: string | null }[];
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -73,16 +85,20 @@ export function getGalleryPersonRow(personId: string): { id: string; name: strin
 }
 
 // A person's accessible photos, newest-first, paged. Returns null when the person
-// doesn't exist; an existing person with no accessible photos returns an empty page.
+// doesn't exist — or is hidden and the caller may not see hidden people, so a hidden
+// person is a 404 by direct id too, not just omitted from the list. An existing,
+// visible person with no accessible photos returns an empty page.
 export function getGalleryPersonPhotos(
   userId: string,
   libIds: string[],
   personId: string,
   limit: number,
-  offset: number
+  offset: number,
+  includeHidden = false
 ) {
   const person = getGalleryPersonRow(personId);
   if (!person) return null;
+  if (person.hidden && !includeHidden) return null;
   if (libIds.length === 0) return { person: { id: person.id, name: person.name }, assets: [], total: 0 };
   const libIn = inClause(libIds.length);
   const itemFilter = `
