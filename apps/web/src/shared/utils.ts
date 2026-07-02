@@ -37,6 +37,16 @@ export function formatLogName(event: string) {
   return event.replaceAll(".", " ");
 }
 
+// Coarse "time remaining" phrasing for live task/scan progress lines.
+export function formatEta(seconds: number): string {
+  if (seconds < 60) return "less than a minute left";
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `about ${mins} min left`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem === 0 ? `about ${hrs} hr left` : `about ${hrs} hr ${rem} min left`;
+}
+
 // Document formats the in-app foliate reader can render (its EPUB engine plus the
 // FB2 parser). PDFs are deliberately excluded — they use the native <iframe>
 // viewer, not foliate.

@@ -79,6 +79,19 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE gallery_details ADD COLUMN rotation INTEGER NOT NULL DEFAULT 0");
       }
     }
+  },
+  // Editable schedule details for scheduled jobs: run time plus day-of-week (weekly)
+  // and day-of-month (monthly). NULL = the job's built-in default. Conditional
+  // because schema.sql (run first) already adds them on fresh databases.
+  {
+    version: 8,
+    up: (db) => {
+      const columns = db.pragma("table_info(scheduled_jobs)") as { name: string }[];
+      const has = (name: string) => columns.some((column) => column.name === name);
+      if (!has("run_time")) db.exec("ALTER TABLE scheduled_jobs ADD COLUMN run_time TEXT");
+      if (!has("day_of_week")) db.exec("ALTER TABLE scheduled_jobs ADD COLUMN day_of_week INTEGER");
+      if (!has("day_of_month")) db.exec("ALTER TABLE scheduled_jobs ADD COLUMN day_of_month INTEGER");
+    }
   }
 ];
 

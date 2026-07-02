@@ -2,11 +2,14 @@ import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 
 // Circular progress indicator shared by the episode list (where it doubles as the
-// played/reset toggle via onClick) and the player chapter list (display-only, with
-// the chapter number in the centre). Fill = progress; full ring + check = complete.
+// played/reset toggle via onClick), the player chapter list (display-only, with
+// the chapter number in the centre), and the Tasks page. Fill = progress; full
+// ring + check = complete; indeterminate = a spinning partial arc for work with
+// no measurable progress yet.
 export function ProgressRing({
   progress,
   complete = false,
+  indeterminate = false,
   size = 26,
   strokeWidth = 2.5,
   center,
@@ -16,6 +19,7 @@ export function ProgressRing({
 }: {
   progress: number;
   complete?: boolean;
+  indeterminate?: boolean;
   size?: number;
   strokeWidth?: number;
   center?: ReactNode;
@@ -26,11 +30,11 @@ export function ProgressRing({
   const radius = (size - strokeWidth) / 2;
   const mid = size / 2;
   const circumference = 2 * Math.PI * radius;
-  const fraction = complete ? 1 : Math.max(0, Math.min(progress, 1));
+  const fraction = complete ? 1 : indeterminate ? 0.25 : Math.max(0, Math.min(progress, 1));
   const dashoffset = circumference * (1 - fraction);
 
   const ring = (
-    <span className={`progress-ring${complete ? " complete" : ""}${className ? ` ${className}` : ""}`} style={{ width: size, height: size }}>
+    <span className={`progress-ring${complete ? " complete" : ""}${indeterminate ? " indeterminate" : ""}${className ? ` ${className}` : ""}`} style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
         <circle className="progress-ring-track" cx={mid} cy={mid} r={radius} fill="none" strokeWidth={strokeWidth} />
         {fraction > 0 && (

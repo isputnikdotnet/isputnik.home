@@ -733,6 +733,12 @@ CREATE TABLE IF NOT EXISTS scheduled_jobs (
   key          TEXT PRIMARY KEY,
   enabled      INTEGER NOT NULL DEFAULT 0,
   frequency    TEXT NOT NULL DEFAULT 'weekly' CHECK (frequency IN ('daily', 'weekly', 'monthly')),
+  -- Admin-chosen schedule details; NULL means "use the job's built-in default".
+  -- run_time is a local "HH:MM" clock time; day_of_week 0=Sunday..6=Saturday
+  -- (weekly jobs); day_of_month 1..28 (monthly jobs, capped so every month has it).
+  run_time     TEXT CHECK (run_time IS NULL OR run_time GLOB '[0-2][0-9]:[0-5][0-9]'),
+  day_of_week  INTEGER CHECK (day_of_week IS NULL OR day_of_week BETWEEN 0 AND 6),
+  day_of_month INTEGER CHECK (day_of_month IS NULL OR day_of_month BETWEEN 1 AND 28),
   next_run_at  TEXT,
   last_run_at  TEXT,
   last_status  TEXT CHECK (last_status IN ('success', 'error')),

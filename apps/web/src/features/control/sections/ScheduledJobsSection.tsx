@@ -14,17 +14,16 @@ interface ScheduledJob {
   enabled: boolean;
   frequency: Frequency;
   time: string; // local clock time the job runs at, e.g. "01:00"
+  dayOfWeek: number; // 0=Sunday..6=Saturday, used when frequency is weekly
+  dayOfMonth: number; // 1..28, used when frequency is monthly
   nextRunAt: string | null;
   lastRunAt: string | null;
   lastStatus: "success" | "error" | null;
   lastMessage: string | null;
 }
 
-const FREQUENCY_LABEL: Record<Frequency, string> = {
-  daily: "Every day",
-  weekly: "Every week",
-  monthly: "Every month"
-};
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTH_DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 
 export function ScheduledJobsSection() {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
@@ -49,8 +48,8 @@ export function ScheduledJobsSection() {
       </div>
 
       <p className="scheduled-jobs-intro muted">
-        Recurring upkeep tasks. Each runs automatically on its schedule (shown below); turn one off,
-        or change how often it runs, at any time. You can also run any task once with <strong>Run now</strong>.
+        Recurring upkeep tasks. Pick how often each one runs — and on which day, at what
+        time — or turn it off entirely. You can also run any task once with <strong>Run now</strong>.
       </p>
 
       {error && <MessageBox tone="error" title="Scheduled jobs error">{error}</MessageBox>}
@@ -75,16 +74,27 @@ function ScheduledJobCard({
 }) {
   const [enabled, setEnabled] = useState(job.enabled);
   const [frequency, setFrequency] = useState<Frequency>(job.frequency);
+  const [time, setTime] = useState(job.time);
+  const [dayOfWeek, setDayOfWeek] = useState(job.dayOfWeek);
+  const [dayOfMonth, setDayOfMonth] = useState(job.dayOfMonth);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
 
-  const dirty = enabled !== job.enabled || frequency !== job.frequency;
+  const dirty =
+    enabled !== job.enabled ||
+    frequency !== job.frequency ||
+    time !== job.time ||
+    dayOfWeek !== job.dayOfWeek ||
+    dayOfMonth !== job.dayOfMonth;
 
   const save = async () => {
     setSaving(true);
     onError("");
     try {
-      await api(`/api/scheduled-jobs/${job.key}`, { method: "PATCH", body: JSON.stringify({ enabled, frequency }) });
+      await api(`/api/scheduled-jobs/${job.key}`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled, frequency, time, dayOfWeek, dayOfMonth })
+      });
       await onChanged();
     } catch (err) {
       onError(err instanceof Error ? err.message : "Unable to save scheduled job");
@@ -122,34 +132,57 @@ function ScheduledJobCard({
         />
       </div>
 
-      <div className="scheduled-job-controls">
-        <label className="field scheduled-job-frequency">
-          <span>Frequency</span>
-          <select value={frequency} disabled={!enabled} onChange={(e) => setFrequency(e.target.value as Frequency)}>
-            <option value="daily">Every day</option>
-            <option value="weekly">Every week</option>
-            <option value="monthly">Every month</option>
+      <div className="scheduled-job-foot">
+        <div className="scheduled-job-when">
+          <span>Runs</span>
+          <select
+            value={frequency}
+            disabled={!enabled}
+            aria-label={`${job.label}: frequency`}
+            onChange={(e) => setFrequency(e.target.value as Frequency)}
+          >
+            <option value="daily">every day</option>
+            <option value="weekly">every week</option>
+            <option value="monthly">every month</option>
           </select>
-          <small className="muted">Runs at {job.time}</small>
-        </label>
-
-        <div className="scheduled-job-status">
-          {job.lastRunAt ? (
-            <span className={`scheduled-job-last ${job.lastStatus ?? ""}`}>
-              {job.lastStatus === "error" ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
-              <span>
-                Last run {formatManagedDate(job.lastRunAt)}
-                {job.lastMessage && <small> — {job.lastMessage}</small>}
-              </span>
-            </span>
-          ) : (
-            <span className="muted">Never run.</span>
+          {frequency === "weekly" && (
+            <>
+              <span>on</span>
+              <select
+                value={dayOfWeek}
+                disabled={!enabled}
+                aria-label={`${job.label}: day of week`}
+                onChange={(e) => setDayOfWeek(Number(e.target.value))}
+              >
+                {WEEKDAYS.map((name, i) => (
+                  <option key={name} value={i}>{name}</option>
+                ))}
+              </select>
+            </>
           )}
-          {enabled && job.enabled && job.nextRunAt && (
-            <span className="scheduled-job-next muted">
-              <CalendarClock size={14} /> Next run {formatManagedDate(job.nextRunAt)} ({FREQUENCY_LABEL[job.frequency].toLowerCase()} at {job.time})
-            </span>
+          {frequency === "monthly" && (
+            <>
+              <span>on day</span>
+              <select
+                value={dayOfMonth}
+                disabled={!enabled}
+                aria-label={`${job.label}: day of month`}
+                onChange={(e) => setDayOfMonth(Number(e.target.value))}
+              >
+                {MONTH_DAYS.map((day) => (
+                  <option key={day} value={day}>{day}</option>
+                ))}
+              </select>
+            </>
           )}
+          <span>at</span>
+          <input
+            type="time"
+            value={time}
+            disabled={!enabled}
+            aria-label={`${job.label}: time of day`}
+            onChange={(e) => { if (e.target.value) setTime(e.target.value); }}
+          />
         </div>
 
         <div className="scheduled-job-actions">
@@ -160,6 +193,25 @@ function ScheduledJobCard({
             <Save size={14} /> {saving ? "Saving…" : "Save"}
           </button>
         </div>
+      </div>
+
+      <div className="scheduled-job-status">
+        {job.lastRunAt ? (
+          <span className={`scheduled-job-last ${job.lastStatus ?? ""}`}>
+            {job.lastStatus === "error" ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
+            <span>
+              Last run {formatManagedDate(job.lastRunAt)}
+              {job.lastMessage && <small> — {job.lastMessage}</small>}
+            </span>
+          </span>
+        ) : (
+          <span className="muted">Never run.</span>
+        )}
+        {job.enabled && job.nextRunAt && (
+          <span className="scheduled-job-next muted">
+            <CalendarClock size={14} /> Next run {formatManagedDate(job.nextRunAt)}
+          </span>
+        )}
       </div>
     </section>
   );

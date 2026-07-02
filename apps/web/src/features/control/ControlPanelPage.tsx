@@ -29,7 +29,7 @@ import { BackupSection } from "./sections/BackupSection";
 import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
 import { TagsSection } from "./sections/TagsSection";
 import { GroupsSection } from "./sections/GroupsSection";
-import { JobsSection } from "./sections/JobsSection";
+import { TasksSection } from "./sections/TasksSection";
 import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
 import { ConfigSection } from "./sections/ConfigSection";
 import { SecuritySection } from "./sections/SecuritySection";
@@ -57,7 +57,7 @@ export function ControlPanelPage({
           {section === "security"  && <SecuritySection />}
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
-          {(section === "libraries" || section === "jobs" || section === "scheduledJobs") && <LibrariesControl section={section} />}
+          {(section === "libraries" || section === "tasks" || section === "scheduledJobs") && <LibrariesControl section={section} />}
           {section === "recycleBin" && <RecycleBinSection />}
           {section === "categories" && categoryId !== undefined && <CategoryEditorPage categoryId={categoryId} />}
           {section === "categories" && categoryId === undefined && <TaxonomySection section="categories" />}
@@ -85,7 +85,7 @@ function ControlPanelNav({ section }: { section: ControlSection }) {
       <div className="home-control-group">
         <p>Digital Library</p>
         <ControlNavLink icon={HardDrive} label="Storage" href="/control/storage" active={section === "storage"} />
-        <ControlNavLink icon={LibraryBig} label="Libraries" href="/control/libraries" active={section === "libraries" || section === "jobs" || section === "scheduledJobs"} />
+        <ControlNavLink icon={LibraryBig} label="Libraries" href="/control/libraries" active={section === "libraries" || section === "tasks" || section === "scheduledJobs"} />
         <ControlNavLink icon={Trash2} label="Recycle Bin" href="/control/recycle-bin" active={section === "recycleBin"} />
       </div>
 
@@ -209,16 +209,16 @@ function ConfigControl({ section }: { section: "config" | "backup" }) {
   );
 }
 
-function LibrariesControl({ section }: { section: "libraries" | "jobs" | "scheduledJobs" }) {
+function LibrariesControl({ section }: { section: "libraries" | "tasks" | "scheduledJobs" }) {
   return (
     <>
       <ControlTabs tabs={[
         { label: "Libraries", href: "/control/libraries", active: section === "libraries" },
-        { label: "Job logs", href: "/control/libraries/jobs", active: section === "jobs" },
+        { label: "Tasks", href: "/control/libraries/tasks", active: section === "tasks" },
         { label: "Scheduled jobs", href: "/control/libraries/scheduled-jobs", active: section === "scheduledJobs" }
       ]} />
       {section === "libraries"     && <LibrariesSection />}
-      {section === "jobs"          && <JobsSection />}
+      {section === "tasks"         && <TasksSection />}
       {section === "scheduledJobs" && <ScheduledJobsSection />}
     </>
   );
