@@ -1,12 +1,124 @@
 import { useEffect, useState } from "react";
-import { ScanFace, RefreshCw, Trash2, FlaskConical } from "lucide-react";
+import { ScanFace, RefreshCw, Trash2, FlaskConical, UserRound, Combine, Stethoscope } from "lucide-react";
 import { api } from "../../api";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { ToggleSwitch } from "../../shared/ToggleSwitch";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
-import type { GalleryFaceLibrary, GalleryFaceSettings } from "./types";
+import type { ClusterHealth, ClusterHealthPair, ClusterHealthPerson, GalleryFaceLibrary, GalleryFaceSettings } from "./types";
+
+function personLabel(p: ClusterHealthPerson): string {
+  const count = `${p.faceCount.toLocaleString()} photo${p.faceCount === 1 ? "" : "s"}`;
+  return `${p.name.trim() || "Unnamed"} · ${count}`;
+}
+
+// One person's avatar in a suggestion, with the same graceful fallback the People grid
+// uses (a placeholder icon if the crop can't load) instead of a broken-image glyph.
+function HealthAvatar({ person }: { person: ClusterHealthPerson }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span className="gallery-health-avatar">
+      {person.coverUrl && !failed
+        ? <img src={person.coverUrl} alt="" loading="lazy" onError={() => setFailed(true)} />
+        : <UserRound size={18} aria-hidden="true" />}
+    </span>
+  );
+}
+
+// The "Health" tab: a read-out of how many people are probably the same person split
+// across clusters (an under-merging signal), plus one-click merge suggestions.
+function ClusterHealthPanel({ health, loading, error, mergingKey, onMerge, onRecheck }: {
+  health: ClusterHealth | null;
+  loading: boolean;
+  error: string;
+  mergingKey: string | null;
+  onMerge: (pair: ClusterHealthPair) => void;
+  onRecheck: () => void;
+}) {
+  return (
+    <div className="gallery-face-health">
+      {error && <MessageBox tone="error" title="Unable to check">{error}</MessageBox>}
+      {loading && (
+        <p className="management-empty">Checking every person for likely duplicates… this can take a few seconds on a big library.</p>
+      )}
+      {!loading && health && (health.totalPeople === 0 ? (
+        <MessageBox tone="info" title="No people to analyse">
+          Turn on face recognition and run a scan first — there are no groups to check yet.
+        </MessageBox>
+      ) : (
+        <>
+          <p className="gallery-health-summary">
+            <strong>{health.totalPeople.toLocaleString()}</strong> people ·{" "}
+            <strong>{health.peopleWithTwin.toLocaleString()}</strong> look like they have a duplicate
+            {" "}(another cluster that's probably the same person).
+          </p>
+
+          {(() => {
+            const max = Math.max(1, health.bands.nearCertain, health.bands.likely, health.bands.possible);
+            const bar = (label: string, count: number, hint: string) => (
+              <div className="gallery-health-bar-row" key={label}>
+                <span className="gallery-health-bar-label">{label}</span>
+                <span className="gallery-health-bar-track">
+                  <span className="gallery-health-bar-fill" style={{ width: `${Math.round((count / max) * 100)}%` }} />
+                </span>
+                <span className="gallery-health-bar-count">{count.toLocaleString()}</span>
+                <span className="gallery-health-bar-hint muted">{hint}</span>
+              </div>
+            );
+            return (
+              <div className="gallery-health-bars">
+                {bar(`≥ ${health.mergeLine}`, health.bands.nearCertain, "near-certain")}
+                {bar(`0.52–${health.mergeLine}`, health.bands.likely, "likely same")}
+                {bar("0.45–0.52", health.bands.possible, "possible")}
+              </div>
+            );
+          })()}
+
+          <p className="muted gallery-health-explain">
+            These pairs sit just under the automatic merge line ({health.mergeLine}) — grouping is deliberately
+            cautious, so one person can end up split across clusters. A big pile-up here means it's under-merging.
+            Merge the suggestions below to consolidate them; your names and manual fixes are kept.
+          </p>
+
+          {health.pairs.length === 0 ? (
+            <MessageBox tone="success" title="Looks well-merged">
+              No likely-duplicate clusters found — grouping isn't obviously under-merging.
+            </MessageBox>
+          ) : (
+            <ul className="gallery-health-pairs">
+              {health.pairs.map((pair) => {
+                const key = `${pair.a.id}:${pair.b.id}`;
+                return (
+                  <li key={key} className="gallery-health-pair">
+                    <div className="gallery-health-avatars">
+                      <HealthAvatar person={pair.a} />
+                      <HealthAvatar person={pair.b} />
+                    </div>
+                    <div className="gallery-health-pair-info">
+                      <span>{personLabel(pair.a)}</span>
+                      <span className="muted">{personLabel(pair.b)}</span>
+                      <span className="gallery-health-sim">{Math.round(pair.similarity * 100)}% match</span>
+                    </div>
+                    <Button variant="primary" compact disabled={mergingKey === key} onClick={() => onMerge(pair)}>
+                      <Combine size={14} aria-hidden="true" /> {mergingKey === key ? "Merging…" : "Merge"}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <div className="gallery-health-recheck">
+            <Button variant="secondary" compact disabled={loading} onClick={onRecheck}>
+              <Stethoscope size={14} aria-hidden="true" /> Re-check
+            </Button>
+          </div>
+        </>
+      ))}
+    </div>
+  );
+}
 
 // Admin popup: turn face recognition on/off per gallery library and trigger a full
 // rescan. Enabling a library kicks off an initial scan automatically (server side);
@@ -22,7 +134,12 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
   const [notice, setNotice] = useState("");
   const [confirmRescan, setConfirmRescan] = useState<GalleryFaceLibrary | null>(null);
   const [confirmClear, setConfirmClear] = useState<GalleryFaceLibrary | null>(null);
-  const [tab, setTab] = useState<"libraries" | "grouping">("libraries");
+  const [tab, setTab] = useState<"libraries" | "grouping" | "health">("libraries");
+  // Clustering-health diagnostic (loaded lazily — it's an O(people²) pass).
+  const [health, setHealth] = useState<ClusterHealth | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthError, setHealthError] = useState("");
+  const [mergingKey, setMergingKey] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -54,7 +171,41 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     }
   };
 
+  const loadHealth = async () => {
+    setHealthLoading(true);
+    setHealthError("");
+    try {
+      setHealth(await api<ClusterHealth>("/api/library/gallery/faces/cluster-health"));
+    } catch (err) {
+      setHealthError(err instanceof Error ? err.message : "Unable to check clustering");
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
+  // Fold one suggested pair together (source b → survivor a), then drop it from the list.
+  const mergePair = async (pair: ClusterHealthPair) => {
+    const key = `${pair.a.id}:${pair.b.id}`;
+    setMergingKey(key);
+    setHealthError("");
+    try {
+      await api(`/api/library/gallery/people/${pair.b.id}/merge`, { method: "POST", body: JSON.stringify({ intoId: pair.a.id }) });
+      setHealth((h) => (h ? { ...h, pairs: h.pairs.filter((p) => `${p.a.id}:${p.b.id}` !== key), peopleWithTwin: Math.max(0, h.peopleWithTwin - 2) } : h));
+      onChanged();
+    } catch (err) {
+      setHealthError(err instanceof Error ? err.message : "Unable to merge");
+    } finally {
+      setMergingKey(null);
+    }
+  };
+
   useEffect(() => { void load(); }, []);
+
+  // Run the health check the first time the tab is opened (it's too heavy for eager load).
+  useEffect(() => {
+    if (tab === "health" && !health && !healthLoading && !healthError) void loadHealth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   const toggle = async (library: GalleryFaceLibrary, enabled: boolean) => {
     setBusyId(library.id);
@@ -126,6 +277,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
       <div className="modal-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "libraries"} className={`modal-tab${tab === "libraries" ? " active" : ""}`} onClick={() => setTab("libraries")}>Libraries</button>
         <button type="button" role="tab" aria-selected={tab === "grouping"} className={`modal-tab${tab === "grouping" ? " active" : ""}`} onClick={() => setTab("grouping")}>Grouping</button>
+        <button type="button" role="tab" aria-selected={tab === "health"} className={`modal-tab${tab === "health" ? " active" : ""}`} onClick={() => setTab("health")}>Health</button>
       </div>
 
       <div className="modal-tab-content">
@@ -194,25 +346,36 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
               </ul>
             )}
           </>
-        ) : anyEnabled ? (
-          <div className="gallery-face-grouping">
-            <div className="gallery-face-strength-head">
-              <span>Grouping strength</span>
-              <strong>{strength}</strong>
+        ) : tab === "grouping" ? (
+          anyEnabled ? (
+            <div className="gallery-face-grouping">
+              <div className="gallery-face-strength-head">
+                <span>Grouping strength</span>
+                <strong>{strength}</strong>
+              </div>
+              <input type="range" min={2} max={8} step={1} value={strength} disabled={recomputing} onChange={(event) => setStrength(Number(event.target.value))} />
+              <p className="muted gallery-face-strength-desc">
+                Lower = stricter: fewer different people wrongly merged, but more small groups to combine.
+                Higher = more consolidated (8, the default). Applies to every library.
+              </p>
+              <Button variant="primary" compact disabled={recomputing} onClick={() => void applyStrength(strength)}>
+                {recomputing ? "Regrouping…" : "Regroup people"}
+              </Button>
             </div>
-            <input type="range" min={2} max={8} step={1} value={strength} disabled={recomputing} onChange={(event) => setStrength(Number(event.target.value))} />
-            <p className="muted gallery-face-strength-desc">
-              Lower = stricter: fewer different people wrongly merged, but more small groups to combine.
-              Higher = more consolidated (8, the default). Applies to every library.
-            </p>
-            <Button variant="primary" compact disabled={recomputing} onClick={() => void applyStrength(strength)}>
-              {recomputing ? "Regrouping…" : "Regroup people"}
-            </Button>
-          </div>
+          ) : (
+            <MessageBox tone="info" title="No libraries enabled">
+              Turn on face recognition for a library on the Libraries tab, then come back here to tune how strongly faces are grouped.
+            </MessageBox>
+          )
         ) : (
-          <MessageBox tone="info" title="No libraries enabled">
-            Turn on face recognition for a library on the Libraries tab, then come back here to tune how strongly faces are grouped.
-          </MessageBox>
+          <ClusterHealthPanel
+            health={health}
+            loading={healthLoading}
+            error={healthError}
+            mergingKey={mergingKey}
+            onMerge={mergePair}
+            onRecheck={() => void loadHealth()}
+          />
         )}
       </div>
 

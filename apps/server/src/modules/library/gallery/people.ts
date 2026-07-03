@@ -75,8 +75,13 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
     name: r.name,
     faceCount: r.cnt,
     // Prefer a crop of the person's actual face; fall back to the whole-photo cover.
+    // Face crops are content-addressed (the key changes when the representative face
+    // changes), so tag them ?v=1 to let the browser cache them immutably — a People
+    // grid of thousands of avatars otherwise re-fetches every one on every visit and
+    // floods the cover route. The cover fallback is overwritten in place on rotate, so
+    // it stays un-versioned (revalidated) to avoid a stale avatar after an edit.
     coverUrl: r.face_thumb
-      ? `/api/library/covers/${r.face_thumb}`
+      ? `/api/library/covers/${r.face_thumb}?v=1`
       : r.cover ? `/api/library/covers/${r.cover}` : null
   }));
 }

@@ -24,6 +24,7 @@ import {
 } from "./faces/settings.js";
 import { enqueueFaceScanBatches, enqueueFaceRecompute, resetLibraryFaceScanMarkers, processFaceScanQueue, activeFaceScan } from "./faces/scanner.js";
 import { clearLibraryFaceData } from "./faces/clear.js";
+import { computeClusterHealth } from "./faces/health.js";
 import { FACE_EMBEDDING_MODEL } from "./faces/model-id.js";
 import { MAX_FACE_SCAN_ATTEMPTS } from "./faces/queue.js";
 
@@ -319,6 +320,14 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     }
 
     reply.send({ threshold: faceThreshold(), groupingStrength: faceGroupingK(), libraries: faceLibraryStatus() });
+  });
+
+  // Clustering-health diagnostic (admin): how many people are probably the same person
+  // split across clusters, plus the strongest merge suggestions. Read-only; O(people²)
+  // over stored centroids, so it yields to the event loop and never blocks the server.
+  app.get("/api/library/gallery/faces/cluster-health", { preHandler: app.requireAdmin }, async (request) => {
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
+    return computeClusterHealth(libIds);
   });
 
   // Re-cluster existing faces with the current grouping settings — no re-detection.

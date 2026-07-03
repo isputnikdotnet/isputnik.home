@@ -20,7 +20,7 @@ const NAME_REMATCH = 0.55;
 // are the same person split by k-NN saturation (burst/near-duplicate photos crowd the
 // top-K lists, so cross-era links never become mutual). For this recogniser different
 // people centre around 0.1–0.3 and same-person groups ≥ ~0.55, so 0.58 is safe.
-const CLUSTER_MERGE = 0.58;
+export const CLUSTER_MERGE = 0.58;
 // A leftover 1–2-face group joins an anchored person when it's at least this close to
 // the person's centroid — mops up the singleton tail without risking larger groups.
 const ATTACH_SINGLETON = 0.5;
