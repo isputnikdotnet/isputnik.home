@@ -71,6 +71,29 @@ export interface GalleryFaceSettings {
   scan: GalleryFaceScan | null;
 }
 
+// Clustering-health diagnostic: how many people are likely the same person split across
+// clusters (an under-merging signal), plus one-click merge suggestions.
+export interface ClusterHealthPerson {
+  id: string;
+  name: string;
+  faceCount: number;
+  coverUrl: string | null;
+}
+
+export interface ClusterHealthPair {
+  a: ClusterHealthPerson; // suggested survivor of the merge
+  b: ClusterHealthPerson; // folded into `a`
+  similarity: number;
+}
+
+export interface ClusterHealth {
+  mergeLine: number; // automatic merge threshold; pairs above it were kept apart (a named side)
+  totalPeople: number;
+  peopleWithTwin: number;
+  bands: { nearCertain: number; likely: number; possible: number };
+  pairs: ClusterHealthPair[];
+}
+
 export interface GalleryFolder {
   name: string;
   path: string;

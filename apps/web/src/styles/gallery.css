@@ -646,6 +646,54 @@
 .gallery-face-strength-desc { margin: 0; font-size: 0.78rem; }
 .gallery-face-grouping button { justify-self: start; margin-top: 2px; }
 
+/* Clustering-health tab: summary, similarity histogram, and merge suggestions. */
+.gallery-face-health { display: grid; gap: 12px; align-content: start; }
+.gallery-health-summary { margin: 0; font-size: 0.9rem; }
+.gallery-health-summary strong { color: var(--mint); }
+.gallery-health-bars { display: grid; gap: 6px; }
+.gallery-health-bar-row {
+  display: grid;
+  grid-template-columns: 84px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+}
+.gallery-health-bar-label { font-variant-numeric: tabular-nums; color: var(--muted); }
+.gallery-health-bar-track { height: 10px; border-radius: 5px; background: var(--surface-2, rgba(127, 127, 127, 0.12)); overflow: hidden; }
+.gallery-health-bar-fill { display: block; height: 100%; background: var(--mint); border-radius: 5px; min-width: 2px; }
+.gallery-health-bar-count { font-variant-numeric: tabular-nums; font-weight: 600; }
+.gallery-health-bar-hint { font-size: 0.72rem; }
+.gallery-health-explain { margin: 0; font-size: 0.78rem; }
+.gallery-health-pairs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.gallery-health-pair {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.08));
+}
+.gallery-health-avatars { display: inline-flex; flex: 0 0 auto; }
+.gallery-health-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  color: var(--muted);
+  border: 2px solid var(--surface-raised);
+}
+.gallery-health-avatar:last-child { margin-left: -12px; }
+.gallery-health-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-health-pair-info { display: grid; gap: 1px; min-width: 0; flex: 1 1 auto; font-size: 0.82rem; }
+.gallery-health-pair-info > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gallery-health-sim { font-size: 0.74rem; color: var(--mint); font-variant-numeric: tabular-nums; }
+.gallery-health-pair button { flex: 0 0 auto; }
+.gallery-health-recheck { justify-self: start; }
+
 /* Collapsible "small groups" section on the People tab. */
 .gallery-small-groups { margin-top: 14px; }
 .gallery-small-toggle {

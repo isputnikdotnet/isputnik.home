@@ -15,6 +15,9 @@ import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeG
 import type { GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryPerson } from "./types";
 
 const PAGE_SIZE = 80;
+// The People grid can hold thousands of clusters; render them a page at a time so a
+// wall of avatar thumbnails doesn't flood the cover route (and trip its rate limit).
+const PEOPLE_PAGE = 120;
 
 // Leaflet (~140 KB) is only needed for the Map view, so it loads on demand — keeping
 // it off the initial bundle for the common Timeline/Folder browsing.
@@ -96,6 +99,15 @@ function AssetTile({
   );
 }
 
+// A person's avatar with a graceful fallback: if the crop can't load (a missing file,
+// or a request that got rate-limited), show the placeholder icon instead of the
+// browser's broken-image glyph.
+function PersonAvatar({ url }: { url: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) return <UserRound size={28} aria-hidden="true" />;
+  return <img src={url} alt="" loading="lazy" onError={() => setFailed(true)} />;
+}
+
 export function GalleryPage({
   user,
   logout,
@@ -151,6 +163,9 @@ export function GalleryPage({
   const [mergeOpen, setMergeOpen] = useState(false);
   const [personDeleteOpen, setPersonDeleteOpen] = useState(false);
   const [showSmallGroups, setShowSmallGroups] = useState(false);
+  // How many cards each section of the People grid currently renders (paged).
+  const [visiblePeople, setVisiblePeople] = useState(PEOPLE_PAGE);
+  const [visibleSmall, setVisibleSmall] = useState(PEOPLE_PAGE);
 
   // Library selector dropdown (mirrors the audiobooks/ebooks main page chip).
   const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
@@ -255,6 +270,8 @@ export function GalleryPage({
   const loadPeople = useCallback(async () => {
     setLoading(true);
     setError("");
+    setVisiblePeople(PEOPLE_PAGE);
+    setVisibleSmall(PEOPLE_PAGE);
     try {
       const params = new URLSearchParams(scopeParams() as Record<string, string>);
       const payload = await api<{ people: GalleryPerson[] }>(`/api/library/gallery/people?${params}`);
@@ -808,22 +825,33 @@ export function GalleryPage({
                     const card = (person: GalleryPerson) => (
                       <button key={person.id} type="button" className="gallery-person-card" onClick={() => void openPerson(person)}>
                         <span className="gallery-person-avatar">
-                          {person.coverUrl ? <img src={person.coverUrl} alt="" loading="lazy" /> : <UserRound size={28} aria-hidden="true" />}
+                          <PersonAvatar url={person.coverUrl} />
                         </span>
                         <strong className={person.name ? undefined : "gallery-person-unnamed"}>{person.name || "Unnamed"}</strong>
                         <small>{person.faceCount.toLocaleString()} {person.faceCount === 1 ? "photo" : "photos"}</small>
                       </button>
                     );
+                    const showMore = (onClick: () => void) => (
+                      <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
+                        <button type="button" className="secondary-button" onClick={onClick}>Show more people</button>
+                      </div>
+                    );
                     return (
                       <>
-                        {main.length > 0 && <div className="gallery-people-grid">{main.map(card)}</div>}
+                        {main.length > 0 && <div className="gallery-people-grid">{main.slice(0, visiblePeople).map(card)}</div>}
+                        {main.length > visiblePeople && showMore(() => setVisiblePeople((n) => n + PEOPLE_PAGE))}
                         {small.length > 0 && (
                           <div className="gallery-small-groups">
                             <button type="button" className="gallery-small-toggle" onClick={() => setShowSmallGroups((v) => !v)}>
                               <ChevronRight size={15} className={showSmallGroups ? "rotated" : ""} aria-hidden="true" />
                               {small.length.toLocaleString()} small group{small.length === 1 ? "" : "s"} (one photo each)
                             </button>
-                            {showSmallGroups && <div className="gallery-people-grid">{small.map(card)}</div>}
+                            {showSmallGroups && (
+                              <>
+                                <div className="gallery-people-grid">{small.slice(0, visibleSmall).map(card)}</div>
+                                {small.length > visibleSmall && showMore(() => setVisibleSmall((n) => n + PEOPLE_PAGE))}
+                              </>
+                            )}
                           </div>
                         )}
                       </>

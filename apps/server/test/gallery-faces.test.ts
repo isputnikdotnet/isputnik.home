@@ -10,6 +10,7 @@ import {
   embeddingToBlob, blobToEmbedding, cosineSimilarity, centroidOf
 } from "../src/modules/library/gallery/faces/embedding.js";
 import { mutualKnnClusters, mergeClustersByCentroid, clusterGalleryFaces, recomputeClusterCentroid } from "../src/modules/library/gallery/faces/cluster.js";
+import { computeClusterHealth } from "../src/modules/library/gallery/faces/health.js";
 import { sweepOrphanFaceCrops, faceCropKeysForItem } from "../src/modules/library/gallery/faces/crop-files.js";
 import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail.js";
 import { FACE_EMBEDDING_MODEL } from "../src/modules/library/gallery/faces/model-id.js";
@@ -530,10 +531,11 @@ describe("clusterGalleryFaces (DB)", () => {
     await clusterGalleryFaces();
     expect(listGalleryPeople(["GAL", "GAL2"])).toHaveLength(1); // one person across both
 
-    // Full access: the globally best crop (GAL2's) is the avatar.
-    expect(listGalleryPeople(["GAL", "GAL2"])[0].coverUrl).toBe("/api/library/covers/f_other.webp");
+    // Full access: the globally best crop (GAL2's) is the avatar. Face crops are
+    // content-addressed, so their URL carries ?v=1 for immutable browser caching.
+    expect(listGalleryPeople(["GAL", "GAL2"])[0].coverUrl).toBe("/api/library/covers/f_other.webp?v=1");
     // GAL-only access: the avatar comes from GAL's face, never the GAL2 crop.
-    expect(listGalleryPeople(["GAL"])[0].coverUrl).toBe("/api/library/covers/f_a1.jpg.webp");
+    expect(listGalleryPeople(["GAL"])[0].coverUrl).toBe("/api/library/covers/f_a1.jpg.webp?v=1");
   });
 
   it("a hidden person's photos are not reachable by direct id (unless allowed)", async () => {
@@ -644,5 +646,60 @@ describe("face-crop files (orphan sweep)", () => {
   it.skipIf(!!process.env.THUMBNAIL_PATH)("is a safe no-op when the thumbnail store is not configured", () => {
     db.prepare("DELETE FROM app_settings WHERE key = ?").run(thumbnailPathSettingKey);
     expect(sweepOrphanFaceCrops()).toBe(0);
+  });
+});
+
+describe("computeClusterHealth (DB)", () => {
+  beforeEach(() => {
+    resetDb();
+    makeUser("u1");
+    makeLibrary("GAL", { createdBy: "u1", type: "gallery" });
+    grant("group", EVERYONE_GROUP_ID, "GAL", "member");
+  });
+
+  // Assign a scan face (with a crop) to a specific person on a real gallery item.
+  async function addAssigned(rel: string, personId: string, emb: Float32Array) {
+    const itemId = await ingestGalleryAsset("GAL", asset(rel, Date.parse("2024-06-01T00:00:00Z")), false);
+    db.prepare(`
+      INSERT INTO gallery_faces (id, item_id, person_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, thumb_storage_key, assignment, source)
+      VALUES (?, ?, ?, 0.1, 0.1, 0.2, 0.2, 0.9, ?, ?, ?, 'auto', 'scan')
+    `).run(`f_${rel}`, itemId, personId, embeddingToBlob(emb), FACE_EMBEDDING_MODEL, `thumb_${rel}`);
+  }
+
+  it("flags two near-duplicate people as a likely merge and leaves distinct ones alone", async () => {
+    db.prepare("INSERT INTO gallery_people (id, name) VALUES ('pA', ''), ('pB', ''), ('pC', '')").run();
+    // pB's centroid sits at cosine 0.55 to pA's (axis 0) — just under the 0.58 merge line,
+    // i.e. the "likely same person, split" band. pC is orthogonal (a genuinely different
+    // person) and must not be suggested.
+    const near = mix(0, 0.55, 1, Math.sqrt(1 - 0.55 * 0.55));
+    await addAssigned("a1.jpg", "pA", vec(0));
+    await addAssigned("a2.jpg", "pA", vec(0));
+    await addAssigned("b1.jpg", "pB", near);
+    await addAssigned("b2.jpg", "pB", near);
+    await addAssigned("c1.jpg", "pC", vec(4));
+    for (const id of ["pA", "pB", "pC"]) recomputeClusterCentroid(id);
+
+    const health = await computeClusterHealth(["GAL"]);
+    expect(health.totalPeople).toBe(3);
+    expect(health.peopleWithTwin).toBe(2);
+    expect(health.bands.nearCertain).toBe(0);
+    expect(health.bands.likely).toBe(1);
+    expect(health.bands.possible).toBe(0);
+    expect(health.pairs).toHaveLength(1);
+    expect([health.pairs[0].a.id, health.pairs[0].b.id].sort()).toEqual(["pA", "pB"]);
+    expect(health.pairs[0].similarity).toBeGreaterThan(0.52);
+    expect(health.pairs[0].similarity).toBeLessThan(0.58);
+  });
+
+  it("reports a clean bill of health when clusters are well separated", async () => {
+    db.prepare("INSERT INTO gallery_people (id, name) VALUES ('pX', ''), ('pY', '')").run();
+    await addAssigned("x1.jpg", "pX", vec(0));
+    await addAssigned("y1.jpg", "pY", vec(4));
+    for (const id of ["pX", "pY"]) recomputeClusterCentroid(id);
+
+    const health = await computeClusterHealth(["GAL"]);
+    expect(health.totalPeople).toBe(2);
+    expect(health.peopleWithTwin).toBe(0);
+    expect(health.pairs).toHaveLength(0);
   });
 });

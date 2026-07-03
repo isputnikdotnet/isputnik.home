@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.10",
+          label: "A usable People page — and a way to spot split-up people",
+          changes: [
+            "The People page no longer chokes when there are lots of faces. With hundreds or thousands of people it used to fire off every avatar thumbnail at once — tripping the server's \"Too Many Requests\" limit, so a wall of person cards came up blank/broken. People now load a page at a time (with a \"Show more people\" button), avatars are kept by your browser instead of re-fetched on every visit, and if one can't load you get a tidy placeholder instead of a broken-image icon.",
+            "New \"Health\" check for face grouping (People → Face recognition → Health, admin only). Face grouping is deliberately cautious — it would rather split one person into two groups than merge two people by mistake — so the same person can end up spread across several clusters. This tool measures exactly how often that's happening: it shows how many of your people have a look-alike cluster that's very likely the same person, a breakdown of how close those clusters sit to the automatic merge line, and a list of the most likely duplicates side by side with a one-click Merge for each. It's the answer to \"is it under-grouping, and which ones should I combine?\""
+          ]
+        },
+        {
           version: "1.8.9",
           label: "All of a person's photos — and a much faster gallery",
           changes: [
