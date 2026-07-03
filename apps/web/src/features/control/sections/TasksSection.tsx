@@ -223,7 +223,11 @@ export function TasksSection() {
               <tbody>
                 {finished.map((task) => {
                   const ended = task.completedAt ?? task.failedAt;
-                  const d = duration(task.createdAt, ended);
+                  // Measure from when the job actually started running, not when it
+                  // was queued; fall back to createdAt for jobs that never ran (or
+                  // predate the started_at column).
+                  const startedAt = task.startedAt ?? task.createdAt;
+                  const d = duration(startedAt, ended);
                   const errorText = task.error ?? null;
 
                   return (
@@ -234,25 +238,25 @@ export function TasksSection() {
                         <td>
                           <span className={`status-badge ${task.status}`}>{task.status}</span>
                         </td>
-                        <td className="col-scan datagrid-muted">{formatManagedDate(task.createdAt)}</td>
+                        <td className="col-scan datagrid-muted">{formatManagedDate(startedAt)}</td>
                         <td className="col-scan datagrid-muted">{d ?? <span className="muted">—</span>}</td>
-                        <td>
+                        <td className="task-result-cell">
                           {task.summary && (
                             task.bookErrors.length > 0 ? (
                               <button
-                                className="job-error-toggle"
+                                className="job-error-toggle task-result-text"
                                 onClick={() => setExpandedError(expandedError === task.id ? null : task.id)}
                                 title="Show skipped items"
                               >
                                 {task.summary}
                               </button>
                             ) : (
-                              <span className="datagrid-muted">{task.summary}</span>
+                              <span className="task-result-text datagrid-muted">{task.summary}</span>
                             )
                           )}
                           {!task.summary && errorText && (
                             <button
-                              className="job-error-toggle"
+                              className="job-error-toggle task-result-text"
                               onClick={() => setExpandedError(expandedError === task.id ? null : task.id)}
                               title={errorText}
                             >

@@ -721,6 +721,10 @@ CREATE TABLE IF NOT EXISTS jobs (
   locked_at    TEXT,
   locked_by    TEXT,
   created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  -- When the worker actually began RUNNING the job (set on claim, never cleared),
+  -- so finished-task duration reflects run time, not time spent waiting in the
+  -- queue. locked_at is cleared on completion, so it can't serve this purpose.
+  started_at   TEXT,
   completed_at TEXT,
   failed_at    TEXT,
   error        TEXT

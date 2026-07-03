@@ -1632,7 +1632,7 @@ export async function processAudiobookScanQueue() {
 
       const claimed = db.prepare(`
         UPDATE jobs
-        SET status = 'running', attempts = attempts + 1, locked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_by = ?
+        SET status = 'running', attempts = attempts + 1, locked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), started_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_by = ?
         WHERE id = ? AND status = 'pending'
       `).run(process.pid.toString(), job.id);
       if (claimed.changes === 0) {

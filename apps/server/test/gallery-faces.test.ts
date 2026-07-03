@@ -15,7 +15,7 @@ import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail
 import { FACE_EMBEDDING_MODEL } from "../src/modules/library/gallery/faces/model-id.js";
 import {
   enqueueFaceScan, enqueueFaceScanBatches, faceJobType,
-  recordFaceScanFailure, MAX_FACE_SCAN_ATTEMPTS
+  recordFaceScanFailure, MAX_FACE_SCAN_ATTEMPTS, resetLibraryFaceScanMarkers
 } from "../src/modules/library/gallery/faces/queue.js";
 import { clearLibraryFaceData } from "../src/modules/library/gallery/faces/clear.js";
 import {
@@ -186,6 +186,39 @@ describe("face scan queue (batch chaining)", () => {
     expect(ids).toHaveLength(1);
     const payload = JSON.parse((db.prepare("SELECT payload FROM jobs WHERE id = ?").get(ids[0]) as { payload: string }).payload);
     expect(payload).toMatchObject({ libraryId: "GAL", batch: 1, batches: 1 });
+  });
+
+  // A rescan resets the scan markers so every photo re-enters the incremental
+  // pipeline and gets split into numbered batches (issue: rescan used to run as a
+  // single monolithic job).
+  it("resetLibraryFaceScanMarkers re-opens the whole backlog for batching, scoped to one library", async () => {
+    resetDb();
+    makeUser("u1");
+    makeLibrary("GAL", { createdBy: "u1", type: "gallery" });
+    makeLibrary("OTHER", { createdBy: "u1", type: "gallery" });
+    const t = Date.parse("2024-10-01T00:00:00Z");
+    const galItems: string[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const id = await ingestGalleryAsset("GAL", asset(`g${i}.jpg`, t + i * 1000), false) as string;
+      galItems.push(id);
+      db.prepare("INSERT INTO gallery_face_scans (item_id, model, face_count, status) VALUES (?, ?, 0, 'ok')").run(id, FACE_EMBEDDING_MODEL);
+    }
+    const otherItem = await ingestGalleryAsset("OTHER", asset("o0.jpg", t), false) as string;
+    db.prepare("INSERT INTO gallery_face_scans (item_id, model, face_count, status) VALUES (?, ?, 0, 'ok')").run(otherItem, FACE_EMBEDDING_MODEL);
+
+    // Fully scanned → no batches to run.
+    db.prepare("DELETE FROM jobs").run();
+    expect(enqueueFaceScanBatches("GAL", { batchSize: 2 })).toHaveLength(1); // 1 no-op batch
+
+    resetLibraryFaceScanMarkers("GAL");
+
+    // GAL's markers are gone; OTHER's remain.
+    expect((db.prepare("SELECT COUNT(*) AS n FROM gallery_face_scans WHERE item_id IN (SELECT id FROM library_items WHERE library_id='GAL')").get() as { n: number }).n).toBe(0);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM gallery_face_scans WHERE item_id = ?").get(otherItem) as { n: number }).n).toBe(1);
+
+    // All 3 GAL photos are unscanned again → they split into ceil(3/2) = 2 batches.
+    db.prepare("DELETE FROM jobs").run();
+    expect(enqueueFaceScanBatches("GAL", { batchSize: 2 })).toHaveLength(2);
   });
 });
 

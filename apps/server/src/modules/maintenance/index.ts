@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { parseBody } from "../../core/shared.js";
 import { emptyTrash } from "../library/shared/trash.js";
+import { libraryJobRunning } from "../library/shared/scan-lock.js";
 import { enqueueFaceScanBatches } from "../library/gallery/faces/queue.js";
 import { enabledFaceLibraryIds } from "../library/gallery/faces/settings.js";
 import { enqueueAudiobookScan } from "../library/audiobook/scanner.js";
@@ -40,6 +41,10 @@ interface ScheduledJobDef {
 // worker (2s poller) picks the jobs up. Libraries mid-scan are skipped rather
 // than double-queued.
 function enqueueLibraryScans(type: "audiobook" | "ebook" | "gallery", noun: string, enqueue: (libraryId: string) => unknown): string {
+  // Skip this run if a library or face task is already running — the heavy jobs run
+  // strictly one at a time, and stacking another night's scans on top of an
+  // unfinished one just backs up the queue. It runs again at the next scheduled time.
+  if (libraryJobRunning()) return `Skipped — a library or face task is already running; will retry at the next scheduled time.`;
   const libraries = db.prepare("SELECT id, scan_status FROM libraries WHERE type = ?").all(type) as { id: string; scan_status: string }[];
   if (libraries.length === 0) return `No ${noun} libraries exist — nothing to scan.`;
   const idle = libraries.filter((library) => library.scan_status !== "scanning");
@@ -120,6 +125,9 @@ const DEFINITIONS: ScheduledJobDef[] = [
     // photos are already cataloged and get their faces the same night.
     defaultTime: "05:00",
     run: () => {
+      // Skip if a library or face task is already running (see enqueueLibraryScans) —
+      // don't stack another backlog behind an in-progress scan.
+      if (libraryJobRunning()) return "Skipped — a library or face task is already running; will retry at the next scheduled time.";
       const ids = enabledFaceLibraryIds();
       if (ids.length === 0) return "No libraries have face recognition enabled — nothing to scan.";
       // Pre-queued as numbered batch jobs so the Tasks page shows the whole backlog.
@@ -489,6 +497,7 @@ interface TaskRow {
   status: string;
   attempts: number;
   created_at: string;
+  started_at: string | null;
   locked_at: string | null;
   completed_at: string | null;
   failed_at: string | null;
@@ -498,7 +507,7 @@ interface TaskRow {
 }
 
 const TASK_COLUMNS = `
-  jobs.id, jobs.type, jobs.status, jobs.attempts, jobs.created_at, jobs.locked_at,
+  jobs.id, jobs.type, jobs.status, jobs.attempts, jobs.created_at, jobs.started_at, jobs.locked_at,
   jobs.completed_at, jobs.failed_at, jobs.error, jobs.payload,
   libraries.name AS library_name
 `;
@@ -514,11 +523,14 @@ function taskView(row: TaskRow) {
     attempts: row.attempts,
     libraryName: row.library_name,
     createdAt: row.created_at,
+    // When the job actually began running (null until claimed); the UI measures
+    // duration from here so queue-wait time isn't counted as work time.
+    startedAt: row.started_at,
     completedAt: row.completed_at,
     failedAt: row.failed_at,
     error: row.error,
     summary: summarizeTaskResult(row.type, payload.result ?? null),
-    progress: active ? normalizeTaskProgress(row.type, payload.progress ?? null, row.locked_at ?? row.created_at) : null,
+    progress: active ? normalizeTaskProgress(row.type, payload.progress ?? null, row.started_at ?? row.locked_at ?? row.created_at) : null,
     // Position within a pre-queued batch group ("batch 2 of 5"); null for single jobs.
     batch: typeof payload.batch === "number" && typeof payload.batches === "number" && payload.batches > 1
       ? { index: payload.batch as number, total: payload.batches as number }

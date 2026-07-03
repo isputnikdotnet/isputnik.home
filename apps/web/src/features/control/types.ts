@@ -189,6 +189,9 @@ export interface Job {
   attempts: number;
   libraryName: string | null;
   createdAt: string;
+  // When the worker began running the job (null until claimed). Duration is measured
+  // from here, not createdAt, so time spent queued isn't counted.
+  startedAt: string | null;
   completedAt: string | null;
   failedAt: string | null;
   error: string | null;

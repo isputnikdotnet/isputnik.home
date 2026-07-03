@@ -3251,6 +3251,21 @@
   overflow-y: auto;
 }
 
+/* Task-history result/error cell: let a long result wrap to multiple lines within
+   a bounded width instead of forcing one overflowing line that distorts the row.
+   Top-align so the short Started/Duration cells sit against the first line. Placed
+   after .job-error-toggle so its `all: unset` can't reset these on the error button. */
+.task-result-cell {
+  vertical-align: top;
+}
+.task-result-text {
+  display: inline-block;
+  max-width: 460px;
+  white-space: normal;      /* override .datagrid-muted's nowrap */
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
 /* ── Count badge ────────────────────────────────────────────────── */
 
 .count-badge {

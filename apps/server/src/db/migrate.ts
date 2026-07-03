@@ -104,6 +104,18 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE gallery_people ADD COLUMN curated INTEGER NOT NULL DEFAULT 0");
       }
     }
+  },
+  // jobs.started_at: when the worker began RUNNING a job, so finished-task duration
+  // measures run time rather than queue-wait time. Conditional because schema.sql
+  // (run first) already adds it on fresh databases.
+  {
+    version: 10,
+    up: (db) => {
+      const columns = db.pragma("table_info(jobs)") as { name: string }[];
+      if (!columns.some((column) => column.name === "started_at")) {
+        db.exec("ALTER TABLE jobs ADD COLUMN started_at TEXT");
+      }
+    }
   }
 ];
 

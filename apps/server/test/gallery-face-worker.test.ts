@@ -77,6 +77,21 @@ describe("face scan worker (cluster once at queue drain)", () => {
     expect(db.prepare("SELECT 1 FROM gallery_people WHERE id = 'sentinel'").get()).toBeTruthy();
   });
 
+  it("stamps started_at when the worker claims a job and keeps it after completion", async () => {
+    await scannedPhoto("done.jpg", Date.parse("2024-12-03T00:00:00Z"));
+    const [jobId] = enqueueFaceScanBatches("GAL");
+
+    await processFaceScanQueue();
+
+    // started_at drives the Tasks page duration; it must be set on claim and survive
+    // completion (locked_at is cleared, so it can't serve this purpose).
+    const job = db.prepare("SELECT status, started_at, created_at FROM jobs WHERE id = ?")
+      .get(jobId) as { status: string; started_at: string | null; created_at: string };
+    expect(job.status).toBe("completed");
+    expect(job.started_at).not.toBeNull();
+    expect(new Date(job.started_at!).getTime()).toBeGreaterThanOrEqual(new Date(job.created_at).getTime());
+  });
+
   it("unassigned scan faces left behind get clustered at drain (crash recovery)", async () => {
     // A completed-but-never-clustered state: the photo is marked scanned, its face has
     // no person (as if the process died between the batch and its recluster).

@@ -22,7 +22,7 @@ import {
   faceRecognitionEnabledForLibrary, setFaceRecognitionEnabledForLibrary, enabledFaceLibraryIds,
   faceThreshold, setFaceThreshold, faceGroupingK, setFaceGroupingK
 } from "./faces/settings.js";
-import { enqueueFaceScan, enqueueFaceScanBatches, enqueueFaceRecompute, processFaceScanQueue, activeFaceScan } from "./faces/scanner.js";
+import { enqueueFaceScanBatches, enqueueFaceRecompute, resetLibraryFaceScanMarkers, processFaceScanQueue, activeFaceScan } from "./faces/scanner.js";
 import { clearLibraryFaceData } from "./faces/clear.js";
 import { FACE_EMBEDDING_MODEL } from "./faces/model-id.js";
 import { MAX_FACE_SCAN_ATTEMPTS } from "./faces/queue.js";
@@ -360,9 +360,21 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       reply.code(409).send({ error: "Enable face recognition for a library before scanning." });
       return;
     }
+    // One face scan at a time: if a scan is already running or queued, don't stack a
+    // second (its batches would just wait behind the first and confuse the Tasks view).
+    const running = activeFaceScan();
+    if (running) {
+      reply.code(409).send({ error: "A face scan is already in progress. Wait for it to finish before starting another.", scan: running });
+      return;
+    }
     const ids = parsed.data.libraryId ? [parsed.data.libraryId] : enabledFaceLibraryIds();
-    // Forced rescans run as a single uncapped job; incremental scans pre-queue batches.
-    const jobs = ids.flatMap((id) => (parsed.data.force ? [enqueueFaceScan(id, true)] : enqueueFaceScanBatches(id)));
+    // Both paths pre-queue numbered batches. A forced rescan first drops the scan
+    // markers so every photo re-embeds (the incremental pipeline then batches them);
+    // an incremental scan only picks up new/stale-model photos.
+    const jobs = ids.flatMap((id) => {
+      if (parsed.data.force) resetLibraryFaceScanMarkers(id);
+      return enqueueFaceScanBatches(id);
+    });
     void processFaceScanQueue();
     logActivity({
       event: "library.gallery.faces.scan",
