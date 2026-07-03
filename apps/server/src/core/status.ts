@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.7",
+          label: "Face grouping no longer freezes the site (and is far faster)",
+          changes: [
+            "Fixes the real cause behind the earlier reports of the site freezing during a face scan. After every photo was scanned, the app still had to GROUP the detected faces into people — and on a large library that step ran for minutes on the same thread that serves the website, so the site appeared frozen until it finished (and if you restarted during it, people never showed up). On a ~12,600-photo / ~9,700-face library this grouping step is now about 65× faster and, crucially, hands time back to the website while it works, so the app stays usable throughout. Existing detected-but-ungrouped faces are grouped automatically on the next startup — no rescan needed. Grouping results are unchanged; only the speed."
+          ]
+        },
+        {
           version: "1.8.6",
           label: "Interrupted face scans no longer lose their people",
           changes: [
