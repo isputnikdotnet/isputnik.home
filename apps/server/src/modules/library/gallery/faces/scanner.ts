@@ -232,9 +232,9 @@ function hasUnassignedScanFaces(): boolean {
 // re-triggers clustering: the faces sit with person_id = NULL and the People page
 // looks empty ("like it never ran"). Run this once on worker startup to catch that.
 // Skips while a scan is still active — that scan's own drain clustering will cover it.
-export function recoverOrphanFaceClusters(): void {
+export async function recoverOrphanFaceClusters(): Promise<void> {
   if (activeFaceScan()) return;            // a scan is queued/running — let it finish + cluster
-  if (hasUnassignedScanFaces()) clusterGalleryFaces();
+  if (hasUnassignedScanFaces()) await clusterGalleryFaces();
 }
 
 export async function processFaceScanQueue(): Promise<void> {
@@ -275,7 +275,7 @@ export async function processFaceScanQueue(): Promise<void> {
           // before the delete paths removed files), then group.
           const thumbnails = await backfillFaceThumbnails();
           const orphanCrops = sweepOrphanFaceCrops();
-          result = { reclustered: clusterGalleryFaces().clusters, thumbnails, orphanCrops };
+          result = { reclustered: (await clusterGalleryFaces()).clusters, thumbnails, orphanCrops };
           clusterDirty = false; // just clustered — earlier scan jobs are covered
         } else {
           // The night's time budget spans the whole pre-queued batch GROUP, measured
@@ -331,7 +331,7 @@ export async function processFaceScanQueue(): Promise<void> {
 
     // Queue drained (or yielded to another library job): fold everything the completed
     // batches changed into the people groups in one clustering pass.
-    if (clusterDirty) clusterGalleryFaces();
+    if (clusterDirty) await clusterGalleryFaces();
   } finally {
     queueRunning = false;
   }
@@ -343,8 +343,7 @@ export function startFaceScanWorker(): () => void {
   // to recover. Runs after the first poll would have re-queued any interrupted
   // batches, so it only fires when the queue is genuinely drained-but-unclustered.
   const recovery = setTimeout(() => {
-    try { recoverOrphanFaceClusters(); }
-    catch (err) { console.warn("face scan: orphan-cluster recovery failed:", err instanceof Error ? err.message : err); }
+    void recoverOrphanFaceClusters().catch((err) => console.warn("face scan: orphan-cluster recovery failed:", err instanceof Error ? err.message : err));
   }, 5000);
   recovery.unref?.();
   const timer = setInterval(() => { void processFaceScanQueue(); }, 2000);

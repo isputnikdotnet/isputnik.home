@@ -403,7 +403,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       reply.code(404).send({ error: "Gallery library not found" });
       return;
     }
-    const removed = clearLibraryFaceData(lib.id);
+    const removed = await clearLibraryFaceData(lib.id);
     logActivity({
       event: "library.gallery.faces.cleared",
       actorUserId: request.user!.id,

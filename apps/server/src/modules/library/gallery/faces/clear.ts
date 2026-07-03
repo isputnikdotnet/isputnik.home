@@ -11,7 +11,7 @@ import { db } from "../../../../db.js";
 import { clusterGalleryFaces } from "./cluster.js";
 import { removeFaceCropFiles } from "./crop-files.js";
 
-export function clearLibraryFaceData(libraryId: string): { faces: number; photos: number } {
+export async function clearLibraryFaceData(libraryId: string): Promise<{ faces: number; photos: number }> {
   const itemFilter = "item_id IN (SELECT id FROM library_items WHERE library_id = ?)";
 
   const faces = (db.prepare(
@@ -31,7 +31,7 @@ export function clearLibraryFaceData(libraryId: string): { faces: number; photos
   })();
 
   // Re-cluster the surviving faces (other libraries) and prune now-empty unnamed people.
-  clusterGalleryFaces();
+  await clusterGalleryFaces();
 
   removeFaceCropFiles(thumbKeys.map((r) => r.k));
 
