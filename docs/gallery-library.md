@@ -177,6 +177,15 @@ unique images). Faces of one photo are recognised in a single batched `rec.run` 
 on a GPU provider they run one at a time instead (DirectML rejects the dynamic batch dim
 at execution time — the model is exported as `[1,3,112,112]`).
 
+**CPU budget / responsiveness.** Left unbounded, onnxruntime's CPU provider runs the
+ResNet50 with `intraOpNumThreads` = every core and sharp's decode pool piles on, so a
+scan pegs all cores and starves Node's event loop — the web UI goes unresponsive for the
+whole run. Both are therefore capped to `faceScanThreadBudget()` — `cores − 1` by default,
+leaving a core for the server (and sqlite, which is synchronous). Override with
+`FACE_ORT_THREADS=<n>` (e.g. `1` to throttle hardest on a small box, or a higher number to
+finish faster at the cost of responsiveness). The cap is set on the onnxruntime session
+options and via `sharp.concurrency()`.
+
 **Module layout:**
 - `arcface.ts` — detection + embedding engine (native ORT).
 - `queue.ts` — job-enqueue helpers + payload types; dependency-light (db + nanoid only) so

@@ -10,6 +10,7 @@
 // apps/server/models/face/ (det_500m.onnx, w600k_r50.onnx) and loaded from there — no
 // download, nothing leaves the machine.
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
 import * as ort from "onnxruntime-node";
@@ -73,11 +74,29 @@ function requestedProviders(): string[] {
 // retries CPU-only on failure.
 // `gpu` records whether the session was actually created with an accelerator in its
 // provider list — false when the request already fell back to CPU at load time.
+
+// CPU threads the scan may use. Left unbounded, onnxruntime's CPU provider runs the
+// ResNet50 recogniser with intraOpNumThreads = every core, and sharp's decode pool
+// piles on — together they peg all cores for the whole scan, starving Node's event
+// loop so the web UI goes unresponsive (reported on Unraid). Cap it to leave a core
+// free for the server; FACE_ORT_THREADS overrides (set 1 to throttle hardest).
+export function faceScanThreadBudget(): number {
+  const override = Number.parseInt(process.env.FACE_ORT_THREADS ?? "", 10);
+  if (Number.isFinite(override) && override > 0) return override;
+  const cores = (typeof os.availableParallelism === "function" ? os.availableParallelism() : os.cpus().length) || 2;
+  return Math.max(1, cores - 1);
+}
+
 async function createSession(file: string): Promise<{ session: ort.InferenceSession; gpu: boolean }> {
   const providers = requestedProviders();
+  const threads = faceScanThreadBudget();
   const opts: ort.InferenceSession.SessionOptions = {
     graphOptimizationLevel: "all",
     logSeverityLevel: 3,
+    // Bound CPU parallelism so a scan can't monopolise every core (see above). Ignored
+    // by a GPU provider, which does the heavy work off-CPU — harmless to set anyway.
+    intraOpNumThreads: threads,
+    interOpNumThreads: 1,
     executionProviders: providers as ort.InferenceSession.SessionOptions["executionProviders"]
   };
   try {
@@ -106,6 +125,11 @@ function getEngine() {
       // gives no reuse benefit and only grows memory over a long run (which slows the
       // scan to a crawl). Disable it while face recognition is active.
       sharp.cache(false);
+      // Cap sharp's libvips threadpool to the same budget as onnxruntime, so image
+      // decode during a scan also leaves a core free for the server. This is a global
+      // sharp setting; keeping it bounded process-wide keeps the box responsive during
+      // any heavy image work, which is the right default for a self-hosted server.
+      sharp.concurrency(faceScanThreadBudget());
       const dir = modelsDir();
       const [det, rec] = await Promise.all([
         createSession(path.join(dir, "det_500m.onnx")),
