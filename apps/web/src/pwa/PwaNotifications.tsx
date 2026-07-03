@@ -1,9 +1,9 @@
-import { RefreshCw, WifiOff } from "lucide-react";
+import { RefreshCw, ServerOff, WifiOff } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
-import { useOnlineStatus } from "./useOnlineStatus";
+import { useConnectionStatus } from "./useOnlineStatus";
 
 export function PwaNotifications() {
-  const online = useOnlineStatus();
+  const connection = useConnectionStatus();
 
   const { needRefresh: [updating] } = useRegisterSW({
     onRegisteredSW(_url, registration) {
@@ -20,10 +20,19 @@ export function PwaNotifications() {
 
   return (
     <>
-      {!online && (
+      {connection !== "online" && (
         <div className="offline-status-banner" role="status" aria-live="polite">
-          <WifiOff size={14} aria-hidden="true" />
-          <span>No internet connection</span>
+          {connection === "offline" ? (
+            <>
+              <WifiOff size={14} aria-hidden="true" />
+              <span>No internet connection</span>
+            </>
+          ) : (
+            <>
+              <ServerOff size={14} aria-hidden="true" />
+              <span>Server not responding</span>
+            </>
+          )}
         </div>
       )}
       {updating && (
