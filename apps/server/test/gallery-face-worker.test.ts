@@ -6,11 +6,12 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { processFaceScanQueue } from "../src/modules/library/gallery/faces/scanner.js";
+import { faceScanThreadBudget } from "../src/modules/library/gallery/faces/arcface.js";
 import { enqueueFaceScanBatches } from "../src/modules/library/gallery/faces/queue.js";
 import { setFaceRecognitionEnabledForLibrary } from "../src/modules/library/gallery/faces/settings.js";
 import { embeddingToBlob } from "../src/modules/library/gallery/faces/embedding.js";
@@ -32,6 +33,31 @@ function vec(axis: number): Float32Array {
   v[axis] = 1;
   return v;
 }
+
+describe("face scan thread budget (keeps the server responsive during a scan)", () => {
+  const original = process.env.FACE_ORT_THREADS;
+  afterEach(() => {
+    if (original === undefined) delete process.env.FACE_ORT_THREADS;
+    else process.env.FACE_ORT_THREADS = original;
+  });
+
+  it("defaults to at least one thread, leaving a core for the event loop", () => {
+    delete process.env.FACE_ORT_THREADS;
+    expect(faceScanThreadBudget()).toBeGreaterThanOrEqual(1);
+  });
+
+  it("honours a positive FACE_ORT_THREADS override", () => {
+    process.env.FACE_ORT_THREADS = "2";
+    expect(faceScanThreadBudget()).toBe(2);
+  });
+
+  it("ignores a zero or non-numeric override", () => {
+    process.env.FACE_ORT_THREADS = "0";
+    expect(faceScanThreadBudget()).toBeGreaterThanOrEqual(1);
+    process.env.FACE_ORT_THREADS = "nonsense";
+    expect(faceScanThreadBudget()).toBeGreaterThanOrEqual(1);
+  });
+});
 
 describe("face scan worker (cluster once at queue drain)", () => {
   beforeEach(() => {
