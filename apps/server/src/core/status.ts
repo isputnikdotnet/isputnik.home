@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.8",
+          label: "Right face on the person avatar",
+          changes: [
+            "Fixes a person sometimes showing the wrong face as their avatar — a different person entirely — even though their photos were grouped correctly. The avatar was picked purely by how sharp/large the detected face was, so a crisp bystander from a group photo (or the odd mis-grouped face) could win. It now picks the clearest face that actually looks like that person (closest to the group's average), so the avatar matches the people inside. New scans get the right avatars automatically; to refresh avatars on libraries you've already scanned, use \"Regroup people\" in the Face recognition window once."
+          ]
+        },
+        {
           version: "1.8.7",
           label: "Face grouping no longer freezes the site (and is far faster)",
           changes: [
