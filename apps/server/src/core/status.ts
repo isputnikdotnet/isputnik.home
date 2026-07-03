@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.6",
+          label: "Interrupted face scans no longer lose their people",
+          changes: [
+            "If a face scan was interrupted partway (a restart, a crash, a power blip) after it had finished detecting faces but before it grouped them into people, the People page could come up empty — as if the scan never ran, even though the work was done. The app now finishes that last grouping step automatically on the next startup, so your people show up without needing to rescan everything. (Combined with the responsiveness fix in 1.8.4, interrupted scans should be far rarer to begin with.)"
+          ]
+        },
+        {
           version: "1.8.5",
           label: "Clearer connection banner",
           changes: [
