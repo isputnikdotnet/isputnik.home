@@ -142,6 +142,7 @@ export function GalleryPage({
   const [people, setPeople] = useState<GalleryPerson[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string } | null>(null);
   const [personAssets, setPersonAssets] = useState<GalleryAsset[]>([]);
+  const [personTotal, setPersonTotal] = useState(0);
   // Face recognition (admin): per-library settings + the settings popup.
   const [faceSettings, setFaceSettings] = useState<GalleryFaceSettings | null>(null);
   const [faceModalOpen, setFaceModalOpen] = useState(false);
@@ -265,14 +266,20 @@ export function GalleryPage({
     }
   }, [scopeParams]);
 
-  // Drill into one person's photos (opened from a person chip).
-  const openPerson = useCallback(async (person: { id: string; name: string }) => {
+  // Drill into one person's photos (opened from a person chip). Paged like the
+  // timeline: offset 0 replaces the grid, later offsets append. A person can have
+  // thousands of photos, so we never try to pull them all in one request — that
+  // both hid photos past the server's page cap and flooded the thumbnail route.
+  const openPerson = useCallback(async (person: { id: string; name: string }, offset = 0) => {
     setLoading(true);
     setError("");
     setSelectedPerson(person);
     try {
-      const payload = await api<{ assets: GalleryAsset[] }>(`/api/library/gallery/people/${person.id}?limit=200`);
-      setPersonAssets(payload.assets);
+      const payload = await api<{ assets: GalleryAsset[]; total: number }>(
+        `/api/library/gallery/people/${person.id}?limit=${PAGE_SIZE}&offset=${offset}`
+      );
+      setPersonAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
+      setPersonTotal(payload.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load this person's photos");
     } finally {
@@ -326,6 +333,7 @@ export function GalleryPage({
     try {
       await api(`/api/library/gallery/assets/${assetId}/people/${selectedPerson.id}`, { method: "DELETE" });
       setPersonAssets((prev) => prev.filter((a) => a.id !== assetId));
+      setPersonTotal((n) => Math.max(0, n - 1));
       void loadPeople();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to remove the photo");
@@ -514,7 +522,7 @@ export function GalleryPage({
   const subtitle = view === "map"
     ? `${formatCount(mapPoints.length)} on the map`
     : view === "people"
-      ? (selectedPerson ? `${formatCount(personAssets.length)} ${personAssets.length === 1 ? "photo" : "photos"}` : `${formatCount(people.length)} ${people.length === 1 ? "person" : "people"}`)
+      ? (selectedPerson ? `${formatCount(personTotal)} ${personTotal === 1 ? "photo" : "photos"}` : `${formatCount(people.length)} ${people.length === 1 ? "person" : "people"}`)
       : view === "timeline"
         ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
         : "Browsing by folder";
@@ -767,6 +775,13 @@ export function GalleryPage({
                   </div>
                   {!loading && personAssets.length === 0 && (
                     <p className="management-empty">No photos for this person yet.</p>
+                  )}
+                  {personAssets.length < personTotal && (
+                    <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
+                      <button type="button" className="secondary-button" onClick={() => void openPerson(selectedPerson, personAssets.length)} disabled={loading}>
+                        {loading ? "Loading…" : "Load more"}
+                      </button>
+                    </div>
                   )}
                 </>
               ) : (
