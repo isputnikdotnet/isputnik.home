@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.9",
+          label: "All of a person's photos — and a much faster gallery",
+          changes: [
+            "Opening a person in the gallery now shows every photo they're in. Before, it stopped at the first 200 — so someone with thousands of photos looked like they only had a couple hundred. There's now a \"Load more\" button (like the Timeline), and the count at the top shows the real total.",
+            "The gallery also stops choking on people and albums with lots of photos. Opening a big person could fire hundreds of thumbnail requests at once and trip the server's \"Too Many Requests\" protection, leaving the app stalled for a minute or two before it recovered. Thumbnails you've already seen are now kept by your browser and reused instead of re-fetched every time, so scrolling back, reopening a person, and revisiting the timeline are instant and no longer flood the server."
+          ]
+        },
+        {
           version: "1.8.8",
           label: "Right face on the person avatar",
           changes: [

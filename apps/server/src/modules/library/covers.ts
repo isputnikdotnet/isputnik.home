@@ -19,17 +19,25 @@ export async function coversPlugin(app: FastifyInstance) {
       const absolutePath = thumbnailAbsolutePath(storageKey);
       const stat = await fs.stat(absolutePath);
 
-      // Cover files are overwritten in place under a deterministic key when a
-      // cover changes, so the URL stays the same. Cache by a content validator
-      // (size + mtime) rather than a fixed max-age: the browser revalidates each
-      // load and we 304 when unchanged, but serve the new image the moment the
-      // file is replaced — no stale cover lingering after an edit.
-      const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
-      reply.header("Cache-Control", "private, no-cache").header("ETag", etag);
-
-      if (request.headers["if-none-match"] === etag) {
-        reply.code(304).send();
-        return;
+      // A `?v=` query param means the caller mints a fresh URL whenever the image
+      // changes (callers pass the item's updated_at — see mapAsset). That URL is
+      // therefore safe to cache immutably: the browser never re-requests it, and a
+      // real change arrives under a new URL. This is what stops a person/timeline
+      // grid of hundreds of thumbnails from re-hitting the server on every view.
+      const versioned = typeof (request.query as { v?: string }).v === "string" && (request.query as { v?: string }).v !== "";
+      if (versioned) {
+        reply.header("Cache-Control", "private, max-age=31536000, immutable");
+      } else {
+        // Un-versioned keys (face-crop avatars, in-place-overwritten covers) keep the
+        // same URL across edits, so cache by a content validator (size + mtime): the
+        // browser revalidates each load and we 304 when unchanged, but serve the new
+        // image the moment the file is replaced — no stale cover lingering after an edit.
+        const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+        reply.header("Cache-Control", "private, no-cache").header("ETag", etag);
+        if (request.headers["if-none-match"] === etag) {
+          reply.code(304).send();
+          return;
+        }
       }
 
       const cover = await fs.readFile(absolutePath);
