@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.4",
+          label: "Face scans no longer freeze the site",
+          changes: [
+            "The site stayed responsive… except while faces were being scanned, when it could crawl or appear frozen until the scan finished. The scan was using every CPU core for the whole run, leaving nothing for the web server. It now deliberately keeps one core free, so the app stays usable while a scan runs in the background — the scan just takes a little longer. If you want to tune this, the FACE_ORT_THREADS setting controls how many CPU threads a scan may use (set it to 1 to be gentlest on the machine)."
+          ]
+        },
+        {
           version: "1.8.3",
           label: "Tasks page fixes: accurate durations, batched rescans, tidier history",
           changes: [
