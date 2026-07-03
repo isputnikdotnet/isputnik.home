@@ -24,21 +24,43 @@ async function serverReachable(): Promise<boolean> {
   }
 }
 
-export function useOnlineStatus(): boolean {
-  const [online, setOnline] = useState(() => navigator.onLine);
+// Three states, because "the server didn't answer" and "this device has no network"
+// are different problems and deserve different messages. `navigator.onLine` tells us
+// whether the device has a network at all; the probe tells us whether the server is
+// actually answering. Conflating them shows "No internet connection" whenever the
+// server is merely busy or restarting (e.g. mid face-scan) — misleading, especially
+// for a LAN-hosted app that needs no internet.
+export type ConnectionStatus =
+  | "online"       // server answered
+  | "offline"      // this device has no network (navigator.onLine === false)
+  | "unreachable"; // device is online, but the server isn't answering
+
+// Consecutive failed probes before declaring the server unreachable. One miss is
+// often just a brief load spike (a scan, a restart); requiring two avoids flapping
+// the banner on a single slow response.
+const FAILURES_BEFORE_UNREACHABLE = 2;
+
+export function useConnectionStatus(): ConnectionStatus {
+  const [status, setStatus] = useState<ConnectionStatus>(() => (navigator.onLine ? "online" : "offline"));
 
   useEffect(() => {
     let alive = true;
+    let failures = 0; // consecutive server-probe failures while the device is online
 
     const check = async () => {
       // Fast path: the OS already knows we're offline — no point probing (and it
       // avoids a failing request every interval while genuinely disconnected).
-      if (!navigator.onLine) { if (alive) setOnline(false); return; }
+      if (!navigator.onLine) { failures = 0; if (alive) setStatus("offline"); return; }
       const ok = await serverReachable();
-      if (alive) setOnline(ok);
+      if (!alive) return;
+      if (ok) { failures = 0; setStatus("online"); return; }
+      // Device has a network but the server didn't answer. Tolerate a single miss;
+      // only flip to "unreachable" once it fails repeatedly.
+      failures += 1;
+      if (failures >= FAILURES_BEFORE_UNREACHABLE) setStatus("unreachable");
     };
 
-    const onOffline = () => { if (alive) setOnline(false); };
+    const onOffline = () => { failures = 0; if (alive) setStatus("offline"); };
     const onOnline = () => { void check(); };
     const onVisible = () => { if (document.visibilityState === "visible") void check(); };
 
@@ -58,5 +80,11 @@ export function useOnlineStatus(): boolean {
     };
   }, []);
 
-  return online;
+  return status;
+}
+
+// Boolean convenience for callers that only care whether the server is reachable
+// (e.g. gating offline-only UI). "offline" and "unreachable" both mean "not online".
+export function useOnlineStatus(): boolean {
+  return useConnectionStatus() === "online";
 }
