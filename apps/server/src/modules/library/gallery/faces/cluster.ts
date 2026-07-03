@@ -24,6 +24,11 @@ const CLUSTER_MERGE = 0.58;
 // A leftover 1–2-face group joins an anchored person when it's at least this close to
 // the person's centroid — mops up the singleton tail without risking larger groups.
 const ATTACH_SINGLETON = 0.5;
+// A face must be at least this similar to its person's centroid to be eligible as the
+// avatar. Real clusters carry some contamination (group-photo bystanders, the odd
+// mis-merge); without this a sharp but WRONG face (high det_score, low centroid
+// similarity) becomes the avatar — the reported "wrong person on the folder".
+const COVER_MIN_SIM = 0.5;
 
 export interface FaceVec {
   id: string;
@@ -176,16 +181,32 @@ export function recomputeClusterCentroid(clusterId: string): void {
   const faceCount = (db.prepare(
     "SELECT COUNT(DISTINCT gf.item_id) n FROM gallery_faces gf JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL WHERE gf.person_id = ? AND gf.assignment != 'rejected'"
   ).get(clusterId) as { n: number }).n;
-  const scanRows = db.prepare(
-    "SELECT embedding FROM gallery_faces WHERE person_id = ? AND source = 'scan' AND assignment != 'rejected' AND embedding IS NOT NULL"
-  ).all(clusterId) as { embedding: Buffer }[];
-  const centroidBlob = scanRows.length > 0 ? embeddingToBlob(centroidOf(scanRows.map((r) => blobToEmbedding(r.embedding)))) : null;
-  const coverFace = (db.prepare(`
-    SELECT gf.id FROM gallery_faces gf
-    JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL
-    WHERE gf.person_id = ? AND gf.source = 'scan' AND gf.assignment != 'rejected' AND gf.thumb_storage_key IS NOT NULL
-    ORDER BY gf.det_score DESC LIMIT 1
-  `).get(clusterId) as { id: string } | undefined)?.id ?? null;
+  // Load the person's scan faces once: embeddings drive the centroid; det_score, crop
+  // and photo-liveness drive the avatar pick below.
+  const rows = db.prepare(`
+    SELECT gf.id AS id, gf.det_score AS det, gf.embedding AS embedding, gf.thumb_storage_key AS thumb,
+      (li.id IS NOT NULL) AS live
+    FROM gallery_faces gf
+    LEFT JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL
+    WHERE gf.person_id = ? AND gf.source = 'scan' AND gf.assignment != 'rejected' AND gf.embedding IS NOT NULL
+  `).all(clusterId) as { id: string; det: number; embedding: Buffer; thumb: string | null; live: number }[];
+  const embeddings = rows.map((r) => blobToEmbedding(r.embedding));
+  const centroid = embeddings.length > 0 ? centroidOf(embeddings) : null;
+  const centroidBlob = centroid ? embeddingToBlob(centroid) : null;
+
+  // Avatar: the CLEAREST face (highest det_score) that is genuinely representative of the
+  // person — cosine to the centroid ≥ COVER_MIN_SIM — so a sharp but mis-clustered face
+  // can't hijack it. Only faces on a live photo with a crop qualify. If none clear the
+  // bar (a tiny/degenerate cluster), fall back to the single most-central such face.
+  let coverFace: string | null = null;
+  if (centroid) {
+    const eligible = rows
+      .map((r, i) => ({ id: r.id, det: r.det, thumb: r.thumb, live: r.live, sim: cosineSimilarity(embeddings[i], centroid) }))
+      .filter((r) => r.live && r.thumb);
+    const representative = eligible.filter((r) => r.sim >= COVER_MIN_SIM);
+    if (representative.length > 0) coverFace = representative.reduce((a, b) => (b.det > a.det ? b : a)).id;
+    else if (eligible.length > 0) coverFace = eligible.reduce((a, b) => (b.sim > a.sim ? b : a)).id;
+  }
   db.prepare(
     "UPDATE gallery_people SET centroid = ?, face_count = ?, cover_face_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
   ).run(centroidBlob, faceCount, coverFace, clusterId);

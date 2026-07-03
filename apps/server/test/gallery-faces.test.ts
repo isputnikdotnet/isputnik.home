@@ -332,6 +332,38 @@ describe("clusterGalleryFaces (DB)", () => {
     expect(people.every((p) => p.name === "")).toBe(true);
   });
 
+  it("avatar is a representative face, not a sharp mis-clustered outlier", async () => {
+    const t = Date.parse("2024-05-01T00:00:00Z");
+    const pid = "person-P";
+    db.prepare("INSERT INTO gallery_people (id, name) VALUES (?, '')").run(pid);
+    // Assign one person P: three genuine faces (with crops) plus one very sharp face of a
+    // DIFFERENT person (orthogonal embedding) that got mis-merged in.
+    const addAssigned = async (rel: string, emb: Float32Array, det: number) => {
+      const itemId = await ingestGalleryAsset("GAL", asset(rel, t), false);
+      db.prepare(`
+        INSERT INTO gallery_faces (id, item_id, person_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, thumb_storage_key, assignment, source)
+        VALUES (?, ?, ?, 0.1, 0.1, 0.2, 0.2, ?, ?, ?, ?, 'auto', 'scan')
+      `).run(`f_${rel}`, itemId, pid, det, embeddingToBlob(emb), FACE_EMBEDDING_MODEL, `thumb_${rel}`);
+      return `f_${rel}`;
+    };
+    await addAssigned("a1.jpg", vec(0, 0.02), 0.80);
+    await addAssigned("a2.jpg", vec(0, 0.04), 0.78);
+    const a3 = await addAssigned("a3.jpg", vec(0, 0.03), 0.82); // clearest genuine face
+    const outlier = await addAssigned("x.jpg", vec(4), 0.99);   // sharpest, but wrong person
+
+    recomputeClusterCentroid(pid);
+
+    // The high-det_score outlier must NOT win; the clearest representative face does.
+    const cover = (db.prepare("SELECT cover_face_id FROM gallery_people WHERE id = ?").get(pid) as { cover_face_id: string }).cover_face_id;
+    expect(cover).not.toBe(outlier);
+    expect(cover).toBe(a3);
+
+    // The People list shows that same representative crop, not the outlier's.
+    const person = listGalleryPeople(["GAL"]).find((p) => p.id === pid)!;
+    expect(person.coverUrl).toContain("thumb_a3.jpg");
+    expect(person.coverUrl).not.toContain("thumb_x.jpg");
+  });
+
   it("re-clustering is global and consolidates matching faces into one person", async () => {
     const t = Date.parse("2024-02-01T00:00:00Z");
     await addFace("a1.jpg", vec(0, 0.05), t);

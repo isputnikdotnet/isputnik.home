@@ -48,12 +48,16 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
     ),
     -- The avatar crop is picked per viewer, from faces on photos THEY can access — the
     -- global cover_face_id may point into a library this viewer can't see, and a face
-    -- crop must never leak across library access. Same ordering as the global pick
-    -- (best det_score), so full-access viewers see the same avatar.
+    -- crop must never leak across library access. Prefer the person's chosen cover face
+    -- (recomputeClusterCentroid picks the clearest REPRESENTATIVE face) when it's
+    -- accessible; otherwise fall back to best det_score among the faces this viewer can
+    -- see. This keeps a sharp but mis-clustered face from becoming the avatar.
     bestface AS (
       SELECT gf.person_id AS person_id, gf.thumb_storage_key AS thumb,
-        ROW_NUMBER() OVER (PARTITION BY gf.person_id ORDER BY gf.det_score DESC) AS rn
+        ROW_NUMBER() OVER (PARTITION BY gf.person_id
+          ORDER BY (gf.id = gp2.cover_face_id) DESC, gf.det_score DESC) AS rn
       FROM gallery_faces gf
+      JOIN gallery_people gp2 ON gp2.id = gf.person_id
       JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL AND li.library_id IN (${libIn})
       WHERE gf.person_id IS NOT NULL AND gf.assignment != 'rejected' AND gf.source = 'scan'
         AND gf.thumb_storage_key IS NOT NULL
