@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
-import { processFaceScanQueue } from "../src/modules/library/gallery/faces/scanner.js";
+import { processFaceScanQueue, recoverOrphanFaceClusters } from "../src/modules/library/gallery/faces/scanner.js";
 import { faceScanThreadBudget } from "../src/modules/library/gallery/faces/arcface.js";
 import { enqueueFaceScanBatches } from "../src/modules/library/gallery/faces/queue.js";
 import { setFaceRecognitionEnabledForLibrary } from "../src/modules/library/gallery/faces/settings.js";
@@ -134,5 +134,43 @@ describe("face scan worker (cluster once at queue drain)", () => {
     // The drain-time pass clustered the stray face and pruned the sentinel.
     expect((db.prepare("SELECT person_id FROM gallery_faces WHERE id = 'f1'").get() as { person_id: string | null }).person_id).toBeTruthy();
     expect(db.prepare("SELECT 1 FROM gallery_people WHERE id = 'sentinel'").get()).toBeFalsy();
+  });
+
+  // The production bug: a scan interrupted with EVERY batch already 'completed' leaves
+  // faces with no person AND no pending jobs, so processFaceScanQueue's loop never runs
+  // and its drain clustering is skipped — People stays empty. Startup recovery fixes it.
+  it("recoverOrphanFaceClusters adopts unclustered faces when NO jobs are pending (restart mid-scan)", async () => {
+    const itemId = await scannedPhoto("orphan.jpg", Date.parse("2024-12-04T00:00:00Z"));
+    db.prepare(`
+      INSERT INTO gallery_faces (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, assignment, source)
+      VALUES ('f1', ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, ?, 'auto', 'scan')
+    `).run(itemId, embeddingToBlob(vec(0)), FACE_EMBEDDING_MODEL);
+    // No jobs queued at all — the exact state after a restart where all batches finished.
+    expect(db.prepare("SELECT COUNT(*) AS n FROM jobs").get()).toMatchObject({ n: 0 });
+
+    // A plain worker cycle can't help — nothing is pending, so it clusters nothing.
+    await processFaceScanQueue();
+    expect((db.prepare("SELECT person_id FROM gallery_faces WHERE id = 'f1'").get() as { person_id: string | null }).person_id).toBeNull();
+
+    // Startup recovery adopts the orphaned face and prunes the sentinel.
+    recoverOrphanFaceClusters();
+    expect((db.prepare("SELECT person_id FROM gallery_faces WHERE id = 'f1'").get() as { person_id: string | null }).person_id).toBeTruthy();
+    expect(db.prepare("SELECT 1 FROM gallery_people WHERE id = 'sentinel'").get()).toBeFalsy();
+  });
+
+  it("recoverOrphanFaceClusters defers while a scan is still queued/running", async () => {
+    const itemId = await scannedPhoto("orphan.jpg", Date.parse("2024-12-05T00:00:00Z"));
+    db.prepare(`
+      INSERT INTO gallery_faces (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, assignment, source)
+      VALUES ('f1', ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, ?, 'auto', 'scan')
+    `).run(itemId, embeddingToBlob(vec(0)), FACE_EMBEDDING_MODEL);
+    // A pending batch means a scan is active — recovery must leave clustering to it.
+    enqueueFaceScanBatches("GAL");
+
+    recoverOrphanFaceClusters();
+
+    // Untouched: still unassigned, sentinel still present (no premature clustering).
+    expect((db.prepare("SELECT person_id FROM gallery_faces WHERE id = 'f1'").get() as { person_id: string | null }).person_id).toBeNull();
+    expect(db.prepare("SELECT 1 FROM gallery_people WHERE id = 'sentinel'").get()).toBeTruthy();
   });
 });

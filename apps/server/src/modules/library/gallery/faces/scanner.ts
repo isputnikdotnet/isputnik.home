@@ -216,11 +216,25 @@ let queueRunning = false;
 
 // Crash-recovery net for the drain-time clustering below: a batch that completed right
 // before a crash left current-model scan faces with no person (its recluster never ran).
-// Cheap indexed probe, checked once per completed scan job — not per poll.
+// Cheap probe, checked once per completed scan job (and once at worker startup — see
+// recoverOrphanFaceClusters) — not per poll.
 function hasUnassignedScanFaces(): boolean {
   return db.prepare(
     "SELECT 1 FROM gallery_faces WHERE source = 'scan' AND person_id IS NULL AND assignment != 'rejected' AND embedding_model = ? LIMIT 1"
   ).get(FACE_EMBEDDING_MODEL) != null;
+}
+
+// Adopt faces an interrupted scan left unclustered. Clustering (which creates People
+// and assigns faces) runs only once when the whole queue drains, keyed off an
+// IN-MEMORY flag. If the process is killed after the last batch committed its faces
+// but before that clustering ran — a container restart mid-scan, which is exactly how
+// this bit in production — the flag is gone, no jobs are pending, and nothing ever
+// re-triggers clustering: the faces sit with person_id = NULL and the People page
+// looks empty ("like it never ran"). Run this once on worker startup to catch that.
+// Skips while a scan is still active — that scan's own drain clustering will cover it.
+export function recoverOrphanFaceClusters(): void {
+  if (activeFaceScan()) return;            // a scan is queued/running — let it finish + cluster
+  if (hasUnassignedScanFaces()) clusterGalleryFaces();
 }
 
 export async function processFaceScanQueue(): Promise<void> {
@@ -324,6 +338,15 @@ export async function processFaceScanQueue(): Promise<void> {
 }
 
 export function startFaceScanWorker(): () => void {
+  // Deferred so it never blocks boot: recover faces an interrupted scan left
+  // unclustered (see recoverOrphanFaceClusters). A cheap no-op when there's nothing
+  // to recover. Runs after the first poll would have re-queued any interrupted
+  // batches, so it only fires when the queue is genuinely drained-but-unclustered.
+  const recovery = setTimeout(() => {
+    try { recoverOrphanFaceClusters(); }
+    catch (err) { console.warn("face scan: orphan-cluster recovery failed:", err instanceof Error ? err.message : err); }
+  }, 5000);
+  recovery.unref?.();
   const timer = setInterval(() => { void processFaceScanQueue(); }, 2000);
-  return () => clearInterval(timer);
+  return () => { clearTimeout(recovery); clearInterval(timer); };
 }
