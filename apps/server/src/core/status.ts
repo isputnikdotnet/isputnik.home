@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.3",
+          label: "Tasks page fixes: accurate durations, batched rescans, tidier history",
+          changes: [
+            "Task durations are honest now. A task that waited in the queue behind others used to show the whole wait as its run time; the Started time and Duration on the Tasks page now measure from when the task actually began running.",
+            "\"Rescan\" for faces now works in visible batches, just like turning face recognition on does. Instead of one long opaque job, a rescan queues numbered batches (\"batch 2 of 5\") you can watch progress through — and a run still pauses after 3 hours and continues the next night. Your named people and manual tags are kept; each photo's detected faces refresh as its batch runs.",
+            "The finished-task history is easier to read. A long result or error message now wraps onto multiple lines within its column instead of stretching the row into one cramped line.",
+            "No more overlapping scans. Starting a face scan while one is already running (or queued) is now refused with a clear message, and the nightly scheduled scans skip themselves if a library or face scan is still running — they run again at their next scheduled time rather than stacking up."
+          ]
+        },
+        {
           version: "1.8.2",
           label: "Security hardening for the photo & video folder view",
           changes: [
