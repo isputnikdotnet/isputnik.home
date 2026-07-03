@@ -129,6 +129,18 @@ export function enqueueFaceScanBatches(
   return ids;
 }
 
+// Drop a library's per-photo scan markers so a "rescan" re-embeds every photo. The
+// incremental batch pipeline then treats all photos as unscanned and splits them
+// into numbered batches (same visible, resumable, time-boxed flow as a normal
+// scan) instead of one monolithic job. Detected faces are left in place — each
+// batch replaces a photo's scan faces in its own transaction as it reprocesses it,
+// so existing avatars don't blink out and manual whole-photo tags are untouched.
+export function resetLibraryFaceScanMarkers(libraryId: string): void {
+  db.prepare(
+    "DELETE FROM gallery_face_scans WHERE item_id IN (SELECT id FROM library_items WHERE library_id = ?)"
+  ).run(libraryId);
+}
+
 // Re-cluster existing embeddings with the current settings — no re-detection. Cheap
 // relative to a scan, so tuning grouping strength is near-instant.
 export function enqueueFaceRecompute(): string {

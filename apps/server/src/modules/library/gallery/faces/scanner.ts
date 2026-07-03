@@ -26,7 +26,7 @@ import {
 } from "./queue.js";
 
 // Re-export the queue helpers so existing importers keep a single entry point.
-export { enqueueFaceScan, enqueueFaceScanBatches, enqueueFaceRecompute } from "./queue.js";
+export { enqueueFaceScan, enqueueFaceScanBatches, enqueueFaceRecompute, resetLibraryFaceScanMarkers } from "./queue.js";
 
 // Drop faces smaller than this fraction of the image's short side — tiny/background
 // faces yield unreliable embeddings that pollute clusters.
@@ -247,7 +247,7 @@ export async function processFaceScanQueue(): Promise<void> {
       if (!job) break;
 
       const claim = db.prepare(`
-        UPDATE jobs SET status = 'running', attempts = attempts + 1, locked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_by = ?
+        UPDATE jobs SET status = 'running', attempts = attempts + 1, locked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), started_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), locked_by = ?
         WHERE id = ? AND status = 'pending'
       `).run(process.pid.toString(), job.id);
       if (claim.changes === 0) continue;

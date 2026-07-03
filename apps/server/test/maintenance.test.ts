@@ -247,6 +247,23 @@ describe("nightly library scans", () => {
     const types = (db.prepare("SELECT type FROM jobs ORDER BY type").all() as { type: string }[]).map((r) => r.type);
     expect(types).toEqual(["SCAN_EBOOK_LIBRARY", "SCAN_GALLERY_LIBRARY"]);
   });
+
+  it("skips scheduled scans while a library or face task is already running", () => {
+    makeUser("admin", "admin");
+    makeLibrary("ab1", { createdBy: "admin", type: "audiobook" });
+    // A running library/face job holds the one-at-a-time lock (libraryJobRunning());
+    // both the library-scan and face-scan schedules must skip rather than pile on.
+    db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES ('busy', 'SCAN_GALLERY_FACES', '{}', 'running')").run();
+
+    const lib = runScheduledJob("scan_audiobook_libraries", null);
+    expect(lib?.lastStatus).toBe("success");
+    expect(lib?.lastMessage).toContain("Skipped");
+    const faces = runScheduledJob("scan_new_faces", null);
+    expect(faces?.lastMessage).toContain("Skipped");
+
+    // Nothing new was queued — only the pre-existing running job remains.
+    expect((db.prepare("SELECT COUNT(*) AS n FROM jobs").get() as { n: number }).n).toBe(1);
+  });
 });
 
 describe("tasks view", () => {
@@ -255,6 +272,21 @@ describe("tasks view", () => {
       "INSERT INTO jobs (id, type, payload, status, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now', ?))"
     ).run(id, type, JSON.stringify(payload), status, `-${secondsAgo} seconds`);
   }
+
+  it("exposes startedAt (when the job began running), distinct from createdAt", () => {
+    db.prepare(`
+      INSERT INTO jobs (id, type, payload, status, created_at, started_at, completed_at)
+      VALUES ('j', 'SCAN_EBOOK_LIBRARY', '{}', 'completed',
+        strftime('%Y-%m-%dT%H:%M:%fZ','now','-100 seconds'),
+        strftime('%Y-%m-%dT%H:%M:%fZ','now','-40 seconds'),
+        strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    `).run();
+    const task = listTasks().jobs.find((t) => t.id === "j")!;
+    expect(task.startedAt).not.toBeNull();
+    // Started 60s after it was queued — the UI measures duration from here, so the
+    // wait-in-queue time isn't counted as work.
+    expect(new Date(task.startedAt!).getTime()).toBeGreaterThan(new Date(task.createdAt).getTime());
+  });
 
   it("lists active tasks first (oldest first), then finished ones newest first", () => {
     insertTask("done-old", "SCAN_EBOOK_LIBRARY", "completed", { result: { books: 3 } }, 300);
