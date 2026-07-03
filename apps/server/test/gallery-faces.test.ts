@@ -80,30 +80,30 @@ describe("face embedding helpers", () => {
 });
 
 describe("mutualKnnClusters (pure)", () => {
-  it("links mutual neighbours into one group and isolates a dissimilar face", () => {
+  it("links mutual neighbours into one group and isolates a dissimilar face", async () => {
     const faces = [
       { id: "a1", emb: vec(0, 0.05) },
       { id: "a2", emb: vec(0, 0.1) },
       { id: "a3", emb: vec(0, 0.02) },
       { id: "b1", emb: vec(4) }
     ];
-    const groups = mutualKnnClusters(faces, 3, 0.5);
+    const groups = await mutualKnnClusters(faces, 3, 0.5);
     expect(groups.length).toBe(2);
     expect(groups.find((g) => g.includes("a1"))?.sort()).toEqual(["a1", "a2", "a3"]);
     expect(groups.find((g) => g.includes("b1"))).toEqual(["b1"]);
   });
 
-  it("keeps two tight groups apart (hub-chaining resistance)", () => {
+  it("keeps two tight groups apart (hub-chaining resistance)", async () => {
     const faces = [
       { id: "a1", emb: vec(0, 0.03) }, { id: "a2", emb: vec(0, 0.06) }, { id: "a3", emb: vec(0, 0.09) },
       { id: "c1", emb: vec(2, 0.03) }, { id: "c2", emb: vec(2, 0.06) }, { id: "c3", emb: vec(2, 0.09) }
     ];
-    expect(mutualKnnClusters(faces, 3, 0.5).length).toBe(2);
+    expect((await mutualKnnClusters(faces, 3, 0.5)).length).toBe(2);
   });
 });
 
 describe("mergeClustersByCentroid (pure)", () => {
-  it("re-unites one person's k-NN fragments while keeping different people apart", () => {
+  it("re-unites one person's k-NN fragments while keeping different people apart", async () => {
     // One person in two "eras": the b-faces sit at cosine ~0.8 to the a-faces, but each
     // sub-group's top-2 lists are saturated by its own near-duplicates, so mutual k-NN
     // (k=2) leaves the person split. A third, unrelated person (z) stays orthogonal.
@@ -112,24 +112,24 @@ describe("mergeClustersByCentroid (pure)", () => {
       { id: "b1", emb: mix(0, 0.8, 1, 0.6) }, { id: "b2", emb: mix(0, 0.79, 1, 0.61) }, { id: "b3", emb: mix(0, 0.81, 1, 0.59) },
       { id: "z1", emb: vec(4, 0.02) }, { id: "z2", emb: vec(4, 0.04) }, { id: "z3", emb: vec(4, 0.06) }
     ];
-    const knn = mutualKnnClusters(faces, 2, 0.3);
+    const knn = await mutualKnnClusters(faces, 2, 0.3);
     expect(knn.length).toBe(3); // fragmented: a-, b-, and z-groups
 
     const embById = new Map(faces.map((f) => [f.id, f.emb]));
-    const merged = mergeClustersByCentroid(knn, embById, 0.58).map((g) => [...g].sort());
+    const merged = (await mergeClustersByCentroid(knn, embById, 0.58)).map((g) => [...g].sort());
     expect(merged.length).toBe(2);
     expect(merged.find((g) => g.includes("a1"))).toEqual(["a1", "a2", "a3", "b1", "b2", "b3"]);
     expect(merged.find((g) => g.includes("z1"))).toEqual(["z1", "z2", "z3"]);
   });
 
-  it("leaves everything untouched when no centroids clear the threshold", () => {
+  it("leaves everything untouched when no centroids clear the threshold", async () => {
     const faces = [
       { id: "a1", emb: vec(0, 0.05) }, { id: "a2", emb: vec(0, 0.1) },
       { id: "c1", emb: vec(2, 0.05) }, { id: "c2", emb: vec(2, 0.1) }
     ];
     const embById = new Map(faces.map((f) => [f.id, f.emb]));
-    const groups = mutualKnnClusters(faces, 3, 0.5);
-    expect(mergeClustersByCentroid(groups, embById, 0.58).length).toBe(groups.length);
+    const groups = await mutualKnnClusters(faces, 3, 0.5);
+    expect((await mergeClustersByCentroid(groups, embById, 0.58)).length).toBe(groups.length);
   });
 });
 
@@ -315,7 +315,7 @@ describe("clusterGalleryFaces (DB)", () => {
     await addFace("a2.jpg", vec(0, 0.1), t + 1000);
     await addFace("b1.jpg", vec(4), t + 2000);
 
-    const result = clusterGalleryFaces();
+    const result = await clusterGalleryFaces();
     expect(result.assigned).toBe(3);
     expect(result.clusters).toBe(2);
 
@@ -336,12 +336,12 @@ describe("clusterGalleryFaces (DB)", () => {
     const t = Date.parse("2024-02-01T00:00:00Z");
     await addFace("a1.jpg", vec(0, 0.05), t);
     await addFace("a2.jpg", vec(0, 0.08), t + 1000);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     expect(listGalleryPeople(["GAL"]).length).toBe(1);
     expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(2);
 
     await addFace("a3.jpg", vec(0, 0.02), t + 2000);
-    const second = clusterGalleryFaces();
+    const second = await clusterGalleryFaces();
     expect(second.assigned).toBe(3);
     expect(listGalleryPeople(["GAL"]).length).toBe(1);
     expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(3);
@@ -351,7 +351,7 @@ describe("clusterGalleryFaces (DB)", () => {
     const t = Date.parse("2024-03-01T00:00:00Z");
     const i1 = await addFace("a1.jpg", vec(0, 0.05), t);
     await addFace("a2.jpg", vec(0, 0.1), t + 1000);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
     expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(2);
 
@@ -362,7 +362,7 @@ describe("clusterGalleryFaces (DB)", () => {
     expect((getGalleryAsset("u1", ["GAL"], i1) as { people?: unknown[] }).people).toEqual([]);
 
     // A later clustering pass must not pull the rejected face back into the person.
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     expect((db.prepare("SELECT assignment FROM gallery_faces WHERE item_id = ?").get(i1) as { assignment: string }).assignment).toBe("rejected");
     expect(listGalleryPeople(["GAL"])[0].faceCount).toBe(1);
   });
@@ -371,7 +371,7 @@ describe("clusterGalleryFaces (DB)", () => {
     const t = Date.parse("2024-04-01T00:00:00Z");
     const i1 = await addFace("a1.jpg", vec(0, 0.05), t);
     await addFace("a2.jpg", vec(0, 0.1), t + 1000);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
     renameGalleryPerson(personId, "Mum"); // naming makes the cluster persist across a rescan
     untagAssetPerson(i1, personId);        // user removes i1 from Mum → records an exclusion
@@ -381,7 +381,7 @@ describe("clusterGalleryFaces (DB)", () => {
     db.prepare("DELETE FROM gallery_faces WHERE source = 'scan'").run();
     await addFace("a1.jpg", vec(0, 0.05), t);
     await addFace("a2.jpg", vec(0, 0.1), t + 1000);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
 
     // Mum is rebuilt, but i1 stays out (count 1) — the removal was re-applied.
     const mum = listGalleryPeople(["GAL"]).find((p) => p.id === personId);
@@ -398,7 +398,7 @@ describe("clusterGalleryFaces (DB)", () => {
     await addFace("p2.jpg", vec(0, 0.1), t + 1000);
     await addFace("q1.jpg", vec(3, 0.05), t + 2000);
     await addFace("q2.jpg", vec(3, 0.1), t + 3000);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     const people = listGalleryPeople(["GAL"]);
     expect(people).toHaveLength(2);
 
@@ -410,7 +410,7 @@ describe("clusterGalleryFaces (DB)", () => {
 
     // The nightly recluster used to re-split this (only one new group could reclaim the
     // name); now every group whose faces belonged to Dad re-unions into him.
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     const after = listGalleryPeople(["GAL"]);
     expect(after).toHaveLength(1);
     expect(after[0].id).toBe(target.id);
@@ -424,13 +424,13 @@ describe("clusterGalleryFaces (DB)", () => {
     await addFace("p2.jpg", vec(0, 0.1), t + 1000);
     await addFace("q1.jpg", vec(3, 0.05), t + 2000);
     await addFace("q2.jpg", vec(3, 0.1), t + 3000);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     const [target, source] = listGalleryPeople(["GAL"]);
 
     expect(mergeGalleryPeople(source.id, target.id)).toBe(true);
     expect((db.prepare("SELECT curated FROM gallery_people WHERE id = ?").get(target.id) as { curated: number }).curated).toBe(1);
 
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     const after = listGalleryPeople(["GAL"]);
     expect(after).toHaveLength(1);
     expect(after[0].id).toBe(target.id);
@@ -441,7 +441,7 @@ describe("clusterGalleryFaces (DB)", () => {
     const t = Date.parse("2024-08-01T00:00:00Z");
     await addFace("m1.jpg", vec(0, 0.05), t);
     await addFace("m2.jpg", vec(0, 0.1), t + 1000);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     const person = listGalleryPeople(["GAL"])[0];
     renameGalleryPerson(person.id, "Mum");
 
@@ -450,7 +450,7 @@ describe("clusterGalleryFaces (DB)", () => {
     // attach bar (0.5), so only the singleton-absorption path can claim it.
     db.prepare("DELETE FROM gallery_faces WHERE source = 'scan'").run();
     await addFace("m3.jpg", mix(0, 0.52, 2, 0.854), t + 2000);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
 
     const after = listGalleryPeople(["GAL"]);
     expect(after).toHaveLength(1);
@@ -466,7 +466,7 @@ describe("clusterGalleryFaces (DB)", () => {
     // Both faces have crops; c1's face has the higher det_score, so it starts as cover.
     db.prepare("UPDATE gallery_faces SET thumb_storage_key = id || '.webp'").run();
     db.prepare("UPDATE gallery_faces SET det_score = 0.5 WHERE item_id = ?").run(i2);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
     const cover = () => (db.prepare("SELECT cover_face_id AS c FROM gallery_people WHERE id = ?").get(personId) as { c: string | null }).c;
     expect(cover()).toBe("f_c1.jpg");
@@ -495,7 +495,7 @@ describe("clusterGalleryFaces (DB)", () => {
       VALUES ('f_other', ?, 0.1, 0.1, 0.2, 0.2, 0.995, ?, ?, 'auto', 'scan')
     `).run(other, embeddingToBlob(vec(0, 0.1)), FACE_EMBEDDING_MODEL);
     db.prepare("UPDATE gallery_faces SET thumb_storage_key = id || '.webp'").run();
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     expect(listGalleryPeople(["GAL", "GAL2"])).toHaveLength(1); // one person across both
 
     // Full access: the globally best crop (GAL2's) is the avatar.
@@ -507,7 +507,7 @@ describe("clusterGalleryFaces (DB)", () => {
   it("a hidden person's photos are not reachable by direct id (unless allowed)", async () => {
     const t = Date.parse("2024-10-02T00:00:00Z");
     const i1 = await addFace("h1.jpg", vec(0, 0.05), t);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
     expect(getGalleryPersonPhotos("u1", ["GAL"], personId, 10, 0)?.assets).toHaveLength(1);
 
@@ -523,14 +523,14 @@ describe("clusterGalleryFaces (DB)", () => {
     const t = Date.parse("2024-05-01T00:00:00Z");
     const i1 = await addFace("a1.jpg", vec(0, 0.05), t);
     await addFace("a2.jpg", vec(0, 0.1), t + 1000);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
     // A scan marker and an exclusion exist for the library's items.
     db.prepare("INSERT INTO gallery_face_scans (item_id, model, face_count) VALUES (?, ?, 1)").run(i1, FACE_EMBEDDING_MODEL);
     const personId = (db.prepare("SELECT person_id FROM gallery_faces WHERE item_id = ?").get(i1) as { person_id: string }).person_id;
     db.prepare("INSERT INTO gallery_face_exclusions (item_id, person_id) VALUES (?, ?)").run(i1, personId);
     expect(listGalleryPeople(["GAL"]).length).toBe(1);
 
-    const result = clearLibraryFaceData("GAL");
+    const result = await clearLibraryFaceData("GAL");
     expect(result.faces).toBe(2);
     expect(result.photos).toBe(1);
 
@@ -554,9 +554,9 @@ describe("clusterGalleryFaces (DB)", () => {
       INSERT INTO gallery_faces (id, item_id, box_x, box_y, box_w, box_h, det_score, embedding, embedding_model, assignment, source)
       VALUES ('f_other', ?, 0.1, 0.1, 0.2, 0.2, 0.99, ?, ?, 'auto', 'scan')
     `).run(other, embeddingToBlob(vec(4)), FACE_EMBEDDING_MODEL);
-    clusterGalleryFaces();
+    await clusterGalleryFaces();
 
-    clearLibraryFaceData("GAL");
+    await clearLibraryFaceData("GAL");
 
     const remaining = db.prepare("SELECT item_id FROM gallery_faces").all() as { item_id: string }[];
     expect(remaining).toHaveLength(1);

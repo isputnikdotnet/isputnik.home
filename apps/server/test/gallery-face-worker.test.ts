@@ -153,7 +153,7 @@ describe("face scan worker (cluster once at queue drain)", () => {
     expect((db.prepare("SELECT person_id FROM gallery_faces WHERE id = 'f1'").get() as { person_id: string | null }).person_id).toBeNull();
 
     // Startup recovery adopts the orphaned face and prunes the sentinel.
-    recoverOrphanFaceClusters();
+    await recoverOrphanFaceClusters();
     expect((db.prepare("SELECT person_id FROM gallery_faces WHERE id = 'f1'").get() as { person_id: string | null }).person_id).toBeTruthy();
     expect(db.prepare("SELECT 1 FROM gallery_people WHERE id = 'sentinel'").get()).toBeFalsy();
   });
@@ -167,7 +167,7 @@ describe("face scan worker (cluster once at queue drain)", () => {
     // A pending batch means a scan is active — recovery must leave clustering to it.
     enqueueFaceScanBatches("GAL");
 
-    recoverOrphanFaceClusters();
+    await recoverOrphanFaceClusters();
 
     // Untouched: still unassigned, sentinel still present (no premature clustering).
     expect((db.prepare("SELECT person_id FROM gallery_faces WHERE id = 'f1'").get() as { person_id: string | null }).person_id).toBeNull();

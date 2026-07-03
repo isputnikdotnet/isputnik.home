@@ -30,10 +30,19 @@ export interface FaceVec {
   emb: Float32Array;
 }
 
+// Cooperative yield: hands the single Node thread back to the event loop so queued
+// HTTP work runs, then resumes. Clustering is CPU-heavy JS (tens of seconds on a big
+// library); without this it would block every request until it finished.
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 // Mutual k-NN connected components. Returns groups of face ids (singletons included).
-// O(n²) in face count — fine for a per-library recompute (the user triggers it); a
-// very large library would want an ANN index, noted for later.
-export function mutualKnnClusters(faces: FaceVec[], k: number, floor: number): string[][] {
+// O(n²) in face count. It's async and yields to the event loop periodically: on a large
+// library this pass runs for tens of seconds, and it MUST NOT block the single Node
+// thread the whole time or the web UI freezes (reported on Unraid). The yields don't
+// change the maths — the grouping is identical to a straight synchronous run.
+export async function mutualKnnClusters(faces: FaceVec[], k: number, floor: number): Promise<string[][]> {
   const n = faces.length;
   if (n === 0) return [];
   const dim = faces[0].emb.length;
@@ -57,6 +66,10 @@ export function mutualKnnClusters(faces: FaceVec[], k: number, floor: number): s
       for (let d = 0; d < dim; d += 1) w += flat[bi + d] * flat[bj + d];
       if (w >= floor) { neighbours[i].push({ j, w }); neighbours[j].push({ j: i, w }); }
     }
+    // Hand the event loop a turn often (early rows each scan ~all others, so a coarse
+    // interval would still block for ~1s a time). Every 16 rows keeps the max pause
+    // imperceptible; the ~n/16 setImmediate calls are negligible against the n² work.
+    if ((i & 15) === 15) await yieldToEventLoop();
   }
   const topk = neighbours.map((list) => {
     list.sort((a, b) => b.w - a.w);
@@ -79,27 +92,76 @@ export function mutualKnnClusters(faces: FaceVec[], k: number, floor: number): s
 // Second clustering stage: agglomerative merge over CLUSTER centroids. Mutual-kNN
 // fragments one person into per-era/per-event components when near-duplicate faces
 // saturate each other's top-K lists; centroids average that noise out, so components
-// of the same person score far above what two different people ever reach. Merges the
-// closest pair first and re-centres, until no pair clears the threshold.
-export function mergeClustersByCentroid(groups: string[][], embById: Map<string, Float32Array>, threshold: number): string[][] {
+// of the same person score far above what two different people ever reach. Repeatedly
+// merges the single closest pair (≥ threshold) and re-centres, until no pair clears it.
+//
+// The naive version recomputes EVERY cluster pair each round — O(g³), which was minutes
+// of a frozen server on a large library (esp. with a few huge "hub" people). This keeps
+// a max-heap of only the merge-CANDIDATE pairs (cosine ≥ threshold; far fewer than g²
+// for real faces) with lazy invalidation by a per-cluster version stamp, so each merge
+// only pushes the new cluster's pairs — no cascading rescans, hub or not. The pair
+// chosen each round and the final grouping are identical to the naive version (verified
+// on real libraries); cosine ties between distinct 512-d centroids don't occur.
+export async function mergeClustersByCentroid(groups: string[][], embById: Map<string, Float32Array>, threshold: number): Promise<string[][]> {
   const centre = (ids: string[]) => centroidOf(ids.map((id) => embById.get(id)!).filter(Boolean));
-  const clusters = groups.map((ids) => ({ ids, centroid: centre(ids) }));
-  for (;;) {
-    let best = threshold;
-    let mi = -1;
-    let mj = -1;
-    for (let i = 0; i < clusters.length; i += 1) {
-      for (let j = i + 1; j < clusters.length; j += 1) {
-        if (clusters[i].centroid.length !== clusters[j].centroid.length) continue;
-        const sim = cosineSimilarity(clusters[i].centroid, clusters[j].centroid);
-        if (sim >= best) { best = sim; mi = i; mj = j; }
-      }
+  const g = groups.length;
+  const ids = groups.map((grp) => grp.slice());
+  const centroids = groups.map((grp) => centre(grp));
+  const alive = new Array(g).fill(true);
+  const version = new Int32Array(g); // bumped when a cluster changes, to stale old heap entries
+
+  const sim = (a: number, b: number): number =>
+    centroids[a].length === centroids[b].length && centroids[a].length > 0
+      ? cosineSimilarity(centroids[a], centroids[b]) : -Infinity;
+
+  // Binary max-heap of candidate pairs [sim, a, b, versionA, versionB].
+  type Entry = [number, number, number, number, number];
+  const heap: Entry[] = [];
+  const swap = (i: number, j: number) => { const t = heap[i]; heap[i] = heap[j]; heap[j] = t; };
+  const up = (i: number) => { while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] >= heap[i][0]) break; swap(i, p); i = p; } };
+  const down = (i: number) => {
+    const n = heap.length;
+    for (;;) {
+      const l = 2 * i + 1; const r = 2 * i + 2; let m = i;
+      if (l < n && heap[l][0] > heap[m][0]) m = l;
+      if (r < n && heap[r][0] > heap[m][0]) m = r;
+      if (m === i) break;
+      swap(i, m); i = m;
     }
-    if (mi < 0) return clusters.map((c) => c.ids);
-    const merged = [...clusters[mi].ids, ...clusters[mj].ids];
-    clusters[mi] = { ids: merged, centroid: centre(merged) };
-    clusters.splice(mj, 1);
+  };
+  const pushPair = (a: number, b: number) => {
+    const s = sim(a, b);
+    if (s >= threshold) { heap.push([s, a, b, version[a], version[b]]); up(heap.length - 1); }
+  };
+
+  // Seed with every current candidate pair. O(g²) cosines, yielded so it never freezes.
+  for (let i = 0; i < g; i += 1) {
+    if (!alive[i]) continue;
+    for (let j = i + 1; j < g; j += 1) if (alive[j]) pushPair(i, j);
+    if ((i & 15) === 15) await yieldToEventLoop();
   }
+
+  let sinceYield = 0;
+  while (heap.length > 0) {
+    const top = heap[0];
+    const last = heap.pop()!;
+    if (heap.length > 0) { heap[0] = last; down(0); }
+    const [, a, b, va, vb] = top;
+    // Skip a pair whose endpoints have since merged away or changed.
+    if (!alive[a] || !alive[b] || version[a] !== va || version[b] !== vb) continue;
+
+    // Valid global-closest pair (≥ threshold): merge b into a and re-centre.
+    ids[a] = [...ids[a], ...ids[b]];
+    centroids[a] = centre(ids[a]);
+    alive[b] = false;
+    version[a] += 1;
+    for (let x = 0; x < g; x += 1) if (x !== a && alive[x]) pushPair(a, x);
+    if ((sinceYield += 1) >= 64) { sinceYield = 0; await yieldToEventLoop(); }
+  }
+
+  const out: string[][] = [];
+  for (let i = 0; i < g; i += 1) if (alive[i]) out.push(ids[i]);
+  return out;
 }
 
 // Recompute a person's aggregates from its current member faces (see also the
@@ -149,7 +211,7 @@ function enforceExclusions(): Set<string> {
 // Rebuild every person from scratch over a library's faces (or all libraries). Named
 // people keep their id+name by claiming the new group that holds the plurality of
 // their old faces; unnamed groups get fresh rows. Exclusions are re-applied.
-export function clusterGalleryFaces(): { clusters: number; assigned: number } {
+export async function clusterGalleryFaces(): Promise<{ clusters: number; assigned: number }> {
   const k = faceGroupingK();
   const floor = faceThreshold();
 
@@ -182,7 +244,7 @@ export function clusterGalleryFaces(): { clusters: number; assigned: number } {
   const anchored = new Set(anchoredRows.map((r) => r.id));
   const anchoredCentroids = anchoredRows.filter((r) => r.centroid).map((r) => ({ id: r.id, vec: blobToEmbedding(r.centroid!) }));
 
-  const groups = mergeClustersByCentroid(mutualKnnClusters(faces, k, floor), embById, CLUSTER_MERGE)
+  const groups = (await mergeClustersByCentroid(await mutualKnnClusters(faces, k, floor), embById, CLUSTER_MERGE))
     .sort((a, b) => b.length - a.length);
 
   // Assign each group a person id. Several groups may map to the SAME anchored person —
