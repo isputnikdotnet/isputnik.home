@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.5",
+          label: "Clearer connection banner",
+          changes: [
+            "The \"No internet connection\" banner now tells the truth about what's wrong. It only says that when your device has actually lost its network; when your device is fine but the server isn't answering (restarting, or briefly busy), it now says \"Server not responding\" instead — which is the accurate message for a home-hosted app that doesn't need the internet. It also waits for two missed check-ins before showing anything, so a single slow moment no longer flashes the banner."
+          ]
+        },
+        {
           version: "1.8.4",
           label: "Face scans no longer freeze the site",
           changes: [
