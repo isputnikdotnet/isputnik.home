@@ -1,6 +1,7 @@
 # Gallery: Memories, Albums, and photo Collections — proposal
 
-Status: **proposal** (agreed direction, not yet built). Companion to
+Status: **in progress** — Phase 1 (Memories) is **shipped**; phases 2–5 remain
+proposals. Companion to
 [gallery-library.md](gallery-library.md), which describes what is shipped today.
 Supersedes the "Dedicated shareable album object (v1 uses Collections)" bullet in
 that doc's future-phases list.
@@ -26,7 +27,14 @@ The mental model, so the features never feel like duplicates:
 The slideshow lives **only on collections** — that is what keeps Albums
 (organize) and Collections (present) distinct.
 
-## Phase 1 — Memories
+## Phase 1 — Memories — SHIPPED
+
+Built as proposed (see the Memories section of
+[gallery-library.md](gallery-library.md) for the as-built reference), with two
+refinements: the endpoint takes the **client's** local date and reports which
+fallback tier matched (`precision: day | near | month`) so both surfaces label
+the row honestly, and the Home row shows one tile per year but stays hidden for
+month-precision fallback matches.
 
 No schema changes; `gallery_details.taken_at` is already indexed.
 

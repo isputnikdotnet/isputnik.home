@@ -22,6 +22,73 @@
   gap: 6px;
 }
 
+/* Memories ("On this day") — a horizontal strip of year cards above the timeline */
+.gallery-memories-title {
+  margin: 14px 0 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.gallery-memories-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.gallery-memory-card {
+  position: relative;
+  flex: 0 0 auto;
+  width: 210px;
+  aspect-ratio: 16 / 10;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: var(--surface-raised);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.gallery-memory-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-memory-card .gallery-memory-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--muted);
+}
+
+.gallery-memory-card .gallery-memory-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 26px 12px 10px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+  color: #fff;
+  text-align: left;
+}
+
+.gallery-memory-card .gallery-memory-overlay strong {
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.gallery-memory-card .gallery-memory-overlay small {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
 .gallery-tile {
   position: relative;
   aspect-ratio: 1 / 1;

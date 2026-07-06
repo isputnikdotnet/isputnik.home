@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Headphones, Heart, Loader2, Play } from "lucide-react";
+import { BookOpen, ChevronRight, DownloadCloud, HardDrive, Headphones, Heart, Image as ImageIcon, Loader2, Play } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
@@ -16,6 +16,7 @@ import { getDownloadedEpubBlob, getEbookDownload, listDownloads, listEbookDownlo
 import { isFoliateFormat } from "../shared/utils";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
+import type { GalleryMemories } from "../features/gallery/types";
 
 // How many books each home row shows. Continue is capped at 5 (one of which
 // becomes the mobile resume hero), Recently added at 10. Desktop clips its row
@@ -238,6 +239,7 @@ interface ViewerState {
 export function HomePage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
   const [continueItems, setContinueItems] = useState<FeedItem[] | null>(null);
   const [recentItems, setRecentItems] = useState<FeedItem[] | null>(null);
+  const [memories, setMemories] = useState<GalleryMemories | null>(null);
   const [stats, setStats] = useState({ audiobooks: 0, ebooks: 0, inProgress: 0, favorites: 0 });
   const [error, setError] = useState("");
   const isMobile = useIsMobile();
@@ -321,13 +323,20 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
     if (!online) return;
     let alive = true;
 
+    // Gallery memories ("On this day") want the viewer's local calendar date —
+    // the server may sit in a different timezone. One cover per year is enough
+    // for the home tiles; the counts come along regardless.
+    const now = new Date();
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
     Promise.allSettled([
       fetchFeed("continue", CONTINUE_LIMIT),
       fetchFeed("recent", RECENT_LIMIT),
       api<{ libraries: LibraryCountRow[] }>("/api/library/audiobook-libraries"),
       api<{ libraries: LibraryCountRow[] }>("/api/library/ebook-libraries"),
-      api<{ books: unknown[] }>("/api/library/saved")
-    ]).then(([cont, recent, audioLibs, ebookLibs, saved]) => {
+      api<{ books: unknown[] }>("/api/library/saved"),
+      api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate}&perYear=1`)
+    ]).then(([cont, recent, audioLibs, ebookLibs, saved, mems]) => {
       if (!alive) return;
 
       if (cont.status === "fulfilled") {
@@ -348,6 +357,7 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
       if (audioLibs.status === "fulfilled") setStats((prev) => ({ ...prev, audiobooks: sumBooks(audioLibs.value.libraries) }));
       if (ebookLibs.status === "fulfilled") setStats((prev) => ({ ...prev, ebooks: sumBooks(ebookLibs.value.libraries) }));
       if (saved.status === "fulfilled") setStats((prev) => ({ ...prev, favorites: saved.value.books.length }));
+      if (mems.status === "fulfilled") setMemories(mems.value);
     });
 
     return () => { alive = false; };
@@ -367,6 +377,12 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const heroItem = isMobile && online && continueItems && continueItems.length > 0 ? continueItems[0] : null;
   const continueRest = heroItem ? continueItems!.slice(1) : continueItems;
   const showContinueRow = !heroItem || (continueRest != null && continueRest.length > 0);
+
+  // "On this day" (gallery memories): only shown for a day-precision match — a
+  // whole-month fallback would put filler on the dashboard. Hidden entirely when
+  // there is nothing to show (no gallery, or no dated past-year photos today).
+  const memoryGroups = memories && memories.precision !== "month" ? memories.groups : [];
+  const memoriesTitle = memories?.precision === "near" ? "Around this day" : "On this day";
 
   const offlineLoaded = downloads !== null && ebookDownloads !== null;
   const offlineAudioItems = downloads ? downloads.map(audioRecordToFeedItem) : null;
@@ -493,6 +509,33 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
                 onToast={showToast}
                 onDownload={setActiveDownload}
               />
+            )}
+            {!isMobile && memoryGroups.length > 0 && (
+              <section className="home-section" aria-labelledby="home-memories-title">
+                <RowHeader id="home-memories-title" title={memoriesTitle} href="/gallery" />
+                <div className="home-tile-grid">
+                  {memoryGroups.map((group) => (
+                    <a
+                      key={group.year}
+                      className="audiobook-catalog-card grid home-feed-tile"
+                      href="/gallery"
+                      onClick={(event) => followRoute(event, "/gallery")}
+                    >
+                      <div className="audiobook-catalog-cover">
+                        {group.items[0]?.coverUrl ? (
+                          <img src={group.items[0].coverUrl} alt="" loading="lazy" />
+                        ) : (
+                          <span className="home-memory-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
+                        )}
+                      </div>
+                      <div className="audiobook-catalog-copy">
+                        <strong>{group.year}</strong>
+                        <small>{group.count === 1 ? "1 photo" : `${count(group.count)} photos`}</small>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </section>
             )}
             <FeedRow
               id="home-recent-title"

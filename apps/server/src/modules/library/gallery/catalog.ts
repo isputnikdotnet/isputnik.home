@@ -395,6 +395,75 @@ export function galleryFacets(libIds: string[]) {
   return { kinds, years, withGps, people, tags, cameras };
 }
 
+// Memories ("On this day"): past-year assets whose taken_at matches today's
+// month/day, grouped by year (newest year first). The match widens until it finds
+// something — exact day → ±3 days → same month — so the row is only empty when no
+// past-year asset is dated at all in this month. `precision` reports which tier
+// matched so the UI can label the row honestly. Assets without taken_at never
+// match (substr on NULL yields NULL); the current year is excluded — today's
+// photos are not memories yet.
+export interface GalleryMemoryGroup {
+  year: number;
+  count: number;
+  items: ReturnType<typeof mapAsset>[];
+}
+
+export type GalleryMemoriesPrecision = "day" | "near" | "month";
+
+// MM-DD strings for `today` ± span days. UTC date arithmetic so a DST boundary
+// can't skip or repeat a day; the year-end wrap (Dec 29 → Jan 03) falls out free.
+function monthDayWindow(today: string, span: number): string[] {
+  const base = new Date(`${today}T00:00:00Z`);
+  const out: string[] = [];
+  for (let offset = -span; offset <= span; offset += 1) {
+    out.push(new Date(base.getTime() + offset * 86_400_000).toISOString().slice(5, 10));
+  }
+  return out;
+}
+
+export function queryGalleryMemories(userId: string, libIds: string[], today: string, perYear: number): {
+  precision: GalleryMemoriesPrecision;
+  groups: GalleryMemoryGroup[];
+} {
+  if (libIds.length === 0) return { precision: "day", groups: [] };
+  const tiers: { precision: GalleryMemoriesPrecision; clause: string; args: string[] }[] = [
+    { precision: "day", clause: "substr(gallery_details.taken_at, 6, 5) = ?", args: [today.slice(5, 10)] },
+    { precision: "near", clause: `substr(gallery_details.taken_at, 6, 5) IN (${inClause(7)})`, args: monthDayWindow(today, 3) },
+    { precision: "month", clause: "substr(gallery_details.taken_at, 6, 2) = ?", args: [today.slice(5, 7)] }
+  ];
+  for (const tier of tiers) {
+    // Per-year count + the first `perYear` items in one pass: window functions
+    // partitioned on the year prefix of taken_at, then a rank cut.
+    const rows = db.prepare(`
+      WITH matched AS (
+        SELECT ${ASSET_COLUMNS},
+          substr(gallery_details.taken_at, 1, 4) AS mem_year,
+          ROW_NUMBER() OVER (
+            PARTITION BY substr(gallery_details.taken_at, 1, 4)
+            ORDER BY datetime(gallery_details.taken_at), library_items.id
+          ) AS mem_rank,
+          COUNT(*) OVER (PARTITION BY substr(gallery_details.taken_at, 1, 4)) AS mem_count
+        ${ASSET_JOINS}
+        WHERE library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
+          AND substr(gallery_details.taken_at, 1, 4) < ?
+          AND ${tier.clause}
+      )
+      SELECT * FROM matched WHERE mem_rank <= ? ORDER BY mem_year DESC, mem_rank
+    `).all(userId, ...libIds, today.slice(0, 4), ...tier.args, perYear) as (AssetRow & { mem_year: string; mem_count: number })[];
+    if (rows.length === 0) continue;
+
+    const groups: GalleryMemoryGroup[] = [];
+    for (const row of rows) {
+      const year = Number.parseInt(row.mem_year, 10);
+      const last = groups[groups.length - 1];
+      if (last && last.year === year) last.items.push(mapAsset(row));
+      else groups.push({ year, count: row.mem_count, items: [mapAsset(row)] });
+    }
+    return { precision: tier.precision, groups };
+  }
+  return { precision: "day", groups: [] };
+}
+
 interface MapPointRow {
   id: string;
   kind: string;

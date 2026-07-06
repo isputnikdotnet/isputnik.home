@@ -506,6 +506,17 @@ a.home-overview-card:focus-visible {
   text-decoration: none;
 }
 
+/* "On this day" (gallery memories) tiles reuse the feed tile; the fallback fills
+   the cover box when a memory photo has no thumbnail. */
+.home-memory-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--muted);
+}
+
 /* The home rows clip to one line (overflow: hidden), which would cut off the
    catalog's hover pop-out. Inside the home rows, keep the cover still on hover —
    its own dim (cover ::after) is the feedback. The full feed pages, which wrap

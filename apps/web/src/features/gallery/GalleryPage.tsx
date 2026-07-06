@@ -12,7 +12,7 @@ import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
 import { GalleryFaceSettingsModal } from "./GalleryFaceSettingsModal";
 import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
-import type { GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryPerson } from "./types";
+import type { GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryPerson } from "./types";
 
 const PAGE_SIZE = 80;
 // The People grid can hold thousands of clusters; render them a page at a time so a
@@ -33,6 +33,19 @@ const KIND_OPTIONS = [
   { value: "photo" as const, label: "Photos" },
   { value: "video" as const, label: "Videos" }
 ];
+
+// Titles for the Memories strip — the server reports how wide it had to match
+// before it found anything, and the heading must not overpromise.
+const MEMORIES_TITLES: Record<GalleryMemories["precision"], string> = {
+  day: "On this day",
+  near: "Around this day",
+  month: "This month over the years"
+};
+
+function yearsAgo(year: number): string {
+  const diff = new Date().getFullYear() - year;
+  return diff === 1 ? "1 year ago" : `${diff} years ago`;
+}
 
 // Month label for the timeline header from an asset's takenAt.
 function monthLabel(takenAt: string | null): string {
@@ -139,6 +152,11 @@ export function GalleryPage({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  // Memories ("On this day") for the strip above the timeline, plus the year
+  // group currently open in the lightbox.
+  const [memories, setMemories] = useState<GalleryMemories | null>(null);
+  const [memoryAssets, setMemoryAssets] = useState<GalleryAsset[]>([]);
+
   // Folder state.
   const [parent, setParent] = useState("");
   const [folders, setFolders] = useState<GalleryFolder[]>([]);
@@ -174,7 +192,7 @@ export function GalleryPage({
   const libraryMenuRef = useRef<HTMLDivElement>(null);
 
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
-  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person"; index: number } | null>(null);
+  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person" | "memory"; index: number } | null>(null);
   const [singleAsset, setSingleAsset] = useState<GalleryAsset | null>(null);
 
   // Upload (source-writing, policy-gated): the modal is offered when any library
@@ -380,6 +398,20 @@ export function GalleryPage({
     return () => { alive = false; };
   }, [scopeParams]);
 
+  // Memories for the strip above the timeline. Scope-dependent like the facets;
+  // the date is the viewer's local calendar day (the server may be in another
+  // timezone, and "on this day" belongs to whoever is looking at the screen).
+  useEffect(() => {
+    let alive = true;
+    const now = new Date();
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const params = new URLSearchParams({ ...scopeParams(), date } as Record<string, string>);
+    api<GalleryMemories>(`/api/library/gallery/memories?${params}`)
+      .then((payload) => { if (alive) setMemories(payload); })
+      .catch(() => { /* advisory; the strip just doesn't render */ });
+    return () => { alive = false; };
+  }, [scopeParams]);
+
   // Fetch one asset and open it standalone in the lightbox (used by map markers).
   const openAssetById = useCallback((id: string) => {
     api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${id}`)
@@ -451,7 +483,8 @@ export function GalleryPage({
   const activeAssets = lightbox?.source === "single" && singleAsset
     ? [singleAsset]
     : lightbox?.source === "folder" ? folderAssets
-      : lightbox?.source === "person" ? personAssets : assets;
+      : lightbox?.source === "person" ? personAssets
+        : lightbox?.source === "memory" ? memoryAssets : assets;
 
   const libraryFor = (libraryId: string) => libraries.find((library) => library.id === libraryId);
   const currentLibrary = lightbox != null && activeAssets[lightbox.index]
@@ -872,6 +905,32 @@ export function GalleryPage({
               )
             ) : view === "timeline" ? (
               <>
+                {memories && memories.groups.length > 0 && !query && activeGalleryFilterCount(filters) === 0 && !selectionMode && (
+                  <section className="gallery-memories" aria-label="Memories">
+                    <h2 className="gallery-memories-title">{MEMORIES_TITLES[memories.precision]}</h2>
+                    <div className="gallery-memories-row">
+                      {memories.groups.map((group) => (
+                        <button
+                          key={group.year}
+                          type="button"
+                          className="gallery-memory-card"
+                          onClick={() => { setMemoryAssets(group.items); setLightbox({ source: "memory", index: 0 }); }}
+                          aria-label={`${MEMORIES_TITLES[memories.precision]} in ${group.year} — ${group.count} ${group.count === 1 ? "photo" : "photos"}`}
+                        >
+                          {group.items[0]?.coverUrl ? (
+                            <img src={group.items[0].coverUrl} alt="" loading="lazy" />
+                          ) : (
+                            <span className="gallery-memory-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
+                          )}
+                          <span className="gallery-memory-overlay">
+                            <strong>{group.year}</strong>
+                            <small>{yearsAgo(group.year)} · {group.count} {group.count === 1 ? "photo" : "photos"}</small>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
                 {months.map((month) => (
                   <div key={month.label}>
                     <h2 className="gallery-month-label">{month.label}</h2>

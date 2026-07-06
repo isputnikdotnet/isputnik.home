@@ -40,6 +40,25 @@ Folder view pulls you into it, like the audiobook catalog):
   years, scoped to accessible libraries); filter arrays go in the
   `POST /api/library/gallery/timeline` body as `filters`.
 
+## Memories ("On this day")
+
+`GET /api/library/gallery/memories` returns past-year assets whose `taken_at`
+matches today's month/day, grouped by year (newest first) with per-year counts.
+The match widens until it finds something — exact day → ±3 days → same month —
+and reports which tier matched as `precision` (`day` / `near` / `month`) so the
+UI can label the row honestly. The current year is excluded, and undated assets
+never match. `date` is the **client's** local calendar date (the server may sit
+in another timezone); `perYear` caps items per year group.
+
+Two surfaces consume it (`queryGalleryMemories` in `catalog.ts`):
+
+- a **Memories strip** above the gallery Timeline — one card per year
+  ("2019 · 12 photos"); tapping opens the lightbox scoped to that year's set.
+  Hidden while searching, filtering, or selecting.
+- an **"On this day" Home row** (the gallery's first Home presence) — one tile
+  per year, linking to the gallery. Desktop only, hidden when there is nothing
+  day-precise to show (the month-wide fallback stays off the dashboard).
+
 ## Scan pipeline
 
 `modules/library/gallery/scanner.ts` walks the configured photo/video extensions
@@ -114,6 +133,7 @@ item-keyed systems:
 | POST | `/api/library/gallery-libraries/:id/rescan` | Queue a rescan |
 | POST | `/api/library/gallery-libraries/:id/assets/upload` | Upload photos/videos (multipart batch; upload permission) |
 | POST | `/api/library/gallery/timeline` | Paged date timeline (scope, kinds, q, `filters`: people/tags/years/taken/cameras/sizes/location) |
+| GET | `/api/library/gallery/memories` | "On this day": past-year assets matching today's month/day, grouped by year (`date` = client's local day, `perYear` cap, `precision` tier) |
 | GET | `/api/library/gallery/folders` | Folder listing (subfolders + assets) |
 | GET | `/api/library/gallery/facets` | Filter options (people/tags/cameras/years) + kind counts + geotagged count (`withGps`) |
 | GET | `/api/library/gallery/map` | Geotagged assets as lightweight markers (scope/kind, capped at 5000) |
@@ -246,7 +266,7 @@ cataloged and get their faces the same night.
 ## Not yet (future phases)
 
 - **Semantic / content search** (ML — the heavy part of Immich).
-- **Memories, Albums, photo-pure Collections + slideshow** — planned;
+- **Albums, photo-pure Collections + slideshow** — planned (Memories shipped);
   see [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md).
 - **Upload into a chosen subfolder** (today everything lands in the library root).
 - **Configurable map tile source** (today OSM is hard-wired).

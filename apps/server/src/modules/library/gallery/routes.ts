@@ -25,6 +25,7 @@ import {
   getGalleryAsset,
   galleryFacets,
   queryGalleryMapPoints,
+  queryGalleryMemories,
   EMPTY_GALLERY_FILTERS
 } from "./catalog.js";
 import { updateGalleryAsset } from "./edit.js";
@@ -325,6 +326,25 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     // the LIKE pattern and all downstream string work sane (defense in depth).
     const parent = (qp.parent ?? "").slice(0, 1024);
     return queryGalleryFolders(request.user!.id, libIds, parent, limit, offset);
+  });
+
+  // Memories ("On this day"): past-year assets matching today's month/day, grouped
+  // by year. `date` is the client's local calendar date — the server may sit in a
+  // different timezone, and "today" belongs to the person looking at the screen.
+  // `perYear` caps items per year group (the Home tile only needs one for a cover).
+  app.get("/api/library/gallery/memories", { preHandler: app.authenticate }, async (request) => {
+    const qp = request.query as { scope?: string; libraryId?: string; date?: string; perYear?: string };
+    const scope = qp.scope === "library" ? qp.scope : "all";
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    // A malformed or impossible date (e.g. 2026-99-99 passes the shape check but
+    // not Date parsing) falls back to the server's local calendar date.
+    let date = qp.date ?? "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00Z`).getTime())) {
+      const now = new Date();
+      date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    }
+    const perYear = Math.min(Math.max(Number.parseInt(qp.perYear ?? "60", 10) || 60, 1), 200);
+    return queryGalleryMemories(request.user!.id, libIds, date, perYear);
   });
 
   app.get("/api/library/gallery/facets", { preHandler: app.authenticate }, async (request) => {

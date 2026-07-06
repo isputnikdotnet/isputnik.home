@@ -26,6 +26,20 @@ export interface GalleryAsset {
   people?: GalleryPersonTag[];
 }
 
+// "On this day" memories: past-year assets matching today's month/day, grouped by
+// year (newest first). `precision` says how far the server had to widen the match
+// to find anything: the exact day, ±3 days, or the whole month.
+export interface GalleryMemoryGroup {
+  year: number;
+  count: number;
+  items: GalleryAsset[];
+}
+
+export interface GalleryMemories {
+  precision: "day" | "near" | "month";
+  groups: GalleryMemoryGroup[];
+}
+
 // A person tagged in a photo (id + name), as returned on the asset detail.
 export interface GalleryPersonTag {
   id: string;
