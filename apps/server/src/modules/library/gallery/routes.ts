@@ -292,11 +292,13 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       people: filterList,
       tags: filterList,
       years: filterList,
+      months: z.array(z.string().regex(/^(0[1-9]|1[0-2])$/)).max(12).default([]),
       taken: z.array(z.string().regex(/^(from|to):\d{4}-\d{2}-\d{2}$/)).max(2).default([]),
       cameras: filterList,
       sizes: z.array(z.enum(["small", "medium", "large", "huge"])).max(4).default([]),
       location: z.array(z.enum(["with_gps", "no_gps"])).max(2).default([])
     }).default({}),
+    sort: z.enum(["taken", "added"]).default("taken"),
     limit: z.number().int().min(1).max(200).default(80),
     offset: z.number().int().min(0).default(0)
   });
@@ -312,6 +314,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     reply.send(queryGalleryTimeline(request.user!.id, libIds, {
       q: p.q ?? "", kinds: p.kinds ?? [],
       filters: { ...EMPTY_GALLERY_FILTERS, ...p.filters },
+      sort: p.sort ?? "taken",
       limit: p.limit ?? 80, offset: p.offset ?? 0
     }));
   });

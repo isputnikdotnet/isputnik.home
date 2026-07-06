@@ -13,7 +13,14 @@ function mimeTypeForCover(storageKey: string) {
 }
 
 export async function coversPlugin(app: FastifyInstance) {
-  app.get("/api/library/covers/*", { preHandler: app.authenticate }, async (request, reply) => {
+  // Thumbnails arrive in bursts — one gallery timeline page is 80 <img>s at once,
+  // and a few "Load more" clicks would drain the global per-IP budget and 429 the
+  // real API calls. This route gets its own, larger bucket: the files are tiny,
+  // auth-gated, and immutably cached (?v=), so the ceiling only bounds scripted abuse.
+  app.get("/api/library/covers/*", {
+    preHandler: app.authenticate,
+    config: { rateLimit: { max: 6000, timeWindow: "1 minute" } }
+  }, async (request, reply) => {
     const storageKey = (request.params as { "*": string })["*"];
     try {
       const absolutePath = thumbnailAbsolutePath(storageKey);

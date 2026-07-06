@@ -162,7 +162,7 @@ describe("gallery advanced filters", () => {
   const timeline = (filters: Partial<Parameters<typeof queryGalleryTimeline>[2]["filters"] & object>) =>
     queryGalleryTimeline("u1", ["GAL"], {
       q: "", kinds: [], limit: 50, offset: 0,
-      filters: { people: [], tags: [], years: [], taken: [], cameras: [], sizes: [], location: [], ...filters }
+      filters: { people: [], tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: [], ...filters }
     });
 
   const tagItem = (itemId: string, displayName: string) => {
@@ -185,6 +185,32 @@ describe("gallery advanced filters", () => {
     expect(hit.assets.map((x) => x.id)).toEqual([a]);
     expect(timeline({ years: ["2020", "2023"] }).total).toBe(2);
     expect(galleryFacets(["GAL"]).years).toEqual(["2023", "2020"]);
+  });
+
+  it("sorts by discovered_at when sort='added'", async () => {
+    // a is the newer photo by taken date, but b entered the library later.
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2023-06-01T00:00:00Z")), false);
+    const b = await ingestGalleryAsset("GAL", asset("b.jpg", Date.parse("2020-06-01T00:00:00Z")), false);
+    db.prepare("UPDATE library_items SET discovered_at = '2026-01-01T00:00:00.000Z' WHERE id = ?").run(a);
+    db.prepare("UPDATE library_items SET discovered_at = '2026-02-01T00:00:00.000Z' WHERE id = ?").run(b);
+
+    const byTaken = queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0, sort: "taken" });
+    expect(byTaken.assets.map((x) => x.id)).toEqual([a, b]);
+    const byAdded = queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0, sort: "added" });
+    expect(byAdded.assets.map((x) => x.id)).toEqual([b, a]);
+    expect(byAdded.assets[0].addedAt).toBe("2026-02-01T00:00:00.000Z");
+  });
+
+  it("filters by month of taken_at across years", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2020-06-01T00:00:00Z")), false);
+    const b = await ingestGalleryAsset("GAL", asset("b.jpg", Date.parse("2023-06-15T00:00:00Z")), false);
+    await ingestGalleryAsset("GAL", asset("c.jpg", Date.parse("2023-09-01T00:00:00Z")), false);
+
+    expect(timeline({ months: ["06"] }).assets.map((x) => x.id).sort()).toEqual([a, b].sort());
+    expect(timeline({ months: ["06", "09"] }).total).toBe(3);
+    expect(timeline({ months: ["02"] }).total).toBe(0);
+    // Month AND year narrows to the intersection.
+    expect(timeline({ months: ["06"], years: ["2023"] }).assets.map((x) => x.id)).toEqual([b]);
   });
 
   it("filters by tag and lists tag facets", async () => {
