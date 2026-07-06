@@ -291,6 +291,10 @@ export function App() {
     return <GalleryPage user={session.user} logout={logout} />;
   }
 
+  if (route.name === "galleryMemories") {
+    return <GalleryPage user={session.user} logout={logout} initialView="memories" />;
+  }
+
   if (route.name === "galleryAsset") {
     return <GalleryPage user={session.user} logout={logout} initialAssetId={route.id} />;
   }
