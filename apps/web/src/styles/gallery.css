@@ -4,16 +4,42 @@
    (.audiobook-main-page / .audiobook-page-* / .audiobook-library-*); only the
    gallery-specific grid, folder, and lightbox styles live here. */
 
-.gallery-month-label {
+/* Timeline day headers: the sticky date row with its select-this-day checkbox. */
+.gallery-day-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 14px 0 8px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--ink);
   position: sticky;
   top: 0;
   background: linear-gradient(var(--canvas) 65%, transparent);
   padding: 6px 0;
   z-index: 1;
+}
+
+.gallery-day-label {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.gallery-day-select {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.gallery-day-select:hover {
+  color: var(--ink);
+}
+
+.gallery-day-select.selected {
+  color: var(--mint);
 }
 
 .gallery-grid {

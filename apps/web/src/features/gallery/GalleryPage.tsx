@@ -24,14 +24,14 @@ const PEOPLE_PAGE = 120;
 const GalleryMap = lazy(() => import("./GalleryMap").then((m) => ({ default: m.GalleryMap })));
 
 type GalleryView = "timeline" | "folder" | "map" | "people";
-type KindFilter = "all" | "photo" | "video";
+type TimelineSort = "taken" | "added";
 
-// The media-type filter is presented through the same compact dropdown the
-// audiobooks/ebooks header uses for sorting, so the controls line up visually.
-const KIND_OPTIONS = [
-  { value: "all" as const, label: "All media" },
-  { value: "photo" as const, label: "Photos" },
-  { value: "video" as const, label: "Videos" }
+// Timeline sort, presented through the same compact dropdown the audiobooks/ebooks
+// header uses, so the controls line up visually. The media-type (photo/video)
+// filter lives in the Filter panel with the other facets.
+const SORT_OPTIONS = [
+  { value: "taken" as const, label: "Date taken" },
+  { value: "added" as const, label: "Date uploaded" }
 ];
 
 // Titles for the Memories strip — the server reports how wide it had to match
@@ -47,12 +47,12 @@ function yearsAgo(year: number): string {
   return diff === 1 ? "1 year ago" : `${diff} years ago`;
 }
 
-// Month label for the timeline header from an asset's takenAt.
-function monthLabel(takenAt: string | null): string {
+// Calendar-day label for the timeline header from an asset's takenAt.
+function dayLabel(takenAt: string | null): string {
   if (!takenAt) return "Undated";
   const d = new Date(takenAt);
   if (Number.isNaN(d.getTime())) return "Undated";
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "long" });
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
 
 function AssetTile({
@@ -88,9 +88,11 @@ function AssetTile({
       {asset.kind === "video" && (
         <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
       )}
-      {selectionMode && (
+      {/* Only a selected tile gets the check overlay — unselected tiles stay
+          clean rather than all sprouting empty circles in selection mode. */}
+      {selectionMode && selected && (
         <span className="gallery-tile-check" aria-hidden="true">
-          {selected ? <CheckCircle2 size={22} /> : <Circle size={22} />}
+          <CheckCircle2 size={22} />
         </span>
       )}
     </button>
@@ -136,7 +138,7 @@ export function GalleryPage({
 
   const [view, setView] = useState<GalleryView>("timeline");
   const [scopeId, setScopeId] = useState<string>("all");
-  const [kind, setKind] = useState<KindFilter>("all");
+  const [sort, setSort] = useState<TimelineSort>("taken");
 
   // Search box drives the timeline `q`; a debounce keeps typing from spamming the API.
   const [searchText, setSearchText] = useState("");
@@ -242,7 +244,7 @@ export function GalleryPage({
     try {
       const payload = await api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
         method: "POST",
-        body: JSON.stringify({ ...scopeParams(), q: query, kinds: kind === "all" ? [] : [kind], filters, limit: PAGE_SIZE, offset })
+        body: JSON.stringify({ ...scopeParams(), q: query, kinds: filters.kinds, filters, sort, limit: PAGE_SIZE, offset })
       });
       setAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setTotal(payload.total);
@@ -251,7 +253,7 @@ export function GalleryPage({
     } finally {
       setLoading(false);
     }
-  }, [scopeParams, kind, query, filters]);
+  }, [scopeParams, sort, query, filters]);
 
   const loadFolder = useCallback(async (nextParent: string) => {
     setLoading(true);
@@ -275,7 +277,7 @@ export function GalleryPage({
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ ...scopeParams(), kinds: kind === "all" ? "" : kind } as Record<string, string>);
+      const params = new URLSearchParams({ ...scopeParams(), kinds: filters.kinds.join(",") } as Record<string, string>);
       const payload = await api<{ points: GalleryMapPoint[] }>(`/api/library/gallery/map?${params}`);
       setMapPoints(payload.points);
     } catch (err) {
@@ -283,7 +285,7 @@ export function GalleryPage({
     } finally {
       setLoading(false);
     }
-  }, [scopeParams, kind]);
+  }, [scopeParams, filters.kinds]);
 
   const loadPeople = useCallback(async () => {
     setLoading(true);
@@ -419,14 +421,14 @@ export function GalleryPage({
       .catch(() => { /* asset gone / no access */ });
   }, []);
 
-  // Reload the active view when scope/kind/query/filters/view changes.
+  // Reload the active view when scope/sort/query/filters/view changes.
   useEffect(() => {
     if (view === "timeline") void loadTimeline(0);
     else if (view === "folder") void loadFolder("");
     else if (view === "people") { setSelectedPerson(null); void loadPeople(); void loadFaceSettings(); }
     else void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, scopeId, kind, query, filters]);
+  }, [view, scopeId, sort, query, filters]);
 
   // Deep link: fetch the asset and open a standalone lightbox.
   useEffect(() => {
@@ -524,9 +526,10 @@ export function GalleryPage({
     setBulkError("");
   };
 
-  // Changing the dataset (view / scope / kind / search) clears any selection so a
-  // stale id from a no-longer-visible asset can't linger.
-  useEffect(() => { setSelectionMode(false); setSelectedIds(new Set()); }, [view, scopeId, kind, query]);
+  // Changing the dataset (view / scope / search / filters) clears any selection so
+  // a stale id from a no-longer-visible asset can't linger. Sorting only reorders
+  // the same assets, so it keeps the selection.
+  useEffect(() => { setSelectionMode(false); setSelectedIds(new Set()); }, [view, scopeId, query, filters]);
 
   const confirmBulkDelete = async () => {
     setBulkBusy(true);
@@ -556,17 +559,30 @@ export function GalleryPage({
     if (initialAssetId) navigate("/gallery");
   };
 
-  // Group timeline assets into month buckets for the date headers.
-  const months = useMemo(() => {
+  // Group timeline assets into calendar-day buckets for the date headers, keyed on
+  // whichever date the timeline is sorted by so the buckets stay consecutive.
+  const days = useMemo(() => {
     const out: { label: string; items: { asset: GalleryAsset; index: number }[] }[] = [];
     assets.forEach((asset, index) => {
-      const label = monthLabel(asset.takenAt);
+      const label = dayLabel(sort === "added" ? asset.addedAt : asset.takenAt);
       const last = out[out.length - 1];
       if (last && last.label === label) last.items.push({ asset, index });
       else out.push({ label, items: [{ asset, index }] });
     });
     return out;
-  }, [assets]);
+  }, [assets, sort]);
+
+  // Select or deselect every asset taken on one calendar day. Using a day header's
+  // checkbox also enters selection mode, so it works as the entry point too.
+  const toggleDaySelect = (ids: string[]) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = ids.every((id) => next.has(id));
+      ids.forEach((id) => { if (allSelected) next.delete(id); else next.add(id); });
+      return next;
+    });
+    setSelectionMode(true);
+  };
 
   const breadcrumbParts = parent ? parent.split("/") : [];
   const subtitle = view === "map"
@@ -590,10 +606,10 @@ export function GalleryPage({
             <>
               <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} compact />
               <AudiobookHeaderSort
-                value={kind as unknown as SortKey}
-                onChange={(value) => setKind(value as unknown as KindFilter)}
-                options={KIND_OPTIONS as unknown as { value: SortKey; label: string }[]}
-                ariaLabel="Filter by media type"
+                value={sort as unknown as SortKey}
+                onChange={(value) => setSort(value as unknown as TimelineSort)}
+                options={SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
+                ariaLabel="Sort timeline"
                 compact
               />
               {uploadLibraries.length > 0 && !selectionMode && (
@@ -759,7 +775,7 @@ export function GalleryPage({
                   <GalleryMap points={mapPoints} onOpen={openAssetById} />
                 </Suspense>
                 {!loading && mapPoints.length === 0 && (
-                  <p className="management-empty">No photos or videos with location data{kind !== "all" ? ` of this type` : ""} in this library.</p>
+                  <p className="management-empty">No photos or videos with location data{filters.kinds.length > 0 ? ` of this type` : ""} in this library.</p>
                 )}
               </>
             ) : view === "people" ? (
@@ -931,23 +947,42 @@ export function GalleryPage({
                     </div>
                   </section>
                 )}
-                {months.map((month) => (
-                  <div key={month.label}>
-                    <h2 className="gallery-month-label">{month.label}</h2>
-                    <div className="gallery-grid">
-                      {month.items.map(({ asset, index }) => (
-                        <AssetTile
-                          key={asset.id}
-                          asset={asset}
-                          onOpen={() => setLightbox({ source: "timeline", index })}
-                          selectionMode={selectionMode}
-                          selected={selectedIds.has(asset.id)}
-                          onToggleSelect={() => toggleSelect(asset.id)}
-                        />
-                      ))}
+                {days.map((day) => {
+                  const ids = day.items.map(({ asset }) => asset.id);
+                  const allSelected = ids.every((id) => selectedIds.has(id));
+                  return (
+                    <div key={day.items[0].asset.id}>
+                      <div className="gallery-day-head">
+                        {canDeleteAny && (
+                          <button
+                            type="button"
+                            className={`gallery-day-select${allSelected ? " selected" : ""}`}
+                            onClick={() => toggleDaySelect(ids)}
+                            role="checkbox"
+                            aria-checked={allSelected}
+                            aria-label={`Select all from ${day.label}`}
+                            title={allSelected ? "Deselect this day" : "Select this day"}
+                          >
+                            {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                          </button>
+                        )}
+                        <h2 className="gallery-day-label">{day.label}</h2>
+                      </div>
+                      <div className="gallery-grid">
+                        {day.items.map(({ asset, index }) => (
+                          <AssetTile
+                            key={asset.id}
+                            asset={asset}
+                            onOpen={() => setLightbox({ source: "timeline", index })}
+                            selectionMode={selectionMode}
+                            selected={selectedIds.has(asset.id)}
+                            onToggleSelect={() => toggleSelect(asset.id)}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {!loading && assets.length === 0 && (
                   <p className="management-empty">{query ? "No photos or videos match this search." : "No photos or videos to show."}</p>
                 )}

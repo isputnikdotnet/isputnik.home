@@ -8,6 +8,8 @@ export interface GalleryAsset {
   title: string;
   description: string | null;
   takenAt: string | null;
+  addedAt: string; // when the scanner/upload discovered the item
+
   width: number | null;
   height: number | null;
   orientation: number | null;

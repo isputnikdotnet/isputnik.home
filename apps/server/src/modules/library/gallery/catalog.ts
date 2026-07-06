@@ -16,6 +16,7 @@ interface AssetRow {
   id: string;
   library_id: string;
   folder_path: string;
+  discovered_at: string;
   kind: string;
   title: string | null;
   description: string | null;
@@ -41,6 +42,7 @@ export const ASSET_COLUMNS = `
   library_items.id,
   library_items.library_id,
   library_items.folder_path,
+  library_items.discovered_at,
   gallery_details.kind,
   item_metadata.title,
   item_metadata.description,
@@ -95,6 +97,7 @@ export function mapAsset(row: AssetRow) {
     title: row.title ?? row.folder_path.split("/").pop() ?? row.folder_path,
     description: row.description,
     takenAt: row.taken_at,
+    addedAt: row.discovered_at,
     width: swap ? row.height : row.width,
     height: swap ? row.width : row.height,
     orientation: row.orientation,
@@ -141,6 +144,7 @@ export interface GalleryTimelineFilters {
   people: string[];   // gallery_people names (named face groups / manual tags)
   tags: string[];     // tag display names
   years: string[];    // 'YYYY' from taken_at
+  months: string[];   // 'MM' (01–12) from taken_at, any year
   taken: string[];    // date-taken bounds: 'from:YYYY-MM-DD' / 'to:YYYY-MM-DD' (inclusive)
   cameras: string[];  // CAMERA_SQL display strings
   sizes: string[];    // SIZE_BUCKETS codes: small | medium | large | huge
@@ -148,7 +152,7 @@ export interface GalleryTimelineFilters {
 }
 
 export const EMPTY_GALLERY_FILTERS: GalleryTimelineFilters = {
-  people: [], tags: [], years: [], taken: [], cameras: [], sizes: [], location: []
+  people: [], tags: [], years: [], months: [], taken: [], cameras: [], sizes: [], location: []
 };
 
 function galleryFilterClauses(filters: GalleryTimelineFilters): { clauses: string[]; args: unknown[] } {
@@ -170,6 +174,10 @@ function galleryFilterClauses(filters: GalleryTimelineFilters): { clauses: strin
   if (filters.years.length > 0) {
     clauses.push(`substr(gallery_details.taken_at, 1, 4) IN (${inClause(filters.years.length)})`);
     args.push(...filters.years);
+  }
+  if (filters.months.length > 0) {
+    clauses.push(`substr(gallery_details.taken_at, 6, 2) IN (${inClause(filters.months.length)})`);
+    args.push(...filters.months);
   }
   // Inclusive date bounds on the calendar day of taken_at. Comparing the date
   // prefix keeps both ends inclusive whatever the stored time-of-day is; an asset
@@ -211,13 +219,17 @@ export interface GalleryTimelineQuery {
   q: string;
   kinds: string[];      // ['photo'|'video'] subset; empty = both
   filters?: GalleryTimelineFilters;
+  // 'taken' (default) = newest-first by the EXIF date; 'added' = newest-first by
+  // when the scanner/upload discovered the item (library_items.discovered_at).
+  sort?: "taken" | "added";
   limit: number;
   offset: number;
 }
 
-// Timeline: assets newest-first by taken_at. The client buckets consecutive assets
-// into month headers from each asset's takenAt (Immich-style), so this just returns
-// an ordered, paged slice plus the total for infinite scroll.
+// Timeline: assets newest-first by taken_at (or discovered_at when sort='added').
+// The client buckets consecutive assets into day headers from the sorted date
+// (Immich-style), so this just returns an ordered, paged slice plus the total for
+// infinite scroll.
 export function queryGalleryTimeline(userId: string, libIds: string[], opts: GalleryTimelineQuery) {
   if (libIds.length === 0) return { assets: [], total: 0 };
   const where: string[] = [`library_items.library_id IN (${inClause(libIds.length)})`, "library_items.deleted_at IS NULL"];
@@ -240,10 +252,13 @@ export function queryGalleryTimeline(userId: string, libIds: string[], opts: Gal
   const total = (db.prepare(`SELECT COUNT(*) AS n FROM library_items JOIN gallery_details ON gallery_details.item_id = library_items.id LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id WHERE ${whereSql}`)
     .get(...args) as { n: number }).n;
 
+  const orderSql = opts.sort === "added"
+    ? "datetime(library_items.discovered_at) DESC, library_items.id DESC"
+    : "datetime(gallery_details.taken_at) DESC, library_items.id DESC";
   const rows = db.prepare(`
     SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
     WHERE ${whereSql}
-    ORDER BY datetime(gallery_details.taken_at) DESC, library_items.id DESC
+    ORDER BY ${orderSql}
     LIMIT ? OFFSET ?
   `).all(userId, ...args, opts.limit, opts.offset) as AssetRow[];
 
