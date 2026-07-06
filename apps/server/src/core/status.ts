@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.11",
+          label: "Memories — \"On this day\" in the gallery and on Home",
+          changes: [
+            "The gallery Timeline now opens with a Memories strip: photos taken on today's date in past years, one card per year (\"2019 · 12 photos\"). Tap a year to flip through that day's photos in the lightbox. If nothing was taken exactly on this date, it looks a few days around it — and failing that, this month in past years — and the heading tells you which (\"On this day\", \"Around this day\", \"This month over the years\").",
+            "The Home dashboard gets its first gallery row: \"On this day\" tiles, one per year, that jump straight into the gallery. It only appears when there really are photos from this date in past years — no filler.",
+            "Memories follow your clock, not the server's: the date that counts as \"today\" is the one on the device you're looking at."
+          ]
+        },
+        {
           version: "1.8.10",
           label: "A usable People page — and a way to spot split-up people",
           changes: [
