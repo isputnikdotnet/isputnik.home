@@ -512,14 +512,14 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
             )}
             {!isMobile && memoryGroups.length > 0 && (
               <section className="home-section" aria-labelledby="home-memories-title">
-                <RowHeader id="home-memories-title" title={memoriesTitle} href="/gallery" />
+                <RowHeader id="home-memories-title" title={memoriesTitle} href="/gallery/memories" />
                 <div className="home-tile-grid">
                   {memoryGroups.map((group) => (
                     <a
                       key={group.year}
                       className="audiobook-catalog-card grid home-feed-tile"
-                      href="/gallery"
-                      onClick={(event) => followRoute(event, "/gallery")}
+                      href="/gallery/memories"
+                      onClick={(event) => followRoute(event, "/gallery/memories")}
                     >
                       <div className="audiobook-catalog-cover">
                         {group.items[0]?.coverUrl ? (

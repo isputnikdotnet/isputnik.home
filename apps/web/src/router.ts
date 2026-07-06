@@ -17,6 +17,7 @@ export type Route =
   | { name: "ebooks" }
   | { name: "ebookBook"; id: string }
   | { name: "gallery" }
+  | { name: "galleryMemories" }
   | { name: "galleryAsset"; id: string }
   | { name: "ebookAuthorDetail"; personName: string }
   | { name: "ebookSeries" }
@@ -76,9 +77,14 @@ export function getRoute(): Route {
     return { name: "ebooks" };
   }
 
-  // Gallery (photos + videos). The asset route opens the lightbox over the timeline.
+  // Gallery (photos + videos). The asset route opens the lightbox over the
+  // timeline; /gallery/memories deep-links into the Memories view (Home tiles).
   if (path === "/gallery") {
     return { name: "gallery" };
+  }
+
+  if (path === "/gallery/memories") {
+    return { name: "galleryMemories" };
   }
 
   const galleryAssetMatch = path.match(/^\/gallery\/assets\/([^/]+)$/);

@@ -66,13 +66,13 @@
 .gallery-memory-card {
   position: relative;
   flex: 0 0 auto;
-  width: 210px;
+  width: 320px;
   aspect-ratio: 16 / 10;
   border: 0;
   padding: 0;
   cursor: pointer;
   background: var(--surface-raised);
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
 }
 
@@ -81,6 +81,12 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.25s ease;
+}
+
+.gallery-memory-card:hover img,
+.gallery-memory-card:focus-visible img {
+  transform: scale(1.04);
 }
 
 .gallery-memory-card .gallery-memory-fallback {
@@ -106,13 +112,38 @@
 }
 
 .gallery-memory-card .gallery-memory-overlay strong {
-  font-size: 1.05rem;
+  font-size: 1.45rem;
   line-height: 1.1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .gallery-memory-card .gallery-memory-overlay small {
-  font-size: 0.75rem;
-  opacity: 0.85;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+/* Memories view — one section per year with a date heading */
+.gallery-memories-year {
+  scroll-margin-top: 12px;
+}
+
+.gallery-memories-year-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 18px 0 8px;
+}
+
+.gallery-memories-year-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.gallery-memories-year-head small {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .gallery-tile {

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, FolderOpen, Image as ImageIcon, Images, MapPin, Pencil, Play, Heart, Folder, ScanFace, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, FolderOpen, Image as ImageIcon, Images, MapPin, Pencil, Play, Heart, Folder, ScanFace, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -23,7 +23,7 @@ const PEOPLE_PAGE = 120;
 // it off the initial bundle for the common Timeline/Folder browsing.
 const GalleryMap = lazy(() => import("./GalleryMap").then((m) => ({ default: m.GalleryMap })));
 
-type GalleryView = "timeline" | "folder" | "map" | "people";
+type GalleryView = "timeline" | "folder" | "map" | "people" | "memories";
 type TimelineSort = "taken" | "added";
 
 // Timeline sort, presented through the same compact dropdown the audiobooks/ebooks
@@ -45,6 +45,18 @@ const MEMORIES_TITLES: Record<GalleryMemories["precision"], string> = {
 function yearsAgo(year: number): string {
   const diff = new Date().getFullYear() - year;
   return diff === 1 ? "1 year ago" : `${diff} years ago`;
+}
+
+// Date heading for one year group in the Memories view — today's month/day
+// projected onto that year, phrased to match the precision tier.
+function memoryDateLabel(precision: GalleryMemories["precision"], year: number): string {
+  const now = new Date();
+  if (precision === "month") {
+    return new Date(year, now.getMonth(), 1).toLocaleDateString(undefined, { year: "numeric", month: "long" });
+  }
+  const day = new Date(year, now.getMonth(), now.getDate())
+    .toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  return precision === "near" ? `Around ${day}` : day;
 }
 
 // Calendar-day label for the timeline header from an asset's takenAt.
@@ -126,17 +138,19 @@ function PersonAvatar({ url }: { url: string | null }) {
 export function GalleryPage({
   user,
   logout,
-  initialAssetId
+  initialAssetId,
+  initialView
 }: {
   user: PublicUser;
   logout: () => Promise<void>;
   initialAssetId?: string;
+  initialView?: GalleryView;
 }) {
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
 
-  const [view, setView] = useState<GalleryView>("timeline");
+  const [view, setView] = useState<GalleryView>(initialView ?? "timeline");
   const [scopeId, setScopeId] = useState<string>("all");
   const [sort, setSort] = useState<TimelineSort>("taken");
 
@@ -154,10 +168,11 @@ export function GalleryPage({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Memories ("On this day") for the strip above the timeline, plus the year
-  // group currently open in the lightbox.
+  // Memories ("On this day"): feeds the strip above the timeline AND the
+  // dedicated Memories view. `pendingYear` scrolls the view to a year section
+  // right after a strip card opens it.
   const [memories, setMemories] = useState<GalleryMemories | null>(null);
-  const [memoryAssets, setMemoryAssets] = useState<GalleryAsset[]>([]);
+  const [pendingYear, setPendingYear] = useState<number | null>(null);
 
   // Folder state.
   const [parent, setParent] = useState("");
@@ -400,19 +415,36 @@ export function GalleryPage({
     return () => { alive = false; };
   }, [scopeParams]);
 
-  // Memories for the strip above the timeline. Scope-dependent like the facets;
-  // the date is the viewer's local calendar day (the server may be in another
-  // timezone, and "on this day" belongs to whoever is looking at the screen).
-  useEffect(() => {
-    let alive = true;
+  // Memories, scope-dependent like the facets; the date is the viewer's local
+  // calendar day (the server may be in another timezone, and "on this day"
+  // belongs to whoever is looking at the screen). perYear is the server-side
+  // max so the Memories view has every photo, not a sample.
+  const loadMemories = useCallback(async () => {
     const now = new Date();
     const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const params = new URLSearchParams({ ...scopeParams(), date } as Record<string, string>);
-    api<GalleryMemories>(`/api/library/gallery/memories?${params}`)
-      .then((payload) => { if (alive) setMemories(payload); })
-      .catch(() => { /* advisory; the strip just doesn't render */ });
-    return () => { alive = false; };
+    const params = new URLSearchParams({ ...scopeParams(), date, perYear: "200" } as Record<string, string>);
+    try {
+      setMemories(await api<GalleryMemories>(`/api/library/gallery/memories?${params}`));
+    } catch { /* advisory; the strip/view just stay empty */ }
   }, [scopeParams]);
+
+  useEffect(() => { void loadMemories(); }, [loadMemories]);
+
+  // The Memories lightbox runs over ALL years flattened (newest year first,
+  // chronological within a year), so Next flows from one year into the next.
+  const memoryItems = useMemo(() => memories?.groups.flatMap((group) => group.items) ?? [], [memories]);
+
+  // A strip card opens the Memories view anchored at its year.
+  const openMemoryYear = useCallback((year: number) => {
+    setPendingYear(year);
+    setView("memories");
+  }, []);
+
+  useEffect(() => {
+    if (view !== "memories" || pendingYear == null) return;
+    document.getElementById(`gallery-memories-${pendingYear}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setPendingYear(null);
+  }, [view, pendingYear]);
 
   // Fetch one asset and open it standalone in the lightbox (used by map markers).
   const openAssetById = useCallback((id: string) => {
@@ -422,11 +454,12 @@ export function GalleryPage({
   }, []);
 
   // Reload the active view when scope/sort/query/filters/view changes.
+  // (Memories loads through its own scope-keyed effect above.)
   useEffect(() => {
     if (view === "timeline") void loadTimeline(0);
     else if (view === "folder") void loadFolder("");
     else if (view === "people") { setSelectedPerson(null); void loadPeople(); void loadFaceSettings(); }
-    else void loadMap();
+    else if (view === "map") void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, scopeId, sort, query, filters]);
 
@@ -447,10 +480,11 @@ export function GalleryPage({
       void loadLibraries();
       if (view === "timeline") void loadTimeline(0);
       else if (view === "folder") void loadFolder(parent);
-      else void loadMap();
+      else if (view === "memories") void loadMemories();
+      else if (view === "map") void loadMap();
     }, 3500);
     return () => window.clearInterval(timer);
-  }, [libraries, view, parent, loadLibraries, loadTimeline, loadFolder, loadMap]);
+  }, [libraries, view, parent, loadLibraries, loadTimeline, loadFolder, loadMemories, loadMap]);
 
   // Library selector dropdown open/close + outside-click dismissal.
   const toggleLibraryMenu = () => {
@@ -486,7 +520,7 @@ export function GalleryPage({
     ? [singleAsset]
     : lightbox?.source === "folder" ? folderAssets
       : lightbox?.source === "person" ? personAssets
-        : lightbox?.source === "memory" ? memoryAssets : assets;
+        : lightbox?.source === "memory" ? memoryItems : assets;
 
   const libraryFor = (libraryId: string) => libraries.find((library) => library.id === libraryId);
   const currentLibrary = lightbox != null && activeAssets[lightbox.index]
@@ -504,9 +538,10 @@ export function GalleryPage({
     if (view === "timeline") void loadTimeline(0);
     else if (view === "folder") void loadFolder(parent);
     else if (view === "people") { void loadPeople(); if (selectedPerson) void openPerson(selectedPerson); }
-    else void loadMap();
+    else if (view === "memories") void loadMemories();
+    else if (view === "map") void loadMap();
     void loadLibraries();
-  }, [view, parent, selectedPerson, loadTimeline, loadFolder, loadPeople, openPerson, loadMap, loadLibraries]);
+  }, [view, parent, selectedPerson, loadTimeline, loadFolder, loadPeople, openPerson, loadMemories, loadMap, loadLibraries]);
 
   // Assets currently shown (the selectable set depends on the active view).
   const displayedAssets = view === "timeline" ? assets : folderAssets;
@@ -585,13 +620,16 @@ export function GalleryPage({
   };
 
   const breadcrumbParts = parent ? parent.split("/") : [];
+  const memoriesTotal = memories?.groups.reduce((sum, group) => sum + group.count, 0) ?? 0;
   const subtitle = view === "map"
     ? `${formatCount(mapPoints.length)} on the map`
     : view === "people"
       ? (selectedPerson ? `${formatCount(personTotal)} ${personTotal === 1 ? "photo" : "photos"}` : `${formatCount(people.length)} ${people.length === 1 ? "person" : "people"}`)
-      : view === "timeline"
-        ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
-        : "Browsing by folder";
+      : view === "memories"
+        ? `${formatCount(memoriesTotal)} ${memoriesTotal === 1 ? "photo" : "photos"} from past years`
+        : view === "timeline"
+          ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
+          : "Browsing by folder";
 
   return (
     <DashboardShell active="gallery" user={user} logout={logout}>
@@ -623,7 +661,7 @@ export function GalleryPage({
                   <UploadCloud size={18} aria-hidden="true" />
                 </button>
               )}
-              {canDeleteAny && !selectionMode && view !== "map" && view !== "people" && (
+              {canDeleteAny && !selectionMode && view !== "map" && view !== "people" && view !== "memories" && (
                 <button
                   type="button"
                   className="audiobook-page-action-icon"
@@ -706,6 +744,16 @@ export function GalleryPage({
                     <CalendarDays size={19} aria-hidden="true" />
                     <span>Timeline</span>
                   </a>
+                  {(memories?.groups.length ?? 0) > 0 && (
+                    <a
+                      href="/gallery/memories"
+                      className={view === "memories" ? "active" : ""}
+                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("memories"); }}
+                    >
+                      <Sparkles size={19} aria-hidden="true" />
+                      <span>Memories</span>
+                    </a>
+                  )}
                   <a
                     href="/gallery"
                     className={view === "folder" ? "active" : ""}
@@ -919,6 +967,47 @@ export function GalleryPage({
                   )}
                 </>
               )
+            ) : view === "memories" ? (
+              (memories?.groups.length ?? 0) > 0 ? (
+                (() => {
+                  // Tiles open the lightbox at the asset's position in the
+                  // FLATTENED memories list, so Next flows across year sections.
+                  let flatBase = 0;
+                  return memories!.groups.map((group) => {
+                    const start = flatBase;
+                    flatBase += group.items.length;
+                    return (
+                      <section key={group.year} id={`gallery-memories-${group.year}`} className="gallery-memories-year" aria-label={`Memories from ${group.year}`}>
+                        <div className="gallery-memories-year-head">
+                          <h2>{memoryDateLabel(memories!.precision, group.year)}</h2>
+                          <small>{yearsAgo(group.year)} · {group.count} {group.count === 1 ? "photo" : "photos"}</small>
+                        </div>
+                        <div className="gallery-grid">
+                          {group.items.map((asset, i) => (
+                            <AssetTile
+                              key={asset.id}
+                              asset={asset}
+                              onOpen={() => setLightbox({ source: "memory", index: start + i })}
+                              selectionMode={false}
+                              selected={false}
+                              onToggleSelect={() => { /* selection disabled in Memories */ }}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  });
+                })()
+              ) : (
+                <div className="empty-state library-empty">
+                  <Sparkles size={48} aria-hidden="true" />
+                  <h2>No memories today</h2>
+                  <p className="muted">
+                    When photos from past years match today's date, they show up here. Check back tomorrow —
+                    or add dates to older photos and they'll start resurfacing.
+                  </p>
+                </div>
+              )
             ) : view === "timeline" ? (
               <>
                 {memories && memories.groups.length > 0 && !query && activeGalleryFilterCount(filters) === 0 && !selectionMode && (
@@ -930,7 +1019,7 @@ export function GalleryPage({
                           key={group.year}
                           type="button"
                           className="gallery-memory-card"
-                          onClick={() => { setMemoryAssets(group.items); setLightbox({ source: "memory", index: 0 }); }}
+                          onClick={() => openMemoryYear(group.year)}
                           aria-label={`${MEMORIES_TITLES[memories.precision]} in ${group.year} — ${group.count} ${group.count === 1 ? "photo" : "photos"}`}
                         >
                           {group.items[0]?.coverUrl ? (

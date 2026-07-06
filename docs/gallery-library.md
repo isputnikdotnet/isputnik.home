@@ -50,14 +50,18 @@ UI can label the row honestly. The current year is excluded, and undated assets
 never match. `date` is the **client's** local calendar date (the server may sit
 in another timezone); `perYear` caps items per year group.
 
-Two surfaces consume it (`queryGalleryMemories` in `catalog.ts`):
+Three surfaces consume it (`queryGalleryMemories` in `catalog.ts`):
 
-- a **Memories strip** above the gallery Timeline — one card per year
-  ("2019 · 12 photos"); tapping opens the lightbox scoped to that year's set.
+- a **Memories view** (`/gallery/memories`, also a gallery tab that appears
+  whenever memories exist) — one section per year with a date heading
+  ("July 6, 2014 · 12 years ago"), photo grids feeding the lightbox over the
+  **flattened** cross-year list, so Next flows from one year into the next.
+- a **Memories strip** above the gallery Timeline — one large card per year
+  ("2019 · 12 photos"); tapping opens the Memories view anchored at that year.
   Hidden while searching, filtering, or selecting.
 - an **"On this day" Home row** (the gallery's first Home presence) — one tile
-  per year, linking to the gallery. Desktop only, hidden when there is nothing
-  day-precise to show (the month-wide fallback stays off the dashboard).
+  per year, linking to `/gallery/memories`. Desktop only, hidden when there is
+  nothing day-precise to show (the month-wide fallback stays off the dashboard).
 
 ## Scan pipeline
 
