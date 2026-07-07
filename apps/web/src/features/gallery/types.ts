@@ -42,6 +42,30 @@ export interface GalleryMemories {
   groups: GalleryMemoryGroup[];
 }
 
+// A gallery album (hand-curated set spanning libraries). itemCount/coverUrl
+// reflect only the viewer's accessible items; canEdit = creator or admin.
+export interface GalleryAlbum {
+  id: string;
+  name: string;
+  description: string | null;
+  itemCount: number;
+  coverUrl: string | null;
+  sortMode: "taken_at" | "manual";
+  canEdit: boolean;
+  updatedAt: string;
+}
+
+// The album-detail header (items arrive separately, paged).
+export interface GalleryAlbumDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  sortMode: "taken_at" | "manual";
+  coverItemId: string | null;
+  canEdit: boolean;
+  updatedAt: string;
+}
+
 // A person tagged in a photo (id + name), as returned on the asset detail.
 export interface GalleryPersonTag {
   id: string;
