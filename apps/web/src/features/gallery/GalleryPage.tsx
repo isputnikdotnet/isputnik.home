@@ -798,7 +798,7 @@ export function GalleryPage({
 
   return (
     <DashboardShell active="gallery" user={user} logout={logout}>
-      <section className="audiobook-main-page gallery-page">
+      <section className={`audiobook-main-page gallery-page${selectionMode ? " is-selecting" : ""}`}>
         <AudiobookPageHeader
           title="Gallery"
           subtitle={subtitle}
