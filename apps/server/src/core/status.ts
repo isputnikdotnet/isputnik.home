@@ -502,6 +502,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.12",
+          label: "Gallery, day by day — a Memories tab, richer filters, and edit-in-place photo details",
+          changes: [
+            "The Timeline now groups photos by day (\"July 4, 2023\") instead of by month, and every day header has its own checkbox: one tap selects that whole day (and turns selection mode on), another deselects it. In selection mode only the photos you've picked show a check — no more wall of empty circles.",
+            "Memories grew into a full view: a Memories tab (next to Timeline/Folders) with one section per year and date headings, where flipping through photos flows continuously from year to year. The strip cards on the Timeline are bigger, and both they and Home's \"On this day\" tiles now open the Memories view at that year.",
+            "Filtering and sorting were reworked: the filter panel adds Media type (photos/videos) and Months (say, every July across all years — combine with a year to narrow to one), and the header dropdown now sorts the timeline by date taken or by date uploaded, with the day headers following whichever you pick.",
+            "Opening a photo now shows its details right away, and you edit them right there: a pencil beside Description, Date, and Tags edits each in place (the separate edit window is gone; the name stays as-is). The folder line is clickable and jumps straight to that folder in the Folders view.",
+            "Photos without a location can finally get one: click the map in the photo's details to drop a pin (drag to fine-tune), or remove a wrong one. Manually set locations survive library rescans — same as manually set dates — and the photo immediately shows up on the Map view and in the \"Has location\" filter. Your original files are never touched; edits live in the app's database.",
+            "Fixed the \"Too Many Requests\" error when loading more and more of the timeline: thumbnails no longer eat into the request budget the app itself needs, so long scrolling sessions (and big People pages) stay smooth."
+          ]
+        },
+        {
           version: "1.8.11",
           label: "Memories — \"On this day\" in the gallery and on Home",
           changes: [
