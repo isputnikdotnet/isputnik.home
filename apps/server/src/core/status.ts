@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.13",
+          label: "Albums, bulk actions, and share links for photo sets",
+          changes: [
+            "The gallery gets Albums — your own hand-picked photo sets, spanning every gallery library. A new Albums tab shows them as cover cards; inside, photos read chronologically (or in the order you added them — your choice), and open in the usual viewer. Everyone in the household can view an album; only the person who made it (and admins) can change it. Deleting an album never touches the photos.",
+            "Adding photos is built for batches: select photos in the Timeline or Folders (day checkboxes select whole days) and use \"Add to album\" — or add a single photo from the viewer. The dialog can create a new album and add to it in one step.",
+            "The selection bar gained more actions and stays pinned to the top while you scroll: Favorite the whole selection at once, add it to a collection, or share it (below) — and Select mode is now available to everyone, not just people who can delete.",
+            "Share a set of photos with anyone via a quick link: select, hit Share, choose how long the link lives (1–30 days), and send it. No account needed on their end — they get a clean photo grid with a full-screen viewer (arrow keys work) and per-photo downloads. Links are snapshots of what you selected, only include photos you're allowed to share, and can be revoked anytime from the same dialog.",
+            "Small fix: the viewer button that said \"Add to album\" while actually adding to a collection now says \"Add to collection\" — the new albums button sits right next to it."
+          ]
+        },
+        {
           version: "1.8.12",
           label: "Gallery, day by day — a Memories tab, richer filters, and edit-in-place photo details",
           changes: [
