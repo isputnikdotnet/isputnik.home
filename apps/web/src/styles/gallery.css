@@ -17,18 +17,11 @@
   z-index: 1;
 }
 
-/* Selection mode: the bulk bar pins to the top so its actions stay reachable
-   however far the selection scrolls. It wraps on narrow screens (variable
-   height), so day headers simply stop sticking while it's shown instead of
-   guessing an offset — the bar is the one pinned element. */
-.gallery-page .audiobook-bulk-bar {
-  position: sticky;
-  top: 8px;
-  z-index: 20;
-  box-shadow: 0 8px 22px var(--shadow);
-}
-
-.gallery-page .audiobook-bulk-bar ~ div .gallery-day-head {
+/* The pinned selection bar is shared (see .audiobook-bulk-bar in
+   library-browse.css). Gallery-specific: the bar has variable height and the
+   day-date headers are themselves sticky, so day headers stop sticking while a
+   selection is active — the bar is the one pinned element. */
+.gallery-page.is-selecting .gallery-day-head {
   position: static;
 }
 

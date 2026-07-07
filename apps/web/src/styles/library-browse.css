@@ -515,7 +515,9 @@
   pointer-events: none;
 }
 
-/* Bulk-edit selection toolbar above the catalog grid. */
+/* Bulk-edit selection toolbar above the catalog grid — pinned to the top so its
+   actions stay reachable however far the selection scrolls (audiobooks, ebooks,
+   gallery). */
 .audiobook-bulk-bar {
   display: flex;
   align-items: center;
@@ -527,6 +529,19 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+  box-shadow: 0 8px 22px var(--shadow);
+}
+
+/* position:sticky can't escape a scroll-container ancestor, and the shared
+   .scene-page wrapper uses overflow:hidden to clip its background layers — which
+   would trap the bar. `overflow:clip` clips identically but is NOT a scroll
+   container, so the bar can pin to the viewport. Keyed on the bar's presence via
+   :has() so overflow only changes while a selection is active. */
+.home-main.scene-page:has(.audiobook-bulk-bar) {
+  overflow: clip;
 }
 
 .audiobook-bulk-count {
