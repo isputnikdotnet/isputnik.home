@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, FolderOpen, Image as ImageIcon, Images, ListMusic, MapPin, Pencil, Play, Heart, Folder, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { Album, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, Pencil, Play, Plus, Heart, Folder, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -13,8 +13,10 @@ import { GalleryUploadModal } from "./GalleryUploadModal";
 import { GalleryFaceSettingsModal } from "./GalleryFaceSettingsModal";
 import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
+import { AddToAlbumModal } from "./AddToAlbumModal";
 import { ShareSetModal } from "../share/ShareSetModal";
-import type { GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryPerson } from "./types";
+import { Modal } from "../../shared/Modal";
+import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryPerson } from "./types";
 
 const PAGE_SIZE = 80;
 // The People grid can hold thousands of clusters; render them a page at a time so a
@@ -25,7 +27,7 @@ const PEOPLE_PAGE = 120;
 // it off the initial bundle for the common Timeline/Folder browsing.
 const GalleryMap = lazy(() => import("./GalleryMap").then((m) => ({ default: m.GalleryMap })));
 
-type GalleryView = "timeline" | "folder" | "map" | "people" | "memories";
+type GalleryView = "timeline" | "folder" | "map" | "people" | "memories" | "albums";
 type TimelineSort = "taken" | "added";
 
 // Timeline sort, presented through the same compact dropdown the audiobooks/ebooks
@@ -75,15 +77,18 @@ function AssetTile({
   selectionMode,
   selected,
   onToggleSelect,
-  onRemove
+  onRemove,
+  removeTitle = "Not this person — remove from here"
 }: {
   asset: GalleryAsset;
   onOpen: () => void;
   selectionMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
-  // When set (person page), a corner button detaches this photo from the person.
+  // When set (person page / album detail), a corner button detaches this photo
+  // from the containing set. removeTitle names what it detaches from.
   onRemove?: () => void;
+  removeTitle?: string;
 }) {
   const tile = (
     <button
@@ -119,8 +124,8 @@ function AssetTile({
         type="button"
         className="gallery-tile-remove"
         onClick={(event) => { event.stopPropagation(); onRemove(); }}
-        aria-label={`Remove ${asset.title} from this person`}
-        title="Not this person — remove from here"
+        aria-label={`Remove ${asset.title}`}
+        title={removeTitle}
       >
         <X size={14} aria-hidden="true" />
       </button>
@@ -180,6 +185,19 @@ export function GalleryPage({
   const [parent, setParent] = useState("");
   const [folders, setFolders] = useState<GalleryFolder[]>([]);
   const [folderAssets, setFolderAssets] = useState<GalleryAsset[]>([]);
+
+  // Albums state: the card list, and the open album (detail + paged items).
+  const [albums, setAlbums] = useState<GalleryAlbum[]>([]);
+  const [selectedAlbum, setSelectedAlbum] = useState<GalleryAlbumDetail | null>(null);
+  const [albumAssets, setAlbumAssets] = useState<GalleryAsset[]>([]);
+  const [albumTotal, setAlbumTotal] = useState(0);
+  const [albumCreateOpen, setAlbumCreateOpen] = useState(false);
+  const [albumNewName, setAlbumNewName] = useState("");
+  const [albumNewDesc, setAlbumNewDesc] = useState("");
+  const [albumRename, setAlbumRename] = useState<string | null>(null);
+  const [albumDeleteOpen, setAlbumDeleteOpen] = useState(false);
+  const [albumBusy, setAlbumBusy] = useState(false);
+  const [bulkAlbumOpen, setBulkAlbumOpen] = useState(false);
   // Folder to open on the next switch into the Folders view (set by the lightbox's
   // Folder link); the view-change effect consumes it instead of loading the root.
   const pendingFolderRef = useRef<string | null>(null);
@@ -214,7 +232,7 @@ export function GalleryPage({
   const libraryMenuRef = useRef<HTMLDivElement>(null);
 
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
-  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person" | "memory"; index: number } | null>(null);
+  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person" | "memory" | "album"; index: number } | null>(null);
   const [singleAsset, setSingleAsset] = useState<GalleryAsset | null>(null);
 
   // Upload (source-writing, policy-gated): the modal is offered when any library
@@ -346,6 +364,97 @@ export function GalleryPage({
     }
   }, []);
 
+  // Albums list + one album's items (paged like the timeline). Albums are
+  // global, not scope-filtered — the server already trims items per viewer.
+  const loadAlbums = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const payload = await api<{ albums: GalleryAlbum[] }>("/api/library/gallery/albums");
+      setAlbums(payload.albums);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load albums");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const openAlbum = useCallback(async (albumId: string, offset = 0) => {
+    setLoading(true);
+    setError("");
+    try {
+      const payload = await api<{ album: GalleryAlbumDetail; assets: GalleryAsset[]; total: number }>(
+        `/api/library/gallery/albums/${albumId}?limit=${PAGE_SIZE}&offset=${offset}`
+      );
+      setSelectedAlbum(payload.album);
+      setAlbumAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
+      setAlbumTotal(payload.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load the album");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Album edits (rename / sort mode). Reloads the header + list so cards stay fresh.
+  const patchAlbum = useCallback(async (albumId: string, fields: { name?: string; sortMode?: "taken_at" | "manual" }) => {
+    try {
+      await api(`/api/library/gallery/albums/${albumId}`, { method: "PATCH", body: JSON.stringify(fields) });
+      setAlbumRename(null);
+      void openAlbum(albumId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update the album");
+    }
+  }, [openAlbum]);
+
+  const removeFromAlbum = useCallback(async (albumId: string, assetId: string) => {
+    try {
+      await api(`/api/library/gallery/albums/${albumId}/items/remove`, {
+        method: "POST",
+        body: JSON.stringify({ itemIds: [assetId] })
+      });
+      setAlbumAssets((prev) => prev.filter((asset) => asset.id !== assetId));
+      setAlbumTotal((n) => Math.max(0, n - 1));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to remove the photo");
+    }
+  }, []);
+
+  const createAlbumSubmit = useCallback(async () => {
+    const name = albumNewName.trim();
+    if (!name) return;
+    setAlbumBusy(true);
+    try {
+      await api("/api/library/gallery/albums", {
+        method: "POST",
+        body: JSON.stringify({ name, description: albumNewDesc.trim() || null })
+      });
+      setAlbumCreateOpen(false);
+      setAlbumNewName("");
+      setAlbumNewDesc("");
+      void loadAlbums();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create the album");
+    } finally {
+      setAlbumBusy(false);
+    }
+  }, [albumNewName, albumNewDesc, loadAlbums]);
+
+  const confirmDeleteAlbum = useCallback(async () => {
+    if (!selectedAlbum) return;
+    setAlbumBusy(true);
+    try {
+      await api(`/api/library/gallery/albums/${selectedAlbum.id}`, { method: "DELETE" });
+      setAlbumDeleteOpen(false);
+      setSelectedAlbum(null);
+      void loadAlbums();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete the album");
+    } finally {
+      setAlbumBusy(false);
+    }
+  }, [selectedAlbum, loadAlbums]);
+
   const isAdmin = user.role === "admin";
   const canCuratePeople = libraries.some((library) => library.canWrite);
 
@@ -470,6 +579,7 @@ export function GalleryPage({
       void loadFolder(target);
     }
     else if (view === "people") { setSelectedPerson(null); void loadPeople(); void loadFaceSettings(); }
+    else if (view === "albums") { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); }
     else if (view === "map") void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, scopeId, sort, query, filters]);
@@ -531,7 +641,8 @@ export function GalleryPage({
     ? [singleAsset]
     : lightbox?.source === "folder" ? folderAssets
       : lightbox?.source === "person" ? personAssets
-        : lightbox?.source === "memory" ? memoryItems : assets;
+        : lightbox?.source === "memory" ? memoryItems
+          : lightbox?.source === "album" ? albumAssets : assets;
 
   const libraryFor = (libraryId: string) => libraries.find((library) => library.id === libraryId);
   const currentLibrary = lightbox != null && activeAssets[lightbox.index]
@@ -549,10 +660,11 @@ export function GalleryPage({
     if (view === "timeline") void loadTimeline(0);
     else if (view === "folder") void loadFolder(parent);
     else if (view === "people") { void loadPeople(); if (selectedPerson) void openPerson(selectedPerson); }
+    else if (view === "albums") { if (selectedAlbum) void openAlbum(selectedAlbum.id); else void loadAlbums(); }
     else if (view === "memories") void loadMemories();
     else if (view === "map") void loadMap();
     void loadLibraries();
-  }, [view, parent, selectedPerson, loadTimeline, loadFolder, loadPeople, openPerson, loadMemories, loadMap, loadLibraries]);
+  }, [view, parent, selectedPerson, selectedAlbum, loadTimeline, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, loadMemories, loadMap, loadLibraries]);
 
   // Assets currently shown (the selectable set depends on the active view).
   const displayedAssets = view === "timeline" ? assets : folderAssets;
@@ -678,9 +790,11 @@ export function GalleryPage({
       ? (selectedPerson ? `${formatCount(personTotal)} ${personTotal === 1 ? "photo" : "photos"}` : `${formatCount(people.length)} ${people.length === 1 ? "person" : "people"}`)
       : view === "memories"
         ? `${formatCount(memoriesTotal)} ${memoriesTotal === 1 ? "photo" : "photos"} from past years`
-        : view === "timeline"
-          ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
-          : "Browsing by folder";
+        : view === "albums"
+          ? (selectedAlbum ? `${formatCount(albumTotal)} ${albumTotal === 1 ? "item" : "items"}` : `${formatCount(albums.length)} ${albums.length === 1 ? "album" : "albums"}`)
+          : view === "timeline"
+            ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
+            : "Browsing by folder";
 
   return (
     <DashboardShell active="gallery" user={user} logout={logout}>
@@ -714,7 +828,7 @@ export function GalleryPage({
               )}
               {/* Selection is no longer delete-gated: favoriting and adding to a
                   collection are for every member. Delete inside the bar still is. */}
-              {!selectionMode && view !== "map" && view !== "people" && view !== "memories" && (
+              {!selectionMode && view !== "map" && view !== "people" && view !== "memories" && view !== "albums" && (
                 <button
                   type="button"
                   className="audiobook-page-action-icon"
@@ -812,6 +926,14 @@ export function GalleryPage({
                   )}
                   <a
                     href="/gallery"
+                    className={view === "albums" ? "active" : ""}
+                    onClick={(event) => { event.preventDefault(); setSearchText(""); setView("albums"); }}
+                  >
+                    <Album size={19} aria-hidden="true" />
+                    <span>Albums</span>
+                  </a>
+                  <a
+                    href="/gallery"
                     className={view === "folder" ? "active" : ""}
                     onClick={(event) => { event.preventDefault(); setSearchText(""); setView("folder"); }}
                   >
@@ -865,6 +987,14 @@ export function GalleryPage({
                     disabled={selectedIds.size === 0 || bulkBusy}
                   >
                     <Heart size={15} aria-hidden="true" /> {bulkBusy ? "Adding…" : "Favorite"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button compact-button"
+                    onClick={() => { setBulkError(""); setBulkAlbumOpen(true); }}
+                    disabled={selectedIds.size === 0 || bulkBusy}
+                  >
+                    <ImagePlus size={15} aria-hidden="true" /> Add to album
                   </button>
                   <button
                     type="button"
@@ -1046,6 +1176,108 @@ export function GalleryPage({
                         {isAdmin && !anyFaceEnabled
                           ? "Turn on face recognition (button above) to auto-detect people — or open a photo's details to tag someone by hand."
                           : "Open a photo, show its details, and add a person to start grouping by who's in them."}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )
+            ) : view === "albums" ? (
+              selectedAlbum ? (
+                <>
+                  <div className="gallery-breadcrumb">
+                    <button type="button" onClick={() => { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); }}>All albums</button>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <ChevronRight size={14} aria-hidden="true" />
+                      <strong>{selectedAlbum.name}</strong>
+                    </span>
+                  </div>
+
+                  {selectedAlbum.description && <p className="muted">{selectedAlbum.description}</p>}
+
+                  {selectedAlbum.canEdit && (
+                    <div className="gallery-person-toolbar">
+                      {albumRename == null ? (
+                        <button type="button" className="secondary-button compact-button" onClick={() => setAlbumRename(selectedAlbum.name)}>
+                          <Pencil size={14} aria-hidden="true" /> Rename
+                        </button>
+                      ) : (
+                        <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (albumRename.trim()) void patchAlbum(selectedAlbum.id, { name: albumRename.trim() }); }}>
+                          <input value={albumRename} onChange={(event) => setAlbumRename(event.target.value)} placeholder="Album name" autoFocus maxLength={120} />
+                          <button type="submit" className="primary-button compact-button" disabled={!albumRename.trim()}>Save</button>
+                          <button type="button" className="icon-button" onClick={() => setAlbumRename(null)} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
+                        </form>
+                      )}
+                      <select
+                        value={selectedAlbum.sortMode}
+                        onChange={(event) => void patchAlbum(selectedAlbum.id, { sortMode: event.target.value as "taken_at" | "manual" })}
+                        aria-label="Sort album"
+                      >
+                        <option value="taken_at">Date taken</option>
+                        <option value="manual">Order added</option>
+                      </select>
+                      <button type="button" className="danger-button compact-button" onClick={() => setAlbumDeleteOpen(true)}>
+                        <Trash2 size={14} aria-hidden="true" /> Delete
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="gallery-grid">
+                    {albumAssets.map((asset, index) => (
+                      <AssetTile
+                        key={asset.id}
+                        asset={asset}
+                        onOpen={() => setLightbox({ source: "album", index })}
+                        selectionMode={false}
+                        selected={false}
+                        onToggleSelect={() => { /* selection disabled in Albums view */ }}
+                        onRemove={selectedAlbum.canEdit ? () => void removeFromAlbum(selectedAlbum.id, asset.id) : undefined}
+                        removeTitle="Remove from this album"
+                      />
+                    ))}
+                  </div>
+                  {!loading && albumAssets.length === 0 && (
+                    <p className="management-empty">
+                      This album is empty. Select photos in the Timeline and use “Add to album”.
+                    </p>
+                  )}
+                  {albumAssets.length < albumTotal && (
+                    <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
+                      <button type="button" className="secondary-button" onClick={() => void openAlbum(selectedAlbum.id, albumAssets.length)} disabled={loading}>
+                        {loading ? "Loading…" : "Load more"}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="gallery-person-toolbar">
+                    <button type="button" className="secondary-button compact-button" onClick={() => setAlbumCreateOpen(true)}>
+                      <Plus size={14} aria-hidden="true" /> New album
+                    </button>
+                    <span className="muted gallery-face-hint">
+                      Albums organize photos across libraries. Anyone can view; only the creator and admins can change one.
+                    </span>
+                  </div>
+
+                  {albums.length > 0 && (
+                    <div className="gallery-folder-grid">
+                      {albums.map((album) => (
+                        <button key={album.id} type="button" className="gallery-folder-tile" onClick={() => { setAlbumAssets([]); setAlbumTotal(0); void openAlbum(album.id); }}>
+                          <span className="gallery-folder-thumb">
+                            {album.coverUrl ? <img src={album.coverUrl} alt="" loading="lazy" /> : <Album size={28} aria-hidden="true" />}
+                          </span>
+                          <strong>{album.name}</strong>
+                          <small>{album.itemCount.toLocaleString()} {album.itemCount === 1 ? "item" : "items"}</small>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!loading && albums.length === 0 && (
+                    <div className="empty-state library-empty">
+                      <Album size={48} aria-hidden="true" />
+                      <h2>No albums yet</h2>
+                      <p className="muted">
+                        Create an album here, or select photos in the Timeline and use “Add to album”.
                       </p>
                     </div>
                   )}
@@ -1255,6 +1487,59 @@ export function GalleryPage({
           itemIds={[...selectedIds]}
           onClose={() => setBulkShareOpen(false)}
         />
+      )}
+
+      {bulkAlbumOpen && (
+        <AddToAlbumModal
+          itemIds={[...selectedIds]}
+          title={`${selectedIds.size} selected ${selectedIds.size === 1 ? "item" : "items"}`}
+          onClose={() => setBulkAlbumOpen(false)}
+          onAdded={(albumName, added) => {
+            setBulkAlbumOpen(false);
+            exitSelection();
+            setNotice(`Added ${added} item${added === 1 ? "" : "s"} to "${albumName}".`);
+          }}
+        />
+      )}
+
+      {albumCreateOpen && (
+        <Modal
+          variant="card"
+          title="Create album"
+          onClose={() => { if (!albumBusy) setAlbumCreateOpen(false); }}
+        >
+          <form onSubmit={(event) => { event.preventDefault(); void createAlbumSubmit(); }}>
+            <label className="field">
+              <span>Name</span>
+              <input value={albumNewName} onChange={(event) => setAlbumNewName(event.target.value)} placeholder="e.g. Summer 2026" autoFocus maxLength={120} />
+            </label>
+            <label className="field">
+              <span>Description (optional)</span>
+              <input value={albumNewDesc} onChange={(event) => setAlbumNewDesc(event.target.value)} placeholder="What's in this album?" maxLength={2000} />
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="secondary-button" onClick={() => setAlbumCreateOpen(false)} disabled={albumBusy}>Cancel</button>
+              <button type="submit" className="primary-button" disabled={!albumNewName.trim() || albumBusy}>
+                {albumBusy ? "Creating…" : "Create album"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {albumDeleteOpen && selectedAlbum && (
+        <ConfirmDialog
+          title={`Delete "${selectedAlbum.name}"?`}
+          confirmLabel="Delete album"
+          busyLabel="Deleting…"
+          busy={albumBusy}
+          danger
+          onConfirm={() => void confirmDeleteAlbum()}
+          onCancel={() => { if (!albumBusy) setAlbumDeleteOpen(false); }}
+        >
+          This removes the album only. The photos inside stay in the gallery and in any
+          other albums or collections.
+        </ConfirmDialog>
       )}
 
       {bulkCollectionOpen && (

@@ -266,6 +266,33 @@ CREATE TABLE IF NOT EXISTS gallery_people (
   updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- Gallery albums: hand-curated photo sets spanning every gallery library (the
+-- everyday organization tool; Collections stay the cross-user presentation
+-- feature). Viewable by every member — items are filtered per viewer's library
+-- access on read — and editable by the creator + admins. sort_mode 'taken_at'
+-- shows members chronologically; 'manual' uses position (append order today;
+-- REAL so a future drag-reorder can insert between neighbors).
+CREATE TABLE IF NOT EXISTS gallery_albums (
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  description   TEXT,
+  cover_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  sort_mode     TEXT NOT NULL DEFAULT 'taken_at' CHECK (sort_mode IN ('taken_at', 'manual')),
+  created_by    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS gallery_album_items (
+  album_id TEXT NOT NULL REFERENCES gallery_albums(id) ON DELETE CASCADE,
+  item_id  TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  position REAL NOT NULL,
+  added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (album_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gallery_album_items_item ON gallery_album_items (item_id);
+
 -- One appearance of a person in one asset. A manual whole-photo tag is a row with a
 -- NULL box (box_* / det_score / embedding all NULL, source 'manual'); an
 -- auto-detected face fills the normalised [0,1] box + embedding (source 'scan'). The

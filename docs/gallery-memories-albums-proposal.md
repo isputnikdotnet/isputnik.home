@@ -110,7 +110,21 @@ member-visible by design — so set-sharing means **external guest links**.
 - Later niceties, per link: download-all-as-zip (archiver is already a dep for
   book shares), password protection.
 
-## Phase 3 — Albums
+## Phase 3 — Albums — core SHIPPED (album share links pending)
+
+As built: schema as proposed; `albums.ts` (queries) + `album-routes.ts` under
+`/api/library/gallery/albums` (CRUD, batch add / `items/remove`, paged detail);
+an **Albums** tab with cover cards, a create dialog, and a detail grid feeding
+the lightbox with rename / sort toggle / per-photo remove / delete for editors;
+"Add to album" in the multi-select bar and the lightbox (`AddToAlbumModal`,
+which lists only albums the caller can edit and can create-and-add in one go).
+Open questions resolved: **edit = creator + admins** (view for every member);
+an album whose visible-to-you count is zero is **hidden** unless you can edit
+it (enforced on the list and the detail route alike); v1 ships **without drag
+reorder** — `manual` sort mode means append order (position is REAL, so drag
+can insert between neighbors later). Still to come from this phase: album
+share links (live, serve-time filtered) + the share dialog's "Save as album &
+share" bridge — see Phase 2.5.
 
 Gallery-native entity under `modules/library/gallery`, like the faces tables.
 

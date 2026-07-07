@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Download, Heart, Info, ListMusic, Pencil, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Pencil, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
+import { AddToAlbumModal } from "./AddToAlbumModal";
 import { ShareModal } from "../share/ShareModal";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag } from "./types";
 
@@ -78,6 +79,7 @@ export function GalleryLightbox({
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState("");
   const [collectionOpen, setCollectionOpen] = useState(false);
+  const [albumOpen, setAlbumOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -130,7 +132,7 @@ export function GalleryLightbox({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (collectionOpen || deleteOpen || shareOpen) return;
+      if (collectionOpen || albumOpen || deleteOpen || shareOpen) return;
       // Typing in an inline form (field edit, person tag) must not steer the
       // lightbox: arrows move the caret there, and Escape cancels the form.
       const target = event.target as HTMLElement | null;
@@ -141,7 +143,7 @@ export function GalleryLightbox({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, assets.length, onClose, onIndexChange, collectionOpen, deleteOpen, shareOpen]);
+  }, [index, assets.length, onClose, onIndexChange, collectionOpen, albumOpen, deleteOpen, shareOpen]);
 
   if (!asset) return null;
 
@@ -370,6 +372,15 @@ export function GalleryLightbox({
             title={fav ? "Favorited" : "Favorite"}
           >
             <Heart size={18} fill={fav ? "currentColor" : "none"} aria-hidden="true" />
+          </button>
+          <button
+            className="gallery-lightbox-action"
+            type="button"
+            onClick={() => setAlbumOpen(true)}
+            aria-label="Add to album"
+            title="Add to album"
+          >
+            <ImagePlus size={18} aria-hidden="true" />
           </button>
           <button
             className="gallery-lightbox-action"
@@ -633,6 +644,15 @@ export function GalleryLightbox({
           entityId={asset.id}
           title={asset.title}
           onClose={() => setCollectionOpen(false)}
+        />
+      )}
+
+      {albumOpen && (
+        <AddToAlbumModal
+          itemIds={[asset.id]}
+          title={asset.title}
+          onClose={() => setAlbumOpen(false)}
+          onAdded={() => setAlbumOpen(false)}
         />
       )}
 
