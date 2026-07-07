@@ -215,8 +215,8 @@ CREATE TABLE IF NOT EXISTS ebook_details (
 -- gallery item is a SINGLE asset (one file = one item, like ebooks), so the file
 -- itself is described here rather than in a separate media-files table.
 -- `taken_at` (from EXIF, falling back to file mtime) drives the date Timeline;
--- `relative_path`'s directory drives the Folder view. GPS/camera are stored when
--- present for a future map view; there is no map UI yet.
+-- `relative_path`'s directory drives the Folder view. GPS/camera feed the Map
+-- view, the lightbox Info panel, and the location/camera filters.
 CREATE TABLE IF NOT EXISTS gallery_details (
   item_id             TEXT PRIMARY KEY REFERENCES library_items(id) ON DELETE CASCADE,
   kind                TEXT NOT NULL DEFAULT 'photo' CHECK (kind IN ('photo', 'video')),
@@ -238,6 +238,9 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   modified_at         TEXT,
   gps_lat             REAL,
   gps_lng             REAL,
+  -- 'manual' = the location was set by a user (Info panel) and a rescan must not
+  -- overwrite it; 'scan' = derived from EXIF.
+  gps_source          TEXT NOT NULL DEFAULT 'scan' CHECK (gps_source IN ('scan', 'manual')),
   camera_make         TEXT,
   camera_model        TEXT,
   preview_storage_key TEXT,

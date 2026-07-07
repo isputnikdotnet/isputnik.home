@@ -449,7 +449,7 @@
 .gallery-mini-map {
   position: relative;
   z-index: 0;
-  height: 160px;
+  height: 240px;
   width: 100%;
   border-radius: 8px;
   overflow: hidden;
@@ -463,6 +463,80 @@
 
 .gallery-location-link {
   font-size: 0.82rem;
+}
+
+/* Inline field editing in the Info panel: a pencil beside the field label, and a
+   small form replacing the value while that field is open. */
+/* Link-styled button for Info-panel values that navigate (e.g. the folder). */
+.gallery-info-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #8eb4bf;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  word-break: break-word;
+}
+
+.gallery-info-link:hover {
+  text-decoration: underline;
+}
+
+.gallery-info-edit {
+  display: inline-flex;
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.gallery-info-edit:hover {
+  color: #fff;
+}
+
+.gallery-info-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.gallery-info-form input,
+.gallery-info-form textarea {
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+/* Dark form controls so the native date picker's icons stay visible. */
+.gallery-info-form input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+.gallery-info-form-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.gallery-info-error {
+  display: block;
+  color: #ff9c9c;
+  font-size: 0.8rem;
+}
+
+.gallery-info-hint {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.78rem;
 }
 
 /* Location pin: a small dot with a white ring (divIcon avoids Leaflet's
