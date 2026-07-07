@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.14",
+          label: "The selection bar now stays with you",
+          changes: [
+            "When you're selecting photos, audiobooks, or ebooks, the action bar (Favorite, Add to album/collection, Share, Delete, and the like) now stays pinned to the top of the screen as you scroll, instead of scrolling off with the page. Its buttons are always within reach no matter how far down a long list you go."
+          ]
+        },
+        {
           version: "1.8.13",
           label: "Albums, bulk actions, and share links for photo sets",
           changes: [
