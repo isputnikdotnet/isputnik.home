@@ -130,6 +130,24 @@ describe("gallery manual edits", () => {
     expect(row.takenAt).toBe("2019-07-04T18:30:00.000Z"); // manual date preserved, not the mtime
     expect(row.tags.sort()).toEqual(["lake", "vacation"]);
   });
+
+  it("keeps a hand-set location across a rescan, and can remove one", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    updateGalleryAsset(id, { title: "a.jpg", description: null, takenAt: null, tags: [], gps: { lat: 53.9, lng: 27.56 } });
+
+    // A rescan re-ingests the file (no EXIF GPS) — the manual point must survive.
+    await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-09-09T00:00:00Z")), false);
+    const { assets } = queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0 });
+    expect(assets.find((a) => a.id === id)!.gps).toEqual({ lat: 53.9, lng: 27.56 });
+
+    // Omitting gps leaves it untouched; null removes it.
+    updateGalleryAsset(id, { title: "a.jpg", description: null, takenAt: null, tags: [] });
+    expect(queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0 }).assets.find((a) => a.id === id)!.gps)
+      .toEqual({ lat: 53.9, lng: 27.56 });
+    updateGalleryAsset(id, { title: "a.jpg", description: null, takenAt: null, tags: [], gps: null });
+    expect(queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0 }).assets.find((a) => a.id === id)!.gps)
+      .toBeNull();
+  });
 });
 
 describe("gallery access scoping", () => {

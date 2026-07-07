@@ -116,6 +116,19 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE jobs ADD COLUMN started_at TEXT");
       }
     }
+  },
+  // Manual-location protection: a user-set gallery GPS point (Info panel) must
+  // survive rescans, like taken_at_source does for the date. Existing rows default
+  // to 'scan'. Conditional because schema.sql (run first) already adds it on fresh
+  // databases.
+  {
+    version: 11,
+    up: (db) => {
+      const columns = db.pragma("table_info(gallery_details)") as { name: string }[];
+      if (!columns.some((column) => column.name === "gps_source")) {
+        db.exec("ALTER TABLE gallery_details ADD COLUMN gps_source TEXT NOT NULL DEFAULT 'scan'");
+      }
+    }
   }
 ];
 

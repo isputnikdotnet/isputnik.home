@@ -6,12 +6,12 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { ShareModal } from "../share/ShareModal";
-import { GalleryEditModal } from "./GalleryEditModal";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag } from "./types";
 
 // Leaflet rides in only when the Info panel shows a geotagged photo — keeps it off
 // the initial bundle (and reuses the same chunk as the gallery Map view).
 const GalleryMiniMap = lazy(() => import("./GalleryMiniMap").then((m) => ({ default: m.GalleryMiniMap })));
+const GalleryLocationPicker = lazy(() => import("./GalleryLocationPicker").then((m) => ({ default: m.GalleryLocationPicker })));
 
 function formatDuration(seconds: number | null): string {
   if (seconds == null) return "";
@@ -28,6 +28,19 @@ function formatTaken(takenAt: string | null): string {
   return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+// ISO → value for <input type="datetime-local"> (local wall-clock, minute precision).
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Fields editable inline in the Info panel ("gps" opens the map picker). The name
+// and technical fields (dimensions, size, camera) stay read-only.
+type EditableField = "description" | "takenAt" | "tags" | "gps";
+
 // Full-screen photo/video viewer with keyboard navigation. Renders into a portal
 // over the whole app (not a shared/Modal — a media lightbox is full-bleed and owns
 // its own chrome). Per-asset actions act on the current item.
@@ -37,6 +50,7 @@ export function GalleryLightbox({
   onClose,
   onIndexChange,
   onChanged,
+  onOpenFolder,
   canDelete,
   canEdit,
   canShare
@@ -46,13 +60,23 @@ export function GalleryLightbox({
   onClose: () => void;
   onIndexChange: (next: number) => void;
   onChanged: () => void;
+  // When set, the Info panel's Folder entry becomes a link that closes the
+  // lightbox and opens that folder in the gallery's Folders view.
+  onOpenFolder?: (folder: string) => void;
   canDelete: boolean;
   canEdit: boolean;
   canShare: boolean;
 }) {
   const asset = assets[index];
-  const [showInfo, setShowInfo] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  // The Info panel opens with the photo — details are part of viewing, not an extra.
+  const [showInfo, setShowInfo] = useState(true);
+  // Inline field editing in the Info panel (one field at a time).
+  const [editingField, setEditingField] = useState<EditableField | null>(null);
+  const [editValue, setEditValue] = useState("");
+  // The point picked on the location editor's map (separate from the text fields).
+  const [editGps, setEditGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -72,6 +96,9 @@ export function GalleryLightbox({
   const [personError, setPersonError] = useState("");
 
   useEffect(() => { setFav(asset?.saved ?? false); }, [asset?.id, asset?.saved]);
+
+  // Moving to another asset abandons any in-progress field edit.
+  useEffect(() => { setEditingField(null); setEditError(""); }, [asset?.id]);
 
   // Load the current asset's people (from the detail endpoint when the row lacks them).
   useEffect(() => {
@@ -103,14 +130,18 @@ export function GalleryLightbox({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (collectionOpen || deleteOpen || editOpen || shareOpen) return;
+      if (collectionOpen || deleteOpen || shareOpen) return;
+      // Typing in an inline form (field edit, person tag) must not steer the
+      // lightbox: arrows move the caret there, and Escape cancels the form.
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
       if (event.key === "Escape") onClose();
       else if (event.key === "ArrowLeft" && index > 0) onIndexChange(index - 1);
       else if (event.key === "ArrowRight" && index < assets.length - 1) onIndexChange(index + 1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, assets.length, onClose, onIndexChange, collectionOpen, deleteOpen, editOpen, shareOpen]);
+  }, [index, assets.length, onClose, onIndexChange, collectionOpen, deleteOpen, shareOpen]);
 
   if (!asset) return null;
 
@@ -165,6 +196,77 @@ export function GalleryLightbox({
     }
   };
 
+  // Inline field editing. The PATCH endpoint wants the full editable payload
+  // (title is required, tags default to []), so each save sends the asset's
+  // current values with just the edited field swapped in.
+  const startEdit = (field: EditableField) => {
+    setEditError("");
+    setEditingField(field);
+    if (field === "gps") { setEditGps(asset.gps); return; }
+    setEditValue(
+      field === "description" ? (asset.description ?? "")
+        : field === "takenAt" ? toLocalInput(asset.takenAt)
+          : asset.tags.join(", ")
+    );
+  };
+
+  const cancelEdit = () => { setEditingField(null); setEditError(""); };
+
+  // Save the picked location (or null to remove one). Sent alongside the other
+  // editable fields unchanged — the PATCH endpoint wants the full payload, and an
+  // omitted `gps` means "leave it alone", so only this save touches the location.
+  const saveLocation = async (next: { lat: number; lng: number } | null) => {
+    if (editBusy) return;
+    setEditBusy(true);
+    setEditError("");
+    try {
+      await api(`/api/library/gallery/assets/${asset.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: asset.title,
+          description: asset.description,
+          takenAt: asset.takenAt,
+          tags: asset.tags,
+          gps: next
+        })
+      });
+      setEditingField(null);
+      onChanged();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Unable to save the location");
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const saveEdit = async () => {
+    if (editBusy || !editingField) return;
+    const body: { title: string; description: string | null; takenAt: string | null; tags: string[] } = {
+      title: asset.title,
+      description: asset.description,
+      takenAt: asset.takenAt,
+      tags: asset.tags
+    };
+    if (editingField === "description") {
+      body.description = editValue.trim() || null;
+    } else if (editingField === "takenAt") {
+      body.takenAt = editValue ? new Date(editValue).toISOString() : null;
+    } else {
+      body.tags = Array.from(new Set(editValue.split(",").map((tag) => tag.trim()).filter(Boolean)));
+    }
+    setEditBusy(true);
+    setEditError("");
+    try {
+      await api(`/api/library/gallery/assets/${asset.id}`, { method: "PATCH", body: JSON.stringify(body) });
+      setEditingField(null);
+      onChanged();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Unable to save changes");
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
   // Tag a person: link an existing one when the typed name matches (case-insensitive),
   // otherwise create a new person. The API returns the updated asset with its people.
   const addPerson = async () => {
@@ -206,6 +308,49 @@ export function GalleryLightbox({
     asset.width && asset.height ? `${asset.width}×${asset.height}` : "",
     asset.kind === "video" ? formatDuration(asset.durationSeconds) : ""
   ].filter(Boolean).join(" · ");
+
+  // The pencil beside an editable field's label (hidden while that field is open).
+  const editPencil = (field: EditableField, label: string) =>
+    canEdit && editingField !== field ? (
+      <button
+        type="button"
+        className="gallery-info-edit"
+        onClick={() => startEdit(field)}
+        aria-label={`Edit ${label}`}
+        title={`Edit ${label}`}
+      >
+        <Pencil size={12} aria-hidden="true" />
+      </button>
+    ) : null;
+
+  // The inline form replacing a field's value while it's being edited.
+  const editForm = (field: EditableField) => (
+    <form
+      className="gallery-info-form"
+      onSubmit={(event) => { event.preventDefault(); void saveEdit(); }}
+      onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); cancelEdit(); } }}
+    >
+      {field === "description" ? (
+        <textarea value={editValue} onChange={(event) => setEditValue(event.target.value)} rows={3} maxLength={5000} autoFocus />
+      ) : field === "takenAt" ? (
+        <input type="datetime-local" value={editValue} onChange={(event) => setEditValue(event.target.value)} autoFocus />
+      ) : (
+        <input
+          value={editValue}
+          onChange={(event) => setEditValue(event.target.value)}
+          placeholder="e.g. vacation, family"
+          autoFocus
+        />
+      )}
+      <div className="gallery-info-form-actions">
+        <button type="submit" className="primary-button compact-button" disabled={editBusy}>
+          {editBusy ? "Saving…" : "Save"}
+        </button>
+        <button type="button" className="secondary-button compact-button" onClick={cancelEdit} disabled={editBusy}>Cancel</button>
+      </div>
+      {editError && <span className="gallery-info-error">{editError}</span>}
+    </form>
+  );
 
   return createPortal(
     <div className="gallery-lightbox" role="dialog" aria-label={asset.title} aria-modal="true">
@@ -289,17 +434,6 @@ export function GalleryLightbox({
               </button>
             </>
           )}
-          {canEdit && (
-            <button
-              className="gallery-lightbox-action"
-              type="button"
-              onClick={() => setEditOpen(true)}
-              aria-label="Edit details"
-              title="Edit details"
-            >
-              <Pencil size={18} aria-hidden="true" />
-            </button>
-          )}
           {canDelete && (
             <button
               className="gallery-lightbox-action"
@@ -340,8 +474,18 @@ export function GalleryLightbox({
           <h3>Details</h3>
           <dl>
             <div><dt>Name</dt><dd>{asset.title}</dd></div>
-            {asset.description && <div><dt>Description</dt><dd>{asset.description}</dd></div>}
-            {asset.takenAt && <div><dt>Date</dt><dd>{formatTaken(asset.takenAt)}</dd></div>}
+            {(asset.description || canEdit) && (
+              <div>
+                <dt>Description{editPencil("description", "description")}</dt>
+                <dd>{editingField === "description" ? editForm("description") : (asset.description || <span className="muted">—</span>)}</dd>
+              </div>
+            )}
+            {(asset.takenAt || canEdit) && (
+              <div>
+                <dt>Date{editPencil("takenAt", "date")}</dt>
+                <dd>{editingField === "takenAt" ? editForm("takenAt") : (formatTaken(asset.takenAt) || <span className="muted">—</span>)}</dd>
+              </div>
+            )}
             <div><dt>Type</dt><dd>{asset.kind === "video" ? "Video" : "Photo"}</dd></div>
             {asset.width != null && asset.height != null && (
               <div><dt>Dimensions</dt><dd>{asset.width} × {asset.height}</dd></div>
@@ -353,21 +497,50 @@ export function GalleryLightbox({
             {asset.camera && (asset.camera.make || asset.camera.model) && (
               <div><dt>Camera</dt><dd>{[asset.camera.make, asset.camera.model].filter(Boolean).join(" ")}</dd></div>
             )}
-            {asset.gps && (
+            {(asset.gps || canEdit) && (
               <div>
-                <dt>Location</dt>
+                <dt>Location{editPencil("gps", "location")}</dt>
                 <dd>
-                  <Suspense fallback={<div className="gallery-mini-map gallery-mini-map--loading" />}>
-                    <GalleryMiniMap lat={asset.gps.lat} lng={asset.gps.lng} title={asset.title} />
-                  </Suspense>
-                  <a
-                    className="gallery-location-link"
-                    href={`https://www.openstreetmap.org/?mlat=${asset.gps.lat}&mlon=${asset.gps.lng}#map=15/${asset.gps.lat}/${asset.gps.lng}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {asset.gps.lat.toFixed(5)}, {asset.gps.lng.toFixed(5)}
-                  </a>
+                  {editingField === "gps" ? (
+                    <div className="gallery-info-form">
+                      <Suspense fallback={<div className="gallery-mini-map gallery-mini-map--loading" />}>
+                        <GalleryLocationPicker value={editGps} onChange={setEditGps} />
+                      </Suspense>
+                      <span className="gallery-info-hint">
+                        {editGps
+                          ? `${editGps.lat.toFixed(5)}, ${editGps.lng.toFixed(5)}`
+                          : "Click the map to mark where this was taken."}
+                      </span>
+                      <div className="gallery-info-form-actions">
+                        <button type="button" className="primary-button compact-button" onClick={() => { if (editGps) void saveLocation(editGps); }} disabled={editBusy || !editGps}>
+                          {editBusy ? "Saving…" : "Save"}
+                        </button>
+                        <button type="button" className="secondary-button compact-button" onClick={cancelEdit} disabled={editBusy}>Cancel</button>
+                        {asset.gps && (
+                          <button type="button" className="danger-button compact-button" onClick={() => void saveLocation(null)} disabled={editBusy}>
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      {editError && <span className="gallery-info-error">{editError}</span>}
+                    </div>
+                  ) : asset.gps ? (
+                    <>
+                      <Suspense fallback={<div className="gallery-mini-map gallery-mini-map--loading" />}>
+                        <GalleryMiniMap lat={asset.gps.lat} lng={asset.gps.lng} title={asset.title} />
+                      </Suspense>
+                      <a
+                        className="gallery-location-link"
+                        href={`https://www.openstreetmap.org/?mlat=${asset.gps.lat}&mlon=${asset.gps.lng}#map=15/${asset.gps.lat}/${asset.gps.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {asset.gps.lat.toFixed(5)}, {asset.gps.lng.toFixed(5)}
+                      </a>
+                    </>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
                 </dd>
               </div>
             )}
@@ -429,18 +602,29 @@ export function GalleryLightbox({
                 </dd>
               </div>
             )}
-            <div><dt>Folder</dt><dd>{asset.folder || "/"}</dd></div>
-            {asset.tags.length > 0 && <div><dt>Tags</dt><dd>{asset.tags.join(", ")}</dd></div>}
+            <div>
+              <dt>Folder</dt>
+              <dd>
+                {onOpenFolder ? (
+                  <button
+                    type="button"
+                    className="gallery-info-link"
+                    onClick={() => onOpenFolder(asset.folder)}
+                    title="Open this folder"
+                  >
+                    {asset.folder || "/"}
+                  </button>
+                ) : (asset.folder || "/")}
+              </dd>
+            </div>
+            {(asset.tags.length > 0 || canEdit) && (
+              <div>
+                <dt>Tags{editPencil("tags", "tags")}</dt>
+                <dd>{editingField === "tags" ? editForm("tags") : (asset.tags.length > 0 ? asset.tags.join(", ") : <span className="muted">—</span>)}</dd>
+              </div>
+            )}
           </dl>
         </aside>
-      )}
-
-      {editOpen && (
-        <GalleryEditModal
-          asset={asset}
-          onClose={() => setEditOpen(false)}
-          onSaved={() => { setEditOpen(false); onChanged(); }}
-        />
       )}
 
       {collectionOpen && (

@@ -178,6 +178,9 @@ export function GalleryPage({
   const [parent, setParent] = useState("");
   const [folders, setFolders] = useState<GalleryFolder[]>([]);
   const [folderAssets, setFolderAssets] = useState<GalleryAsset[]>([]);
+  // Folder to open on the next switch into the Folders view (set by the lightbox's
+  // Folder link); the view-change effect consumes it instead of loading the root.
+  const pendingFolderRef = useRef<string | null>(null);
 
   // Map state. `mapCount` (geotagged assets in scope, from the facets) gates whether
   // the Map tab is offered at all; `mapPoints` are the markers for the active scope/kind.
@@ -457,7 +460,11 @@ export function GalleryPage({
   // (Memories loads through its own scope-keyed effect above.)
   useEffect(() => {
     if (view === "timeline") void loadTimeline(0);
-    else if (view === "folder") void loadFolder("");
+    else if (view === "folder") {
+      const target = pendingFolderRef.current ?? "";
+      pendingFolderRef.current = null;
+      void loadFolder(target);
+    }
     else if (view === "people") { setSelectedPerson(null); void loadPeople(); void loadFaceSettings(); }
     else if (view === "map") void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -592,6 +599,21 @@ export function GalleryPage({
     setLightbox(null);
     setSingleAsset(null);
     if (initialAssetId) navigate("/gallery");
+  };
+
+  // Jump from the lightbox's Folder link to that folder in the Folders view.
+  // Search/filters are timeline-scoped (an active one bounces the user back to
+  // the timeline), so they clear as part of the jump. `query` is set directly —
+  // waiting for the debounce would re-fire the view effect after the pending
+  // folder was consumed and reset the view to the folder root.
+  const openAssetFolder = (folder: string) => {
+    closeLightbox();
+    if (view === "folder") { void loadFolder(folder); return; }
+    setSearchText("");
+    setQuery("");
+    setFilters(EMPTY_GALLERY_FILTERS);
+    pendingFolderRef.current = folder;
+    setView("folder");
   };
 
   // Group timeline assets into calendar-day buckets for the date headers, keyed on
@@ -1152,6 +1174,7 @@ export function GalleryPage({
           onClose={closeLightbox}
           onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
           onChanged={refreshView}
+          onOpenFolder={openAssetFolder}
         />
       )}
 

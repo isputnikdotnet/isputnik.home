@@ -378,13 +378,15 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     reply.send({ asset });
   });
 
-  // Manual metadata edit: title/caption, description, date taken, tags. Requires
-  // write access to the asset's library; protects the fields from future rescans.
+  // Manual metadata edit: title/caption, description, date taken, tags, location.
+  // Requires write access to the asset's library; protects the fields from future
+  // rescans. `gps` omitted = leave the location untouched, null = remove it.
   const editSchema = z.object({
     title: z.string().trim().min(1).max(300),
     description: z.string().trim().max(5000).nullable().optional(),
     takenAt: z.string().datetime().nullable().optional(),
-    tags: z.array(z.string().trim().min(1).max(80)).max(50).default([])
+    tags: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
+    gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).nullable().optional()
   });
 
   app.patch("/api/library/gallery/assets/:id", { preHandler: app.authenticate }, async (request, reply) => {
@@ -406,7 +408,8 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       title: parsed.data.title,
       description: parsed.data.description ?? null,
       takenAt: parsed.data.takenAt ?? null,
-      tags: parsed.data.tags ?? []
+      tags: parsed.data.tags ?? [],
+      gps: parsed.data.gps
     });
     if (!ok) {
       reply.code(404).send({ error: "Asset not found" });

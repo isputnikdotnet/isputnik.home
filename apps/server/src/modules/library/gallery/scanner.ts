@@ -169,9 +169,11 @@ export async function ingestGalleryAsset(
         kind = excluded.kind, relative_path = excluded.relative_path, mime_type = excluded.mime_type,
         size = excluded.size, width = excluded.width, height = excluded.height, orientation = excluded.orientation,
         duration_seconds = excluded.duration_seconds, modified_at = excluded.modified_at,
-        -- A user-set date is preserved; a scan-owned date tracks the file.
+        -- A user-set date/location is preserved; scan-owned values track the file.
         taken_at = CASE WHEN gallery_details.taken_at_source = 'manual' THEN gallery_details.taken_at ELSE excluded.taken_at END,
-        gps_lat = excluded.gps_lat, gps_lng = excluded.gps_lng, camera_make = excluded.camera_make,
+        gps_lat = CASE WHEN gallery_details.gps_source = 'manual' THEN gallery_details.gps_lat ELSE excluded.gps_lat END,
+        gps_lng = CASE WHEN gallery_details.gps_source = 'manual' THEN gallery_details.gps_lng ELSE excluded.gps_lng END,
+        camera_make = excluded.camera_make,
         camera_model = excluded.camera_model,
         preview_storage_key = COALESCE(excluded.preview_storage_key, gallery_details.preview_storage_key),
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')

@@ -1,6 +1,7 @@
 // Manual metadata edits for a gallery asset (title/caption, description, date
-// taken, tags). Marks item_metadata.source = 'manual' and, when a date is given,
-// gallery_details.taken_at_source = 'manual', so a rescan preserves the edits.
+// taken, tags, location). Marks item_metadata.source = 'manual' and, when a date
+// or location is given, the matching gallery_details *_source = 'manual', so a
+// rescan preserves the edits.
 import { db } from "../../../db.js";
 import { setEntityTags } from "../audiobook/categorize.js";
 
@@ -9,6 +10,9 @@ export interface GalleryAssetEdit {
   description: string | null;
   takenAt: string | null; // ISO; null = leave the existing date untouched
   tags: string[];
+  // undefined = leave the existing location untouched; null = remove it;
+  // a point = set it. Any change marks the location user-owned (gps_source).
+  gps?: { lat: number; lng: number } | null;
 }
 
 function sortName(value: string): string {
@@ -35,6 +39,12 @@ export function updateGalleryAsset(itemId: string, data: GalleryAssetEdit): bool
       db.prepare(
         "UPDATE gallery_details SET taken_at = ?, taken_at_source = 'manual', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?"
       ).run(data.takenAt, itemId);
+    }
+
+    if (data.gps !== undefined) {
+      db.prepare(
+        "UPDATE gallery_details SET gps_lat = ?, gps_lng = ?, gps_source = 'manual', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?"
+      ).run(data.gps?.lat ?? null, data.gps?.lng ?? null, itemId);
     }
 
     setEntityTags("library_item", itemId, data.tags);
