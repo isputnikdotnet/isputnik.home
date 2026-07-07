@@ -5,24 +5,38 @@ import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { CollectionSummary } from "./types";
 
-// Add or remove a single entity (audiobook or ebook) from the caller's
-// collections. Reuses the generic /api/collections endpoints — nothing here is
-// type-specific beyond the entityType prop the caller passes.
+// Add or remove entities from the caller's collections. Reuses the generic
+// /api/collections endpoints — nothing here is type-specific beyond the
+// entityType prop the caller passes.
 // entityType is required (no default): every call site must say what it is
 // adding. A silent "audiobook" default once let ebooks be stored as the wrong
 // type. The union forces a compile error when a new collectable type is wired
 // up but a call site is missed.
+//
+// Two modes, enforced as a union so a call site can't pass both:
+// - entityId (single): rows show ✓ for collections containing the item and
+//   clicking toggles membership.
+// - entityIds (bulk, the multi-select bar): no membership marks; clicking a
+//   collection batch-adds everything, reports via onAdded, and closes.
+type AddTarget =
+  | { entityId: string; entityIds?: undefined }
+  | { entityIds: string[]; entityId?: undefined };
+
 export function AddToCollectionModal({
   entityType,
   entityId,
+  entityIds,
   title,
-  onClose
+  onClose,
+  onAdded
 }: {
   entityType: "audiobook" | "ebook" | "gallery";
-  entityId: string;
   title: string;
   onClose: () => void;
-}) {
+  // Bulk mode only: called after a successful batch add (collection name + how
+  // many were actually added, duplicates excluded).
+  onAdded?: (collectionName: string, added: number) => void;
+} & AddTarget) {
   const [collections, setCollections] = useState<CollectionSummary[] | null>(null);
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -30,18 +44,35 @@ export function AddToCollectionModal({
   const [newName, setNewName] = useState("");
 
   const load = () => {
-    const params = new URLSearchParams({ entityType, entityId });
+    const params = new URLSearchParams(
+      entityId ? { entityType, entityId } : { entityType }
+    );
     api<{ collections: CollectionSummary[] }>(`/api/collections?${params}`)
       .then((payload) => setCollections(payload.collections))
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load collections"));
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [entityId, entityType]);
+
+  // Bulk: add every selected entity to this collection in one request.
+  const addAll = async (collection: CollectionSummary) => {
+    const result = await api<{ added: number; skipped: number }>(`/api/collections/${collection.id}/items/batch`, {
+      method: "POST",
+      body: JSON.stringify({ entityType, entityIds })
+    });
+    onAdded?.(collection.name, result.added);
+    onClose();
+  };
 
   const toggle = async (collection: CollectionSummary) => {
     setPendingId(collection.id);
     setError("");
     try {
+      if (entityIds) {
+        await addAll(collection);
+        return;
+      }
       if (collection.containsItem && collection.itemId) {
         await api(`/api/collections/${collection.id}/items/${collection.itemId}`, { method: "DELETE" });
       } else {
@@ -67,6 +98,10 @@ export function AddToCollectionModal({
         method: "POST",
         body: JSON.stringify({ name })
       });
+      if (entityIds) {
+        await addAll(collection);
+        return;
+      }
       await api(`/api/collections/${collection.id}/items`, {
         method: "POST",
         body: JSON.stringify({ entityType, entityId })

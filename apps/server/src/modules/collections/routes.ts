@@ -20,6 +20,11 @@ const addItemSchema = z.object({
   entityId: z.string().trim().min(1).max(64)
 });
 
+const addItemsSchema = z.object({
+  entityType: z.enum(COLLECTABLE_ENTITY_TYPES as [string, ...string[]]),
+  entityIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500)
+});
+
 const reorderSchema = z.object({
   orderedItemIds: z.array(z.string().trim().min(1).max(64)).min(1)
 });
@@ -44,6 +49,48 @@ function ownedCollection(id: string, userId: string): CollectionRow | undefined 
   return db.prepare(
     "SELECT id, name, description, created_at, updated_at FROM collections WHERE id = ? AND user_id = ?"
   ).get(id, userId) as CollectionRow | undefined;
+}
+
+// Append many entities of one type in a single transaction (the multi-select
+// bar's "Add to collection"). Same access rule as the single add — entities the
+// caller can't reach are skipped, never errors — and duplicates are skipped so
+// the call is idempotent. Assumes the caller already verified ownership.
+export function appendCollectionItems(
+  collectionId: string,
+  user: { id: string; role: string },
+  entityType: string,
+  entityIds: string[]
+): { added: number; skipped: number } {
+  const unique = [...new Set(entityIds)];
+  const hydrated = hydrateEntities(unique.map((entityId) => ({ entityType, entityId })), user);
+  const existing = new Set((db.prepare(
+    "SELECT entity_id FROM collection_items WHERE collection_id = ? AND entity_type = ?"
+  ).all(collectionId, entityType) as { entity_id: string }[]).map((row) => row.entity_id));
+
+  let position = (db.prepare(
+    "SELECT COALESCE(MAX(position), 0) + 1 AS pos FROM collection_items WHERE collection_id = ?"
+  ).get(collectionId) as { pos: number }).pos;
+
+  const insert = db.prepare(
+    "INSERT INTO collection_items (id, collection_id, entity_type, entity_id, position) VALUES (?, ?, ?, ?, ?)"
+  );
+  let added = 0;
+  let skipped = 0;
+  db.transaction(() => {
+    for (const entityId of unique) {
+      if (!hydrated.get(`${entityType}:${entityId}`)?.available || existing.has(entityId)) {
+        skipped += 1;
+        continue;
+      }
+      insert.run(nanoid(16), collectionId, entityType, entityId, position);
+      position += 1;
+      added += 1;
+    }
+    if (added > 0) {
+      db.prepare("UPDATE collections SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(collectionId);
+    }
+  })();
+  return { added, skipped };
 }
 
 function itemView(row: ItemRow, hydrated: Map<string, HydratedEntity>) {
@@ -261,6 +308,24 @@ export async function collectionsPlugin(app: FastifyInstance) {
     }
 
     reply.send({ added: true });
+  });
+
+  // Batch append (the gallery multi-select bar): one request however many
+  // photos are selected, instead of a per-item POST burst.
+  app.post("/api/collections/:id/items/batch", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const id = (request.params as { id: string }).id;
+    const collection = ownedCollection(id, user.id);
+    if (!collection) {
+      reply.code(404).send({ error: "Collection not found" });
+      return;
+    }
+    const parsed = parseBody(addItemsSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid items", details: parsed.error });
+      return;
+    }
+    reply.send(appendCollectionItems(id, user, parsed.data.entityType, parsed.data.entityIds));
   });
 
   app.delete("/api/collections/:id/items/:itemId", { preHandler: app.authenticate }, async (request, reply) => {

@@ -375,8 +375,8 @@ export function GalleryLightbox({
             className="gallery-lightbox-action"
             type="button"
             onClick={() => setCollectionOpen(true)}
-            aria-label="Add to album"
-            title="Add to album"
+            aria-label="Add to collection"
+            title="Add to collection"
           >
             <ListMusic size={18} aria-hidden="true" />
           </button>

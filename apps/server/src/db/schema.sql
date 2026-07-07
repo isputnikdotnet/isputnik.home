@@ -657,6 +657,21 @@ CREATE TABLE IF NOT EXISTS share_links (
   revoked_at  TEXT
 );
 
+-- Members of a multi-item guest link (gallery "quick links", module
+-- 'gallery_set'; resource_id self-references the link id since there is no
+-- single resource). A snapshot of the selection at share time: rows cascade
+-- with the link, and a hard-deleted item drops out (the public page simply
+-- shows fewer photos).
+CREATE TABLE IF NOT EXISTS share_link_items (
+  id            TEXT PRIMARY KEY,
+  share_link_id TEXT NOT NULL REFERENCES share_links(id) ON DELETE CASCADE,
+  item_id       TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  position      INTEGER NOT NULL,
+  UNIQUE (share_link_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_share_link_items_link ON share_link_items (share_link_id, position);
+
 -- Personal access tokens. A user mints one per device to authenticate
 -- non-cookie clients (today: OPDS readers). Only the sha256(token) is stored;
 -- the raw value is shown once at creation. Read-only, scoped, revocable.

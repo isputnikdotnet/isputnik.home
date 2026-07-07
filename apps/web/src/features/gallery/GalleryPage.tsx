@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, FolderOpen, Image as ImageIcon, Images, MapPin, Pencil, Play, Heart, Folder, ScanFace, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, FolderOpen, Image as ImageIcon, Images, ListMusic, MapPin, Pencil, Play, Heart, Folder, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -12,6 +12,8 @@ import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
 import { GalleryFaceSettingsModal } from "./GalleryFaceSettingsModal";
 import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
+import { AddToCollectionModal } from "../collections/AddToCollectionModal";
+import { ShareSetModal } from "../share/ShareSetModal";
 import type { GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryPerson } from "./types";
 
 const PAGE_SIZE = 80;
@@ -225,6 +227,8 @@ export function GalleryPage({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkCollectionOpen, setBulkCollectionOpen] = useState(false);
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState("");
 
@@ -553,6 +557,9 @@ export function GalleryPage({
   // Assets currently shown (the selectable set depends on the active view).
   const displayedAssets = view === "timeline" ? assets : folderAssets;
   const canDeleteAny = libraries.some((library) => library.canDelete);
+  // Sharing hands out file access, so the bar's Share needs the curate
+  // capability somewhere; the server filters the selection per library anyway.
+  const canShareAny = libraries.some((library) => library.canCurate);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -572,6 +579,28 @@ export function GalleryPage({
   // a stale id from a no-longer-visible asset can't linger. Sorting only reorders
   // the same assets, so it keeps the selection.
   useEffect(() => { setSelectionMode(false); setSelectedIds(new Set()); }, [view, scopeId, query, filters]);
+
+  // Bulk favorite: one request for the whole selection. Items in libraries the
+  // user can't favorite (shouldn't happen from this UI) come back as skipped.
+  const bulkFavorite = async () => {
+    setBulkBusy(true);
+    setBulkError("");
+    try {
+      const result = await api<{ saved: number; forbidden: number }>(
+        "/api/library/books/bulk-save",
+        { method: "POST", body: JSON.stringify({ bookIds: [...selectedIds] }) }
+      );
+      exitSelection();
+      const parts = [`Added ${result.saved} item${result.saved === 1 ? "" : "s"} to Favorites`];
+      if (result.forbidden > 0) parts.push(`${result.forbidden} skipped`);
+      setNotice(`${parts.join(" · ")}.`);
+      refreshView();
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : "Unable to add the items to Favorites");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const confirmBulkDelete = async () => {
     setBulkBusy(true);
@@ -683,7 +712,9 @@ export function GalleryPage({
                   <UploadCloud size={18} aria-hidden="true" />
                 </button>
               )}
-              {canDeleteAny && !selectionMode && view !== "map" && view !== "people" && view !== "memories" && (
+              {/* Selection is no longer delete-gated: favoriting and adding to a
+                  collection are for every member. Delete inside the bar still is. */}
+              {!selectionMode && view !== "map" && view !== "people" && view !== "memories" && (
                 <button
                   type="button"
                   className="audiobook-page-action-icon"
@@ -699,7 +730,10 @@ export function GalleryPage({
         />
 
         {error && <MessageBox tone="error" title="Gallery error">{error}</MessageBox>}
-        {notice && <MessageBox tone="success" title="Upload complete">{notice}</MessageBox>}
+        {notice && <MessageBox tone="success" title="Gallery updated">{notice}</MessageBox>}
+        {/* Favorite/collection failures surface here — the delete flow shows its
+            own error inside the confirm dialog. */}
+        {bulkError && !bulkDeleteOpen && <MessageBox tone="error" title="Unable to update">{bulkError}</MessageBox>}
 
         {loaded && libraries.length === 0 ? (
           <div className="empty-state library-empty">
@@ -826,12 +860,40 @@ export function GalleryPage({
                   </button>
                   <button
                     type="button"
-                    className="danger-button compact-button"
-                    onClick={() => { setBulkError(""); setBulkDeleteOpen(true); }}
-                    disabled={selectedIds.size === 0}
+                    className="secondary-button compact-button"
+                    onClick={() => void bulkFavorite()}
+                    disabled={selectedIds.size === 0 || bulkBusy}
                   >
-                    <Trash2 size={15} aria-hidden="true" /> Delete
+                    <Heart size={15} aria-hidden="true" /> {bulkBusy ? "Adding…" : "Favorite"}
                   </button>
+                  <button
+                    type="button"
+                    className="secondary-button compact-button"
+                    onClick={() => { setBulkError(""); setBulkCollectionOpen(true); }}
+                    disabled={selectedIds.size === 0 || bulkBusy}
+                  >
+                    <ListMusic size={15} aria-hidden="true" /> Add to collection
+                  </button>
+                  {canShareAny && (
+                    <button
+                      type="button"
+                      className="secondary-button compact-button"
+                      onClick={() => { setBulkError(""); setBulkShareOpen(true); }}
+                      disabled={selectedIds.size === 0 || bulkBusy}
+                    >
+                      <Share2 size={15} aria-hidden="true" /> Share
+                    </button>
+                  )}
+                  {canDeleteAny && (
+                    <button
+                      type="button"
+                      className="danger-button compact-button"
+                      onClick={() => { setBulkError(""); setBulkDeleteOpen(true); }}
+                      disabled={selectedIds.size === 0 || bulkBusy}
+                    >
+                      <Trash2 size={15} aria-hidden="true" /> Delete
+                    </button>
+                  )}
                   <button type="button" className="icon-button" onClick={exitSelection} aria-label="Cancel selection">
                     <X size={18} aria-hidden="true" />
                   </button>
@@ -1064,19 +1126,17 @@ export function GalleryPage({
                   return (
                     <div key={day.items[0].asset.id}>
                       <div className="gallery-day-head">
-                        {canDeleteAny && (
-                          <button
-                            type="button"
-                            className={`gallery-day-select${allSelected ? " selected" : ""}`}
-                            onClick={() => toggleDaySelect(ids)}
-                            role="checkbox"
-                            aria-checked={allSelected}
-                            aria-label={`Select all from ${day.label}`}
-                            title={allSelected ? "Deselect this day" : "Select this day"}
-                          >
-                            {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className={`gallery-day-select${allSelected ? " selected" : ""}`}
+                          onClick={() => toggleDaySelect(ids)}
+                          role="checkbox"
+                          aria-checked={allSelected}
+                          aria-label={`Select all from ${day.label}`}
+                          title={allSelected ? "Deselect this day" : "Select this day"}
+                        >
+                          {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                        </button>
                         <h2 className="gallery-day-label">{day.label}</h2>
                       </div>
                       <div className="gallery-grid">
@@ -1186,6 +1246,27 @@ export function GalleryPage({
             setUploadOpen(false);
             setNotice(`Added ${count} item${count === 1 ? "" : "s"} to ${libraryName}.`);
             refreshView();
+          }}
+        />
+      )}
+
+      {bulkShareOpen && (
+        <ShareSetModal
+          itemIds={[...selectedIds]}
+          onClose={() => setBulkShareOpen(false)}
+        />
+      )}
+
+      {bulkCollectionOpen && (
+        <AddToCollectionModal
+          entityType="gallery"
+          entityIds={[...selectedIds]}
+          title={`${selectedIds.size} selected ${selectedIds.size === 1 ? "item" : "items"}`}
+          onClose={() => setBulkCollectionOpen(false)}
+          onAdded={(collectionName, added) => {
+            setBulkCollectionOpen(false);
+            exitSelection();
+            setNotice(`Added ${added} item${added === 1 ? "" : "s"} to "${collectionName}".`);
           }}
         />
       )}
