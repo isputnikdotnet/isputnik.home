@@ -199,6 +199,132 @@
   width: 100%;
 }
 
+/* Gallery quick link (multi-photo set): grid card + fullscreen viewer. */
+.share-card--set {
+  max-width: 980px;
+}
+
+.share-set-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.share-set-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: var(--surface-raised);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.share-set-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.share-set-tile .share-set-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--muted);
+}
+
+.share-set-tile .share-set-video-badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.72rem;
+}
+
+.share-set-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas);
+}
+
+.share-set-viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.share-set-viewer-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-set-viewer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.share-set-viewer-body {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 16px;
+}
+
+.share-set-viewer-body img,
+.share-set-viewer-body video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.share-set-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+}
+
+.share-set-nav.prev { left: 14px; }
+.share-set-nav.next { right: 14px; }
+
+.share-set-nav:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+
 /* Share modal (inside the app) — rows for create + existing shares. */
 .share-create-row {
   display: flex;

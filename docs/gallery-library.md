@@ -122,12 +122,26 @@ item-keyed systems:
   unchanged (the asset's `folder_path` is a single file, so trash moves that file).
 - **Collections** — gallery assets are collectable (`collections/hydrators.ts`,
   `entityType = "library_item"`, `libraries.type = 'gallery'`), so a Collection
-  works as a photo album. Surfaced via the **Add to album** action in the lightbox.
+  works as a photo set. Surfaced via **Add to collection** in the lightbox and
+  the multi-select bar (batch: `POST /api/collections/:id/items/batch`).
+- **Multi-select bar** (Timeline + Folders) — Select mode is open to every
+  member: **Favorite** (`POST /api/library/books/bulk-save`, one request per
+  selection), **Add to collection**, **Share** (curators), and **Delete**
+  (delete rights only). Day headers select whole days.
 - **Shares** — the `libraries.type → module` map (`mediaKind`) resolves `'gallery'`,
   so both user-to-user item shares and anonymous **guest links** are namespaced
   correctly. A guest link opens a self-contained viewer (photo inline / `<video>`
   with range seeking) plus a single-file download — see `shares.ts` (the
   `module === "gallery"` branches) and `SharePage`'s `GalleryShareView`.
+- **Quick links (multi-photo guest shares)** — the bulk bar's Share creates one
+  guest link over a snapshot of the selection (`share_link_items`, module
+  `'gallery_set'`; only items the sharer can curate are included). The public
+  page renders a grid + keyboard-navigable viewer with per-item downloads; all
+  member media routes are token-scoped (`/api/share/:token/items/:itemId/…`)
+  and set membership is the authorization. Create via `POST /api/shares/set`,
+  list via `GET /api/shares/sets`, revoke via the shared `DELETE /api/shares/:id`.
+  Design notes: [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md)
+  (Phase 2.5).
 
 ## API
 
@@ -270,7 +284,8 @@ cataloged and get their faces the same night.
 ## Not yet (future phases)
 
 - **Semantic / content search** (ML — the heavy part of Immich).
-- **Albums, photo-pure Collections + slideshow** — planned (Memories shipped);
+- **Albums, photo-pure Collections + slideshow** — planned (Memories,
+  multi-select actions, and share quick links shipped);
   see [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md).
 - **Upload into a chosen subfolder** (today everything lands in the library root).
 - **Configurable map tile source** (today OSM is hard-wired).

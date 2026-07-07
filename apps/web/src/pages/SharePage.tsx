@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Download, FastForward, Headphones, Image as ImageIcon, List, Pause, Play, Rewind, SkipBack, SkipForward, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Download, FastForward, Headphones, Image as ImageIcon, List, Pause, Play, Rewind, SkipBack, SkipForward, X } from "lucide-react";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import { isFoliateFormat } from "../shared/utils";
 
@@ -56,7 +56,28 @@ interface GallerySharePayload {
   };
 }
 
-type SharePayload = AudiobookSharePayload | EbookSharePayload | GallerySharePayload;
+// A multi-photo quick link. Every URL is token-scoped and per-item.
+interface GallerySetItem {
+  id: string;
+  title: string;
+  kind: "photo" | "video";
+  width: number | null;
+  height: number | null;
+  durationSeconds: number | null;
+  takenAt: string | null;
+  coverUrl: string | null;
+  previewUrl: string | null;
+  fileUrl: string;
+  downloadUrl: string;
+}
+
+interface GallerySetSharePayload {
+  type: "gallery_set";
+  share: ShareInfo;
+  items: GallerySetItem[];
+}
+
+type SharePayload = AudiobookSharePayload | EbookSharePayload | GallerySharePayload | GallerySetSharePayload;
 
 function formatTime(seconds: number) {
   if (!isFinite(seconds) || seconds < 0) seconds = 0;
@@ -82,7 +103,11 @@ export function SharePage({ token }: { token: string }) {
       })
       .then((data) => {
         setPayload(data);
-        const name = data.type === "gallery" ? data.asset.title : data.book.title;
+        const name = data.type === "gallery"
+          ? data.asset.title
+          : data.type === "gallery_set"
+            ? data.share.label ?? `${data.items.length} shared ${data.items.length === 1 ? "photo" : "photos"}`
+            : data.book.title;
         document.title = `${name} — shared on isputnik.home`;
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : "This share is no longer available."));
@@ -111,9 +136,98 @@ export function SharePage({ token }: { token: string }) {
   }
 
   if (payload.type === "gallery") return <GalleryShareView token={token} payload={payload} />;
+  if (payload.type === "gallery_set") return <GallerySetShareView payload={payload} />;
   return payload.type === "ebook"
     ? <EbookShareView token={token} payload={payload} />
     : <AudiobookShareView token={token} payload={payload} />;
+}
+
+// --- Gallery set share (quick link): a photo grid with a lightweight viewer.
+// Prev/next and Escape work from the keyboard; each item downloads individually.
+function GallerySetShareView({ payload }: { payload: GallerySetSharePayload }) {
+  const { items, share } = payload;
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const open = openIndex != null ? items[openIndex] : null;
+
+  useEffect(() => {
+    if (openIndex == null) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenIndex(null);
+      else if (event.key === "ArrowRight") setOpenIndex((i) => (i != null && i < items.length - 1 ? i + 1 : i));
+      else if (event.key === "ArrowLeft") setOpenIndex((i) => (i != null && i > 0 ? i - 1 : i));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openIndex, items.length]);
+
+  const heading = share.label ?? `${items.length} shared ${items.length === 1 ? "photo" : "photos"}`;
+
+  return (
+    <div className="share-page">
+      <div className="share-card share-card--set">
+        <div className="share-book-header">
+          <h1 className="share-title">{heading}</h1>
+          <p className="share-authors">{items.length} {items.length === 1 ? "item" : "items"}</p>
+        </div>
+
+        {items.length === 0 ? (
+          <p className="muted">The shared photos are no longer available.</p>
+        ) : (
+          <div className="share-set-grid">
+            {items.map((item, index) => (
+              <button key={item.id} type="button" className="share-set-tile" onClick={() => setOpenIndex(index)} aria-label={`Open ${item.title}`}>
+                {item.coverUrl ? (
+                  <img src={item.coverUrl} alt="" loading="lazy" />
+                ) : (
+                  <span className="share-set-fallback"><ImageIcon size={24} aria-hidden="true" /></span>
+                )}
+                {item.kind === "video" && <span className="share-set-video-badge"><Play size={11} aria-hidden="true" />Video</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <p className="share-footer muted">
+          <ImageIcon size={13} aria-hidden="true" style={{ verticalAlign: "-2px", marginRight: 4 }} />
+          Shared via isputnik.home · link expires {new Date(share.expiresAt).toLocaleDateString()}
+        </p>
+      </div>
+
+      {open && createPortal(
+        <div className="share-set-viewer" role="dialog" aria-modal="true" aria-label={open.title}>
+          <div className="share-set-viewer-head">
+            <span className="share-set-viewer-title">{open.title}</span>
+            <div className="share-set-viewer-actions">
+              <a className="secondary-button compact-button" href={open.downloadUrl} download>
+                <Download size={15} /><span>Download</span>
+              </a>
+              <button className="icon-button" onClick={() => setOpenIndex(null)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+          <div className="share-set-viewer-body">
+            {openIndex! > 0 && (
+              <button className="share-set-nav prev" onClick={() => setOpenIndex(openIndex! - 1)} aria-label="Previous">
+                <ChevronLeft size={26} />
+              </button>
+            )}
+            {open.kind === "video" ? (
+              <video key={open.id} src={open.fileUrl} controls playsInline poster={open.previewUrl ?? undefined} />
+            ) : (
+              <img key={open.id} src={open.previewUrl ?? open.fileUrl} alt={open.title} />
+            )}
+            {openIndex! < items.length - 1 && (
+              <button className="share-set-nav next" onClick={() => setOpenIndex(openIndex! + 1)} aria-label="Next">
+                <ChevronRight size={26} />
+              </button>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
 }
 
 // --- Gallery share: a single photo or video shown full-bleed in the card, with a

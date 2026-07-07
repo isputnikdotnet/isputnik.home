@@ -33,6 +33,30 @@ function currentSave(bookId: string, userId: string) {
   return row ? { saved: true, note: row.note, createdAt: row.created_at, updatedAt: row.updated_at } : { saved: false, note: null };
 }
 
+// Bulk favorite (the gallery multi-select bar). Items outside the user's
+// accessible libraries are counted as forbidden, not errors — same contract as
+// bulk-delete. Already-saved items just stay saved (idempotent); an existing
+// note is never clobbered.
+export function bulkSaveItems(user: { id: string; role: string }, itemIds: string[]): { saved: number; forbidden: number } {
+  const libIds = new Set([...bookLibraryIds(user), ...accessibleLibraryIds(user.id, user.role, "gallery")]);
+  const lookup = db.prepare("SELECT library_id FROM library_items WHERE id = ? AND deleted_at IS NULL");
+  const insert = db.prepare(`
+    INSERT INTO item_saves (id, user_id, item_id, note) VALUES (?, ?, ?, NULL)
+    ON CONFLICT(user_id, item_id) DO NOTHING
+  `);
+  let saved = 0;
+  let forbidden = 0;
+  db.transaction(() => {
+    for (const itemId of new Set(itemIds)) {
+      const row = lookup.get(itemId) as { library_id: string } | undefined;
+      if (!row || !libIds.has(row.library_id)) { forbidden += 1; continue; }
+      insert.run(nanoid(16), user.id, itemId);
+      saved += 1;
+    }
+  })();
+  return { saved, forbidden };
+}
+
 export async function audiobookSavesPlugin(app: FastifyInstance) {
   app.get("/api/library/books/:id/save", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
@@ -76,6 +100,22 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
     const user = request.user!;
     db.prepare("DELETE FROM item_saves WHERE item_id = ? AND user_id = ?").run(bookId, user.id);
     reply.send({ save: { saved: false, note: null } });
+  });
+
+  // Bulk favorite — the multi-select bar sends every selected id in one request
+  // (mirrors /api/library/books/bulk-delete) so a big selection doesn't turn
+  // into a burst of per-item PUTs against the rate limiter.
+  const bulkSaveSchema = z.object({
+    bookIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500)
+  });
+
+  app.post("/api/library/books/bulk-save", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(bulkSaveSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid favorites request", details: parsed.error });
+      return;
+    }
+    reply.send(bulkSaveItems(request.user!, parsed.data.bookIds));
   });
 
   app.get("/api/library/saved", { preHandler: app.authenticate }, async (request, reply) => {

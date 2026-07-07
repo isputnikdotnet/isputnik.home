@@ -38,6 +38,12 @@ const createUserShareSchema = z.object({
   expiresInDays: z.number().int().min(1).max(3650).optional()
 });
 
+const createSetLinkSchema = z.object({
+  itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500),
+  expiresInDays: z.number().int().min(1).max(30).default(30),
+  label: z.string().trim().max(100).optional()
+});
+
 // Whether the caller may share a book. Sharing hands external/other-user access to
 // the files, so it requires the Curator+ "curate" capability — not mere view. We
 // distinguish "not_found" (book missing or no access at all — hide its existence)
@@ -148,6 +154,133 @@ function loadShareGalleryAsset(resourceId: string): ShareGalleryRow | undefined 
   `).get(resourceId) as ShareGalleryRow | undefined;
 }
 
+// --- Gallery "quick links": one guest link over a snapshot of selected assets ---
+// module 'gallery_set'; resource_id self-references the link id (there is no
+// single resource). Membership lives in share_link_items, fixed at share time.
+
+// Create a set link from a selection. Only items the sharer can CURATE are
+// included (sharing hands out file access) — others are skipped and counted,
+// the same contract as the bulk endpoints. Returns null when nothing survives.
+export function createGallerySetShare(
+  user: { id: string; role: string },
+  opts: { itemIds: string[]; expiresInDays: number; label: string | null }
+): { shareId: string; token: string; expiresAt: string; itemCount: number; skipped: number } | null {
+  const included: string[] = [];
+  let skipped = 0;
+  for (const itemId of new Set(opts.itemIds)) {
+    const library = getLibraryForBook(itemId);
+    if (
+      !library ||
+      library.type !== "gallery" ||
+      !canUserAccessLibrary(library, user.id, user.role) ||
+      !canUserCurateLibrary(library, user.id, user.role)
+    ) {
+      skipped += 1;
+      continue;
+    }
+    included.push(itemId);
+  }
+  if (included.length === 0) return null;
+
+  const token = nanoid(36);
+  const shareId = nanoid(16);
+  const expiresAt = addDays(opts.expiresInDays).toISOString();
+  db.transaction(() => {
+    db.prepare(`
+      INSERT INTO share_links (id, module, resource_id, token_hash, permission, label, expires_at, created_by)
+      VALUES (?, 'gallery_set', ?, ?, 'read', ?, ?, ?)
+    `).run(shareId, shareId, sha256(token), opts.label, expiresAt, user.id);
+    const insert = db.prepare(
+      "INSERT INTO share_link_items (id, share_link_id, item_id, position) VALUES (?, ?, ?, ?)"
+    );
+    included.forEach((itemId, index) => insert.run(nanoid(16), shareId, itemId, index + 1));
+  })();
+  return { shareId, token, expiresAt, itemCount: included.length, skipped };
+}
+
+interface GallerySetItemRow {
+  id: string;
+  title: string | null;
+  folder_path: string;
+  kind: string;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  taken_at: string | null;
+  cover_storage_key: string | null;
+  preview_storage_key: string | null;
+}
+
+// The live members of a set link, in share order. Soft-deleted items drop out
+// (and come back if restored from the Recycle Bin); hard deletes cascade away.
+export function loadGallerySetItems(linkId: string): GallerySetItemRow[] {
+  return db.prepare(`
+    SELECT
+      library_items.id,
+      item_metadata.title,
+      library_items.folder_path,
+      gallery_details.kind,
+      gallery_details.width,
+      gallery_details.height,
+      gallery_details.duration_seconds,
+      gallery_details.taken_at,
+      item_metadata.cover_storage_key,
+      gallery_details.preview_storage_key
+    FROM share_link_items
+    JOIN library_items ON library_items.id = share_link_items.item_id AND library_items.deleted_at IS NULL
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE share_link_items.share_link_id = ?
+    ORDER BY share_link_items.position
+  `).all(linkId) as GallerySetItemRow[];
+}
+
+// One member of a set link with everything the media routes need. The WHERE on
+// share_link_items IS the authorization: an item id outside this link 404s.
+function loadGallerySetMediaItem(linkId: string, itemId: string) {
+  return db.prepare(`
+    SELECT
+      library_items.folder_path,
+      gallery_details.kind,
+      gallery_details.relative_path,
+      gallery_details.mime_type,
+      item_metadata.title,
+      item_metadata.cover_storage_key,
+      gallery_details.preview_storage_key,
+      libraries.source_path
+    FROM share_link_items
+    JOIN library_items ON library_items.id = share_link_items.item_id AND library_items.deleted_at IS NULL
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE share_link_items.share_link_id = ? AND share_link_items.item_id = ?
+  `).get(linkId, itemId) as {
+    folder_path: string;
+    kind: string;
+    relative_path: string;
+    mime_type: string | null;
+    title: string | null;
+    cover_storage_key: string | null;
+    preview_storage_key: string | null;
+    source_path: string;
+  } | undefined;
+}
+
+// Serve a stored thumbnail (cover/preview) by storage key for guest routes.
+async function sendThumbnail(reply: FastifyReply, storageKey: string): Promise<void> {
+  try {
+    const absolutePath = thumbnailAbsolutePath(storageKey);
+    const bytes = await fsp.readFile(absolutePath);
+    reply
+      .type(coverMimeByExt[path.extname(storageKey).toLowerCase()] ?? "application/octet-stream")
+      .header("Content-Length", bytes.byteLength)
+      .header("Cache-Control", "public, max-age=3600")
+      .send(bytes);
+  } catch {
+    reply.code(404).send({ error: "Image not found" });
+  }
+}
+
 // Stream a single file from disk with range support, inline or as an attachment.
 // Token-gated callers have already authorized access, so there is no per-user check
 // here (unlike the authenticated document-stream helper).
@@ -227,6 +360,79 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         url: `${base}/share/${token}`
       }
     });
+  });
+
+  // Create a gallery quick link: one guest link over a snapshot of selected
+  // photos/videos (the multi-select bar's Share).
+  app.post("/api/shares/set", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(createSetLinkSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid share details", details: parsed.error });
+      return;
+    }
+
+    const user = request.user!;
+    const result = createGallerySetShare(user, {
+      itemIds: parsed.data.itemIds,
+      expiresInDays: parsed.data.expiresInDays ?? 30,
+      label: parsed.data.label ?? null
+    });
+    if (!result) {
+      reply.code(403).send({ error: "Curator access required to share these photos." });
+      return;
+    }
+
+    logActivity({
+      event: "share.created",
+      actorUserId: user.id,
+      targetType: "share_link",
+      targetId: result.shareId,
+      detail: `Created a guest share link for a set of ${result.itemCount} gallery item${result.itemCount === 1 ? "" : "s"}.`,
+      ipAddress: request.ip
+    });
+
+    const base = config.appUrl.replace(/\/+$/, "");
+    reply.code(201).send({
+      share: {
+        id: result.shareId,
+        label: parsed.data.label ?? null,
+        expiresAt: result.expiresAt,
+        itemCount: result.itemCount,
+        skipped: result.skipped,
+        // Shown exactly once — the raw token is not stored and cannot be re-displayed.
+        url: `${base}/share/${result.token}`
+      }
+    });
+  });
+
+  // The caller's active quick links (revocation goes through DELETE /api/shares/:id,
+  // which is module-agnostic).
+  app.get("/api/shares/sets", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const rows = db.prepare(`
+      SELECT
+        share_links.id,
+        share_links.label,
+        share_links.created_at,
+        share_links.expires_at,
+        COUNT(share_link_items.id) AS item_count
+      FROM share_links
+      LEFT JOIN share_link_items ON share_link_items.share_link_id = share_links.id
+      WHERE share_links.created_by = ? AND share_links.module = 'gallery_set' AND share_links.revoked_at IS NULL
+      GROUP BY share_links.id
+      ORDER BY datetime(share_links.created_at) DESC
+    `).all(user.id) as { id: string; label: string | null; created_at: string; expires_at: string; item_count: number }[];
+    const now = Date.now();
+    return {
+      shares: rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        itemCount: row.item_count,
+        createdAt: row.created_at,
+        expiresAt: row.expires_at,
+        status: new Date(row.expires_at).getTime() <= now ? "expired" : "active"
+      }))
+    };
   });
 
   app.get("/api/shares", { preHandler: app.authenticate }, async (request) => {
@@ -487,6 +693,45 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   }
 
   app.get("/api/share/:token", async (request, reply) => {
+    // Multi-item gallery links dispatch before the single-item resolver — they
+    // have no single resource for it to load.
+    const rawToken = (request.params as { token: string }).token;
+    const setLink = resolveShareLink(rawToken);
+    if (setLink?.module === "gallery_set") {
+      const meta = db.prepare(
+        "SELECT label, expires_at FROM share_links WHERE id = ?"
+      ).get(setLink.id) as { label: string | null; expires_at: string };
+      const setItems = loadGallerySetItems(setLink.id);
+      logActivity({
+        event: "share.accessed",
+        actorUserId: null,
+        targetType: "share_link",
+        targetId: setLink.id,
+        detail: `Opened a shared photo set (${setItems.length} item${setItems.length === 1 ? "" : "s"}).`,
+        ipAddress: request.ip
+      });
+      reply.send({
+        type: "gallery_set",
+        share: { label: meta.label, expiresAt: meta.expires_at },
+        items: setItems.map((row) => ({
+          id: row.id,
+          title: row.title ?? path.basename(row.folder_path),
+          kind: row.kind,
+          width: row.width,
+          height: row.height,
+          durationSeconds: row.duration_seconds,
+          takenAt: row.taken_at,
+          coverUrl: row.cover_storage_key ? `/api/share/${rawToken}/items/${row.id}/cover` : null,
+          previewUrl: row.preview_storage_key || row.cover_storage_key
+            ? `/api/share/${rawToken}/items/${row.id}/preview`
+            : null,
+          fileUrl: `/api/share/${rawToken}/items/${row.id}/file`,
+          downloadUrl: `/api/share/${rawToken}/items/${row.id}/download`
+        }))
+      });
+      return;
+    }
+
     const resolved = resolveOr404(request, reply);
     if (!resolved) return;
     const { token, link, module, item } = resolved;
@@ -606,6 +851,89 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     } catch {
       reply.code(404).send({ error: "Cover not found" });
     }
+  });
+
+  // --- Public: gallery quick-link members ---------------------------------
+  // Membership in share_link_items is the whole authorization: a valid set
+  // token plus an item id inside that set. Anything else is a uniform 404.
+
+  const resolveSetItem = (request: FastifyRequest, reply: FastifyReply) => {
+    const { token, itemId } = request.params as { token: string; itemId: string };
+    const link = resolveShareLink(token);
+    if (!link || link.module !== "gallery_set") {
+      reply.code(404).send({ error: "Share not found or expired" });
+      return null;
+    }
+    const item = loadGallerySetMediaItem(link.id, itemId);
+    if (!item) {
+      reply.code(404).send({ error: "File not found" });
+      return null;
+    }
+    return { link, item };
+  };
+
+  app.get("/api/share/:token/items/:itemId/cover", async (request, reply) => {
+    const resolved = resolveSetItem(request, reply);
+    if (!resolved) return;
+    if (!resolved.item.cover_storage_key) {
+      reply.code(404).send({ error: "Cover not found" });
+      return;
+    }
+    await sendThumbnail(reply, resolved.item.cover_storage_key);
+  });
+
+  // Larger render for the viewer overlay; falls back to the grid thumbnail.
+  app.get("/api/share/:token/items/:itemId/preview", async (request, reply) => {
+    const resolved = resolveSetItem(request, reply);
+    if (!resolved) return;
+    const key = resolved.item.preview_storage_key ?? resolved.item.cover_storage_key;
+    if (!key) {
+      reply.code(404).send({ error: "Preview not found" });
+      return;
+    }
+    await sendThumbnail(reply, key);
+  });
+
+  app.get("/api/share/:token/items/:itemId/file", (request, reply) => {
+    const resolved = resolveSetItem(request, reply);
+    if (!resolved) return;
+    const { item } = resolved;
+    const filePath = path.join(item.source_path, ...item.relative_path.split("/"));
+    if (!pathIsInside(filePath, item.source_path) || !fs.existsSync(filePath)) {
+      reply.code(404).send({ error: "File not found" });
+      return;
+    }
+    sendFile(request, reply, {
+      absolutePath: filePath,
+      mimeType: item.mime_type ?? "application/octet-stream",
+      fileName: item.relative_path.split("/").pop() ?? "file",
+      download: false
+    });
+  });
+
+  app.get("/api/share/:token/items/:itemId/download", (request, reply) => {
+    const resolved = resolveSetItem(request, reply);
+    if (!resolved) return;
+    const { link, item } = resolved;
+    const filePath = path.join(item.source_path, ...item.relative_path.split("/"));
+    if (!pathIsInside(filePath, item.source_path) || !fs.existsSync(filePath)) {
+      reply.code(404).send({ error: "File not found" });
+      return;
+    }
+    logActivity({
+      event: "share.downloaded",
+      actorUserId: null,
+      targetType: "share_link",
+      targetId: link.id,
+      detail: `Downloaded a ${item.kind === "video" ? "video" : "photo"} from a shared set.`,
+      ipAddress: request.ip
+    });
+    sendFile(request, reply, {
+      absolutePath: filePath,
+      mimeType: item.mime_type ?? "application/octet-stream",
+      fileName: item.relative_path.split("/").pop() ?? "file",
+      download: true
+    });
   });
 
   // Audiobook only: stream one audio track (direct play, no transcode, range).
