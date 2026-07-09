@@ -50,6 +50,30 @@
   color: var(--mint);
 }
 
+/* Share the whole day/year group — a small button sitting right beside the
+   select checkbox that anchors the date header. */
+.gallery-day-share {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.gallery-day-share:hover {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
+.gallery-memories-year-head .gallery-day-share {
+  align-self: center;
+}
+
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -140,6 +164,12 @@
   align-items: baseline;
   gap: 10px;
   margin: 18px 0 8px;
+}
+
+/* The per-year select checkbox (mirrors the timeline day header) has no text
+   baseline, so center it against the baseline-aligned heading row. */
+.gallery-memories-year-head .gallery-day-select {
+  align-self: center;
 }
 
 .gallery-memories-year-head h2 {

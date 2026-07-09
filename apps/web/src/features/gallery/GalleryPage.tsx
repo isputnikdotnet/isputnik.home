@@ -246,7 +246,9 @@ export function GalleryPage({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkCollectionOpen, setBulkCollectionOpen] = useState(false);
-  const [bulkShareOpen, setBulkShareOpen] = useState(false);
+  // Share is opened over an explicit id set — the bulk bar passes the current
+  // selection, a day/year header passes just that group. null = closed.
+  const [shareIds, setShareIds] = useState<string[] | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState("");
 
@@ -667,7 +669,7 @@ export function GalleryPage({
   }, [view, parent, selectedPerson, selectedAlbum, loadTimeline, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, loadMemories, loadMap, loadLibraries]);
 
   // Assets currently shown (the selectable set depends on the active view).
-  const displayedAssets = view === "timeline" ? assets : folderAssets;
+  const displayedAssets = view === "timeline" ? assets : view === "memories" ? memoryItems : folderAssets;
   const canDeleteAny = libraries.some((library) => library.canDelete);
   // Sharing hands out file access, so the bar's Share needs the curate
   // capability somewhere; the server filters the selection per library anyway.
@@ -828,7 +830,7 @@ export function GalleryPage({
               )}
               {/* Selection is no longer delete-gated: favoriting and adding to a
                   collection are for every member. Delete inside the bar still is. */}
-              {!selectionMode && view !== "map" && view !== "people" && view !== "memories" && view !== "albums" && (
+              {!selectionMode && view !== "map" && view !== "people" && view !== "albums" && (
                 <button
                   type="button"
                   className="audiobook-page-action-icon"
@@ -1008,7 +1010,7 @@ export function GalleryPage({
                     <button
                       type="button"
                       className="secondary-button compact-button"
-                      onClick={() => { setBulkError(""); setBulkShareOpen(true); }}
+                      onClick={() => { setBulkError(""); setShareIds([...selectedIds]); }}
                       disabled={selectedIds.size === 0 || bulkBusy}
                     >
                       <Share2 size={15} aria-hidden="true" /> Share
@@ -1292,9 +1294,33 @@ export function GalleryPage({
                   return memories!.groups.map((group) => {
                     const start = flatBase;
                     flatBase += group.items.length;
+                    const ids = group.items.map((asset) => asset.id);
+                    const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
                     return (
                       <section key={group.year} id={`gallery-memories-${group.year}`} className="gallery-memories-year" aria-label={`Memories from ${group.year}`}>
                         <div className="gallery-memories-year-head">
+                          <button
+                            type="button"
+                            className={`gallery-day-select${allSelected ? " selected" : ""}`}
+                            onClick={() => toggleDaySelect(ids)}
+                            role="checkbox"
+                            aria-checked={allSelected}
+                            aria-label={`Select all from ${memoryDateLabel(memories!.precision, group.year)}`}
+                            title={allSelected ? "Deselect these photos" : "Select these photos"}
+                          >
+                            {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                          </button>
+                          {canShareAny && (
+                            <button
+                              type="button"
+                              className="gallery-day-share"
+                              onClick={() => setShareIds(ids)}
+                              aria-label={`Share photos from ${memoryDateLabel(memories!.precision, group.year)}`}
+                              title="Share these photos"
+                            >
+                              Share
+                            </button>
+                          )}
                           <h2>{memoryDateLabel(memories!.precision, group.year)}</h2>
                           <small>{yearsAgo(group.year)} · {group.count} {group.count === 1 ? "photo" : "photos"}</small>
                         </div>
@@ -1304,9 +1330,9 @@ export function GalleryPage({
                               key={asset.id}
                               asset={asset}
                               onOpen={() => setLightbox({ source: "memory", index: start + i })}
-                              selectionMode={false}
-                              selected={false}
-                              onToggleSelect={() => { /* selection disabled in Memories */ }}
+                              selectionMode={selectionMode}
+                              selected={selectedIds.has(asset.id)}
+                              onToggleSelect={() => toggleSelect(asset.id)}
                             />
                           ))}
                         </div>
@@ -1369,6 +1395,17 @@ export function GalleryPage({
                         >
                           {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                         </button>
+                        {canShareAny && (
+                          <button
+                            type="button"
+                            className="gallery-day-share"
+                            onClick={() => setShareIds(ids)}
+                            aria-label={`Share photos from ${day.label}`}
+                            title="Share these photos"
+                          >
+                            Share
+                          </button>
+                        )}
                         <h2 className="gallery-day-label">{day.label}</h2>
                       </div>
                       <div className="gallery-grid">
@@ -1482,10 +1519,10 @@ export function GalleryPage({
         />
       )}
 
-      {bulkShareOpen && (
+      {shareIds && (
         <ShareSetModal
-          itemIds={[...selectedIds]}
-          onClose={() => setBulkShareOpen(false)}
+          itemIds={shareIds}
+          onClose={() => setShareIds(null)}
         />
       )}
 
