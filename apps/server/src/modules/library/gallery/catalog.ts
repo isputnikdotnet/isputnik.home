@@ -357,6 +357,19 @@ export function getGalleryAsset(userId: string, libIds: string[], id: string) {
   return { ...mapAsset(row), people };
 }
 
+// Load one asset by id WITHOUT the library-scope filter — for callers that have
+// authorized access another way (an item-level user share of a photo whose
+// library the viewer can't otherwise see). The caller MUST check access first.
+export function getGalleryAssetUnscoped(userId: string, id: string) {
+  const row = db.prepare(`
+    SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
+    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
+  `).get(userId, id) as AssetRow | undefined;
+  if (!row) return null;
+  const people = peopleForAssetStmt.all(id) as { id: string; name: string }[];
+  return { ...mapAsset(row), people };
+}
+
 // Facets: which kinds exist, the year range, how many assets carry GPS (drives
 // whether the Map view is offered), and the filter-panel option lists (people,
 // tags, cameras) — all scoped to the libraries the user can see.

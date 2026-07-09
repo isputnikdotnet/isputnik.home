@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
-import { createGallerySetShare, loadGallerySetItems } from "../src/modules/library/shared/shares.js";
+import { createGallerySetShare, loadGallerySetItems, loadGallerySetFiles } from "../src/modules/library/shared/shares.js";
 import { resolveShareLink } from "../src/modules/library/shared/share-access.js";
+import { getGalleryAsset, getGalleryAssetUnscoped, resolveGalleryScopeLibraryIds } from "../src/modules/library/gallery/catalog.js";
+import { canUserAccessBook, getLibraryForBook } from "../src/modules/library/shared/library-access.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
-import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+import { resetDb, makeUser, makeLibrary, grant, makeShare } from "./helpers/seed.js";
 
 function asset(relativePath: string) {
   const extension = `.${relativePath.split(".").pop()}`;
@@ -84,10 +86,47 @@ describe("gallery quick links (set shares)", () => {
     expect(resolveShareLink(again.token)).toBeNull();
   });
 
+  it("lists set files in share order for the zip, dropping soft-deleted members", () => {
+    const result = createGallerySetShare(curator, { itemIds: [b, a], expiresInDays: 7, label: null })!;
+    expect(loadGallerySetFiles(result.shareId).map((f) => f.relative_path)).toEqual(["b.jpg", "a.jpg"]);
+    db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(b);
+    expect(loadGallerySetFiles(result.shareId).map((f) => f.relative_path)).toEqual(["a.jpg"]);
+  });
+
   it("hard-deleting an item cascades its membership away", () => {
     const result = createGallerySetShare(curator, { itemIds: [a, b], expiresInDays: 7, label: null })!;
     db.prepare("DELETE FROM library_items WHERE id = ?").run(b);
     expect(loadGallerySetItems(result.shareId).map((item) => item.id)).toEqual([a]);
     expect((db.prepare("SELECT COUNT(*) AS n FROM share_link_items WHERE share_link_id = ?").get(result.shareId) as { n: number }).n).toBe(1);
+  });
+});
+
+// The recipient side of "share with a user": a gallery `shares` row must open the
+// share-aware asset route for a photo whose library the viewer can't browse.
+describe("gallery user shares (recipient access)", () => {
+  it("an item share grants a viewer a photo in a library they can't otherwise see", () => {
+    const priv = getLibraryForBook(secret)!;
+    // u2 has no role on PRIV, so before sharing the asset is invisible to them.
+    expect(canUserAccessBook(secret, priv, viewer.id, viewer.role, "gallery")).toBe(false);
+    expect(getGalleryAsset(viewer.id, resolveGalleryScopeLibraryIds(viewer, "all"), secret)).toBeNull();
+
+    makeShare({ module: "gallery", resourceId: secret, userId: viewer.id, createdBy: "owner", expiresAt: null });
+
+    // The share flips access on, and the unscoped loader (used by the route's
+    // fallback) returns the asset.
+    expect(canUserAccessBook(secret, priv, viewer.id, viewer.role, "gallery")).toBe(true);
+    expect(getGalleryAssetUnscoped(viewer.id, secret)!.id).toBe(secret);
+  });
+
+  it("a share stamped with the wrong module does not open gallery access", () => {
+    makeShare({ module: "audiobook", resourceId: secret, userId: viewer.id, createdBy: "owner", expiresAt: null });
+    const priv = getLibraryForBook(secret)!;
+    expect(canUserAccessBook(secret, priv, viewer.id, viewer.role, "gallery")).toBe(false);
+  });
+
+  it("a revoked share does not grant access", () => {
+    makeShare({ module: "gallery", resourceId: secret, userId: viewer.id, createdBy: "owner", revoked: true });
+    const priv = getLibraryForBook(secret)!;
+    expect(canUserAccessBook(secret, priv, viewer.id, viewer.role, "gallery")).toBe(false);
   });
 });

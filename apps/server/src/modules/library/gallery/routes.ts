@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { can, parsePolicy } from "../../../core/permissions.js";
-import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
+import { canUserAccessLibrary, canUserAccessBook, libraryCapabilities, deleteLibraryAccess, canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
@@ -23,6 +23,7 @@ import {
   queryGalleryTimeline,
   queryGalleryFolders,
   getGalleryAsset,
+  getGalleryAssetUnscoped,
   galleryFacets,
   queryGalleryMapPoints,
   queryGalleryMemories,
@@ -369,8 +370,17 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/gallery/assets/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
-    const asset = getGalleryAsset(request.user!.id, libIds, id);
+    const user = request.user!;
+    const libIds = resolveGalleryScopeLibraryIds(user, "all");
+    let asset = getGalleryAsset(user.id, libIds, id);
+    if (!asset) {
+      // Not in a library the viewer can browse — allow it only if the photo was
+      // shared directly with them (the "Shared with me" path opens this route).
+      const library = getLibraryForBook(id);
+      if (library && library.type === "gallery" && canUserAccessBook(id, library, user.id, user.role, "gallery")) {
+        asset = getGalleryAssetUnscoped(user.id, id);
+      }
+    }
     if (!asset) {
       reply.code(404).send({ error: "Asset not found" });
       return;

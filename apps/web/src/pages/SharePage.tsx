@@ -14,6 +14,8 @@ interface ShareFile {
 interface ShareInfo {
   label: string | null;
   expiresAt: string;
+  // Display name of the member who created the link, or null if their account is gone.
+  sharedBy: string | null;
 }
 
 interface AudiobookSharePayload {
@@ -136,15 +138,16 @@ export function SharePage({ token }: { token: string }) {
   }
 
   if (payload.type === "gallery") return <GalleryShareView token={token} payload={payload} />;
-  if (payload.type === "gallery_set") return <GallerySetShareView payload={payload} />;
+  if (payload.type === "gallery_set") return <GallerySetShareView token={token} payload={payload} />;
   return payload.type === "ebook"
     ? <EbookShareView token={token} payload={payload} />
     : <AudiobookShareView token={token} payload={payload} />;
 }
 
 // --- Gallery set share (quick link): a photo grid with a lightweight viewer.
-// Prev/next and Escape work from the keyboard; each item downloads individually.
-function GallerySetShareView({ payload }: { payload: GallerySetSharePayload }) {
+// Prev/next and Escape work from the keyboard; each item downloads individually,
+// and "Download all" zips the whole set.
+function GallerySetShareView({ token, payload }: { token: string; payload: GallerySetSharePayload }) {
   const { items, share } = payload;
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const open = openIndex != null ? items[openIndex] : null;
@@ -167,8 +170,19 @@ function GallerySetShareView({ payload }: { payload: GallerySetSharePayload }) {
       <div className="share-card share-card--set">
         <div className="share-book-header">
           <h1 className="share-title">{heading}</h1>
+          {share.sharedBy && (
+            <p className="share-shared-by">{share.sharedBy} shared these {items.length === 1 ? "photo" : "photos"} with you</p>
+          )}
           <p className="share-authors">{items.length} {items.length === 1 ? "item" : "items"}</p>
         </div>
+
+        {items.length > 0 && (
+          <div className="share-actions">
+            <a className="primary-button" href={`/api/share/${token}/download-all`} download>
+              <Download size={16} /><span>Download all</span>
+            </a>
+          </div>
+        )}
 
         {items.length === 0 ? (
           <p className="muted">The shared photos are no longer available.</p>
@@ -250,6 +264,9 @@ function GalleryShareView({ token, payload }: { token: string; payload: GalleryS
 
         <div className="share-book-header">
           <h1 className="share-title">{asset.title}</h1>
+          {share.sharedBy && (
+            <p className="share-shared-by">{share.sharedBy} shared this {asset.kind === "video" ? "video" : "photo"} with you</p>
+          )}
           <p className="share-authors">{asset.kind === "video" ? "Video" : "Photo"}</p>
         </div>
 
