@@ -1553,6 +1553,96 @@
   justify-content: center;
 }
 
+/* ── Add to album: searchable cover-card picker ─────────────────── */
+/* Wider than the collection row-list so three cover cards sit per row.
+   Keeps .metadata-modal's tall shape + `auto auto minmax(0,1fr)` rows: the
+   header (row 1) and search head (row 2) stay fixed while the card grid
+   (the .add-to-album-body, row 3) scrolls. */
+.metadata-modal.add-to-album-modal {
+  width: min(100%, 720px);
+}
+
+.add-to-album-head {
+  padding: 14px 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.add-to-album-search {
+  position: relative;
+  display: block;
+}
+
+.add-to-album-search input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 12px 54px 12px 18px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.add-to-album-search input:focus {
+  border-color: var(--mint);
+  outline: 2px solid color-mix(in srgb, var(--mint) 24%, transparent);
+}
+
+.add-to-album-search-icon {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--canvas);
+  display: grid;
+  place-items: center;
+}
+
+/* Draw the divider under the fixed head so the scroll region reads as its
+   own pane (matches the header rule above it). */
+.add-to-album-body {
+  border-top: 1px solid var(--line);
+}
+
+.add-to-album-create {
+  width: 100%;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.add-to-album-create-row {
+  margin-bottom: 0;
+}
+
+/* Album names truncate to one line here (the folder view lets them wrap). */
+.add-to-album-tile strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
+.add-to-album-tile small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.add-to-album-tile:hover {
+  border-color: var(--mint);
+}
+
+.add-to-album-tile:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* Compact dialogs override .metadata-modal's tall fixed height. */
 .new-collection-modal,
 .add-to-collection-modal {
