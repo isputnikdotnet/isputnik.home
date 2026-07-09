@@ -31,9 +31,11 @@ export function resetDb(): void {
     "playback_progress", "track_progress", "reading_progress",
     "audio_bookmarks", "reading_bookmarks",
     "audiobook_details", "ebook_details", "gallery_details", "gallery_faces", "gallery_face_scans", "gallery_face_exclusions", "gallery_people", "item_metadata",
+    "gallery_album_items", "gallery_albums",
     "taggables", "collection_items", "collections", "work_items", "works",
     "library_scan_rule_paths", "library_scan_rules",
-    "library_items", "people", "series", "libraries", "user_groups", "users"
+    "library_items", "people", "series", "libraries", "user_groups", "users",
+    "app_settings"
   ];
   for (const table of tables) {
     db.prepare(`DELETE FROM ${table}`).run();

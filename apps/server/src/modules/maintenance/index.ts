@@ -9,6 +9,7 @@ import { enabledFaceLibraryIds } from "../library/gallery/faces/settings.js";
 import { enqueueAudiobookScan } from "../library/audiobook/scanner.js";
 import { enqueueEbookScan } from "../library/ebook/scanner.js";
 import { enqueueGalleryScan } from "../library/gallery/scanner.js";
+import { purgeMissingGalleryPhotos, getMissingRetentionDays } from "../library/gallery/cleanup.js";
 
 // Recurring maintenance tasks. The set of jobs is fixed and defined here; the
 // scheduled_jobs table only stores per-key state (enabled, schedule, last/next run).
@@ -84,6 +85,21 @@ const DEFINITIONS: ScheduledJobDef[] = [
     defaultTime: "03:00",
     randomizeDefaultTime: true,
     run: () => enqueueLibraryScans("gallery", "photo & video", enqueueGalleryScan)
+  },
+  {
+    key: "purge_missing_gallery",
+    label: "Purge missing photos",
+    description: "Permanently remove photos that have been missing from disk beyond the grace window (default 30 days) — their catalog record, cached thumbnail, and detected faces. Photos still on disk are never touched; the window guards against a temporarily-offline drive.",
+    defaultEnabled: true,
+    defaultFrequency: "weekly",
+    defaultTime: "01:15",
+    run: () => {
+      const days = getMissingRetentionDays();
+      if (days <= 0) return "Auto-purge is disabled (grace window set to 0) — nothing removed.";
+      const { purged, eligible } = purgeMissingGalleryPhotos();
+      if (eligible === 0) return `No photos have been missing longer than ${days} days — nothing to purge.`;
+      return `Purged ${purged} of ${eligible} photo${eligible === 1 ? "" : "s"} missing longer than ${days} days.`;
+    }
   },
   {
     key: "cleanup_job_logs",

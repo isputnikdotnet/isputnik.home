@@ -355,6 +355,31 @@ export function purgeTrashedItem(id: string): TrashedItem | null {
   return item;
 }
 
+// Permanently tear down one catalogued item WITHOUT a Recycle Bin round-trip — for a
+// tombstone whose source file is already gone from disk (a scan reconcile set its
+// deleted_at). Mirrors trashBook's teardown exactly, minus the .trash move: FK cascades
+// clear gallery_details/faces/metadata/album membership; covers + face-crop files (which
+// never cascade) are removed here; the polymorphic tables are cleaned in deleteBookRecord.
+// Returns false if the item no longer exists. Callers gate this on deleted_at themselves.
+export function purgeCataloguedItem(itemId: string): boolean {
+  const row = db.prepare(`
+    SELECT library_items.id, library_items.library_id, libraries.type AS library_type, item_metadata.cover_storage_key
+    FROM library_items
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE library_items.id = ?
+  `).get(itemId) as { id: string; library_id: string; library_type: string; cover_storage_key: string | null } | undefined;
+  if (!row) return false;
+
+  const faceCropKeys = row.library_type === "gallery" ? faceCropKeysForItem(row.id) : [];
+  db.transaction(() => {
+    deleteBookCovers(row.library_id, row.id, row.cover_storage_key);
+    deleteBookRecord(row.id, row.library_type);
+  })();
+  removeFaceCropFiles(faceCropKeys);
+  return true;
+}
+
 export function getTrashRetentionDays(): number {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(TRASH_RETENTION_KEY) as
     | { value: string }

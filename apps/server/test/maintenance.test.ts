@@ -32,6 +32,7 @@ describe("scheduled jobs registry", () => {
     expect(jobs.map((j) => j.key).sort()).toEqual([
       "cleanup_job_logs",
       "empty_recycle_bin",
+      "purge_missing_gallery",
       "scan_audiobook_libraries",
       "scan_ebook_libraries",
       "scan_gallery_libraries",
@@ -39,6 +40,7 @@ describe("scheduled jobs registry", () => {
     ]);
 
     const byKey = Object.fromEntries(jobs.map((j) => [j.key, j]));
+    expect(byKey.purge_missing_gallery).toMatchObject({ enabled: true, frequency: "weekly", time: "01:15" });
     // Face scan runs LAST, after the randomized 01:00–04:59 library-scan window.
     expect(byKey.scan_new_faces).toMatchObject({ enabled: true, frequency: "daily", time: "05:00" });
     expect(byKey.cleanup_job_logs).toMatchObject({ enabled: true, frequency: "weekly", time: "00:30" });
@@ -68,6 +70,7 @@ describe("scheduled jobs registry", () => {
     expect(rows.map((r) => r.key)).toEqual([
       "cleanup_job_logs",
       "empty_recycle_bin",
+      "purge_missing_gallery",
       "scan_audiobook_libraries",
       "scan_ebook_libraries",
       "scan_gallery_libraries",

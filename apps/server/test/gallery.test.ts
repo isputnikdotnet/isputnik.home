@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
+import { ingestGalleryAsset, reconcileGalleryItems } from "../src/modules/library/gallery/scanner.js";
 import { updateGalleryAsset } from "../src/modules/library/gallery/edit.js";
 import {
   queryGalleryTimeline,
@@ -107,6 +107,43 @@ describe("gallery folder view", () => {
     const spring = queryGalleryFolders("u1", ["GAL"], "2024/spring", 100, 0);
     expect(spring.folders).toHaveLength(0);
     expect(spring.assets.map((a) => a.title).sort()).toEqual(["x.jpg", "y.jpg"]);
+  });
+});
+
+describe("gallery folder-scoped reconciliation", () => {
+  const deletedAt = (relativePath: string) =>
+    (db.prepare("SELECT deleted_at FROM library_items WHERE library_id = 'GAL' AND folder_path = ?")
+      .get(relativePath) as { deleted_at: string | null }).deleted_at;
+
+  it("soft-deletes only missing files under the scanned folder, sparing siblings and the escape-guarded lookalike", async () => {
+    const t = Date.parse("2024-01-01T00:00:00Z");
+    // "My_Photos" has a literal underscore; "MyXPhotos" would be matched by an
+    // unescaped LIKE "My_Photos/%" — the escape guard must keep it out of scope.
+    await ingestGalleryAsset("GAL", asset("My_Photos/keep.jpg", t), false);
+    await ingestGalleryAsset("GAL", asset("My_Photos/gone.jpg", t), false);
+    await ingestGalleryAsset("GAL", asset("MyXPhotos/other.jpg", t), false);
+    await ingestGalleryAsset("GAL", asset("Other/pic.jpg", t), false);
+    await ingestGalleryAsset("GAL", asset("root.jpg", t), false);
+
+    // A folder rescan of "My_Photos" that found only keep.jpg on disk.
+    reconcileGalleryItems("GAL", new Set(["My_Photos/keep.jpg"]), "My_Photos");
+
+    expect(deletedAt("My_Photos/gone.jpg")).not.toBeNull(); // missing in-scope → removed
+    expect(deletedAt("My_Photos/keep.jpg")).toBeNull();     // present → kept
+    expect(deletedAt("MyXPhotos/other.jpg")).toBeNull();    // escape guard → untouched
+    expect(deletedAt("Other/pic.jpg")).toBeNull();          // outside scope → untouched
+    expect(deletedAt("root.jpg")).toBeNull();               // outside scope → untouched
+  });
+
+  it("without a folder scope, reconciles the whole library", async () => {
+    const t = Date.parse("2024-01-01T00:00:00Z");
+    await ingestGalleryAsset("GAL", asset("a/keep.jpg", t), false);
+    await ingestGalleryAsset("GAL", asset("b/gone.jpg", t), false);
+
+    reconcileGalleryItems("GAL", new Set(["a/keep.jpg"]));
+
+    expect(deletedAt("a/keep.jpg")).toBeNull();
+    expect(deletedAt("b/gone.jpg")).not.toBeNull();
   });
 });
 

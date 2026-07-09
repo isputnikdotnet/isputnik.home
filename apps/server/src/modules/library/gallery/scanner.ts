@@ -6,8 +6,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
-import { db } from "../../../db.js";
-import { normaliseRelativePath } from "../shared/storage-roots.js";
+import { db, logActivity } from "../../../db.js";
+import { normaliseRelativePath, relativePathWithinRoot } from "../shared/storage-roots.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
@@ -29,6 +29,10 @@ const scanJobType = "SCAN_GALLERY_LIBRARY";
 
 export interface GalleryScanOptions {
   sources?: ScanSourceConfig[];
+  // Restrict the rescan to one subtree (relative to the library root). Only files
+  // under it are walked, and reconciliation (soft-deletes) is scoped to it too, so
+  // the rest of the library is left completely untouched. Empty/omitted = full scan.
+  folder?: string;
 }
 
 interface GalleryFileEntry {
@@ -43,7 +47,10 @@ interface GalleryFileEntry {
 
 // Symlink-safe recursive walk (mirrors the ebook scanner). Skips dot-entries so the
 // hidden .trash / .upload staging folders are never indexed.
-function walkGalleryFiles(rootPath: string, extensions: Set<string>): GalleryFileEntry[] {
+// `startDir` defaults to the library root; pass a subfolder to walk just that
+// subtree while still recording each file's path relative to the library root
+// (and keeping the same root as the symlink-escape boundary).
+function walkGalleryFiles(rootPath: string, extensions: Set<string>, startDir: string = rootPath): GalleryFileEntry[] {
   const files: GalleryFileEntry[] = [];
   const walk = (dir: string) => {
     let entries: fs.Dirent[];
@@ -83,7 +90,7 @@ function walkGalleryFiles(rootPath: string, extensions: Set<string>): GalleryFil
       });
     }
   };
-  walk(rootPath);
+  walk(startDir);
   return files;
 }
 
@@ -188,15 +195,27 @@ export async function ingestGalleryAsset(
   return itemId;
 }
 
-// Soft-delete gallery items no longer present on disk.
-function reconcileGalleryItems(libraryId: string, presentPaths: Set<string>): void {
-  const known = db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL")
-    .all(libraryId) as { id: string; folder_path: string }[];
+// Soft-delete gallery items no longer present on disk. Returns the folder_path of each
+// item newly tombstoned this pass (already-missing ones aren't reported again), so the
+// caller can log which photos went missing.
+export function reconcileGalleryItems(libraryId: string, presentPaths: Set<string>, folderScope: string | null = null): string[] {
+  // A folder rescan reconciles ONLY items under that folder — every asset's
+  // folder_path is its file path, so items in the subtree match "<folder>/%".
+  // Escape LIKE wildcards (a real folder name can contain _ or %) so the delete
+  // scope can't over-match a sibling folder and wrongly soft-delete it.
+  const known = folderScope
+    ? db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL AND folder_path LIKE ? ESCAPE '\\'")
+        .all(libraryId, `${folderScope.replace(/[\\%_]/g, "\\$&")}/%`) as { id: string; folder_path: string }[]
+    : db.prepare("SELECT id, folder_path FROM library_items WHERE library_id = ? AND deleted_at IS NULL")
+        .all(libraryId) as { id: string; folder_path: string }[];
+  const nowMissing: string[] = [];
   for (const item of known) {
     if (!presentPaths.has(item.folder_path)) {
       db.prepare("UPDATE library_items SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(item.id);
+      nowMissing.push(item.folder_path);
     }
   }
+  return nowMissing;
 }
 
 async function scanGalleryLibrary(
@@ -212,18 +231,53 @@ async function scanGalleryLibrary(
   const sources = options.sources ? normalizeScanSources("gallery", options.sources) : settings.scan_sources;
   const metaEnabled = sourceEnabled(sources, "file_metadata");
   const rootPath = validateLibrarySource(library.source_path);
-  const files = walkGalleryFiles(rootPath, new Set(settings.scan_extensions.map((extension) => `.${extension}`)));
+
+  // Optional folder scope: walk just that subtree and reconcile only within it.
+  // relativePathWithinRoot resolves + containment-checks the path (throws on escape
+  // or a missing/non-directory target); a target that resolves to the root itself
+  // degrades to a normal full scan.
+  let startDir = rootPath;
+  let folderScope: string | null = null;
+  if (options.folder != null && options.folder.trim() !== "") {
+    const resolved = relativePathWithinRoot(rootPath, options.folder);
+    const rel = normaliseRelativePath(path.relative(rootPath, resolved));
+    if (rel !== "") { startDir = resolved; folderScope = rel; }
+  }
+
+  const files = walkGalleryFiles(rootPath, new Set(settings.scan_extensions.map((extension) => `.${extension}`)), startDir);
 
   for (let i = 0; i < files.length; i += 1) {
     onProgress?.(i, files.length);
     await ingestGalleryAsset(libraryId, files[i], metaEnabled);
   }
   onProgress?.(files.length, files.length);
-  reconcileGalleryItems(libraryId, new Set(files.map((file) => file.relativePath)));
+  const nowMissing = reconcileGalleryItems(libraryId, new Set(files.map((file) => file.relativePath)), folderScope);
 
-  db.prepare("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
-    .run(libraryId);
-  return { assets: files.length };
+  // Record which photos went missing this scan so admins have a trail (the details also
+  // stay visible in the "Missing photos" list until they're purged).
+  if (nowMissing.length > 0) {
+    const sample = nowMissing.slice(0, 8).join(", ");
+    const extra = nowMissing.length - 8;
+    logActivity({
+      event: "library.gallery.photos_missing",
+      actorUserId: null,
+      targetType: "library",
+      targetId: libraryId,
+      detail: `${nowMissing.length} photo${nowMissing.length === 1 ? "" : "s"} missing from disk${folderScope ? ` in "${folderScope}"` : ""}: ${extra > 0 ? `${sample} … +${extra} more` : sample}.`,
+      ipAddress: null
+    });
+  }
+
+  // A folder rescan is partial, so it clears the "scanning" flag but must NOT claim
+  // a full-library last_scanned_at timestamp.
+  if (folderScope) {
+    db.prepare("UPDATE libraries SET scan_status = 'idle', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
+      .run(libraryId);
+  } else {
+    db.prepare("UPDATE libraries SET scan_status = 'idle', last_scanned_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
+      .run(libraryId);
+  }
+  return { assets: files.length, folder: folderScope };
 }
 
 // Ingest one newly-added asset (upload / restore) without re-walking the library.
