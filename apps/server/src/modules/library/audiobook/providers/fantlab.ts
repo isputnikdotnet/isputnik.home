@@ -1,4 +1,10 @@
+import { REMOTE_FETCH_USER_AGENT } from "../../shared/remote-image.js";
 import { MetadataLinkError, type MetadataCandidate, type MetadataSearchInput } from "./types.js";
+
+// FantLab's API (api.fantlab.ru) is often slow and occasionally 504s / drops the
+// connection. Cap each request like the other providers so a stall fails fast instead
+// of hanging the lookup — searchFantlab fans out one /work call per hit.
+const REQUEST_TIMEOUT_MS = 12_000;
 
 // FantLab exposes a clean JSON API, which we use instead of scraping the HTML site
 // (its markup shifts and had broken the old search parser). The API host serves the
@@ -57,11 +63,22 @@ interface FantlabEdition {
 }
 
 async function fetchFantlabJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: { "Accept": "application/json", "User-Agent": "isputnik.home metadata lookup" }
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: { "Accept": "application/json", "User-Agent": REMOTE_FETCH_USER_AGENT },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    });
+  } catch {
+    // Timed out (AbortError) or a network-level failure — FantLab didn't respond.
+    throw new Error("FantLab isn't responding right now. Please try again in a little while.");
+  }
   if (response.status === 404) {
     throw new MetadataLinkError("That FantLab record was not found.");
+  }
+  // 5xx / 429 are FantLab-side (gateway timeouts, overload) — transient, not our bug.
+  if (response.status >= 500 || response.status === 429) {
+    throw new Error("FantLab is temporarily unavailable (their server is overloaded). Please try again later.");
   }
   if (!response.ok) {
     throw new Error("FantLab request failed.");
