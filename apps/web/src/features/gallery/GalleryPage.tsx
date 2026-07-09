@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, Pencil, Play, Plus, Heart, Folder, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { Album, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Download, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -36,6 +36,12 @@ type TimelineSort = "taken" | "added";
 const SORT_OPTIONS = [
   { value: "taken" as const, label: "Date taken" },
   { value: "added" as const, label: "Date uploaded" }
+];
+
+// Album sort, shown through the same compact icon dropdown as the timeline sort.
+const ALBUM_SORT_OPTIONS = [
+  { value: "taken_at" as const, label: "Date taken" },
+  { value: "manual" as const, label: "Order added" }
 ];
 
 // Titles for the Memories strip — the server reports how wide it had to match
@@ -198,6 +204,13 @@ export function GalleryPage({
   const [albumDeleteOpen, setAlbumDeleteOpen] = useState(false);
   const [albumBusy, setAlbumBusy] = useState(false);
   const [bulkAlbumOpen, setBulkAlbumOpen] = useState(false);
+  // Open album's overflow (…) menu, and the "pick a cover" mode where clicking a
+  // tile sets it as the album cover instead of opening the lightbox.
+  const [albumMenuOpen, setAlbumMenuOpen] = useState(false);
+  const [albumMenuPos, setAlbumMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const albumMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const albumMenuRef = useRef<HTMLDivElement>(null);
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   // Folder to open on the next switch into the Folders view (set by the lightbox's
   // Folder link); the view-change effect consumes it instead of loading the root.
   const pendingFolderRef = useRef<string | null>(null);
@@ -398,16 +411,26 @@ export function GalleryPage({
     }
   }, []);
 
-  // Album edits (rename / sort mode). Reloads the header + list so cards stay fresh.
-  const patchAlbum = useCallback(async (albumId: string, fields: { name?: string; sortMode?: "taken_at" | "manual" }) => {
+  // Album edits (rename / sort mode / cover). Reloads the header + list so cards
+  // stay fresh (loadAlbums refreshes the list-card cover thumbnail after a change).
+  const patchAlbum = useCallback(async (albumId: string, fields: { name?: string; sortMode?: "taken_at" | "manual"; coverItemId?: string | null }) => {
     try {
       await api(`/api/library/gallery/albums/${albumId}`, { method: "PATCH", body: JSON.stringify(fields) });
       setAlbumRename(null);
       void openAlbum(albumId);
+      void loadAlbums();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update the album");
     }
-  }, [openAlbum]);
+  }, [openAlbum, loadAlbums]);
+
+  // Set the album cover (chosen in the cover-picker popup).
+  const setAlbumCover = useCallback(async (albumId: string, itemId: string) => {
+    setCoverPickerOpen(false);
+    setNotice("");
+    await patchAlbum(albumId, { coverItemId: itemId });
+    setNotice("Album cover updated.");
+  }, [patchAlbum]);
 
   const removeFromAlbum = useCallback(async (albumId: string, assetId: string) => {
     try {
@@ -639,6 +662,45 @@ export function GalleryPage({
     };
   }, [libraryMenuOpen]);
 
+  // Album overflow (…) menu — right-aligned under its trigger, same dismissal.
+  const toggleAlbumMenu = () => {
+    setAlbumMenuOpen((open) => {
+      if (!open && albumMenuTriggerRef.current) {
+        const rect = albumMenuTriggerRef.current.getBoundingClientRect();
+        setAlbumMenuPos({ top: rect.bottom + 8, left: rect.left });
+      }
+      return !open;
+    });
+  };
+
+  useEffect(() => {
+    if (!albumMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (albumMenuTriggerRef.current?.contains(target)) return;
+      if (albumMenuRef.current?.contains(target)) return;
+      setAlbumMenuOpen(false);
+    };
+    const dismiss = () => setAlbumMenuOpen(false);
+    window.addEventListener("mousedown", close);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
+  }, [albumMenuOpen]);
+
+  // Opening a different album (or closing) drops the cover picker / menu and any
+  // selection carried over from the previous album.
+  useEffect(() => {
+    setCoverPickerOpen(false);
+    setAlbumMenuOpen(false);
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, [selectedAlbum?.id]);
+
   const activeAssets = lightbox?.source === "single" && singleAsset
     ? [singleAsset]
     : lightbox?.source === "folder" ? folderAssets
@@ -669,7 +731,7 @@ export function GalleryPage({
   }, [view, parent, selectedPerson, selectedAlbum, loadTimeline, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, loadMemories, loadMap, loadLibraries]);
 
   // Assets currently shown (the selectable set depends on the active view).
-  const displayedAssets = view === "timeline" ? assets : view === "memories" ? memoryItems : folderAssets;
+  const displayedAssets = view === "timeline" ? assets : view === "memories" ? memoryItems : view === "albums" ? albumAssets : folderAssets;
   const canDeleteAny = libraries.some((library) => library.canDelete);
   // Sharing hands out file access, so the bar's Share needs the curate
   // capability somewhere; the server filters the selection per library anyway.
@@ -1184,7 +1246,9 @@ export function GalleryPage({
                 </>
               )
             ) : view === "albums" ? (
-              selectedAlbum ? (
+              selectedAlbum ? (() => {
+                const albumCoverUrl = albums.find((al) => al.id === selectedAlbum.id)?.coverUrl ?? albumAssets[0]?.coverUrl ?? null;
+                return (
                 <>
                   <div className="gallery-breadcrumb">
                     <button type="button" onClick={() => { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); }}>All albums</button>
@@ -1194,14 +1258,13 @@ export function GalleryPage({
                     </span>
                   </div>
 
-                  {selectedAlbum.description && <p className="muted">{selectedAlbum.description}</p>}
-
-                  {selectedAlbum.canEdit && (
-                    <div className="gallery-person-toolbar">
+                  <div className="gallery-album-header">
+                    <span className="gallery-album-cover">
+                      {albumCoverUrl ? <img src={albumCoverUrl} alt="" /> : <Album size={30} aria-hidden="true" />}
+                    </span>
+                    <div className="gallery-album-heading">
                       {albumRename == null ? (
-                        <button type="button" className="secondary-button compact-button" onClick={() => setAlbumRename(selectedAlbum.name)}>
-                          <Pencil size={14} aria-hidden="true" /> Rename
-                        </button>
+                        <h2>{selectedAlbum.name}</h2>
                       ) : (
                         <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (albumRename.trim()) void patchAlbum(selectedAlbum.id, { name: albumRename.trim() }); }}>
                           <input value={albumRename} onChange={(event) => setAlbumRename(event.target.value)} placeholder="Album name" autoFocus maxLength={120} />
@@ -1209,19 +1272,83 @@ export function GalleryPage({
                           <button type="button" className="icon-button" onClick={() => setAlbumRename(null)} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
                         </form>
                       )}
-                      <select
-                        value={selectedAlbum.sortMode}
-                        onChange={(event) => void patchAlbum(selectedAlbum.id, { sortMode: event.target.value as "taken_at" | "manual" })}
-                        aria-label="Sort album"
+                      <p className="gallery-album-sub">
+                        {formatCount(albumTotal)} {albumTotal === 1 ? "item" : "items"}
+                        {selectedAlbum.description ? <> · {selectedAlbum.description}</> : null}
+                      </p>
+                    <div className="gallery-album-actions">
+                      <button
+                        ref={albumMenuTriggerRef}
+                        type="button"
+                        className="audiobook-page-action-icon"
+                        onClick={toggleAlbumMenu}
+                        aria-haspopup="menu"
+                        aria-expanded={albumMenuOpen}
+                        aria-label="More album actions"
+                        title="More"
                       >
-                        <option value="taken_at">Date taken</option>
-                        <option value="manual">Order added</option>
-                      </select>
-                      <button type="button" className="danger-button compact-button" onClick={() => setAlbumDeleteOpen(true)}>
-                        <Trash2 size={14} aria-hidden="true" /> Delete
+                        <MoreHorizontal size={18} aria-hidden="true" />
                       </button>
+                      {selectedAlbum.canEdit && (
+                        <AudiobookHeaderSort
+                          value={selectedAlbum.sortMode as unknown as SortKey}
+                          onChange={(value) => void patchAlbum(selectedAlbum.id, { sortMode: value as unknown as "taken_at" | "manual" })}
+                          options={ALBUM_SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
+                          ariaLabel="Sort album"
+                          compact
+                        />
+                      )}
+                      {!selectionMode && (
+                        <button
+                          type="button"
+                          className="audiobook-page-action-icon"
+                          onClick={() => { setNotice(""); setSelectionMode(true); }}
+                          aria-label="Select"
+                          title="Select"
+                        >
+                          <SquareCheck size={18} aria-hidden="true" />
+                        </button>
+                      )}
+                      {albumMenuOpen && albumMenuPos && createPortal(
+                        <div
+                          ref={albumMenuRef}
+                          className="gallery-album-menu"
+                          role="menu"
+                          aria-label="Album actions"
+                          style={{ position: "fixed", top: albumMenuPos.top, left: albumMenuPos.left }}
+                        >
+                          {selectedAlbum.canEdit && (
+                            <button type="button" role="menuitem" onClick={() => { setAlbumMenuOpen(false); setAlbumRename(selectedAlbum.name); }}>
+                              <Pencil size={15} aria-hidden="true" /><span>Rename album</span>
+                            </button>
+                          )}
+                          {selectedAlbum.canEdit && (
+                            <button type="button" role="menuitem" onClick={() => { setAlbumMenuOpen(false); setNotice(""); setCoverPickerOpen(true); }}>
+                              <ImageIcon size={15} aria-hidden="true" /><span>Set cover photo</span>
+                            </button>
+                          )}
+                          <button type="button" role="menuitem" disabled title="Coming soon">
+                            <Play size={15} aria-hidden="true" /><span>Create slideshow</span>
+                          </button>
+                          <a
+                            role="menuitem"
+                            href={`/api/library/gallery/albums/${selectedAlbum.id}/download`}
+                            download
+                            onClick={() => setAlbumMenuOpen(false)}
+                          >
+                            <Download size={15} aria-hidden="true" /><span>Download album</span>
+                          </a>
+                          {selectedAlbum.canEdit && (
+                            <button type="button" role="menuitem" className="danger" onClick={() => { setAlbumMenuOpen(false); setAlbumDeleteOpen(true); }}>
+                              <Trash2 size={15} aria-hidden="true" /><span>Delete album</span>
+                            </button>
+                          )}
+                        </div>,
+                        document.body
+                      )}
                     </div>
-                  )}
+                    </div>
+                  </div>
 
                   <div className="gallery-grid">
                     {albumAssets.map((asset, index) => (
@@ -1229,10 +1356,10 @@ export function GalleryPage({
                         key={asset.id}
                         asset={asset}
                         onOpen={() => setLightbox({ source: "album", index })}
-                        selectionMode={false}
-                        selected={false}
-                        onToggleSelect={() => { /* selection disabled in Albums view */ }}
-                        onRemove={selectedAlbum.canEdit ? () => void removeFromAlbum(selectedAlbum.id, asset.id) : undefined}
+                        selectionMode={selectionMode}
+                        selected={selectedIds.has(asset.id)}
+                        onToggleSelect={() => toggleSelect(asset.id)}
+                        onRemove={selectedAlbum.canEdit && !selectionMode ? () => void removeFromAlbum(selectedAlbum.id, asset.id) : undefined}
                         removeTitle="Remove from this album"
                       />
                     ))}
@@ -1250,7 +1377,8 @@ export function GalleryPage({
                     </div>
                   )}
                 </>
-              ) : (
+                );
+              })() : (
                 <>
                   <div className="gallery-person-toolbar">
                     <button type="button" className="secondary-button compact-button" onClick={() => setAlbumCreateOpen(true)}>
@@ -1561,6 +1689,45 @@ export function GalleryPage({
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {coverPickerOpen && selectedAlbum && (
+        <Modal
+          variant="panel"
+          title="Set cover photo"
+          icon={<ImageIcon size={20} />}
+          className="gallery-cover-modal"
+          onClose={() => setCoverPickerOpen(false)}
+        >
+          <div className="modal-tab-content">
+            <p className="muted">Choose a photo to use as this album’s cover.</p>
+            {albumAssets.length === 0 ? (
+              <p className="management-empty">This album has no photos yet.</p>
+            ) : (
+              <div className="gallery-grid gallery-cover-grid">
+                {albumAssets.map((asset) => (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    className={`gallery-tile${asset.id === selectedAlbum.coverItemId ? " selected" : ""}`}
+                    onClick={() => void setAlbumCover(selectedAlbum.id, asset.id)}
+                    aria-label={`Use ${asset.title} as the cover`}
+                    title={`Use ${asset.title} as the cover`}
+                  >
+                    {asset.coverUrl ? (
+                      <img src={asset.coverUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
+                    )}
+                    {asset.id === selectedAlbum.coverItemId && (
+                      <span className="gallery-tile-check" aria-hidden="true"><CheckCircle2 size={22} /></span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </Modal>
       )}
 

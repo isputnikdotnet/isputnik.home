@@ -355,7 +355,7 @@ export function GalleryLightbox({
   );
 
   return createPortal(
-    <div className="gallery-lightbox" role="dialog" aria-label={asset.title} aria-modal="true">
+    <div className={`gallery-lightbox${showInfo ? " has-info" : ""}`} role="dialog" aria-label={asset.title} aria-modal="true">
       <div className="gallery-lightbox-bar">
         <div className="gallery-lightbox-title">
           {asset.title}
