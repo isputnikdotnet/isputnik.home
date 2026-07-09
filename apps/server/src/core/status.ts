@@ -502,6 +502,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.16",
+          label: "Flat-folder audiobooks, per-folder gallery rescan & missing-photo cleanup",
+          changes: [
+            "Audiobooks: a new \"Each file is a book\" scan option for a library. Turn it on and every audio file sitting directly in the library folder becomes its own book — ideal for a flat folder of single-file audiobooks (a pile of fairy tales, radio plays, and the like). Files tucked inside subfolders still group into one book per folder as before.",
+            "Gallery: rescan just one folder. In the Folder view, admins now get a \"Rescan this folder\" button that reprocesses only that subtree instead of the whole library — much quicker when you've only touched one folder.",
+            "Gallery: missing photos are now tracked and tidied up. When a photo's file disappears from disk, it's hidden but kept (with its last-known thumbnail) on a new \"Missing photos\" page under Control panel → Libraries. A weekly cleanup permanently removes ones that have been missing longer than a grace window (default 30 days, configurable); photos still on disk are never touched.",
+            "Ebooks: a scan rule can now target the whole library from its root folder, not just a subfolder.",
+            "Face recognition: the window is wider, its Health tab scrolls instead of overflowing on long lists, and the duplicate-person avatars are larger and easier to compare.",
+            "Metadata: FantLab lookups no longer hang when their server is slow, and show a clear \"try again later\" message when it's temporarily unavailable."
+          ]
+        },
+        {
           version: "1.8.15",
           label: "Share photos with people, download whole sets, and a reworked album page",
           changes: [
