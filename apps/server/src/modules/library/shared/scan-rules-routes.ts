@@ -18,12 +18,13 @@ const ruleBodySchema = z.object({
   pattern: z.string().trim().min(1).max(500),
   preset: z.string().trim().max(64).nullable().optional(),
   enabled: z.boolean().optional(),
-  paths: z.array(z.string().trim().min(1).max(1000)).min(1).max(200)
+  // An entry may be "" (the library root); normalizePaths keeps it as a whole-library anchor.
+  paths: z.array(z.string().trim().max(1000)).min(1).max(200)
 });
 
 const previewSchema = z.object({
   pattern: z.string().trim().min(1).max(500),
-  paths: z.array(z.string().trim().min(1).max(1000)).min(1).max(200)
+  paths: z.array(z.string().trim().max(1000)).min(1).max(200)
 });
 
 export async function scanRulesPlugin(app: FastifyInstance) {

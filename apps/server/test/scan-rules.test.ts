@@ -67,6 +67,28 @@ describe("resolveOwningRule", () => {
     expect(resolveOwner("L1", "Collections/Other/X")).toMatchObject({ rule: { id: a.id }, anchor: "Collections" });
     expect(resolveOwner("L1", "Elsewhere/Y")).toBeNull();
   });
+
+  it("a root (empty-path) rule owns the whole library but yields to a more-specific folder rule", () => {
+    const root = createScanRule("L1", { name: "Whole library", pattern: "{author}/{title}", paths: [""] });
+    if (isScanRuleError(root)) throw new Error("setup failed");
+    expect(root.paths).toEqual([""]);
+
+    // With only the root rule, every path is owned by it, anchored at "" (so the
+    // pattern matches the full relative key).
+    expect(resolveOwner("L1", "Asimov/Foundation")).toMatchObject({ rule: { id: root.id }, anchor: "" });
+    expect(resolveOwner("L1", "Deep/Nested/Book")).toMatchObject({ rule: { id: root.id }, anchor: "" });
+
+    // A folder rule is more specific than root and wins within its scope.
+    const sci = createScanRule("L1", { name: "Sci-Fi", pattern: "{series}/{title}", paths: ["Sci-Fi"] });
+    if (isScanRuleError(sci)) throw new Error("setup failed");
+    expect(resolveOwner("L1", "Sci-Fi/Dune")).toMatchObject({ rule: { id: sci.id }, anchor: "Sci-Fi" });
+    expect(resolveOwner("L1", "Asimov/Foundation")).toMatchObject({ rule: { id: root.id }, anchor: "" });
+
+    // Disabling the root rule hands its scope back to the default scanner.
+    updateScanRule(root.id, { name: "Whole library", pattern: "{author}/{title}", paths: [""], enabled: false });
+    expect(resolveOwner("L1", "Asimov/Foundation")).toBeNull();
+    expect(resolveOwner("L1", "Sci-Fi/Dune")).toMatchObject({ rule: { id: sci.id } });
+  });
 });
 
 describe("updateScanRule / deleteScanRule", () => {
