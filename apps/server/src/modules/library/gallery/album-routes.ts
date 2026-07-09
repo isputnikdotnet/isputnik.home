@@ -1,10 +1,14 @@
 // Album endpoints. Reads are open to every member (items filtered per viewer's
 // library access); writes require canEditAlbum (creator + admins). Batch bodies
 // follow the bulk contract: inaccessible items are skipped and counted.
+import fs from "node:fs";
+import path from "node:path";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
+import archiver from "archiver";
 import { logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
+import { pathIsInside } from "../shared/storage-roots.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
 import {
   getAlbum,
@@ -16,6 +20,7 @@ import {
   removeAlbumItems,
   listAlbums,
   getAlbumItems,
+  getAlbumFilePaths,
   type AlbumRow
 } from "./albums.js";
 
@@ -118,6 +123,66 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
       assets,
       total
     });
+  });
+
+  // Download the album as one zip of the items the viewer can see (library-access
+  // filtered, in the album's sort order). Stored (level 0) — photos/videos are
+  // already compressed. Missing files skip; duplicate basenames get a " (n)".
+  app.get("/api/library/gallery/albums/:id/download", { preHandler: app.authenticate }, (request, reply) => {
+    const album = getAlbum((request.params as { id: string }).id);
+    const user = request.user!;
+    if (!album) {
+      reply.code(404).send({ error: "Album not found" });
+      return;
+    }
+    const libIds = resolveGalleryScopeLibraryIds(user, "all");
+    const available = getAlbumFilePaths(libIds, album).filter((file) => {
+      const filePath = path.join(file.source_path, ...file.relative_path.split("/"));
+      return pathIsInside(filePath, file.source_path) && fs.existsSync(filePath);
+    });
+    if (available.length === 0) {
+      reply.code(404).send({ error: "No files available" });
+      return;
+    }
+
+    const safeBase = album.name.replace(/[/\\?%*:|"<>]/g, "_").trim() || "album";
+    const zipName = `${safeBase}.zip`;
+
+    logActivity({
+      event: "gallery.album.downloaded",
+      actorUserId: user.id,
+      targetType: "gallery_album",
+      targetId: album.id,
+      detail: `Downloaded ${available.length} item${available.length === 1 ? "" : "s"} from album "${album.name}".`,
+      ipAddress: request.ip
+    });
+
+    const asciiFilename = zipName.replace(/[^\x20-\x7E]/g, "_");
+    const encodedFilename = encodeURIComponent(zipName);
+    const archive = archiver("zip", { zlib: { level: 0 } });
+    archive.on("error", (err) => { reply.raw.destroy(err); });
+
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`,
+      "Cache-Control": "private, no-cache"
+    });
+    archive.pipe(reply.raw);
+
+    const usedNames = new Map<string, number>();
+    for (const file of available) {
+      const filePath = path.join(file.source_path, ...file.relative_path.split("/"));
+      let name = file.relative_path.split("/").pop() ?? "file";
+      const seen = usedNames.get(name) ?? 0;
+      usedNames.set(name, seen + 1);
+      if (seen > 0) {
+        const ext = path.extname(name);
+        name = `${name.slice(0, name.length - ext.length)} (${seen})${ext}`;
+      }
+      archive.file(filePath, { name });
+    }
+    archive.finalize();
   });
 
   app.patch("/api/library/gallery/albums/:id", { preHandler: app.authenticate }, async (request, reply) => {

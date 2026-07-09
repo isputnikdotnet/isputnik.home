@@ -11,6 +11,7 @@ import {
   listAlbums,
   getAlbum,
   getAlbumItems,
+  getAlbumFilePaths,
   canEditAlbum
 } from "../src/modules/library/gallery/albums.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
@@ -137,5 +138,21 @@ describe("album item ordering", () => {
 
     const rest = getAlbumItems("viewer", ["GAL"], getAlbum(album.id)!, 2, 2);
     expect(rest.assets).toHaveLength(1);
+  });
+});
+
+describe("album download file paths", () => {
+  it("returns viewer-visible files in album sort order with their source paths", () => {
+    const album = createAlbum(creator, "Trip", null);
+    addAlbumItems(album.id, new Set(GAL_LIBS), [a, c, b, priv]);
+
+    // Viewer can't see PRIV, so its item drops; the rest come back chronologically.
+    const forViewer = getAlbumFilePaths(["GAL"], getAlbum(album.id)!);
+    expect(forViewer.map((f) => f.relative_path)).toEqual(["b.jpg", "c.jpg", "a.jpg"]);
+    expect(forViewer.every((f) => f.source_path.length > 0)).toBe(true);
+
+    // The creator (access to both libraries) also gets the private item.
+    const forCreator = getAlbumFilePaths(GAL_LIBS, getAlbum(album.id)!);
+    expect(forCreator.map((f) => f.relative_path)).toEqual(["b.jpg", "c.jpg", "a.jpg", "priv.jpg"]);
   });
 });
