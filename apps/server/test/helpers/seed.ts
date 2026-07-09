@@ -2,8 +2,22 @@
 // vitest.config.ts) and builds the full schema, so these write straight into the
 // real tables the access-control code reads.
 import { db } from "../../src/db.js";
+import { config } from "../../src/config.js";
 
 type ObjectRole = "viewer" | "member" | "contributor" | "manager" | "deny";
+
+// Guard against catastrophe: resetDb() DELETEs every table, so it must only ever
+// run against the throwaway in-memory database. If vitest is launched without its
+// config (e.g. `npx vitest` from the repo root instead of `npm test`), DB_PATH is
+// unset and src/db.ts opens the REAL data/db/isputnik.sqlite — wiping live data.
+// Fail loudly instead. DB_PATH=":memory:" is set by apps/server/vitest.config.ts.
+if (config.dbPath !== ":memory:") {
+  throw new Error(
+    `Refusing to run tests against a non-memory database (DB_PATH="${config.dbPath}"). ` +
+    "Run the suite via `npm test` (or `npm test --workspace apps/server`), which loads " +
+    "apps/server/vitest.config.ts and sets DB_PATH=\":memory:\"."
+  );
+}
 
 // Clear every table the access tests touch. FKs are toggled off so order and the
 // created_by/owner references don't matter — each test starts from empty.
