@@ -221,7 +221,7 @@ export function ScanRulesModal({
                       <div className="scan-rules-rule-meta">
                         <strong>{rule.name}</strong>
                         <code>{rule.pattern}</code>
-                        <small className="muted">{rule.paths.join(" · ")}</small>
+                        <small className="muted">{rule.paths.map((path) => path || "Library root").join(" · ")}</small>
                       </div>
                       <label className="field-checkbox" style={{ flex: "0 0 auto" }}>
                         <input type="checkbox" checked={rule.enabled} onChange={() => toggle(rule)} />
@@ -268,8 +268,8 @@ export function ScanRulesModal({
                         <div className="scan-rules-folder-grid">
                           {form.folders.map((path) => {
                             const segments = path.split("/");
-                            const name = segments[segments.length - 1];
-                            const parent = segments.slice(0, -1).join("/");
+                            const name = path === "" ? "Library root" : segments[segments.length - 1];
+                            const parent = path === "" ? "" : segments.slice(0, -1).join("/");
                             return (
                               <div key={path} className="scan-rules-folder-card">
                                 <Folder size={16} aria-hidden="true" />
@@ -372,11 +372,11 @@ export function ScanRulesModal({
                 <span>{browsePath ? `/${browsePath}` : "Library root"}</span>
               </div>
               <div className="row-actions">
-                {browsePath && (
-                  <Button variant="secondary" compact disabled={form.folders.includes(browsePath)} onClick={() => addFolder(browsePath)}>
-                    {form.folders.includes(browsePath) ? "Added" : <><Plus size={14} aria-hidden="true" /> Add this folder</>}
-                  </Button>
-                )}
+                <Button variant="secondary" compact disabled={form.folders.includes(browsePath)} onClick={() => addFolder(browsePath)}>
+                  {form.folders.includes(browsePath)
+                    ? "Added"
+                    : <><Plus size={14} aria-hidden="true" /> {browsePath ? "Add this folder" : "Add library root"}</>}
+                </Button>
                 <Button variant="icon" title="Up one level" aria-label="Up one level" disabled={browseParent === null} onClick={() => browse(browseParent ?? "")}>
                   <ArrowUp size={16} />
                 </Button>

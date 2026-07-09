@@ -42,8 +42,8 @@ function normalizePaths(raw: unknown): string[] | ScanRuleError {
   const out: string[] = [];
   for (const entry of raw) {
     if (typeof entry !== "string") continue;
+    // An empty path is the library root — a whole-library anchor. Kept, not dropped.
     const norm = normalizePath(entry);
-    if (!norm) continue;
     if (norm.split("/").includes("..")) return { error: "Folder paths must stay inside the library." };
     if (!out.includes(norm)) out.push(norm);
   }
@@ -162,7 +162,9 @@ export function resolveOwner(libraryId: string, itemPath: string): ResolvedOwner
 
   let best: { len: number; ruleId: string; enabled: number; path: string } | null = null;
   for (const row of rows) {
-    if (norm === row.path || norm.startsWith(`${row.path}/`)) {
+    // Root ("") owns the whole library; it's length 0, so any real folder rule
+    // is more specific and wins over it.
+    if (row.path === "" || norm === row.path || norm.startsWith(`${row.path}/`)) {
       if (!best || row.path.length > best.len) {
         best = { len: row.path.length, ruleId: row.ruleId, enabled: row.enabled, path: row.path };
       }
