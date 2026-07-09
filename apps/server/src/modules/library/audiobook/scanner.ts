@@ -54,7 +54,9 @@ export interface ScanOptions {
 // How files are grouped into books. folder_hierarchy: the folder containing the audio
 // files is the book (disc subfolders collapse into the parent). top_level_folder: each
 // immediate child folder of the library root is one book holding everything beneath it.
-type GroupingMode = "folder_hierarchy" | "top_level_folder";
+// file_per_book: each audio file directly in the library root is its own book (a flat
+// folder of single-file audiobooks); files inside subfolders still group by folder.
+type GroupingMode = "folder_hierarchy" | "top_level_folder" | "file_per_book";
 
 interface EffectiveScanConfig {
   settings: AudiobookSettings;
@@ -72,7 +74,10 @@ function resolveScanConfig(settingsJson: string, options: ScanOptions): Effectiv
   return {
     settings,
     sources,
-    groupingMode: sourceEnabled(sources, "folder_structure") ? "top_level_folder" : "folder_hierarchy",
+    // single_file wins over folder_structure when both are (mistakenly) enabled.
+    groupingMode: sourceEnabled(sources, "single_file")
+      ? "file_per_book"
+      : sourceEnabled(sources, "folder_structure") ? "top_level_folder" : "folder_hierarchy",
     forceReread: options.sources != null || options.tagEncoding != null,
     // Rescan override wins; otherwise the library's persisted default encoding.
     tagEncoding: options.tagEncoding ?? settings.tag_encoding
@@ -727,7 +732,7 @@ async function generateCover(libraryId: string, bookId: string, folderPath: stri
   return null;
 }
 
-async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings, groupingMode: GroupingMode = "folder_hierarchy") {
+export async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings, groupingMode: GroupingMode = "folder_hierarchy") {
   const extensions = scanExtensionSet(settings);
   const filesByBookFolder = new Map<string, AudioFileEntry[]>();
 
@@ -768,12 +773,17 @@ async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings,
       const discHint = discNumberFromFolderName(path.basename(folderPath));
       const relativePath = normaliseRelativePath(path.relative(rootPath, absolutePath));
       let bookFolderPath: string;
-      if (groupingMode === "top_level_folder") {
+      if (groupingMode === "file_per_book" && !relativePath.includes("/")) {
+        // A loose file at the library root is its own book; the "book folder" IS the
+        // file (folder_path becomes the file's relative name — unique per book).
+        bookFolderPath = absolutePath;
+      } else if (groupingMode === "top_level_folder") {
         // The first path segment under the root is the book; files directly in the
         // root group under the root itself.
         const topSegment = relativePath.split("/")[0];
         bookFolderPath = relativePath.includes("/") ? path.join(rootPath, topSegment) : rootPath;
       } else {
+        // folder_hierarchy (and file_per_book's subfolder files): the containing folder.
         bookFolderPath = discHint ? path.dirname(folderPath) : folderPath;
       }
 
@@ -796,6 +806,18 @@ async function walkAudiobookFiles(rootPath: string, settings: AudiobookSettings,
 
 function readBookFolderFiles(rootPath: string, folderAbsolutePath: string, settings: AudiobookSettings, groupingMode: GroupingMode = "folder_hierarchy"): AudioFileEntry[] {
   const extensions = scanExtensionSet(settings);
+
+  // Single-file book (file_per_book): the "folder" is actually the audio file itself,
+  // so a rescan re-reads just that one file rather than trying to list a directory.
+  let rootStat: fs.Stats | null = null;
+  try { rootStat = fs.statSync(folderAbsolutePath); } catch { return []; }
+  if (rootStat.isFile()) {
+    const extension = path.extname(folderAbsolutePath).toLowerCase();
+    if (!extensions.has(extension)) return [];
+    const relativePath = normaliseRelativePath(path.relative(rootPath, folderAbsolutePath));
+    return [{ absolutePath: folderAbsolutePath, fileName: path.basename(folderAbsolutePath), relativePath, stat: rootStat, discHint: null }];
+  }
+
   const files: AudioFileEntry[] = [];
 
   const scanDir = (dir: string, discHint: number | null) => {
@@ -940,10 +962,16 @@ async function prepareBookScan(
     .get(bookId) as { source: "scan" | "manual"; cover_storage_key: string | null; description: string | null } | undefined;
   const manualMetadata = metadataRow?.source === "manual";
   const onlineEnabled = sourceEnabled(sources, "online_metadata") && !manualMetadata;
-  const titleHint = path.basename(folderAbsolutePath);
+  // A single-file book's "folder" is the audio file itself: every file it holds is the
+  // book folder path. Its title hint is the file name (sans extension) and its parent is
+  // the library root, so there is no author folder to read.
+  const isFileBook = files.length === 1 && files[0].absolutePath === folderAbsolutePath;
+  const titleHint = isFileBook
+    ? path.basename(folderAbsolutePath, path.extname(folderAbsolutePath))
+    : path.basename(folderAbsolutePath);
   // In top-level grouping the parent of every book folder is the library root, which
-  // is not an author name; same when the book is the root itself.
-  const authorHint = config.groupingMode === "top_level_folder" || folderPath === "."
+  // is not an author name; same when the book is the root itself or a single loose file.
+  const authorHint = config.groupingMode === "top_level_folder" || folderPath === "." || isFileBook
     ? null
     : path.basename(path.dirname(folderAbsolutePath));
   const fileMetaEnabled = sourceEnabled(sources, "file_metadata");
@@ -1206,7 +1234,8 @@ async function prepareBookScan(
     seriesPosition: merged.seriesPosition ?? null,
     skipMetadataUpdate: false,
     files: preparedFiles,
-    documents: readBookFolderDocuments(rootPath, folderAbsolutePath)
+    // A single loose file has no companion-document folder to scan.
+    documents: isFileBook ? [] : readBookFolderDocuments(rootPath, folderAbsolutePath)
   };
 }
 
