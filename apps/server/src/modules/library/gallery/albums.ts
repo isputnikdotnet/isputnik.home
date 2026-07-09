@@ -203,3 +203,37 @@ export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow,
 
   return { assets: rows.map(mapAsset), total };
 }
+
+// On-disk paths for every album item the viewer can see, in the album's sort
+// order — for the "Download album" zip. Source path is per-library (an album can
+// span libraries). Filtered by library access like getAlbumItems.
+export interface AlbumFileRow {
+  id: string;
+  title: string | null;
+  folder_path: string;
+  relative_path: string;
+  source_path: string;
+}
+
+export function getAlbumFilePaths(libIds: string[], album: AlbumRow): AlbumFileRow[] {
+  if (libIds.length === 0) return [];
+  const libIn = inClause(libIds.length);
+  const order = album.sort_mode === "manual"
+    ? "gallery_album_items.position ASC"
+    : "datetime(gallery_details.taken_at) ASC, library_items.id ASC";
+  return db.prepare(`
+    SELECT
+      library_items.id,
+      item_metadata.title,
+      library_items.folder_path,
+      gallery_details.relative_path,
+      libraries.source_path
+    FROM gallery_album_items
+    JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE gallery_album_items.album_id = ? AND library_items.library_id IN (${libIn})
+    ORDER BY ${order}
+  `).all(album.id, ...libIds) as AlbumFileRow[];
+}
