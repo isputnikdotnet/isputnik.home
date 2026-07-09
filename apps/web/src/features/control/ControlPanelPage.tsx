@@ -31,6 +31,7 @@ import { TagsSection } from "./sections/TagsSection";
 import { GroupsSection } from "./sections/GroupsSection";
 import { TasksSection } from "./sections/TasksSection";
 import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
+import { MissingPhotosSection } from "./sections/MissingPhotosSection";
 import { ConfigSection } from "./sections/ConfigSection";
 import { SecuritySection } from "./sections/SecuritySection";
 import { RecycleBinSection } from "./sections/RecycleBinSection";
@@ -57,7 +58,7 @@ export function ControlPanelPage({
           {section === "security"  && <SecuritySection />}
           {section === "about"     && <AboutSection />}
           {section === "storage"   && <StorageSection />}
-          {(section === "libraries" || section === "tasks" || section === "scheduledJobs") && <LibrariesControl section={section} />}
+          {(section === "libraries" || section === "tasks" || section === "scheduledJobs" || section === "missingPhotos") && <LibrariesControl section={section} />}
           {section === "recycleBin" && <RecycleBinSection />}
           {section === "categories" && categoryId !== undefined && <CategoryEditorPage categoryId={categoryId} />}
           {section === "categories" && categoryId === undefined && <TaxonomySection section="categories" />}
@@ -209,17 +210,19 @@ function ConfigControl({ section }: { section: "config" | "backup" }) {
   );
 }
 
-function LibrariesControl({ section }: { section: "libraries" | "tasks" | "scheduledJobs" }) {
+function LibrariesControl({ section }: { section: "libraries" | "tasks" | "scheduledJobs" | "missingPhotos" }) {
   return (
     <>
       <ControlTabs tabs={[
         { label: "Libraries", href: "/control/libraries", active: section === "libraries" },
         { label: "Tasks", href: "/control/libraries/tasks", active: section === "tasks" },
-        { label: "Scheduled jobs", href: "/control/libraries/scheduled-jobs", active: section === "scheduledJobs" }
+        { label: "Scheduled jobs", href: "/control/libraries/scheduled-jobs", active: section === "scheduledJobs" },
+        { label: "Missing photos", href: "/control/libraries/missing-photos", active: section === "missingPhotos" }
       ]} />
       {section === "libraries"     && <LibrariesSection />}
       {section === "tasks"         && <TasksSection />}
       {section === "scheduledJobs" && <ScheduledJobsSection />}
+      {section === "missingPhotos" && <MissingPhotosSection />}
     </>
   );
 }

@@ -1,9 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Download, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { Album, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Download, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
+import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiobooks/AudiobooksPage";
@@ -327,6 +328,28 @@ export function GalleryPage({
       setLoading(false);
     }
   }, [scopeParams]);
+
+  // Admin: rescan just the folder currently open (a single library must be in
+  // scope — a folder path can exist under several libraries otherwise). The scan
+  // runs on the server; progress shows on Control panel → Libraries → Tasks.
+  const [folderRescanBusy, setFolderRescanBusy] = useState(false);
+  const rescanFolder = useCallback(async () => {
+    if (scopeId === "all" || !parent) return;
+    setFolderRescanBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/library/gallery-libraries/${scopeId}/rescan`, {
+        method: "POST",
+        body: JSON.stringify({ folder: parent })
+      });
+      setNotice(`Rescanning "${parent}" — new, changed, and removed files there update shortly. Follow progress under Control panel → Libraries → Tasks.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to start the folder rescan");
+    } finally {
+      setFolderRescanBusy(false);
+    }
+  }, [scopeId, parent]);
 
   const loadMap = useCallback(async () => {
     setLoading(true);
@@ -1564,17 +1587,30 @@ export function GalleryPage({
               </>
             ) : (
               <>
-                <div className="gallery-breadcrumb">
-                  <button type="button" onClick={() => void loadFolder("")}>All folders</button>
-                  {breadcrumbParts.map((part, i) => {
-                    const target = breadcrumbParts.slice(0, i + 1).join("/");
-                    return (
-                      <span key={target} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <ChevronRight size={14} aria-hidden="true" />
-                        <button type="button" onClick={() => void loadFolder(target)}>{part}</button>
-                      </span>
-                    );
-                  })}
+                <div className="gallery-folder-bar">
+                  <div className="gallery-breadcrumb">
+                    <button type="button" onClick={() => void loadFolder("")}>All folders</button>
+                    {breadcrumbParts.map((part, i) => {
+                      const target = breadcrumbParts.slice(0, i + 1).join("/");
+                      return (
+                        <span key={target} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <ChevronRight size={14} aria-hidden="true" />
+                          <button type="button" onClick={() => void loadFolder(target)}>{part}</button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {isAdmin && scopeId !== "all" && parent !== "" && (
+                    <Button
+                      variant="secondary"
+                      compact
+                      disabled={folderRescanBusy}
+                      title="Rescan just this folder (leaves the rest of the library untouched)"
+                      onClick={() => void rescanFolder()}
+                    >
+                      <RefreshCw size={14} aria-hidden="true" /> {folderRescanBusy ? "Starting…" : "Rescan this folder"}
+                    </Button>
+                  )}
                 </div>
 
                 {folders.length > 0 && (

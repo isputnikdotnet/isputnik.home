@@ -663,6 +663,35 @@
   background: var(--surface);
 }
 
+/* ── Missing photos ─────────────────────────────────────────────── */
+
+.missing-retention-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+}
+.missing-retention-row input[type="number"] {
+  width: 84px;
+}
+/* Last-known thumbnail of a now-missing photo (small, in the grid's first column). */
+.missing-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  color: var(--muted);
+}
+.missing-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* The relative path wraps rather than stretching the table on deep folders. */
+.missing-path { word-break: break-all; }
+
 /* ── Tasks ──────────────────────────────────────────────────────── */
 
 .task-idle-note {

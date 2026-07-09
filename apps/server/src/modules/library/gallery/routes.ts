@@ -13,11 +13,12 @@ import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
 import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
-import { normaliseRelativePath } from "../shared/storage-roots.js";
+import { normaliseRelativePath, relativePathWithinRoot } from "../shared/storage-roots.js";
 import { removeThumbnailsForLibrary } from "../shared/thumbnail.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { enqueueGalleryScan, processGalleryScanQueue, scanSingleGalleryFile } from "./scanner.js";
+import { listMissingGalleryPhotos, setMissingRetentionDays, purgeMissingGalleryPhoto, purgeMissingGalleryPhotos } from "./cleanup.js";
 import {
   resolveGalleryScopeLibraryIds,
   queryGalleryTimeline,
@@ -151,7 +152,9 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   });
 
   const rescanOptionsSchema = z.object({
-    sources: z.array(z.object({ id: z.enum(METADATA_SOURCE_IDS), enabled: z.boolean() })).max(20).optional()
+    sources: z.array(z.object({ id: z.enum(METADATA_SOURCE_IDS), enabled: z.boolean() })).max(20).optional(),
+    // Optional: rescan just one subtree instead of the whole library.
+    folder: z.string().trim().max(1024).optional()
   });
 
   app.post("/api/library/gallery-libraries/:id/rescan", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -169,14 +172,27 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       return;
     }
 
+    let root: string;
     try {
-      validateLibrarySource(exists.source_path);
+      root = validateLibrarySource(exists.source_path);
     } catch (err) {
       if (err instanceof LibrarySourceError) {
         reply.code(422).send({ error: err.message });
         return;
       }
       throw err;
+    }
+
+    // Validate a folder scope up front so a bad path returns a clean 400 instead of
+    // failing (and retrying) inside the scan worker.
+    const folder = parsed.data.folder?.trim();
+    if (folder) {
+      try {
+        relativePathWithinRoot(root, folder);
+      } catch {
+        reply.code(400).send({ error: "That folder is not inside this library." });
+        return;
+      }
     }
 
     const jobId = enqueueGalleryScan(id, parsed.data);
@@ -186,7 +202,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       actorUserId: request.user!.id,
       targetType: "library",
       targetId: id,
-      detail: "Queued a gallery library rescan.",
+      detail: folder ? `Queued a gallery rescan of "${folder}".` : "Queued a gallery library rescan.",
       ipAddress: request.ip
     });
     reply.send({ job: { id: jobId, type: "SCAN_GALLERY_LIBRARY" } });
@@ -318,6 +334,43 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       sort: p.sort ?? "taken",
       limit: p.limit ?? 80, offset: p.offset ?? 0
     }));
+  });
+
+  // ── Missing photos (reconcile tombstones: files gone from disk, hidden but retained) ──
+  // Admin-only housekeeping: list them, tune the auto-purge window, or purge now.
+  app.get("/api/library/gallery/missing", { preHandler: app.requireAdmin }, async () => {
+    return listMissingGalleryPhotos();
+  });
+
+  const retentionSchema = z.object({ retentionDays: z.number().int().min(0).max(3650) });
+  app.patch("/api/library/gallery/missing/retention", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(retentionSchema, request.body);
+    if (parsed.error) { reply.code(400).send({ error: "Invalid retention", details: parsed.error }); return; }
+    const retentionDays = setMissingRetentionDays(parsed.data.retentionDays, request.user!.id);
+    logActivity({
+      event: "library.gallery.missing_retention",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: null,
+      detail: retentionDays === 0 ? "Missing-photo auto-purge disabled." : `Missing-photo auto-purge set to ${retentionDays} days.`,
+      ipAddress: request.ip
+    });
+    reply.send({ retentionDays });
+  });
+
+  // Purge every tombstone past the grace window right now (the scheduled job on demand).
+  app.post("/api/library/gallery/missing/purge", { preHandler: app.requireAdmin }, async (request) => {
+    return purgeMissingGalleryPhotos(undefined, request.user!.id);
+  });
+
+  // Purge one specific missing photo immediately, ignoring the grace window.
+  app.delete("/api/library/gallery/missing/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    if (!purgeMissingGalleryPhoto(id, request.user!.id)) {
+      reply.code(404).send({ error: "No such missing photo." });
+      return;
+    }
+    reply.send({ purged: true });
   });
 
   app.get("/api/library/gallery/folders", { preHandler: app.authenticate }, async (request) => {
