@@ -952,7 +952,7 @@
 .gallery-face-hint { font-size: 0.84rem; }
 
 /* Face-recognition settings popup: a per-library on/off list with rescan. */
-.confirm-modal.gallery-face-modal { width: min(94vw, 560px); }
+.confirm-modal.gallery-face-modal { width: min(94vw, 720px); }
 .gallery-face-modal-intro { margin: 0 0 14px; font-size: 0.88rem; }
 
 /* Persistent "experimental" note at the top of the Face recognition window. */
@@ -1038,7 +1038,18 @@
 .gallery-health-bar-count { font-variant-numeric: tabular-nums; font-weight: 600; }
 .gallery-health-bar-hint { font-size: 0.72rem; }
 .gallery-health-explain { margin: 0; font-size: 0.78rem; }
-.gallery-health-pairs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.gallery-health-pairs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  /* Long suggestion lists scroll inside the tab rather than growing the modal
+     off-screen (mirrors the Libraries tab list). Room on the right for the scrollbar. */
+  max-height: 42vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
 .gallery-health-pair {
   display: flex;
   align-items: center;
@@ -1049,8 +1060,8 @@
 }
 .gallery-health-avatars { display: inline-flex; flex: 0 0 auto; }
 .gallery-health-avatar {
-  width: 40px;
-  height: 40px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   overflow: hidden;
   display: flex;
@@ -1060,7 +1071,7 @@
   color: var(--muted);
   border: 2px solid var(--surface-raised);
 }
-.gallery-health-avatar:last-child { margin-left: -12px; }
+.gallery-health-avatar:last-child { margin-left: -16px; }
 .gallery-health-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .gallery-health-pair-info { display: grid; gap: 1px; min-width: 0; flex: 1 1 auto; font-size: 0.82rem; }
 .gallery-health-pair-info > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

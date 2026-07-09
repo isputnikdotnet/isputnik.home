@@ -21,7 +21,7 @@ function HealthAvatar({ person }: { person: ClusterHealthPerson }) {
     <span className="gallery-health-avatar">
       {person.coverUrl && !failed
         ? <img src={person.coverUrl} alt="" loading="lazy" onError={() => setFailed(true)} />
-        : <UserRound size={18} aria-hidden="true" />}
+        : <UserRound size={26} aria-hidden="true" />}
     </span>
   );
 }
