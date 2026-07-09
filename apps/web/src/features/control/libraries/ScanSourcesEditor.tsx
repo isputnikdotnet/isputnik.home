@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, File, Folder, GripVertical, Layers } from "lucide-react";
+import { ChevronDown, ChevronUp, File, Files, Folder, GripVertical, Layers } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "../../../shared/Button";
 import type { ScanSource, MetadataSourceInfo } from "../../audiobooks/types";
@@ -7,7 +7,8 @@ import type { ScanSource, MetadataSourceInfo } from "../../audiobooks/types";
 const SOURCE_ICONS: Record<string, LucideIcon> = {
   file_metadata: File,
   metadata_files: Folder,
-  folder_structure: Layers
+  folder_structure: Layers,
+  single_file: Files
 };
 
 // Ordered metadata-source list: position = priority (top wins per field), checkbox =

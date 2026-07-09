@@ -3,7 +3,7 @@
 // Adding a new source = one entry here + an extractor in the relevant scanner(s).
 import type { LibraryType } from "./library-types.js";
 
-export const METADATA_SOURCE_IDS = ["file_metadata", "metadata_files", "folder_structure", "online_metadata"] as const;
+export const METADATA_SOURCE_IDS = ["file_metadata", "metadata_files", "folder_structure", "single_file", "online_metadata"] as const;
 export type MetadataSourceId = typeof METADATA_SOURCE_IDS[number];
 
 export interface MetadataSourceDefinition {
@@ -38,6 +38,14 @@ export const METADATA_SOURCES: MetadataSourceDefinition[] = [
     id: "folder_structure",
     label: "Treat folder as book",
     description: "Each top-level folder is treated as one book, grouping all audio inside it. The folder name is read as \"Author - Title [Narrator]\" when it follows that pattern.",
+    appliesTo: ["audiobook"],
+    defaultEnabled: false,
+    affectsGrouping: true
+  },
+  {
+    id: "single_file",
+    label: "Each file is a book",
+    description: "Every audio file directly in the library folder becomes its own book. Files inside subfolders are still grouped into one book per folder. Use for a flat folder of single-file audiobooks. Overrides \"Treat folder as book\".",
     appliesTo: ["audiobook"],
     defaultEnabled: false,
     affectsGrouping: true
