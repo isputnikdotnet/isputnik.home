@@ -44,6 +44,50 @@ const createSetLinkSchema = z.object({
   label: z.string().trim().max(100).optional()
 });
 
+const setUserShareSchema = z.object({
+  itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500),
+  userId: z.string().min(1),
+  // Optional: omit for a permanent share (access stays gated to the account).
+  expiresInDays: z.number().int().min(1).max(3650).optional()
+});
+
+const setSelectionSchema = z.object({
+  itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500),
+  userId: z.string().min(1)
+});
+
+const setRecipientsSchema = z.object({
+  itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500)
+});
+
+const inClause = (n: number) => Array(n).fill("?").join(", ");
+
+// The subset of a selection the caller may share (gallery items in a library
+// they can curate) plus how many were dropped. Sharing hands out file access,
+// so it needs the curate capability — the same contract as the bulk endpoints
+// and the guest set link.
+function shareableGalleryItems(
+  user: { id: string; role: string },
+  itemIds: string[]
+): { included: string[]; skipped: number } {
+  const included: string[] = [];
+  let skipped = 0;
+  for (const itemId of new Set(itemIds)) {
+    const library = getLibraryForBook(itemId);
+    if (
+      !library ||
+      library.type !== "gallery" ||
+      !canUserAccessLibrary(library, user.id, user.role) ||
+      !canUserCurateLibrary(library, user.id, user.role)
+    ) {
+      skipped += 1;
+      continue;
+    }
+    included.push(itemId);
+  }
+  return { included, skipped };
+}
+
 // Whether the caller may share a book. Sharing hands external/other-user access to
 // the files, so it requires the Curator+ "curate" capability — not mere view. We
 // distinguish "not_found" (book missing or no access at all — hide its existence)
@@ -165,21 +209,7 @@ export function createGallerySetShare(
   user: { id: string; role: string },
   opts: { itemIds: string[]; expiresInDays: number; label: string | null }
 ): { shareId: string; token: string; expiresAt: string; itemCount: number; skipped: number } | null {
-  const included: string[] = [];
-  let skipped = 0;
-  for (const itemId of new Set(opts.itemIds)) {
-    const library = getLibraryForBook(itemId);
-    if (
-      !library ||
-      library.type !== "gallery" ||
-      !canUserAccessLibrary(library, user.id, user.role) ||
-      !canUserCurateLibrary(library, user.id, user.role)
-    ) {
-      skipped += 1;
-      continue;
-    }
-    included.push(itemId);
-  }
+  const { included, skipped } = shareableGalleryItems(user, opts.itemIds);
   if (included.length === 0) return null;
 
   const token = nanoid(36);
@@ -233,6 +263,37 @@ export function loadGallerySetItems(linkId: string): GallerySetItemRow[] {
     WHERE share_link_items.share_link_id = ?
     ORDER BY share_link_items.position
   `).all(linkId) as GallerySetItemRow[];
+}
+
+// Every live member of a set link with its on-disk path — for the "download all"
+// zip. Source path is per-library (a set can span libraries), so it's joined per
+// row. Soft-deleted items drop out, same as the public listing.
+interface GallerySetFileRow {
+  id: string;
+  title: string | null;
+  folder_path: string;
+  relative_path: string;
+  kind: string;
+  source_path: string;
+}
+
+export function loadGallerySetFiles(linkId: string): GallerySetFileRow[] {
+  return db.prepare(`
+    SELECT
+      library_items.id,
+      item_metadata.title,
+      library_items.folder_path,
+      gallery_details.relative_path,
+      gallery_details.kind,
+      libraries.source_path
+    FROM share_link_items
+    JOIN library_items ON library_items.id = share_link_items.item_id AND library_items.deleted_at IS NULL
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE share_link_items.share_link_id = ?
+    ORDER BY share_link_items.position
+  `).all(linkId) as GallerySetFileRow[];
 }
 
 // One member of a set link with everything the media routes need. The WHERE on
@@ -433,6 +494,139 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         status: new Date(row.expires_at).getTime() <= now ? "expired" : "active"
       }))
     };
+  });
+
+  // Share a selection of gallery items *with a registered user* (the set dialog's
+  // People tab). Grants a per-item user share for every item the caller can
+  // curate; the rest are skipped and counted. Upsert so re-sharing refreshes the
+  // expiry rather than erroring. The recipient sees them under "Shared with me".
+  app.post("/api/shares/set/user", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(setUserShareSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid share details", details: parsed.error });
+      return;
+    }
+
+    const user = request.user!;
+    if (parsed.data.userId === user.id) {
+      reply.code(400).send({ error: "You already have access to these photos" });
+      return;
+    }
+    const target = db.prepare(
+      "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
+    ).get(parsed.data.userId) as { id: string } | undefined;
+    if (!target) {
+      reply.code(404).send({ error: "User not found" });
+      return;
+    }
+
+    const { included, skipped } = shareableGalleryItems(user, parsed.data.itemIds);
+    if (included.length === 0) {
+      reply.code(403).send({ error: "Curator access required to share these photos." });
+      return;
+    }
+
+    const expiresAt = parsed.data.expiresInDays ? addDays(parsed.data.expiresInDays).toISOString() : null;
+    const insert = db.prepare(`
+      INSERT INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at)
+      VALUES (?, 'gallery', ?, ?, 'read', ?, ?)
+      ON CONFLICT (module, resource_id, user_id) DO UPDATE SET
+        revoked_at = NULL,
+        expires_at = excluded.expires_at,
+        created_by = excluded.created_by,
+        created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    `);
+    db.transaction(() => {
+      for (const itemId of included) insert.run(nanoid(16), itemId, parsed.data.userId, user.id, expiresAt);
+    })();
+    logActivity({
+      event: "share.granted",
+      actorUserId: user.id,
+      targetType: "share",
+      targetId: parsed.data.userId,
+      detail: `Shared ${included.length} gallery item${included.length === 1 ? "" : "s"} with a user.`,
+      ipAddress: request.ip
+    });
+
+    reply.code(201).send({ granted: included.length, skipped });
+  });
+
+  // Recipients of a gallery selection — the People list for the set dialog. Only
+  // the caller's own shares over items they can curate are reported, so this never
+  // leaks (or lets them revoke) another curator's sharing. itemCount is how many of
+  // the passed set each user currently has.
+  app.post("/api/shares/set/recipients", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(setRecipientsSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid request", details: parsed.error });
+      return;
+    }
+    const user = request.user!;
+    const { included } = shareableGalleryItems(user, parsed.data.itemIds);
+    if (included.length === 0) {
+      reply.send({ recipients: [] });
+      return;
+    }
+    const rows = db.prepare(`
+      SELECT shares.user_id, users.display_name, users.email,
+             COUNT(*) AS item_count,
+             MIN(shares.expires_at) AS min_expires,
+             SUM(CASE WHEN shares.expires_at IS NULL THEN 1 ELSE 0 END) AS never_expiring
+      FROM shares
+      JOIN users ON users.id = shares.user_id
+      WHERE shares.module = 'gallery' AND shares.revoked_at IS NULL
+        AND shares.created_by = ?
+        AND shares.resource_id IN (${inClause(included.length)})
+      GROUP BY shares.user_id
+      ORDER BY users.display_name COLLATE NOCASE
+    `).all(user.id, ...included) as {
+      user_id: string;
+      display_name: string;
+      email: string;
+      item_count: number;
+      min_expires: string | null;
+      never_expiring: number;
+    }[];
+    reply.send({
+      recipients: rows.map((row) => ({
+        userId: row.user_id,
+        displayName: row.display_name,
+        email: row.email,
+        itemCount: row.item_count,
+        // If any share in the group never expires, present it as permanent; else the soonest.
+        expiresAt: row.never_expiring > 0 ? null : row.min_expires
+      }))
+    });
+  });
+
+  // Revoke a user's access to a gallery selection — drops every share of theirs
+  // over these items that the caller created (admins can drop any).
+  app.post("/api/shares/set/user/revoke", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(setSelectionSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid request", details: parsed.error });
+      return;
+    }
+    const user = request.user!;
+    const ids = [...new Set(parsed.data.itemIds)];
+    const scope = user.role === "admin" ? "" : "AND created_by = ?";
+    const params = user.role === "admin"
+      ? [parsed.data.userId, ...ids]
+      : [parsed.data.userId, ...ids, user.id];
+    const result = db.prepare(`
+      UPDATE shares SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+      WHERE module = 'gallery' AND revoked_at IS NULL AND user_id = ?
+        AND resource_id IN (${inClause(ids.length)}) ${scope}
+    `).run(...params);
+    logActivity({
+      event: "share.revoked",
+      actorUserId: user.id,
+      targetType: "share",
+      targetId: parsed.data.userId,
+      detail: `Revoked a user's access to ${result.changes} shared gallery item${result.changes === 1 ? "" : "s"}.`,
+      ipAddress: request.ip
+    });
+    reply.send({ revoked: result.changes });
   });
 
   app.get("/api/shares", { preHandler: app.authenticate }, async (request) => {
@@ -698,9 +892,11 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     const rawToken = (request.params as { token: string }).token;
     const setLink = resolveShareLink(rawToken);
     if (setLink?.module === "gallery_set") {
-      const meta = db.prepare(
-        "SELECT label, expires_at FROM share_links WHERE id = ?"
-      ).get(setLink.id) as { label: string | null; expires_at: string };
+      const meta = db.prepare(`
+        SELECT share_links.label, share_links.expires_at, users.display_name AS shared_by
+        FROM share_links LEFT JOIN users ON users.id = share_links.created_by
+        WHERE share_links.id = ?
+      `).get(setLink.id) as { label: string | null; expires_at: string; shared_by: string | null };
       const setItems = loadGallerySetItems(setLink.id);
       logActivity({
         event: "share.accessed",
@@ -712,7 +908,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       });
       reply.send({
         type: "gallery_set",
-        share: { label: meta.label, expiresAt: meta.expires_at },
+        share: { label: meta.label, expiresAt: meta.expires_at, sharedBy: meta.shared_by },
         items: setItems.map((row) => ({
           id: row.id,
           title: row.title ?? path.basename(row.folder_path),
@@ -736,9 +932,11 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     if (!resolved) return;
     const { token, link, module, item } = resolved;
 
-    const meta = db.prepare(
-      "SELECT label, expires_at FROM share_links WHERE id = ?"
-    ).get(link.id) as { label: string | null; expires_at: string };
+    const meta = db.prepare(`
+      SELECT share_links.label, share_links.expires_at, users.display_name AS shared_by
+      FROM share_links LEFT JOIN users ON users.id = share_links.created_by
+      WHERE share_links.id = ?
+    `).get(link.id) as { label: string | null; expires_at: string; shared_by: string | null };
 
     logActivity({
       event: "share.accessed",
@@ -749,7 +947,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    const share = { label: meta.label, expiresAt: meta.expires_at };
+    const share = { label: meta.label, expiresAt: meta.expires_at, sharedBy: meta.shared_by };
     const coverUrl = item.cover_storage_key ? `/api/share/${token}/cover` : null;
     const title = item.title ?? path.basename(item.folder_path);
     const authors = splitNames(item.author_names);
@@ -934,6 +1132,67 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       fileName: item.relative_path.split("/").pop() ?? "file",
       download: true
     });
+  });
+
+  // Download every photo/video in a shared set as one zip. Stored (level 0) — the
+  // members are already-compressed JP/MP4, so compression only burns CPU. Missing
+  // files are skipped; duplicate basenames get a " (n)" suffix so none overwrite.
+  app.get("/api/share/:token/download-all", (request, reply) => {
+    const token = (request.params as { token: string }).token;
+    const link = resolveShareLink(token);
+    if (!link || link.module !== "gallery_set") {
+      reply.code(404).send({ error: "Share not found or expired" });
+      return;
+    }
+
+    const available = loadGallerySetFiles(link.id).filter((file) => {
+      const filePath = path.join(file.source_path, ...file.relative_path.split("/"));
+      return pathIsInside(filePath, file.source_path) && fs.existsSync(filePath);
+    });
+    if (available.length === 0) {
+      reply.code(404).send({ error: "No files available" });
+      return;
+    }
+
+    const meta = db.prepare("SELECT label FROM share_links WHERE id = ?").get(link.id) as { label: string | null } | undefined;
+    const safeBase = (meta?.label ?? "shared-photos").replace(/[/\\?%*:|"<>]/g, "_").trim() || "shared-photos";
+    const zipName = `${safeBase}.zip`;
+
+    logActivity({
+      event: "share.downloaded",
+      actorUserId: null,
+      targetType: "share_link",
+      targetId: link.id,
+      detail: `Downloaded all ${available.length} item${available.length === 1 ? "" : "s"} from a shared set.`,
+      ipAddress: request.ip
+    });
+
+    const asciiFilename = zipName.replace(/[^\x20-\x7E]/g, "_");
+    const encodedFilename = encodeURIComponent(zipName);
+    const archive = archiver("zip", { zlib: { level: 0 } });
+    archive.on("error", (err) => { reply.raw.destroy(err); });
+
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`,
+      "Cache-Control": "private, no-cache"
+    });
+    archive.pipe(reply.raw);
+
+    const usedNames = new Map<string, number>();
+    for (const file of available) {
+      const filePath = path.join(file.source_path, ...file.relative_path.split("/"));
+      let name = file.relative_path.split("/").pop() ?? "file";
+      const seen = usedNames.get(name) ?? 0;
+      usedNames.set(name, seen + 1);
+      if (seen > 0) {
+        const ext = path.extname(name);
+        name = `${name.slice(0, name.length - ext.length)} (${seen})${ext}`;
+      }
+      archive.file(filePath, { name });
+    }
+    archive.finalize();
   });
 
   // Audiobook only: stream one audio track (direct play, no transcode, range).

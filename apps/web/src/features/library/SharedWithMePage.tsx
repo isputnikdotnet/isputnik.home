@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Share2 } from "lucide-react";
+import { BookOpen, Image as ImageIcon, Share2 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { UserAreaNav } from "./UserAreaNav";
@@ -8,12 +8,19 @@ import { MessageBox } from "../../shared/MessageBox";
 
 interface SharedBook {
   id: string;
-  type: "audiobook" | "ebook";
+  type: "audiobook" | "ebook" | "gallery";
   title: string;
   coverUrl: string | null;
   sharedBy: string | null;
   sharedAt: string;
   expiresAt: string | null;
+}
+
+// Where opening a shared item takes you: photos deep-link into the gallery
+// lightbox; books go to their reader/detail page.
+function sharedItemHref(item: SharedBook): string {
+  if (item.type === "gallery") return `/gallery/assets/${item.id}`;
+  return `${item.type === "ebook" ? "/ebooks" : "/audiobooks"}/books/${item.id}`;
 }
 
 export function SharedWithMePage({
@@ -41,7 +48,7 @@ export function SharedWithMePage({
             <h1>Shared with me</h1>
           </div>
           {books && books.length > 0 && (
-            <span>{books.length} {books.length === 1 ? "book" : "books"}</span>
+            <span>{books.length} {books.length === 1 ? "item" : "items"}</span>
           )}
         </div>
 
@@ -51,16 +58,18 @@ export function SharedWithMePage({
           <div className="empty-state library-empty">
             <Share2 size={58} aria-hidden="true" />
             <h2>Nothing shared with you yet</h2>
-            <p className="muted">When someone shares a book with your account, it appears here.</p>
+            <p className="muted">When someone shares a book or photo with your account, it appears here.</p>
           </div>
         ) : (
           <div className="audiobook-grid">
             {(books ?? []).map((book) => (
-              <article className="saved-audiobook-card" key={book.id}>
-                <button className="audiobook-card" onClick={() => navigate(`${book.type === "ebook" ? "/ebooks" : "/audiobooks"}/books/${book.id}`)}>
+              <article className="saved-audiobook-card" key={`${book.type}-${book.id}`}>
+                <button className="audiobook-card" onClick={() => navigate(sharedItemHref(book))}>
                   <div className="audiobook-cover" aria-hidden="true">
                     {book.coverUrl ? (
                       <img src={book.coverUrl} alt="" />
+                    ) : book.type === "gallery" ? (
+                      <ImageIcon size={20} />
                     ) : (
                       <>
                         <BookOpen size={13} />

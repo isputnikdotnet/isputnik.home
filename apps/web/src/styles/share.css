@@ -78,6 +78,8 @@
 
 .share-authors { font-weight: 600; margin: 0; }
 .share-narrators { color: var(--muted); margin: 0; font-size: 0.9rem; }
+/* "X shared these photos with you" — a friendly attribution under the title. */
+.share-shared-by { margin: 6px 0 0; color: var(--mint); font-weight: 600; font-size: 0.95rem; }
 
 .share-chapter {
   display: flex;
