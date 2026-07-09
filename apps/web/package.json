@@ -1,7 +1,7 @@
 {
   "name": "@isputnik/web",
   "private": true,
-  "version": "1.8.14",
+  "version": "1.8.15",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

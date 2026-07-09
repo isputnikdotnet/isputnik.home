@@ -502,6 +502,19 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.15",
+          label: "Share photos with people, download whole sets, and a reworked album page",
+          changes: [
+            "Share photos with a specific person, not just a link: the photo-set Share dialog gained a People tab. Pick someone in the household, choose how long they get access (or no expiry), and the photos show up under their \"Shared with me\" — even for photos in a library they otherwise can't see. You can see who has access and revoke it anytime.",
+            "Download everything at once: a shared photo link now has a \"Download all\" button that zips the whole set, and each album has a \"Download album\" option that zips the photos you can see.",
+            "Shared links now say who shared them — \"So-and-so shared these photos with you\" — right at the top.",
+            "Memories gained the Timeline's selection tools: tap to select photos, a Select button, and a per-year checkbox to grab a whole year at once. Date headers on both the Timeline (per day) and Memories (per year) now have a Share button to share that group's photos in one click.",
+            "The album page was rebuilt: a bigger cover, the item count, and a tidy row of icon controls (a … menu, sort, and select). The … menu holds Rename, Set cover photo (now a photo picker), Download album, and Delete. Selecting inside an album lets you act on its photos in bulk.",
+            "\"Add to album\" is now a searchable grid of album covers with dates instead of a cramped list — and album names no longer get cut off.",
+            "Photo thumbnails are a bit larger across the gallery, and opening a photo no longer tucks the \"next\" arrow behind the details panel."
+          ]
+        },
+        {
           version: "1.8.14",
           label: "The selection bar now stays with you",
           changes: [
