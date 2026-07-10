@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Check, List, Pencil, Plus, RefreshCw, Tags as TagsIcon, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, Check, List, Pencil, Plus, RefreshCw, Search, Tags as TagsIcon, Trash2, Upload, X } from "lucide-react";
 import { api } from "../../../api";
 import { navigate } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -27,6 +27,8 @@ interface ManageAlias {
 }
 
 type CategoryEditorTab = "mappings" | "tags";
+
+const TAG_PAGE_SIZE = 60;
 
 function normalizeKeyword(value: string): string {
   return value
@@ -226,6 +228,65 @@ export function CategoriesSection() {
   );
 }
 
+// One mapped-keyword row: the keyword text is edit-in-place (blur or Enter to save,
+// Escape to cancel), the priority saves on blur, and a duplicate-keyword rejection
+// reverts the field. Local state keeps the in-progress edit isolated per row.
+function KeywordChip({ alias, onSaveKeyword, onSavePriority, onDelete }: {
+  alias: ManageAlias;
+  onSaveKeyword: (id: string, keyword: string) => Promise<void>;
+  onSavePriority: (id: string, priority: number) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [text, setText] = useState(alias.keyword);
+  const [busy, setBusy] = useState(false);
+  // Re-sync when the list reloads (e.g. after a successful rename).
+  useEffect(() => { setText(alias.keyword); }, [alias.keyword]);
+
+  const commit = async () => {
+    const next = text.trim();
+    if (!next || next === alias.keyword) { setText(alias.keyword); return; }
+    setBusy(true);
+    try {
+      await onSaveKeyword(alias.id, next);
+    } catch {
+      setText(alias.keyword); // the parent surfaces the reason; just revert the field
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="category-keyword-chip">
+      <input
+        className="category-keyword-name"
+        aria-label={`Keyword "${alias.keyword}"`}
+        value={text}
+        disabled={busy}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); }
+          else if (event.key === "Escape") { setText(alias.keyword); event.currentTarget.blur(); }
+        }}
+      />
+      <input
+        aria-label={`Priority for ${alias.keyword}`}
+        type="number"
+        defaultValue={alias.priority}
+        onBlur={(event) => {
+          const nextPriority = Number(event.target.value);
+          if (Number.isFinite(nextPriority) && nextPriority !== alias.priority) {
+            onSavePriority(alias.id, nextPriority);
+          }
+        }}
+      />
+      <button type="button" onClick={() => onDelete(alias.id)} aria-label={`Delete ${alias.keyword}`}>
+        <X size={16} />
+      </button>
+    </div>
+  );
+}
+
 export function CategoryEditorPage({ categoryId }: { categoryId: string | null }) {
   const isNew = categoryId === null;
   const [aliases, setAliases] = useState<ManageAlias[]>([]);
@@ -241,6 +302,9 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
   const [removeImage, setRemoveImage] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [priority, setPriority] = useState("20");
+  // Tags tab: filter + incremental paging (the scanned-tag list can run to hundreds).
+  const [tagSearch, setTagSearch] = useState("");
+  const [tagLimit, setTagLimit] = useState(TAG_PAGE_SIZE);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
@@ -401,13 +465,16 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
     }
   };
 
-  const updateAlias = async (id: string, nextPriority: number) => {
+  // Edit an existing mapping in place — its keyword text and/or its priority. Throws on
+  // failure (e.g. a 409 when the new keyword collides) so the caller can revert its field.
+  const patchAlias = async (id: string, patch: { keyword?: string; priority?: number }) => {
     setError("");
     try {
-      await api(`/api/library/manage/aliases/${id}`, { method: "PATCH", body: JSON.stringify({ priority: nextPriority }) });
+      await api(`/api/library/manage/aliases/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
       await loadAliases();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update mapping");
+      throw err;
     }
   };
 
@@ -438,13 +505,16 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
 
   const editorAliases = category ? aliases.filter((alias) => alias.categoryId === category.id) : [];
   const aliasByKeyword = new Map(aliases.map((alias) => [normalizeKeyword(alias.keyword), alias]));
+  const tagTerm = tagSearch.trim().toLowerCase();
+  const filteredTags = tagTerm ? tags.filter((tag) => tag.name.toLowerCase().includes(tagTerm)) : tags;
+  const visibleTags = filteredTags.slice(0, tagLimit);
   const currentImageUrl = imagePreviewUrl ?? (!removeImage ? imageUrl : null);
   const canDelete = category && category.key !== "general_other";
 
   return (
     <div className="category-editor-page">
       <div className="category-editor-page-head">
-        <button className="secondary-button compact-button" onClick={() => navigate("/control/categories")}>
+        <button className="text-button category-editor-back" onClick={() => navigate("/control/categories")}>
           <ArrowLeft size={15} />
           Categories
         </button>
@@ -567,23 +637,13 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
 
                 <div className="category-keyword-grid">
                   {editorAliases.map((alias) => (
-                    <div className="category-keyword-chip" key={alias.id}>
-                      <strong>{alias.keyword}</strong>
-                      <input
-                        aria-label={`Priority for ${alias.keyword}`}
-                        type="number"
-                        defaultValue={alias.priority}
-                        onBlur={(event) => {
-                          const nextPriority = Number(event.target.value);
-                          if (Number.isFinite(nextPriority) && nextPriority !== alias.priority) {
-                            updateAlias(alias.id, nextPriority);
-                          }
-                        }}
-                      />
-                      <button type="button" onClick={() => deleteAlias(alias.id)} aria-label={`Delete ${alias.keyword}`}>
-                        <X size={16} />
-                      </button>
-                    </div>
+                    <KeywordChip
+                      key={alias.id}
+                      alias={alias}
+                      onSaveKeyword={(id, kw) => patchAlias(id, { keyword: kw })}
+                      onSavePriority={(id, p) => { void patchAlias(id, { priority: p }).catch(() => {}); }}
+                      onDelete={deleteAlias}
+                    />
                   ))}
                 </div>
               </div>
@@ -624,7 +684,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
               <div className="category-mapping-head">
                 <div>
                   <h2>Scanned tags</h2>
-                  <span>{tags.length} tag{tags.length === 1 ? "" : "s"} available as keyword candidates</span>
+                  <span>{tagTerm ? `${filteredTags.length} of ${tags.length}` : tags.length} tag{tags.length === 1 ? "" : "s"}{tagTerm ? " matching" : " available as keyword candidates"}</span>
                 </div>
                 <label className="category-tag-priority">
                   <span>Default priority</span>
@@ -632,11 +692,27 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                 </label>
               </div>
 
+              {tags.length > 0 && (
+                <label className="search-field category-tag-search">
+                  <Search size={17} aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={tagSearch}
+                    onChange={(event) => { setTagSearch(event.target.value); setTagLimit(TAG_PAGE_SIZE); }}
+                    placeholder="Search tags"
+                    aria-label="Search scanned tags"
+                  />
+                </label>
+              )}
+
               {tags.length === 0 ? (
                 <p className="management-empty">No tags yet. Scan a library and tags appear from book genres.</p>
+              ) : filteredTags.length === 0 ? (
+                <p className="management-empty">No tags match your search.</p>
               ) : (
+                <>
                 <div className="category-keyword-grid category-tag-grid">
-                  {tags.map((tag) => {
+                  {visibleTags.map((tag) => {
                     const existingAlias = aliasByKeyword.get(normalizeKeyword(tag.name));
                     const addedHere = existingAlias?.categoryId === category?.id;
                     const mappedElsewhere = existingAlias && !addedHere;
@@ -668,6 +744,18 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
                     );
                   })}
                 </div>
+                {filteredTags.length > visibleTags.length && (
+                  <div className="category-tag-more">
+                    <button
+                      className="secondary-button compact-button"
+                      type="button"
+                      onClick={() => setTagLimit((limit) => limit + TAG_PAGE_SIZE)}
+                    >
+                      Show more ({filteredTags.length - visibleTags.length})
+                    </button>
+                  </div>
+                )}
+                </>
               )}
             </div>
           )}

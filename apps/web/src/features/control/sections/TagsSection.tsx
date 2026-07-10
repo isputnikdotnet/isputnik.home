@@ -12,9 +12,12 @@ interface ManageTag {
   bookCount: number;
 }
 
+const TAG_PAGE_SIZE = 60;
+
 export function TagsSection() {
   const [tags, setTags] = useState<ManageTag[]>([]);
   const [search, setSearch] = useState("");
+  const [limit, setLimit] = useState(TAG_PAGE_SIZE);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -120,6 +123,7 @@ export function TagsSection() {
 
   const term = search.trim().toLowerCase();
   const visible = term ? tags.filter((tag) => tag.name.toLowerCase().includes(term)) : tags;
+  const paged = visible.slice(0, limit);
   const unusedCount = tags.filter((tag) => tag.bookCount === 0).length;
 
   return (
@@ -154,7 +158,7 @@ export function TagsSection() {
           <input
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => { setSearch(event.target.value); setLimit(TAG_PAGE_SIZE); }}
             placeholder="Search tags"
             aria-label="Search tags"
           />
@@ -165,6 +169,7 @@ export function TagsSection() {
       {tags.length === 0 ? (
         <p className="management-empty">No tags yet. Create one here or scan books to import their genres.</p>
       ) : (
+        <>
         <div className="datagrid-wrap">
           <table className="datagrid">
             <thead>
@@ -175,7 +180,7 @@ export function TagsSection() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((tag) => (
+              {paged.map((tag) => (
                 <tr key={tag.id}>
                   <td>
                     {editingId === tag.id ? (
@@ -225,6 +230,17 @@ export function TagsSection() {
             </tbody>
           </table>
         </div>
+        {visible.length > paged.length && (
+          <div className="tag-list-more">
+            <button
+              className="secondary-button compact-button"
+              onClick={() => setLimit((current) => current + TAG_PAGE_SIZE)}
+            >
+              Show more ({visible.length - paged.length})
+            </button>
+          </div>
+        )}
+        </>
       )}
 
       {createOpen && (

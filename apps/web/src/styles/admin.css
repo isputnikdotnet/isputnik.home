@@ -663,6 +663,13 @@
   background: var(--surface);
 }
 
+/* Incremental "Show more" row under a paged list (e.g. the Tags table). */
+.tag-list-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
 /* ── Missing photos ─────────────────────────────────────────────── */
 
 .missing-retention-row {
