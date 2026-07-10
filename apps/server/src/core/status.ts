@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.17",
+          label: "Redesigned category browsing and smarter genre shelving",
+          changes: [
+            "Categories now browse as clean, colour-coded tiles — a genre icon on its own accent colour — instead of stretched stock-image covers, and they look right in every theme.",
+            "Smarter automatic shelving: more common genres are recognised, so books land in the right category more often. Historical novels now file under Classics & Literary instead of (non-fiction) History, and two new shelves — True Crime and Religion & Spirituality — split out of the crowded Science & Culture. The generic Fiction catch-all is now labelled General Fiction.",
+            "Category editor: rename a mapped keyword in place (no more delete-and-re-add), and the scanned-tags list gained a search box and paging.",
+            "The Labels → Tags page now pages long tag lists, and its back button is a lighter, left-aligned link."
+          ]
+        },
+        {
           version: "1.8.16",
           label: "Flat-folder audiobooks, per-folder gallery rescan & missing-photo cleanup",
           changes: [
