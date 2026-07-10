@@ -4,7 +4,7 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { AudiobookPageHeader } from "./AudiobooksPage";
-import { CategoryIcon } from "./categoryIcons";
+import { CategoryIcon, categoryTint } from "./categoryIcons";
 import type { CategorySummary } from "./types";
 
 export function CategoryListPage({
@@ -33,24 +33,16 @@ export function CategoryListPage({
 
         {error && <MessageBox tone="error" title="Categories error">{error}</MessageBox>}
 
-        <div className="series-grid">
+        <div className="category-grid">
           {categories.map((category) => (
             <button
               key={category.key}
-              className="series-card"
+              className={`category-tile category-tint-${categoryTint(category.key)}`}
               onClick={() => navigate(`/categories/${category.key}`)}
             >
-              <div className="series-card-cover category-card-cover" aria-hidden="true">
-                {category.imageUrl ? (
-                  <img src={category.imageUrl} alt="" />
-                ) : (
-                  <CategoryIcon icon={category.icon} size={30} />
-                )}
-              </div>
-              <div className="series-card-body">
-                <strong>{category.name}</strong>
-                <span>{category.bookCount} {category.bookCount === 1 ? "book" : "books"}</span>
-              </div>
+              <CategoryIcon icon={category.icon} size={26} />
+              <strong>{category.name}</strong>
+              <span>{category.bookCount} {category.bookCount === 1 ? "book" : "books"}</span>
             </button>
           ))}
         </div>

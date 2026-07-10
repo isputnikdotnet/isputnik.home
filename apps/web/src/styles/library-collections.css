@@ -151,6 +151,48 @@
   transition: border-color 0.15s;
 }
 
+/* Category browse tiles: colour-coded genre chips instead of book-poster covers.
+   The fill is mixed from the active theme's own accent hue (--h, set per tint below)
+   over its surface, so every tile adapts to all themes with no per-theme rules. */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.category-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 104px;
+  justify-content: flex-end;
+  padding: 15px 14px;
+  border: 1px solid color-mix(in srgb, var(--h) 28%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--h) 20%, var(--surface));
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.category-tile:hover {
+  border-color: color-mix(in srgb, var(--h) 55%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--h) 45%, transparent);
+}
+
+.category-tile svg { color: var(--h); }
+.category-tile strong { font-size: 0.9rem; line-height: 1.3; }
+.category-tile span { color: var(--muted); font-size: 0.78rem; }
+
+.category-tint-1 { --h: var(--mint); }
+.category-tint-2 { --h: var(--gold); }
+.category-tint-3 { --h: var(--amber); }
+.category-tint-4 { --h: var(--rose); }
+.category-tint-5 { --h: var(--blue); }
+.category-tint-6 { --h: var(--success); }
+
 .series-card:hover {
   border-color: var(--mint);
 }

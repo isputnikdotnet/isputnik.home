@@ -150,6 +150,26 @@
   gap: 12px;
 }
 
+/* Back link: natural width, hugged to the left (a grid child stretches full-width
+   by default, which made it read as an oversized button) and lightweight. */
+.category-editor-back {
+  justify-self: start;
+  gap: 4px;
+  padding-left: 0;
+  font-size: 0.85rem;
+}
+
+.category-tag-search {
+  margin-bottom: 12px;
+  max-width: 340px;
+}
+
+.category-tag-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
 .category-editor-title-row {
   display: flex;
   align-items: center;
@@ -307,6 +327,34 @@
   background: var(--field);
   text-align: center;
   font-weight: 760;
+}
+
+/* The keyword itself is edit-in-place: it reads as text, revealing an editable field
+   on hover/focus. Overrides the pill styling above (which is for the priority number). */
+.category-keyword-chip input.category-keyword-name {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.category-keyword-chip input.category-keyword-name:hover {
+  border-color: var(--line);
+}
+
+.category-keyword-chip input.category-keyword-name:focus {
+  border-color: var(--mint);
+  background: var(--field);
+  outline: none;
+}
+
+.category-keyword-chip input.category-keyword-name:disabled {
+  opacity: 0.6;
 }
 
 .category-keyword-chip button {
