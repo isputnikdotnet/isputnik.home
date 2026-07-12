@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Pencil, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
@@ -20,6 +21,12 @@ function formatDuration(seconds: number | null): string {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+// Uppercase file extension (e.g. "MVI_1263.AVI" → "AVI") for the unplayable notice.
+function formatLabel(title: string): string {
+  const dot = title.lastIndexOf(".");
+  return dot > 0 && dot < title.length - 1 ? title.slice(dot + 1).toUpperCase() : "";
 }
 
 function formatTaken(takenAt: string | null): string {
@@ -87,6 +94,12 @@ export function GalleryLightbox({
   const [fav, setFav] = useState(asset?.saved ?? false);
   const [favBusy, setFavBusy] = useState(false);
   const [rotateBusy, setRotateBusy] = useState(false);
+  // Set when the browser's <video> can't decode this asset (unsupported container/
+  // codec — legacy AVI/Motion-JPEG, WMV, etc.). We serve originals untranscoded, so
+  // a plain <video> silently stalls; this drives an explanatory fallback instead.
+  // Seeded from the scanner's `playable` flag so a known-bad file skips the doomed
+  // load attempt; the <video> onError still catches anything the scan couldn't probe.
+  const [videoError, setVideoError] = useState(asset?.playable === false);
 
   // People tagged in this asset. The list/timeline rows don't carry `people`, so when
   // it's absent we fetch the asset detail. `allPeople` feeds the add-box suggestions.
@@ -98,6 +111,9 @@ export function GalleryLightbox({
   const [personError, setPersonError] = useState("");
 
   useEffect(() => { setFav(asset?.saved ?? false); }, [asset?.id, asset?.saved]);
+  // Each asset gets a fresh playback attempt — but a known-unplayable one goes
+  // straight to the fallback instead of stalling on a load that will fail.
+  useEffect(() => { setVideoError(asset?.playable === false); }, [asset?.id, asset?.playable]);
 
   // Moving to another asset abandons any in-progress field edit.
   useEffect(() => { setEditingField(null); setEditError(""); }, [asset?.id]);
@@ -469,7 +485,28 @@ export function GalleryLightbox({
           </button>
         )}
         {asset.kind === "video" ? (
-          <video key={asset.id} src={asset.fileUrl} controls autoPlay playsInline poster={asset.previewUrl ?? undefined} />
+          videoError ? (
+            <div className="gallery-lightbox-unplayable" role="alert">
+              {asset.previewUrl && <img src={asset.previewUrl} alt={asset.title} />}
+              <MessageBox tone="warning" title="Can’t play this video here">
+                {formatLabel(asset.title) ? `${formatLabel(asset.title)} files use a format` : "This video uses a format"}{" "}
+                your browser can’t decode. Download it to watch in a desktop player like VLC.
+              </MessageBox>
+              <a className="gallery-lightbox-download-cta" href={asset.fileUrl} download>
+                <Download size={16} aria-hidden="true" /> Download video
+              </a>
+            </div>
+          ) : (
+            <video
+              key={asset.id}
+              src={asset.fileUrl}
+              controls
+              autoPlay
+              playsInline
+              poster={asset.previewUrl ?? undefined}
+              onError={() => setVideoError(true)}
+            />
+          )
         ) : (
           <img key={asset.id} src={asset.previewUrl ?? asset.fileUrl} alt={asset.title} />
         )}

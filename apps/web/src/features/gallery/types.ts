@@ -15,6 +15,10 @@ export interface GalleryAsset {
   orientation: number | null;
   rotation: number; // user-applied clockwise angle (0/90/180/270), baked into thumbnails
   durationSeconds: number | null;
+  // Video only: false = the browser can't decode this file (unsupported container/
+  // codec) so the UI offers a download instead; true = playable; null = photo or
+  // not yet probed (attempt playback, fall back on error).
+  playable: boolean | null;
   mimeType: string | null;
   size: number | null;
   gps: { lat: number; lng: number } | null;

@@ -57,12 +57,35 @@ export interface AssetMetadata {
   gpsLng: number | null;
   cameraMake: string | null;
   cameraModel: string | null;
+  // ffprobe codec names (lowercased) for the video/audio streams; null when unknown
+  // (not a video, or ffprobe unavailable). Feed browserPlayability().
+  videoCodec: string | null;
+  audioCodec: string | null;
 }
 
 const EMPTY_METADATA: AssetMetadata = {
   width: null, height: null, orientation: null, durationSeconds: null,
-  takenAt: null, gpsLat: null, gpsLng: null, cameraMake: null, cameraModel: null
+  takenAt: null, gpsLat: null, gpsLng: null, cameraMake: null, cameraModel: null,
+  videoCodec: null, audioCodec: null
 };
+
+// Whether a browser's <video> element can play this file as-is — we serve originals
+// untranscoded, so this decides whether the grid shows a "download to view" hint.
+// Requires BOTH a web container AND web codecs: H.264 inside an AVI still won't play
+// because browsers can't demux AVI. Returns null when unknown (ffprobe didn't run):
+// callers leave the asset unflagged and let playback attempt + fail gracefully.
+const PLAYABLE_CONTAINERS = new Set([".mp4", ".m4v", ".mov", ".webm"]);
+const PLAYABLE_VIDEO_CODECS = new Set(["h264", "vp8", "vp9", "av1"]);
+const PLAYABLE_AUDIO_CODECS = new Set(["aac", "mp3", "opus", "vorbis", "flac"]);
+
+export function browserPlayability(extension: string, meta: AssetMetadata): boolean | null {
+  if (meta.videoCodec == null) return null; // not probed → unknown
+  if (!PLAYABLE_CONTAINERS.has(extension.toLowerCase())) return false;
+  if (!PLAYABLE_VIDEO_CODECS.has(meta.videoCodec)) return false;
+  // A file may legitimately have no audio track; only a present, non-web codec fails.
+  if (meta.audioCodec != null && !PLAYABLE_AUDIO_CODECS.has(meta.audioCodec)) return false;
+  return true;
+}
 
 // Run an external binary and capture stdout. Resolves { ok:false } on any failure
 // (binary missing, non-zero exit, timeout) so callers never throw on a bad asset.
@@ -142,14 +165,17 @@ async function readVideoMetadata(absolutePath: string): Promise<AssetMetadata> {
   if (!probe.ok) return meta;
   try {
     const json = JSON.parse(probe.stdout.toString("utf8")) as {
-      streams?: { codec_type?: string; width?: number; height?: number; tags?: Record<string, string> }[];
+      streams?: { codec_type?: string; codec_name?: string; width?: number; height?: number; tags?: Record<string, string> }[];
       format?: { duration?: string; tags?: Record<string, string> };
     };
     const video = json.streams?.find((s) => s.codec_type === "video");
     if (video) {
       meta.width = finiteOrNull(video.width);
       meta.height = finiteOrNull(video.height);
+      meta.videoCodec = typeof video.codec_name === "string" ? video.codec_name.toLowerCase() : null;
     }
+    const audio = json.streams?.find((s) => s.codec_type === "audio");
+    meta.audioCodec = audio && typeof audio.codec_name === "string" ? audio.codec_name.toLowerCase() : null;
     const duration = json.format?.duration ? Number.parseFloat(json.format.duration) : NaN;
     meta.durationSeconds = Number.isFinite(duration) ? duration : null;
     const created = json.format?.tags?.creation_time
