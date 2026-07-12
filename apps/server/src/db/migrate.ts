@@ -129,6 +129,19 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE gallery_details ADD COLUMN gps_source TEXT NOT NULL DEFAULT 'scan'");
       }
     }
+  },
+  // Browser-playability flag for videos (1/0/NULL). Existing video rows stay NULL
+  // until a rescan re-probes them (the scanner backfills NULL-playable videos even
+  // on an unchanged pass). Conditional because schema.sql (run first) already adds
+  // the column on fresh databases.
+  {
+    version: 12,
+    up: (db) => {
+      const columns = db.pragma("table_info(gallery_details)") as { name: string }[];
+      if (!columns.some((column) => column.name === "playable")) {
+        db.exec("ALTER TABLE gallery_details ADD COLUMN playable INTEGER");
+      }
+    }
   }
 ];
 

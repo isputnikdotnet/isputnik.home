@@ -244,6 +244,10 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   camera_make         TEXT,
   camera_model        TEXT,
   preview_storage_key TEXT,
+  -- Video only: 1 = a browser <video> can play the file as-is, 0 = unsupported
+  -- container/codec (legacy AVI/MJPEG, WMV, …), NULL = unknown/photo/not probed.
+  -- We serve originals untranscoded, so this drives the "download to view" hint.
+  playable            INTEGER,
   updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);

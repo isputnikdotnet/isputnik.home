@@ -112,7 +112,13 @@ function AssetTile({
       )}
       {asset.saved && !selectionMode && <Heart size={14} className="gallery-fav-dot" fill="currentColor" aria-hidden="true" />}
       {asset.kind === "video" && (
-        <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
+        asset.playable === false ? (
+          <span className="gallery-video-badge unplayable" title="Can’t play in browser — download to view">
+            <Download size={11} aria-hidden="true" />Video
+          </span>
+        ) : (
+          <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
+        )
       )}
       {/* Only a selected tile gets the check overlay — unselected tiles stay
           clean rather than all sprouting empty circles in selection mode. */}

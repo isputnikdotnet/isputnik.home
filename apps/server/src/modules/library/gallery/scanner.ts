@@ -21,6 +21,7 @@ import {
   kindForExtension,
   mimeForExtension,
   readAssetMetadata,
+  browserPlayability,
   generateGalleryThumbnails,
   type AssetKind
 } from "./media.js";
@@ -123,10 +124,13 @@ export async function ingestGalleryAsset(
   // by the gallery_details UPSERT, which never writes it).
   let existingRotation = 0;
   if (existing) {
-    const prior = db.prepare("SELECT size, modified_at, preview_storage_key, rotation FROM gallery_details WHERE item_id = ?")
-      .get(itemId) as { size: number | null; modified_at: string | null; preview_storage_key: string | null; rotation: number | null } | undefined;
+    const prior = db.prepare("SELECT size, modified_at, preview_storage_key, rotation, playable FROM gallery_details WHERE item_id = ?")
+      .get(itemId) as { size: number | null; modified_at: string | null; preview_storage_key: string | null; rotation: number | null; playable: number | null } | undefined;
     existingRotation = prior?.rotation ?? 0;
-    const unchanged = prior && prior.size === file.size && prior.modified_at === modifiedIso && prior.preview_storage_key;
+    // Re-probe an unchanged video whose playable flag was never computed (rows from
+    // before this feature) so a single rescan backfills the grid hint.
+    const needsPlayableBackfill = file.kind === "video" && prior?.playable == null;
+    const unchanged = prior && prior.size === file.size && prior.modified_at === modifiedIso && prior.preview_storage_key && !needsPlayableBackfill;
     if (unchanged) {
       // Revive a previously-missing row without re-reading the file.
       db.prepare("UPDATE library_items SET status = 'ready', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(itemId);
@@ -136,9 +140,14 @@ export async function ingestGalleryAsset(
 
   const metadata = metaEnabled
     ? await readAssetMetadata(file.kind, file.absolutePath)
-    : { width: null, height: null, orientation: null, durationSeconds: null, takenAt: null, gpsLat: null, gpsLng: null, cameraMake: null, cameraModel: null };
+    : { width: null, height: null, orientation: null, durationSeconds: null, takenAt: null, gpsLat: null, gpsLng: null, cameraMake: null, cameraModel: null, videoCodec: null, audioCodec: null };
   // Fall back to the file's mtime so every asset has a Timeline date.
   const takenAt = metadata.takenAt ?? modifiedIso;
+  // Videos carry a browser-playability flag (1/0); photos and un-probed videos stay
+  // NULL. SQLite has no boolean, so store 1/0.
+  const playable = file.kind === "video"
+    ? (() => { const p = browserPlayability(file.extension, metadata); return p == null ? null : p ? 1 : 0; })()
+    : null;
   const thumbs = await generateGalleryThumbnails(libraryId, itemId, file.kind, file.absolutePath, existingRotation);
   const title = file.fileName;
 
@@ -170,12 +179,12 @@ export async function ingestGalleryAsset(
 
     db.prepare(`
       INSERT INTO gallery_details
-        (item_id, kind, relative_path, mime_type, size, width, height, orientation, duration_seconds, taken_at, modified_at, gps_lat, gps_lng, camera_make, camera_model, preview_storage_key)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (item_id, kind, relative_path, mime_type, size, width, height, orientation, duration_seconds, taken_at, modified_at, gps_lat, gps_lng, camera_make, camera_model, preview_storage_key, playable)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(item_id) DO UPDATE SET
         kind = excluded.kind, relative_path = excluded.relative_path, mime_type = excluded.mime_type,
         size = excluded.size, width = excluded.width, height = excluded.height, orientation = excluded.orientation,
-        duration_seconds = excluded.duration_seconds, modified_at = excluded.modified_at,
+        duration_seconds = excluded.duration_seconds, modified_at = excluded.modified_at, playable = excluded.playable,
         -- A user-set date/location is preserved; scan-owned values track the file.
         taken_at = CASE WHEN gallery_details.taken_at_source = 'manual' THEN gallery_details.taken_at ELSE excluded.taken_at END,
         gps_lat = CASE WHEN gallery_details.gps_source = 'manual' THEN gallery_details.gps_lat ELSE excluded.gps_lat END,
@@ -188,7 +197,7 @@ export async function ingestGalleryAsset(
       itemId, file.kind, file.relativePath, mimeForExtension(file.extension), file.size,
       metadata.width, metadata.height, metadata.orientation, metadata.durationSeconds,
       takenAt, modifiedIso, metadata.gpsLat, metadata.gpsLng, metadata.cameraMake, metadata.cameraModel,
-      thumbs?.previewKey ?? null
+      thumbs?.previewKey ?? null, playable
     );
   })();
 
