@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.18",
+          label: "A fuller shared-audiobook player and domain-aware share links",
+          changes: [
+            "Shared audiobook links now open a proper player: volume, playback speed (0.75×–2×), and a sleep timer (15/30/45/60 minutes, or end of chapter) — the same controls the in-app player has. Chapters and Download are unchanged.",
+            "Fixed the shared player's progress bar being nearly invisible on light themes — the unplayed part of the seek bar was white on a white card. It now shows a clear track in every theme.",
+            "Share links now use the address you're actually visiting. If more than one domain points at your library, a link you create while on one domain points back to that same domain instead of a single fixed address. (Invite links already worked this way.)"
+          ]
+        },
+        {
           version: "1.8.17",
           label: "Redesigned category browsing and smarter genre shelving",
           changes: [

@@ -1,11 +1,11 @@
 import { z } from "zod";
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { nanoid } from "nanoid";
 import { db, logActivity, publicUser, type Role, type User } from "../../db.js";
 import { sha256, hashPassword } from "../../crypto.js";
 import { addDays, issueSession } from "../../auth.js";
 import { config } from "../../config.js";
-import { parseBody, setupSchema, getUserByEmail } from "../../core/shared.js";
+import { parseBody, setupSchema, getUserByEmail, requestOrigin } from "../../core/shared.js";
 import { getDefaultTheme } from "../../core/app-config.js";
 import { alertNewAdmin } from "../../core/security-alerts.js";
 
@@ -13,25 +13,6 @@ const inviteSchema = z.object({
   role: z.enum(["admin", "member"]).default("member"),
   expiresInDays: z.number().int().min(1).max(30).default(config.inviteDays)
 });
-
-// Prefer the origin of the page the admin is actually using (sent by the browser
-// on the fetch), so invite links match the real URL — a LAN address or public
-// domain — instead of the configured default. Fall back to config.appUrl.
-// Trim trailing slashes without a backtracking-prone regex: the Origin header is
-// attacker-controlled and /\/+$/ is quadratic on a long run of slashes.
-function stripTrailingSlashes(value: string): string {
-  let end = value.length;
-  while (end > 0 && value.charCodeAt(end - 1) === 47 /* "/" */) end -= 1;
-  return value.slice(0, end);
-}
-
-function inviteOrigin(request: FastifyRequest): string {
-  const origin = request.headers.origin;
-  if (typeof origin === "string" && /^https?:\/\/.+/i.test(origin)) {
-    return stripTrailingSlashes(origin);
-  }
-  return stripTrailingSlashes(config.appUrl);
-}
 
 interface InviteListRow {
   id: string;
@@ -74,7 +55,7 @@ export async function invitesPlugin(app: FastifyInstance) {
         id: inviteId,
         role: parsed.data.role,
         expiresAt,
-        url: `${inviteOrigin(request)}/invite/${token}`
+        url: `${requestOrigin(request)}/invite/${token}`
       }
     });
   });

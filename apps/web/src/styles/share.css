@@ -20,6 +20,11 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+  /* The guest player has no .audio-player wrapper, so define the track/thumb vars
+     the shared .player-seekbar / .player-vol-slider rules expect. Deriving from
+     --ink keeps them visible on every theme (light and dark). */
+  --player-track-strong: color-mix(in srgb, var(--ink) 16%, transparent);
+  --player-thumb-ring: var(--surface);
 }
 
 .share-card--message {
@@ -108,6 +113,92 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
+}
+
+/* Volume + sleep timer row, below the transport controls. */
+.share-tools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.share-vol {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 170px;
+  max-width: 230px;
+}
+.share-vol .player-vol-slider { flex: 1; }
+.share-vol .player-vol-icon {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--mint);
+  cursor: pointer;
+}
+
+.share-menu-anchor {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.share-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.share-tool-btn:hover,
+.share-tool-btn:focus-visible {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+/* An armed sleep timer reads as active (gold). */
+.share-tool-btn.active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.share-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 10;
+  display: grid;
+  min-width: 130px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 18px 40px var(--shadow);
+}
+.share-menu-option {
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.share-menu-option:hover,
+.share-menu-option.active {
+  background: var(--hover);
+  color: var(--gold);
 }
 
 .share-actions {

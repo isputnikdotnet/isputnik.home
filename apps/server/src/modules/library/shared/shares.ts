@@ -8,8 +8,7 @@ import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { sha256 } from "../../../crypto.js";
 import { addDays } from "../../../auth.js";
-import { config } from "../../../config.js";
-import { parseBody } from "../../../core/shared.js";
+import { parseBody, requestOrigin } from "../../../core/shared.js";
 import { pathIsInside } from "./storage-roots.js";
 import { thumbnailAbsolutePath } from "./thumbnail.js";
 import { canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook, type LibraryAccessRow } from "./library-access.js";
@@ -409,9 +408,11 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    // Build the link from the configured front-end origin (also the CORS origin),
-    // not the request Host — behind a dev proxy the API Host is the wrong port.
-    const base = config.appUrl.replace(/\/+$/, "");
+    // Build the link from the origin the sharer is actually using (the browser's
+    // Origin header — the front-end/CORS origin, never the API Host, which is the
+    // wrong port behind a dev proxy), so the link follows whichever domain they
+    // arrived through. Falls back to config.appUrl. Same helper as invite links.
+    const base = requestOrigin(request);
     reply.code(201).send({
       share: {
         id: shareId,
@@ -452,7 +453,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    const base = config.appUrl.replace(/\/+$/, "");
+    const base = requestOrigin(request);
     reply.code(201).send({
       share: {
         id: result.shareId,
