@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.19",
+          label: "Polish for the shared-audiobook player",
+          changes: [
+            "The shared player's speed control now shows the multiplier with a small dropdown arrow, instead of a speedometer icon that looked clipped along its bottom edge."
+          ]
+        },
+        {
           version: "1.8.18",
           label: "A fuller shared-audiobook player and domain-aware share links",
           changes: [

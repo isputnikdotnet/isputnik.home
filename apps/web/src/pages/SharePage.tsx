@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, ChevronLeft, ChevronRight, Download, FastForward, Gauge, Headphones, Image as ImageIcon, List, Moon, Pause, Play, Rewind, SkipBack, SkipForward, Volume2, VolumeX, X } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Download, FastForward, Headphones, Image as ImageIcon, List, Moon, Pause, Play, Rewind, SkipBack, SkipForward, Volume2, VolumeX, X } from "lucide-react";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import { isFoliateFormat } from "../shared/utils";
 
@@ -638,8 +638,8 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
               aria-label="Playback speed"
               title="Playback speed"
             >
-              <Gauge size={15} aria-hidden="true" />
               <span>{playbackRate === 1 ? "1×" : `${playbackRate}×`}</span>
+              <ChevronDown size={14} aria-hidden="true" />
             </button>
             {speedOpen && (
               <div className="share-menu" onClick={(e) => e.stopPropagation()}>
