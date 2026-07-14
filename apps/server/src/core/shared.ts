@@ -1,7 +1,31 @@
 import { z } from "zod";
+import type { FastifyRequest } from "fastify";
 import { db } from "../db.js";
 import type { User } from "../db.js";
+import { config } from "../config.js";
 import { getPasswordPolicy, validatePassword } from "./password-policy.js";
+
+// Trim trailing slashes without a backtracking-prone regex: the Origin header is
+// attacker-controlled and /\/+$/ is quadratic on a long run of slashes.
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47 /* "/" */) end -= 1;
+  return value.slice(0, end);
+}
+
+// The origin to build user-facing links (invite/share URLs) from. Prefer the
+// origin of the page the caller is actually using (sent by the browser on the
+// fetch), so links match the real URL — a LAN address or whichever public domain
+// they arrived through — instead of a single configured default. This is what
+// makes links follow the domain in use when multiple domains point at the app.
+// Falls back to config.appUrl when the header is missing or malformed.
+export function requestOrigin(request: FastifyRequest): string {
+  const origin = request.headers.origin;
+  if (typeof origin === "string" && /^https?:\/\/.+/i.test(origin)) {
+    return stripTrailingSlashes(origin);
+  }
+  return stripTrailingSlashes(config.appUrl);
+}
 
 const emailField = z.string().email().transform((value) => value.trim().toLowerCase());
 
