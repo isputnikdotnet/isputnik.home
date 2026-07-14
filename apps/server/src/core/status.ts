@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.20",
+          label: "Shared audiobook player: tighter layout and one-line controls",
+          changes: [
+            "The shared audiobook player is more compact — a smaller cover and tighter spacing bring the whole player closer to one screen.",
+            "Volume, speed, and the sleep timer now stay on a single row at every width, including on mobile (the volume control is a little smaller and shrinks to fit).",
+            "The chapter list now opens upward as a scrolling popover above the Chapters button, instead of pushing the rest of the player down."
+          ]
+        },
+        {
           version: "1.8.19",
           label: "Polish for the shared-audiobook player",
           changes: [

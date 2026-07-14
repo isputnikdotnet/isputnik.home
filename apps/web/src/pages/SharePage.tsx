@@ -455,6 +455,12 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
     setFileIndex(index);
     setChaptersOpen(false);
   };
+  const toggleChapters = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSpeedOpen(false);
+    setSleepOpen(false);
+    setChaptersOpen((open) => !open);
+  };
 
   // Apply volume/mute to the element whenever they change (and after a new src loads,
   // since the element resets — the load effect re-runs and this covers the value).
@@ -471,13 +477,13 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
     if (audioRef.current) audioRef.current.playbackRate = playbackRate;
   }, [playbackRate, fileIndex]);
 
-  // Close the speed / sleep menus on any outside click.
+  // Close the speed / sleep / chapters menus on any outside click.
   useEffect(() => {
-    if (!speedOpen && !sleepOpen) return;
-    const close = () => { setSpeedOpen(false); setSleepOpen(false); };
+    if (!speedOpen && !sleepOpen && !chaptersOpen) return;
+    const close = () => { setSpeedOpen(false); setSleepOpen(false); setChaptersOpen(false); };
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
-  }, [speedOpen, sleepOpen]);
+  }, [speedOpen, sleepOpen, chaptersOpen]);
 
   // Timed sleep modes: tick down once a second while playing, then pause and disarm.
   // Counting only while playing means a manual pause also pauses the timer.
@@ -506,6 +512,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
   const toggleSpeedMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSleepOpen(false);
+    setChaptersOpen(false);
     setSpeedOpen((open) => !open);
   };
   const changeRate = (rate: number) => {
@@ -515,6 +522,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
   const toggleSleepMenu = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSpeedOpen(false);
+    setChaptersOpen(false);
     setSleepOpen((open) => !open);
   };
   const chooseSleep = (mode: SleepMode) => {
@@ -534,7 +542,7 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
 
   return (
     <div className="share-page">
-      <div className="share-card">
+      <div className="share-card share-card--player">
         <div className="share-book-header">
           {book.coverUrl ? (
             <img src={book.coverUrl} alt="" className="share-cover" />
@@ -701,32 +709,33 @@ function AudiobookShareView({ token, payload }: { token: string; payload: Audiob
 
         <div className="share-actions">
           {files.length > 1 && (
-            <button className="secondary-button" onClick={() => setChaptersOpen((o) => !o)} aria-expanded={chaptersOpen}>
-              <List size={16} /><span>Chapters</span>
-            </button>
+            <div className="share-menu-anchor">
+              <button className="secondary-button" onClick={toggleChapters} aria-expanded={chaptersOpen}>
+                <List size={16} /><span>Chapters</span>
+              </button>
+              {chaptersOpen && (
+                <div className="share-chapter-menu" onClick={(e) => e.stopPropagation()}>
+                  {files.map((file, index) => (
+                    <button
+                      key={file.id}
+                      className={`share-chapter-item${index === fileIndex ? " active" : ""}`}
+                      onClick={() => jumpToChapter(index)}
+                    >
+                      <span className="share-chapter-num">{index + 1}</span>
+                      <span className="share-chapter-name">{file.chapterTitle || `Chapter ${index + 1}`}</span>
+                      {file.durationSeconds != null && (
+                        <span className="share-chapter-dur">{formatTime(file.durationSeconds)}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           <a className="secondary-button" href={`/api/share/${token}/download`} download>
             <Download size={16} /><span>Download</span>
           </a>
         </div>
-
-        {chaptersOpen && files.length > 1 && (
-          <div className="share-chapter-list">
-            {files.map((file, index) => (
-              <button
-                key={file.id}
-                className={`share-chapter-item${index === fileIndex ? " active" : ""}`}
-                onClick={() => jumpToChapter(index)}
-              >
-                <span className="share-chapter-num">{index + 1}</span>
-                <span className="share-chapter-name">{file.chapterTitle || `Chapter ${index + 1}`}</span>
-                {file.durationSeconds != null && (
-                  <span className="share-chapter-dur">{formatTime(file.durationSeconds)}</span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
 
         {playerError && <p className="share-player-error">{playerError}</p>}
 
