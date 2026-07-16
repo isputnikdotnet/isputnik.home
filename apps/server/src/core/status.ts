@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.21",
+          label: "Cover thumbnails show again in the metadata search",
+          changes: [
+            "When searching online metadata for a book, provider cover art (iTunes, Audible, Open Library, FantLab, LibriVox) now shows as a preview thumbnail again — previously the image was blocked in the browser and appeared blank, even though applying it worked."
+          ]
+        },
+        {
           version: "1.8.20",
           label: "Shared audiobook player: tighter layout and one-line controls",
           changes: [
