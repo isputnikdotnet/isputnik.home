@@ -10,16 +10,6 @@ import { canUserWriteLibrary, getLibraryForBook } from "../shared/library-access
 import { downloadImage } from "../shared/remote-image.js";
 import { imageMimeType, coverImageExtensions, getBookCoverFolder, coverFilePathFromRelative, updateBookCover, applyMetadataCandidate, updateManualMetadata, getAudiobookBookDetail, metadataMatchSchema, coverSourceSchema, coverFromUrlSchema, manualMetadataSchema } from "./book-helpers.js";
 
-// Identify an image by its magic bytes so the cover-preview proxy only ever
-// serves a real image with a matching content-type — never sniffed as HTML/JS.
-function sniffImageMime(buffer: Buffer): string | null {
-  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "image/jpeg";
-  if (buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return "image/png";
-  if (buffer.length >= 12 && buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP") return "image/webp";
-  if (buffer.length >= 6 && (buffer.toString("ascii", 0, 6) === "GIF87a" || buffer.toString("ascii", 0, 6) === "GIF89a")) return "image/gif";
-  return null;
-}
-
 export function registerMetadataRoutes(app: FastifyInstance) {
 
   app.get("/api/library/books/:id/metadata-search", { preHandler: app.authenticate }, async (request, reply) => {
@@ -169,40 +159,6 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }));
 
     reply.send({ covers: candidates });
-  });
-
-
-  // Same-origin proxy for external provider cover thumbnails shown in the metadata
-  // and cover pickers. The enforced CSP img-src only allows 'self'/data:/blob:, so
-  // a raw cross-origin <img src> (iTunes mzstatic, Audible, Open Library, …) is
-  // blocked in the browser even though applying it works (the apply path downloads
-  // the same URL server-side). Routing the preview through this SSRF-guarded
-  // download — the same guard cover-from-url uses — keeps the tight CSP intact.
-  app.get("/api/library/metadata-cover-preview", { preHandler: app.authenticate }, async (request, reply) => {
-    const url = String((request.query as { url?: string }).url ?? "").trim();
-    if (!url) {
-      reply.code(400).send({ error: "A cover URL is required" });
-      return;
-    }
-
-    try {
-      const image = await downloadImage(url);
-      // Serve only genuine images with a sniffed image content-type + nosniff, so a
-      // same-origin response can never carry attacker-chosen HTML/JS.
-      const mime = sniffImageMime(image);
-      if (!mime) {
-        reply.code(415).send({ error: "That URL is not an image." });
-        return;
-      }
-      reply
-        .type(mime)
-        .header("X-Content-Type-Options", "nosniff")
-        .header("Content-Length", image.byteLength)
-        .header("Cache-Control", "private, max-age=3600")
-        .send(image);
-    } catch (err) {
-      reply.code(502).send({ error: err instanceof Error ? err.message : "Unable to load cover preview" });
-    }
   });
 
 

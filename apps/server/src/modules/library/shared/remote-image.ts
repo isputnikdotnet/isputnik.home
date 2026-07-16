@@ -72,7 +72,15 @@ async function resolveSafeAddress(hostname: string): Promise<{ address: string; 
       throw new Error("URL resolves to a disallowed address.");
     }
   }
-  return { address: records[0].address, family: records[0].family };
+  // Prefer an IPv4 record when the host is dual-stack. Because we pin the socket
+  // to a single address (DNS-rebinding defence), we can't fall back mid-connect —
+  // and many self-hosted deployments (e.g. an IPv4-only Unraid box) have no IPv6
+  // route, so pinning to an AAAA record there fails the connect with ENETUNREACH
+  // and, on a background socket, can crash the process. IPv4-first keeps those
+  // hosts reachable; a genuinely IPv6-only host still resolves (and simply fails
+  // to connect if unroutable, rather than being skipped).
+  const chosen = records.find((record) => record.family === 4) ?? records[0];
+  return { address: chosen.address, family: chosen.family };
 }
 
 // A single-use dispatcher that always connects to the pre-validated IP and never

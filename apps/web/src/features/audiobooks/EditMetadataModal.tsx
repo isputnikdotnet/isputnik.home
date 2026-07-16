@@ -9,16 +9,6 @@ import type { AudiobookBookDetail, CategorySummary, CoverCandidate, MetadataCand
 
 export type MetadataTab = "edit" | "tags" | "publishing" | "series" | "cover" | "lookup";
 
-// External provider cover art (iTunes, Audible, Open Library, FantLab, LibriVox)
-// must be proxied through a same-origin endpoint for preview: the enforced CSP
-// img-src only allows 'self'/data:/blob:, so a raw cross-origin <img src> is
-// blocked in the browser even though applying the same URL works server-side.
-function coverPreviewSrc(url: string): string {
-  return /^https?:\/\//i.test(url)
-    ? `/api/library/metadata-cover-preview?url=${encodeURIComponent(url)}`
-    : url;
-}
-
 // The full metadata editor used both on the book detail page and from the
 // audiobooks grid "Edit metadata" action. It owns its own metadata-related
 // state; the host only supplies the book, an updated-book callback, and close.
@@ -611,7 +601,7 @@ export function EditMetadataModal({
                             onClick={() => applyOnlineCover(cover.url)}
                             disabled={Boolean(coverSaving)}
                           >
-                            <img src={coverPreviewSrc(cover.url)} alt="" onError={() => hideOnlineCover(cover.url)} />
+                            <img src={cover.url} alt="" onError={() => hideOnlineCover(cover.url)} />
                             <span>{cover.source}</span>
                             <strong>{coverSaving === cover.url ? "Applying..." : "Use this cover"}</strong>
                           </button>
@@ -707,7 +697,7 @@ export function EditMetadataModal({
                 {metadataResults.map((candidate, index) => (
                   <article className="metadata-result-card" key={`${candidate.source}-${candidate.title}-${index}`}>
                     <div className="metadata-result-cover" aria-hidden="true">
-                      {candidate.coverUrl ? <img src={coverPreviewSrc(candidate.coverUrl)} alt="" /> : <BookOpen size={22} />}
+                      {candidate.coverUrl ? <img src={candidate.coverUrl} alt="" /> : <BookOpen size={22} />}
                     </div>
                     <div className="metadata-result-body">
                       <div className="metadata-result-title-row">
@@ -803,7 +793,7 @@ function ResultCompare({ book, candidate }: { book: AudiobookBookDetail; candida
         </span>
         <span className="compare-next">
           <span className="compare-cover-frame">
-            {candidate.coverUrl ? <img src={coverPreviewSrc(candidate.coverUrl)} alt="" /> : <BookOpen size={20} />}
+            {candidate.coverUrl ? <img src={candidate.coverUrl} alt="" /> : <BookOpen size={20} />}
           </span>
         </span>
       </div>
