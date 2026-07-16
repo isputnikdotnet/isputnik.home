@@ -69,9 +69,21 @@ await app.register(helmet, {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      // OSM raster tiles for the gallery map (Leaflet loads them as <img>). Both the
-      // subdomain-less host and the a/b/c.tile.* mirrors are covered.
-      imgSrc: ["'self'", "data:", "blob:", "https://tile.openstreetmap.org", "https://*.tile.openstreetmap.org"],
+      // Two families of external <img> are allowed, nothing else:
+      //  - OSM raster tiles for the gallery map (Leaflet loads them as <img>); both
+      //    the subdomain-less host and the a/b/c.tile.* mirrors are covered.
+      //  - Metadata-provider cover thumbnails shown transiently in the Edit Metadata
+      //    search (iTunes, Audible, Open Library, FantLab, LibriVox/archive.org).
+      //    These load directly in the browser — never proxied through the server,
+      //    which on an IPv4-only host could pin to an unreachable AAAA record and
+      //    crash the process (ENETUNREACH). Applied covers are still stored locally,
+      //    so this only affects the live search preview.
+      imgSrc: [
+        "'self'", "data:", "blob:",
+        "https://tile.openstreetmap.org", "https://*.tile.openstreetmap.org",
+        "https://*.mzstatic.com", "https://m.media-amazon.com",
+        "https://covers.openlibrary.org", "https://fantlab.ru", "https://archive.org"
+      ],
       mediaSrc: ["'self'", "blob:"],
       fontSrc: ["'self'", "data:"],
       connectSrc: ["'self'"],

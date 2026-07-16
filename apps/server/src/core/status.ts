@@ -502,10 +502,11 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
-          version: "1.8.21",
-          label: "Cover thumbnails show again in the metadata search",
+          version: "1.8.22",
+          label: "Metadata cover thumbnails — fixed for real, no more server hang",
           changes: [
-            "When searching online metadata for a book, provider cover art (iTunes, Audible, Open Library, FantLab, LibriVox) now shows as a preview thumbnail again — previously the image was blocked in the browser and appeared blank, even though applying it worked."
+            "Provider cover art (iTunes, Audible, Open Library, FantLab, LibriVox) shows as a preview thumbnail again in the metadata search — the browser now loads these covers directly, so they appear reliably.",
+            "Fixed a server hang that could take the whole app offline during a metadata search: a cover download could try an IPv6 address on an IPv4-only host (e.g. Unraid) and crash the process. Remote image and metadata fetches now prefer IPv4 and fail gracefully instead of taking the server down."
           ]
         },
         {
