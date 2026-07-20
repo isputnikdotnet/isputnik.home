@@ -285,6 +285,26 @@
 }
 .gallery-folder-bar .gallery-breadcrumb { flex: 1 1 auto; }
 
+/* "Back to gallery" — the explicit way out of a sub-view (Memories, Albums,
+   Folders, People, Map) back to the Timeline. */
+.gallery-back-row {
+  margin: 4px 0 10px;
+}
+
+.gallery-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 0;
+  padding: 4px 2px;
+  font: inherit;
+  color: var(--mint);
+  cursor: pointer;
+}
+
+.gallery-back-button:hover { text-decoration: underline; }
+
 .gallery-breadcrumb {
   display: flex;
   flex-wrap: wrap;

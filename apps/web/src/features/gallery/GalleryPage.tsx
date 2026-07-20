@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Download, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Download, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -778,6 +778,20 @@ export function GalleryPage({
     setNotice("");
     setLightbox({ source: slideshow.source, index: 0, autoPlay: true });
   };
+
+  // Context-aware "back" shown above every sub-view. Inside a detail level (one
+  // album's photos, one person's photos, a folder below the root) it steps up to
+  // that parent list; from a list root / Memories / Map it returns to the Timeline.
+  const backTarget: { label: string; onClick: () => void } | null =
+    view === "albums" && selectedAlbum
+      ? { label: "Back to albums", onClick: () => { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); } }
+      : view === "people" && selectedPerson
+        ? { label: "Back to people", onClick: () => { setSelectedPerson(null); setRenameValue(null); setMergeOpen(false); void loadPeople(); } }
+        : view === "folder" && parent
+          ? { label: "Back to folders", onClick: () => void loadFolder("") }
+          : view !== "timeline"
+            ? { label: "Back to gallery", onClick: () => setView("timeline") }
+            : null;
   const canDeleteAny = libraries.some((library) => library.canDelete);
   // Sharing hands out file access, so the bar's Share needs the curate
   // capability somewhere; the server filters the selection per library anyway.
@@ -1082,6 +1096,17 @@ export function GalleryPage({
                 </nav>
               </div>
             </div>
+
+            {/* One-click "up" out of any sub-view. Context-aware: from a detail level
+                it steps back to the parent list (Back to albums/people/folders),
+                otherwise back to the main Timeline (Back to gallery). */}
+            {backTarget && (
+              <div className="gallery-back-row">
+                <button type="button" className="gallery-back-button" onClick={backTarget.onClick}>
+                  <ArrowLeft size={16} aria-hidden="true" /> {backTarget.label}
+                </button>
+              </div>
+            )}
 
             {view === "timeline" && <GalleryFilterChips value={filters} onChange={setFilters} />}
 
