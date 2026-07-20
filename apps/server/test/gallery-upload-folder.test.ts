@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateFolderForCapture } from "../src/modules/library/gallery/routes.js";
+import { dateFolderForCapture, friendlyStorageError } from "../src/modules/library/gallery/routes.js";
 
 describe("upload date-folder placement", () => {
   const uploadTime = new Date("2026-07-20T12:00:00Z");
@@ -16,5 +16,18 @@ describe("upload date-folder placement", () => {
 
   it("zero-pads month and day", () => {
     expect(dateFolderForCapture("2024-02-03T00:00:00Z", uploadTime)).toBe("2024/2024-02-03");
+  });
+});
+
+describe("friendly storage errors", () => {
+  it("explains a read-only / permission failure instead of a raw fs error", () => {
+    const enoent = friendlyStorageError(new Error("ENOENT: no such file or directory, mkdir '/media/photos/.upload-x'"), "Upload failed");
+    expect(enoent).toMatch(/Read\/Write/);
+    expect(friendlyStorageError(new Error("EROFS: read-only file system, open '/media/x.jpg'"), "x")).toMatch(/write access/);
+    expect(friendlyStorageError(new Error("EACCES: permission denied, rename '/a' -> '/b'"), "x")).toMatch(/Can't write/);
+  });
+
+  it("passes through unrelated errors unchanged", () => {
+    expect(friendlyStorageError(new Error("Too many files — at most 200 per upload."), "x")).toBe("Too many files — at most 200 per upload.");
   });
 });

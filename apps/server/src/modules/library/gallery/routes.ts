@@ -90,6 +90,18 @@ async function uploadDateFolder(tmpPath: string, extension: string): Promise<str
   return dateFolderForCapture(takenAt, new Date());
 }
 
+// Turn a raw filesystem write failure into a message that names the real problem.
+// The usual culprit is a read-only media mount (Unraid's template historically mapped
+// media read-only) or missing write permission — uploading has to create files in the
+// library folder, unlike scanning which only reads.
+export function friendlyStorageError(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/\b(EROFS|EACCES|EPERM|ENOENT)\b/.test(message) && /mkdir|open|rename|EROFS/.test(message)) {
+    return "Can't write to this library's folder. Uploads need write access — on Unraid, set the Media Storage path to Read/Write (not Read Only) and make sure the container can write to it.";
+  }
+  return message || fallback;
+}
+
 const GALLERY_LIBRARY_LIST_SQL = `
   SELECT
     libraries.*,
@@ -280,7 +292,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     } catch (err) {
       fs.rmSync(stagingDir, { recursive: true, force: true });
       const status = err instanceof UploadError ? err.statusCode : 400;
-      reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
+      reply.code(status).send({ error: friendlyStorageError(err, "Upload failed") });
       return;
     }
 
@@ -302,7 +314,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
         if (assetId) { createdIds.push(assetId); totalBytes += file.sizeBytes; }
       }
     } catch (err) {
-      reply.code(500).send({ error: err instanceof Error ? err.message : "Could not store the uploaded files." });
+      reply.code(500).send({ error: friendlyStorageError(err, "Could not store the uploaded files.") });
       return;
     } finally {
       fs.rmSync(stagingDir, { recursive: true, force: true });
