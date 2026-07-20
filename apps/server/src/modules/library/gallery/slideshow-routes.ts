@@ -38,8 +38,11 @@ function renderFields(slideshow: SlideshowRow) {
       : null,
     renderedAt: slideshow.rendered_at,
     outputBytes: slideshow.render_status === "ready" ? slideshow.output_bytes : null,
+    // The movie URL is per-slideshow, but a re-render overwrites the file in place —
+    // so version it by rendered_at, otherwise the browser keeps serving the previous
+    // render (e.g. the one made before music was added) from cache.
     movieUrl: slideshow.render_status === "ready" && slideshow.output_storage_key
-      ? `/api/library/gallery/slideshows/${slideshow.id}/movie`
+      ? `/api/library/gallery/slideshows/${slideshow.id}/movie?v=${encodeURIComponent(slideshow.rendered_at ?? "")}`
       : null
   };
 }

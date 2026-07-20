@@ -254,29 +254,32 @@ export function getSlideshowItems(userId: string, libIds: string[], slideshow: S
   };
 }
 
-// On-disk photo files for a render, in presentation order (videos are skipped in the
-// MP4 pipeline — see the proposal). Filtered by the given library access, like the
-// album download. `dwell_seconds` is the per-slide override (null → slide default).
+// On-disk files for a render, in presentation order — photos AND videos (a video
+// contributes its own clip, capped, with its audio dropped). Filtered by the given
+// library access, like the album download. `dwell_seconds` is the per-slide override
+// (null → slide default, or the clip's own length for a video).
 export interface SlideshowRenderItem {
   id: string;
+  kind: "photo" | "video";
   relative_path: string;
   source_path: string;
   dwell_seconds: number | null;
+  duration_seconds: number | null;
 }
 
 export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRow): SlideshowRenderItem[] {
   if (libIds.length === 0) return [];
   const libIn = inClause(libIds.length);
   return db.prepare(`
-    SELECT library_items.id AS id, gallery_details.relative_path AS relative_path,
-           libraries.source_path AS source_path, gallery_slideshow_items.dwell_seconds AS dwell_seconds
+    SELECT library_items.id AS id, gallery_details.kind AS kind, gallery_details.relative_path AS relative_path,
+           libraries.source_path AS source_path, gallery_slideshow_items.dwell_seconds AS dwell_seconds,
+           gallery_details.duration_seconds AS duration_seconds
     FROM gallery_slideshow_items
     JOIN library_items ON library_items.id = gallery_slideshow_items.item_id AND library_items.deleted_at IS NULL
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     JOIN libraries ON libraries.id = library_items.library_id
     WHERE gallery_slideshow_items.slideshow_id = ?
       AND library_items.library_id IN (${libIn})
-      AND gallery_details.kind = 'photo'
     ORDER BY gallery_slideshow_items.position ASC, library_items.id ASC
   `).all(slideshow.id, ...libIds) as SlideshowRenderItem[];
 }
