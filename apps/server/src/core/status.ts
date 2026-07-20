@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.9.2",
+          label: "Fix photo/video uploads on Unraid (read-only media path)",
+          changes: [
+            "Fixed uploads failing on Unraid. Adding a photo or video writes files into your library folder, but the install template mapped the media path read-only, so uploads failed (scanning, which only reads, still worked). The template now maps Media Storage as Read/Write. If you installed an earlier version, edit the container in Unraid and change the Media Storage path's access mode from Read Only to Read/Write — no reinstall needed.",
+            "When a library folder can't be written to, uploads now show a clear message explaining that the media path needs to be Read/Write, instead of a raw filesystem error."
+          ]
+        },
+        {
           version: "1.9.1",
           label: "Uploaded photos and videos are filed into dated folders",
           changes: [
