@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.9.1",
+          label: "Uploaded photos and videos are filed into dated folders",
+          changes: [
+            "Photos and videos you upload to the gallery now go into dated subfolders (a Year / Year-Month-Day folder) inside the library, based on each file's capture date — so uploads blend into your folder structure instead of piling up at the top of the library folder. A file with no embedded date is filed under the day you uploaded it. Files already in your library aren't moved."
+          ]
+        },
+        {
           version: "1.9.0",
           label: "Gallery slideshows: build, set to music, and export as a movie",
           changes: [
