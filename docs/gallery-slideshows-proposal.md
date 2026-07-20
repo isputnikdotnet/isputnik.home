@@ -240,8 +240,10 @@ expensive encoder is built **last**, against an editor that already works.
    the saved-slideshow preview.
 2. **Music model.** — **BUILT.** `gallery_music_tracks` (built-in beds + user
    uploads share one table + one storage location: the thumbnail store's shared
-   `music` bucket). `music.ts` synthesises three ambient beds on startup with the
-   bundled ffmpeg (idempotent, no audio blobs in the repo) — encoded as **FLAC**,
+   `music` bucket). `music.ts` synthesises six beds on startup with the bundled
+   ffmpeg (idempotent, no audio blobs in the repo) — three sustained ambient pads
+   plus three looping chord-progression beds (I-V-vi-IV etc., each chord's triad
+   gated to its time slot then mixed, for a more melodic feel) — encoded as **FLAC**,
    deliberately: libmp3lame *and* the native AAC encoder both assert / drop frames
    non-deterministically on the beds' pure-sine chords (their psychoacoustic models
    choke on pathologically tonal input); FLAC is lossless with no such model and

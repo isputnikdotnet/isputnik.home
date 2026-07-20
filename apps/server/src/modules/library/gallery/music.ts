@@ -126,37 +126,78 @@ export function deleteMusicTrack(id: string, user: { id: string; role: string })
 
 // ── Built-in ambient beds ───────────────────────────────────────────────────
 
-// Each bed is a soft, looping pad chord synthesised from pure sine tones (gentle
-// vibrato + tremolo for life, long fades so it loops cleanly). Simple by design —
-// a calm backdrop, not production music. Stable ids so a re-seed updates in place
-// (never DELETE+INSERT, which would null out slideshows referencing the bed).
-interface BedSpec { id: string; title: string; freqs: number[]; vibrato: number; tremolo: number }
+// Built-in beds come in two flavours, both synthesised from pure sine tones and
+// encoded to FLAC (see the encoder note in bedArgs). Stable ids so a re-seed updates
+// in place (never DELETE+INSERT, which would null out slideshows referencing the bed).
+//
+// - `pad`: one soft, sustained chord — a calm ambient backdrop.
+// - `progression`: a looping chord progression (each chord's triad gated to its time
+//   slot with short fades, then mixed) — a more musical, melodic bed.
+interface PadBed { id: string; title: string; kind: "pad"; freqs: number[]; vibrato: number; tremolo: number }
+interface ProgressionBed { id: string; title: string; kind: "progression"; chords: number[][]; chordSeconds: number; vibrato: number }
+type BedSpec = PadBed | ProgressionBed;
 
-const BED_DURATION = 24;
+const PAD_DURATION = 24;
+
+// Triads (mid-octave) used by the progression beds.
+const C = [261.63, 329.63, 392.0];    // C major
+const G = [196.0, 246.94, 293.66];    // G major
+const Am = [220.0, 261.63, 329.63];   // A minor
+const F = [174.61, 220.0, 261.63];    // F major
+const Em = [164.81, 196.0, 246.94];   // E minor
+
 const BUILTIN_BEDS: BedSpec[] = [
-  { id: "builtinbedwarm001", title: "Warm Daylight", freqs: [261.63, 329.63, 392.0, 523.25], vibrato: 4.5, tremolo: 0.12 },
-  { id: "builtinbedcalm001", title: "Quiet Evening", freqs: [220.0, 261.63, 329.63, 440.0], vibrato: 3.5, tremolo: 0.1 },
-  { id: "builtinbedairy001", title: "Open Sky", freqs: [293.66, 349.23, 440.0, 587.33], vibrato: 5.0, tremolo: 0.14 }
+  // Ambient pads.
+  { id: "builtinbedwarm001", title: "Warm Daylight", kind: "pad", freqs: [261.63, 329.63, 392.0, 523.25], vibrato: 4.5, tremolo: 0.12 },
+  { id: "builtinbedcalm001", title: "Quiet Evening", kind: "pad", freqs: [220.0, 261.63, 329.63, 440.0], vibrato: 3.5, tremolo: 0.1 },
+  { id: "builtinbedairy001", title: "Open Sky", kind: "pad", freqs: [293.66, 349.23, 440.0, 587.33], vibrato: 5.0, tremolo: 0.14 },
+  // Melodic chord-progression beds (loop seamlessly; the player/render loop them).
+  { id: "builtinbedsun00001", title: "Sunlit Days", kind: "progression", chords: [C, G, Am, F], chordSeconds: 3.0, vibrato: 4.0 },     // I-V-vi-IV, uplifting
+  { id: "builtinbedhome0001", title: "Homeward", kind: "progression", chords: [F, C, G, Am], chordSeconds: 3.5, vibrato: 3.2 },        // IV-I-V-vi, warm/nostalgic
+  { id: "builtinbedsnow0001", title: "Quiet Snowfall", kind: "progression", chords: [Am, F, C, Em], chordSeconds: 4.0, vibrato: 5.0 }  // vi-IV-I-iii, reflective
 ];
 
+function bedDurationSeconds(spec: BedSpec): number {
+  return spec.kind === "pad" ? PAD_DURATION : spec.chords.length * spec.chordSeconds;
+}
+
+// Encode to FLAC, not a perceptual codec. Both libmp3lame and the native AAC encoder
+// assert / drop frames non-deterministically on pure-sine chords (their psychoacoustic
+// models choke on the pathologically tonal input these beds are). FLAC is lossless — no
+// psychoacoustic model to trip — and these tonal beds still compress small. Browsers
+// play audio/flac via <audio>. gain leaves ~2 dB of headroom so nothing clips.
 function bedArgs(spec: BedSpec, outPath: string): string[] {
-  const inputs = spec.freqs.flatMap((f) => ["-f", "lavfi", "-i", `sine=frequency=${f}:duration=${BED_DURATION}`]);
-  const labels = spec.freqs.map((_, i) => `[${i}]`).join("");
-  const gain = (0.9 / spec.freqs.length).toFixed(3);
-  const filter = [
-    `${labels}amix=inputs=${spec.freqs.length}:normalize=0`,
-    `volume=${gain}`,
-    `vibrato=f=${spec.vibrato}:d=0.22`,
-    `tremolo=f=${spec.tremolo}:d=0.6`,
-    `afade=t=in:d=3`,
-    `afade=t=out:st=${BED_DURATION - 3}:d=3`,
-    "aformat=sample_fmts=s16:channel_layouts=stereo"
-  ].join(",");
-  // Encode to FLAC, not a perceptual codec. Both libmp3lame and the native AAC
-  // encoder assert / drop frames non-deterministically on pure-sine chords (their
-  // psychoacoustic models choke on the pathologically tonal input these beds are).
-  // FLAC is lossless — no psychoacoustic model to trip — and these tonal pads still
-  // compress to ~300 KB. Browsers play audio/flac via <audio>.
+  if (spec.kind === "pad") {
+    const inputs = spec.freqs.flatMap((f) => ["-f", "lavfi", "-i", `sine=frequency=${f}:duration=${PAD_DURATION}`]);
+    const labels = spec.freqs.map((_, i) => `[${i}]`).join("");
+    const gain = (0.85 / spec.freqs.length).toFixed(3);
+    const filter = [
+      `${labels}amix=inputs=${spec.freqs.length}:normalize=0`,
+      `volume=${gain}`,
+      `vibrato=f=${spec.vibrato}:d=0.22`,
+      `tremolo=f=${spec.tremolo}:d=0.6`,
+      `afade=t=in:d=3`,
+      `afade=t=out:st=${PAD_DURATION - 3}:d=3`,
+      "aformat=sample_fmts=s16:channel_layouts=stereo"
+    ].join(",");
+    return ["-y", ...inputs, "-filter_complex", filter, "-c:a", "flac", "-ar", "44100", outPath];
+  }
+
+  // Progression: one sine per note; each note lasts `chordSeconds`, fades at its edges,
+  // and is delayed to its chord's time slot — so only the current chord's triad sounds.
+  const D = spec.chordSeconds;
+  const fade = 0.45;
+  const notes: { f: number; k: number }[] = [];
+  spec.chords.forEach((triad, k) => triad.forEach((f) => notes.push({ f, k })));
+  const inputs = notes.flatMap((n) => ["-f", "lavfi", "-i", `sine=frequency=${n.f}:duration=${D}`]);
+  const per = notes.map((n, i) => {
+    const delayMs = Math.round(n.k * D * 1000);
+    const delay = delayMs > 0 ? `,adelay=${delayMs}|${delayMs}` : "";
+    return `[${i}]afade=t=in:d=${fade},afade=t=out:st=${(D - fade).toFixed(2)}:d=${fade}${delay}[a${i}]`;
+  });
+  const mixIn = notes.map((_, i) => `[a${i}]`).join("");
+  const filter = `${per.join(";")};${mixIn}amix=inputs=${notes.length}:normalize=0,volume=0.2,` +
+    `vibrato=f=${spec.vibrato}:d=0.12,aformat=sample_fmts=s16:channel_layouts=stereo`;
   return ["-y", ...inputs, "-filter_complex", filter, "-c:a", "flac", "-ar", "44100", outPath];
 }
 
@@ -194,7 +235,7 @@ export async function seedBuiltinMusic(): Promise<void> {
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title, storage_key = excluded.storage_key,
         duration_seconds = excluded.duration_seconds, builtin = 1
-    `).run(spec.id, spec.title, key, BED_DURATION);
+    `).run(spec.id, spec.title, key, bedDurationSeconds(spec));
   }
 }
 
