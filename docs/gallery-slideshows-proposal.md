@@ -192,9 +192,10 @@ free via [`job-progress.ts`](../apps/server/src/modules/library/shared/job-progr
   `<video>` can play), a sane resolution cap (e.g. 1080p), and a
   quality/size-balanced CRF.
 
-**Videos as slides** — v1 **skips video items** in the render (concat with mixed
-framerates/codecs is materially harder). The editor shows a "videos are omitted
-from the movie" note. Splicing clips in is a documented later phase.
+**Videos as slides** — videos **are** included: each contributes its own clip
+(capped at 20s, normalized to the shared 1080p/30fps canvas) transitioning like a
+photo. Its audio is dropped — the movie's soundtrack is the music bed (or silence);
+mixing per-clip audio into the transition timeline is a later step.
 
 **Storage & retention** — a rendered MP4 is a new storage consumer on the Unraid
 box. v1: keep the latest render per slideshow (re-render overwrites); editing any
@@ -278,13 +279,18 @@ expensive encoder is built **last**, against an editor that already works.
    and a "Movie ready"/"Rendering…" badge on the list cards; the editor polls while a
    render runs.
 
-   **Two measured decisions** (verified on real photos before committing): videos are
-   skipped in v1; and **Ken Burns is NOT rendered** — ffmpeg's `zoompan` re-renders every
-   frame and ran ~25× real-time (a 4-photo/9s clip took 231s and 51 MB on a modest box),
-   impractical on an Unraid host, so a `kenburns` slideshow *exports* as a crossfade
-   while the animated zoom stays a cheap live-preview effect. A 4-photo crossfade movie
-   renders in ~8s; the AAC re-encode of the FLAC music bed is robust here (it decodes
-   real samples, unlike the pure-lavfi path that broke bed generation in Phase 2).
+   **Videos ARE included** — each clip is capped (20s), normalized to the shared canvas,
+   and transitioned like a photo, with its audio dropped (the soundtrack is the music
+   bed). The rendered movie is versioned by `rendered_at` in its URL so a re-render
+   (e.g. after adding music) isn't masked by the browser's cache of the previous render.
+
+   **One measured decision** (verified on real photos before committing): **Ken Burns is
+   NOT rendered** — ffmpeg's `zoompan` re-renders every frame and ran ~25× real-time (a
+   4-photo/9s clip took 231s and 51 MB on a modest box), impractical on an Unraid host,
+   so a `kenburns` slideshow *exports* as a crossfade while the animated zoom stays a
+   cheap live-preview effect. A 4-photo crossfade movie renders in ~8s; the AAC re-encode
+   of the FLAC music bed is robust here (it decodes real samples, unlike the pure-lavfi
+   path that broke bed generation in Phase 2).
 
 ## Open questions
 
@@ -301,8 +307,9 @@ expensive encoder is built **last**, against an editor that already works.
 
 ## Non-goals (v1)
 
-- **Video clips spliced into the movie** — photos only in the render; videos are
-  skipped (documented later phase).
+- **Per-clip video audio in the movie** — videos are included visually, but their
+  audio is dropped; the soundtrack is the music bed (or silence). Aligning per-clip
+  audio to the transition timeline is a later step.
 - **Background auto-generated Memories** + notifications — suggestions are
   on-demand only.
 - **ML/semantic curation** (object/scene recognition, aesthetic ranking) —

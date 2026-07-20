@@ -174,7 +174,7 @@ export function GallerySlideshowEditor({
               <div className="slideshow-movie-head">
                 <h3>Movie{slideshow.outputBytes != null ? <span className="muted"> · {formatBytes(slideshow.outputBytes)}</span> : null}</h3>
                 <div className="slideshow-movie-actions">
-                  <a className="secondary-button compact-button" href={`${slideshow.movieUrl}?download`} download>
+                  <a className="secondary-button compact-button" href={`${slideshow.movieUrl}&download`} download>
                     <Download size={15} aria-hidden="true" /> Download
                   </a>
                   {canEdit && (

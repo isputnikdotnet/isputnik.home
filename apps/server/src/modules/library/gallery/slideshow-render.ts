@@ -8,7 +8,9 @@
 //
 // Decisions, learned by measuring on real photos:
 // - H.264 (yuv420p) + AAC in MP4 — the format the gallery already assumes plays.
-// - Videos are SKIPPED in v1 (concat of mixed framerates/codecs is materially harder).
+// - Videos ARE included: each contributes its own clip (capped, normalized to the same
+//   canvas/framerate) with its audio dropped — the movie's soundtrack is the music bed
+//   (or silence). Mixing per-clip audio into the transition timeline is a future step.
 // - Ken Burns is NOT rendered: ffmpeg's zoompan re-renders every frame and took ~25×
 //   real-time on a modest box (impractical on an Unraid host), so a 'kenburns'
 //   slideshow exports with a crossfade. The animated zoom stays a live-preview effect.
@@ -40,9 +42,10 @@ const HEIGHT = 1080;
 const FPS = 30;
 const TRANSITION_SEC = 1; // xfade duration between slides
 const MIN_DWELL = TRANSITION_SEC + 0.5; // a slide must outlast its transition
-// Bound render time / filtergraph size — a movie of every photo in a 900-item
+const VIDEO_CAP = 20; // cap a single clip so one long video can't dominate the movie
+// Bound render time / filtergraph size — a movie of every item in a 900-item
 // slideshow would take an age. The Memories montage already caps at 40.
-const MAX_PHOTOS = 120;
+const MAX_ITEMS = 120;
 
 interface RenderPayload {
   slideshowId: string;
@@ -51,13 +54,22 @@ interface RenderPayload {
 
 // ── Build the ffmpeg invocation ──────────────────────────────────────────────
 
-export interface Segment { file: string; dwell: number }
+export interface Segment { file: string; dwell: number; isVideo: boolean }
 
 export function segmentsFor(items: SlideshowRenderItem[], slideSeconds: number): Segment[] {
-  return items.slice(0, MAX_PHOTOS).map((item) => {
-    const raw = item.dwell_seconds ?? slideSeconds;
-    const dwell = Math.min(Math.max(Number.isFinite(raw) ? raw : slideSeconds, MIN_DWELL), 30);
-    return { file: path.join(item.source_path, ...item.relative_path.split("/")), dwell };
+  return items.slice(0, MAX_ITEMS).map((item) => {
+    const isVideo = item.kind === "video";
+    let dwell: number;
+    if (isVideo) {
+      // A clip plays for its own length (capped) so it isn't cut mid-action; if the
+      // scanner never probed a duration, fall back to the slide default.
+      const len = item.duration_seconds ?? slideSeconds;
+      dwell = Math.min(Math.max(Number.isFinite(len) && len > 0 ? len : slideSeconds, MIN_DWELL), VIDEO_CAP);
+    } else {
+      const raw = item.dwell_seconds ?? slideSeconds;
+      dwell = Math.min(Math.max(Number.isFinite(raw) ? raw : slideSeconds, MIN_DWELL), 30);
+    }
+    return { file: path.join(item.source_path, ...item.relative_path.split("/")), dwell, isVideo };
   });
 }
 
@@ -73,10 +85,16 @@ export function buildFfmpegArgs(segs: Segment[], transition: SlideshowRow["trans
   const xfadeName = transition === "slide" ? "slideleft" : "fade";
 
   const args: string[] = [];
-  for (const seg of segs) args.push("-loop", "1", "-t", seg.dwell.toFixed(3), "-i", seg.file);
+  for (const seg of segs) {
+    // A photo is a still looped for its dwell; a video is read for `dwell` seconds of
+    // its own footage (its audio is ignored — only [i:v] is referenced below).
+    if (seg.isVideo) args.push("-t", seg.dwell.toFixed(3), "-i", seg.file);
+    else args.push("-loop", "1", "-t", seg.dwell.toFixed(3), "-i", seg.file);
+  }
   if (musicPath) args.push("-stream_loop", "-1", "-i", musicPath);
 
-  // Normalize every input to the same canvas (letterboxed), fixed fps + pixel format.
+  // Normalize every input to the same canvas (letterboxed), fixed fps + pixel format —
+  // photos and video frames alike, so they transition cleanly.
   const per = segs.map((_, i) =>
     `[${i}:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,` +
     `pad=${WIDTH}:${HEIGHT}:-1:-1:color=black,setsar=1,fps=${FPS},format=yuv420p[v${i}]`
@@ -158,7 +176,7 @@ export async function renderSlideshow(
   onProgress: (elapsedSec: number, totalSec: number) => void
 ): Promise<{ storageKey: string; bytes: number }> {
   const items = getSlideshowRenderItems(libIds, slideshow);
-  if (items.length === 0) throw new Error("This slideshow has no photos to render (videos are skipped in movies).");
+  if (items.length === 0) throw new Error("This slideshow has no photos or videos to render.");
 
   // Every source file must exist and stay inside its library root (path-safety).
   const present: SlideshowRenderItem[] = [];

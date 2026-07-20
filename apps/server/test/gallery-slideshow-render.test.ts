@@ -39,7 +39,7 @@ beforeEach(() => {
   grant("group", EVERYONE_GROUP_ID, "GAL", "member");
 });
 
-const segs = (dwells: number[]): Segment[] => dwells.map((d, i) => ({ file: `/img${i}.jpg`, dwell: d }));
+const segs = (dwells: number[]): Segment[] => dwells.map((d, i) => ({ file: `/img${i}.jpg`, dwell: d, isVideo: false }));
 
 describe("render filtergraph", () => {
   it("a single photo maps straight through with no transition", () => {
@@ -80,20 +80,39 @@ describe("render filtergraph", () => {
     expect(joined).toContain("-shortest");
   });
 
-  it("clamps each slide's dwell to at least the transition length and at most 30s", () => {
+  it("clamps a photo's dwell to at least the transition length and at most 30s", () => {
     const built = segmentsFor([
-      { id: "a", relative_path: "a.jpg", source_path: "/s", dwell_seconds: 0.2 },
-      { id: "b", relative_path: "b.jpg", source_path: "/s", dwell_seconds: 99 },
-      { id: "c", relative_path: "c.jpg", source_path: "/s", dwell_seconds: null }
+      { id: "a", kind: "photo", relative_path: "a.jpg", source_path: "/s", dwell_seconds: 0.2, duration_seconds: null },
+      { id: "b", kind: "photo", relative_path: "b.jpg", source_path: "/s", dwell_seconds: 99, duration_seconds: null },
+      { id: "c", kind: "photo", relative_path: "c.jpg", source_path: "/s", dwell_seconds: null, duration_seconds: null }
     ], 5);
-    expect(built[0].dwell).toBe(1.5); // floored to MIN_DWELL (transition 1 + 0.5)
-    expect(built[1].dwell).toBe(30);  // capped
-    expect(built[2].dwell).toBe(5);   // null → slide default
+    expect(built.map((s) => s.dwell)).toEqual([1.5, 30, 5]); // floored / capped / slide default
+    expect(built.every((s) => !s.isVideo)).toBe(true);
+  });
+
+  it("a video plays its own length, capped at VIDEO_CAP (20s)", () => {
+    const built = segmentsFor([
+      { id: "v1", kind: "video", relative_path: "v.mp4", source_path: "/s", dwell_seconds: null, duration_seconds: 8 },
+      { id: "v2", kind: "video", relative_path: "long.mp4", source_path: "/s", dwell_seconds: null, duration_seconds: 400 }
+    ], 5);
+    expect(built[0].dwell).toBe(8);   // clip's own length
+    expect(built[1].dwell).toBe(20);  // capped
+    expect(built.every((s) => s.isVideo)).toBe(true);
+  });
+
+  it("reads a video input for its dwell (no -loop), photos loop a still", () => {
+    const joined = buildFfmpegArgs([
+      { file: "/a.jpg", dwell: 4, isVideo: false },
+      { file: "/v.mp4", dwell: 6, isVideo: true }
+    ], "crossfade", null, "/o.mp4").args.join(" ");
+    expect(joined).toContain("-loop 1 -t 4.000 -i /a.jpg");
+    expect(joined).toContain("-t 6.000 -i /v.mp4");
+    expect(joined).not.toContain("-loop 1 -t 6.000 -i /v.mp4");
   });
 });
 
-describe("render items are photo-only and ordered", () => {
-  it("skips videos and follows presentation order", async () => {
+describe("render items include photos and videos in order", () => {
+  it("keeps videos and follows presentation order, tagging each kind", async () => {
     const p1 = (await ingestGalleryAsset("GAL", asset("p1.jpg", "2024-01-01T00:00:00Z"), false))!;
     const vid = (await ingestGalleryAsset("GAL", asset("clip.mp4", "2024-01-02T00:00:00Z"), false))!;
     const p2 = (await ingestGalleryAsset("GAL", asset("p2.jpg", "2024-01-03T00:00:00Z"), false))!;
@@ -101,7 +120,8 @@ describe("render items are photo-only and ordered", () => {
     addSlideshowItems(slideshow.id, new Set(["GAL"]), [p2, vid, p1]); // append order
 
     const items = getSlideshowRenderItems(["GAL"], getSlideshow(slideshow.id)!);
-    expect(items.map((i) => i.id)).toEqual([p2, p1]); // video dropped, order preserved
+    expect(items.map((i) => i.id)).toEqual([p2, vid, p1]); // video kept, order preserved
+    expect(items.find((i) => i.id === vid)!.kind).toBe("video");
     expect(items.every((i) => i.source_path.length > 0)).toBe(true);
   });
 });
