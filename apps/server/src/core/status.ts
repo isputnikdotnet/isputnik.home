@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.8.23",
+          label: "Gallery slideshow and clearer sub-view navigation",
+          changes: [
+            "Play any gallery view as a slideshow: a new play button opens the viewer full-screen and advances through your photos automatically, looping back to the start after the last one. Pick the pace (3, 5, or 10 seconds per photo), and videos play in full before it moves on. Press Space to pause or resume.",
+            "Every gallery sub-view now has a clear Back button. From inside an album, a person's photos, or a folder it steps back to that list; from Memories, Albums, Folders, People, or Map it returns to the main gallery.",
+            "Removed the “Documents” and “Files” placeholders that were marked “coming soon” in the navigation and the Add library screen."
+          ]
+        },
+        {
           version: "1.8.22",
           label: "Metadata cover thumbnails — fixed for real, no more server hang",
           changes: [
