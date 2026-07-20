@@ -252,7 +252,7 @@ export function GalleryPage({
   const libraryMenuRef = useRef<HTMLDivElement>(null);
 
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
-  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person" | "memory" | "album"; index: number } | null>(null);
+  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person" | "memory" | "album"; index: number; autoPlay?: boolean } | null>(null);
   const [singleAsset, setSingleAsset] = useState<GalleryAsset | null>(null);
 
   // Upload (source-writing, policy-gated): the modal is offered when any library
@@ -761,6 +761,23 @@ export function GalleryPage({
 
   // Assets currently shown (the selectable set depends on the active view).
   const displayedAssets = view === "timeline" ? assets : view === "memories" ? memoryItems : view === "albums" ? albumAssets : folderAssets;
+
+  // The linear set a slideshow plays, mapped from the active view. Null on the
+  // index screens (library/album/people lists, map) where there's no single photo
+  // stream to run through. Mirrors the lightbox's `source` → array mapping.
+  const slideshow = view === "timeline" ? { source: "timeline" as const, list: assets }
+    : view === "memories" ? { source: "memory" as const, list: memoryItems }
+      : view === "folder" ? { source: "folder" as const, list: folderAssets }
+        : view === "albums" && selectedAlbum ? { source: "album" as const, list: albumAssets }
+          : view === "people" && selectedPerson ? { source: "person" as const, list: personAssets }
+            : null;
+
+  // Open the lightbox at the first item and auto-play through the current set.
+  const startSlideshow = () => {
+    if (!slideshow || slideshow.list.length === 0) return;
+    setNotice("");
+    setLightbox({ source: slideshow.source, index: 0, autoPlay: true });
+  };
   const canDeleteAny = libraries.some((library) => library.canDelete);
   // Sharing hands out file access, so the bar's Share needs the curate
   // capability somewhere; the server filters the selection per library anyway.
@@ -917,6 +934,17 @@ export function GalleryPage({
                   title="Upload"
                 >
                   <UploadCloud size={18} aria-hidden="true" />
+                </button>
+              )}
+              {!selectionMode && slideshow && slideshow.list.length > 1 && (
+                <button
+                  type="button"
+                  className="audiobook-page-action-icon"
+                  onClick={startSlideshow}
+                  aria-label="Play slideshow"
+                  title="Play slideshow"
+                >
+                  <Play size={18} aria-hidden="true" />
                 </button>
               )}
               {/* Selection is no longer delete-gated: favoriting and adding to a
@@ -1356,8 +1384,14 @@ export function GalleryPage({
                               <ImageIcon size={15} aria-hidden="true" /><span>Set cover photo</span>
                             </button>
                           )}
-                          <button type="button" role="menuitem" disabled title="Coming soon">
-                            <Play size={15} aria-hidden="true" /><span>Create slideshow</span>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={albumAssets.length < 2}
+                            title={albumAssets.length < 2 ? "Add more photos to play a slideshow" : "Play this album as a slideshow"}
+                            onClick={() => { setAlbumMenuOpen(false); startSlideshow(); }}
+                          >
+                            <Play size={15} aria-hidden="true" /><span>Play slideshow</span>
                           </button>
                           <a
                             role="menuitem"
@@ -1670,6 +1704,7 @@ export function GalleryPage({
           canDelete={canDeleteCurrent}
           canEdit={canEditCurrent}
           canShare={canShareCurrent}
+          autoPlay={lightbox.autoPlay}
           onClose={closeLightbox}
           onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
           onChanged={refreshView}

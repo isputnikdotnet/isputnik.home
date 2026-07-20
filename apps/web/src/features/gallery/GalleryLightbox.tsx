@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Pencil, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
@@ -49,6 +49,13 @@ function toLocalInput(iso: string | null): string {
 // and technical fields (dimensions, size, camera) stay read-only.
 type EditableField = "description" | "takenAt" | "tags" | "gps";
 
+// Slideshow dwell options (seconds a photo shows before advancing). A video ignores
+// these and advances when it finishes playing.
+const SLIDESHOW_INTERVALS = [3, 5, 10] as const;
+// Remembered for the browsing session (module scope survives navigation, resets on
+// reload) so the speed choice sticks across slideshows without persisting to disk.
+let sessionSlideshowInterval = 5;
+
 // Full-screen photo/video viewer with keyboard navigation. Renders into a portal
 // over the whole app (not a shared/Modal — a media lightbox is full-bleed and owns
 // its own chrome). Per-asset actions act on the current item.
@@ -61,7 +68,8 @@ export function GalleryLightbox({
   onOpenFolder,
   canDelete,
   canEdit,
-  canShare
+  canShare,
+  autoPlay = false
 }: {
   assets: GalleryAsset[];
   index: number;
@@ -74,10 +82,18 @@ export function GalleryLightbox({
   canDelete: boolean;
   canEdit: boolean;
   canShare: boolean;
+  // Start a slideshow immediately (opened via the gallery's Slideshow button).
+  autoPlay?: boolean;
 }) {
   const asset = assets[index];
   // The Info panel opens with the photo — details are part of viewing, not an extra.
-  const [showInfo, setShowInfo] = useState(true);
+  // A slideshow starts immersive, though: no side panel eating the frame.
+  const [showInfo, setShowInfo] = useState(!autoPlay);
+  // Slideshow: auto-advances through `assets`, looping past the last item. Videos
+  // ignore the dwell timer and advance when they finish (see the <video> onEnded).
+  const [playing, setPlaying] = useState(autoPlay);
+  const [intervalSec, setIntervalSec] = useState(sessionSlideshowInterval);
+  const canSlideshow = assets.length > 1;
   // Inline field editing in the Info panel (one field at a time).
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -146,9 +162,31 @@ export function GalleryLightbox({
   const hasPrev = index > 0;
   const hasNext = index < assets.length - 1;
 
+  // Any open sub-dialog freezes the slideshow (a slide must not advance under a
+  // confirm/share/collection modal). Also gates the keyboard handler below.
+  const dialogOpen = collectionOpen || albumOpen || deleteOpen || shareOpen;
+
+  // Advance to the next slide, wrapping from the last item back to the first so the
+  // loop never stalls. Manual arrows/clicks reuse this at the ends too.
+  const advance = () => { if (assets.length > 0) onIndexChange((index + 1) % assets.length); };
+
+  // Keep the module-remembered speed in step with the picker.
+  useEffect(() => { sessionSlideshowInterval = intervalSec; }, [intervalSec]);
+
+  // Dwell timer. Photos advance after `intervalSec`; a playable video is skipped
+  // here and advances from its own onEnded so it plays in full. An unplayable video
+  // (videoError) has no end event, so it falls back to the timer like a photo.
+  useEffect(() => {
+    if (!playing || !canSlideshow || dialogOpen) return;
+    if (asset?.kind === "video" && !videoError) return;
+    const timer = window.setTimeout(advance, intervalSec * 1000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, canSlideshow, dialogOpen, asset?.id, asset?.kind, videoError, intervalSec, index, assets.length]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (collectionOpen || albumOpen || deleteOpen || shareOpen) return;
+      if (dialogOpen) return;
       // Typing in an inline form (field edit, person tag) must not steer the
       // lightbox: arrows move the caret there, and Escape cancels the form.
       const target = event.target as HTMLElement | null;
@@ -156,10 +194,15 @@ export function GalleryLightbox({
       if (event.key === "Escape") onClose();
       else if (event.key === "ArrowLeft" && index > 0) onIndexChange(index - 1);
       else if (event.key === "ArrowRight" && index < assets.length - 1) onIndexChange(index + 1);
+      // Space toggles the slideshow (and doesn't scroll the page behind the portal).
+      else if ((event.key === " " || event.key === "Spacebar") && canSlideshow) {
+        event.preventDefault();
+        setPlaying((v) => !v);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, assets.length, onClose, onIndexChange, collectionOpen, albumOpen, deleteOpen, shareOpen]);
+  }, [index, assets.length, canSlideshow, onClose, onIndexChange, dialogOpen]);
 
   if (!asset) return null;
 
@@ -371,13 +414,43 @@ export function GalleryLightbox({
   );
 
   return createPortal(
-    <div className={`gallery-lightbox${showInfo ? " has-info" : ""}`} role="dialog" aria-label={asset.title} aria-modal="true">
+    <div className={`gallery-lightbox${showInfo ? " has-info" : ""}${playing ? " is-playing" : ""}`} role="dialog" aria-label={asset.title} aria-modal="true">
       <div className="gallery-lightbox-bar">
         <div className="gallery-lightbox-title">
           {asset.title}
           {meta && <small>{meta}</small>}
         </div>
         <div className="gallery-lightbox-actions">
+          {canSlideshow && (
+            <>
+              <button
+                className={`gallery-lightbox-action${playing ? " is-on" : ""}`}
+                type="button"
+                onClick={() => setPlaying((v) => !v)}
+                aria-pressed={playing}
+                aria-label={playing ? "Pause slideshow" : "Play slideshow"}
+                title={playing ? "Pause slideshow" : "Play slideshow"}
+              >
+                {playing ? <Pause size={18} aria-hidden="true" /> : <Play size={18} aria-hidden="true" />}
+              </button>
+              {playing && (
+                <div className="gallery-lightbox-speed" role="group" aria-label="Slideshow speed">
+                  {SLIDESHOW_INTERVALS.map((sec) => (
+                    <button
+                      key={sec}
+                      type="button"
+                      className={intervalSec === sec ? "is-on" : ""}
+                      onClick={() => setIntervalSec(sec)}
+                      aria-pressed={intervalSec === sec}
+                      title={`${sec} seconds per photo`}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
           <button
             className={`gallery-lightbox-action${fav ? " is-on" : ""}`}
             type="button"
@@ -499,16 +572,18 @@ export function GalleryLightbox({
           ) : (
             <video
               key={asset.id}
+              className="gallery-lightbox-media"
               src={asset.fileUrl}
               controls
               autoPlay
               playsInline
               poster={asset.previewUrl ?? undefined}
               onError={() => setVideoError(true)}
+              onEnded={() => { if (playing && canSlideshow) advance(); }}
             />
           )
         ) : (
-          <img key={asset.id} src={asset.previewUrl ?? asset.fileUrl} alt={asset.title} />
+          <img key={asset.id} className="gallery-lightbox-media" src={asset.previewUrl ?? asset.fileUrl} alt={asset.title} />
         )}
         {hasNext && (
           <button className="gallery-lightbox-nav next" type="button" onClick={() => onIndexChange(index + 1)} aria-label="Next">

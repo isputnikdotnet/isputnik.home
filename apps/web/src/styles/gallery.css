@@ -541,6 +541,46 @@
 .gallery-lightbox-action.is-on { color: var(--rose); }
 .gallery-lightbox-action:disabled { opacity: 0.5; cursor: default; }
 
+/* Slideshow speed picker — compact pill segment shown beside the play/pause
+   button while a slideshow runs. */
+.gallery-lightbox-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 4px;
+  padding: 3px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gallery-lightbox-speed button {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.gallery-lightbox-speed button:hover { color: #fff; }
+.gallery-lightbox-speed button.is-on { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+/* Each new slide fades up — a gentle crossfade-through-black against the dark
+   backdrop (the element remounts on asset change, so the animation replays). */
+.gallery-lightbox-media { animation: gallery-lb-fade 450ms ease; }
+
+@keyframes gallery-lb-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-lightbox-media { animation: none; }
+}
+
 .gallery-lightbox-stage {
   flex: 1;
   min-height: 0;
