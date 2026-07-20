@@ -5,7 +5,6 @@ import {
   Bug,
   ChevronDown,
   DownloadCloud,
-  FileText,
   Headphones,
   Heart,
   HelpCircle,
@@ -49,21 +48,12 @@ const FOOTER_ACTIONS: FooterAction[] = [
   { href: "/help", icon: HelpCircle, title: "Help", aria: "Help and guides", activeKey: "help" }
 ];
 
-interface MainNavLink {
+interface MainNavItem {
   label: string;
   href: string;
   icon: LucideIcon;
   active?: boolean;
-  disabled?: false;
 }
-
-interface DisabledMainNavLink {
-  label: string;
-  icon: LucideIcon;
-  disabled: true;
-}
-
-type MainNavItem = MainNavLink | DisabledMainNavLink;
 
 interface UserMenuLink {
   label: string;
@@ -73,15 +63,6 @@ interface UserMenuLink {
 
 function DashboardNavLink({ item }: { item: MainNavItem }) {
   const Icon = item.icon;
-
-  if (item.disabled) {
-    return (
-      <button className="home-nav-link is-disabled" type="button" disabled title={`${item.label} is coming soon`}>
-        <Icon size={21} aria-hidden="true" />
-        <span>{item.label}</span>
-      </button>
-    );
-  }
 
   return (
     <a
@@ -103,8 +84,7 @@ function mainNavItems(active: DashboardActive): MainNavItem[] {
     { label: "Authors", href: "/authors", icon: UserRound, active: active === "authors" },
     { label: "Categories", href: "/categories", icon: Shapes, active: active === "categories" },
     { label: "Tags", href: "/tags", icon: Tag, active: active === "tags" },
-    { label: "Gallery", href: "/gallery", icon: Image, active: active === "gallery" },
-    { label: "Documents", icon: FileText, disabled: true }
+    { label: "Gallery", href: "/gallery", icon: Image, active: active === "gallery" }
   ];
 }
 
@@ -191,10 +171,6 @@ function MobileNav({
               <Image size={26} aria-hidden="true" />
               <span>Gallery</span>
             </a>
-            <button className="mobile-media-option is-future" type="button" disabled title="Documents are coming soon">
-              <FileText size={26} aria-hidden="true" />
-              <span>Documents</span>
-            </button>
           </div>
         </div>
       )}

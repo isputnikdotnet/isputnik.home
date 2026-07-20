@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   ClipboardList,
-  FileText,
   Globe2,
   Headphones,
   Image as ImageIcon,
@@ -32,46 +31,32 @@ import { UploadSettingsFields } from "./UploadSettingsFields";
 import { ModeSelect, OwnerSelect, PublicRoleSelect } from "./access-selects";
 
 type WizardLibraryType = "audiobook" | "ebook" | "gallery";
-type LibraryTypeChoice = WizardLibraryType | "files";
 type StepKey = "type" | "basics" | "review";
 type AdvancedTab = "access" | "upload" | "scanning";
 
 const TYPE_OPTIONS: {
-  type: LibraryTypeChoice;
+  type: WizardLibraryType;
   label: string;
   caption: string;
   icon: LucideIcon;
-  available: boolean;
-  badge?: string;
 }[] = [
   {
     type: "audiobook",
     label: "Audiobooks",
     caption: "Audio folders become books with chapters, tracks, and bookmarks.",
-    icon: Headphones,
-    available: true
+    icon: Headphones
   },
   {
     type: "ebook",
     label: "eBooks",
     caption: "EPUB and PDF files become a searchable reading library.",
-    icon: BookOpen,
-    available: true
+    icon: BookOpen
   },
   {
     type: "gallery",
     label: "Gallery",
     caption: "Photos and videos become a date timeline and folder view.",
-    icon: ImageIcon,
-    available: true
-  },
-  {
-    type: "files",
-    label: "Files",
-    caption: "Any supported file type for documents, archives, and general storage.",
-    icon: FileText,
-    available: false,
-    badge: "Coming soon"
+    icon: ImageIcon
   }
 ];
 
@@ -374,7 +359,7 @@ export function LibraryWizard({
             <p>Choose a library type to get started.</p>
           </div>
           <div className="library-type-grid" role="radiogroup" aria-label="Library type">
-            {TYPE_OPTIONS.map(({ type, label, caption, icon: Icon, available, badge }) => {
+            {TYPE_OPTIONS.map(({ type, label, caption, icon: Icon }) => {
               const selected = libraryType === type;
               return (
                 <Button
@@ -383,13 +368,9 @@ export function LibraryWizard({
                   key={type}
                   role="radio"
                   aria-checked={selected}
-                  aria-disabled={!available}
-                  disabled={!available}
-                  className={`library-type-option${selected ? " selected" : ""}${!available ? " disabled" : ""}`}
-                  {...(type !== "files" ? typeRoving(type) : { tabIndex: -1 })}
-                  onClick={() => {
-                    if (type !== "files") pickType(type);
-                  }}
+                  className={`library-type-option${selected ? " selected" : ""}`}
+                  {...typeRoving(type)}
+                  onClick={() => pickType(type)}
                 >
                   <span className="library-type-choice-icon" aria-hidden="true">
                     <Icon size={34} />
@@ -402,12 +383,6 @@ export function LibraryWizard({
                     {selected && (
                       <span className="library-type-selected" aria-hidden="true">
                         <Check size={18} />
-                      </span>
-                    )}
-                    {badge && <span className="library-type-badge">{badge}</span>}
-                    {!available && (
-                      <span className="library-type-lock" aria-hidden="true">
-                        <LockKeyhole size={17} />
                       </span>
                     )}
                   </span>
