@@ -344,6 +344,7 @@
 }
 
 .gallery-folder-thumb {
+  position: relative;
   aspect-ratio: 4 / 3;
   border-radius: 8px;
   overflow: hidden;
@@ -588,17 +589,35 @@
 .gallery-lightbox-speed button:hover { color: #fff; }
 .gallery-lightbox-speed button.is-on { background: rgba(255, 255, 255, 0.22); color: #fff; }
 
-/* Each new slide fades up — a gentle crossfade-through-black against the dark
-   backdrop (the element remounts on asset change, so the animation replays). */
-.gallery-lightbox-media { animation: gallery-lb-fade 450ms ease; }
+/* Each new slide animates in per the slideshow's transition (the element remounts
+   on asset change via key=asset.id, so the animation replays). `data-transition`
+   is set by GalleryLightbox; "none" simply matches no rule. Ken Burns runs its slow
+   zoom across the whole dwell via the --lb-dwell custom property. */
+.gallery-lightbox-media[data-transition="crossfade"] { animation: gallery-lb-fade 450ms ease; }
+.gallery-lightbox-media[data-transition="fade"] { animation: gallery-lb-fade 800ms ease; }
+.gallery-lightbox-media[data-transition="slide"] { animation: gallery-lb-slide 500ms ease; }
+.gallery-lightbox-media[data-transition="kenburns"] {
+  animation: gallery-lb-fade 600ms ease, gallery-lb-kenburns var(--lb-dwell, 5s) ease-out;
+  transform-origin: center;
+}
 
 @keyframes gallery-lb-fade {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
+@keyframes gallery-lb-slide {
+  from { opacity: 0; transform: translateX(6%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes gallery-lb-kenburns {
+  from { transform: scale(1); }
+  to { transform: scale(1.12); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .gallery-lightbox-media { animation: none; }
+  .gallery-lightbox-media { animation: none !important; }
 }
 
 .gallery-lightbox-stage {
@@ -1038,6 +1057,343 @@
 @media (hover: none) {
   .gallery-tile-remove { opacity: 1; }
 }
+
+/* ── Slideshow editor ─────────────────────────────────────────────────────── */
+
+/* Presentation settings above the reorderable grid (transition + timing). */
+.slideshow-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 32px;
+  align-items: flex-end;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.slideshow-setting { display: flex; flex-direction: column; gap: 8px; }
+
+.slideshow-setting-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.slideshow-transitions { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+
+.slideshow-transitions button {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.slideshow-transitions button:hover { background: var(--hover); }
+
+.slideshow-transitions button.is-on {
+  background: color-mix(in srgb, var(--mint) 22%, transparent);
+  border-color: color-mix(in srgb, var(--mint) 55%, transparent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.slideshow-dwell { display: inline-flex; align-items: center; gap: 12px; }
+.slideshow-dwell input[type="range"] { width: 180px; max-width: 46vw; accent-color: var(--mint); }
+.slideshow-dwell-value { min-width: 34px; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+/* Editable grid: each slide shows a position number, a drag handle, ‹/› move
+   buttons, and the remove control. Non-editable viewers get the plain grid. */
+.slideshow-editor-grid.is-editable .slideshow-slide { cursor: grab; }
+.slideshow-editor-grid.is-editable .slideshow-slide:active { cursor: grabbing; }
+.slideshow-slide.dragging { opacity: 0.4; }
+
+.slideshow-slide-num {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(18, 18, 20, 0.72);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+}
+
+.slideshow-drag-handle {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(18, 18, 20, 0.6);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
+.slideshow-slide-move {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: inline-flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.slideshow-slide-move button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(18, 18, 20, 0.72);
+  color: #fff;
+  cursor: pointer;
+}
+
+.slideshow-slide-move button:disabled { opacity: 0.35; cursor: default; }
+.slideshow-slide-move button:not(:disabled):hover { background: rgba(18, 18, 20, 0.9); }
+
+.slideshow-slide:hover .slideshow-drag-handle,
+.slideshow-slide:hover .slideshow-slide-move { opacity: 1; }
+
+/* Touch: no hover, so keep the reorder affordances visible. */
+@media (hover: none) {
+  .slideshow-slide-move { opacity: 1; }
+  .slideshow-drag-handle { display: none; }
+}
+
+/* The "Music" setting: a pill showing the chosen track (opens the picker). */
+.slideshow-music-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  max-width: 220px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.slideshow-music-button:hover { background: var(--hover); }
+.slideshow-music-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Music picker ─────────────────────────────────────────────────────────── */
+
+.music-picker-actions { display: flex; }
+
+.music-group-heading {
+  margin: 16px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.music-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.music-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.music-row.is-selected {
+  border-color: color-mix(in srgb, var(--mint) 55%, transparent);
+  background: color-mix(in srgb, var(--mint) 12%, var(--surface));
+}
+
+.music-row-preview {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  color: var(--ink);
+  cursor: pointer;
+}
+.music-row-preview:hover { background: var(--hover); }
+.music-row-preview.is-static { cursor: default; color: var(--muted); }
+
+.music-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.music-row-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.music-row-meta { font-size: 12px; color: var(--muted); }
+.music-row-check { flex: 0 0 auto; color: var(--mint); }
+
+.music-row-delete {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.music-row-delete:hover { background: var(--hover); color: var(--rose); }
+
+/* ── Suggested memories ───────────────────────────────────────────────────── */
+
+.gallery-memory-suggestions { margin-bottom: 28px; }
+
+.gallery-memory-suggestions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.gallery-memory-suggestions-head h2 { margin: 0; }
+
+/* A memory tile reuses the folder-tile card; the cover gets a play affordance so it
+   reads as "playable", and hover lifts it slightly. */
+.gallery-memory-tile .gallery-folder-thumb { position: relative; }
+
+.gallery-memory-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(18, 18, 20, 0.28);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.gallery-memory-play > svg {
+  border-radius: 50%;
+  background: rgba(18, 18, 20, 0.55);
+  padding: 8px;
+  box-sizing: content-box;
+}
+.gallery-memory-tile:hover .gallery-memory-play,
+.gallery-memory-tile:focus-visible .gallery-memory-play { opacity: 1; }
+
+@media (hover: none) {
+  .gallery-memory-play { opacity: 1; background: transparent; }
+}
+
+/* ── Slideshow movie (MP4 render) ─────────────────────────────────────────── */
+
+.slideshow-movie {
+  margin: 0 0 20px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.slideshow-movie-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.slideshow-movie-head h3 { margin: 0; font-size: 15px; }
+.slideshow-movie-actions { display: inline-flex; gap: 8px; }
+
+.slideshow-movie-video {
+  width: 100%;
+  max-height: 60vh;
+  border-radius: 8px;
+  background: #000;
+  display: block;
+}
+
+.slideshow-movie-cta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+.slideshow-movie-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink);
+}
+.slideshow-movie-progress > span { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+
+.slideshow-progress-track {
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--hover);
+  overflow: hidden;
+}
+.slideshow-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--mint);
+  transition: width 0.4s ease;
+}
+
+/* Render badge on a slideshow list card's cover. */
+.slideshow-card-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(18, 18, 20, 0.72);
+}
+.slideshow-card-badge.ready { background: color-mix(in srgb, var(--mint) 78%, #000); }
+.slideshow-card-badge.busy { background: rgba(18, 18, 20, 0.8); }
 
 /* Admin face-recognition bar above the People grid. */
 .gallery-face-admin {

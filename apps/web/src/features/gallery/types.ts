@@ -46,6 +46,18 @@ export interface GalleryMemories {
   groups: GalleryMemoryGroup[];
 }
 
+// A suggested "memory": an event/trip moment clustered from the library, offered as
+// a ready-to-create slideshow. `itemIds` is the (chronological, sampled) montage;
+// nothing is persisted until the user creates the slideshow from it.
+export interface GalleryMemorySuggestion {
+  id: string;
+  title: string;
+  subtitle: string;
+  coverUrl: string | null;
+  count: number;
+  itemIds: string[];
+}
+
 // A gallery album (hand-curated set spanning libraries). itemCount/coverUrl
 // reflect only the viewer's accessible items; canEdit = creator or admin.
 export interface GalleryAlbum {
@@ -68,6 +80,60 @@ export interface GalleryAlbumDetail {
   coverItemId: string | null;
   canEdit: boolean;
   updatedAt: string;
+}
+
+export type SlideshowTransition = "none" | "crossfade" | "fade" | "slide" | "kenburns";
+export type SlideshowRenderStatus = "draft" | "queued" | "rendering" | "ready" | "failed";
+
+// A gallery slideshow: an ordered photo set with presentation settings. itemCount/
+// coverUrl reflect only the viewer's accessible items; canEdit = creator or admin.
+// Music + MP4 render (renderStatus) arrive in later phases.
+export interface GallerySlideshow {
+  id: string;
+  name: string;
+  itemCount: number;
+  coverUrl: string | null;
+  transition: SlideshowTransition;
+  slideSeconds: number;
+  musicTrackId: string | null;
+  renderStatus: SlideshowRenderStatus;
+  canEdit: boolean;
+  updatedAt: string;
+}
+
+// The slideshow-detail header (items arrive with it / paged, in presentation order).
+// The music fields are resolved server-side from musicTrackId (all null when the
+// slideshow has no music or its track was deleted).
+export interface GallerySlideshowDetail {
+  id: string;
+  name: string;
+  transition: SlideshowTransition;
+  slideSeconds: number;
+  canEdit: boolean;
+  updatedAt: string;
+  musicTrackId: string | null;
+  musicTitle: string | null;
+  musicUrl: string | null;
+  // MP4 render (Phase 4). movieUrl/outputBytes/renderedAt are set only when ready;
+  // renderPercent is the live encode progress while queued/rendering.
+  renderStatus: SlideshowRenderStatus;
+  renderError: string | null;
+  renderPercent: number | null;
+  renderedAt: string | null;
+  outputBytes: number | null;
+  movieUrl: string | null;
+}
+
+// A music track for slideshows: a built-in ambient bed or a user upload. `url` is
+// the streaming endpoint used by the picker's preview and the live-preview <audio>.
+export interface GalleryMusicTrack {
+  id: string;
+  title: string;
+  artist: string | null;
+  builtin: boolean;
+  durationSeconds: number | null;
+  url: string;
+  uploadedBy: string | null;
 }
 
 // A person tagged in a photo (id + name), as returned on the asset detail.

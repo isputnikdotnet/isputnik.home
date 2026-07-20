@@ -297,6 +297,63 @@ CREATE TABLE IF NOT EXISTS gallery_album_items (
 
 CREATE INDEX IF NOT EXISTS idx_gallery_album_items_item ON gallery_album_items (item_id);
 
+-- Gallery slideshows: an ordered photo set PLUS presentation settings (see
+-- docs/gallery-slideshows-proposal.md). Distinct from albums — an album ORGANIZES,
+-- a slideshow PRESENTS (order + transition + timing). Same access model as albums:
+-- viewable by every member (items access-filtered per viewer on read), editable by
+-- creator + admins. Spans all gallery libraries.
+--
+-- `source_kind`/`source_ref` record where a slideshow came from so a customized
+-- Memory remembers its origin (used from Phase 3). `music_track_id` (Phase 2) and
+-- the render_* columns + `gallery_music_tracks` (Phase 4, MP4 export) are declared
+-- now so later phases add no migration; Phase 1 leaves them at their defaults.
+CREATE TABLE IF NOT EXISTS gallery_music_tracks (
+  id               TEXT PRIMARY KEY,
+  title            TEXT NOT NULL,
+  artist           TEXT,
+  builtin          INTEGER NOT NULL DEFAULT 0,   -- 1 = shipped starter track (undeletable)
+  storage_key      TEXT NOT NULL,
+  duration_seconds REAL,
+  uploaded_by      TEXT REFERENCES users(id) ON DELETE SET NULL,  -- NULL for builtin
+  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS gallery_slideshows (
+  id             TEXT PRIMARY KEY,
+  name           TEXT NOT NULL,
+  source_kind    TEXT NOT NULL DEFAULT 'manual' CHECK (source_kind IN ('manual', 'memory', 'album')),
+  source_ref     TEXT,
+  music_track_id TEXT REFERENCES gallery_music_tracks(id) ON DELETE SET NULL,
+  transition     TEXT NOT NULL DEFAULT 'crossfade'
+                   CHECK (transition IN ('none', 'crossfade', 'fade', 'slide', 'kenburns')),
+  slide_seconds  REAL NOT NULL DEFAULT 4,
+  -- Render state of the LATEST MP4 export (Phase 4). 'draft' = never rendered / stale.
+  render_status  TEXT NOT NULL DEFAULT 'draft'
+                   CHECK (render_status IN ('draft', 'queued', 'rendering', 'ready', 'failed')),
+  render_job_id  TEXT REFERENCES jobs(id) ON DELETE SET NULL,
+  output_storage_key TEXT,
+  output_bytes   INTEGER,
+  rendered_at    TEXT,
+  render_error   TEXT,
+  created_by     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- Ordered membership. Mirrors gallery_album_items (position REAL lets a drag-reorder
+-- insert between neighbors); `dwell_seconds` overrides the slideshow default for one
+-- slide (NULL = use gallery_slideshows.slide_seconds).
+CREATE TABLE IF NOT EXISTS gallery_slideshow_items (
+  slideshow_id  TEXT NOT NULL REFERENCES gallery_slideshows(id) ON DELETE CASCADE,
+  item_id       TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  position      REAL NOT NULL,
+  dwell_seconds REAL,
+  added_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (slideshow_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gallery_slideshow_items_item ON gallery_slideshow_items (item_id);
+
 -- One appearance of a person in one asset. A manual whole-photo tag is a row with a
 -- NULL box (box_* / det_score / embedding all NULL, source 'manual'); an
 -- auto-detected face fills the normalised [0,1] box + embedding (source 'scan'). The
