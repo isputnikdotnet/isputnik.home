@@ -18,6 +18,7 @@ import { removeThumbnailsForLibrary } from "../shared/thumbnail.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
 import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { enqueueGalleryScan, processGalleryScanQueue, scanSingleGalleryFile } from "./scanner.js";
+import { kindForExtension, readAssetMetadata } from "./media.js";
 import { listMissingGalleryPhotos, setMissingRetentionDays, purgeMissingGalleryPhoto, purgeMissingGalleryPhotos } from "./cleanup.js";
 import {
   resolveGalleryScopeLibraryIds,
@@ -62,6 +63,31 @@ function uniqueGalleryFileName(dir: string, filename: string): string | null {
     counter += 1;
   }
   return candidate;
+}
+
+// The library-relative subfolder an upload is filed under: `YYYY/YYYY-MM-DD` from the
+// file's capture date, so uploads land in dated folders alongside the rest of the
+// library instead of piling up at the root. Y/M/D come straight from the ISO prefix
+// (no timezone shift); `fallback` (the upload time) is used when the file carries no
+// embedded date. Pure + injectable for tests.
+export function dateFolderForCapture(takenAt: string | null, fallback: Date): string {
+  const parts = takenAt ? /^(\d{4})-(\d{2})-(\d{2})/.exec(takenAt) : null;
+  const y = parts ? Number(parts[1]) : fallback.getFullYear();
+  const m = parts ? Number(parts[2]) : fallback.getMonth() + 1;
+  const d = parts ? Number(parts[3]) : fallback.getDate();
+  return `${y}/${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+// Probe a staged upload for its capture date (EXIF for photos, container metadata for
+// videos) and turn it into its dated subfolder. Falls back to the upload time when the
+// file has no embedded date — the multipart stream doesn't carry the original's mtime.
+async function uploadDateFolder(tmpPath: string, extension: string): Promise<string> {
+  const kind = kindForExtension(`.${extension}`);
+  let takenAt: string | null = null;
+  if (kind) {
+    try { takenAt = (await readAssetMetadata(kind, tmpPath)).takenAt; } catch { /* no date → fallback */ }
+  }
+  return dateFolderForCapture(takenAt, new Date());
 }
 
 const GALLERY_LIBRARY_LIST_SQL = `
@@ -258,15 +284,18 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       return;
     }
 
-    // Each file moves into the library root under a unique name, then is cataloged on
-    // its own. Files already in place stay even if a later one fails.
+    // Each file moves into a dated subfolder (YYYY/YYYY-MM-DD by capture date) under the
+    // library root, then is cataloged on its own. Files already in place stay even if a
+    // later one fails.
     const createdIds: string[] = [];
     let totalBytes = 0;
     try {
       for (const file of received) {
-        const finalName = uniqueGalleryFileName(root, file.filename);
+        const targetDir = path.join(root, ...(await uploadDateFolder(file.tmpPath, file.extension)).split("/"));
+        fs.mkdirSync(targetDir, { recursive: true });
+        const finalName = uniqueGalleryFileName(targetDir, file.filename);
         if (!finalName) { fs.rmSync(file.tmpPath, { force: true }); continue; }
-        const finalPath = path.join(root, finalName);
+        const finalPath = path.join(targetDir, finalName);
         fs.renameSync(file.tmpPath, finalPath);
         const relativePath = normaliseRelativePath(path.relative(root, finalPath));
         const assetId = await scanSingleGalleryFile(library.id, relativePath);
