@@ -31,6 +31,7 @@ import {
   EMPTY_GALLERY_FILTERS
 } from "./catalog.js";
 import { updateGalleryAsset } from "./edit.js";
+import { suggestGalleryMemories } from "./memories.js";
 import { rotateGalleryAsset } from "./rotate.js";
 
 // Each uploaded file becomes its own asset (one photo/video = one item), so this
@@ -402,6 +403,17 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     }
     const perYear = Math.min(Math.max(Number.parseInt(qp.perYear ?? "60", 10) || 60, 1), 200);
     return queryGalleryMemories(request.user!.id, libIds, date, perYear);
+  });
+
+  // Suggested memories: event/trip moments clustered from the viewer's accessible
+  // items, returned as PROPOSED slideshows (nothing persisted until saved). Distinct
+  // from /memories above, which is the date-only "On this day" anniversary feed.
+  app.get("/api/library/gallery/memories/suggestions", { preHandler: app.authenticate }, async (request) => {
+    const qp = request.query as { scope?: string; libraryId?: string; limit?: string };
+    const scope = qp.scope === "library" ? qp.scope : "all";
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "12", 10) || 12, 1), 40);
+    return { suggestions: suggestGalleryMemories(libIds, { limit }) };
   });
 
   app.get("/api/library/gallery/facets", { preHandler: app.authenticate }, async (request) => {

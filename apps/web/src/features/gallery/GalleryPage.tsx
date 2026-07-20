@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Download, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -15,9 +15,11 @@ import { GalleryFaceSettingsModal } from "./GalleryFaceSettingsModal";
 import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
+import { AddToSlideshowModal } from "./AddToSlideshowModal";
+import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
 import { Modal } from "../../shared/Modal";
-import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryPerson } from "./types";
+import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, SlideshowTransition } from "./types";
 
 const PAGE_SIZE = 80;
 // The People grid can hold thousands of clusters; render them a page at a time so a
@@ -28,7 +30,7 @@ const PEOPLE_PAGE = 120;
 // it off the initial bundle for the common Timeline/Folder browsing.
 const GalleryMap = lazy(() => import("./GalleryMap").then((m) => ({ default: m.GalleryMap })));
 
-type GalleryView = "timeline" | "folder" | "map" | "people" | "memories" | "albums";
+type GalleryView = "timeline" | "folder" | "map" | "people" | "memories" | "albums" | "slideshows";
 type TimelineSort = "taken" | "added";
 
 // Timeline sort, presented through the same compact dropdown the audiobooks/ebooks
@@ -192,6 +194,7 @@ export function GalleryPage({
   // dedicated Memories view. `pendingYear` scrolls the view to a year section
   // right after a strip card opens it.
   const [memories, setMemories] = useState<GalleryMemories | null>(null);
+  const [memorySuggestions, setMemorySuggestions] = useState<GalleryMemorySuggestion[]>([]);
   const [pendingYear, setPendingYear] = useState<number | null>(null);
 
   // Folder state.
@@ -218,6 +221,18 @@ export function GalleryPage({
   const albumMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const albumMenuRef = useRef<HTMLDivElement>(null);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+  // Slideshows state: the card list, and the open slideshow (detail + paged items
+  // in presentation order). Mirrors albums; the editor lives in a child component.
+  const [slideshows, setSlideshows] = useState<GallerySlideshow[]>([]);
+  const [selectedSlideshow, setSelectedSlideshow] = useState<GallerySlideshowDetail | null>(null);
+  const [slideshowAssets, setSlideshowAssets] = useState<GalleryAsset[]>([]);
+  const [slideshowTotal, setSlideshowTotal] = useState(0);
+  const [slideshowCreateOpen, setSlideshowCreateOpen] = useState(false);
+  const [slideshowNewName, setSlideshowNewName] = useState("");
+  const [slideshowRename, setSlideshowRename] = useState<string | null>(null);
+  const [slideshowDeleteOpen, setSlideshowDeleteOpen] = useState(false);
+  const [slideshowBusy, setSlideshowBusy] = useState(false);
+  const [bulkSlideshowOpen, setBulkSlideshowOpen] = useState(false);
   // Folder to open on the next switch into the Folders view (set by the lightbox's
   // Folder link); the view-change effect consumes it instead of loading the root.
   const pendingFolderRef = useRef<string | null>(null);
@@ -252,7 +267,7 @@ export function GalleryPage({
   const libraryMenuRef = useRef<HTMLDivElement>(null);
 
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
-  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person" | "memory" | "album"; index: number; autoPlay?: boolean } | null>(null);
+  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person" | "memory" | "album" | "slideshow"; index: number; autoPlay?: boolean } | null>(null);
   const [singleAsset, setSingleAsset] = useState<GalleryAsset | null>(null);
 
   // Upload (source-writing, policy-gated): the modal is offered when any library
@@ -509,6 +524,144 @@ export function GalleryPage({
     }
   }, [selectedAlbum, loadAlbums]);
 
+  // Slideshows list + one slideshow's items (paged like albums, but in
+  // presentation order). A larger page keeps a whole slideshow in one request.
+  const loadSlideshows = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const payload = await api<{ slideshows: GallerySlideshow[] }>("/api/library/gallery/slideshows");
+      setSlideshows(payload.slideshows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load slideshows");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const openSlideshow = useCallback(async (slideshowId: string, offset = 0) => {
+    setLoading(true);
+    setError("");
+    try {
+      const payload = await api<{ slideshow: GallerySlideshowDetail; assets: GalleryAsset[]; total: number }>(
+        `/api/library/gallery/slideshows/${slideshowId}?limit=200&offset=${offset}`
+      );
+      setSelectedSlideshow(payload.slideshow);
+      setSlideshowAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
+      setSlideshowTotal(payload.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load the slideshow");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Presentation settings (transition / seconds per photo). Optimistic: the child
+  // renders from selectedSlideshow, so patch it locally, then persist.
+  const patchSlideshow = useCallback(async (slideshowId: string, fields: { name?: string; transition?: SlideshowTransition; slideSeconds?: number; musicTrackId?: string | null }) => {
+    setSelectedSlideshow((prev) => (prev && prev.id === slideshowId ? { ...prev, ...fields } : prev));
+    try {
+      await api(`/api/library/gallery/slideshows/${slideshowId}`, { method: "PATCH", body: JSON.stringify(fields) });
+      if (fields.name !== undefined) { setSlideshowRename(null); void loadSlideshows(); }
+      // A music change alters derived fields (musicTitle/musicUrl) the server resolves,
+      // so re-fetch the detail to pick them up (the optimistic patch only set the id).
+      if (fields.musicTrackId !== undefined) void openSlideshow(slideshowId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update the slideshow");
+      void openSlideshow(slideshowId); // resync on failure
+    }
+  }, [loadSlideshows, openSlideshow]);
+
+  // Kick off (or re-run) an MP4 render. The poll effect below tracks it to completion.
+  const renderSlideshowMovie = useCallback(async (slideshowId: string) => {
+    setError("");
+    try {
+      await api(`/api/library/gallery/slideshows/${slideshowId}/render`, { method: "POST" });
+      setSelectedSlideshow((prev) => (prev && prev.id === slideshowId ? { ...prev, renderStatus: "queued", renderError: null, renderPercent: null } : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to start the render");
+    }
+  }, []);
+
+  // While a render is queued/rendering, poll the detail (cheaply — limit=1) and merge
+  // the fresh render fields so the editor shows live progress, then the finished movie.
+  useEffect(() => {
+    const status = selectedSlideshow?.renderStatus;
+    if (status !== "queued" && status !== "rendering") return;
+    const id = selectedSlideshow!.id;
+    let alive = true;
+    const timer = window.setInterval(() => {
+      api<{ slideshow: GallerySlideshowDetail }>(`/api/library/gallery/slideshows/${id}?limit=1`)
+        .then((payload) => { if (alive) setSelectedSlideshow((prev) => (prev && prev.id === id ? { ...prev, ...payload.slideshow } : prev)); })
+        .catch(() => { /* keep polling */ });
+    }, 2500);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, [selectedSlideshow?.renderStatus, selectedSlideshow?.id]);
+
+  // Persist a drag/‹›-reorder. The child already shows the new order optimistically,
+  // so mirror it into slideshowAssets (keeps the lightbox preview order in step).
+  const reorderSlideshow = useCallback(async (slideshowId: string, orderedIds: string[]) => {
+    setSlideshowAssets((prev) => {
+      const byId = new Map(prev.map((a) => [a.id, a]));
+      const next = orderedIds.map((id) => byId.get(id)).filter((a): a is GalleryAsset => Boolean(a));
+      const extra = prev.filter((a) => !orderedIds.includes(a.id));
+      return [...next, ...extra];
+    });
+    try {
+      await api(`/api/library/gallery/slideshows/${slideshowId}/reorder`, {
+        method: "POST",
+        body: JSON.stringify({ itemIds: orderedIds })
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to reorder the slideshow");
+      void openSlideshow(slideshowId);
+    }
+  }, [openSlideshow]);
+
+  const removeFromSlideshow = useCallback(async (slideshowId: string, assetId: string) => {
+    try {
+      await api(`/api/library/gallery/slideshows/${slideshowId}/items/remove`, {
+        method: "POST",
+        body: JSON.stringify({ itemIds: [assetId] })
+      });
+      setSlideshowAssets((prev) => prev.filter((asset) => asset.id !== assetId));
+      setSlideshowTotal((n) => Math.max(0, n - 1));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to remove the photo");
+    }
+  }, []);
+
+  const createSlideshowSubmit = useCallback(async () => {
+    const name = slideshowNewName.trim();
+    if (!name) return;
+    setSlideshowBusy(true);
+    try {
+      await api("/api/library/gallery/slideshows", { method: "POST", body: JSON.stringify({ name }) });
+      setSlideshowCreateOpen(false);
+      setSlideshowNewName("");
+      void loadSlideshows();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create the slideshow");
+    } finally {
+      setSlideshowBusy(false);
+    }
+  }, [slideshowNewName, loadSlideshows]);
+
+  const confirmDeleteSlideshow = useCallback(async () => {
+    if (!selectedSlideshow) return;
+    setSlideshowBusy(true);
+    try {
+      await api(`/api/library/gallery/slideshows/${selectedSlideshow.id}`, { method: "DELETE" });
+      setSlideshowDeleteOpen(false);
+      setSelectedSlideshow(null);
+      void loadSlideshows();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete the slideshow");
+    } finally {
+      setSlideshowBusy(false);
+    }
+  }, [selectedSlideshow, loadSlideshows]);
+
   const isAdmin = user.role === "admin";
   const canCuratePeople = libraries.some((library) => library.canWrite);
 
@@ -600,6 +753,37 @@ export function GalleryPage({
 
   useEffect(() => { void loadMemories(); }, [loadMemories]);
 
+  // Suggested memories (event/trip clusters). Loaded on mount too, so the Memories
+  // tab can appear even when there are no "On this day" anniversaries today.
+  const loadMemorySuggestions = useCallback(async () => {
+    const params = new URLSearchParams({ ...scopeParams(), limit: "12" } as Record<string, string>);
+    try {
+      const payload = await api<{ suggestions: GalleryMemorySuggestion[] }>(`/api/library/gallery/memories/suggestions?${params}`);
+      setMemorySuggestions(payload.suggestions);
+    } catch { /* advisory; the section just stays empty */ }
+  }, [scopeParams]);
+
+  useEffect(() => { void loadMemorySuggestions(); }, [loadMemorySuggestions]);
+
+  // Turn a suggested memory into a real slideshow (sourceKind=memory) and jump into
+  // its editor, pre-filled with the montage. From there the user customizes/plays it.
+  const createFromMemory = useCallback(async (suggestion: GalleryMemorySuggestion) => {
+    setError("");
+    try {
+      const { slideshow } = await api<{ slideshow: GallerySlideshow }>("/api/library/gallery/slideshows", {
+        method: "POST",
+        body: JSON.stringify({ name: suggestion.title, itemIds: suggestion.itemIds, sourceKind: "memory", sourceRef: suggestion.id })
+      });
+      setSlideshowAssets([]);
+      setSlideshowTotal(0);
+      setView("slideshows");
+      await openSlideshow(slideshow.id);
+      setNotice(`Created slideshow “${slideshow.name}” from a memory.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create the slideshow");
+    }
+  }, [openSlideshow]);
+
   // The Memories lightbox runs over ALL years flattened (newest year first,
   // chronological within a year), so Next flows from one year into the next.
   const memoryItems = useMemo(() => memories?.groups.flatMap((group) => group.items) ?? [], [memories]);
@@ -634,6 +818,7 @@ export function GalleryPage({
     }
     else if (view === "people") { setSelectedPerson(null); void loadPeople(); void loadFaceSettings(); }
     else if (view === "albums") { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); }
+    else if (view === "slideshows") { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); }
     else if (view === "map") void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, scopeId, sort, query, filters]);
@@ -735,7 +920,8 @@ export function GalleryPage({
     : lightbox?.source === "folder" ? folderAssets
       : lightbox?.source === "person" ? personAssets
         : lightbox?.source === "memory" ? memoryItems
-          : lightbox?.source === "album" ? albumAssets : assets;
+          : lightbox?.source === "album" ? albumAssets
+            : lightbox?.source === "slideshow" ? slideshowAssets : assets;
 
   const libraryFor = (libraryId: string) => libraries.find((library) => library.id === libraryId);
   const currentLibrary = lightbox != null && activeAssets[lightbox.index]
@@ -754,10 +940,11 @@ export function GalleryPage({
     else if (view === "folder") void loadFolder(parent);
     else if (view === "people") { void loadPeople(); if (selectedPerson) void openPerson(selectedPerson); }
     else if (view === "albums") { if (selectedAlbum) void openAlbum(selectedAlbum.id); else void loadAlbums(); }
+    else if (view === "slideshows") { if (selectedSlideshow) void openSlideshow(selectedSlideshow.id); else void loadSlideshows(); }
     else if (view === "memories") void loadMemories();
     else if (view === "map") void loadMap();
     void loadLibraries();
-  }, [view, parent, selectedPerson, selectedAlbum, loadTimeline, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, loadMemories, loadMap, loadLibraries]);
+  }, [view, parent, selectedPerson, selectedAlbum, selectedSlideshow, loadTimeline, loadFolder, loadPeople, openPerson, openAlbum, loadAlbums, openSlideshow, loadSlideshows, loadMemories, loadMap, loadLibraries]);
 
   // Assets currently shown (the selectable set depends on the active view).
   const displayedAssets = view === "timeline" ? assets : view === "memories" ? memoryItems : view === "albums" ? albumAssets : folderAssets;
@@ -769,8 +956,9 @@ export function GalleryPage({
     : view === "memories" ? { source: "memory" as const, list: memoryItems }
       : view === "folder" ? { source: "folder" as const, list: folderAssets }
         : view === "albums" && selectedAlbum ? { source: "album" as const, list: albumAssets }
-          : view === "people" && selectedPerson ? { source: "person" as const, list: personAssets }
-            : null;
+          : view === "slideshows" && selectedSlideshow ? { source: "slideshow" as const, list: slideshowAssets }
+            : view === "people" && selectedPerson ? { source: "person" as const, list: personAssets }
+              : null;
 
   // Open the lightbox at the first item and auto-play through the current set.
   const startSlideshow = () => {
@@ -785,6 +973,8 @@ export function GalleryPage({
   const backTarget: { label: string; onClick: () => void } | null =
     view === "albums" && selectedAlbum
       ? { label: "Back to albums", onClick: () => { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); } }
+      : view === "slideshows" && selectedSlideshow
+        ? { label: "Back to slideshows", onClick: () => { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); } }
       : view === "people" && selectedPerson
         ? { label: "Back to people", onClick: () => { setSelectedPerson(null); setRenameValue(null); setMergeOpen(false); void loadPeople(); } }
         : view === "folder" && parent
@@ -916,6 +1106,8 @@ export function GalleryPage({
         ? `${formatCount(memoriesTotal)} ${memoriesTotal === 1 ? "photo" : "photos"} from past years`
         : view === "albums"
           ? (selectedAlbum ? `${formatCount(albumTotal)} ${albumTotal === 1 ? "item" : "items"}` : `${formatCount(albums.length)} ${albums.length === 1 ? "album" : "albums"}`)
+          : view === "slideshows"
+            ? (selectedSlideshow ? `${formatCount(slideshowTotal)} ${slideshowTotal === 1 ? "photo" : "photos"}` : `${formatCount(slideshows.length)} ${slideshows.length === 1 ? "slideshow" : "slideshows"}`)
           : view === "timeline"
             ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
             : "Browsing by folder";
@@ -963,7 +1155,7 @@ export function GalleryPage({
               )}
               {/* Selection is no longer delete-gated: favoriting and adding to a
                   collection are for every member. Delete inside the bar still is. */}
-              {!selectionMode && view !== "map" && view !== "people" && view !== "albums" && (
+              {!selectionMode && view !== "map" && view !== "people" && view !== "albums" && view !== "slideshows" && (
                 <button
                   type="button"
                   className="audiobook-page-action-icon"
@@ -1049,7 +1241,7 @@ export function GalleryPage({
                     <CalendarDays size={19} aria-hidden="true" />
                     <span>Timeline</span>
                   </a>
-                  {(memories?.groups.length ?? 0) > 0 && (
+                  {((memories?.groups.length ?? 0) > 0 || memorySuggestions.length > 0) && (
                     <a
                       href="/gallery/memories"
                       className={view === "memories" ? "active" : ""}
@@ -1066,6 +1258,14 @@ export function GalleryPage({
                   >
                     <Album size={19} aria-hidden="true" />
                     <span>Albums</span>
+                  </a>
+                  <a
+                    href="/gallery"
+                    className={view === "slideshows" ? "active" : ""}
+                    onClick={(event) => { event.preventDefault(); setSearchText(""); setView("slideshows"); }}
+                  >
+                    <Film size={19} aria-hidden="true" />
+                    <span>Slideshows</span>
                   </a>
                   <a
                     href="/gallery"
@@ -1141,6 +1341,14 @@ export function GalleryPage({
                     disabled={selectedIds.size === 0 || bulkBusy}
                   >
                     <ImagePlus size={15} aria-hidden="true" /> Add to album
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button compact-button"
+                    onClick={() => { setBulkError(""); setBulkSlideshowOpen(true); }}
+                    disabled={selectedIds.size === 0 || bulkBusy}
+                  >
+                    <Film size={15} aria-hidden="true" /> Add to slideshow
                   </button>
                   <button
                     type="button"
@@ -1501,9 +1709,153 @@ export function GalleryPage({
                   )}
                 </>
               )
+            ) : view === "slideshows" ? (
+              selectedSlideshow ? (() => {
+                const cover = slideshows.find((s) => s.id === selectedSlideshow.id)?.coverUrl ?? slideshowAssets[0]?.coverUrl ?? null;
+                return (
+                  <>
+                    <div className="gallery-breadcrumb">
+                      <button type="button" onClick={() => { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); }}>All slideshows</button>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <ChevronRight size={14} aria-hidden="true" />
+                        <strong>{selectedSlideshow.name}</strong>
+                      </span>
+                    </div>
+
+                    <div className="gallery-album-header">
+                      <span className="gallery-album-cover">
+                        {cover ? <img src={cover} alt="" /> : <Film size={30} aria-hidden="true" />}
+                      </span>
+                      <div className="gallery-album-heading">
+                        {slideshowRename == null ? (
+                          <h2>{selectedSlideshow.name}</h2>
+                        ) : (
+                          <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (slideshowRename.trim()) void patchSlideshow(selectedSlideshow.id, { name: slideshowRename.trim() }); }}>
+                            <input value={slideshowRename} onChange={(event) => setSlideshowRename(event.target.value)} placeholder="Slideshow name" autoFocus maxLength={120} />
+                            <button type="submit" className="primary-button compact-button" disabled={!slideshowRename.trim()}>Save</button>
+                            <button type="button" className="icon-button" onClick={() => setSlideshowRename(null)} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
+                          </form>
+                        )}
+                        <p className="gallery-album-sub">
+                          {formatCount(slideshowTotal)} {slideshowTotal === 1 ? "photo" : "photos"}
+                        </p>
+                        <div className="gallery-album-actions">
+                          <button
+                            type="button"
+                            className="primary-button compact-button"
+                            disabled={slideshowAssets.length === 0}
+                            title={slideshowAssets.length < 2 ? "Add more photos to play a slideshow" : "Play this slideshow"}
+                            onClick={startSlideshow}
+                          >
+                            <Play size={15} aria-hidden="true" /> Play
+                          </button>
+                          {selectedSlideshow.canEdit && (
+                            <button type="button" className="secondary-button compact-button" onClick={() => setSlideshowRename(selectedSlideshow.name)}>
+                              <Pencil size={15} aria-hidden="true" /> Rename
+                            </button>
+                          )}
+                          {selectedSlideshow.canEdit && (
+                            <button type="button" className="danger-button compact-button" onClick={() => setSlideshowDeleteOpen(true)}>
+                              <Trash2 size={15} aria-hidden="true" /> Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <GallerySlideshowEditor
+                      slideshow={selectedSlideshow}
+                      assets={slideshowAssets}
+                      total={slideshowTotal}
+                      loading={loading}
+                      canEdit={selectedSlideshow.canEdit}
+                      onOpenAt={(index) => setLightbox({ source: "slideshow", index })}
+                      onPlay={startSlideshow}
+                      onLoadMore={() => void openSlideshow(selectedSlideshow.id, slideshowAssets.length)}
+                      onReorder={(ids) => void reorderSlideshow(selectedSlideshow.id, ids)}
+                      onRemove={(id) => void removeFromSlideshow(selectedSlideshow.id, id)}
+                      onPatch={(fields) => void patchSlideshow(selectedSlideshow.id, fields)}
+                      onRender={() => void renderSlideshowMovie(selectedSlideshow.id)}
+                    />
+                  </>
+                );
+              })() : (
+                <>
+                  <div className="gallery-person-toolbar">
+                    <button type="button" className="secondary-button compact-button" onClick={() => setSlideshowCreateOpen(true)}>
+                      <Plus size={14} aria-hidden="true" /> New slideshow
+                    </button>
+                    <span className="muted gallery-face-hint">
+                      Slideshows present photos in a set order with a transition and timing. Anyone can view; only the creator and admins can change one.
+                    </span>
+                  </div>
+
+                  {slideshows.length > 0 && (
+                    <div className="gallery-folder-grid">
+                      {slideshows.map((slideshow) => (
+                        <button key={slideshow.id} type="button" className="gallery-folder-tile" onClick={() => { setSlideshowAssets([]); setSlideshowTotal(0); void openSlideshow(slideshow.id); }}>
+                          <span className="gallery-folder-thumb">
+                            {slideshow.coverUrl ? <img src={slideshow.coverUrl} alt="" loading="lazy" /> : <Film size={28} aria-hidden="true" />}
+                            {slideshow.renderStatus === "ready" && <span className="slideshow-card-badge ready" title="Movie ready"><Play size={11} aria-hidden="true" />Movie</span>}
+                            {(slideshow.renderStatus === "rendering" || slideshow.renderStatus === "queued") && <span className="slideshow-card-badge busy" title="Rendering a movie">Rendering…</span>}
+                          </span>
+                          <strong>{slideshow.name}</strong>
+                          <small>{slideshow.itemCount.toLocaleString()} {slideshow.itemCount === 1 ? "photo" : "photos"}</small>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!loading && slideshows.length === 0 && (
+                    <div className="empty-state library-empty">
+                      <Film size={48} aria-hidden="true" />
+                      <h2>No slideshows yet</h2>
+                      <p className="muted">
+                        Create a slideshow here, or select photos in the Timeline and use “Add to slideshow”.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )
             ) : view === "memories" ? (
-              (memories?.groups.length ?? 0) > 0 ? (
-                (() => {
+              (memorySuggestions.length > 0 || (memories?.groups.length ?? 0) > 0) ? (
+                <>
+                  {memorySuggestions.length > 0 && (
+                    <section className="gallery-memory-suggestions" aria-label="Suggested memories">
+                      <div className="gallery-memory-suggestions-head">
+                        <h2>Memories</h2>
+                        <button
+                          type="button"
+                          className="secondary-button compact-button"
+                          onClick={() => { const pick = memorySuggestions[Math.floor(Math.random() * memorySuggestions.length)]; if (pick) void createFromMemory(pick); }}
+                        >
+                          <Sparkles size={15} aria-hidden="true" /> Surprise me
+                        </button>
+                      </div>
+                      <p className="muted gallery-face-hint">
+                        Tap a memory to turn it into a slideshow you can play, set to music, reorder, and customize.
+                      </p>
+                      <div className="gallery-folder-grid">
+                        {memorySuggestions.map((memory) => (
+                          <button
+                            key={memory.id}
+                            type="button"
+                            className="gallery-folder-tile gallery-memory-tile"
+                            onClick={() => void createFromMemory(memory)}
+                            title={`Create a slideshow from “${memory.title}”`}
+                          >
+                            <span className="gallery-folder-thumb">
+                              {memory.coverUrl ? <img src={memory.coverUrl} alt="" loading="lazy" /> : <Sparkles size={28} aria-hidden="true" />}
+                              <span className="gallery-memory-play" aria-hidden="true"><Play size={20} /></span>
+                            </span>
+                            <strong>{memory.title}</strong>
+                            <small>{memory.subtitle}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {(memories?.groups.length ?? 0) > 0 && (() => {
                   // Tiles open the lightbox at the asset's position in the
                   // FLATTENED memories list, so Next flows across year sections.
                   let flatBase = 0;
@@ -1555,14 +1907,16 @@ export function GalleryPage({
                       </section>
                     );
                   });
-                })()
+                })()}
+                </>
               ) : (
                 <div className="empty-state library-empty">
                   <Sparkles size={48} aria-hidden="true" />
-                  <h2>No memories today</h2>
+                  <h2>No memories yet</h2>
                   <p className="muted">
-                    When photos from past years match today's date, they show up here. Check back tomorrow —
-                    or add dates to older photos and they'll start resurfacing.
+                    Memories gathers your photos into events and trips you can play as slideshows,
+                    and resurfaces shots from past years on their anniversary. Add dates to more
+                    photos and they'll start appearing here.
                   </p>
                 </div>
               )
@@ -1730,6 +2084,9 @@ export function GalleryPage({
           canEdit={canEditCurrent}
           canShare={canShareCurrent}
           autoPlay={lightbox.autoPlay}
+          transition={lightbox.source === "slideshow" ? selectedSlideshow?.transition : undefined}
+          initialInterval={lightbox.source === "slideshow" ? selectedSlideshow?.slideSeconds : undefined}
+          musicUrl={lightbox.source === "slideshow" ? selectedSlideshow?.musicUrl ?? undefined : undefined}
           onClose={closeLightbox}
           onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
           onChanged={refreshView}
@@ -1767,6 +2124,53 @@ export function GalleryPage({
             setNotice(`Added ${added} item${added === 1 ? "" : "s"} to "${albumName}".`);
           }}
         />
+      )}
+
+      {bulkSlideshowOpen && (
+        <AddToSlideshowModal
+          itemIds={[...selectedIds]}
+          title={`${selectedIds.size} selected ${selectedIds.size === 1 ? "item" : "items"}`}
+          onClose={() => setBulkSlideshowOpen(false)}
+          onAdded={(slideshowName, added) => {
+            setBulkSlideshowOpen(false);
+            exitSelection();
+            setNotice(`Added ${added} photo${added === 1 ? "" : "s"} to "${slideshowName}".`);
+          }}
+        />
+      )}
+
+      {slideshowCreateOpen && (
+        <Modal
+          variant="card"
+          title="Create slideshow"
+          onClose={() => { if (!slideshowBusy) setSlideshowCreateOpen(false); }}
+        >
+          <form onSubmit={(event) => { event.preventDefault(); void createSlideshowSubmit(); }}>
+            <label className="field">
+              <span>Name</span>
+              <input value={slideshowNewName} onChange={(event) => setSlideshowNewName(event.target.value)} placeholder="e.g. Summer 2026" autoFocus maxLength={120} />
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="secondary-button" onClick={() => setSlideshowCreateOpen(false)} disabled={slideshowBusy}>Cancel</button>
+              <button type="submit" className="primary-button" disabled={!slideshowNewName.trim() || slideshowBusy}>
+                {slideshowBusy ? "Creating…" : "Create slideshow"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {slideshowDeleteOpen && selectedSlideshow && (
+        <ConfirmDialog
+          title={`Delete "${selectedSlideshow.name}"?`}
+          confirmLabel="Delete slideshow"
+          danger
+          busy={slideshowBusy}
+          onConfirm={confirmDeleteSlideshow}
+          onCancel={() => { if (!slideshowBusy) setSlideshowDeleteOpen(false); }}
+        >
+          This removes the slideshow and its order and settings. The photos themselves stay in the gallery.
+        </ConfirmDialog>
       )}
 
       {albumCreateOpen && (

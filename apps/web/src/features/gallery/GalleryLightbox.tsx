@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
 import { api } from "../../api";
@@ -8,7 +8,7 @@ import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { ShareModal } from "../share/ShareModal";
-import type { GalleryAsset, GalleryPerson, GalleryPersonTag } from "./types";
+import type { GalleryAsset, GalleryPerson, GalleryPersonTag, SlideshowTransition } from "./types";
 
 // Leaflet rides in only when the Info panel shows a geotagged photo — keeps it off
 // the initial bundle (and reuses the same chunk as the gallery Map view).
@@ -69,7 +69,10 @@ export function GalleryLightbox({
   canDelete,
   canEdit,
   canShare,
-  autoPlay = false
+  autoPlay = false,
+  transition,
+  initialInterval,
+  musicUrl
 }: {
   assets: GalleryAsset[];
   index: number;
@@ -84,6 +87,15 @@ export function GalleryLightbox({
   canShare: boolean;
   // Start a slideshow immediately (opened via the gallery's Slideshow button).
   autoPlay?: boolean;
+  // Presentation settings when previewing a saved slideshow: the transition style
+  // to animate each slide with, and the initial per-photo dwell (seconds). Absent
+  // for the ad-hoc slideshow of a plain view (timeline/album/…), which uses the
+  // default crossfade and the session-remembered speed.
+  transition?: SlideshowTransition;
+  initialInterval?: number;
+  // A saved slideshow's music track (streaming URL). Plays looped while the
+  // slideshow runs; absent for ad-hoc slideshows and single-photo viewing.
+  musicUrl?: string;
 }) {
   const asset = assets[index];
   // The Info panel opens with the photo — details are part of viewing, not an extra.
@@ -92,7 +104,10 @@ export function GalleryLightbox({
   // Slideshow: auto-advances through `assets`, looping past the last item. Videos
   // ignore the dwell timer and advance when they finish (see the <video> onEnded).
   const [playing, setPlaying] = useState(autoPlay);
-  const [intervalSec, setIntervalSec] = useState(sessionSlideshowInterval);
+  const [intervalSec, setIntervalSec] = useState(initialInterval ?? sessionSlideshowInterval);
+  // A saved slideshow drives the transition; every other view uses the default.
+  const slideTransition: SlideshowTransition = transition ?? "crossfade";
+  const musicRef = useRef<HTMLAudioElement | null>(null);
   const canSlideshow = assets.length > 1;
   // Inline field editing in the Info panel (one field at a time).
   const [editingField, setEditingField] = useState<EditableField | null>(null);
@@ -183,6 +198,16 @@ export function GalleryLightbox({
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, canSlideshow, dialogOpen, asset?.id, asset?.kind, videoError, intervalSec, index, assets.length]);
+
+  // Slideshow music: play the looped bed while the slideshow runs, pause when it
+  // pauses or a sub-dialog opens. The initial play() rides the Play-button gesture,
+  // so autoplay is allowed; a rejected promise (rare) is harmless.
+  useEffect(() => {
+    const audio = musicRef.current;
+    if (!audio || !musicUrl) return;
+    if (playing && !dialogOpen) void audio.play().catch(() => { /* autoplay blocked */ });
+    else audio.pause();
+  }, [playing, dialogOpen, musicUrl]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -415,6 +440,7 @@ export function GalleryLightbox({
 
   return createPortal(
     <div className={`gallery-lightbox${showInfo ? " has-info" : ""}${playing ? " is-playing" : ""}`} role="dialog" aria-label={asset.title} aria-modal="true">
+      {musicUrl && <audio ref={musicRef} src={musicUrl} loop />}
       <div className="gallery-lightbox-bar">
         <div className="gallery-lightbox-title">
           {asset.title}
@@ -573,17 +599,27 @@ export function GalleryLightbox({
             <video
               key={asset.id}
               className="gallery-lightbox-media"
+              data-transition={slideTransition === "kenburns" || slideTransition === "slide" ? "fade" : slideTransition}
               src={asset.fileUrl}
               controls
               autoPlay
               playsInline
+              // Mute the clip when a music bed is chosen so the two don't fight.
+              muted={!!musicUrl && playing}
               poster={asset.previewUrl ?? undefined}
               onError={() => setVideoError(true)}
               onEnded={() => { if (playing && canSlideshow) advance(); }}
             />
           )
         ) : (
-          <img key={asset.id} className="gallery-lightbox-media" src={asset.previewUrl ?? asset.fileUrl} alt={asset.title} />
+          <img
+            key={asset.id}
+            className="gallery-lightbox-media"
+            data-transition={slideTransition}
+            style={{ ["--lb-dwell" as string]: `${intervalSec}s` } as CSSProperties}
+            src={asset.previewUrl ?? asset.fileUrl}
+            alt={asset.title}
+          />
         )}
         {hasNext && (
           <button className="gallery-lightbox-nav next" type="button" onClick={() => onIndexChange(index + 1)} aria-label="Next">
