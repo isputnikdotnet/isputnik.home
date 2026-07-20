@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.9.0",
+          label: "Gallery slideshows: build, set to music, and export as a movie",
+          changes: [
+            "Create custom slideshows in the gallery. A new Slideshows tab lets you make a named set, add photos to it (from the Timeline's multi-select or the photo viewer), drag to reorder, and choose a transition (crossfade, fade, slide, Ken Burns, or none) and how long each photo shows. Press Play to watch it full-screen with your settings.",
+            "Set a slideshow to music. Pick from six built-in royalty-free beds — three gentle ambient pads and three melodic ones (Sunlit Days, Homeward, Quiet Snowfall) — or upload your own track. Preview any track in place; the music plays along with the live slideshow.",
+            "Memories suggests slideshows for you. The Memories tab now gathers your photos into events and trips — clustered by when and where they were taken and who's in them (\"August 24–25, 2007 · with Lucas\") — and one tap turns a suggestion into a ready-to-edit slideshow. A \"Surprise me\" button picks one at random. The \"On this day\" anniversaries you already had are still there.",
+            "Export a slideshow as a movie. Render it to a downloadable MP4 — your photos and video clips, transitions, and music, encoded in the background with live progress. Watch it right in the editor or download it to share. Videos are included (capped so one long clip can't dominate); a Ken Burns slideshow exports with a crossfade.",
+            "Anyone can view a slideshow; only its creator and admins can change it. Editing a slideshow marks its movie for a fresh render so a download is never out of date."
+          ]
+        },
+        {
           version: "1.8.23",
           label: "Gallery slideshow and clearer sub-view navigation",
           changes: [
