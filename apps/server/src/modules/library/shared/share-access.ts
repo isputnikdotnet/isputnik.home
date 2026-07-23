@@ -6,6 +6,9 @@ export interface ResolvedShareLink {
   module: string;
   resource_id: string;
   permission: string;
+  // The member who minted the link. A live album link resolves its photos against
+  // THIS user's curate rights, so the serving code needs the creator on hand.
+  created_by: string;
 }
 
 // Resolve a raw guest-link token to its live share row. Returns null when the
@@ -13,7 +16,7 @@ export interface ResolvedShareLink {
 // enforces link validity — every public share route goes through it.
 export function resolveShareLink(token: string): ResolvedShareLink | null {
   const row = db.prepare(`
-    SELECT id, module, resource_id, permission
+    SELECT id, module, resource_id, permission, created_by
     FROM share_links
     WHERE token_hash = ?
       AND revoked_at IS NULL

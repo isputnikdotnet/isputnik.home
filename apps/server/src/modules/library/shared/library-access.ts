@@ -182,19 +182,44 @@ export function getAccessibleLibrary(
   return library;
 }
 
-// Book-level read access: library access (any role), OR an explicit user-to-user
-// share of this single book even when its library is private. `module` is the
-// item's share namespace ("audiobook" | "ebook") — pass the right one or a share
-// of the wrong type silently fails to resolve.
-export function canUserAccessBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: MediaModule): boolean {
-  if (canUserAccessLibrary(library, userId, userRole)) return true;
-  return userHasItemShare(module, bookId, userId);
+// A live "share album with a user" (`gallery_album` share) grants the recipient
+// access to any CURRENT member of that album — but only to photos sitting in a
+// library the share's CREATOR may curate. That bound mirrors the guest album link
+// and the snapshot set share: a share can never hand out a photo the sharer lacked
+// the right to share, even as the album's membership changes underneath it.
+export function userHasGalleryAlbumShareForItem(itemId: string, userId: string): boolean {
+  const rows = db.prepare(`
+    SELECT users.id AS creator_id, users.role AS creator_role, library_items.library_id AS library_id
+    FROM shares
+    JOIN gallery_album_items ON gallery_album_items.album_id = shares.resource_id
+    JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+    JOIN users ON users.id = shares.created_by
+    WHERE shares.module = 'gallery_album'
+      AND shares.user_id = ?
+      AND gallery_album_items.item_id = ?
+      AND shares.revoked_at IS NULL
+      AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
+  `).all(userId, itemId) as { creator_id: string; creator_role: string; library_id: string }[];
+  return rows.some((row) => canUserCurateLibrary({ id: row.library_id }, row.creator_id, row.creator_role));
 }
 
-// Book-level download: needs the Member+ download capability, OR a user share.
+// Book-level read access: library access (any role), OR an explicit user-to-user
+// share of this single book even when its library is private. `module` is the
+// item's share namespace ("audiobook" | "ebook" | "gallery") — pass the right one
+// or a share of the wrong type silently fails to resolve. Gallery items are also
+// reachable through a live album share (see above).
+export function canUserAccessBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: MediaModule): boolean {
+  if (canUserAccessLibrary(library, userId, userRole)) return true;
+  if (userHasItemShare(module, bookId, userId)) return true;
+  return module === "gallery" && userHasGalleryAlbumShareForItem(bookId, userId);
+}
+
+// Book-level download: needs the Member+ download capability, OR a user share
+// (per-item, or — for gallery — a live album share).
 export function canUserDownloadBook(bookId: string, library: LibraryRoleInput, userId: string, userRole: string, module: MediaModule): boolean {
   if (canUserDownloadLibrary(library, userId, userRole)) return true;
-  return userHasItemShare(module, bookId, userId);
+  if (userHasItemShare(module, bookId, userId)) return true;
+  return module === "gallery" && userHasGalleryAlbumShareForItem(bookId, userId);
 }
 
 export function getLibraryForBook(bookId: string): LibraryAccessRow | null {

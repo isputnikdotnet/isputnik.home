@@ -16,7 +16,8 @@ import { getDownloadedEpubBlob, getEbookDownload, listDownloads, listEbookDownlo
 import { isFoliateFormat } from "../shared/utils";
 import { EbookReader } from "../features/audiobooks/reader/EbookReader";
 import type { AudiobookBookDetail, ReadingProgress } from "../features/audiobooks/types";
-import type { GalleryMemories } from "../features/gallery/types";
+import type { GalleryAsset, GalleryMemories } from "../features/gallery/types";
+import { GalleryLightbox } from "../features/gallery/GalleryLightbox";
 
 // How many books each home row shows. Continue is capped at 5 (one of which
 // becomes the mobile resume hero), Recently added at 10. Desktop clips its row
@@ -240,6 +241,12 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const [continueItems, setContinueItems] = useState<FeedItem[] | null>(null);
   const [recentItems, setRecentItems] = useState<FeedItem[] | null>(null);
   const [memories, setMemories] = useState<GalleryMemories | null>(null);
+  // The "On this day" lightbox opened from a home tile: the FULL day (every
+  // photo, every year, flattened newest-year-first) plus the item currently
+  // shown. The home strip itself only carries one cover per year, so opening
+  // the viewer re-fetches the complete set.
+  const [memoryLightbox, setMemoryLightbox] = useState<{ items: GalleryAsset[]; index: number } | null>(null);
+  const [memoryLoading, setMemoryLoading] = useState(false);
   const [stats, setStats] = useState({ audiobooks: 0, ebooks: 0, inProgress: 0, favorites: 0 });
   const [error, setError] = useState("");
   const isMobile = useIsMobile();
@@ -263,6 +270,34 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
   const handleDownloaded = useCallback((id: string) => {
     setDownloadedIds((prev) => new Set([...prev, id]));
   }, []);
+
+  // Open the "On this day" viewer at the clicked year. The home tiles carry one
+  // cover per year, so load the full set (all photos, every year) and flatten it
+  // the same way the gallery does — newest year first, chronological within a
+  // year — so Next flows across the whole day. We land on the first photo of the
+  // year that was clicked. Falls back to the Memories page if the fetch fails.
+  const openMemory = useCallback(async (year: number) => {
+    if (memoryLoading) return;
+    setMemoryLoading(true);
+    try {
+      const now = new Date();
+      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const full = await api<GalleryMemories>(`/api/library/gallery/memories?date=${localDate}&perYear=200`);
+      const groups = full.precision === "month" ? [] : full.groups;
+      const items = groups.flatMap((group) => group.items);
+      if (items.length === 0) { navigate("/gallery/memories"); return; }
+      let start = 0;
+      for (const group of groups) {
+        if (group.year === year) break;
+        start += group.items.length;
+      }
+      setMemoryLightbox({ items, index: Math.min(start, items.length - 1) });
+    } catch {
+      navigate("/gallery/memories");
+    } finally {
+      setMemoryLoading(false);
+    }
+  }, [memoryLoading]);
 
   // Open an ebook in the inline reader. Works offline: the epub document id comes
   // from the live detail when the server is reachable, else from the saved
@@ -519,7 +554,13 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
                       key={group.year}
                       className="audiobook-catalog-card grid home-feed-tile"
                       href="/gallery/memories"
-                      onClick={(event) => followRoute(event, "/gallery/memories")}
+                      onClick={(event) => {
+                        // Let modified clicks fall through to /gallery/memories
+                        // (open in a new tab); a plain click opens the viewer.
+                        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                        event.preventDefault();
+                        void openMemory(group.year);
+                      }}
                     >
                       <div className="audiobook-catalog-cover">
                         {group.items[0]?.coverUrl ? (
@@ -573,6 +614,19 @@ export function HomePage({ user, logout }: { user: PublicUser; logout: () => Pro
         <span className="home-dl-banner-pct">{Math.round(activeDownload.progress * 100)}%</span>
       </div>,
       document.body
+    )}
+
+    {memoryLightbox && memoryLightbox.items[memoryLightbox.index] && (
+      <GalleryLightbox
+        assets={memoryLightbox.items}
+        index={memoryLightbox.index}
+        canDelete={false}
+        canEdit={false}
+        canShare={false}
+        onClose={() => setMemoryLightbox(null)}
+        onIndexChange={(next) => setMemoryLightbox((current) => (current ? { ...current, index: next } : current))}
+        onChanged={() => { /* home is a read-only glance; favorites refresh on next load */ }}
+      />
     )}
 
     {viewer && createPortal(
