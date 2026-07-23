@@ -12,7 +12,7 @@ import { parseBody, requestOrigin } from "../../../core/shared.js";
 import { pathIsInside } from "./storage-roots.js";
 import { thumbnailAbsolutePath } from "./thumbnail.js";
 import { canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook, type LibraryAccessRow } from "./library-access.js";
-import { resolveShareLink } from "./share-access.js";
+import { resolveShareLink, type ResolvedShareLink } from "./share-access.js";
 import { parseRangeHeader } from "./document-stream.js";
 import { mediaKind, type MediaModule } from "./library-types.js";
 
@@ -53,6 +53,29 @@ const setUserShareSchema = z.object({
 const setSelectionSchema = z.object({
   itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500),
   userId: z.string().min(1)
+});
+
+// Live album shares are keyed on the album, not a snapshot of items.
+const createAlbumLinkSchema = z.object({
+  albumId: z.string().trim().min(1).max(64),
+  expiresInDays: z.number().int().min(1).max(30).default(30),
+  label: z.string().trim().max(100).optional()
+});
+
+const albumUserShareSchema = z.object({
+  albumId: z.string().trim().min(1).max(64),
+  userId: z.string().min(1),
+  // Optional: omit for a permanent share (access stays gated to the account).
+  expiresInDays: z.number().int().min(1).max(3650).optional()
+});
+
+const albumSelectionSchema = z.object({
+  albumId: z.string().trim().min(1).max(64),
+  userId: z.string().min(1)
+});
+
+const albumRecipientsSchema = z.object({
+  albumId: z.string().trim().min(1).max(64)
 });
 
 const setRecipientsSchema = z.object({
@@ -326,6 +349,175 @@ function loadGallerySetMediaItem(linkId: string, itemId: string) {
   } | undefined;
 }
 
+// --- Live album shares (`gallery_album`) --------------------------------------
+// A guest link or user share whose resource_id is an ALBUM id. Unlike a set link,
+// nothing is snapshotted: the members are resolved live from the album each time,
+// bounded to the libraries the share's CREATOR can curate — so the share always
+// reflects the album now, and can never leak a photo the creator couldn't share.
+
+interface AlbumShareMeta {
+  sort_mode: "taken_at" | "manual";
+  created_by: string;
+  name: string;
+}
+
+export function loadAlbumShareMeta(albumId: string): AlbumShareMeta | undefined {
+  return db.prepare(
+    "SELECT sort_mode, created_by, name FROM gallery_albums WHERE id = ?"
+  ).get(albumId) as AlbumShareMeta | undefined;
+}
+
+// Gallery libraries a user may curate (edit) — the ones whose photos they're
+// allowed to hand out. An album share exposes only members in these libraries.
+export function curatableGalleryLibraryIds(user: { id: string; role: string }): string[] {
+  const libs = db.prepare(
+    "SELECT id, owner_id, owner_type, policy_json, type FROM libraries WHERE type = 'gallery'"
+  ).all() as LibraryAccessRow[];
+  return libs.filter((lib) => canUserCurateLibrary(lib, user.id, user.role)).map((lib) => lib.id);
+}
+
+function albumShareOrder(sortMode: string): string {
+  return sortMode === "manual"
+    ? "gallery_album_items.position ASC"
+    : "datetime(gallery_details.taken_at) ASC, library_items.id ASC";
+}
+
+// The live members of an album share (same shape as a set link's items), in album
+// order, filtered to the creator's curatable libraries. Soft-deleted items drop.
+export function loadAlbumShareItems(albumId: string, sortMode: string, libIds: string[]): GallerySetItemRow[] {
+  if (libIds.length === 0) return [];
+  return db.prepare(`
+    SELECT
+      library_items.id,
+      item_metadata.title,
+      library_items.folder_path,
+      gallery_details.kind,
+      gallery_details.width,
+      gallery_details.height,
+      gallery_details.duration_seconds,
+      gallery_details.taken_at,
+      item_metadata.cover_storage_key,
+      gallery_details.preview_storage_key
+    FROM gallery_album_items
+    JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE gallery_album_items.album_id = ? AND library_items.library_id IN (${inClause(libIds.length)})
+    ORDER BY ${albumShareOrder(sortMode)}
+  `).all(albumId, ...libIds) as GallerySetItemRow[];
+}
+
+function loadAlbumShareFiles(albumId: string, sortMode: string, libIds: string[]): GallerySetFileRow[] {
+  if (libIds.length === 0) return [];
+  return db.prepare(`
+    SELECT
+      library_items.id,
+      item_metadata.title,
+      library_items.folder_path,
+      gallery_details.relative_path,
+      gallery_details.kind,
+      libraries.source_path
+    FROM gallery_album_items
+    JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE gallery_album_items.album_id = ? AND library_items.library_id IN (${inClause(libIds.length)})
+    ORDER BY ${albumShareOrder(sortMode)}
+  `).all(albumId, ...libIds) as GallerySetFileRow[];
+}
+
+// One member of an album share with everything the media routes need. The WHERE
+// (album membership + creator-curatable library) IS the authorization.
+function loadAlbumShareMediaItem(albumId: string, itemId: string, libIds: string[]) {
+  if (libIds.length === 0) return undefined;
+  return db.prepare(`
+    SELECT
+      library_items.folder_path,
+      gallery_details.kind,
+      gallery_details.relative_path,
+      gallery_details.mime_type,
+      item_metadata.title,
+      item_metadata.cover_storage_key,
+      gallery_details.preview_storage_key,
+      libraries.source_path
+    FROM gallery_album_items
+    JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE gallery_album_items.album_id = ? AND gallery_album_items.item_id = ?
+      AND library_items.library_id IN (${inClause(libIds.length)})
+  `).get(albumId, itemId, ...libIds) as {
+    folder_path: string;
+    kind: string;
+    relative_path: string;
+    mime_type: string | null;
+    title: string | null;
+    cover_storage_key: string | null;
+    preview_storage_key: string | null;
+    source_path: string;
+  } | undefined;
+}
+
+// Create a live guest link over an album. Only the album's creator or an admin can
+// (it's their album), and only if it currently exposes at least one photo they may
+// curate — otherwise the link would be dead. Nothing is snapshotted.
+export type AlbumShareResult =
+  | { shareId: string; token: string; expiresAt: string }
+  | "not_found" | "forbidden" | "empty";
+
+export function createGalleryAlbumShare(
+  user: { id: string; role: string },
+  opts: { albumId: string; expiresInDays: number; label: string | null }
+): AlbumShareResult {
+  const meta = loadAlbumShareMeta(opts.albumId);
+  if (!meta) return "not_found";
+  if (user.role !== "admin" && meta.created_by !== user.id) return "forbidden";
+  const libIds = curatableGalleryLibraryIds(user);
+  if (loadAlbumShareItems(opts.albumId, meta.sort_mode, libIds).length === 0) return "empty";
+
+  const token = nanoid(36);
+  const shareId = nanoid(16);
+  const expiresAt = addDays(opts.expiresInDays).toISOString();
+  db.prepare(`
+    INSERT INTO share_links (id, module, resource_id, token_hash, permission, label, expires_at, created_by)
+    VALUES (?, 'gallery_album', ?, ?, 'read', ?, ?, ?)
+  `).run(shareId, opts.albumId, sha256(token), opts.label, expiresAt, user.id);
+  return { shareId, token, expiresAt };
+}
+
+// --- Serving a gallery multi-share (set snapshot OR live album), one seam -----
+// The public routes below don't care which kind they hold: they resolve items,
+// files, and single media rows through these dispatchers. Album links resolve
+// live against the link creator's current curate rights.
+const GALLERY_MULTI_MODULES = new Set(["gallery_set", "gallery_album"]);
+
+function albumLinkCtx(link: ResolvedShareLink): { meta: AlbumShareMeta; libIds: string[] } | null {
+  const meta = loadAlbumShareMeta(link.resource_id);
+  if (!meta) return null;
+  const creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(link.created_by) as { id: string; role: string } | undefined;
+  return { meta, libIds: creator ? curatableGalleryLibraryIds(creator) : [] };
+}
+
+function galleryMultiShareItems(link: ResolvedShareLink): GallerySetItemRow[] {
+  if (link.module !== "gallery_album") return loadGallerySetItems(link.id);
+  const ctx = albumLinkCtx(link);
+  return ctx ? loadAlbumShareItems(link.resource_id, ctx.meta.sort_mode, ctx.libIds) : [];
+}
+
+function galleryMultiShareFiles(link: ResolvedShareLink): GallerySetFileRow[] {
+  if (link.module !== "gallery_album") return loadGallerySetFiles(link.id);
+  const ctx = albumLinkCtx(link);
+  return ctx ? loadAlbumShareFiles(link.resource_id, ctx.meta.sort_mode, ctx.libIds) : [];
+}
+
+function galleryMultiShareMediaItem(link: ResolvedShareLink, itemId: string) {
+  if (link.module !== "gallery_album") return loadGallerySetMediaItem(link.id, itemId);
+  const ctx = albumLinkCtx(link);
+  return ctx ? loadAlbumShareMediaItem(link.resource_id, itemId, ctx.libIds) : undefined;
+}
+
 // Serve a stored thumbnail (cover/preview) by storage key for guest routes.
 async function sendThumbnail(reply: FastifyReply, storageKey: string): Promise<void> {
   try {
@@ -495,6 +687,191 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         status: new Date(row.expires_at).getTime() <= now ? "expired" : "active"
       }))
     };
+  });
+
+  // --- Owner: live album shares (guest link + per-user) -------------------
+
+  // Only the album's creator or an admin may share it (it's their album). Used by
+  // every album-share write below.
+  const albumEditableBy = (user: { id: string; role: string }, albumId: string): AlbumShareMeta | "not_found" | "forbidden" => {
+    const meta = loadAlbumShareMeta(albumId);
+    if (!meta) return "not_found";
+    if (user.role !== "admin" && meta.created_by !== user.id) return "forbidden";
+    return meta;
+  };
+
+  // Create a live guest link over an album — the URL always reflects the album's
+  // current photos (no snapshot, no item cap).
+  app.post("/api/shares/album", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(createAlbumLinkSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid share details", details: parsed.error });
+      return;
+    }
+    const user = request.user!;
+    const result = createGalleryAlbumShare(user, {
+      albumId: parsed.data.albumId,
+      expiresInDays: parsed.data.expiresInDays ?? 30,
+      label: parsed.data.label ?? null
+    });
+    if (result === "not_found") { reply.code(404).send({ error: "Album not found" }); return; }
+    if (result === "forbidden") { reply.code(403).send({ error: "Only the album's creator or an admin can share it." }); return; }
+    if (result === "empty") { reply.code(403).send({ error: "There are no photos in this album you can share." }); return; }
+
+    logActivity({
+      event: "share.created",
+      actorUserId: user.id,
+      targetType: "share_link",
+      targetId: result.shareId,
+      detail: "Created a live guest link for a gallery album.",
+      ipAddress: request.ip
+    });
+
+    const base = requestOrigin(request);
+    reply.code(201).send({
+      share: {
+        id: result.shareId,
+        label: parsed.data.label ?? null,
+        expiresAt: result.expiresAt,
+        // Shown exactly once — the raw token is not stored and cannot be re-displayed.
+        url: `${base}/share/${result.token}`
+      }
+    });
+  });
+
+  // The caller's active album links, with the album's name + current photo count.
+  app.get("/api/shares/albums", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const rows = db.prepare(`
+      SELECT
+        share_links.id,
+        share_links.resource_id AS album_id,
+        share_links.label,
+        share_links.created_at,
+        share_links.expires_at,
+        gallery_albums.name AS album_name,
+        (SELECT COUNT(*) FROM gallery_album_items
+           JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+         WHERE gallery_album_items.album_id = share_links.resource_id) AS item_count
+      FROM share_links
+      JOIN gallery_albums ON gallery_albums.id = share_links.resource_id
+      WHERE share_links.created_by = ? AND share_links.module = 'gallery_album' AND share_links.revoked_at IS NULL
+      ORDER BY datetime(share_links.created_at) DESC
+    `).all(user.id) as {
+      id: string; album_id: string; label: string | null; created_at: string;
+      expires_at: string; album_name: string; item_count: number;
+    }[];
+    const now = Date.now();
+    return {
+      shares: rows.map((row) => ({
+        id: row.id,
+        albumId: row.album_id,
+        albumName: row.album_name,
+        label: row.label,
+        itemCount: row.item_count,
+        createdAt: row.created_at,
+        expiresAt: row.expires_at,
+        status: new Date(row.expires_at).getTime() <= now ? "expired" : "active"
+      }))
+    };
+  });
+
+  // Share an album *with a registered user* — a live grant (module 'gallery_album',
+  // resource_id = the album). The recipient sees the album under "Shared with me"
+  // and it tracks the album's membership. Upsert refreshes the expiry.
+  app.post("/api/shares/album/user", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(albumUserShareSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid share details", details: parsed.error });
+      return;
+    }
+    const user = request.user!;
+    if (parsed.data.userId === user.id) {
+      reply.code(400).send({ error: "You already have access to this album" });
+      return;
+    }
+    const meta = albumEditableBy(user, parsed.data.albumId);
+    if (meta === "not_found") { reply.code(404).send({ error: "Album not found" }); return; }
+    if (meta === "forbidden") { reply.code(403).send({ error: "Only the album's creator or an admin can share it." }); return; }
+    const target = db.prepare(
+      "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
+    ).get(parsed.data.userId) as { id: string } | undefined;
+    if (!target) { reply.code(404).send({ error: "User not found" }); return; }
+
+    const expiresAt = parsed.data.expiresInDays ? addDays(parsed.data.expiresInDays).toISOString() : null;
+    db.prepare(`
+      INSERT INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at)
+      VALUES (?, 'gallery_album', ?, ?, 'read', ?, ?)
+      ON CONFLICT (module, resource_id, user_id) DO UPDATE SET
+        revoked_at = NULL,
+        expires_at = excluded.expires_at,
+        created_by = excluded.created_by,
+        created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    `).run(nanoid(16), parsed.data.albumId, parsed.data.userId, user.id, expiresAt);
+    logActivity({
+      event: "share.granted",
+      actorUserId: user.id,
+      targetType: "share",
+      targetId: parsed.data.userId,
+      detail: `Shared gallery album "${meta.name}" with a user.`,
+      ipAddress: request.ip
+    });
+    reply.code(201).send({ ok: true });
+  });
+
+  // Recipients of an album — the People list for the album-share dialog. Only the
+  // caller's own grants (admins see all).
+  app.post("/api/shares/album/recipients", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(albumRecipientsSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid request", details: parsed.error });
+      return;
+    }
+    const user = request.user!;
+    const scope = user.role === "admin" ? "" : "AND shares.created_by = ?";
+    const params = user.role === "admin" ? [parsed.data.albumId] : [parsed.data.albumId, user.id];
+    const rows = db.prepare(`
+      SELECT shares.user_id, users.display_name, users.email, shares.expires_at
+      FROM shares
+      JOIN users ON users.id = shares.user_id
+      WHERE shares.module = 'gallery_album' AND shares.resource_id = ? AND shares.revoked_at IS NULL ${scope}
+      ORDER BY users.display_name COLLATE NOCASE
+    `).all(...params) as { user_id: string; display_name: string; email: string; expires_at: string | null }[];
+    reply.send({
+      recipients: rows.map((row) => ({
+        userId: row.user_id,
+        displayName: row.display_name,
+        email: row.email,
+        expiresAt: row.expires_at
+      }))
+    });
+  });
+
+  // Revoke a user's access to a shared album.
+  app.post("/api/shares/album/user/revoke", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(albumSelectionSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid request", details: parsed.error });
+      return;
+    }
+    const user = request.user!;
+    const scope = user.role === "admin" ? "" : "AND created_by = ?";
+    const params = user.role === "admin"
+      ? [parsed.data.userId, parsed.data.albumId]
+      : [parsed.data.userId, parsed.data.albumId, user.id];
+    const result = db.prepare(`
+      UPDATE shares SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+      WHERE module = 'gallery_album' AND revoked_at IS NULL AND user_id = ? AND resource_id = ? ${scope}
+    `).run(...params);
+    logActivity({
+      event: "share.revoked",
+      actorUserId: user.id,
+      targetType: "share",
+      targetId: parsed.data.userId,
+      detail: "Revoked a user's access to a shared album.",
+      ipAddress: request.ip
+    });
+    reply.send({ revoked: result.changes });
   });
 
   // Share a selection of gallery items *with a registered user* (the set dialog's
@@ -855,17 +1232,55 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       shared_by: string | null;
     }[];
 
-    return {
-      books: rows.map((row) => ({
-        id: row.resource_id,
-        type: mediaKind(row.library_type),
-        title: row.title ?? path.basename(row.folder_path),
-        coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
+    const books = rows.map((row) => ({
+      id: row.resource_id,
+      type: mediaKind(row.library_type),
+      title: row.title ?? path.basename(row.folder_path),
+      coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
+      sharedBy: row.shared_by,
+      sharedAt: row.created_at,
+      expiresAt: row.expires_at as string | null
+    }));
+
+    // Live album shares (module 'gallery_album', resource_id = album id) don't join
+    // to a single library_item, so they're gathered separately. The cover + count
+    // reflect only photos the SHARE CREATOR may curate — the same bound the album
+    // viewer and file access enforce.
+    const albumRows = db.prepare(`
+      SELECT shares.resource_id AS album_id, shares.created_by, shares.created_at, shares.expires_at,
+             gallery_albums.name AS album_name, gallery_albums.sort_mode,
+             owner.display_name AS shared_by
+      FROM shares
+      JOIN gallery_albums ON gallery_albums.id = shares.resource_id
+      LEFT JOIN users AS owner ON owner.id = shares.created_by
+      WHERE shares.user_id = ? AND shares.module = 'gallery_album'
+        AND shares.revoked_at IS NULL
+        AND (shares.expires_at IS NULL OR datetime(shares.expires_at) > datetime('now'))
+      ORDER BY datetime(shares.created_at) DESC
+    `).all(user.id) as {
+      album_id: string; created_by: string; created_at: string; expires_at: string | null;
+      album_name: string; sort_mode: "taken_at" | "manual"; shared_by: string | null;
+    }[];
+
+    const albums = albumRows.map((row) => {
+      const creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(row.created_by) as { id: string; role: string } | undefined;
+      const items = creator ? loadAlbumShareItems(row.album_id, row.sort_mode, curatableGalleryLibraryIds(creator)) : [];
+      const cover = items.find((item) => item.cover_storage_key)?.cover_storage_key ?? null;
+      return {
+        id: row.album_id,
+        type: "gallery_album" as const,
+        title: row.album_name,
+        itemCount: items.length,
+        coverUrl: cover ? `/api/library/covers/${cover}` : null,
         sharedBy: row.shared_by,
         sharedAt: row.created_at,
         expiresAt: row.expires_at
-      }))
-    };
+      };
+    });
+
+    // Merge and present newest-shared first (both lists are already sorted).
+    const merged = [...books, ...albums].sort((a, b) => (a.sharedAt < b.sharedAt ? 1 : -1));
+    return { books: merged };
   });
 
   // --- Public: guest access (no authentication) ---------------------------
@@ -892,13 +1307,13 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     // have no single resource for it to load.
     const rawToken = (request.params as { token: string }).token;
     const setLink = resolveShareLink(rawToken);
-    if (setLink?.module === "gallery_set") {
+    if (setLink && GALLERY_MULTI_MODULES.has(setLink.module)) {
       const meta = db.prepare(`
         SELECT share_links.label, share_links.expires_at, users.display_name AS shared_by
         FROM share_links LEFT JOIN users ON users.id = share_links.created_by
         WHERE share_links.id = ?
       `).get(setLink.id) as { label: string | null; expires_at: string; shared_by: string | null };
-      const setItems = loadGallerySetItems(setLink.id);
+      const setItems = galleryMultiShareItems(setLink);
       logActivity({
         event: "share.accessed",
         actorUserId: null,
@@ -1059,11 +1474,11 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   const resolveSetItem = (request: FastifyRequest, reply: FastifyReply) => {
     const { token, itemId } = request.params as { token: string; itemId: string };
     const link = resolveShareLink(token);
-    if (!link || link.module !== "gallery_set") {
+    if (!link || !GALLERY_MULTI_MODULES.has(link.module)) {
       reply.code(404).send({ error: "Share not found or expired" });
       return null;
     }
-    const item = loadGallerySetMediaItem(link.id, itemId);
+    const item = galleryMultiShareMediaItem(link, itemId);
     if (!item) {
       reply.code(404).send({ error: "File not found" });
       return null;
@@ -1141,12 +1556,12 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.get("/api/share/:token/download-all", (request, reply) => {
     const token = (request.params as { token: string }).token;
     const link = resolveShareLink(token);
-    if (!link || link.module !== "gallery_set") {
+    if (!link || !GALLERY_MULTI_MODULES.has(link.module)) {
       reply.code(404).send({ error: "Share not found or expired" });
       return;
     }
 
-    const available = loadGallerySetFiles(link.id).filter((file) => {
+    const available = galleryMultiShareFiles(link).filter((file) => {
       const filePath = path.join(file.source_path, ...file.relative_path.split("/"));
       return pathIsInside(filePath, file.source_path) && fs.existsSync(filePath);
     });

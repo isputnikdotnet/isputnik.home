@@ -204,6 +204,25 @@ export function getAlbumItems(userId: string, libIds: string[], album: AlbumRow,
   return { assets: rows.map(mapAsset), total };
 }
 
+// Every album item id the viewer can see, in the album's sort order — for
+// "Share album", which hands the set to the multi-photo share modal. Filtered by
+// library access like getAlbumItems; just the ids, no thumbnails/metadata.
+export function getAlbumItemIds(libIds: string[], album: AlbumRow): string[] {
+  if (libIds.length === 0) return [];
+  const libIn = inClause(libIds.length);
+  const order = album.sort_mode === "manual"
+    ? "gallery_album_items.position ASC"
+    : "datetime(gallery_details.taken_at) ASC, library_items.id ASC";
+  return (db.prepare(`
+    SELECT library_items.id AS id
+    FROM gallery_album_items
+    JOIN library_items ON library_items.id = gallery_album_items.item_id AND library_items.deleted_at IS NULL
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    WHERE gallery_album_items.album_id = ? AND library_items.library_id IN (${libIn})
+    ORDER BY ${order}
+  `).all(album.id, ...libIds) as { id: string }[]).map((row) => row.id);
+}
+
 // On-disk paths for every album item the viewer can see, in the album's sort
 // order — for the "Download album" zip. Source path is per-library (an album can
 // span libraries). Filtered by library access like getAlbumItems.

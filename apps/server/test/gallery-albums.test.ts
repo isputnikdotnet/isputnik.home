@@ -11,6 +11,7 @@ import {
   listAlbums,
   getAlbum,
   getAlbumItems,
+  getAlbumItemIds,
   getAlbumFilePaths,
   canEditAlbum
 } from "../src/modules/library/gallery/albums.js";
@@ -154,5 +155,21 @@ describe("album download file paths", () => {
     // The creator (access to both libraries) also gets the private item.
     const forCreator = getAlbumFilePaths(GAL_LIBS, getAlbum(album.id)!);
     expect(forCreator.map((f) => f.relative_path)).toEqual(["b.jpg", "c.jpg", "a.jpg", "priv.jpg"]);
+  });
+});
+
+describe("album share item ids", () => {
+  it("returns viewer-visible item ids in album sort order, filtered by access", () => {
+    const album = createAlbum(creator, "Trip", null);
+    addAlbumItems(album.id, new Set(GAL_LIBS), [a, c, b, priv]);
+
+    // Viewer can't see PRIV; the rest come back chronologically (taken_at mode).
+    expect(getAlbumItemIds(["GAL"], getAlbum(album.id)!)).toEqual([b, c, a]);
+    // The creator sees the private item too.
+    expect(getAlbumItemIds(GAL_LIBS, getAlbum(album.id)!)).toEqual([b, c, a, priv]);
+
+    // Manual mode follows append order.
+    updateAlbum(album.id, { sortMode: "manual" });
+    expect(getAlbumItemIds(GAL_LIBS, getAlbum(album.id)!)).toEqual([a, c, b, priv]);
   });
 });

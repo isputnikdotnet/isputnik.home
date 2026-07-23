@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.10.0",
+          label: "Share a whole album — live links that stay in step with the album",
+          changes: [
+            "Share an album, not a snapshot. Open an album, then its ⋯ menu → Share album. A guest link lets anyone view and download the album's photos with no account; sharing with a specific person gives them the album under \"Shared with me.\" Both are live: as you add or remove photos, the share updates automatically — there's no fixed selection and no item cap. A share only ever exposes photos you're allowed to share, so a link can't leak a photo you couldn't hand out yourself.",
+            "\"Shared with me\" now holds albums. An album shared with you appears as its own tile that opens a photo grid and viewer, always showing the album's current contents — including photos in libraries you can't otherwise browse.",
+            "\"On this day\" on the home dashboard now opens the photos in a full-screen viewer you can page through — across every year — instead of jumping to the Memories page.",
+            "Slideshow suggestions moved to where slideshows live. The event/trip suggestions that turn into slideshows now appear under the Slideshows tab as \"Suggested slideshows,\" so the Memories tab stays focused on your \"On this day\" anniversaries."
+          ]
+        },
+        {
           version: "1.9.2",
           label: "Fix photo/video uploads on Unraid (read-only media path)",
           changes: [

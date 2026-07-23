@@ -419,6 +419,19 @@
   padding: 16px;
 }
 
+/* The grid state of the in-app shared-album viewer scrolls within the overlay. */
+.share-set-viewer-grid-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.share-set-viewer-grid-wrap .share-set-grid {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
 .share-set-viewer-body img,
 .share-set-viewer-body video {
   max-width: 100%;

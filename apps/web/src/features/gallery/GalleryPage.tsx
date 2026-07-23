@@ -18,6 +18,7 @@ import { AddToAlbumModal } from "./AddToAlbumModal";
 import { AddToSlideshowModal } from "./AddToSlideshowModal";
 import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
+import { ShareAlbumModal } from "./ShareAlbumModal";
 import { Modal } from "../../shared/Modal";
 import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, SlideshowTransition } from "./types";
 
@@ -213,6 +214,8 @@ export function GalleryPage({
   const [albumRename, setAlbumRename] = useState<string | null>(null);
   const [albumDeleteOpen, setAlbumDeleteOpen] = useState(false);
   const [albumBusy, setAlbumBusy] = useState(false);
+  // Live "Share album" dialog (guest link + per-user access), for the open album.
+  const [shareAlbumOpen, setShareAlbumOpen] = useState(false);
   const [bulkAlbumOpen, setBulkAlbumOpen] = useState(false);
   // Open album's overflow (…) menu, and the "pick a cover" mode where clicking a
   // tile sets it as the album cover instead of opening the lightbox.
@@ -911,6 +914,7 @@ export function GalleryPage({
   useEffect(() => {
     setCoverPickerOpen(false);
     setAlbumMenuOpen(false);
+    setShareAlbumOpen(false);
     setSelectionMode(false);
     setSelectedIds(new Set());
   }, [selectedAlbum?.id]);
@@ -1241,7 +1245,7 @@ export function GalleryPage({
                     <CalendarDays size={19} aria-hidden="true" />
                     <span>Timeline</span>
                   </a>
-                  {((memories?.groups.length ?? 0) > 0 || memorySuggestions.length > 0) && (
+                  {(memories?.groups.length ?? 0) > 0 && (
                     <a
                       href="/gallery/memories"
                       className={view === "memories" ? "active" : ""}
@@ -1635,6 +1639,11 @@ export function GalleryPage({
                             <Download size={15} aria-hidden="true" /><span>Download album</span>
                           </a>
                           {selectedAlbum.canEdit && (
+                            <button type="button" role="menuitem" onClick={() => { setAlbumMenuOpen(false); setShareAlbumOpen(true); }}>
+                              <Share2 size={15} aria-hidden="true" /><span>Share album</span>
+                            </button>
+                          )}
+                          {selectedAlbum.canEdit && (
                             <button type="button" role="menuitem" className="danger" onClick={() => { setAlbumMenuOpen(false); setAlbumDeleteOpen(true); }}>
                               <Trash2 size={15} aria-hidden="true" /><span>Delete album</span>
                             </button>
@@ -1805,24 +1814,11 @@ export function GalleryPage({
                       ))}
                     </div>
                   )}
-                  {!loading && slideshows.length === 0 && (
-                    <div className="empty-state library-empty">
-                      <Film size={48} aria-hidden="true" />
-                      <h2>No slideshows yet</h2>
-                      <p className="muted">
-                        Create a slideshow here, or select photos in the Timeline and use “Add to slideshow”.
-                      </p>
-                    </div>
-                  )}
-                </>
-              )
-            ) : view === "memories" ? (
-              (memorySuggestions.length > 0 || (memories?.groups.length ?? 0) > 0) ? (
-                <>
+
                   {memorySuggestions.length > 0 && (
-                    <section className="gallery-memory-suggestions" aria-label="Suggested memories">
+                    <section className="gallery-memory-suggestions" aria-label="Suggested slideshows">
                       <div className="gallery-memory-suggestions-head">
-                        <h2>Memories</h2>
+                        <h2>Suggested slideshows</h2>
                         <button
                           type="button"
                           className="secondary-button compact-button"
@@ -1832,7 +1828,7 @@ export function GalleryPage({
                         </button>
                       </div>
                       <p className="muted gallery-face-hint">
-                        Tap a memory to turn it into a slideshow you can play, set to music, reorder, and customize.
+                        Photos we’ve gathered into events and trips. Tap one to turn it into a slideshow you can play, set to music, reorder, and customize.
                       </p>
                       <div className="gallery-folder-grid">
                         {memorySuggestions.map((memory) => (
@@ -1855,7 +1851,20 @@ export function GalleryPage({
                     </section>
                   )}
 
-                  {(memories?.groups.length ?? 0) > 0 && (() => {
+                  {!loading && slideshows.length === 0 && memorySuggestions.length === 0 && (
+                    <div className="empty-state library-empty">
+                      <Film size={48} aria-hidden="true" />
+                      <h2>No slideshows yet</h2>
+                      <p className="muted">
+                        Create a slideshow here, or select photos in the Timeline and use “Add to slideshow”.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )
+            ) : view === "memories" ? (
+              (memories?.groups.length ?? 0) > 0 ? (
+                (() => {
                   // Tiles open the lightbox at the asset's position in the
                   // FLATTENED memories list, so Next flows across year sections.
                   let flatBase = 0;
@@ -1907,16 +1916,15 @@ export function GalleryPage({
                       </section>
                     );
                   });
-                })()}
-                </>
+                })()
               ) : (
                 <div className="empty-state library-empty">
                   <Sparkles size={48} aria-hidden="true" />
                   <h2>No memories yet</h2>
                   <p className="muted">
-                    Memories gathers your photos into events and trips you can play as slideshows,
-                    and resurfaces shots from past years on their anniversary. Add dates to more
-                    photos and they'll start appearing here.
+                    Memories resurfaces shots from past years on their anniversary. Add dates to
+                    more photos and they'll start appearing here. Looking to turn a trip into a
+                    slideshow? Those suggestions now live under Slideshows.
                   </p>
                 </div>
               )
@@ -2110,6 +2118,14 @@ export function GalleryPage({
         <ShareSetModal
           itemIds={shareIds}
           onClose={() => setShareIds(null)}
+        />
+      )}
+
+      {shareAlbumOpen && selectedAlbum && (
+        <ShareAlbumModal
+          albumId={selectedAlbum.id}
+          albumName={selectedAlbum.name}
+          onClose={() => setShareAlbumOpen(false)}
         />
       )}
 

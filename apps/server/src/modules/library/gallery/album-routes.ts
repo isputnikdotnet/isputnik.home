@@ -6,9 +6,11 @@ import path from "node:path";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import archiver from "archiver";
-import { logActivity } from "../../../db.js";
+import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { pathIsInside } from "../shared/storage-roots.js";
+import { deleteSharesForResource } from "../shared/share-access.js";
+import { loadAlbumShareMeta, loadAlbumShareItems, curatableGalleryLibraryIds } from "../shared/shares.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
 import {
   getAlbum,
@@ -125,6 +127,54 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     });
   });
 
+  // A recipient's view of an album shared *with them* (or the owner previewing
+  // their own). Items resolve LIVE, bounded to the libraries the share's creator
+  // may curate — so it always mirrors the album and never over-exposes. Access to
+  // each photo's file/cover flows through the normal gallery routes (canUserAccessBook
+  // now honors an album share), so this only needs to return the item list + URLs.
+  app.get("/api/library/gallery/shared-albums/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const albumId = (request.params as { id: string }).id;
+    const user = request.user!;
+    const meta = loadAlbumShareMeta(albumId);
+    if (!meta) { reply.code(404).send({ error: "Album not found" }); return; }
+
+    // Whose curate rights vouch for the photos: the owner/admin previewing sees it
+    // with their own; a recipient sees it through the share creator's.
+    let creator: { id: string; role: string } | null = null;
+    if (user.role === "admin" || meta.created_by === user.id) {
+      creator = user;
+    } else {
+      const share = db.prepare(`
+        SELECT created_by FROM shares
+        WHERE module = 'gallery_album' AND resource_id = ? AND user_id = ? AND revoked_at IS NULL
+          AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+      `).get(albumId, user.id) as { created_by: string } | undefined;
+      if (share) {
+        creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(share.created_by) as { id: string; role: string } | undefined ?? null;
+      }
+    }
+    if (!creator) { reply.code(404).send({ error: "Album not found" }); return; }
+
+    const items = loadAlbumShareItems(albumId, meta.sort_mode, curatableGalleryLibraryIds(creator));
+    reply.send({
+      album: { id: albumId, name: meta.name },
+      items: items.map((row) => ({
+        id: row.id,
+        title: row.title ?? path.basename(row.folder_path),
+        kind: row.kind,
+        width: row.width,
+        height: row.height,
+        durationSeconds: row.duration_seconds,
+        takenAt: row.taken_at,
+        coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
+        previewUrl: row.preview_storage_key
+          ? `/api/library/covers/${row.preview_storage_key}`
+          : (row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null),
+        fileUrl: `/api/library/gallery/assets/${row.id}/file`
+      }))
+    });
+  });
+
   // Download the album as one zip of the items the viewer can see (library-access
   // filtered, in the album's sort order). Stored (level 0) — photos/videos are
   // already compressed. Missing files skip; duplicate basenames get a " (n)".
@@ -206,6 +256,9 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     const album = editableAlbum((request.params as { id: string }).id, user, reply);
     if (!album) return;
     deleteAlbum(album.id);
+    // Live album shares reference the album by id with no FK, so drop them here or
+    // they'd linger as dead links / phantom "Shared with me" tiles.
+    deleteSharesForResource("gallery_album", album.id);
     logActivity({
       event: "gallery.album.deleted",
       actorUserId: user.id,
