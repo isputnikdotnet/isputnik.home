@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.11.1",
+          label: "Rendered movies now honour \"seconds per photo\"",
+          changes: [
+            "Fixed movie timing. Photos in a rendered movie were changing far sooner than the slideshow's \"seconds per photo\" setting — with 4 seconds per photo and a 2-second transition they advanced every 2 seconds and were never fully still, because each transition ate into the slides on both sides. Every photo now holds the screen for its full setting, with the transition layered on top exactly as it looks in the live player. Re-render a movie to pick up the corrected pacing (expect it to be noticeably longer, and to match what you see when you press Play)."
+          ]
+        },
+        {
           version: "1.11.0",
           label: "Slideshow studio: movie title cards, cinematic transitions, and smarter suggestions",
           changes: [

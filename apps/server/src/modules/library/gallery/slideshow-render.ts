@@ -62,10 +62,16 @@ interface RenderPayload {
 
 // ── Build the ffmpeg invocation ──────────────────────────────────────────────
 
+// `dwell` is the slide's ON-SCREEN time — the user's "seconds per photo" — NOT the
+// ffmpeg input length. buildFfmpegArgs pads each input by the transition duration,
+// because xfade overlaps neighbours: without that padding a 4s slide behind a 2s
+// transition would only hold the screen for 2s (and never sit still at all).
 export interface Segment { file: string; dwell: number; isVideo: boolean }
 
-export function segmentsFor(items: SlideshowRenderItem[], slideSeconds: number, transitionSec = DEFAULT_TRANSITION_SEC): Segment[] {
-  const minDwell = clampTransitionSec(transitionSec) + 0.5; // a slide must outlast its transition
+// Minimum on-screen time for a slide, whatever the per-slide override says.
+const MIN_DISPLAY_SEC = 1;
+
+export function segmentsFor(items: SlideshowRenderItem[], slideSeconds: number, _transitionSec = DEFAULT_TRANSITION_SEC): Segment[] {
   return items.slice(0, MAX_ITEMS).map((item) => {
     const isVideo = item.kind === "video";
     let dwell: number;
@@ -73,10 +79,10 @@ export function segmentsFor(items: SlideshowRenderItem[], slideSeconds: number, 
       // A clip plays for its own length (capped) so it isn't cut mid-action; if the
       // scanner never probed a duration, fall back to the slide default.
       const len = item.duration_seconds ?? slideSeconds;
-      dwell = Math.min(Math.max(Number.isFinite(len) && len > 0 ? len : slideSeconds, minDwell), VIDEO_CAP);
+      dwell = Math.min(Math.max(Number.isFinite(len) && len > 0 ? len : slideSeconds, MIN_DISPLAY_SEC), VIDEO_CAP);
     } else {
       const raw = item.dwell_seconds ?? slideSeconds;
-      dwell = Math.min(Math.max(Number.isFinite(raw) ? raw : slideSeconds, minDwell), 30);
+      dwell = Math.min(Math.max(Number.isFinite(raw) ? raw : slideSeconds, MIN_DISPLAY_SEC), 30);
     }
     return { file: path.join(item.source_path, ...item.relative_path.split("/")), dwell, isVideo };
   });
@@ -105,10 +111,9 @@ export interface TitleCard {
   fontFile: string;           // bundled TTF (static ffmpeg has no system font lookup)
 }
 
-// The card must outlast its own transition, like any slide.
-export function titleCardDwell(transitionSec: number): number {
-  return Math.max(3, clampTransitionSec(transitionSec) + 0.5);
-}
+// How long the title card holds the screen before the first photo starts appearing.
+// Like a slide, its ffmpeg input is padded by the transition (see buildFfmpegArgs).
+export const TITLE_CARD_SECONDS = 3;
 
 // A path inside a filtergraph value: forward slashes, escaped drive colon, quotes
 // stripped (our own store/asset paths never legitimately contain one).
@@ -140,17 +145,26 @@ export function buildFfmpegArgs(
   const xfadeName = transition === "slide" ? "slideleft" : transition === "dipblack" ? "fadeblack" : "fade";
   // With a title card, node 0 is the card and every photo/video input shifts by one.
   const base = titleCard ? 1 : 0;
-  const titleDwell = titleCardDwell(TRANSITION_SEC);
+  // xfade OVERLAPS neighbours by TRANSITION_SEC, so an input that runs exactly its
+  // on-screen time would leave the screen that much sooner — a 4s slide with a 2s
+  // transition would advance every 2s and never sit still. Padding every input by the
+  // transition makes the photo-to-photo cadence equal the user's "seconds per photo",
+  // matching the live player (where the transition animates over a full-length slide).
+  // With 'none' the inputs are concatenated back to back, and a lone node never
+  // transitions at all, so neither needs padding.
+  const pad = useXfade && segs.length + base > 1 ? TRANSITION_SEC : 0;
+  const titleDwell = TITLE_CARD_SECONDS + pad;
+  const inputDur = (seg: Segment) => seg.dwell + pad;
 
   const args: string[] = [];
   if (titleCard) {
     args.push("-f", "lavfi", "-t", titleDwell.toFixed(3), "-i", `color=c=black:s=${WIDTH}x${HEIGHT}:r=${FPS}`);
   }
   for (const seg of segs) {
-    // A photo is a still looped for its dwell; a video is read for `dwell` seconds of
-    // its own footage (its audio is ignored — only [i:v] is referenced below).
-    if (seg.isVideo) args.push("-t", seg.dwell.toFixed(3), "-i", seg.file);
-    else args.push("-loop", "1", "-t", seg.dwell.toFixed(3), "-i", seg.file);
+    // A photo is a still looped for its input length; a video is read for that many
+    // seconds of its own footage (its audio is ignored — only [i:v] is referenced below).
+    if (seg.isVideo) args.push("-t", inputDur(seg).toFixed(3), "-i", seg.file);
+    else args.push("-loop", "1", "-t", inputDur(seg).toFixed(3), "-i", seg.file);
   }
   if (musicPath) args.push("-stream_loop", "-1", "-i", musicPath);
 
@@ -171,8 +185,9 @@ export function buildFfmpegArgs(
     per.unshift(`${card},setsar=1,fps=${FPS},format=yuv420p[v0]`);
   }
 
-  // Every node in presentation order: the card (when present), then the slides.
-  const dwells = titleCard ? [titleDwell, ...segs.map((s) => s.dwell)] : segs.map((s) => s.dwell);
+  // Every node's INPUT length in presentation order: the card (when present), then the
+  // slides — each already padded for the overlap, so the offsets below line up.
+  const dwells = titleCard ? [titleDwell, ...segs.map(inputDur)] : segs.map(inputDur);
   const nodes = dwells.length;
 
   let filter: string;
