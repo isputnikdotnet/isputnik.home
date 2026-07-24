@@ -25,6 +25,7 @@ import {
   queryGalleryTimeline,
   queryGalleryFolders,
   getGalleryAsset,
+  getGalleryAssets,
   getGalleryAssetUnscoped,
   galleryFacets,
   queryGalleryMapPoints,
@@ -455,6 +456,21 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "12", 10) || 12, 1), 40);
     return { suggestions: suggestGalleryMemories(libIds, { limit }) };
+  });
+
+  // Bulk asset lookup by ids (the suggestion-preview grid fetches a montage's
+  // thumbnails in one round trip). Access-filtered per the caller's libraries;
+  // inaccessible/unknown ids are silently omitted (bulk contract). Results keep the
+  // requested order.
+  const lookupSchema = z.object({ itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(100) });
+  app.post("/api/library/gallery/assets/lookup", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(lookupSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid item ids", details: parsed.error });
+      return;
+    }
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
+    reply.send({ assets: getGalleryAssets(request.user!.id, libIds, parsed.data.itemIds) });
   });
 
   app.get("/api/library/gallery/facets", { preHandler: app.authenticate }, async (request) => {

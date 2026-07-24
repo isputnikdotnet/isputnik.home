@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Download, Heart, ImagePlus, Info, ListMusic, Pause, Pencil, Play, Plus, RotateCcw, RotateCw, Share2, Trash2, X } from "lucide-react";
 import { api } from "../../api";
@@ -52,6 +52,8 @@ type EditableField = "description" | "takenAt" | "tags" | "gps";
 // Slideshow dwell options (seconds a photo shows before advancing). A video ignores
 // these and advances when it finishes playing.
 const SLIDESHOW_INTERVALS = [3, 5, 10] as const;
+// The styles a "random" slideshow draws from — one is re-rolled on every slide change.
+const RANDOM_TRANSITIONS: SlideshowTransition[] = ["crossfade", "fade", "slide", "kenburns"];
 // Remembered for the browsing session (module scope survives navigation, resets on
 // reload) so the speed choice sticks across slideshows without persisting to disk.
 let sessionSlideshowInterval = 5;
@@ -71,6 +73,7 @@ export function GalleryLightbox({
   canShare,
   autoPlay = false,
   transition,
+  transitionSeconds,
   initialInterval,
   musicUrl
 }: {
@@ -92,6 +95,9 @@ export function GalleryLightbox({
   // for the ad-hoc slideshow of a plain view (timeline/album/…), which uses the
   // default crossfade and the session-remembered speed.
   transition?: SlideshowTransition;
+  // Cross-fade length in seconds for playback animations (a saved slideshow's
+  // transitionSeconds); absent → the 2s default, matching the movie render.
+  transitionSeconds?: number;
   initialInterval?: number;
   // A saved slideshow's music track (streaming URL). Plays looped while the
   // slideshow runs; absent for ad-hoc slideshows and single-photo viewing.
@@ -107,6 +113,16 @@ export function GalleryLightbox({
   const [intervalSec, setIntervalSec] = useState(initialInterval ?? sessionSlideshowInterval);
   // A saved slideshow drives the transition; every other view uses the default.
   const slideTransition: SlideshowTransition = transition ?? "crossfade";
+  const transitionSec = transitionSeconds ?? 2;
+  // The transition applied to the CURRENT slide: "random" re-rolls a style on every
+  // slide change (keyed on asset.id); fixed styles pass straight through.
+  const activeTransition = useMemo<SlideshowTransition>(
+    () => slideTransition === "random"
+      ? RANDOM_TRANSITIONS[Math.floor(Math.random() * RANDOM_TRANSITIONS.length)]
+      : slideTransition,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [slideTransition, asset?.id]
+  );
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const canSlideshow = assets.length > 1;
   // Inline field editing in the Info panel (one field at a time).
@@ -198,6 +214,54 @@ export function GalleryLightbox({
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, canSlideshow, dialogOpen, asset?.id, asset?.kind, videoError, intervalSec, index, assets.length]);
+
+  // During playback, the outgoing photo stays rendered beneath the incoming slide so
+  // the transition reads as a true cross-fade/wipe over the previous image — not a
+  // fade from the dark stage. Photos only (a departing video just cuts); cleared once
+  // the longest playback animation has finished. Layout effect, not a plain effect:
+  // the underlay must be in the DOM before the browser paints the new (transparent)
+  // slide, or every transition opens with a one-frame black flash.
+  // `zoomed` carries the outgoing slide's held Ken Burns end-frame onto the underlay —
+  // without it the photo snaps from scale(1.12) back to scale(1) the instant the
+  // transition starts (the zoomed <img> is swapped for this un-zoomed copy). `dip`
+  // marks a dip-to-black entrance: the underlay fades OUT to black (first half) while
+  // the incoming slide waits, then fades in (second half) — not a crossfade.
+  const [underlay, setUnderlay] = useState<{ id: string; src: string; zoomed: boolean; dip: boolean } | null>(null);
+  const prevSlideRef = useRef<{ asset: GalleryAsset; transition: SlideshowTransition } | null>(null);
+  useLayoutEffect(() => {
+    const prev = prevSlideRef.current;
+    const changed = prev?.asset.id !== asset?.id;
+    prevSlideRef.current = asset ? { asset, transition: activeTransition } : null;
+    if (!playing) { setUnderlay(null); return; }
+    // Only a real slide change swaps the underlay — a re-run with the same asset
+    // (StrictMode's dev double-invoke, a `playing` dep change) must leave it alone,
+    // otherwise the second run clears the underlay the first one just set.
+    if (changed) {
+      const src = prev?.asset.kind === "photo" ? prev.asset.previewUrl ?? prev.asset.fileUrl : null;
+      setUnderlay(prev && asset && src
+        ? { id: prev.asset.id, src, zoomed: prev.transition === "kenburns", dip: activeTransition === "dipblack" }
+        : null);
+    }
+    // (Re)arm the clear timer on every run: a double-invoke's cleanup cancels the
+    // first run's timer, so the surviving run must always leave a live one. Lives a
+    // beat past the transition so the animation always finishes over the old photo.
+    const timer = window.setTimeout(() => setUnderlay(null), transitionSec * 1000 + 300);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asset?.id, playing]);
+
+  // Preload the next slide's image during the current dwell so the incoming <img>
+  // decodes instantly at the cut — without this the fade can start over a photo the
+  // browser is still fetching, which reads as a flash/pop mid-transition.
+  useEffect(() => {
+    if (!playing || !canSlideshow) return;
+    const next = assets[(index + 1) % assets.length];
+    if (!next || next.kind !== "photo") return;
+    const src = next.previewUrl ?? next.fileUrl;
+    if (!src) return;
+    const img = new Image();
+    img.src = src;
+  }, [playing, canSlideshow, assets, index]);
 
   // Slideshow music: play the looped bed while the slideshow runs, pause when it
   // pauses or a sub-dialog opens. The initial play() rides the Play-button gesture,
@@ -583,6 +647,15 @@ export function GalleryLightbox({
             <ChevronLeft size={26} aria-hidden="true" />
           </button>
         )}
+        {underlay && underlay.id !== asset.id && (
+          <img
+            className={`gallery-lightbox-media gallery-lightbox-under${underlay.zoomed ? " is-zoomed" : ""}${underlay.dip ? " is-dipping" : ""}`}
+            src={underlay.src}
+            style={{ ["--lb-transition" as string]: `${transitionSec}s` } as CSSProperties}
+            alt=""
+            aria-hidden="true"
+          />
+        )}
         {asset.kind === "video" ? (
           videoError ? (
             <div className="gallery-lightbox-unplayable" role="alert">
@@ -599,7 +672,9 @@ export function GalleryLightbox({
             <video
               key={asset.id}
               className="gallery-lightbox-media"
-              data-transition={slideTransition === "kenburns" || slideTransition === "slide" ? "fade" : slideTransition}
+              data-transition={activeTransition === "kenburns" || activeTransition === "slide" ? "fade" : activeTransition}
+              data-playing={playing ? "true" : undefined}
+              style={{ ["--lb-transition" as string]: `${transitionSec}s` } as CSSProperties}
               src={asset.fileUrl}
               controls
               autoPlay
@@ -615,8 +690,9 @@ export function GalleryLightbox({
           <img
             key={asset.id}
             className="gallery-lightbox-media"
-            data-transition={slideTransition}
-            style={{ ["--lb-dwell" as string]: `${intervalSec}s` } as CSSProperties}
+            data-transition={activeTransition}
+            data-playing={playing ? "true" : undefined}
+            style={{ ["--lb-dwell" as string]: `${intervalSec}s`, ["--lb-transition" as string]: `${transitionSec}s` } as CSSProperties}
             src={asset.previewUrl ?? asset.fileUrl}
             alt={asset.title}
           />

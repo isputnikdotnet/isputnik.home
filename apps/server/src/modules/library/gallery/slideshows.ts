@@ -12,7 +12,10 @@ import { ASSET_COLUMNS, ASSET_JOINS, mapAsset, type GalleryAssetRow } from "./ca
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
-export type SlideshowTransition = "none" | "crossfade" | "fade" | "slide" | "kenburns";
+// "random" varies the transition per slide boundary (both in the live player and the
+// MP4 render, which picks a different xfade style at each cut). "dipblack" is the
+// classic film cut: fade out to black, then fade the next slide in.
+export type SlideshowTransition = "none" | "crossfade" | "fade" | "slide" | "kenburns" | "dipblack" | "random";
 
 export interface SlideshowRow {
   id: string;
@@ -22,12 +25,18 @@ export interface SlideshowRow {
   music_track_id: string | null;
   transition: SlideshowTransition;
   slide_seconds: number;
+  transition_seconds: number;
   render_status: "draft" | "queued" | "rendering" | "ready" | "failed";
   render_job_id: string | null;
   output_storage_key: string | null;
   output_bytes: number | null;
   rendered_at: string | null;
   render_error: string | null;
+  // Where the latest render was auto-saved as a gallery item (null until saved to a
+  // library). See slideshow-render.ts saveMovieToLibrary and slideshow-settings.ts.
+  movie_library_id: string | null;
+  movie_relative_path: string | null;
+  movie_item_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -68,7 +77,7 @@ const touch = (slideshowId: string) => {
 // (from Phase 4) it drops back to 'draft'. Harmless in Phase 1 where nothing renders.
 export function updateSlideshow(
   slideshowId: string,
-  fields: { name?: string; transition?: SlideshowTransition; slideSeconds?: number; musicTrackId?: string | null }
+  fields: { name?: string; transition?: SlideshowTransition; slideSeconds?: number; transitionSeconds?: number; musicTrackId?: string | null }
 ): boolean {
   const slideshow = getSlideshow(slideshowId);
   if (!slideshow) return false;
@@ -79,6 +88,7 @@ export function updateSlideshow(
       name = COALESCE(?, name),
       transition = COALESCE(?, transition),
       slide_seconds = COALESCE(?, slide_seconds),
+      transition_seconds = COALESCE(?, transition_seconds),
       music_track_id = CASE WHEN ? THEN ? ELSE music_track_id END,
       render_status = CASE WHEN render_status = 'ready' THEN 'draft' ELSE render_status END,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
@@ -87,6 +97,7 @@ export function updateSlideshow(
     fields.name ?? null,
     fields.transition ?? null,
     fields.slideSeconds ?? null,
+    fields.transitionSeconds ?? null,
     fields.musicTrackId !== undefined ? 1 : 0, fields.musicTrackId ?? null,
     slideshowId
   );
@@ -218,6 +229,7 @@ export function summarize(
     coverUrl: coverKey ? `/api/library/covers/${coverKey}` : null,
     transition: row.transition,
     slideSeconds: row.slide_seconds,
+    transitionSeconds: row.transition_seconds,
     musicTrackId: row.music_track_id,
     renderStatus: row.render_status,
     canEdit,
@@ -315,5 +327,19 @@ export function setSlideshowRenderState(
     fields.renderedAt !== undefined ? 1 : 0, fields.renderedAt ?? null,
     slideshowId
   );
+}
+
+// Record where the latest render was auto-saved as a gallery video item, so a re-render
+// overwrites the same file (and updates the same catalog item) instead of duplicating it.
+// Cleared by passing null everywhere (e.g. if saving to a library ever needs to reset).
+export function setSlideshowMovieAsset(
+  slideshowId: string,
+  fields: { libraryId: string | null; relativePath: string | null; itemId: string | null }
+): void {
+  db.prepare(`
+    UPDATE gallery_slideshows SET
+      movie_library_id = ?, movie_relative_path = ?, movie_item_id = ?
+    WHERE id = ?
+  `).run(fields.libraryId, fields.relativePath, fields.itemId, slideshowId);
 }
 

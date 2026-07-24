@@ -502,6 +502,19 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.11.0",
+          label: "Slideshow studio: movie title cards, cinematic transitions, and smarter suggestions",
+          changes: [
+            "Rendered movies open with a title card. Every exported MP4 now starts on a ~3-second black card with the slideshow's name and photo count, cross-fading into the first photo with the slideshow's own transition — so a saved movie carries its identity.",
+            "Movies can be saved into your gallery. A new admin setting under Slideshows (\"Save rendered movies to\") picks a gallery library; every finished render is filed there as a real video — browsable in the Timeline, favoritable, shareable. Re-rendering updates the same video instead of piling up copies, and renaming the slideshow renames the saved movie on the next render.",
+            "Transitions got cinematic. They're slower and now blend photo-into-photo instead of blinking through black; a new \"Transition length\" slider (0.5–5s) controls the pace in both the live player and the movie; \"Random\" varies the style at every cut; and a new \"Dip to black\" option gives the classic film cut — the old photo sinks into black and the next rises out of it. Ken Burns no longer snaps back to normal size before changing slides.",
+            "Suggested slideshows open as a preview first. Tapping a suggestion now shows its photos with a \"Create slideshow\" button, instead of creating one immediately — closing the preview changes nothing. Suggestions also skip near-duplicate shots: burst photos and re-takes of the same scene are recognized by a visual fingerprint (computed during normal scans) and collapse to their best single photo, so a montage is 40 different pictures, not 12 versions of the same one.",
+            "Add photos to a slideshow by browsing folders. A new \"Add photos\" button in the slideshow editor opens your galleries folder-by-folder — select across folders and add straight into the slideshow, with already-added photos marked; no round-trip through the Timeline.",
+            "Movie housekeeping. A Delete button removes a rendered movie (and any temporary files) so you can reclaim space — a copy already saved to your gallery is kept. Cancelling a render from the Tasks page now actually stops it (previously the editor showed \"Rendering movie…\" forever), and the Tasks page shows renders as \"Slideshow movie\" with live progress and a result.",
+            "Slideshow music is your uploads only. The synthesized built-in ambient beds were retired — upload your own tracks in the music picker; existing uploads and selections are untouched."
+          ]
+        },
+        {
           version: "1.10.0",
           label: "Share a whole album — live links that stay in step with the album",
           changes: [

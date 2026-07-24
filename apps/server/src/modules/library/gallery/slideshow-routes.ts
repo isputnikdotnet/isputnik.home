@@ -4,9 +4,10 @@
 // album-routes.ts; the extra endpoint here is reorder (albums shipped without it).
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
-import { logActivity } from "../../../db.js";
+import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
+import { getRenderLibraryId, setRenderLibraryId } from "./slideshow-settings.js";
 import {
   getSlideshow,
   canEditSlideshow,
@@ -22,7 +23,7 @@ import {
   type SlideshowRow
 } from "./slideshows.js";
 import { getMusicTrack, summarizeTrack } from "./music.js";
-import { enqueueSlideshowRender, renderProgressPercent } from "./slideshow-render.js";
+import { enqueueSlideshowRender, renderProgressPercent, deleteSlideshowRender } from "./slideshow-render.js";
 import { parseRangeHeader } from "../shared/document-stream.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import fs from "node:fs";
@@ -43,7 +44,10 @@ function renderFields(slideshow: SlideshowRow) {
     // render (e.g. the one made before music was added) from cache.
     movieUrl: slideshow.render_status === "ready" && slideshow.output_storage_key
       ? `/api/library/gallery/slideshows/${slideshow.id}/movie?v=${encodeURIComponent(slideshow.rendered_at ?? "")}`
-      : null
+      : null,
+    // Whether the latest render was saved into a gallery library (so the delete
+    // confirmation can note the movie item is kept).
+    movieSavedToLibrary: Boolean(slideshow.movie_library_id && slideshow.movie_item_id)
   };
 }
 
@@ -58,8 +62,9 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
-  transition: z.enum(["none", "crossfade", "fade", "slide", "kenburns"]).optional(),
+  transition: z.enum(["none", "crossfade", "fade", "slide", "kenburns", "dipblack", "random"]).optional(),
   slideSeconds: z.number().min(1).max(30).optional(),
+  transitionSeconds: z.number().min(0.5).max(5).optional(),
   // null clears the music; a string selects a track (validated below).
   musicTrackId: z.string().trim().min(1).max(64).nullable().optional()
 });
@@ -101,6 +106,39 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/slideshows", { preHandler: app.authenticate }, async (request) => {
     const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
     return { slideshows: listSlideshows(request.user!, libIds) };
+  });
+
+  // The global "default movie library" (admin): where every successful render is auto-saved
+  // as a gallery video item. `renderLibraryId` is null when saving-to-a-library is off.
+  // (Static path — Fastify routes this ahead of the "/:id" route below.)
+  app.get("/api/library/gallery/slideshows/settings", { preHandler: app.requireAdmin }, async () => {
+    const libraries = db.prepare("SELECT id, name FROM libraries WHERE type = 'gallery' ORDER BY name COLLATE NOCASE").all() as { id: string; name: string }[];
+    return { renderLibraryId: getRenderLibraryId(), libraries };
+  });
+
+  const settingsSchema = z.object({ renderLibraryId: z.string().trim().min(1).max(64).nullable() });
+
+  app.patch("/api/library/gallery/slideshows/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(settingsSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid movie settings", details: parsed.error });
+      return;
+    }
+    const libraryId = parsed.data.renderLibraryId;
+    if (libraryId && !db.prepare("SELECT 1 FROM libraries WHERE id = ? AND type = 'gallery'").get(libraryId)) {
+      reply.code(400).send({ error: "That gallery library no longer exists." });
+      return;
+    }
+    setRenderLibraryId(libraryId, request.user!.id);
+    logActivity({
+      event: "gallery.slideshow.settings",
+      actorUserId: request.user!.id,
+      targetType: "app_setting",
+      targetId: "gallery.slideshow.render_library",
+      detail: libraryId ? `Set the default slideshow-movie library.` : `Turned off saving slideshow movies to a library.`,
+      ipAddress: request.ip
+    });
+    reply.send({ renderLibraryId: getRenderLibraryId() });
   });
 
   app.post("/api/library/gallery/slideshows", { preHandler: app.authenticate }, async (request, reply) => {
@@ -151,6 +189,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         name: slideshow.name,
         transition: slideshow.transition,
         slideSeconds: slideshow.slide_seconds,
+        transitionSeconds: slideshow.transition_seconds,
         canEdit: canEditSlideshow(slideshow, user),
         updatedAt: slideshow.updated_at,
         ...musicFields(slideshow.music_track_id),
@@ -242,6 +281,29 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       });
       fs.createReadStream(filePath).pipe(reply.raw);
     }
+  });
+
+  // Delete the rendered movie (editors only): removes the MP4 + any leftover temp files
+  // and returns the slideshow to 'draft'. A copy already saved to a gallery library is
+  // kept. Refused while a render is in flight — cancel it from the Tasks page first.
+  app.delete("/api/library/gallery/slideshows/:id/movie", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    const slideshow = editable((request.params as { id: string }).id, user, reply);
+    if (!slideshow) return;
+    if (slideshow.render_status === "queued" || slideshow.render_status === "rendering") {
+      reply.code(409).send({ error: "A render is in progress. Cancel it from the Tasks page first." });
+      return;
+    }
+    deleteSlideshowRender(slideshow);
+    logActivity({
+      event: "gallery.slideshow.movie_deleted",
+      actorUserId: user.id,
+      targetType: "gallery_slideshow",
+      targetId: slideshow.id,
+      detail: `Deleted the rendered movie of slideshow "${slideshow.name}".`,
+      ipAddress: request.ip
+    });
+    reply.send({ deleted: true });
   });
 
   app.patch("/api/library/gallery/slideshows/:id", { preHandler: app.authenticate }, async (request, reply) => {

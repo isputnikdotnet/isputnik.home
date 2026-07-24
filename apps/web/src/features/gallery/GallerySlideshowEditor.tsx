@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, Film, GripVertical, Heart, Image as ImageIcon, Music, Play, RefreshCw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Film, FolderOpen, GripVertical, Heart, Image as ImageIcon, Music, Play, RefreshCw, Trash2, X } from "lucide-react";
 import { MusicPicker } from "./MusicPicker";
 import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes } from "../../shared/utils";
@@ -12,6 +12,8 @@ const TRANSITIONS: { value: SlideshowTransition; label: string }[] = [
   { value: "fade", label: "Fade" },
   { value: "slide", label: "Slide" },
   { value: "kenburns", label: "Ken Burns" },
+  { value: "dipblack", label: "Dip to black" },
+  { value: "random", label: "Random" },
   { value: "none", label: "None" }
 ];
 
@@ -31,7 +33,9 @@ export function GallerySlideshowEditor({
   onReorder,
   onRemove,
   onPatch,
-  onRender
+  onRender,
+  onAddPhotos,
+  onDeleteMovie
 }: {
   slideshow: GallerySlideshowDetail;
   assets: GalleryAsset[];
@@ -43,8 +47,10 @@ export function GallerySlideshowEditor({
   onLoadMore: () => void;
   onReorder: (orderedIds: string[]) => void;
   onRemove: (id: string) => void;
-  onPatch: (fields: { transition?: SlideshowTransition; slideSeconds?: number; musicTrackId?: string | null }) => void;
+  onPatch: (fields: { transition?: SlideshowTransition; slideSeconds?: number; transitionSeconds?: number; musicTrackId?: string | null }) => void;
   onRender: () => void;
+  onAddPhotos: () => void;
+  onDeleteMovie: () => void;
 }) {
   const [musicOpen, setMusicOpen] = useState(false);
   // Local working order of item ids. Authoritative while dragging; otherwise it
@@ -70,6 +76,10 @@ export function GallerySlideshowEditor({
   // isn't a burst of PATCHes.
   const [dwell, setDwell] = useState(slideshow.slideSeconds);
   useEffect(() => { setDwell(slideshow.slideSeconds); }, [slideshow.slideSeconds, slideshow.id]);
+
+  // Transition length (seconds): same local-then-commit pattern as the dwell slider.
+  const [transitionLen, setTransitionLen] = useState(slideshow.transitionSeconds);
+  useEffect(() => { setTransitionLen(slideshow.transitionSeconds); }, [slideshow.transitionSeconds, slideshow.id]);
 
   const commitOrder = (next: string[]) => {
     setOrder(next);
@@ -112,6 +122,15 @@ export function GallerySlideshowEditor({
 
   return (
     <>
+      {canEdit && (
+        <div className="slideshow-toolbar">
+          <button type="button" className="secondary-button compact-button" onClick={onAddPhotos}>
+            <FolderOpen size={15} aria-hidden="true" /> Add photos
+          </button>
+          <span className="muted gallery-face-hint">Browse your galleries by folder and add more photos to this slideshow.</span>
+        </div>
+      )}
+
       {canEdit && ordered.length > 0 && (
         <div className="slideshow-settings" role="group" aria-label="Slideshow settings">
           <div className="slideshow-setting">
@@ -147,6 +166,25 @@ export function GallerySlideshowEditor({
               <span className="slideshow-dwell-value">{dwell}s</span>
             </div>
           </div>
+          {slideshow.transition !== "none" && (
+            <div className="slideshow-setting">
+              <label className="slideshow-setting-label" htmlFor="slideshow-transition-len">Transition length</label>
+              <div className="slideshow-dwell">
+                <input
+                  id="slideshow-transition-len"
+                  type="range"
+                  min={0.5}
+                  max={5}
+                  step={0.5}
+                  value={transitionLen}
+                  onChange={(e) => setTransitionLen(Number(e.target.value))}
+                  onPointerUp={() => { if (transitionLen !== slideshow.transitionSeconds) onPatch({ transitionSeconds: transitionLen }); }}
+                  onKeyUp={() => { if (transitionLen !== slideshow.transitionSeconds) onPatch({ transitionSeconds: transitionLen }); }}
+                />
+                <span className="slideshow-dwell-value">{transitionLen}s</span>
+              </div>
+            </div>
+          )}
           <div className="slideshow-setting">
             <span className="slideshow-setting-label">Music</span>
             <button type="button" className="slideshow-music-button" onClick={() => setMusicOpen(true)}>
@@ -182,6 +220,11 @@ export function GallerySlideshowEditor({
                       <RefreshCw size={15} aria-hidden="true" /> Re-render
                     </button>
                   )}
+                  {canEdit && (
+                    <button type="button" className="secondary-button compact-button" onClick={onDeleteMovie}>
+                      <Trash2 size={15} aria-hidden="true" /> Delete
+                    </button>
+                  )}
                 </div>
               </div>
               <video className="slideshow-movie-video" controls src={slideshow.movieUrl} />
@@ -193,6 +236,7 @@ export function GallerySlideshowEditor({
               <div className="slideshow-progress-track">
                 <div className="slideshow-progress-fill" style={{ width: `${slideshow.renderPercent ?? (slideshow.renderStatus === "queued" ? 3 : 6)}%` }} />
               </div>
+              <span className="muted gallery-face-hint">Rendering runs in the background and can take a few minutes — you can leave this page and come back.</span>
             </div>
           ) : canEdit ? (
             <div className="slideshow-movie-cta">
@@ -204,7 +248,7 @@ export function GallerySlideshowEditor({
                   <Film size={15} aria-hidden="true" /> {slideshow.renderStatus === "failed" ? "Try again" : "Render movie"}
                 </button>
                 <span className="muted gallery-face-hint">
-                  Export a downloadable MP4 of your photos, transitions{slideshow.musicTitle ? ", and music" : ""}. Videos are skipped, and Ken Burns exports as a crossfade.
+                  Export a downloadable MP4 of your photos and videos, transitions{slideshow.musicTitle ? ", and music" : ""}. The movie opens with a title card showing the slideshow’s name. Rendering runs in the background and can take a few minutes for a large slideshow. Ken Burns exports as a crossfade, and Random varies the transition at every cut. When a default movie library is set, the finished movie is also saved to your gallery.
                 </span>
               </div>
             </div>
@@ -274,7 +318,7 @@ export function GallerySlideshowEditor({
 
       {!loading && ordered.length === 0 && (
         <p className="management-empty">
-          This slideshow is empty. Select photos in the Timeline and use “Add to slideshow”.
+          This slideshow is empty. Use “Add photos” above to browse your galleries by folder, or select photos in the Timeline and use “Add to slideshow”.
         </p>
       )}
 

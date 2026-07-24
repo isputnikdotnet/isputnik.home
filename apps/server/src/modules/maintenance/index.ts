@@ -463,6 +463,11 @@ function summarizeTaskResult(type: string, result: Record<string, any> | null): 
       ? `${base} · paused at the 3-hour limit, ${result.remaining} photos continue next run`
       : `${base} · ${result.remaining} more continue in the next batch`;
   }
+  if (type === "gallery-slideshow-render") {
+    if (result.bytes == null) return null;
+    const mb = (result.bytes / (1024 * 1024)).toFixed(1);
+    return `Movie ${mb} MB${result.savedToLibrary ? " · saved to library" : ""}`;
+  }
   return null;
 }
 
@@ -470,7 +475,8 @@ function summarizeTaskResult(type: string, result: Record<string, any> | null): 
 const PROGRESS_UNIT: Record<string, string> = {
   SCAN_GALLERY_FACES: "photos",
   SCAN_GALLERY_LIBRARY: "items",
-  SCAN_EBOOK_LIBRARY: "books"
+  SCAN_EBOOK_LIBRARY: "books",
+  "gallery-slideshow-render": "seconds"
 };
 
 function normalizeTaskProgress(type: string, progress: Record<string, any> | null, startedAt: string | null): TaskProgress | null {
@@ -605,7 +611,7 @@ export async function maintenancePlugin(app: FastifyInstance) {
 
   app.post("/api/jobs/:id/cancel", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const job = db.prepare("SELECT id, status, payload FROM jobs WHERE id = ?").get(id) as { id: string; status: string; payload: string } | undefined;
+    const job = db.prepare("SELECT id, type, status, payload FROM jobs WHERE id = ?").get(id) as { id: string; type: string; status: string; payload: string } | undefined;
     if (!job) {
       reply.code(404).send({ error: "Task not found" });
       return;
@@ -620,10 +626,22 @@ export async function maintenancePlugin(app: FastifyInstance) {
       WHERE id = ?
     `).run(id);
     try {
-      const p = JSON.parse(job.payload) as { libraryId?: string };
+      const p = JSON.parse(job.payload) as { libraryId?: string; slideshowId?: string };
       if (p.libraryId) {
         db.prepare("UPDATE libraries SET scan_status = 'error', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ? AND scan_status = 'scanning'")
           .run(p.libraryId);
+      }
+      // A cancelled slideshow render must release the slideshow from its 'rendering'
+      // state now, or the editor polls "Rendering movie…" forever. Restore the previous
+      // movie ('ready') if one is on disk, else back to the 'Render movie' CTA ('draft').
+      // The render worker also sees the cancel (job no longer 'running') and stops.
+      if (job.type === "gallery-slideshow-render" && p.slideshowId) {
+        db.prepare(`
+          UPDATE gallery_slideshows
+          SET render_status = CASE WHEN output_storage_key IS NOT NULL THEN 'ready' ELSE 'draft' END,
+              render_error = NULL
+          WHERE id = ? AND render_status IN ('queued', 'rendering')
+        `).run(p.slideshowId);
       }
     } catch { /* ignore */ }
     reply.send({ cancelled: true });

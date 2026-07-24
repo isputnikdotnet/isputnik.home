@@ -13,9 +13,9 @@ function formatDuration(seconds: number | null): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// Choose the music bed for a slideshow: built-in ambient beds + the user's uploads,
-// with in-place preview, upload, and delete (own uploads / admin). Selecting a track
-// (or "No music") calls onSelect; the parent persists it. Modeled on AddToAlbumModal.
+// Choose the music for a slideshow: the user's uploaded tracks, with in-place
+// preview, upload, and delete (own uploads / admin). Selecting a track (or "No
+// music") calls onSelect; the parent persists it. Modeled on AddToAlbumModal.
 export function MusicPicker({
   selectedId,
   onSelect,
@@ -94,8 +94,7 @@ export function MusicPicker({
     }
   };
 
-  const builtins = (tracks ?? []).filter((t) => t.builtin);
-  const uploads = (tracks ?? []).filter((t) => !t.builtin);
+  const uploads = tracks ?? [];
 
   const row = (track: GalleryMusicTrack) => (
     <li key={track.id} className={`music-row${selectedId === track.id ? " is-selected" : ""}`}>
@@ -111,15 +110,13 @@ export function MusicPicker({
       <button type="button" className="music-row-main" onClick={() => onSelect(track.id)}>
         <span className="music-row-title">{track.title}</span>
         <span className="music-row-meta">
-          {track.builtin ? "Built-in" : "Your upload"}{track.durationSeconds != null ? ` · ${formatDuration(track.durationSeconds)}` : ""}
+          Your upload{track.durationSeconds != null ? ` · ${formatDuration(track.durationSeconds)}` : ""}
         </span>
       </button>
       {selectedId === track.id && <Check size={18} className="music-row-check" aria-label="Selected" />}
-      {!track.builtin && (
-        <button type="button" className="music-row-delete" onClick={() => void remove(track)} aria-label={`Delete ${track.title}`} title="Delete track">
-          <Trash2 size={15} />
-        </button>
-      )}
+      <button type="button" className="music-row-delete" onClick={() => void remove(track)} aria-label={`Delete ${track.title}`} title="Delete track">
+        <Trash2 size={15} />
+      </button>
     </li>
   );
 
@@ -152,13 +149,6 @@ export function MusicPicker({
             {selectedId == null && <Check size={18} className="music-row-check" aria-label="Selected" />}
           </li>
         </ul>
-
-        {builtins.length > 0 && (
-          <>
-            <h4 className="music-group-heading">Built-in beds</h4>
-            <ul className="music-list">{builtins.map(row)}</ul>
-          </>
-        )}
 
         <h4 className="music-group-heading">Your uploads</h4>
         {uploads.length > 0 ? (

@@ -596,14 +596,70 @@
 .gallery-lightbox-media[data-transition="crossfade"] { animation: gallery-lb-fade 450ms ease; }
 .gallery-lightbox-media[data-transition="fade"] { animation: gallery-lb-fade 800ms ease; }
 .gallery-lightbox-media[data-transition="slide"] { animation: gallery-lb-slide 500ms ease; }
+.gallery-lightbox-media[data-transition="dipblack"] { animation: gallery-lb-dip-in 450ms ease; }
 .gallery-lightbox-media[data-transition="kenburns"] {
-  animation: gallery-lb-fade 600ms ease, gallery-lb-kenburns var(--lb-dwell, 5s) ease-out;
+  /* `forwards` holds the final zoom frame: the animation runs exactly one dwell, but
+     the slide advances a beat later (timer/render drift) — without fill the transform
+     snapped back to scale(1) right before every transition. */
+  animation: gallery-lb-fade 600ms ease, gallery-lb-kenburns var(--lb-dwell, 5s) ease-out forwards;
   transform-origin: center;
+  will-change: transform;
+}
+
+/* During slideshow PLAYBACK (data-playing, set by GalleryLightbox) the entrances run
+   at the slideshow's own transition length (--lb-transition, from the editor's
+   "Transition length" slider; 2s default) so the preview matches the rendered movie;
+   manual arrow-browsing keeps the quick versions above. Ken Burns needs both
+   durations — the fade-in and the dwell-long zoom — or the shorthand's zoom pace
+   would be overwritten. */
+.gallery-lightbox-media[data-playing][data-transition="crossfade"],
+.gallery-lightbox-media[data-playing][data-transition="fade"],
+.gallery-lightbox-media[data-playing][data-transition="slide"],
+.gallery-lightbox-media[data-playing][data-transition="dipblack"] { animation-duration: var(--lb-transition, 2s); }
+.gallery-lightbox-media[data-playing][data-transition="kenburns"] { animation-duration: var(--lb-transition, 2s), var(--lb-dwell, 5s); }
+
+/* The outgoing photo, held beneath the incoming slide during playback so transitions
+   cross-fade/wipe over the previous image instead of the dark stage. Negative z-index
+   keeps it under the (static) incoming media and the nav arrows within the lightbox's
+   stacking context; the inset mirrors the stage padding so it centres like the media. */
+.gallery-lightbox-under {
+  position: absolute;
+  inset: 0 8px 12px;
+  margin: auto;
+  z-index: -1;
+  animation: none !important;
+}
+
+/* A departing Ken Burns slide is held at its final zoom (fill-mode forwards above);
+   its underlay copy must match, or the photo snaps back to scale(1) at the cut. */
+.gallery-lightbox-under.is-zoomed {
+  transform: scale(1.12);
+  transform-origin: center;
+}
+
+/* Dip to black: the outgoing photo fades into the dark stage over the FIRST half of
+   the transition (the incoming slide holds transparent until the midpoint, above).
+   Overrides the underlay's animation: none; `forwards` keeps it black until removed. */
+.gallery-lightbox-under.is-dipping {
+  animation: gallery-lb-dip-out calc(var(--lb-transition, 2s) / 2) ease forwards !important;
 }
 
 @keyframes gallery-lb-fade {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* Dip to black: the incoming slide holds invisible while the outgoing one (the
+   underlay, below) sinks into the dark stage, then rises out of it. */
+@keyframes gallery-lb-dip-in {
+  0% { opacity: 0; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes gallery-lb-dip-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes gallery-lb-slide {
@@ -1060,6 +1116,46 @@
 
 /* ── Slideshow editor ─────────────────────────────────────────────────────── */
 
+/* Editor toolbar (above the settings): "Add photos" + hint. */
+.slideshow-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+/* Folder-browser modal: a library select in the header, breadcrumb, selectable tiles,
+   and a sticky action row. */
+.slideshow-browse-scope select { max-width: 200px; }
+.slideshow-browse-crumbs { margin: 0; flex-wrap: wrap; }
+.slideshow-browse-crumb { display: inline-flex; align-items: center; gap: 4px; }
+.slideshow-browse-tile { position: relative; }
+.slideshow-browse-tile.is-selected { outline: 3px solid var(--mint); outline-offset: -3px; }
+.slideshow-browse-tile.is-added { opacity: 0.55; cursor: default; }
+.slideshow-browse-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+}
+.slideshow-browse-badge.selected { background: var(--mint); color: #10261c; padding: 3px; }
+.slideshow-browse-badge.added { background: rgba(0, 0, 0, 0.65); }
+.slideshow-browse-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 /* Presentation settings above the reorderable grid (transition + timing). */
 .slideshow-settings {
   display: flex;
@@ -1325,6 +1421,14 @@
   .gallery-memory-play { opacity: 1; background: transparent; }
 }
 
+/* Suggestion preview modal: subtitle + action row above a read-only photo grid. */
+.suggestion-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.suggestion-preview-head p { margin: 0; }
+.suggestion-preview-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.suggestion-preview-tile { cursor: default; }
+.suggestion-preview-tile:hover { transform: none; }
+.suggestion-preview-tile .gallery-folder-thumb { position: relative; } /* anchors the video badge */
+
 /* ── Slideshow movie (MP4 render) ─────────────────────────────────────────── */
 
 .slideshow-movie {
@@ -1580,6 +1684,15 @@
   border: 1px solid var(--line);
   border-radius: 10px;
 }
+
+/* Admin: the global "default movie library" picker in the slideshows toolbar. */
+.slideshow-movie-lib {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.slideshow-movie-lib select { max-width: 220px; }
 
 .gallery-person-rename {
   display: inline-flex;

@@ -3,6 +3,7 @@ import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { suggestGalleryMemories } from "../src/modules/library/gallery/memories.js";
+import { getGalleryAssets } from "../src/modules/library/gallery/catalog.js";
 import { createSlideshow, getSlideshow, getSlideshowItems, addSlideshowItems } from "../src/modules/library/gallery/slideshows.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
@@ -72,6 +73,40 @@ describe("memory suggestions", () => {
     expect(suggestGalleryMemories(["GAL", "PRIV"])).toHaveLength(1);
   });
 
+  it("collapses near-duplicate photos to one representative per scene", async () => {
+    const ids = await burst("GAL", "dup", "2024-08-24T10:00:00Z", 8);
+    // First three are the same shot (hashes within a couple of bits); the remaining
+    // five are pairwise far apart (>10 differing bits).
+    const hashes = [
+      "0000000000000000", "0000000000000001", "0000000000000003",
+      "ffffffffffffffff", "00ff00ff00ff00ff", "ff00ff00ff00ff00", "0f0f0f0f0f0f0f0f", "f0f0f0f0f0f0f0f0"
+    ];
+    const set = db.prepare("UPDATE gallery_details SET phash = ? WHERE item_id = ?");
+    ids.forEach((id, i) => set.run(hashes[i], id));
+
+    const out = suggestGalleryMemories(["GAL"]);
+    expect(out).toHaveLength(1);
+    expect(out[0].count).toBe(6); // 8 shots, 3 of one scene → 6 distinct
+    expect(out[0].itemIds).toHaveLength(6);
+    expect(out[0].itemIds).toContain(ids[0]); // the burst's FIRST frame survives
+    expect(out[0].itemIds).not.toContain(ids[1]);
+    expect(out[0].itemIds).not.toContain(ids[2]);
+    expect(out[0].subtitle).toBe("6 photos");
+  });
+
+  it("does not suggest a moment that is all one duplicated scene", async () => {
+    const ids = await burst("GAL", "same", "2024-08-24T10:00:00Z", 8);
+    const set = db.prepare("UPDATE gallery_details SET phash = ? WHERE item_id = ?");
+    ids.forEach((id) => set.run("00000000000000ff", id));
+    expect(suggestGalleryMemories(["GAL"])).toEqual([]); // 1 distinct photo < MIN_ITEMS
+  });
+
+  it("keeps unhashed photos (no phash yet) — dedupe never drops what it can't judge", async () => {
+    await burst("GAL", "raw", "2024-08-24T10:00:00Z", 8); // ingested with NULL phash
+    const out = suggestGalleryMemories(["GAL"]);
+    expect(out[0].count).toBe(8);
+  });
+
   it("names user-named people in the subtitle, ignoring auto (empty-name) clusters", async () => {
     const ids = await burst("GAL", "party", "2024-08-24T10:00:00Z", 8);
     db.prepare("INSERT INTO gallery_people (id, name) VALUES ('p-emma', 'Emma')").run();
@@ -82,6 +117,20 @@ describe("memory suggestions", () => {
     face.run("f3", ids[2], "p-auto"); // auto person must not surface
     const out = suggestGalleryMemories(["GAL"]);
     expect(out[0].subtitle).toBe("8 photos · with Emma");
+  });
+});
+
+describe("bulk asset lookup (suggestion preview)", () => {
+  it("returns assets in the requested order, omitting inaccessible and unknown ids", async () => {
+    const ids = await burst("GAL", "look", "2024-08-24T10:00:00Z", 3);
+    const priv = await burst("PRIV", "hidden", "2024-08-25T10:00:00Z", 1);
+
+    const requested = [ids[2], "no-such-id", priv[0], ids[0]];
+    const out = getGalleryAssets("u", ["GAL"], requested); // PRIV not accessible
+    expect(out.map((a) => a.id)).toEqual([ids[2], ids[0]]); // requested order kept
+    // With PRIV in scope, its item appears too — still in requested order.
+    expect(getGalleryAssets("u", ["GAL", "PRIV"], requested).map((a) => a.id)).toEqual([ids[2], priv[0], ids[0]]);
+    expect(getGalleryAssets("u", [], requested)).toEqual([]);
   });
 });
 

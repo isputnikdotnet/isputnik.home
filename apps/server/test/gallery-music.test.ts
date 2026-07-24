@@ -9,7 +9,8 @@ import {
   deleteMusicTrack,
   getMusicTrack,
   listMusicTracks,
-  musicTempDir
+  musicTempDir,
+  removeBuiltinMusic
 } from "../src/modules/library/gallery/music.js";
 import { createSlideshow, getSlideshow, updateSlideshow } from "../src/modules/library/gallery/slideshows.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
@@ -64,12 +65,42 @@ describe("music uploads", () => {
 });
 
 describe("music listing", () => {
-  it("lists built-in beds before user tracks", async () => {
-    seedBuiltinRow("builtinbedwarm001", "Warm Daylight");
+  it("lists only user uploads (no built-in beds)", async () => {
     await uploadFake(uploader, "Mine.mp3", "mp3");
     const tracks = listMusicTracks();
-    expect(tracks[0].builtin).toBe(true);
-    expect(tracks.some((t) => !t.builtin && t.title === "Mine")).toBe(true);
+    expect(tracks.every((t) => !t.builtin)).toBe(true);
+    expect(tracks.some((t) => t.title === "Mine")).toBe(true);
+  });
+});
+
+describe("retiring built-in beds", () => {
+  it("purges built-in rows (and files) but leaves user uploads", async () => {
+    const bedPath = path.join(store, "music", "bu", "il", "builtinbedwarm001.flac");
+    fs.mkdirSync(path.dirname(bedPath), { recursive: true });
+    fs.writeFileSync(bedPath, Buffer.from("fake"));
+    db.prepare(
+      "INSERT INTO gallery_music_tracks (id, title, artist, builtin, storage_key, duration_seconds) VALUES (?, 'Warm Daylight', 'Built-in', 1, ?, 24)"
+    ).run("builtinbedwarm001", "music/bu/il/builtinbedwarm001.flac");
+    const mine = await uploadFake(uploader, "Mine.mp3", "mp3");
+
+    removeBuiltinMusic();
+
+    expect(getMusicTrack("builtinbedwarm001")).toBeUndefined();
+    expect(fs.existsSync(bedPath)).toBe(false);
+    expect(getMusicTrack(mine.id)).toBeDefined();
+    const listed = listMusicTracks();
+    expect(listed.every((t) => !t.builtin)).toBe(true);
+    expect(listed.some((t) => t.id === mine.id)).toBe(true);
+  });
+
+  it("degrades a slideshow that pointed at a built-in bed to silent", () => {
+    seedBuiltinRow("builtinbedcalm001", "Quiet Evening");
+    const slideshow = createSlideshow(uploader, "Trip");
+    updateSlideshow(slideshow.id, { musicTrackId: "builtinbedcalm001" });
+    expect(getSlideshow(slideshow.id)!.music_track_id).toBe("builtinbedcalm001");
+
+    removeBuiltinMusic();
+    expect(getSlideshow(slideshow.id)!.music_track_id).toBeNull();
   });
 });
 
