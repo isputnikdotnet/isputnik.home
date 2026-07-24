@@ -14,6 +14,7 @@ import {
   Library,
   ListMusic,
   LogOut,
+  Network,
   Quote,
   Settings,
   Shapes,
@@ -30,7 +31,7 @@ import { REPO_ISSUES_URL } from "../shared/links";
 
 const APP_VERSION = packageInfo.version;
 
-type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
+type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "family" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
 
 interface FooterAction {
   href: string;
@@ -84,7 +85,8 @@ function mainNavItems(active: DashboardActive): MainNavItem[] {
     { label: "Authors", href: "/authors", icon: UserRound, active: active === "authors" },
     { label: "Categories", href: "/categories", icon: Shapes, active: active === "categories" },
     { label: "Tags", href: "/tags", icon: Tag, active: active === "tags" },
-    { label: "Gallery", href: "/gallery", icon: Image, active: active === "gallery" }
+    { label: "Gallery", href: "/gallery", icon: Image, active: active === "gallery" },
+    { label: "Family Tree", href: "/family", icon: Network, active: active === "family" }
   ];
 }
 
@@ -129,6 +131,7 @@ function MobileNav({
     currentPath.startsWith("/categories") ||
     currentPath.startsWith("/tags") ||
     currentPath.startsWith("/gallery") ||
+    currentPath.startsWith("/family") ||
     (currentPath.startsWith("/audiobooks") && !downloadsActive);
   const profileActive = PROFILE_ROUTES.some((route) => currentPath === route || currentPath.startsWith(`${route}/`));
 
@@ -170,6 +173,10 @@ function MobileNav({
             <a className="mobile-media-option" href="/gallery" onClick={(event) => { followRoute(event, "/gallery"); close(); }}>
               <Image size={26} aria-hidden="true" />
               <span>Gallery</span>
+            </a>
+            <a className="mobile-media-option" href="/family" onClick={(event) => { followRoute(event, "/family"); close(); }}>
+              <Network size={26} aria-hidden="true" />
+              <span>Family Tree</span>
             </a>
           </div>
         </div>

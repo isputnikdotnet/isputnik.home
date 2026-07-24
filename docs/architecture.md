@@ -165,7 +165,8 @@ Routes are registered as Fastify plugins, grouped by domain:
 ```
 apps/server/src/
   index.ts                    ← registers corePlugin, usersPlugin, backupsPlugin,
-                                 libraryPlugin, collectionsPlugin, maintenancePlugin
+                                 libraryPlugin, collectionsPlugin, familyTreePlugin,
+                                 maintenancePlugin
   core/                       ← platform infrastructure ONLY: auth-routes, sessions,
                                  permissions, app-config, setup, logs, status, shared
   modules/                    ← product features
@@ -173,6 +174,9 @@ apps/server/src/
     uploads/                  ← upload streaming helpers
     backups/                  ← backup / restore
     collections/              ← cross-type user collections
+    familytree/               ← family members, unions/children, gallery photo links
+                                 (view: any user; edit: admin; persons can link to a
+                                 gallery face cluster to auto-surface tagged photos)
     maintenance/              ← scheduled upkeep jobs + the Tasks view over the job queue
     library/
       shared/                 ← library crud / access / serializer, trash, members,
@@ -201,6 +205,7 @@ apps/web/src/
     audiobooks/  └ reader/    ← audiobook pages + in-app reader
     library/                  ← cross-type library feed / tiles
     collections/  share/      ← collections UI, share dialogs
+    familytree/               ← person-centered SVG chart, people list, profiles
     control/  └ libraries/ sections/   ← control panel (admin)
   offline/  pwa/              ← installable-app + offline concerns
   assets/  └ backgrounds/ categories/

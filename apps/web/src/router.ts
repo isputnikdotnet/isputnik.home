@@ -19,6 +19,9 @@ export type Route =
   | { name: "gallery" }
   | { name: "galleryMemories" }
   | { name: "galleryAsset"; id: string }
+  | { name: "familyTree"; focusId?: string }
+  | { name: "familyPeople" }
+  | { name: "familyPerson"; id: string }
   | { name: "ebookAuthorDetail"; personName: string }
   | { name: "ebookSeries" }
   | { name: "ebookSeriesDetail"; seriesId: string }
@@ -90,6 +93,26 @@ export function getRoute(): Route {
   const galleryAssetMatch = path.match(/^\/gallery\/assets\/([^/]+)$/);
   if (galleryAssetMatch) {
     return { name: "galleryAsset", id: galleryAssetMatch[1] };
+  }
+
+  // Family tree: the chart (optionally focused on one person — a real path so
+  // re-centering builds browser history), the people list, and person profiles.
+  const familyPersonMatch = path.match(/^\/family\/people\/([^/]+)$/);
+  if (familyPersonMatch) {
+    return { name: "familyPerson", id: familyPersonMatch[1] };
+  }
+
+  if (path === "/family/people") {
+    return { name: "familyPeople" };
+  }
+
+  const familyFocusMatch = path.match(/^\/family\/tree\/([^/]+)$/);
+  if (familyFocusMatch) {
+    return { name: "familyTree", focusId: familyFocusMatch[1] };
+  }
+
+  if (path === "/family") {
+    return { name: "familyTree" };
   }
 
   // Cross-type home feeds behind the dashboard's "View all" links.
