@@ -253,6 +253,12 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   -- few bits of each other. NULL = video / not yet hashed (the scan backfills).
   -- Used by memory suggestions to pick visually distinct photos (similarity.ts).
   phash               TEXT,
+  -- Video only: a browser-playable H.264/AAC copy of a video the browser can't decode
+  -- (playable = 0), produced by the weekly "convert unplayable videos" job and stored in
+  -- the thumbnail bucket (see transcode.ts). NULL = native-playable / not converted /
+  -- can't be converted. web_video_attempts guards against retrying a bad file forever.
+  web_video_key       TEXT,
+  web_video_attempts  INTEGER NOT NULL DEFAULT 0,
   updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);
@@ -335,9 +341,12 @@ CREATE TABLE IF NOT EXISTS gallery_slideshows (
   -- Cross-fade length in seconds (0.5–5, route-validated); drives both the live
   -- player's playback animations and the rendered movie's xfade duration.
   transition_seconds REAL NOT NULL DEFAULT 2,
-  -- Render state of the LATEST MP4 export (Phase 4). 'draft' = never rendered / stale.
+  -- Render state of the LATEST MP4 export (Phase 4). 'draft' = never rendered.
   render_status  TEXT NOT NULL DEFAULT 'draft'
                    CHECK (render_status IN ('draft', 'queued', 'rendering', 'ready', 'failed')),
+  -- 1 = a 'ready' movie predates the slideshow's current settings/content (an edit
+  -- since the last render), so it stays visible + playable but is flagged out of date.
+  render_stale   INTEGER NOT NULL DEFAULT 0,
   render_job_id  TEXT REFERENCES jobs(id) ON DELETE SET NULL,
   output_storage_key TEXT,
   output_bytes   INTEGER,

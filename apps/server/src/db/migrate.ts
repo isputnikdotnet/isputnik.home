@@ -340,6 +340,30 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         DROP TABLE gallery_slideshow_items_backup;
       `);
     }
+  },
+  // render_stale: a rendered movie now stays visible after an edit but is flagged out
+  // of date (instead of the render dropping back to 'draft' and vanishing). Conditional
+  // because schema.sql (run first) already adds the column on fresh databases.
+  {
+    version: 19,
+    up: (db) => {
+      const columns = db.pragma("table_info(gallery_slideshows)") as { name: string }[];
+      if (!columns.some((column) => column.name === "render_stale")) {
+        db.exec("ALTER TABLE gallery_slideshows ADD COLUMN render_stale INTEGER NOT NULL DEFAULT 0");
+      }
+    }
+  },
+  // Web-playable transcode of a browser-undecodable video: the store key of the H.264
+  // copy + an attempt counter. Conditional because schema.sql (run first) already adds
+  // the columns on fresh databases.
+  {
+    version: 20,
+    up: (db) => {
+      const columns = db.pragma("table_info(gallery_details)") as { name: string }[];
+      const has = (name: string) => columns.some((column) => column.name === name);
+      if (!has("web_video_key")) db.exec("ALTER TABLE gallery_details ADD COLUMN web_video_key TEXT");
+      if (!has("web_video_attempts")) db.exec("ALTER TABLE gallery_details ADD COLUMN web_video_attempts INTEGER NOT NULL DEFAULT 0");
+    }
   }
 ];
 

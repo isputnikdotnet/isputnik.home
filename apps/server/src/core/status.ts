@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.11.2",
+          label: "Play old-format videos, and keep a movie visible after edits",
+          changes: [
+            "Legacy videos play in the browser. Videos whose codec no browser can decode (old MPEG-4/AMR camcorder and phone clips) used to only offer a download. A new weekly \"Convert unplayable videos\" job (Control panel → Scheduled jobs) makes a browser-playable H.264 copy of them so they play inline — the original file is never changed, and it works even on read-only media mounts. It's CPU-light per clip but runs a batch at a time, so a large backlog converts over a few weeks; you can also press Run now. Conversions show on the Tasks page as \"Video conversion\".",
+            "A rendered movie no longer disappears when you edit the slideshow. Changing the music, transition, timing, order, or name used to make the finished movie vanish from the editor. It now stays visible and playable, marked \"out of date\" with a prompt to re-render when you want the changes baked in."
+          ]
+        },
+        {
           version: "1.11.1",
           label: "Rendered movies now honour \"seconds per photo\"",
           changes: [

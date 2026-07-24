@@ -675,7 +675,7 @@ export function GalleryLightbox({
               data-transition={activeTransition === "kenburns" || activeTransition === "slide" ? "fade" : activeTransition}
               data-playing={playing ? "true" : undefined}
               style={{ ["--lb-transition" as string]: `${transitionSec}s` } as CSSProperties}
-              src={asset.fileUrl}
+              src={asset.playbackUrl}
               controls
               autoPlay
               playsInline

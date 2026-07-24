@@ -31,6 +31,7 @@ describe("scheduled jobs registry", () => {
     const jobs = listScheduledJobs();
     expect(jobs.map((j) => j.key).sort()).toEqual([
       "cleanup_job_logs",
+      "convert_unplayable_videos",
       "empty_recycle_bin",
       "purge_missing_gallery",
       "scan_audiobook_libraries",
@@ -69,6 +70,7 @@ describe("scheduled jobs registry", () => {
     const rows = db.prepare("SELECT key, enabled FROM scheduled_jobs ORDER BY key").all() as { key: string; enabled: number }[];
     expect(rows.map((r) => r.key)).toEqual([
       "cleanup_job_logs",
+      "convert_unplayable_videos",
       "empty_recycle_bin",
       "purge_missing_gallery",
       "scan_audiobook_libraries",

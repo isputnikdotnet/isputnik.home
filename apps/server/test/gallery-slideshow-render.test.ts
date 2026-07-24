@@ -287,7 +287,7 @@ describe("enqueue + progress", () => {
     expect(renderProgressPercent(null)).toBeNull();
   });
 
-  it("a settings edit or a reorder knocks a ready render back to draft", async () => {
+  it("a settings edit or a reorder flags a ready movie out of date (stays visible)", async () => {
     const a = (await ingestGalleryAsset("GAL", asset("a.jpg", "2024-01-01T00:00:00Z"), false))!;
     const b = (await ingestGalleryAsset("GAL", asset("b.jpg", "2024-01-02T00:00:00Z"), false))!;
     const slideshow = createSlideshow(creator, "S");
@@ -295,11 +295,30 @@ describe("enqueue + progress", () => {
 
     setSlideshowRenderState(slideshow.id, { status: "ready", outputStorageKey: "slideshows/x/y.mp4", outputBytes: 100 });
     updateSlideshow(slideshow.id, { slideSeconds: 6 });
-    expect(getSlideshow(slideshow.id)!.render_status).toBe("draft");
+    // The movie stays 'ready' (still served) but is flagged stale.
+    expect(getSlideshow(slideshow.id)!.render_status).toBe("ready");
+    expect(getSlideshow(slideshow.id)!.render_stale).toBe(1);
 
+    // Re-rendering (or any setSlideshowRenderState) clears the flag.
     setSlideshowRenderState(slideshow.id, { status: "ready" });
+    expect(getSlideshow(slideshow.id)!.render_stale).toBe(0);
+
     reorderSlideshowItems(slideshow.id, [b, a]);
+    expect(getSlideshow(slideshow.id)!.render_status).toBe("ready");
+    expect(getSlideshow(slideshow.id)!.render_stale).toBe(1);
+
+    // Enqueuing a re-render clears it too.
+    enqueueSlideshowRender(getSlideshow(slideshow.id)!, "creator");
+    expect(getSlideshow(slideshow.id)!.render_stale).toBe(0);
+  });
+
+  it("edits don't touch render_stale when there's no ready movie", async () => {
+    const a = (await ingestGalleryAsset("GAL", asset("a.jpg", "2024-01-01T00:00:00Z"), false))!;
+    const slideshow = createSlideshow(creator, "S");
+    addSlideshowItems(slideshow.id, new Set(["GAL"]), [a]);
+    updateSlideshow(slideshow.id, { slideSeconds: 6 }); // still draft
     expect(getSlideshow(slideshow.id)!.render_status).toBe("draft");
+    expect(getSlideshow(slideshow.id)!.render_stale).toBe(0);
   });
 });
 

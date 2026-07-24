@@ -9,18 +9,20 @@ import { db } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook } from "../shared/library-access.js";
 import { parseRangeHeader } from "../shared/document-stream.js";
+import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 
 export async function galleryStreamPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/assets/:id/file", { preHandler: app.authenticate }, (request, reply) => {
     const { id } = request.params as { id: string };
 
     const row = db.prepare(`
-      SELECT gallery_details.relative_path, gallery_details.mime_type, libraries.source_path, libraries.id AS id
+      SELECT gallery_details.relative_path, gallery_details.mime_type, gallery_details.web_video_key,
+             libraries.source_path, libraries.id AS id
       FROM gallery_details
       JOIN library_items ON library_items.id = gallery_details.item_id
       JOIN libraries ON libraries.id = library_items.library_id
       WHERE gallery_details.item_id = ? AND library_items.deleted_at IS NULL
-    `).get(id) as { relative_path: string; mime_type: string | null; source_path: string; id: string } | undefined;
+    `).get(id) as { relative_path: string; mime_type: string | null; web_video_key: string | null; source_path: string; id: string } | undefined;
 
     if (!row) {
       reply.code(404).send({ error: "Asset not found" });
@@ -33,15 +35,26 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
       return;
     }
 
-    const filePath = path.join(row.source_path, ...row.relative_path.split("/"));
-    if (!pathIsInside(filePath, row.source_path) || !fs.existsSync(filePath)) {
-      reply.code(404).send({ error: "Asset not found" });
-      return;
+    // ?web=1 serves the browser-playable H.264 copy (transcode.ts) for inline playback of
+    // a video the browser can't decode; downloads and everything else keep the original.
+    const wantWeb = typeof (request.query as { web?: string }).web === "string" && row.web_video_key;
+    let filePath: string;
+    let mimeType: string;
+    if (wantWeb) {
+      try { filePath = thumbnailAbsolutePath(row.web_video_key!); } catch { reply.code(404).send({ error: "Asset not found" }); return; }
+      mimeType = "video/mp4";
+      if (!fs.existsSync(filePath)) { reply.code(404).send({ error: "Asset not found" }); return; }
+    } else {
+      filePath = path.join(row.source_path, ...row.relative_path.split("/"));
+      mimeType = row.mime_type ?? "application/octet-stream";
+      if (!pathIsInside(filePath, row.source_path) || !fs.existsSync(filePath)) {
+        reply.code(404).send({ error: "Asset not found" });
+        return;
+      }
     }
 
     const stat = fs.statSync(filePath);
     const totalSize = stat.size;
-    const mimeType = row.mime_type ?? "application/octet-stream";
     const rangeHeader = request.headers["range"];
     const range = rangeHeader ? parseRangeHeader(rangeHeader, totalSize) : null;
 

@@ -6,6 +6,7 @@ import { gallerySlideshowRoutesPlugin } from "./slideshow-routes.js";
 import { galleryMusicRoutesPlugin } from "./music-routes.js";
 import { removeBuiltinMusic } from "./music.js";
 import { startSlideshowRenderWorker } from "./slideshow-render.js";
+import { startTranscodeWorker } from "./transcode.js";
 import { galleryStreamPlugin } from "./stream.js";
 import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
@@ -25,9 +26,11 @@ export async function galleryPlugin(app: FastifyInstance) {
   const stopWorker = startGalleryScanWorker();
   const stopFaceWorker = startFaceScanWorker();
   const stopRenderWorker = startSlideshowRenderWorker();
+  const stopTranscodeWorker = startTranscodeWorker();
   app.addHook("onClose", async () => {
     stopWorker();
     stopFaceWorker();
     stopRenderWorker();
+    stopTranscodeWorker();
   });
 }

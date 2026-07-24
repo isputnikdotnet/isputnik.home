@@ -205,7 +205,9 @@ function pruneEmptyTrashDir(root: string, trashPath: string): void {
 function deleteBookCovers(libraryId: string, bookId: string, coverStorageKey: string | null): void {
   const keys = new Set([
     thumbnailStorageKey(libraryId, bookId, `${bookId}-cover.webp`),
-    thumbnailStorageKey(libraryId, bookId, `${bookId}-cover-large.webp`)
+    thumbnailStorageKey(libraryId, bookId, `${bookId}-cover-large.webp`),
+    // Gallery video web-playable copy (transcode.ts); a no-op for non-video items.
+    thumbnailStorageKey(libraryId, bookId, `${bookId}-web.mp4`)
   ]);
   if (coverStorageKey) keys.add(coverStorageKey);
   for (const key of keys) {

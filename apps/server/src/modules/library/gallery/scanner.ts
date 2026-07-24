@@ -211,6 +211,11 @@ export async function ingestGalleryAsset(
         preview_storage_key = COALESCE(excluded.preview_storage_key, gallery_details.preview_storage_key),
         -- A failed hash never wipes a previous one (e.g. a re-ingest without thumbs).
         phash = COALESCE(excluded.phash, gallery_details.phash),
+        -- This UPSERT only runs for a new/changed file (the unchanged fast-path returns
+        -- earlier), so any existing web-playable copy is now stale: clear it so the
+        -- convert job re-makes one from the new content if it's still unplayable.
+        web_video_key = NULL,
+        web_video_attempts = 0,
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(
       itemId, file.kind, file.relativePath, mimeForExtension(file.extension), file.size,
