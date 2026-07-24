@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.11.3",
+          label: "Clearer activity logs: filters, named shares, and download auditing",
+          changes: [
+            "Filter the activity log. The Logs screen (Control panel → Logs) has a new Filter button that narrows the log by event type, user, or IP address — pick several at once, and the choices show as removable chips. The free-text search is still there for finding a specific title or detail.",
+            "Shared links now say what was opened. Log entries for shared audiobooks, ebooks, photos, albums and photo sets now include the name of the item or album that a guest opened or downloaded, instead of just the media type.",
+            "In-app downloads are now recorded. Previously only guest-link downloads were logged; downloading an audiobook, ebook, photo, video, slideshow movie, or a database backup while signed in is now written to the activity log too (with the user and IP). Viewing or streaming in the app is not logged — only actual downloads."
+          ]
+        },
+        {
           version: "1.11.2",
           label: "Play old-format videos, and keep a movie visible after edits",
           changes: [

@@ -3,8 +3,19 @@ import { FileText } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { FacetFilterButton, FacetFilterChips, type FacetDef } from "../../../shared/FacetFilter";
 import { formatManagedDate } from "../../../shared/utils";
 import type { LogEvent } from "../types";
+
+type LogFilterKey = "event" | "user" | "ip";
+
+const EMPTY_LOG_FILTERS: Record<LogFilterKey, string[]> = { event: [], user: [], ip: [] };
+
+const LOG_FACET_ORDER: FacetDef<LogFilterKey>[] = [
+  { key: "event", title: "Event", searchable: true },
+  { key: "user", title: "User", searchable: true },
+  { key: "ip", title: "IP address", searchable: true }
+];
 
 function LogEventCell({ event }: { event: string }) {
   const [category, ...rest] = event.split(".");
@@ -22,6 +33,8 @@ export function LogsSection() {
   const [error, setError] = useState("");
   const [logSearchInput, setLogSearchInput] = useState("");
   const [logSearch, setLogSearch] = useState("");
+  const [filters, setFilters] = useState<Record<LogFilterKey, string[]>>(EMPTY_LOG_FILTERS);
+  const [facets, setFacets] = useState<Partial<Record<LogFilterKey, string[]>>>({});
   const [logPage, setLogPage] = useState(1);
   const [logPageSize, setLogPageSize] = useState(25);
   const [logTotal, setLogTotal] = useState(0);
@@ -39,12 +52,23 @@ export function LogsSection() {
     if (logSearch) {
       query.set("q", logSearch);
     }
-    const payload = await api<{ logs: LogEvent[]; page: number; pageSize: number; total: number; totalPages: number }>(`/api/logs?${query}`);
+    (Object.keys(filters) as LogFilterKey[]).forEach((key) => {
+      filters[key].forEach((value) => query.append(key, value));
+    });
+    const payload = await api<{
+      logs: LogEvent[];
+      facets: Record<LogFilterKey, string[]>;
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    }>(`/api/logs?${query}`);
     setLogs(payload.logs);
+    setFacets(payload.facets);
     setLogPage(payload.page);
     setLogTotal(payload.total);
     setLogTotalPages(payload.totalPages);
-  }, [logPage, logPageSize, logSearch]);
+  }, [logPage, logPageSize, logSearch, filters]);
 
   useEffect(() => {
     loadLogs().catch((err) => setError(err instanceof Error ? err.message : "Unable to load logs"));
@@ -75,6 +99,12 @@ export function LogsSection() {
     }
     setLogPage(1);
     setLogSearch(query);
+  };
+
+  const changeFilters = (next: Record<LogFilterKey, string[]>) => {
+    setLogCleanupStatus("");
+    setLogPage(1);
+    setFilters(next);
   };
 
   const deleteOldLogs = async () => {
@@ -130,6 +160,13 @@ export function LogsSection() {
           />
           <button className="secondary-button compact-button">Search</button>
         </form>
+        <FacetFilterButton
+          order={LOG_FACET_ORDER}
+          facets={facets}
+          value={filters}
+          onChange={changeFilters}
+          empty={EMPTY_LOG_FILTERS}
+        />
         <label className="log-page-size">
           <span>Rows</span>
           <select
@@ -162,6 +199,8 @@ export function LogsSection() {
           </button>
         </div>
       </div>
+
+      <FacetFilterChips value={filters} onChange={changeFilters} empty={EMPTY_LOG_FILTERS} />
 
       {logs.length > 0 ? (
         <>

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import archiver from "archiver";
-import { db } from "../../../db.js";
+import { db, logActivity } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "../shared/library-access.js";
 import { parseRangeHeader, streamDocumentFile } from "../shared/document-stream.js";
@@ -122,6 +122,15 @@ export async function audiobookStreamPlugin(app: FastifyInstance) {
       reply.code(404).send({ error: "No audio files available" });
       return;
     }
+
+    logActivity({
+      event: "library.audiobook.downloaded",
+      actorUserId: downloadUser.id,
+      targetType: "book",
+      targetId: id,
+      detail: `Downloaded audiobook "${meta.title ?? id}".`,
+      ipAddress: request.ip
+    });
 
     const safeTitle = (meta.title ?? id).replace(/[/\\?%*:|"<>]/g, "_").trim() || id;
     const zipName = `${safeTitle}.zip`;

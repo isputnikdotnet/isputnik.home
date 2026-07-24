@@ -263,6 +263,14 @@ export async function backupsPlugin(app: FastifyInstance) {
       return;
     }
     const stat = fs.statSync(filePath);
+    logActivity({
+      event: "backup.downloaded",
+      actorUserId: request.user!.id,
+      targetType: "backup",
+      targetId: name,
+      detail: `Downloaded backup "${name}".`,
+      ipAddress: request.ip
+    });
     reply.hijack();
     reply.raw.writeHead(200, {
       "Content-Type": name.endsWith(".zip") ? "application/zip" : "application/octet-stream",

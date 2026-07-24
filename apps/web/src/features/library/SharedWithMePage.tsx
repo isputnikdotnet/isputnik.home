@@ -72,7 +72,7 @@ function SharedAlbumViewer({ album, onClose }: { album: SharedBook; onClose: () 
         <span className="share-set-viewer-title">{album.title}</span>
         <div className="share-set-viewer-actions">
           {open && (
-            <a className="secondary-button compact-button" href={open.fileUrl} download>
+            <a className="secondary-button compact-button" href={`${open.fileUrl}${open.fileUrl.includes("?") ? "&" : "?"}download=1`} download>
               <Download size={15} /><span>Download</span>
             </a>
           )}
