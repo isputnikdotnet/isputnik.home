@@ -164,20 +164,22 @@ export function FamilyTreeChart({
           {layout.nodes.map(({ person, x, y, isFocus }) => {
             const years = lifeYears(person);
             const initial = person.name.trim().charAt(0).toUpperCase();
-            const portraitR = 19;
-            const portraitCx = x - NODE_W / 2 + 29;
+            const portraitR = 15;
+            const portraitCx = x - NODE_W / 2 + 23;
             return (
               <g
                 key={person.id}
                 className={`ft-chart-node${isFocus ? " is-focus" : ""}`}
                 onClick={() => { if (!movedRef.current) onFocus(person.id); }}
               >
+                {/* Compact cards truncate long names — expose the full one on hover. */}
+                <title>{years ? `${person.name} (${years})` : person.name}</title>
                 <rect
                   x={x - NODE_W / 2}
                   y={y - NODE_H / 2}
                   width={NODE_W}
                   height={NODE_H}
-                  rx={12}
+                  rx={10}
                 />
                 <clipPath id={`ft-clip-${person.id}`}>
                   <circle cx={portraitCx} cy={y} r={portraitR} />
@@ -194,15 +196,15 @@ export function FamilyTreeChart({
                     preserveAspectRatio="xMidYMid slice"
                   />
                 ) : (
-                  <text className="ft-chart-initial" x={portraitCx} y={y + 6} textAnchor="middle">
+                  <text className="ft-chart-initial" x={portraitCx} y={y + 5} textAnchor="middle">
                     {initial}
                   </text>
                 )}
-                <text className="ft-chart-name" x={portraitCx + portraitR + 9} y={years ? y - 1 : y + 5}>
-                  {person.name.length > 14 ? `${person.name.slice(0, 13)}…` : person.name}
+                <text className="ft-chart-name" x={portraitCx + portraitR + 8} y={years ? y - 1 : y + 4}>
+                  {person.name.length > 12 ? `${person.name.slice(0, 11)}…` : person.name}
                 </text>
                 {years && (
-                  <text className="ft-chart-years" x={portraitCx + portraitR + 9} y={y + 16}>
+                  <text className="ft-chart-years" x={portraitCx + portraitR + 8} y={y + 13}>
                     {years}
                   </text>
                 )}

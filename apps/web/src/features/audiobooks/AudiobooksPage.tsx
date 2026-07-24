@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDownUp, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { ArrowDownUp, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { activeFilterCount, FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
@@ -33,14 +33,15 @@ export function AudiobookTabs({
   active,
   includeBooks = true
 }: {
-  active: "books" | "authors" | "narrators" | "series";
+  active: "books" | "authors" | "narrators" | "series" | "categories";
   includeBooks?: boolean;
 }) {
   const tabs = [
     { id: "books", label: "All Libraries", href: "/audiobooks", icon: BookOpen },
     { id: "authors", label: "Authors", href: "/authors", icon: UserRound },
     { id: "narrators", label: "Narrators", href: "/audiobooks/narrators", icon: Mic2 },
-    { id: "series", label: "Series", href: "/audiobooks/series", icon: Library }
+    { id: "series", label: "Series", href: "/audiobooks/series", icon: Library },
+    { id: "categories", label: "Categories", href: "/categories", icon: Shapes }
   ] as const;
   const visibleTabs = includeBooks ? tabs : tabs.filter((tab) => tab.id !== "books");
 
@@ -1435,6 +1436,10 @@ export function AudiobooksPage({
                         <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/series"); }}>
                           <Library size={16} aria-hidden="true" />
                           <span>Series</span>
+                        </button>
+                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/categories"); }}>
+                          <Shapes size={16} aria-hidden="true" />
+                          <span>Categories</span>
                         </button>
                       </div>,
                       document.body
