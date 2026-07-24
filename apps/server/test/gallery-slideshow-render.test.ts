@@ -28,7 +28,7 @@ import {
   reconcileOrphanedRenders,
   deleteSlideshowRender,
   escapeFilterPath,
-  titleCardDwell,
+  TITLE_CARD_SECONDS,
   RANDOM_XFADES,
   RENDER_JOB_TYPE,
   type Segment,
@@ -65,41 +65,47 @@ describe("render filtergraph", () => {
     expect(args.join(" ")).not.toContain("xfade");
   });
 
-  it("crossfade overlaps slides, shortening total by (N-1)·transition", () => {
+  it("each slide holds the screen for its full dwell (inputs padded by the transition)", () => {
     const { args, total } = buildFfmpegArgs(segs([4, 4, 4]), "crossfade", null, "/out.mp4");
-    expect(total).toBe(4 + 4 + 4 - 2 * 2); // two 2s transitions
+    // Inputs run dwell + T so the photo-to-photo cadence equals the 4s setting.
+    expect(args.join(" ")).toContain("-loop 1 -t 6.000 -i /img0.jpg");
+    // Transitions start one dwell apart: 4, then 8 — i.e. a photo every 4s.
     const filter = args[args.indexOf("-filter_complex") + 1];
-    // offsets accumulate: first at dwell0 - T = 2, second at (4 + 4 - 2) - 2 = 4
-    expect(filter).toContain("xfade=transition=fade:duration=2:offset=2.000");
     expect(filter).toContain("xfade=transition=fade:duration=2:offset=4.000");
+    expect(filter).toContain("xfade=transition=fade:duration=2:offset=8.000");
+    expect(total).toBe(3 * 4 + 2); // N·dwell + one transition tail
+  });
+
+  it("'none' concatenates unpadded — no overlap to compensate for", () => {
+    const { args, total } = buildFfmpegArgs(segs([4, 4, 4]), "none", null, "/out.mp4");
+    expect(args.join(" ")).toContain("-loop 1 -t 4.000 -i /img0.jpg");
+    expect(total).toBe(12);
   });
 
   it("'random' varies the xfade per boundary via the injected picker", () => {
     const picks = ["circleopen", "wipeleft"];
     const { args } = buildFfmpegArgs(segs([4, 4, 4]), "random", null, "/o.mp4", 2, (i) => picks[i]);
     const filter = args[args.indexOf("-filter_complex") + 1];
-    expect(filter).toContain("xfade=transition=circleopen:duration=2:offset=2.000");
-    expect(filter).toContain("xfade=transition=wipeleft:duration=2:offset=4.000");
+    expect(filter).toContain("xfade=transition=circleopen:duration=2:offset=4.000");
+    expect(filter).toContain("xfade=transition=wipeleft:duration=2:offset=8.000");
   });
 
   it("a slideshow's transition length drives xfade duration, offsets, and total", () => {
     const { args, total } = buildFfmpegArgs(segs([6, 6, 6]), "crossfade", null, "/o.mp4", 4);
-    expect(total).toBe(6 + 6 + 6 - 2 * 4); // two 4s overlaps
     const filter = args[args.indexOf("-filter_complex") + 1];
-    expect(filter).toContain("xfade=transition=fade:duration=4:offset=2.000"); // 6 - 4
-    expect(filter).toContain("xfade=transition=fade:duration=4:offset=4.000"); // (6+6-4) - 4
+    // Inputs run 6+4=10; transitions start a full 6s dwell apart.
+    expect(filter).toContain("xfade=transition=fade:duration=4:offset=6.000");
+    expect(filter).toContain("xfade=transition=fade:duration=4:offset=12.000");
+    expect(total).toBe(3 * 6 + 4);
     // Out-of-range values clamp to the 0.5–5 window rather than corrupting the graph.
     const clamped = buildFfmpegArgs(segs([6, 6]), "crossfade", null, "/o.mp4", 99);
     expect(clamped.args[clamped.args.indexOf("-filter_complex") + 1]).toContain("duration=5");
   });
 
-  it("a short transition lowers the minimum dwell floor", () => {
-    const built = segmentsFor(
-      [{ id: "a", kind: "photo", relative_path: "a.jpg", source_path: "/s", dwell_seconds: 0.2, duration_seconds: null }],
-      5,
-      1
-    );
-    expect(built[0].dwell).toBe(1.5); // transitionSec 1 + 0.5
+  it("a lone slide is never padded (nothing to transition with)", () => {
+    const { args, total } = buildFfmpegArgs(segs([4]), "crossfade", null, "/o.mp4", 2);
+    expect(args.join(" ")).toContain("-loop 1 -t 4.000 -i /img0.jpg");
+    expect(total).toBe(4);
   });
 
   it("'random' default picker draws only from the curated set", () => {
@@ -137,13 +143,13 @@ describe("render filtergraph", () => {
     expect(joined).toContain("-shortest");
   });
 
-  it("clamps a photo's dwell to at least the transition length and at most 30s", () => {
+  it("clamps a photo's on-screen dwell to 1..30s", () => {
     const built = segmentsFor([
       { id: "a", kind: "photo", relative_path: "a.jpg", source_path: "/s", dwell_seconds: 0.2, duration_seconds: null },
       { id: "b", kind: "photo", relative_path: "b.jpg", source_path: "/s", dwell_seconds: 99, duration_seconds: null },
       { id: "c", kind: "photo", relative_path: "c.jpg", source_path: "/s", dwell_seconds: null, duration_seconds: null }
     ], 5);
-    expect(built.map((s) => s.dwell)).toEqual([2.5, 30, 5]); // floored / capped / slide default
+    expect(built.map((s) => s.dwell)).toEqual([1, 30, 5]); // floored / capped / slide default
     expect(built.every((s) => !s.isVideo)).toBe(true);
   });
 
@@ -162,9 +168,10 @@ describe("render filtergraph", () => {
       { file: "/a.jpg", dwell: 4, isVideo: false },
       { file: "/v.mp4", dwell: 6, isVideo: true }
     ], "crossfade", null, "/o.mp4").args.join(" ");
-    expect(joined).toContain("-loop 1 -t 4.000 -i /a.jpg");
-    expect(joined).toContain("-t 6.000 -i /v.mp4");
-    expect(joined).not.toContain("-loop 1 -t 6.000 -i /v.mp4");
+    // Inputs are padded by the 2s transition: 4→6 for the photo, 6→8 for the clip.
+    expect(joined).toContain("-loop 1 -t 6.000 -i /a.jpg");
+    expect(joined).toContain("-t 8.000 -i /v.mp4");
+    expect(joined).not.toContain("-loop 1 -t 8.000 -i /v.mp4");
   });
 });
 
@@ -174,16 +181,17 @@ describe("opening title card", () => {
   it("prepends a black lavfi card with two drawtext lines and shifts the chain", () => {
     const { args, total } = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/o.mp4", 2, undefined, card);
     const joined = args.join(" ");
-    expect(joined).toContain("-f lavfi -t 3.000 -i color=c=black:s=1920x1080:r=30");
+    // Card input = 3s on screen + the 2s transition it hands off through.
+    expect(joined).toContain("-f lavfi -t 5.000 -i color=c=black:s=1920x1080:r=30");
     const filter = args[args.indexOf("-filter_complex") + 1];
     expect(filter.match(/drawtext=/g)).toHaveLength(2);
     expect(filter).toContain("textfile='/tmp/title.txt'");
     expect(filter).toContain("textfile='/tmp/sub.txt'");
     expect(filter).toContain("fontfile='D\\:/fonts/DejaVuSans.ttf'");
-    // Card (3s) → first photo at offset 3-2=1; photo boundary at (3+4-2)-2=3.
-    expect(filter).toContain("xfade=transition=fade:duration=2:offset=1.000");
+    // Card holds 3s, then a photo every 4s: transitions at 3 and 7.
     expect(filter).toContain("xfade=transition=fade:duration=2:offset=3.000");
-    expect(total).toBe(3 + 4 + 4 - 2 * 2);
+    expect(filter).toContain("xfade=transition=fade:duration=2:offset=7.000");
+    expect(total).toBe(3 + 4 + 4 + 2); // card + both dwells + one transition tail
   });
 
   it("shifts the music input index past the card", () => {
@@ -199,9 +207,11 @@ describe("opening title card", () => {
     expect(joined).toContain("-map 2:a");
   });
 
-  it("the card outlasts a long transition", () => {
-    expect(titleCardDwell(2)).toBe(3);
-    expect(titleCardDwell(4)).toBe(4.5);
+  it("the card still holds its full time behind a long transition", () => {
+    const { args } = buildFfmpegArgs(segs([6]), "crossfade", null, "/o.mp4", 5, undefined, card);
+    expect(args.join(" ")).toContain(`-t ${(TITLE_CARD_SECONDS + 5).toFixed(3)} -i color=c=black`);
+    // First photo starts appearing only after the card's full 3 seconds.
+    expect(args[args.indexOf("-filter_complex") + 1]).toContain("offset=3.000");
   });
 
   it("escapes Windows paths for the filtergraph", () => {
