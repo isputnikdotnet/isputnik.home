@@ -33,6 +33,7 @@ export function resetDb(): void {
     "audiobook_details", "ebook_details", "gallery_details", "gallery_faces", "gallery_face_scans", "gallery_face_exclusions", "gallery_people", "item_metadata",
     "gallery_album_items", "gallery_albums",
     "taggables", "collection_items", "collections", "work_items", "works",
+    "family_tree_photos", "family_tree_children", "family_tree_unions", "family_tree_persons",
     "library_scan_rule_paths", "library_scan_rules",
     "library_items", "people", "series", "libraries", "user_groups", "users",
     "app_settings"
