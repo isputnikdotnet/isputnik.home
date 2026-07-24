@@ -10,6 +10,7 @@ import { enqueueAudiobookScan } from "../library/audiobook/scanner.js";
 import { enqueueEbookScan } from "../library/ebook/scanner.js";
 import { enqueueGalleryScan } from "../library/gallery/scanner.js";
 import { purgeMissingGalleryPhotos, getMissingRetentionDays } from "../library/gallery/cleanup.js";
+import { enqueueTranscodeBatch, unplayableBacklogCount } from "../library/gallery/transcode.js";
 
 // Recurring maintenance tasks. The set of jobs is fixed and defined here; the
 // scheduled_jobs table only stores per-key state (enabled, schedule, last/next run).
@@ -21,6 +22,10 @@ import { purgeMissingGalleryPhotos, getMissingRetentionDays } from "../library/g
 // next_run_at has passed. Jobs can also be triggered on demand ("Run now").
 
 const KEEP_JOB_LOGS = 100;
+
+// How many videos the weekly "convert unplayable videos" job queues per run — bounded so
+// a big backlog drains over successive weeks instead of hogging the box in one night.
+const MAX_TRANSCODE_PER_RUN = 20;
 
 interface ScheduledJobDef {
   key: string;
@@ -129,6 +134,23 @@ const DEFINITIONS: ScheduledJobDef[] = [
     run: () => {
       const purged = emptyTrash();
       return `Emptied the recycle bin — purged ${purged} item${purged === 1 ? "" : "s"}.`;
+    }
+  },
+  {
+    key: "convert_unplayable_videos",
+    label: "Convert unplayable videos",
+    description: "Make a browser-playable H.264 copy of gallery videos whose codec no browser can decode (legacy MPEG-4/AMR camcorder clips, etc.), so they play inline instead of only downloading. The original file is never changed. CPU-heavy, so it converts a batch at a time — a large backlog drains over several weeks.",
+    defaultEnabled: true,
+    defaultFrequency: "weekly",
+    defaultTime: "01:45",
+    run: () => {
+      // Don't stack conversions on an in-progress scan/face run (all CPU-heavy).
+      if (libraryJobRunning()) return "Skipped — a library or face task is already running; will retry at the next scheduled time.";
+      const pending = unplayableBacklogCount();
+      if (pending === 0) return "No unplayable videos need converting.";
+      const queued = enqueueTranscodeBatch(MAX_TRANSCODE_PER_RUN);
+      const remaining = pending - queued;
+      return `Queued ${queued} video conversion${queued === 1 ? "" : "s"}${remaining > 0 ? ` (${remaining} more will follow next run)` : ""} — they process in the background.`;
     }
   },
   {
@@ -468,6 +490,9 @@ function summarizeTaskResult(type: string, result: Record<string, any> | null): 
     const mb = (result.bytes / (1024 * 1024)).toFixed(1);
     return `Movie ${mb} MB${result.savedToLibrary ? " · saved to library" : ""}`;
   }
+  if (type === "TRANSCODE_GALLERY_VIDEO") {
+    return result.bytes != null ? `Web copy ${(result.bytes / (1024 * 1024)).toFixed(1)} MB` : null;
+  }
   return null;
 }
 
@@ -476,7 +501,8 @@ const PROGRESS_UNIT: Record<string, string> = {
   SCAN_GALLERY_FACES: "photos",
   SCAN_GALLERY_LIBRARY: "items",
   SCAN_EBOOK_LIBRARY: "books",
-  "gallery-slideshow-render": "seconds"
+  "gallery-slideshow-render": "seconds",
+  TRANSCODE_GALLERY_VIDEO: "seconds"
 };
 
 function normalizeTaskProgress(type: string, progress: Record<string, any> | null, startedAt: string | null): TaskProgress | null {

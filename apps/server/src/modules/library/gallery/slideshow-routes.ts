@@ -33,6 +33,8 @@ import fs from "node:fs";
 function renderFields(slideshow: SlideshowRow) {
   return {
     renderStatus: slideshow.render_status,
+    // A ready movie that predates a later edit — shown, but flagged for a re-render.
+    renderStale: slideshow.render_status === "ready" && slideshow.render_stale === 1,
     renderError: slideshow.render_error,
     renderPercent: slideshow.render_status === "rendering" || slideshow.render_status === "queued"
       ? renderProgressPercent(slideshow.render_job_id)

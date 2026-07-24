@@ -25,7 +25,10 @@ export interface GalleryAsset {
   camera: { make: string | null; model: string | null } | null;
   coverUrl: string | null;
   previewUrl: string | null;
-  fileUrl: string;
+  fileUrl: string; // the ORIGINAL — used for downloads
+  // What the <video> plays: a converted web copy when the original codec isn't
+  // browser-decodable, otherwise the same as fileUrl.
+  playbackUrl: string;
   tags: string[];
   saved: boolean;
   // Present only on the single-asset detail (lightbox), not on list/timeline rows.
@@ -122,6 +125,8 @@ export interface GallerySlideshowDetail {
   // MP4 render (Phase 4). movieUrl/outputBytes/renderedAt are set only when ready;
   // renderPercent is the live encode progress while queued/rendering.
   renderStatus: SlideshowRenderStatus;
+  // A ready movie that predates a later edit — still playable, but out of date.
+  renderStale: boolean;
   renderError: string | null;
   renderPercent: number | null;
   renderedAt: string | null;

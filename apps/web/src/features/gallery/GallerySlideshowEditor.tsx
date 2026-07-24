@@ -227,6 +227,11 @@ export function GallerySlideshowEditor({
                   )}
                 </div>
               </div>
+              {canEdit && slideshow.renderStale && (
+                <MessageBox tone="warning" title="Movie is out of date">
+                  This movie doesn’t include your latest changes. Re-render to update it.
+                </MessageBox>
+              )}
               <video className="slideshow-movie-video" controls src={slideshow.movieUrl} />
             </>
           ) : slideshow.renderStatus === "queued" || slideshow.renderStatus === "rendering" ? (

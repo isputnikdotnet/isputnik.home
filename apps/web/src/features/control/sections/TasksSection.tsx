@@ -15,6 +15,7 @@ function taskTypeLabel(type: string) {
     case "SCAN_GALLERY_LIBRARY": return "Photo & video scan";
     case "SCAN_GALLERY_FACES": return "Face scan";
     case "gallery-slideshow-render": return "Slideshow movie";
+    case "TRANSCODE_GALLERY_VIDEO": return "Video conversion";
     default: return type;
   }
 }

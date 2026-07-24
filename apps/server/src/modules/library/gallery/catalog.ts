@@ -35,6 +35,7 @@ interface AssetRow {
   cover_storage_key: string | null;
   preview_storage_key: string | null;
   playable: number | null;
+  web_video_key: string | null;
   updated_at: string | null;
   saved: number | null;
 }
@@ -62,6 +63,7 @@ export const ASSET_COLUMNS = `
   item_metadata.cover_storage_key,
   gallery_details.preview_storage_key,
   gallery_details.playable,
+  gallery_details.web_video_key,
   gallery_details.updated_at,
   (item_saves.id IS NOT NULL) AS saved`;
 
@@ -105,15 +107,19 @@ export function mapAsset(row: AssetRow) {
     orientation: row.orientation,
     rotation,
     durationSeconds: row.duration_seconds,
-    // Video-only browser-playability flag; null for photos / un-probed videos.
-    playable: row.playable == null ? null : Boolean(row.playable),
+    // Video-only browser-playability flag; null for photos / un-probed videos. A video
+    // with a converted web copy plays inline, so report it playable.
+    playable: row.web_video_key ? true : row.playable == null ? null : Boolean(row.playable),
     mimeType: row.mime_type,
     size: row.size,
     gps: row.gps_lat != null && row.gps_lng != null ? { lat: row.gps_lat, lng: row.gps_lng } : null,
     camera: row.camera_make || row.camera_model ? { make: row.camera_make, model: row.camera_model } : null,
     coverUrl,
     previewUrl,
+    // fileUrl is always the ORIGINAL (downloads); playbackUrl is the web copy when one
+    // exists, else the original — that's what the <video> element plays.
     fileUrl: `/api/library/gallery/assets/${row.id}/file`,
+    playbackUrl: `/api/library/gallery/assets/${row.id}/file${row.web_video_key ? "?web=1" : ""}`,
     tags: (tagsFor.all(row.id) as { name: string }[]).map((t) => t.name),
     saved: Boolean(row.saved)
   };

@@ -27,6 +27,7 @@ export interface SlideshowRow {
   slide_seconds: number;
   transition_seconds: number;
   render_status: "draft" | "queued" | "rendering" | "ready" | "failed";
+  render_stale: number; // 1 = a 'ready' movie predates the current settings/content
   render_job_id: string | null;
   output_storage_key: string | null;
   output_bytes: number | null;
@@ -62,19 +63,19 @@ export function createSlideshow(
   return getSlideshow(id)!;
 }
 
-// A content/order/settings change makes a previously-rendered movie stale: knock a
-// 'ready' render back to 'draft' (the old MP4 stays on disk until a re-render
-// overwrites it, but it's no longer served — the movie endpoint requires 'ready').
+// A content/order/settings change makes a previously-rendered movie out of date. The
+// movie stays 'ready' (visible + playable) but is flagged stale so the editor prompts a
+// re-render; a fresh render clears the flag (setSlideshowRenderState).
 const markRenderStale = (slideshowId: string) =>
-  db.prepare("UPDATE gallery_slideshows SET render_status = 'draft' WHERE id = ? AND render_status = 'ready'").run(slideshowId);
+  db.prepare("UPDATE gallery_slideshows SET render_stale = 1 WHERE id = ? AND render_status = 'ready'").run(slideshowId);
 
 const touch = (slideshowId: string) => {
   db.prepare("UPDATE gallery_slideshows SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(slideshowId);
   markRenderStale(slideshowId);
 };
 
-// Changing any presentation setting invalidates a previously rendered movie, so
-// (from Phase 4) it drops back to 'draft'. Harmless in Phase 1 where nothing renders.
+// Changing any presentation setting marks a previously rendered movie out of date (it
+// stays visible until re-rendered). Harmless before anything is rendered.
 export function updateSlideshow(
   slideshowId: string,
   fields: { name?: string; transition?: SlideshowTransition; slideSeconds?: number; transitionSeconds?: number; musicTrackId?: string | null }
@@ -90,7 +91,7 @@ export function updateSlideshow(
       slide_seconds = COALESCE(?, slide_seconds),
       transition_seconds = COALESCE(?, transition_seconds),
       music_track_id = CASE WHEN ? THEN ? ELSE music_track_id END,
-      render_status = CASE WHEN render_status = 'ready' THEN 'draft' ELSE render_status END,
+      render_stale = CASE WHEN render_status = 'ready' THEN 1 ELSE render_stale END,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE id = ?
   `).run(
@@ -297,7 +298,8 @@ export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRo
 }
 
 // Set/reset render state. The worker moves a slideshow through queued → rendering →
-// ready|failed; edits (see updateSlideshow) knock a 'ready' back to 'draft'.
+// ready|failed; edits (see updateSlideshow) flag a 'ready' movie stale. Every transition
+// here reflects a fresh/absent render, so the stale flag always clears.
 export function setSlideshowRenderState(
   slideshowId: string,
   fields: {
@@ -312,6 +314,7 @@ export function setSlideshowRenderState(
   db.prepare(`
     UPDATE gallery_slideshows SET
       render_status = ?,
+      render_stale = 0,
       render_job_id = CASE WHEN ? THEN ? ELSE render_job_id END,
       output_storage_key = CASE WHEN ? THEN ? ELSE output_storage_key END,
       output_bytes = CASE WHEN ? THEN ? ELSE output_bytes END,
