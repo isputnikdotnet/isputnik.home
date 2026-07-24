@@ -16,11 +16,12 @@ import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeG
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { AddToSlideshowModal } from "./AddToSlideshowModal";
+import { SlideshowPhotoBrowser } from "./SlideshowPhotoBrowser";
 import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
 import { ShareAlbumModal } from "./ShareAlbumModal";
 import { Modal } from "../../shared/Modal";
-import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, SlideshowTransition } from "./types";
+import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
 
 const PAGE_SIZE = 80;
 // The People grid can hold thousands of clusters; render them a page at a time so a
@@ -196,6 +197,15 @@ export function GalleryPage({
   // right after a strip card opens it.
   const [memories, setMemories] = useState<GalleryMemories | null>(null);
   const [memorySuggestions, setMemorySuggestions] = useState<GalleryMemorySuggestion[]>([]);
+  // A suggestion opened for PREVIEW — nothing is created until the user picks an
+  // action in the modal. previewAssets null = thumbnails still loading.
+  const [previewSuggestion, setPreviewSuggestion] = useState<GalleryMemorySuggestion | null>(null);
+  const [previewAssets, setPreviewAssets] = useState<GalleryAsset[] | null>(null);
+  // Folder-browser: add photos to the open slideshow straight from the galleries.
+  const [browseOpen, setBrowseOpen] = useState(false);
+  // Confirm + delete the open slideshow's rendered movie.
+  const [movieDeleteOpen, setMovieDeleteOpen] = useState(false);
+  const [movieDeleteBusy, setMovieDeleteBusy] = useState(false);
   const [pendingYear, setPendingYear] = useState<number | null>(null);
 
   // Folder state.
@@ -253,6 +263,8 @@ export function GalleryPage({
   const [personTotal, setPersonTotal] = useState(0);
   // Face recognition (admin): per-library settings + the settings popup.
   const [faceSettings, setFaceSettings] = useState<GalleryFaceSettings | null>(null);
+  // Global "default movie library" (admin): where rendered slideshow movies are auto-saved.
+  const [slideshowSettings, setSlideshowSettings] = useState<GallerySlideshowSettings | null>(null);
   const [faceModalOpen, setFaceModalOpen] = useState(false);
   // Inline rename of the open person.
   const [renameValue, setRenameValue] = useState<string | null>(null);
@@ -561,7 +573,7 @@ export function GalleryPage({
 
   // Presentation settings (transition / seconds per photo). Optimistic: the child
   // renders from selectedSlideshow, so patch it locally, then persist.
-  const patchSlideshow = useCallback(async (slideshowId: string, fields: { name?: string; transition?: SlideshowTransition; slideSeconds?: number; musicTrackId?: string | null }) => {
+  const patchSlideshow = useCallback(async (slideshowId: string, fields: { name?: string; transition?: SlideshowTransition; slideSeconds?: number; transitionSeconds?: number; musicTrackId?: string | null }) => {
     setSelectedSlideshow((prev) => (prev && prev.id === slideshowId ? { ...prev, ...fields } : prev));
     try {
       await api(`/api/library/gallery/slideshows/${slideshowId}`, { method: "PATCH", body: JSON.stringify(fields) });
@@ -585,6 +597,24 @@ export function GalleryPage({
       setError(err instanceof Error ? err.message : "Unable to start the render");
     }
   }, []);
+
+  // Delete the rendered movie (MP4 + leftover temp files); the slideshow returns to the
+  // "Render movie" state. A copy saved to a gallery library is kept.
+  const deleteSlideshowMovie = useCallback(async () => {
+    if (!selectedSlideshow) return;
+    setMovieDeleteBusy(true);
+    setError("");
+    try {
+      await api(`/api/library/gallery/slideshows/${selectedSlideshow.id}/movie`, { method: "DELETE" });
+      setMovieDeleteOpen(false);
+      setNotice("Deleted the rendered movie.");
+      void openSlideshow(selectedSlideshow.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete the movie");
+    } finally {
+      setMovieDeleteBusy(false);
+    }
+  }, [selectedSlideshow, openSlideshow]);
 
   // While a render is queued/rendering, poll the detail (cheaply — limit=1) and merge
   // the fresh render fields so the editor shows live progress, then the finished movie.
@@ -674,6 +704,24 @@ export function GalleryPage({
       setFaceSettings(await api<GalleryFaceSettings>("/api/library/gallery/faces/settings"));
     } catch { /* non-admins / errors just hide the controls */ }
   }, [isAdmin]);
+
+  const loadSlideshowSettings = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      setSlideshowSettings(await api<GallerySlideshowSettings>("/api/library/gallery/slideshows/settings"));
+    } catch { /* non-admins / errors just hide the control */ }
+  }, [isAdmin]);
+
+  // Set (or clear, with "") the default movie library. Optimistic; reloads on any error.
+  const setRenderLibrary = useCallback(async (libraryId: string) => {
+    const next = libraryId || null;
+    setSlideshowSettings((prev) => (prev ? { ...prev, renderLibraryId: next } : prev));
+    try {
+      await api("/api/library/gallery/slideshows/settings", { method: "PATCH", body: JSON.stringify({ renderLibraryId: next }) });
+    } catch {
+      void loadSlideshowSettings();
+    }
+  }, [loadSlideshowSettings]);
 
   const anyFaceEnabled = (faceSettings?.libraries ?? []).some((library) => library.enabled);
 
@@ -768,6 +816,23 @@ export function GalleryPage({
 
   useEffect(() => { void loadMemorySuggestions(); }, [loadMemorySuggestions]);
 
+  // Open a suggestion for preview: show its photos and let the user choose an action
+  // (create a slideshow, or add the photos to an existing/new one). Nothing persists
+  // until they pick one.
+  const openSuggestionPreview = useCallback(async (suggestion: GalleryMemorySuggestion) => {
+    setPreviewSuggestion(suggestion);
+    setPreviewAssets(null);
+    try {
+      const payload = await api<{ assets: GalleryAsset[] }>("/api/library/gallery/assets/lookup", {
+        method: "POST",
+        body: JSON.stringify({ itemIds: suggestion.itemIds })
+      });
+      setPreviewAssets(payload.assets);
+    } catch {
+      setPreviewAssets([]); // grid stays empty; the actions still work
+    }
+  }, []);
+
   // Turn a suggested memory into a real slideshow (sourceKind=memory) and jump into
   // its editor, pre-filled with the montage. From there the user customizes/plays it.
   const createFromMemory = useCallback(async (suggestion: GalleryMemorySuggestion) => {
@@ -821,7 +886,7 @@ export function GalleryPage({
     }
     else if (view === "people") { setSelectedPerson(null); void loadPeople(); void loadFaceSettings(); }
     else if (view === "albums") { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); }
-    else if (view === "slideshows") { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); }
+    else if (view === "slideshows") { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); void loadSlideshowSettings(); }
     else if (view === "map") void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, scopeId, sort, query, filters]);
@@ -1009,6 +1074,11 @@ export function GalleryPage({
   // a stale id from a no-longer-visible asset can't linger. Sorting only reorders
   // the same assets, so it keeps the selection.
   useEffect(() => { setSelectionMode(false); setSelectedIds(new Set()); }, [view, scopeId, query, filters]);
+
+  // Close the folder browser / movie-delete confirm when leaving a slideshow, so neither
+  // reappears over the next one (a refresh keeps selectedSlideshow truthy, so the browser
+  // stays open through adds).
+  useEffect(() => { if (!selectedSlideshow) { setBrowseOpen(false); setMovieDeleteOpen(false); } }, [selectedSlideshow]);
 
   // Bulk favorite: one request for the whole selection. Items in libraries the
   // user can't favorite (shouldn't happen from this UI) come back as skipped.
@@ -1785,6 +1855,8 @@ export function GalleryPage({
                       onRemove={(id) => void removeFromSlideshow(selectedSlideshow.id, id)}
                       onPatch={(fields) => void patchSlideshow(selectedSlideshow.id, fields)}
                       onRender={() => void renderSlideshowMovie(selectedSlideshow.id)}
+                      onAddPhotos={() => setBrowseOpen(true)}
+                      onDeleteMovie={() => setMovieDeleteOpen(true)}
                     />
                   </>
                 );
@@ -1797,6 +1869,20 @@ export function GalleryPage({
                     <span className="muted gallery-face-hint">
                       Slideshows present photos in a set order with a transition and timing. Anyone can view; only the creator and admins can change one.
                     </span>
+                    {isAdmin && slideshowSettings && slideshowSettings.libraries.length > 0 && (
+                      <label className="slideshow-movie-lib">
+                        <span className="muted">Save rendered movies to</span>
+                        <select
+                          value={slideshowSettings.renderLibraryId ?? ""}
+                          onChange={(e) => void setRenderLibrary(e.target.value)}
+                        >
+                          <option value="">Don’t save to a library</option>
+                          {slideshowSettings.libraries.map((lib) => (
+                            <option key={lib.id} value={lib.id}>{lib.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                   </div>
 
                   {slideshows.length > 0 && (
@@ -1822,13 +1908,13 @@ export function GalleryPage({
                         <button
                           type="button"
                           className="secondary-button compact-button"
-                          onClick={() => { const pick = memorySuggestions[Math.floor(Math.random() * memorySuggestions.length)]; if (pick) void createFromMemory(pick); }}
+                          onClick={() => { const pick = memorySuggestions[Math.floor(Math.random() * memorySuggestions.length)]; if (pick) void openSuggestionPreview(pick); }}
                         >
                           <Sparkles size={15} aria-hidden="true" /> Surprise me
                         </button>
                       </div>
                       <p className="muted gallery-face-hint">
-                        Photos we’ve gathered into events and trips. Tap one to turn it into a slideshow you can play, set to music, reorder, and customize.
+                        Photos we’ve gathered into events and trips. Tap one to preview it, then create a slideshow or add its photos to one you already have.
                       </p>
                       <div className="gallery-folder-grid">
                         {memorySuggestions.map((memory) => (
@@ -1836,8 +1922,8 @@ export function GalleryPage({
                             key={memory.id}
                             type="button"
                             className="gallery-folder-tile gallery-memory-tile"
-                            onClick={() => void createFromMemory(memory)}
-                            title={`Create a slideshow from “${memory.title}”`}
+                            onClick={() => void openSuggestionPreview(memory)}
+                            title={`Preview “${memory.title}”`}
                           >
                             <span className="gallery-folder-thumb">
                               {memory.coverUrl ? <img src={memory.coverUrl} alt="" loading="lazy" /> : <Sparkles size={28} aria-hidden="true" />}
@@ -2093,6 +2179,7 @@ export function GalleryPage({
           canShare={canShareCurrent}
           autoPlay={lightbox.autoPlay}
           transition={lightbox.source === "slideshow" ? selectedSlideshow?.transition : undefined}
+          transitionSeconds={lightbox.source === "slideshow" ? selectedSlideshow?.transitionSeconds : undefined}
           initialInterval={lightbox.source === "slideshow" ? selectedSlideshow?.slideSeconds : undefined}
           musicUrl={lightbox.source === "slideshow" ? selectedSlideshow?.musicUrl ?? undefined : undefined}
           onClose={closeLightbox}
@@ -2155,6 +2242,79 @@ export function GalleryPage({
         />
       )}
 
+      {/* Suggested-slideshow preview: look at the photos first, then create a slideshow
+          from them. Closing without creating = nothing happens. */}
+      {previewSuggestion && (
+        <Modal
+          variant="panel"
+          title={previewSuggestion.title}
+          icon={<Sparkles size={20} />}
+          className="add-to-album-modal"
+          onClose={() => setPreviewSuggestion(null)}
+        >
+          <div className="add-to-album-head suggestion-preview-head">
+            <p className="muted">{previewSuggestion.subtitle}</p>
+            <div className="suggestion-preview-actions">
+              <button
+                type="button"
+                className="primary-button compact-button"
+                onClick={() => { const suggestion = previewSuggestion; setPreviewSuggestion(null); void createFromMemory(suggestion); }}
+              >
+                <Film size={15} aria-hidden="true" /> Create slideshow
+              </button>
+            </div>
+          </div>
+          <div className="modal-tab-content add-to-album-body">
+            {previewAssets === null ? (
+              <p className="management-empty">Loading photos…</p>
+            ) : previewAssets.length === 0 ? (
+              <p className="management-empty">None of these photos are available right now.</p>
+            ) : (
+              <div className="gallery-folder-grid suggestion-preview-grid">
+                {previewAssets.map((asset) => (
+                  <div key={asset.id} className="gallery-folder-tile suggestion-preview-tile">
+                    <span className="gallery-folder-thumb">
+                      {asset.coverUrl ? <img src={asset.coverUrl} alt={asset.title} loading="lazy" /> : <ImageIcon size={26} aria-hidden="true" />}
+                      {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {movieDeleteOpen && selectedSlideshow && (
+        <ConfirmDialog
+          title="Delete this movie?"
+          confirmLabel="Delete movie"
+          danger
+          busy={movieDeleteBusy}
+          onConfirm={() => void deleteSlideshowMovie()}
+          onCancel={() => { if (!movieDeleteBusy) setMovieDeleteOpen(false); }}
+        >
+          This removes the rendered MP4 and any leftover temporary files. You can re-render it anytime.
+          {selectedSlideshow.movieSavedToLibrary && " The copy already saved to your gallery is kept."}
+        </ConfirmDialog>
+      )}
+
+      {browseOpen && selectedSlideshow && (
+        <SlideshowPhotoBrowser
+          slideshowId={selectedSlideshow.id}
+          slideshowName={selectedSlideshow.name}
+          libraries={libraries}
+          existingIds={slideshowAssets.map((asset) => asset.id)}
+          onClose={() => setBrowseOpen(false)}
+          onAdded={(added) => {
+            if (added > 0) {
+              setNotice(`Added ${added} photo${added === 1 ? "" : "s"} to "${selectedSlideshow.name}".`);
+              void openSlideshow(selectedSlideshow.id);
+            }
+          }}
+        />
+      )}
+
       {slideshowCreateOpen && (
         <Modal
           variant="card"
@@ -2186,6 +2346,7 @@ export function GalleryPage({
           onCancel={() => { if (!slideshowBusy) setSlideshowDeleteOpen(false); }}
         >
           This removes the slideshow and its order and settings. The photos themselves stay in the gallery.
+          {selectedSlideshow.movieSavedToLibrary && " The rendered movie already saved to your gallery is kept."}
         </ConfirmDialog>
       )}
 

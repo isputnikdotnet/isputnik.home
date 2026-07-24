@@ -6,6 +6,7 @@
 // ML, no new tables, no background job. The shipped date-only "On this day" endpoint
 // stays as-is; this is the richer, slideshow-oriented surface.
 import { db } from "../../../db.js";
+import { pickVisuallyDistinct } from "./similarity.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
@@ -25,6 +26,7 @@ interface ItemRow {
   gps_lat: number | null;
   gps_lng: number | null;
   cover: string | null;
+  phash: string | null;
 }
 
 // A moment breaks when photos are more than GAP_MS apart, and never spans more than
@@ -115,7 +117,7 @@ export function suggestGalleryMemories(libIds: string[], opts: { limit?: number 
   const rows = db.prepare(`
     SELECT library_items.id AS id, gallery_details.taken_at AS taken_at,
            gallery_details.gps_lat AS gps_lat, gallery_details.gps_lng AS gps_lng,
-           item_metadata.cover_storage_key AS cover
+           item_metadata.cover_storage_key AS cover, gallery_details.phash AS phash
     FROM library_items
     JOIN gallery_details ON gallery_details.item_id = library_items.id
     LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
@@ -149,6 +151,11 @@ export function suggestGalleryMemories(libIds: string[], opts: { limit?: number 
 
   const nowMs = Date.now();
   const scored = clusters
+    // Fold near-duplicate shots (bursts, re-takes — see similarity.ts) down to one
+    // representative each BEFORE size checks: a 30-frame burst of one scene is not a
+    // slideshow-worthy moment, and everything below (score, sample, count, cover)
+    // should describe distinct photos. Unhashed photos and videos always survive.
+    .map((c) => pickVisuallyDistinct(c))
     .filter((c) => c.length >= MIN_ITEMS)
     .map((c) => {
       const end = Date.parse(c[c.length - 1].taken_at);

@@ -350,6 +350,22 @@ const peopleForAssetStmt = db.prepare(`
   ORDER BY gallery_people.name COLLATE NOCASE
 `);
 
+// Bulk asset lookup by ids, access-filtered — the suggestion-preview grid needs
+// thumbnails for a montage's item ids in one round trip. Results come back in the
+// REQUESTED order (a suggestion's ids are chronological); inaccessible or unknown ids
+// are silently omitted (the standard bulk contract).
+export function getGalleryAssets(userId: string, libIds: string[], itemIds: string[]) {
+  if (libIds.length === 0 || itemIds.length === 0) return [];
+  const rows = db.prepare(`
+    SELECT ${ASSET_COLUMNS} ${ASSET_JOINS}
+    WHERE library_items.id IN (${inClause(itemIds.length)})
+      AND library_items.library_id IN (${inClause(libIds.length)})
+      AND library_items.deleted_at IS NULL
+  `).all(userId, ...itemIds, ...libIds) as AssetRow[];
+  const byId = new Map(rows.map((row) => [row.id, mapAsset(row)]));
+  return itemIds.map((id) => byId.get(id)).filter((asset): asset is NonNullable<typeof asset> => Boolean(asset));
+}
+
 export function getGalleryAsset(userId: string, libIds: string[], id: string) {
   if (libIds.length === 0) return null;
   const row = db.prepare(`

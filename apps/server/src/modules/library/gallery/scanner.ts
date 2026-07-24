@@ -23,8 +23,10 @@ import {
   readAssetMetadata,
   browserPlayability,
   generateGalleryThumbnails,
+  computeDhash,
   type AssetKind
 } from "./media.js";
+import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 
 const scanJobType = "SCAN_GALLERY_LIBRARY";
 
@@ -124,14 +126,23 @@ export async function ingestGalleryAsset(
   // by the gallery_details UPSERT, which never writes it).
   let existingRotation = 0;
   if (existing) {
-    const prior = db.prepare("SELECT size, modified_at, preview_storage_key, rotation, playable FROM gallery_details WHERE item_id = ?")
-      .get(itemId) as { size: number | null; modified_at: string | null; preview_storage_key: string | null; rotation: number | null; playable: number | null } | undefined;
+    const prior = db.prepare("SELECT size, modified_at, preview_storage_key, rotation, playable, phash FROM gallery_details WHERE item_id = ?")
+      .get(itemId) as { size: number | null; modified_at: string | null; preview_storage_key: string | null; rotation: number | null; playable: number | null; phash: string | null } | undefined;
     existingRotation = prior?.rotation ?? 0;
     // Re-probe an unchanged video whose playable flag was never computed (rows from
     // before this feature) so a single rescan backfills the grid hint.
     const needsPlayableBackfill = file.kind === "video" && prior?.playable == null;
     const unchanged = prior && prior.size === file.size && prior.modified_at === modifiedIso && prior.preview_storage_key && !needsPlayableBackfill;
     if (unchanged) {
+      // Backfill the perceptual hash for photos cataloged before the phash column
+      // existed — hashed from the cached preview, so no thumbnail regeneration and
+      // no original-file read. A failure just leaves NULL for the next scan.
+      if (file.kind === "photo" && prior!.phash == null && prior!.preview_storage_key) {
+        try {
+          const hash = await computeDhash(thumbnailAbsolutePath(prior!.preview_storage_key));
+          if (hash) db.prepare("UPDATE gallery_details SET phash = ? WHERE item_id = ?").run(hash, itemId);
+        } catch { /* thumb store unavailable — retried next scan */ }
+      }
       // Revive a previously-missing row without re-reading the file.
       db.prepare("UPDATE library_items SET status = 'ready', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(itemId);
       return itemId;
@@ -149,6 +160,12 @@ export async function ingestGalleryAsset(
     ? (() => { const p = browserPlayability(file.extension, metadata); return p == null ? null : p ? 1 : 0; })()
     : null;
   const thumbs = await generateGalleryThumbnails(libraryId, itemId, file.kind, file.absolutePath, existingRotation);
+  // Perceptual fingerprint for near-duplicate detection, hashed from the preview just
+  // written (a small webp — cheap). Videos stay NULL.
+  let phash: string | null = null;
+  if (file.kind === "photo" && thumbs?.previewKey) {
+    try { phash = await computeDhash(thumbnailAbsolutePath(thumbs.previewKey)); } catch { /* stays NULL */ }
+  }
   const title = file.fileName;
 
   db.transaction(() => {
@@ -179,8 +196,8 @@ export async function ingestGalleryAsset(
 
     db.prepare(`
       INSERT INTO gallery_details
-        (item_id, kind, relative_path, mime_type, size, width, height, orientation, duration_seconds, taken_at, modified_at, gps_lat, gps_lng, camera_make, camera_model, preview_storage_key, playable)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (item_id, kind, relative_path, mime_type, size, width, height, orientation, duration_seconds, taken_at, modified_at, gps_lat, gps_lng, camera_make, camera_model, preview_storage_key, playable, phash)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(item_id) DO UPDATE SET
         kind = excluded.kind, relative_path = excluded.relative_path, mime_type = excluded.mime_type,
         size = excluded.size, width = excluded.width, height = excluded.height, orientation = excluded.orientation,
@@ -192,12 +209,14 @@ export async function ingestGalleryAsset(
         camera_make = excluded.camera_make,
         camera_model = excluded.camera_model,
         preview_storage_key = COALESCE(excluded.preview_storage_key, gallery_details.preview_storage_key),
+        -- A failed hash never wipes a previous one (e.g. a re-ingest without thumbs).
+        phash = COALESCE(excluded.phash, gallery_details.phash),
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(
       itemId, file.kind, file.relativePath, mimeForExtension(file.extension), file.size,
       metadata.width, metadata.height, metadata.orientation, metadata.durationSeconds,
       takenAt, modifiedIso, metadata.gpsLat, metadata.gpsLng, metadata.cameraMake, metadata.cameraModel,
-      thumbs?.previewKey ?? null, playable
+      thumbs?.previewKey ?? null, playable, phash
     );
   })();
 

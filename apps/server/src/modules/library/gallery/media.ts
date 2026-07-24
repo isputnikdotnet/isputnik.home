@@ -217,6 +217,30 @@ export async function decodePhotoToJpeg(absolutePath: string): Promise<Buffer | 
   return result.ok && result.stdout.length > 0 ? result.stdout : null;
 }
 
+// 64-bit dHash perceptual fingerprint (16 hex chars): shrink to a 9×8 grayscale grid
+// and record whether each pixel is brighter than its right neighbour. Near-identical
+// photos (burst frames, re-takes of the same scene) land within a few bits of each
+// other; genuinely different shots don't. Computed from the cached preview thumbnail,
+// so it never re-reads originals. Null when the image can't be decoded.
+export async function computeDhash(input: string | Buffer): Promise<string | null> {
+  try {
+    const { data } = await sharp(input, { failOn: "none" })
+      .grayscale()
+      .resize(9, 8, { fit: "fill" })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    let hash = 0n;
+    for (let row = 0; row < 8; row += 1) {
+      for (let col = 0; col < 8; col += 1) {
+        hash = (hash << 1n) | (data[row * 9 + col] > data[row * 9 + col + 1] ? 1n : 0n);
+      }
+    }
+    return hash.toString(16).padStart(16, "0");
+  } catch {
+    return null;
+  }
+}
+
 export interface ThumbnailKeys {
   coverKey: string;   // grid thumbnail (~400px) → item_metadata.cover_storage_key
   previewKey: string; // lightbox preview (~1600px) → gallery_details.preview_storage_key

@@ -4,7 +4,7 @@ import { galleryPeopleRoutesPlugin } from "./people-routes.js";
 import { galleryAlbumRoutesPlugin } from "./album-routes.js";
 import { gallerySlideshowRoutesPlugin } from "./slideshow-routes.js";
 import { galleryMusicRoutesPlugin } from "./music-routes.js";
-import { seedBuiltinMusic } from "./music.js";
+import { removeBuiltinMusic } from "./music.js";
 import { startSlideshowRenderWorker } from "./slideshow-render.js";
 import { galleryStreamPlugin } from "./stream.js";
 import { startGalleryScanWorker } from "./scanner.js";
@@ -18,10 +18,9 @@ export async function galleryPlugin(app: FastifyInstance) {
   await app.register(galleryMusicRoutesPlugin);
   await app.register(galleryStreamPlugin);
 
-  // Synthesise the built-in ambient beds once (idempotent; a no-op if the thumbnail
-  // store isn't configured or ffmpeg is unavailable). Fire-and-forget so a slow
-  // first-boot encode never blocks server startup.
-  void seedBuiltinMusic().catch(() => { /* best-effort; uploads still work */ });
+  // Slideshows use only user-uploaded music now; purge any built-in beds a prior
+  // version seeded (idempotent, best-effort — safe when the store isn't configured).
+  try { removeBuiltinMusic(); } catch { /* best-effort; uploads still work */ }
 
   const stopWorker = startGalleryScanWorker();
   const stopFaceWorker = startFaceScanWorker();

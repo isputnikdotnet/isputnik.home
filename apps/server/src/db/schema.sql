@@ -248,6 +248,11 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   -- container/codec (legacy AVI/MJPEG, WMV, …), NULL = unknown/photo/not probed.
   -- We serve originals untranscoded, so this drives the "download to view" hint.
   playable            INTEGER,
+  -- Photo only: 64-bit dHash perceptual fingerprint (16 hex chars) computed from the
+  -- cached preview thumbnail; near-identical photos (bursts, re-takes) hash within a
+  -- few bits of each other. NULL = video / not yet hashed (the scan backfills).
+  -- Used by memory suggestions to pick visually distinct photos (similarity.ts).
+  phash               TEXT,
   updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);
@@ -325,8 +330,11 @@ CREATE TABLE IF NOT EXISTS gallery_slideshows (
   source_ref     TEXT,
   music_track_id TEXT REFERENCES gallery_music_tracks(id) ON DELETE SET NULL,
   transition     TEXT NOT NULL DEFAULT 'crossfade'
-                   CHECK (transition IN ('none', 'crossfade', 'fade', 'slide', 'kenburns')),
+                   CHECK (transition IN ('none', 'crossfade', 'fade', 'slide', 'kenburns', 'dipblack', 'random')),
   slide_seconds  REAL NOT NULL DEFAULT 4,
+  -- Cross-fade length in seconds (0.5–5, route-validated); drives both the live
+  -- player's playback animations and the rendered movie's xfade duration.
+  transition_seconds REAL NOT NULL DEFAULT 2,
   -- Render state of the LATEST MP4 export (Phase 4). 'draft' = never rendered / stale.
   render_status  TEXT NOT NULL DEFAULT 'draft'
                    CHECK (render_status IN ('draft', 'queued', 'rendering', 'ready', 'failed')),
@@ -335,6 +343,15 @@ CREATE TABLE IF NOT EXISTS gallery_slideshows (
   output_bytes   INTEGER,
   rendered_at    TEXT,
   render_error   TEXT,
+  -- Where the LATEST successful render was auto-saved as a gallery video item, when a
+  -- default "movie library" is configured (see slideshow-settings.ts). The path follows
+  -- the slideshow's CURRENT name: an unchanged name overwrites the same file/item on
+  -- re-render (no duplicates); after a rename the movie saves under the new name and the
+  -- old file/item are retired (see saveMovieToLibrary). All NULL until a render is saved
+  -- to a library. movie_item_id is SET NULL if that item is later removed.
+  movie_library_id    TEXT REFERENCES libraries(id) ON DELETE SET NULL,
+  movie_relative_path TEXT,
+  movie_item_id       TEXT REFERENCES library_items(id) ON DELETE SET NULL,
   created_by     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

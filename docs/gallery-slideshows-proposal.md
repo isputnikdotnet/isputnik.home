@@ -1,7 +1,11 @@
 # Gallery: Custom Slideshows & rich Memories — proposal
 
 Status: **ALL PHASES BUILT** — 1 (editor + live preview), 2 (music), 3 (rich
-Memories), 4 (MP4 render). Companion to
+Memories), 4 (MP4 render). The system has since grown well past this proposal
+(title cards, dip-to-black/random transitions, transition-length control,
+save-to-library, suggestion previews, near-duplicate filtering, folder-browser
+adds — shipped through 1.11.0); the current behavior is documented in
+[gallery-slideshows.md](gallery-slideshows.md). Companion to
 [gallery-library.md](gallery-library.md) (what ships today) and successor to
 [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md),
 whose Phase-5 in-browser slideshow **shipped in 1.8.23**. This proposal

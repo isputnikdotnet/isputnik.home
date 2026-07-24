@@ -82,7 +82,9 @@ export interface GalleryAlbumDetail {
   updatedAt: string;
 }
 
-export type SlideshowTransition = "none" | "crossfade" | "fade" | "slide" | "kenburns";
+// "random" varies the transition on every slide change (player and MP4 render alike).
+// "dipblack" fades out to black, then fades the next slide in (the classic film cut).
+export type SlideshowTransition = "none" | "crossfade" | "fade" | "slide" | "kenburns" | "dipblack" | "random";
 export type SlideshowRenderStatus = "draft" | "queued" | "rendering" | "ready" | "failed";
 
 // A gallery slideshow: an ordered photo set with presentation settings. itemCount/
@@ -95,6 +97,7 @@ export interface GallerySlideshow {
   coverUrl: string | null;
   transition: SlideshowTransition;
   slideSeconds: number;
+  transitionSeconds: number;
   musicTrackId: string | null;
   renderStatus: SlideshowRenderStatus;
   canEdit: boolean;
@@ -109,6 +112,8 @@ export interface GallerySlideshowDetail {
   name: string;
   transition: SlideshowTransition;
   slideSeconds: number;
+  // Cross-fade length in seconds (0.5–5): playback animations + the movie's xfade.
+  transitionSeconds: number;
   canEdit: boolean;
   updatedAt: string;
   musicTrackId: string | null;
@@ -122,6 +127,9 @@ export interface GallerySlideshowDetail {
   renderedAt: string | null;
   outputBytes: number | null;
   movieUrl: string | null;
+  // True when the latest render was auto-saved into a gallery library as a video item;
+  // deleting the slideshow leaves that item in place.
+  movieSavedToLibrary: boolean;
 }
 
 // A music track for slideshows: a built-in ambient bed or a user upload. `url` is
@@ -179,6 +187,13 @@ export interface GalleryFaceSettings {
   groupingStrength: number; // 2..8: lower = purer/more groups, higher = more consolidated
   libraries: GalleryFaceLibrary[];
   scan: GalleryFaceScan | null;
+}
+
+// Global slideshow-movie settings (admin): the default gallery library every rendered
+// movie is auto-saved into. renderLibraryId is null when saving to a library is off.
+export interface GallerySlideshowSettings {
+  renderLibraryId: string | null;
+  libraries: { id: string; name: string }[];
 }
 
 // Clustering-health diagnostic: how many people are likely the same person split across

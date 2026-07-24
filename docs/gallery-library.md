@@ -143,6 +143,18 @@ item-keyed systems:
   Design notes: [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md)
   (Phase 2.5).
 
+## Albums & slideshows
+
+- **Albums** organize: hand-curated photo sets spanning every gallery library,
+  viewable by all members and editable by creator + admins, with their own live
+  guest/user shares (see [sharing.md](sharing.md)).
+- **Slideshows** present: an ordered set with transitions, per-photo timing, music,
+  a full-screen player, and an **MP4 movie export** (title card, save-to-library,
+  Tasks-page progress). Suggested slideshows cluster moments from time/GPS/people
+  and skip near-duplicate shots via a perceptual fingerprint
+  (`gallery_details.phash`). Full behavior:
+  [gallery-slideshows.md](gallery-slideshows.md).
+
 ## API
 
 | Method | Path | Purpose |
@@ -284,8 +296,10 @@ cataloged and get their faces the same night.
 ## Not yet (future phases)
 
 - **Semantic / content search** (ML — the heavy part of Immich).
-- **Albums, photo-pure Collections + slideshow** — planned (Memories,
-  multi-select actions, and share quick links shipped);
-  see [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md).
+- **Photo-pure Collections** — planned; see
+  [gallery-memories-albums-proposal.md](gallery-memories-albums-proposal.md).
+  (Memories, multi-select actions, share quick links, albums, and slideshows have
+  all shipped — slideshows are documented in
+  [gallery-slideshows.md](gallery-slideshows.md).)
 - **Upload into a chosen subfolder** (today everything lands in the library root).
 - **Configurable map tile source** (today OSM is hard-wired).

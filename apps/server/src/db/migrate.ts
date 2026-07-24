@@ -142,6 +142,204 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE gallery_details ADD COLUMN playable INTEGER");
       }
     }
+  },
+  // Auto-save a rendered slideshow movie into a gallery library: record which library
+  // the latest render was saved to, the stable path under its root (so a re-render
+  // overwrites in place), and the cataloged item's id. Conditional because schema.sql
+  // (run first) already adds the columns on fresh databases.
+  {
+    version: 13,
+    up: (db) => {
+      const columns = db.pragma("table_info(gallery_slideshows)") as { name: string }[];
+      const has = (name: string) => columns.some((column) => column.name === name);
+      if (!has("movie_library_id")) db.exec("ALTER TABLE gallery_slideshows ADD COLUMN movie_library_id TEXT REFERENCES libraries(id) ON DELETE SET NULL");
+      if (!has("movie_relative_path")) db.exec("ALTER TABLE gallery_slideshows ADD COLUMN movie_relative_path TEXT");
+      if (!has("movie_item_id")) db.exec("ALTER TABLE gallery_slideshows ADD COLUMN movie_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL");
+    }
+  },
+  // 'random' slideshow transition: widen the transition CHECK. SQLite can't alter a
+  // CHECK in place, so existing databases rebuild the table. NO renames: with
+  // foreign_keys=ON a RENAME rewrites gallery_slideshow_items' REFERENCES clause to
+  // follow the renamed table (even under legacy_alter_table — measured), which would
+  // strand the child on the dropped copy and cascade its rows away. Instead both
+  // tables are backed up, dropped (child first), recreated verbatim from schema.sql
+  // with the widened CHECK, and restored — the whole rebuild is inside this
+  // migration's transaction. Skipped when the CHECK already allows 'random' (fresh
+  // DBs get it from schema.sql, which runs before migrations).
+  {
+    version: 14,
+    up: (db) => {
+      const master = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gallery_slideshows'")
+        .get() as { sql: string } | undefined;
+      if (!master || master.sql.includes("'random'")) return;
+      db.exec(`
+        CREATE TABLE gallery_slideshows_backup AS SELECT * FROM gallery_slideshows;
+        CREATE TABLE gallery_slideshow_items_backup AS SELECT * FROM gallery_slideshow_items;
+        DROP TABLE gallery_slideshow_items;
+        DROP TABLE gallery_slideshows;
+        CREATE TABLE gallery_slideshows (
+          id             TEXT PRIMARY KEY,
+          name           TEXT NOT NULL,
+          source_kind    TEXT NOT NULL DEFAULT 'manual' CHECK (source_kind IN ('manual', 'memory', 'album')),
+          source_ref     TEXT,
+          music_track_id TEXT REFERENCES gallery_music_tracks(id) ON DELETE SET NULL,
+          transition     TEXT NOT NULL DEFAULT 'crossfade'
+                           CHECK (transition IN ('none', 'crossfade', 'fade', 'slide', 'kenburns', 'random')),
+          slide_seconds  REAL NOT NULL DEFAULT 4,
+          render_status  TEXT NOT NULL DEFAULT 'draft'
+                           CHECK (render_status IN ('draft', 'queued', 'rendering', 'ready', 'failed')),
+          render_job_id  TEXT REFERENCES jobs(id) ON DELETE SET NULL,
+          output_storage_key TEXT,
+          output_bytes   INTEGER,
+          rendered_at    TEXT,
+          render_error   TEXT,
+          movie_library_id    TEXT REFERENCES libraries(id) ON DELETE SET NULL,
+          movie_relative_path TEXT,
+          movie_item_id       TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+          created_by     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        );
+        CREATE TABLE gallery_slideshow_items (
+          slideshow_id  TEXT NOT NULL REFERENCES gallery_slideshows(id) ON DELETE CASCADE,
+          item_id       TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+          position      REAL NOT NULL,
+          dwell_seconds REAL,
+          added_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          PRIMARY KEY (slideshow_id, item_id)
+        );
+        CREATE INDEX idx_gallery_slideshow_items_item ON gallery_slideshow_items (item_id);
+        INSERT INTO gallery_slideshows
+          SELECT id, name, source_kind, source_ref, music_track_id, transition, slide_seconds,
+                 render_status, render_job_id, output_storage_key, output_bytes, rendered_at,
+                 render_error, movie_library_id, movie_relative_path, movie_item_id,
+                 created_by, created_at, updated_at
+          FROM gallery_slideshows_backup;
+        INSERT INTO gallery_slideshow_items
+          SELECT slideshow_id, item_id, position, dwell_seconds, added_at
+          FROM gallery_slideshow_items_backup;
+        DROP TABLE gallery_slideshows_backup;
+        DROP TABLE gallery_slideshow_items_backup;
+      `);
+    }
+  },
+  // Repair for databases hit by v14's first, flawed rebuild (renamed the parent with
+  // foreign_keys ON, which rewrote gallery_slideshow_items' REFERENCES clause to the
+  // dropped "gallery_slideshows_old" — leaving every item insert failing with "no such
+  // table" and the membership rows cascade-deleted). Rebuilds the child table pointing
+  // at gallery_slideshows again. No-op unless the dangling reference is present.
+  {
+    version: 15,
+    up: (db) => {
+      const child = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gallery_slideshow_items'")
+        .get() as { sql: string } | undefined;
+      if (!child || !child.sql.includes("gallery_slideshows_old")) return;
+      db.exec(`
+        CREATE TABLE gallery_slideshow_items_repair AS SELECT * FROM gallery_slideshow_items;
+        DROP TABLE gallery_slideshow_items;
+        CREATE TABLE gallery_slideshow_items (
+          slideshow_id  TEXT NOT NULL REFERENCES gallery_slideshows(id) ON DELETE CASCADE,
+          item_id       TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+          position      REAL NOT NULL,
+          dwell_seconds REAL,
+          added_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          PRIMARY KEY (slideshow_id, item_id)
+        );
+        CREATE INDEX idx_gallery_slideshow_items_item ON gallery_slideshow_items (item_id);
+        INSERT INTO gallery_slideshow_items
+          SELECT slideshow_id, item_id, position, dwell_seconds, added_at
+          FROM gallery_slideshow_items_repair;
+        DROP TABLE gallery_slideshow_items_repair;
+      `);
+    }
+  },
+  // Per-slideshow transition length (seconds), driving both the live player and the
+  // rendered movie's xfade. Existing slideshows keep the previous fixed 2s. Conditional
+  // because schema.sql (run first) already adds the column on fresh databases.
+  {
+    version: 16,
+    up: (db) => {
+      const columns = db.pragma("table_info(gallery_slideshows)") as { name: string }[];
+      if (!columns.some((column) => column.name === "transition_seconds")) {
+        db.exec("ALTER TABLE gallery_slideshows ADD COLUMN transition_seconds REAL NOT NULL DEFAULT 2");
+      }
+    }
+  },
+  // Perceptual fingerprint (dHash) for photos, so memory suggestions can skip
+  // near-duplicate shots. NULL until the next gallery scan backfills it from the
+  // cached preview thumbnail. Conditional because schema.sql (run first) already
+  // adds the column on fresh databases.
+  {
+    version: 17,
+    up: (db) => {
+      const columns = db.pragma("table_info(gallery_details)") as { name: string }[];
+      if (!columns.some((column) => column.name === "phash")) {
+        db.exec("ALTER TABLE gallery_details ADD COLUMN phash TEXT");
+      }
+    }
+  },
+  // 'dipblack' slideshow transition (dip to black): widen the transition CHECK again.
+  // Same no-rename rebuild as v14 — with foreign_keys=ON a RENAME rewrites the child's
+  // REFERENCES clause even under legacy_alter_table (measured), so both tables are
+  // backed up, dropped (child first), recreated verbatim from schema.sql, and restored.
+  // Skipped when the CHECK already allows 'dipblack' (fresh DBs get it from schema.sql).
+  {
+    version: 18,
+    up: (db) => {
+      const master = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'gallery_slideshows'")
+        .get() as { sql: string } | undefined;
+      if (!master || master.sql.includes("'dipblack'")) return;
+      db.exec(`
+        CREATE TABLE gallery_slideshows_backup AS SELECT * FROM gallery_slideshows;
+        CREATE TABLE gallery_slideshow_items_backup AS SELECT * FROM gallery_slideshow_items;
+        DROP TABLE gallery_slideshow_items;
+        DROP TABLE gallery_slideshows;
+        CREATE TABLE gallery_slideshows (
+          id             TEXT PRIMARY KEY,
+          name           TEXT NOT NULL,
+          source_kind    TEXT NOT NULL DEFAULT 'manual' CHECK (source_kind IN ('manual', 'memory', 'album')),
+          source_ref     TEXT,
+          music_track_id TEXT REFERENCES gallery_music_tracks(id) ON DELETE SET NULL,
+          transition     TEXT NOT NULL DEFAULT 'crossfade'
+                           CHECK (transition IN ('none', 'crossfade', 'fade', 'slide', 'kenburns', 'dipblack', 'random')),
+          slide_seconds  REAL NOT NULL DEFAULT 4,
+          transition_seconds REAL NOT NULL DEFAULT 2,
+          render_status  TEXT NOT NULL DEFAULT 'draft'
+                           CHECK (render_status IN ('draft', 'queued', 'rendering', 'ready', 'failed')),
+          render_job_id  TEXT REFERENCES jobs(id) ON DELETE SET NULL,
+          output_storage_key TEXT,
+          output_bytes   INTEGER,
+          rendered_at    TEXT,
+          render_error   TEXT,
+          movie_library_id    TEXT REFERENCES libraries(id) ON DELETE SET NULL,
+          movie_relative_path TEXT,
+          movie_item_id       TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+          created_by     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        );
+        CREATE TABLE gallery_slideshow_items (
+          slideshow_id  TEXT NOT NULL REFERENCES gallery_slideshows(id) ON DELETE CASCADE,
+          item_id       TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+          position      REAL NOT NULL,
+          dwell_seconds REAL,
+          added_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          PRIMARY KEY (slideshow_id, item_id)
+        );
+        CREATE INDEX idx_gallery_slideshow_items_item ON gallery_slideshow_items (item_id);
+        INSERT INTO gallery_slideshows
+          SELECT id, name, source_kind, source_ref, music_track_id, transition, slide_seconds,
+                 transition_seconds, render_status, render_job_id, output_storage_key, output_bytes,
+                 rendered_at, render_error, movie_library_id, movie_relative_path, movie_item_id,
+                 created_by, created_at, updated_at
+          FROM gallery_slideshows_backup;
+        INSERT INTO gallery_slideshow_items
+          SELECT slideshow_id, item_id, position, dwell_seconds, added_at
+          FROM gallery_slideshow_items_backup;
+        DROP TABLE gallery_slideshows_backup;
+        DROP TABLE gallery_slideshow_items_backup;
+      `);
+    }
   }
 ];
 
