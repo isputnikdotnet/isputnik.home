@@ -55,10 +55,10 @@ export function GalleryPersonLinkModal({
 
   return (
     <Modal
-      variant="panel"
+      variant="card"
       title={`Link ${person.name} to a gallery person`}
-      icon={<Link2 size={20} />}
-      className="ft-picker-modal"
+      icon={<Link2 size={18} />}
+      className="ft-modal ft-picker-modal"
       busy={busyId != null}
       onClose={onClose}
     >

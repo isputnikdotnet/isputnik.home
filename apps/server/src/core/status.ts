@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.12.0",
+          label: "Family tree: map your family and tie it to your photos",
+          changes: [
+            "A new Family Tree section. Add family members with their dates, birthplace, portrait and a short life story, then link them together as partners and children — including remarriages and single parents. It lives beside the Gallery in the main menu, and everyone signed in can browse it while administrators do the editing.",
+            "An interactive tree chart. The chart centres on one person, showing their ancestors above, descendants below and partners alongside. Click anyone to re-centre on them, drag to pan, scroll or pinch to zoom, and use Back to retrace where you came from. There is also an \"All people\" list for searching and managing everyone at once.",
+            "Family members connect to your photos. Attach any photos or videos from your galleries to a person, or link them to a face the gallery already recognises so their pictures appear on their profile automatically — always respecting which libraries you're allowed to see. A person's portrait can be uploaded or picked straight from a gallery photo.",
+            "Authors and Categories moved into the book sections. They now live in the Audiobooks and Ebooks views (in the tab row, or the Browse menu on a phone) instead of the main menu, since they only describe books. Tags now sits at the end of the main menu."
+          ]
+        },
+        {
           version: "1.11.3",
           label: "Clearer activity logs: filters, named shares, and download auditing",
           changes: [

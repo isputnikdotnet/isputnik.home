@@ -13,13 +13,13 @@
 // drawn last from the final positions — so edges can never detach.
 import type { FamilyPerson, FamilyTree } from "./types";
 
-export const NODE_W = 150;
-export const NODE_H = 58;
-const SPOUSE_GAP = 34;
-const SIBLING_GAP = 26;
-const ROW_H = 168;
-const BLOCK_GAP = 44;
-const BUS_RISE = 26; // how far above a child row its connector bus runs
+export const NODE_W = 130;
+export const NODE_H = 50;
+const SPOUSE_GAP = 28;
+const SIBLING_GAP = 22;
+const ROW_H = 132;
+const BLOCK_GAP = 36;
+const BUS_RISE = 20; // how far above a child row its connector bus runs
 
 export interface PlacedNode {
   person: FamilyPerson;

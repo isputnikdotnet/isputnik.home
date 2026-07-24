@@ -84,7 +84,8 @@ export function AddChildModal({
     <Modal
       variant="card"
       title={`Add child of ${person.name}`}
-      icon={<Baby size={20} />}
+      icon={<Baby size={18} />}
+      className="ft-modal"
       busy={saving}
       onClose={onClose}
       onSubmit={submit}
@@ -102,24 +103,26 @@ export function AddChildModal({
           </Button>
         )}
       </div>
-      {unionOptions.length > 1 && (
+      <div className="ft-field-stack">
+        {unionOptions.length > 1 && (
+          <label className="field">
+            <span>Family</span>
+            <select value={unionId} onChange={(event) => setUnionId(event.target.value)}>
+              {unionOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="field">
-          <span>Family</span>
-          <select value={unionId} onChange={(event) => setUnionId(event.target.value)}>
-            {unionOptions.map((option) => (
+          <span>Relation</span>
+          <select value={relation} onChange={(event) => setRelation(event.target.value as FamilyChildLink["relation"])}>
+            {CHILD_RELATION_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
         </label>
-      )}
-      <label className="field">
-        <span>Relation</span>
-        <select value={relation} onChange={(event) => setRelation(event.target.value as FamilyChildLink["relation"])}>
-          {CHILD_RELATION_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-      </label>
+      </div>
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
         <Button variant="primary" type="submit" disabled={saving || !child}>

@@ -63,7 +63,8 @@ export function AddUnionModal({
     <Modal
       variant="card"
       title={`Add partner for ${person.name}`}
-      icon={<Heart size={20} />}
+      icon={<Heart size={18} />}
+      className="ft-modal"
       busy={saving}
       onClose={onClose}
       onSubmit={submit}
@@ -86,18 +87,20 @@ export function AddUnionModal({
           </Button>
         )}
       </div>
-      <label className="field">
-        <span>Status</span>
-        <select value={status} onChange={(event) => setStatus(event.target.value as FamilyUnion["status"])}>
-          {UNION_STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span>Married / together since</span>
-        <input type="date" value={marriedDate} onChange={(event) => setMarriedDate(event.target.value)} />
-      </label>
+      <div className="ft-field-stack">
+        <label className="field">
+          <span>Status</span>
+          <select value={status} onChange={(event) => setStatus(event.target.value as FamilyUnion["status"])}>
+            {UNION_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Married / together since</span>
+          <input type="date" value={marriedDate} onChange={(event) => setMarriedDate(event.target.value)} />
+        </label>
+      </div>
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
         <Button variant="primary" type="submit" disabled={saving}>
