@@ -1314,12 +1314,18 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         WHERE share_links.id = ?
       `).get(setLink.id) as { label: string | null; expires_at: string; shared_by: string | null };
       const setItems = galleryMultiShareItems(setLink);
+      // A live album has its own name; a quick set only has the link's optional
+      // label. Prefer the label (the sharer's own wording) and fall back to the
+      // album name, so the log always says which collection was opened.
+      const isAlbum = setLink.module === "gallery_album";
+      const resourceName = meta.label ?? (isAlbum ? loadAlbumShareMeta(setLink.resource_id)?.name ?? null : null);
+      const kindWord = isAlbum ? "album" : "photo set";
       logActivity({
         event: "share.accessed",
         actorUserId: null,
         targetType: "share_link",
         targetId: setLink.id,
-        detail: `Opened a shared photo set (${setItems.length} item${setItems.length === 1 ? "" : "s"}).`,
+        detail: `Opened a shared ${kindWord}${resourceName ? ` "${resourceName}"` : ""} (${setItems.length} item${setItems.length === 1 ? "" : "s"}).`,
         ipAddress: request.ip
       });
       reply.send({
@@ -1359,7 +1365,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       actorUserId: null,
       targetType: "share_link",
       targetId: link.id,
-      detail: `Opened a shared ${module}.`,
+      detail: `Opened a shared ${module} "${item.title ?? path.basename(item.folder_path)}".`,
       ipAddress: request.ip
     });
 
@@ -1539,7 +1545,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       actorUserId: null,
       targetType: "share_link",
       targetId: link.id,
-      detail: `Downloaded a ${item.kind === "video" ? "video" : "photo"} from a shared set.`,
+      detail: `Downloaded a ${item.kind === "video" ? "video" : "photo"} "${item.relative_path.split("/").pop() ?? "file"}" from a shared set.`,
       ipAddress: request.ip
     });
     sendFile(request, reply, {
@@ -1571,7 +1577,10 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     }
 
     const meta = db.prepare("SELECT label FROM share_links WHERE id = ?").get(link.id) as { label: string | null } | undefined;
-    const safeBase = (meta?.label ?? "shared-photos").replace(/[/\\?%*:|"<>]/g, "_").trim() || "shared-photos";
+    const isAlbum = link.module === "gallery_album";
+    const resourceName = meta?.label ?? (isAlbum ? loadAlbumShareMeta(link.resource_id)?.name ?? null : null);
+    const kindWord = isAlbum ? "album" : "set";
+    const safeBase = (resourceName ?? "shared-photos").replace(/[/\\?%*:|"<>]/g, "_").trim() || "shared-photos";
     const zipName = `${safeBase}.zip`;
 
     logActivity({
@@ -1579,7 +1588,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       actorUserId: null,
       targetType: "share_link",
       targetId: link.id,
-      detail: `Downloaded all ${available.length} item${available.length === 1 ? "" : "s"} from a shared set.`,
+      detail: `Downloaded all ${available.length} item${available.length === 1 ? "" : "s"} from a shared ${kindWord}${resourceName ? ` "${resourceName}"` : ""}.`,
       ipAddress: request.ip
     });
 
@@ -1704,7 +1713,8 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     if (!resolved) return;
     const { module, item, link } = resolved;
 
-    const safeTitle = (item.title ?? path.basename(item.folder_path)).replace(/[/\\?%*:|"<>]/g, "_").trim();
+    const displayTitle = item.title ?? path.basename(item.folder_path);
+    const safeTitle = displayTitle.replace(/[/\\?%*:|"<>]/g, "_").trim();
 
     if (module === "gallery") {
       const gal = loadShareGalleryAsset(link.resource_id);
@@ -1722,7 +1732,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         actorUserId: null,
         targetType: "share_link",
         targetId: link.id,
-        detail: `Downloaded a shared ${gal.kind === "video" ? "video" : "photo"}.`,
+        detail: `Downloaded a shared ${gal.kind === "video" ? "video" : "photo"} "${displayTitle}".`,
         ipAddress: request.ip
       });
       const ext = path.extname(gal.relative_path);
@@ -1751,7 +1761,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         actorUserId: null,
         targetType: "share_link",
         targetId: link.id,
-        detail: "Downloaded a shared ebook.",
+        detail: `Downloaded a shared ebook "${displayTitle}".`,
         ipAddress: request.ip
       });
       const ext = path.extname(doc.relative_path);
@@ -1782,7 +1792,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       actorUserId: null,
       targetType: "share_link",
       targetId: link.id,
-      detail: "Downloaded a shared audiobook.",
+      detail: `Downloaded a shared audiobook "${displayTitle}".`,
       ipAddress: request.ip
     });
 

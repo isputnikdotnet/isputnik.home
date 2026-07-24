@@ -583,7 +583,7 @@ export function GalleryLightbox({
           )}
           <a
             className="gallery-lightbox-action"
-            href={`${asset.fileUrl}`}
+            href={`${asset.fileUrl}${asset.fileUrl.includes("?") ? "&" : "?"}download=1`}
             download
             aria-label="Download"
             title="Download"
@@ -664,7 +664,7 @@ export function GalleryLightbox({
                 {formatLabel(asset.title) ? `${formatLabel(asset.title)} files use a format` : "This video uses a format"}{" "}
                 your browser can’t decode. Download it to watch in a desktop player like VLC.
               </MessageBox>
-              <a className="gallery-lightbox-download-cta" href={asset.fileUrl} download>
+              <a className="gallery-lightbox-download-cta" href={`${asset.fileUrl}${asset.fileUrl.includes("?") ? "&" : "?"}download=1`} download>
                 <Download size={16} aria-hidden="true" /> Download video
               </a>
             </div>

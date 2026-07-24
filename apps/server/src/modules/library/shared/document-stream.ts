@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { db } from "../../../db.js";
+import { db, logActivity } from "../../../db.js";
 import { pathIsInside } from "./storage-roots.js";
 import { canUserAccessBook, canUserDownloadBook } from "./library-access.js";
 import { mediaKind } from "./library-types.js";
@@ -27,6 +27,7 @@ interface DocumentRow {
   source_path: string;
   id: string; // library id (aliased for canUserAccessBook)
   library_type: string; // resolves the share module ("audiobook" | "ebook")
+  item_title: string | null; // for the download audit detail
 }
 
 interface StreamOptions {
@@ -52,10 +53,12 @@ export function streamDocumentFile(request: FastifyRequest, reply: FastifyReply,
       document_files.status,
       libraries.source_path,
       libraries.id AS id,
-      libraries.type AS library_type
+      libraries.type AS library_type,
+      item_metadata.title AS item_title
     FROM document_files
     JOIN library_items ON library_items.id = document_files.item_id
     JOIN libraries ON libraries.id = library_items.library_id
+    LEFT JOIN item_metadata ON item_metadata.item_id = document_files.item_id
     WHERE document_files.id = ?
       AND document_files.item_id = ?
       AND library_items.deleted_at IS NULL
@@ -95,6 +98,22 @@ export function streamDocumentFile(request: FastifyRequest, reply: FastifyReply,
   if (rangeHeader && !range) {
     reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
     return;
+  }
+
+  // Audit only real downloads (attachment), and only at the start of the transfer
+  // so a ranged client fetching the file in chunks logs once, not per chunk.
+  if (download && (!range || range.start === 0)) {
+    const title = row.item_title ?? fileName;
+    logActivity({
+      event: `library.${module}.downloaded`,
+      actorUserId: user.id,
+      targetType: "book",
+      targetId: itemId,
+      detail: module === "ebook"
+        ? `Downloaded ebook "${title}".`
+        : `Downloaded document "${fileName}" from "${title}".`,
+      ipAddress: request.ip
+    });
   }
 
   reply.hijack();

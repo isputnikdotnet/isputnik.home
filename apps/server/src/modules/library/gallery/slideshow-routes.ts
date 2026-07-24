@@ -257,6 +257,16 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       return;
     }
     const download = typeof (request.query as { download?: string }).download === "string";
+    if (download && (!range || range.start === 0)) {
+      logActivity({
+        event: "gallery.slideshow.downloaded",
+        actorUserId: user.id,
+        targetType: "gallery_slideshow",
+        targetId: slideshow.id,
+        detail: `Downloaded the movie of slideshow "${slideshow.name}".`,
+        ipAddress: request.ip
+      });
+    }
     const safeName = `${slideshow.name.replace(/[/\\?%*:|"<>]/g, "_").trim() || "slideshow"}.mp4`;
     const disposition = download
       ? `attachment; filename="${safeName.replace(/[^\x20-\x7E]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(safeName)}`

@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
-import { db } from "../../../db.js";
+import { db, logActivity } from "../../../db.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { canUserAccessBook } from "../shared/library-access.js";
 import { parseRangeHeader } from "../shared/document-stream.js";
@@ -17,12 +17,13 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
 
     const row = db.prepare(`
       SELECT gallery_details.relative_path, gallery_details.mime_type, gallery_details.web_video_key,
-             libraries.source_path, libraries.id AS id
+             libraries.source_path, libraries.id AS id, item_metadata.title AS title
       FROM gallery_details
       JOIN library_items ON library_items.id = gallery_details.item_id
       JOIN libraries ON libraries.id = library_items.library_id
+      LEFT JOIN item_metadata ON item_metadata.item_id = gallery_details.item_id
       WHERE gallery_details.item_id = ? AND library_items.deleted_at IS NULL
-    `).get(id) as { relative_path: string; mime_type: string | null; web_video_key: string | null; source_path: string; id: string } | undefined;
+    `).get(id) as { relative_path: string; mime_type: string | null; web_video_key: string | null; source_path: string; id: string; title: string | null } | undefined;
 
     if (!row) {
       reply.code(404).send({ error: "Asset not found" });
@@ -61,6 +62,23 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
     if (rangeHeader && !range) {
       reply.code(416).header("Content-Range", `bytes */${totalSize}`).send({ error: "Range not satisfiable" });
       return;
+    }
+
+    // This endpoint also serves inline views/playback, so only audit an explicit
+    // download (client appends ?download=1) — and only at the start of the transfer
+    // so a ranged video download logs once, not per chunk.
+    const wantsDownload = typeof (request.query as { download?: string }).download === "string";
+    if (wantsDownload && (!range || range.start === 0)) {
+      const isVideo = (row.mime_type ?? "").startsWith("video");
+      const title = row.title ?? path.basename(row.relative_path);
+      logActivity({
+        event: "library.gallery.downloaded",
+        actorUserId: user.id,
+        targetType: "gallery",
+        targetId: id,
+        detail: `Downloaded ${isVideo ? "video" : "photo"} "${title}".`,
+        ipAddress: request.ip
+      });
     }
 
     reply.hijack();
