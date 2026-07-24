@@ -14,6 +14,7 @@ import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
 import { libraryPlugin } from "./modules/library/index.js";
 import { collectionsPlugin } from "./modules/collections/index.js";
+import { familyTreePlugin } from "./modules/familytree/index.js";
 import { maintenancePlugin } from "./modules/maintenance/index.js";
 
 // X-Forwarded-For is only trusted when TRUST_PROXY_HOPS names how many reverse
@@ -138,6 +139,7 @@ await app.register(usersPlugin);
 await app.register(backupsPlugin);
 await app.register(libraryPlugin);
 await app.register(collectionsPlugin);
+await app.register(familyTreePlugin);
 await app.register(maintenancePlugin);
 
 if (config.staticPath) {

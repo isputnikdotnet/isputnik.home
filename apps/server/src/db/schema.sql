@@ -971,3 +971,76 @@ CREATE INDEX IF NOT EXISTS idx_trashed_items_at         ON trashed_items(trashed
 CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_status              ON jobs(status, run_at);
 CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_due        ON scheduled_jobs(enabled, next_run_at);
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  Family tree (modules/familytree)
+-- ════════════════════════════════════════════════════════════════════════════
+-- A third, independent "person" concept: `people` are book contributors and
+-- `gallery_people` are face clusters; family_tree_persons are family members.
+-- gallery_person_id bridges a family member to their face cluster so tagged
+-- photos surface on the profile. Any signed-in user can view; only admins edit.
+
+CREATE TABLE IF NOT EXISTS family_tree_persons (
+  id                TEXT PRIMARY KEY,
+  name              TEXT NOT NULL,
+  maiden_name       TEXT,
+  gender            TEXT NOT NULL DEFAULT 'unknown' CHECK (gender IN ('male', 'female', 'other', 'unknown')),
+  -- Partial ISO dates: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD' (validated in app code;
+  -- lexicographic order == chronological, and GEDCOM partial dates map 1:1 later).
+  birth_date        TEXT,
+  death_date        TEXT,
+  birthplace        TEXT,
+  bio               TEXT,
+  -- Portrait is EITHER an uploaded image in the thumbnail store (bucket
+  -- 'familytree') OR a chosen gallery item whose cover is used; app code clears
+  -- one when setting the other.
+  portrait_storage_key TEXT,
+  portrait_item_id  TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  gallery_person_id TEXT REFERENCES gallery_people(id) ON DELETE SET NULL,
+  created_by        TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- A spouse/partner union (GEDCOM FAM). person2 NULL = single-parent family, so
+-- child edges always hang off a union and never need a separate parent table.
+-- Deleting a person keeps the union when the other partner survives (app code
+-- promotes the survivor into person1); person2's SET NULL is the DB backstop.
+CREATE TABLE IF NOT EXISTS family_tree_unions (
+  id            TEXT PRIMARY KEY,
+  person1_id    TEXT NOT NULL REFERENCES family_tree_persons(id) ON DELETE CASCADE,
+  person2_id    TEXT REFERENCES family_tree_persons(id) ON DELETE SET NULL,
+  status        TEXT NOT NULL DEFAULT 'unknown' CHECK (status IN ('married', 'partners', 'divorced', 'widowed', 'unknown')),
+  married_date  TEXT,
+  divorced_date TEXT,
+  note          TEXT,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- The PK deliberately allows a child in several unions (adoptive + biological,
+-- GEDCOM import); v1 routes enforce at most one parent-union per child.
+CREATE TABLE IF NOT EXISTS family_tree_children (
+  union_id  TEXT NOT NULL REFERENCES family_tree_unions(id) ON DELETE CASCADE,
+  child_id  TEXT NOT NULL REFERENCES family_tree_persons(id) ON DELETE CASCADE,
+  relation  TEXT NOT NULL DEFAULT 'biological' CHECK (relation IN ('biological', 'adopted', 'step', 'foster', 'unknown')),
+  added_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (union_id, child_id)
+);
+
+-- Gallery photos/videos attached to a family member. CASCADE like
+-- gallery_album_items — an attachment is meaningless without its item.
+CREATE TABLE IF NOT EXISTS family_tree_photos (
+  person_id TEXT NOT NULL REFERENCES family_tree_persons(id) ON DELETE CASCADE,
+  item_id   TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  position  REAL NOT NULL,
+  added_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  added_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (person_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ft_unions_p1             ON family_tree_unions(person1_id);
+CREATE INDEX IF NOT EXISTS idx_ft_unions_p2             ON family_tree_unions(person2_id);
+CREATE INDEX IF NOT EXISTS idx_ft_children_child        ON family_tree_children(child_id);
+CREATE INDEX IF NOT EXISTS idx_ft_photos_item           ON family_tree_photos(item_id);
+CREATE INDEX IF NOT EXISTS idx_ft_persons_gallery_person ON family_tree_persons(gallery_person_id);
