@@ -73,8 +73,8 @@ export function PersonEditModal({
     <Modal
       variant="card"
       title={person ? `Edit ${person.name}` : "Add family member"}
-      icon={<UserRound size={20} />}
-      className="ft-person-form-modal"
+      icon={<UserRound size={18} />}
+      className="ft-modal ft-person-form-modal"
       busy={saving}
       onClose={onClose}
       onSubmit={submit}

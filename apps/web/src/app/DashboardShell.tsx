@@ -17,7 +17,6 @@ import {
   Network,
   Quote,
   Settings,
-  Shapes,
   Tag,
   UsersRound,
   UserRound
@@ -77,16 +76,17 @@ function DashboardNavLink({ item }: { item: MainNavItem }) {
   );
 }
 
+// Authors and Categories are reached from the Audiobooks/Ebooks pages (their
+// tab rows and mobile Browse menus) rather than the primary nav — they only
+// describe book-like libraries, so they don't belong beside the media types.
 function mainNavItems(active: DashboardActive): MainNavItem[] {
   return [
     { label: "Home", href: "/", icon: Home, active: active === "home" },
     { label: "Audiobooks", href: "/audiobooks", icon: Headphones, active: active === "audiobooks" },
     { label: "Ebooks", href: "/ebooks", icon: BookOpen, active: active === "ebooks" },
-    { label: "Authors", href: "/authors", icon: UserRound, active: active === "authors" },
-    { label: "Categories", href: "/categories", icon: Shapes, active: active === "categories" },
-    { label: "Tags", href: "/tags", icon: Tag, active: active === "tags" },
     { label: "Gallery", href: "/gallery", icon: Image, active: active === "gallery" },
-    { label: "Family Tree", href: "/family", icon: Network, active: active === "family" }
+    { label: "Family Tree", href: "/family", icon: Network, active: active === "family" },
+    { label: "Tags", href: "/tags", icon: Tag, active: active === "tags" }
   ];
 }
 
@@ -158,18 +158,6 @@ function MobileNav({
               <BookOpen size={26} aria-hidden="true" />
               <span>Ebooks</span>
             </a>
-            <a className="mobile-media-option" href="/authors" onClick={(event) => { followRoute(event, "/authors"); close(); }}>
-              <UserRound size={26} aria-hidden="true" />
-              <span>Authors</span>
-            </a>
-            <a className="mobile-media-option" href="/categories" onClick={(event) => { followRoute(event, "/categories"); close(); }}>
-              <Shapes size={26} aria-hidden="true" />
-              <span>Categories</span>
-            </a>
-            <a className="mobile-media-option" href="/tags" onClick={(event) => { followRoute(event, "/tags"); close(); }}>
-              <Tag size={26} aria-hidden="true" />
-              <span>Tags</span>
-            </a>
             <a className="mobile-media-option" href="/gallery" onClick={(event) => { followRoute(event, "/gallery"); close(); }}>
               <Image size={26} aria-hidden="true" />
               <span>Gallery</span>
@@ -177,6 +165,10 @@ function MobileNav({
             <a className="mobile-media-option" href="/family" onClick={(event) => { followRoute(event, "/family"); close(); }}>
               <Network size={26} aria-hidden="true" />
               <span>Family Tree</span>
+            </a>
+            <a className="mobile-media-option" href="/tags" onClick={(event) => { followRoute(event, "/tags"); close(); }}>
+              <Tag size={26} aria-hidden="true" />
+              <span>Tags</span>
             </a>
           </div>
         </div>

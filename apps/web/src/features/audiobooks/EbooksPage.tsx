@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookMarked, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, ListMusic, Loader2, RotateCcw, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { BookMarked, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, ListMusic, Loader2, RotateCcw, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -785,6 +785,10 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                           <Library size={16} aria-hidden="true" />
                           <span>Series</span>
                         </button>
+                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/categories"); }}>
+                          <Shapes size={16} aria-hidden="true" />
+                          <span>Categories</span>
+                        </button>
                       </div>,
                       document.body
                     )}
@@ -804,6 +808,13 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                     >
                       <Library size={19} aria-hidden="true" />
                       <span>Series</span>
+                    </a>
+                    <a
+                      href="/categories"
+                      onClick={(event) => { event.preventDefault(); navigate("/categories"); }}
+                    >
+                      <Shapes size={19} aria-hidden="true" />
+                      <span>Categories</span>
                     </a>
                   </nav>
                 )}

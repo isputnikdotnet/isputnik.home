@@ -60,10 +60,10 @@ export function PersonPickerModal({
 
   return (
     <Modal
-      variant="panel"
+      variant="card"
       title={title}
-      icon={<UsersRound size={20} />}
-      className="ft-picker-modal"
+      icon={<UsersRound size={18} />}
+      className="ft-modal ft-picker-modal"
       busy={creating}
       onClose={onClose}
     >

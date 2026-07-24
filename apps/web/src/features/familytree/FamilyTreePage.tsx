@@ -148,7 +148,7 @@ export function FamilyTreePage({
 
         {focusPerson && (
           <footer className="ft-tree-focus-card">
-            <PersonAvatar person={focusPerson} size={40} />
+            <PersonAvatar person={focusPerson} size={34} />
             <span className="ft-picker-row-name">
               <strong>{focusPerson.name}</strong>
               {lifeYears(focusPerson) && <small>{lifeYears(focusPerson)}</small>}

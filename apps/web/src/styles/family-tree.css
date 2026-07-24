@@ -290,10 +290,45 @@
   margin-bottom: 4px;
 }
 
-.ft-modal-hint {
+/* Shared chrome for every family-tree card modal: a compact header (the 58px
+   icon and 1.25rem title of a plain confirm dialog are outsized for these
+   forms) and a real gap below it — .modal-title-row has no bottom margin, so
+   without this the first field sits flush against the header. */
+.ft-modal .modal-title-row {
+  margin-bottom: 18px;
+}
+
+.ft-modal .modal-title-heading {
+  gap: 12px;
+}
+
+.ft-modal .modal-title-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.ft-modal h2 {
+  font-size: 1.05rem;
+}
+
+/* Pickers are card modals (a list + a search box, not a large surface), just a
+   little wider than the 420px default so names and avatars sit comfortably. */
+.ft-picker-modal {
+  width: min(100%, 480px);
+}
+
+/* Stacked fields need explicit spacing — .field carries no outer margin. */
+.ft-field-stack {
+  display: grid;
+  gap: 14px;
+}
+
+/* Beats `.confirm-modal p`, which would otherwise impose its 12/24 margins. */
+.confirm-modal .ft-modal-hint {
   color: var(--muted);
   font-size: 0.88rem;
-  margin: 0 0 12px;
+  margin: 0 0 14px;
 }
 
 .ft-picker-search {
@@ -318,11 +353,12 @@
   min-width: 0;
 }
 
+/* Scrolls internally so a long list can't push the card past the viewport. */
 .ft-picker-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 320px;
+  max-height: min(320px, 40vh);
   overflow-y: auto;
   margin-bottom: 8px;
 }
@@ -389,7 +425,6 @@
 .ft-tree-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
   min-height: 0;
 }
 
@@ -456,10 +491,14 @@
   max-width: 46ch;
 }
 
+/* A definite height is required, not just flex: 1 — an SVG with height:100% in
+   an auto-height parent falls back to sizing itself from its viewBox aspect
+   ratio, which pushes the page (and the focus card) past the viewport. The
+   calc leaves room for the page chrome: header, focus card, and shell padding. */
 .ft-chart-wrap {
   position: relative;
-  flex: 1;
-  min-height: 420px;
+  flex: none;
+  height: clamp(260px, calc(100vh - 300px), 640px);
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
@@ -516,28 +555,28 @@
 
 .ft-chart-initial {
   fill: var(--muted);
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 700;
   user-select: none;
 }
 
 .ft-chart-name {
   fill: var(--ink);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   user-select: none;
 }
 
 .ft-chart-years {
   fill: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   user-select: none;
 }
 
 .ft-chart-controls {
   position: absolute;
-  right: 14px;
-  bottom: 14px;
+  right: 12px;
+  bottom: 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -546,10 +585,10 @@
 .ft-tree-focus-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 12px;
-  padding: 10px 14px;
-  border-radius: 14px;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--surface);
 }
@@ -580,6 +619,6 @@
   }
 
   .ft-chart-wrap {
-    min-height: 340px;
+    height: clamp(240px, calc(100vh - 320px), 460px);
   }
 }
