@@ -131,6 +131,15 @@ function getEngine() {
       // any heavy image work, which is the right default for a self-hosted server.
       sharp.concurrency(faceScanThreadBudget());
       const dir = modelsDir();
+      // The recogniser is fetched, not carried in the repo (167 MB — see
+      // scripts/fetch-face-model.mjs), so "absent" is a normal state for a fresh
+      // clone. Say so plainly: onnxruntime's own failure for a missing file is an
+      // opaque load error that reads like a broken model rather than a missing one.
+      if (!fs.existsSync(path.join(dir, "w600k_r50.onnx"))) {
+        throw new Error(
+          `Face recognition model not found in ${dir}. Run "npm run fetch:face-model" to download it (167 MB).`
+        );
+      }
       const [det, rec] = await Promise.all([
         createSession(path.join(dir, "det_500m.onnx")),
         createSession(path.join(dir, "w600k_r50.onnx"))

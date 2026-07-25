@@ -16,8 +16,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          lfs: true # pull the git-LFS face model so the image gets the real .onnx, not a pointer
+        # No LFS: the face recogniser is fetched from a release asset during the
+        # build (see scripts/fetch-face-model.mjs). Pulling it through LFS here is
+        # what exhausted the repo's LFS budget and failed every build at checkout.
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
