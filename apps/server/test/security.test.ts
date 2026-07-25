@@ -18,6 +18,8 @@ import {
   getSecurityPolicy,
   setSecurityPolicy,
   hasForwardedHeader,
+  forwardedProto,
+  safeRedirectHost,
   getTrustProxyHops,
   noteSignInNetwork,
   seedKnownLoginNetworks
@@ -222,6 +224,47 @@ describe("hasForwardedHeader", () => {
     expect(hasForwardedHeader({ forwarded: "for=1.2.3.4" })).toBe(true);
     expect(hasForwardedHeader({ "user-agent": "x" })).toBe(false);
     expect(hasForwardedHeader({})).toBe(false);
+  });
+});
+
+describe("forwardedProto", () => {
+  it("reads the scheme the client actually used", () => {
+    expect(forwardedProto({ "x-forwarded-proto": "http" })).toBe("http");
+    expect(forwardedProto({ "x-forwarded-proto": "https" })).toBe("https");
+    expect(forwardedProto({ "x-forwarded-proto": "HTTPS" })).toBe("https");
+  });
+
+  it("takes the first hop of a chain, not the last", () => {
+    // Left-to-right: the client spoke https to the CDN, which spoke http onward.
+    // Reading the tail would redirect a visitor who is already on https.
+    expect(forwardedProto({ "x-forwarded-proto": "https, http" })).toBe("https");
+    expect(forwardedProto({ "x-forwarded-proto": ["http", "https"] })).toBe("http");
+  });
+
+  it("returns null when nothing reports a scheme", () => {
+    expect(forwardedProto({})).toBeNull();
+    expect(forwardedProto({ "x-forwarded-proto": "" })).toBeNull();
+    expect(forwardedProto({ "x-forwarded-proto": "gopher" })).toBeNull();
+    expect(forwardedProto({ "x-forwarded-proto": 443 })).toBeNull();
+  });
+});
+
+describe("safeRedirectHost", () => {
+  it("accepts a plain host, with or without a port", () => {
+    expect(safeRedirectHost("hub.example.com")).toBe("hub.example.com");
+    expect(safeRedirectHost("hub.example.com:8443")).toBe("hub.example.com:8443");
+    expect(safeRedirectHost("192.168.1.10:4000")).toBe("192.168.1.10:4000");
+  });
+
+  it("refuses anything that could redirect off-site", () => {
+    // Each of these, pasted into "https://<host>/", lands somewhere else entirely.
+    expect(safeRedirectHost("evil.com/path")).toBeNull();
+    expect(safeRedirectHost("user@evil.com")).toBeNull();
+    expect(safeRedirectHost("hub.example.com\\@evil.com")).toBeNull();
+    expect(safeRedirectHost("hub.example.com evil.com")).toBeNull();
+    expect(safeRedirectHost("hub.example.com\r\nLocation: https://evil.com")).toBeNull();
+    expect(safeRedirectHost("")).toBeNull();
+    expect(safeRedirectHost(undefined)).toBeNull();
   });
 });
 

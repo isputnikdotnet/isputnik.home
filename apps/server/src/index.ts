@@ -7,7 +7,7 @@ import helmet from "@fastify/helmet";
 import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
-import { isIpBlocked, isTrustedIp, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader } from "./core/security.js";
+import { isIpBlocked, isTrustedIp, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader, forwardedProto, safeRedirectHost } from "./core/security.js";
 import { flagAbusiveRequest } from "./core/security-alerts.js";
 import { isProbePath } from "./core/probes.js";
 import { registerCsrf } from "./core/csrf.js";
@@ -140,6 +140,26 @@ app.addHook("onRequest", async (request, reply) => {
   if (isIpBlocked(request.ip) && !isTrustedIp(request.ip)) {
     await reply.code(403).send({ error: "Your network has been blocked." });
     return;
+  }
+  // Send plain-http visitors to https. TLS terminates at the proxy, so every
+  // request reaches this process over http and X-Forwarded-Proto is the only
+  // evidence of how the visitor actually arrived. Three deliberate limits:
+  //  - Only when the header explicitly says "http". Absent means no proxy is
+  //    reporting a scheme, and redirecting then would loop forever on a setup
+  //    that terminates TLS without setting the header.
+  //  - Only when APP_URL says this is an https deployment, so the default LAN
+  //    install can't redirect itself somewhere it doesn't answer.
+  //  - 307, not 301: a permanent redirect is cached hard, and a deployment that
+  //    later drops back to http would be stranded in browsers that remember it.
+  //    It also preserves the method, so a POST isn't silently turned into a GET.
+  // This is a backstop, not the primary control — a proxy that redirects at the
+  // edge spares the origin the round trip entirely (HTTPS_REDIRECT=false there).
+  if (config.httpsRedirect && forwardedProto(request.headers) === "http") {
+    const host = safeRedirectHost(request.headers.host);
+    if (host) {
+      await reply.code(307).redirect(`https://${host}${request.url}`);
+      return;
+    }
   }
   // Scanner sweeps for software this app doesn't run. Answer 404 immediately —
   // ahead of CSRF, auth, and the SPA fallback that would otherwise return the
