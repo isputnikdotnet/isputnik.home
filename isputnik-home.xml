@@ -88,13 +88,13 @@ Private self-hosted family media library for audiobooks, ebooks, photos, and oth
 
   <Config Name="Cookie Secure"
           Target="COOKIE_SECURE"
-          Default="false"
+          Default="auto"
           Mode=""
-          Description="Set to true ONLY when the app is reached over HTTPS. Secure cookies are never sent over plain http, so on a normal LAN install this must stay false — otherwise the sign-in and CSRF cookies are dropped by the browser and you cannot log in at all."
+          Description="Leave on auto: secure cookies then follow App URL — on when it starts with https://, off for a plain http home install. Set true or false only to override that. Secure cookies are never sent over plain http, so forcing true on an http install drops the sign-in cookie and you cannot log in. (auto needs version 1.13.3 or newer.)"
           Type="Variable"
           Display="advanced"
           Required="false"
-          Mask="false">false</Config>
+          Mask="false">auto</Config>
 
   <Config Name="Session Length (days)"
           Target="SESSION_DAYS"

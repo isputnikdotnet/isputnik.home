@@ -28,8 +28,12 @@ proxy is the only way in.
 | Variable | Set to | Why |
 |---|---|---|
 | `APP_URL` | `https://your-domain` | Your public address; used for links and CORS |
-| `COOKIE_SECURE` | `true` | Send the session cookie only over HTTPS |
+| `COOKIE_SECURE` | `true` (or `auto`) | Send the session cookie only over HTTPS |
 | `TRUST_PROXY_HOPS` | number of proxies in front (usually `1`) | So rate limits and logs see the real visitor, not the proxy |
+
+`COOKIE_SECURE=auto` follows `APP_URL` instead of stating it twice — secure
+cookies on for an `https://` address, off for a plain-http home install. Set
+`true` or `false` only to override that.
 
 Setting `APP_URL` to an `https://` address also turns on two HTTPS protections:
 **HSTS** (browsers are told to only ever reach your domain over HTTPS) and an

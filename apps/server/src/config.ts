@@ -16,6 +16,28 @@ const packageInfo = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"
 // deployment — the default, which has to keep working.
 const appUrlIsHttps = (process.env.APP_URL ?? "").startsWith("https://");
 
+// Secure cookies are never sent over plain http, so getting this wrong doesn't
+// degrade the deployment — it locks everyone out of it: the session and CSRF
+// cookies are dropped by the browser and sign-in fails outright.
+//
+//   true / false  the operator decides, and is obeyed
+//   unset         production defaults to secure, as it always has
+//   anything else follows APP_URL, the same signal HSTS and the redirect use
+//
+// That last line is the important one. The Unraid template shipped "auto",
+// described as automatic HTTPS detection, and no such branch existed: being
+// neither "true" nor "false" it fell into the production default and turned
+// secure cookies ON for exactly the plain-http home installs that cannot use
+// them. Unrecognised values now resolve the way "auto" always claimed to,
+// which repairs those installs on update instead of only new ones.
+function resolveCookieSecure(): boolean {
+  const value = (process.env.COOKIE_SECURE ?? "").trim().toLowerCase();
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (value === "") return process.env.NODE_ENV === "production";
+  return appUrlIsHttps;
+}
+
 export const config = {
   host: process.env.HOST ?? "127.0.0.1",
   port: Number(process.env.PORT ?? 4000),
@@ -26,7 +48,7 @@ export const config = {
   metadataPath: process.env.METADATA_PATH ?? "",
   backupPath: process.env.BACKUP_PATH ?? path.join(rootDir, "data", "backups"),
   backupRetention: Number(process.env.BACKUP_RETENTION ?? 10),
-  cookieSecure: process.env.COOKIE_SECURE === "true" || (process.env.NODE_ENV === "production" && process.env.COOKIE_SECURE !== "false"),
+  cookieSecure: resolveCookieSecure(),
   // HSTS=false opts out where the reverse proxy sends its own header.
   hsts: appUrlIsHttps && process.env.HSTS !== "false",
   // Redirect http → https. Opts out separately from HSTS: a proxy that already
