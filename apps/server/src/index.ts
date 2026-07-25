@@ -8,6 +8,8 @@ import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
 import { isIpBlocked, isTrustedIp, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader } from "./core/security.js";
+import { flagAbusiveRequest } from "./core/security-alerts.js";
+import { isProbePath } from "./core/probes.js";
 import { registerCsrf } from "./core/csrf.js";
 import { corePlugin } from "./core/index.js";
 import { usersPlugin } from "./modules/users/index.js";
@@ -92,7 +94,11 @@ await app.register(helmet, {
       frameSrc: ["'self'", "blob:"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
-      frameAncestors: ["'self'"]
+      frameAncestors: ["'self'"],
+      // The app posts nowhere but itself. Pinning this means injected markup can't
+      // point a form at an attacker's host — the classic way a content injection
+      // turns into a credential-harvesting page that still looks like this site.
+      formAction: ["'self'"]
     }
   }
 });
@@ -111,6 +117,11 @@ await app.register(rateLimit, {
 // Reject blocked source IPs everywhere — manual or auto-blocked — but never a
 // trusted network. isIpBlocked is the cheap, usually-false common-case check.
 app.addHook("onRequest", async (request, reply) => {
+  // Nothing this server returns should ever be indexed — not the app, and above all
+  // not a guest share link, which is unlisted by design and would otherwise outlive
+  // its own revocation in someone's search index. robots.txt asks; this tells, and
+  // it covers every response, not just the ones a crawler reaches through the SPA.
+  reply.header("X-Robots-Tag", "noindex, nofollow");
   // Note any proxy forwarding header so the admin UI can show "a proxy is in front".
   // With TRUST_PROXY_HOPS unset, request.ip is then the proxy — silently breaking the
   // per-IP controls (and letting everyone match a trusted network). Warn once.
@@ -125,6 +136,14 @@ app.addHook("onRequest", async (request, reply) => {
   }
   if (isIpBlocked(request.ip) && !isTrustedIp(request.ip)) {
     await reply.code(403).send({ error: "Your network has been blocked." });
+    return;
+  }
+  // Scanner sweeps for software this app doesn't run. Answer 404 immediately —
+  // ahead of CSRF, auth, and the SPA fallback that would otherwise return the
+  // whole app shell — and count the hit, so a sweep blocks itself.
+  if (isProbePath(request.url)) {
+    flagAbusiveRequest(request);
+    await reply.code(404).send({ error: "Not found" });
   }
 });
 // CSRF: a double-submit token validated on every state-changing request.

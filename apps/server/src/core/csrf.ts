@@ -8,7 +8,18 @@ import { config } from "../config.js";
 // cross-site page can neither read our cookie (same-origin) nor set a custom
 // header on a cross-origin request (CORS preflight), so it can't forge a match.
 // Layers on top of the SameSite=Lax session cookie and the locked-down CORS origin.
-const CSRF_COOKIE = "isputnik_csrf";
+const LEGACY_CSRF_COOKIE = "isputnik_csrf";
+// The __Host- prefix pins a cookie to this exact origin: a browser only accepts it
+// with Secure, Path=/ and no Domain, and refuses to let a sibling subdomain
+// overwrite it. That closes cookie-tossing — a neighbour on a shared parent domain
+// planting a token of their choosing to make a forged request's header match.
+// The prefix REQUIRES Secure, so a plain-http LAN deployment (COOKIE_SECURE off)
+// has to keep the bare name; naming it __Host- there would have the browser drop
+// the cookie outright and 403 every mutation.
+export function csrfCookieName(secure: boolean): string {
+  return secure ? `__Host-${LEGACY_CSRF_COOKIE}` : LEGACY_CSRF_COOKIE;
+}
+const CSRF_COOKIE = csrfCookieName(config.cookieSecure);
 const CSRF_HEADER = "x-csrf-token";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -26,6 +37,11 @@ export function registerCsrf(app: FastifyInstance): void {
         sameSite: "lax",
         path: "/"
       });
+    }
+    // Retire a token left under the old bare name by a pre-__Host- version, so the
+    // browser can't hold two and the SPA can't pick the stale one.
+    if (CSRF_COOKIE !== LEGACY_CSRF_COOKIE && request.cookies[LEGACY_CSRF_COOKIE]) {
+      reply.clearCookie(LEGACY_CSRF_COOKIE, { path: "/" });
     }
 
     if (SAFE_METHODS.has(request.method)) return;

@@ -13,9 +13,11 @@ import {
   getSecurityPolicy,
   setSecurityPolicy,
   getTrustProxyHops,
-  wasForwardedHeaderSeen
+  wasForwardedHeaderSeen,
+  seedKnownLoginNetworks
 } from "./security.js";
 import { getPasswordPolicy, setPasswordPolicy } from "./password-policy.js";
+import { isMailConfigured } from "./mail.js";
 
 const trustedSchema = z.object({
   cidr: z.string().trim().min(1).max(64),
@@ -32,7 +34,8 @@ const policySchema = z.object({
   lockoutMinutes: z.number().int().min(1).max(1440),
   ipFailThreshold: z.number().int().min(1).max(10000),
   ipFailWindowMinutes: z.number().int().min(1).max(1440),
-  ipAutoblockMinutes: z.number().int().min(1).max(10080)
+  ipAutoblockMinutes: z.number().int().min(1).max(10080),
+  alertNewIpSignIn: z.boolean()
 });
 
 const passwordPolicySchema = z.object({
@@ -52,6 +55,7 @@ export async function securityRoutes(app: FastifyInstance) {
       forwardedHeaderSeen: wasForwardedHeaderSeen()
     },
     passwordPolicy: getPasswordPolicy(),
+    mailConfigured: isMailConfigured(),
     trustedNetworks: listTrustedNetworks().map((network) => ({
       id: network.id,
       cidr: network.cidr,
@@ -73,6 +77,10 @@ export async function securityRoutes(app: FastifyInstance) {
       reply.code(400).send({ error: "Invalid thresholds", details: parsed.error });
       return;
     }
+    // Turning the new-network alert on seeds the known networks from sign-in
+    // history first, so devices already in use don't each raise an alert.
+    const enablingAlert = parsed.data.alertNewIpSignIn && !getSecurityPolicy().alertNewIpSignIn;
+    if (enablingAlert) seedKnownLoginNetworks();
     setSecurityPolicy(parsed.data, request.user!.id);
     logActivity({
       event: "security.policy_updated",

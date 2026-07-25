@@ -8,7 +8,7 @@ import { getDefaultTheme } from "../../core/app-config.js";
 import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { resetMfa } from "../../core/mfa-routes.js";
 import { isAccountLocked, clearAccountLockout } from "../../core/security.js";
-import { alertNewAdmin, alertMfaDisabled } from "../../core/security-alerts.js";
+import { alertNewAdmin, alertMfaDisabled, alertPasswordChanged } from "../../core/security-alerts.js";
 
 const roleSchema = z.object({
   role: z.enum(["admin", "member"])
@@ -203,6 +203,7 @@ export async function usersPlugin(app: FastifyInstance) {
       `).run(id, id === request.user!.id ? sessionHash : null, sessionHash ?? "");
     })();
 
+    alertPasswordChanged(user.email, request.user!.id !== id, request.ip);
     logActivity({
       event: "user.password_changed",
       actorUserId: request.user!.id,

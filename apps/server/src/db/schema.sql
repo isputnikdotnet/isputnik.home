@@ -63,6 +63,8 @@ CREATE TABLE IF NOT EXISTS mfa_challenges (
 
 -- Brute-force defense & source-IP access control.
 -- Every sign-in attempt, used to derive per-account lockout and per-IP auto-block.
+-- Rows with a NULL email are anonymous abuse hits (scanner probe paths, unknown
+-- share/API tokens): they count only toward the per-IP block, never a lockout.
 CREATE TABLE IF NOT EXISTS login_attempts (
   id          TEXT PRIMARY KEY,
   email       TEXT,
@@ -92,6 +94,20 @@ CREATE TABLE IF NOT EXISTS trusted_networks (
   label       TEXT,
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   created_by  TEXT REFERENCES users(id)
+);
+
+-- Networks an account has already signed in from, keyed on the coarse /24 (IPv4)
+-- or /64 (IPv6) so a rotating home or mobile address doesn't look new every time.
+-- Recorded on every sign-in regardless of policy; the optional "new network"
+-- alert (security_policy.alertNewIpSignIn) reads it and is seeded from history
+-- when an admin first turns it on.
+CREATE TABLE IF NOT EXISTS known_login_networks (
+  user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  network_key    TEXT NOT NULL,
+  last_ip        TEXT,
+  first_seen_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  last_seen_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (user_id, network_key)
 );
 
 CREATE TABLE IF NOT EXISTS invites (

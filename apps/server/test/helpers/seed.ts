@@ -24,8 +24,8 @@ if (config.dbPath !== ":memory:") {
 export function resetDb(): void {
   db.pragma("foreign_keys = OFF");
   const tables = [
-    "assignments", "group_members", "shares", "share_links", "api_tokens", "mfa_challenges",
-    "login_attempts", "blocked_ips", "trusted_networks",
+    "assignments", "group_members", "shares", "share_links", "api_tokens", "sessions", "mfa_challenges",
+    "login_attempts", "blocked_ips", "trusted_networks", "known_login_networks",
     "item_saves", "item_categories", "item_people", "series_items",
     "audio_chapters", "audio_files", "document_files",
     "playback_progress", "track_progress", "reading_progress",
@@ -36,7 +36,7 @@ export function resetDb(): void {
     "family_tree_photos", "family_tree_children", "family_tree_unions", "family_tree_persons",
     "library_scan_rule_paths", "library_scan_rules",
     "library_items", "people", "series", "libraries", "user_groups", "users",
-    "app_settings"
+    "activity_logs", "app_settings"
   ];
   for (const table of tables) {
     db.prepare(`DELETE FROM ${table}`).run();

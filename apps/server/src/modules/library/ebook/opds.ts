@@ -2,7 +2,8 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import type { FastifyInstance, FastifyReply, FastifyRequest, RouteShorthandOptions } from "fastify";
 import { nowIso, type User } from "../../../db.js";
-import { resolveApiToken } from "../../../core/api-tokens.js";
+import { resolveApiToken, isUnknownApiToken } from "../../../core/api-tokens.js";
+import { flagAbusiveRequest } from "../../../core/security-alerts.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import { streamDocumentFile } from "../shared/document-stream.js";
 import { resolveEbookScopeLibraryIds, queryEbookCatalog, ebookCatalogFacets } from "./catalog.js";
@@ -145,6 +146,10 @@ async function opdsAuth(request: FastifyRequest, reply: FastifyReply): Promise<v
 
   const user = raw ? resolveApiToken(raw, "opds", request.ip) : null;
   if (!user) {
+    // Only a token matching nothing at all is treated as a guess. A revoked or
+    // expired one is a reader app that hasn't been updated yet — annoying, but
+    // not something that should block the household's address.
+    if (raw && isUnknownApiToken(raw)) flagAbusiveRequest(request);
     reply
       .code(401)
       .header("WWW-Authenticate", 'Basic realm="isputnik OPDS", charset="UTF-8"')

@@ -502,6 +502,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.13.0",
+          label: "Security alerts: know when someone gets near your account",
+          changes: [
+            "Optional alerts when an account signs in from a new place. Switch it on under Control panel → Security → Policies and both the account's owner and the administrators are emailed whenever someone signs in from a network the account has never been used from. Home and mobile connections that change address by themselves aren't treated as a new place, and sign-ins from your trusted networks never raise an alert. Turning it on won't flood you: the devices already in use are remembered first. It needs your email (SMTP) settings filled in, and the screen says so if they aren't.",
+            "Emails when the things that protect an account change. The owner is now told when their sign-in email is changed — the old address is written to as well, since it's the one that can still object — when their password is changed either by them or by an administrator, when two-factor authentication is switched on, and when two-factor backup codes are replaced. These are exactly the changes someone would make to lock you out of your own account.",
+            "A warning when someone has your password but not your phone. Three rejected two-factor codes within fifteen minutes now emails the account owner and the administrators. Reaching the code step at all means the password was accepted, so it's the clearest sign that a password is known to someone else.",
+            "The server now pushes back on internet scanners. Hosts exposed to the internet are swept around the clock for other people's software — WordPress logins, leftover .env and .git files. Those requests are now refused outright and count toward the same automatic block as failed sign-ins, so a scan shuts itself out instead of running free. A share link that matches nothing at all counts too; your own expired or revoked links never do, so an old bookmark can't block your household.",
+            "Nothing here is offered to search engines. Every page and file now tells crawlers not to index it, and there's a site-wide robots file saying the same. This matters most for guest share links, which are unlisted by design and could otherwise linger in a search index long after you revoked them.",
+            "Wrong two-factor codes now count toward the lockout. Until now only wrong passwords could lock an account or block an address, so someone holding a working password could keep guessing codes indefinitely. Rejected codes now count on the same thresholds as any other failed sign-in. If you mistype a few codes you can lock yourself out for a while — an administrator can clear it from Control panel → Users."
+          ]
+        },
+        {
           version: "1.12.0",
           label: "Family tree: map your family and tie it to your photos",
           changes: [

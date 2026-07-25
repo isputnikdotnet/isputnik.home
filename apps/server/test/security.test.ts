@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
-import { resetDb } from "./helpers/seed.js";
+import { makeUser, resetDb } from "./helpers/seed.js";
 import {
   isTrustedIp,
   addTrustedNetwork,
@@ -18,7 +18,9 @@ import {
   getSecurityPolicy,
   setSecurityPolicy,
   hasForwardedHeader,
-  getTrustProxyHops
+  getTrustProxyHops,
+  noteSignInNetwork,
+  seedKnownLoginNetworks
 } from "../src/core/security.js";
 
 const LOCKOUT_THRESHOLD = DEFAULT_SECURITY_POLICY.lockoutThreshold;
@@ -74,6 +76,30 @@ describe("account lockout", () => {
     expect(isAccountLocked("a@test.local")).toBe(false);
   });
 
+  // Rejected second factors are recorded as failed attempts (mfa-routes), and the
+  // password step of an MFA sign-in deliberately records nothing — otherwise the
+  // sequence below would reset the tally on every round and never lock.
+  it("locks on rejected second factors alone", () => {
+    for (let i = 0; i < LOCKOUT_THRESHOLD; i += 1) {
+      // Each round: correct password (records nothing, MFA still pending) …
+      recordLoginAttempt("mfa@test.local", "9.9.9.9", false); // … then a rejected code
+    }
+    expect(isAccountLocked("mfa@test.local")).toBe(true);
+  });
+
+  it("a completed second factor clears the tally, an abandoned one doesn't", () => {
+    for (let i = 0; i < LOCKOUT_THRESHOLD - 1; i += 1) recordLoginAttempt("mfa@test.local", "9.9.9.9", false);
+    expect(isAccountLocked("mfa@test.local")).toBe(false);
+
+    // A completed sign-in records the success and wipes the slate.
+    recordLoginAttempt("mfa@test.local", "9.9.9.9", true);
+    for (let i = 0; i < LOCKOUT_THRESHOLD - 1; i += 1) recordLoginAttempt("mfa@test.local", "9.9.9.9", false);
+    expect(isAccountLocked("mfa@test.local")).toBe(false);
+
+    recordLoginAttempt("mfa@test.local", "9.9.9.9", false);
+    expect(isAccountLocked("mfa@test.local")).toBe(true);
+  });
+
   it("clearAccountLockout unlocks the account and reports how many it cleared", () => {
     for (let i = 0; i < LOCKOUT_THRESHOLD; i += 1) recordLoginAttempt("locked@test.local", "9.9.9.9", false);
     for (let i = 0; i < LOCKOUT_THRESHOLD; i += 1) recordLoginAttempt("other@test.local", "9.9.9.9", false);
@@ -111,6 +137,65 @@ describe("IP blocking", () => {
     expect(maybeAutoBlockIp("203.0.113.7")).toBe(true);
     expect(isIpBlocked("203.0.113.7")).toBe(true);
     expect(maybeAutoBlockIp("203.0.113.7")).toBe(false);
+  });
+});
+
+describe("known sign-in networks", () => {
+  it("reports the first sign-in from a network, then stops", () => {
+    const user = makeUser("alice");
+    expect(noteSignInNetwork(user, "203.0.113.10")).toEqual({ isNew: true, key: "203.0.113.0/24" });
+    expect(noteSignInNetwork(user, "203.0.113.10")).toEqual({ isNew: false, key: "203.0.113.0/24" });
+  });
+
+  it("treats a nearby address as the same network but a different subnet as new", () => {
+    const user = makeUser("alice");
+    noteSignInNetwork(user, "203.0.113.10");
+    // Same /24 — a rotating home or mobile address, not a new location.
+    expect(noteSignInNetwork(user, "203.0.113.99")?.isNew).toBe(false);
+    expect(noteSignInNetwork(user, "203.0.114.10")?.isNew).toBe(true);
+  });
+
+  it("matches IPv6 on the /64", () => {
+    const user = makeUser("alice");
+    expect(noteSignInNetwork(user, "2001:db8:1:2::1")?.isNew).toBe(true);
+    expect(noteSignInNetwork(user, "2001:db8:1:2::99")?.isNew).toBe(false);
+    expect(noteSignInNetwork(user, "2001:db8:1:3::1")?.isNew).toBe(true);
+  });
+
+  it("tracks each account separately", () => {
+    const alice = makeUser("alice");
+    const bob = makeUser("bob");
+    noteSignInNetwork(alice, "203.0.113.10");
+    expect(noteSignInNetwork(bob, "203.0.113.10")?.isNew).toBe(true);
+  });
+
+  it("ignores a missing IP", () => {
+    const user = makeUser("alice");
+    expect(noteSignInNetwork(user, null)).toBeNull();
+  });
+
+  it("seeds from existing sessions and successful sign-ins", () => {
+    const user = makeUser("alice");
+    db.prepare(
+      "INSERT INTO sessions (id, token_hash, user_id, expires_at, ip_address) VALUES ('s1', 'h1', ?, '2099-01-01T00:00:00Z', '203.0.113.10')"
+    ).run(user);
+    recordLoginAttempt("alice@test.local", "198.51.100.7", true);
+    recordLoginAttempt("alice@test.local", "198.51.100.8", false); // failures don't count
+
+    expect(seedKnownLoginNetworks()).toBe(2);
+    expect(noteSignInNetwork(user, "203.0.113.55")?.isNew).toBe(false);
+    expect(noteSignInNetwork(user, "198.51.100.20")?.isNew).toBe(false);
+    // The failed attempt's network is a different /24 and stays unknown.
+    expect(noteSignInNetwork(user, "198.51.101.8")?.isNew).toBe(true);
+  });
+
+  it("seeding twice adds nothing the second time", () => {
+    const user = makeUser("alice");
+    db.prepare(
+      "INSERT INTO sessions (id, token_hash, user_id, expires_at, ip_address) VALUES ('s1', 'h1', ?, '2099-01-01T00:00:00Z', '203.0.113.10')"
+    ).run(user);
+    expect(seedKnownLoginNetworks()).toBe(1);
+    expect(seedKnownLoginNetworks()).toBe(0);
   });
 });
 

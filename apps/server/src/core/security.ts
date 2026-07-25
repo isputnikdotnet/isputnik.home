@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { db } from "../db.js";
-import { ipInAnyCidr } from "./cidr.js";
+import { ipInAnyCidr, ipNetworkKey } from "./cidr.js";
 
 // Brute-force defense and source-IP access control. Pure data/logic over the
 // login_attempts / blocked_ips / trusted_networks tables; the login route and a
@@ -13,6 +13,7 @@ export interface SecurityPolicy {
   ipFailThreshold: number; // failures from one IP before an auto-block
   ipFailWindowMinutes: number; // …counted within this window
   ipAutoblockMinutes: number; // …how long the auto-block lasts
+  alertNewIpSignIn: boolean; // email on a sign-in from a network not seen before
 }
 
 export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
@@ -20,7 +21,8 @@ export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
   lockoutMinutes: 30,
   ipFailThreshold: 20,
   ipFailWindowMinutes: 15,
-  ipAutoblockMinutes: 60
+  ipAutoblockMinutes: 60,
+  alertNewIpSignIn: false
 };
 
 const POLICY_KEY = "security_policy";
@@ -114,6 +116,53 @@ export function removeTrustedNetwork(id: string): boolean {
   return db.prepare("DELETE FROM trusted_networks WHERE id = ?").run(id).changes > 0;
 }
 
+// ── Known sign-in networks ───────────────────────────────────────────────────
+
+// Record the network a successful sign-in came from and report whether it is new
+// for this account. Keyed on the coarse network (see ipNetworkKey) so a rotating
+// home or mobile address isn't a "new location" on every reconnect. Called on
+// every sign-in whatever the alert policy says, so turning the alert on later
+// doesn't fire for devices already in use.
+export function noteSignInNetwork(userId: string, ip: string | null | undefined): { isNew: boolean; key: string } | null {
+  if (!ip) return null;
+  const key = ipNetworkKey(ip) ?? ip;
+  const seen = db
+    .prepare("SELECT 1 FROM known_login_networks WHERE user_id = ? AND network_key = ?")
+    .get(userId, key);
+  db.prepare(
+    `INSERT INTO known_login_networks (user_id, network_key, last_ip)
+     VALUES (?, ?, ?)
+     ON CONFLICT(user_id, network_key) DO UPDATE SET
+       last_ip = excluded.last_ip,
+       last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+  ).run(userId, key, ip);
+  return { isNew: !seen, key };
+}
+
+// Backfill known networks from sign-in history (live sessions and successful
+// login attempts). Run when an admin first enables the alert so existing devices
+// don't each trigger one. Returns how many networks were newly recorded.
+export function seedKnownLoginNetworks(): number {
+  const rows = db
+    .prepare(
+      `SELECT user_id, ip_address FROM sessions WHERE ip_address IS NOT NULL
+       UNION
+       SELECT u.id AS user_id, a.ip_address FROM login_attempts a
+         JOIN users u ON LOWER(u.email) = a.email
+        WHERE a.successful = 1 AND a.ip_address IS NOT NULL`
+    )
+    .all() as { user_id: string; ip_address: string }[];
+  const insert = db.prepare(
+    "INSERT OR IGNORE INTO known_login_networks (user_id, network_key, last_ip) VALUES (?, ?, ?)"
+  );
+  let added = 0;
+  for (const row of rows) {
+    const key = ipNetworkKey(row.ip_address) ?? row.ip_address;
+    added += insert.run(row.user_id, key, row.ip_address).changes;
+  }
+  return added;
+}
+
 // ── Login attempts & account lockout ─────────────────────────────────────────
 
 export function recordLoginAttempt(email: string | null, ip: string | null, successful: boolean): void {
@@ -126,20 +175,29 @@ export function recordLoginAttempt(email: string | null, ip: string | null, succ
 }
 
 // Failed sign-ins for this email, within the lockout window and since the last
-// successful sign-in (a success clears the slate).
+// successful sign-in (a success clears the slate). "Failed" covers a rejected
+// password and a rejected second factor alike; a success row is only written once
+// a sign-in is complete, so an MFA account's password step can't clear the slate
+// mid-challenge (see auth-routes/mfa-routes).
 export function accountFailureCount(email: string): number {
   const value = email.toLowerCase();
   const { lockoutMinutes } = getSecurityPolicy();
   const row = db
     .prepare(
+      // The window is a time range, but "since the last success" is an ordering
+      // question, so it compares rowid rather than created_at. The timestamp has
+      // millisecond resolution and datetime() truncates to whole seconds, either of
+      // which can tie — and a tie here would silently drop failures from the count.
+      // This table is append-only apart from clearAccountLockout, which deletes only
+      // failures, so a later insert always has the higher rowid.
       `SELECT COUNT(*) AS count FROM login_attempts
        WHERE email = ?
          AND successful = 0
          AND datetime(created_at) > datetime('now', ?)
-         AND datetime(created_at) > datetime(COALESCE(
-           (SELECT MAX(created_at) FROM login_attempts WHERE email = ? AND successful = 1),
-           '1970-01-01'
-         ))`
+         AND rowid > COALESCE(
+           (SELECT MAX(rowid) FROM login_attempts WHERE email = ? AND successful = 1),
+           0
+         )`
     )
     .get(value, `-${lockoutMinutes} minutes`, value) as { count: number };
   return row.count;
@@ -157,6 +215,29 @@ export function clearAccountLockout(email: string): number {
   return db
     .prepare("DELETE FROM login_attempts WHERE email = ? AND successful = 0")
     .run(email.toLowerCase()).changes;
+}
+
+// ── Second-factor failures ───────────────────────────────────────────────────
+
+// A rejected second factor is a much stronger signal than a rejected password:
+// the password already worked, so someone is holding a working credential. Each
+// challenge caps its own attempts, but nothing counted them across challenges —
+// re-entering the password just mints a new one. Counted off the activity log
+// rows the MFA route already writes, so there's no extra table and the tally
+// survives a restart.
+export const MFA_FAILURE_ALERT_THRESHOLD = 3;
+export const MFA_FAILURE_WINDOW_MINUTES = 15;
+
+export function recentMfaFailureCount(userId: string, windowMinutes = MFA_FAILURE_WINDOW_MINUTES): number {
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS count FROM activity_logs
+        WHERE event = 'auth.mfa_failed'
+          AND target_id = ?
+          AND datetime(created_at) > datetime('now', ?)`
+    )
+    .get(userId, `-${windowMinutes} minutes`) as { count: number };
+  return row.count;
 }
 
 // ── IP blocking ──────────────────────────────────────────────────────────────
@@ -205,6 +286,15 @@ export function listBlockedIps(): BlockedIp[] {
       "SELECT ip_address, reason, auto, created_at, expires_at FROM blocked_ips ORDER BY datetime(created_at) DESC"
     )
     .all() as BlockedIp[];
+}
+
+// A request that can only be a guess or a scan: a scanner probe path, or a share
+// / API token that matches nothing at all. Recorded as a failed attempt with no
+// email, so it feeds ONLY the per-IP auto-block below — accountFailureCount
+// filters on email, so an anonymous hit can never help lock a real account.
+export function recordAbuseAttempt(ip: string | null | undefined): void {
+  if (!ip) return;
+  recordLoginAttempt(null, ip, false);
 }
 
 function recentIpFailures(ip: string, windowMinutes: number): number {

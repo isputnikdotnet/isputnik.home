@@ -1,5 +1,7 @@
+import type { FastifyRequest } from "fastify";
 import { db } from "../../../db.js";
 import { sha256 } from "../../../crypto.js";
+import { flagAbusiveRequest } from "../../../core/security-alerts.js";
 
 export interface ResolvedShareLink {
   id: string;
@@ -14,15 +16,27 @@ export interface ResolvedShareLink {
 // Resolve a raw guest-link token to its live share row. Returns null when the
 // token is unknown, revoked, or past its required expiry. Single place that
 // enforces link validity — every public share route goes through it.
-export function resolveShareLink(token: string): ResolvedShareLink | null {
+//
+// Pass the request to have a token matching NO link at all counted as abuse: at
+// ~216 bits these are unguessable, so a miss is a scan, not a mistake. A token
+// that does match a link which is merely expired or revoked is deliberately not
+// counted — that's the family's own stale bookmark, and blocking their IP for
+// re-opening an old link would be its own outage.
+export function resolveShareLink(token: string, request?: FastifyRequest): ResolvedShareLink | null {
+  const hash = sha256(token);
   const row = db.prepare(`
     SELECT id, module, resource_id, permission, created_by
     FROM share_links
     WHERE token_hash = ?
       AND revoked_at IS NULL
       AND datetime(expires_at) > datetime('now')
-  `).get(sha256(token)) as ResolvedShareLink | undefined;
-  return row ?? null;
+  `).get(hash) as ResolvedShareLink | undefined;
+  if (row) return row;
+
+  if (request && !db.prepare("SELECT 1 FROM share_links WHERE token_hash = ?").get(hash)) {
+    flagAbusiveRequest(request);
+  }
+  return null;
 }
 
 // Delete all shares (guest links + user shares) for one item. Shares reference

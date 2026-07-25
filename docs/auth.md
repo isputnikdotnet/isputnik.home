@@ -102,14 +102,72 @@ Shipped:
 
 - **Rate limiting** — a generous global per-IP limit, with tight limits on the
   sensitive endpoints (login and admin setup 10/min; invite lookup 20/min, invite
-  accept 5/min; MFA verify 10/min).
+  accept 5/min; MFA verify 10/min). The public guest-share routes — the only ones
+  reachable without an account — carry their own buckets sized per shape (page
+  120/min, thumbnails 1200/min, media/range requests 600/min, whole-album zip
+  10/min). The token can't be guessed, so this bounds what a *leaked* link can cost.
+- **Not indexable** — every response carries `X-Robots-Tag: noindex, nofollow`,
+  backed by a disallow-all `robots.txt` and a `robots` meta tag in the app shell.
+  This matters most for guest share links: unlisted by design, and otherwise liable
+  to outlive their own revocation inside a search index.
 - **Multi-factor authentication (TOTP)** — see below.
-- **Security headers** — `@fastify/helmet` with an enforced CSP tailored to the app, plus no-sniff, frame-ancestors, and a no-referrer policy.
-- **CSRF protection** — a double-submit `isputnik_csrf` token validated on every state-changing request (`core/csrf.ts`), layered on `SameSite=Lax`.
+- **Security headers** — `@fastify/helmet` with an enforced CSP tailored to the app, plus no-sniff, frame-ancestors, `form-action 'self'` (so injected markup can't post to an attacker's host), and a no-referrer policy.
+- **CSRF protection** — a double-submit `isputnik_csrf` token validated on every state-changing request (`core/csrf.ts`), layered on `SameSite=Lax`. Where the
+  cookie can carry `Secure` (HTTPS) it's issued under the `__Host-` prefix, which
+  pins it to the exact origin and stops a sibling subdomain overwriting it; a
+  plain-http LAN deployment keeps the bare name, because a browser rejects that
+  prefix without `Secure` and every mutation would 403. The SPA prefers the
+  prefixed cookie, so both can coexist across an upgrade (`csrfCookieName`).
+- **No account-existence oracle on login** — an unknown or deactivated email is
+  still checked against a dummy hash (`verifyDummyPassword`), so a miss can't be
+  told from a wrong password by how long the answer takes. scrypt is slow enough
+  that returning early would otherwise be plainly measurable.
 - **Configurable password policy** — admin-tunable minimum length and optional complexity, enforced on every password-set flow but not on login (`core/password-policy.ts`).
 - **Scoped proxy trust** — `TRUST_PROXY_HOPS`, so a client can't spoof its IP.
 - **Account lockout & IP access control** — accounts lock after repeated failures (defaults: 5 fails / 30 min); an IP auto-blocks after repeated failures; admins manage trusted networks (which relax rate limits, lockout, and MFA), manual IP blocks, and the configurable thresholds under Control panel → Security. Engine in `core/security.ts`.
+  A **rejected second factor counts as a failed attempt** alongside a rejected
+  password, so guessing codes locks the account and auto-blocks the IP on the same
+  thresholds. That only works because the password step of an MFA sign-in records
+  *nothing*: a success row there would clear the tally (it counts back to the last
+  success), letting a caller who knows the password reset the lockout between code
+  guesses. The success is recorded when the second factor completes, and reaching
+  the lock mid-challenge destroys the live challenge so its remaining per-challenge
+  attempts can't be spent. `accountFailureCount` draws the "since the last success"
+  line on rowid rather than the timestamp — millisecond ties would otherwise drop
+  failures from the count.
+- **Scan resistance beyond the login route** — the per-IP auto-block used to see
+  only failed sign-ins, so a scanner sweeping the rest of the surface met no
+  consequence. Two more things now count against the source IP (`flagAbusiveRequest`):
+  requests for known scanner probe paths (`core/probes.ts` — `*.php`, `/.env`,
+  `/.git/…`, `/wp-admin`, `/phpmyadmin`, …), which are answered with a bare 404
+  ahead of CSRF, auth, and the SPA fallback; and share or OPDS tokens that match
+  **no** row at all. A token that matches a link which is merely expired or revoked
+  is deliberately not counted — that's a stale family bookmark or an e-reader
+  holding an old token, and blocking the household for it would be its own outage.
+  Anonymous hits are stored with a NULL email so they can only ever feed the
+  per-IP block, never an account lockout, and trusted networks are exempt.
 - **Suspicious-activity email alerts** — admins are emailed on lockouts, auto-blocks, a new/elevated admin, and two-factor being turned off (when SMTP is configured; `core/security-alerts.ts`).
+- **Account-security change alerts** — the account owner is emailed when the login
+  email changes (both the old and the new address, since the old one is the only
+  side that can still object), when the password changes (with different copy for
+  a self-serve change and an admin reset), when two-factor is switched **on**, and
+  when backup codes are regenerated. These are the four moves that lock a real
+  owner out of their own account. Each is throttled to one per 10 minutes.
+- **Repeated two-factor failure alerts** — three rejected codes for one account
+  within 15 minutes emails the owner and the admins. Reaching the code step means
+  the password was accepted, so this is the clearest signal available that a
+  credential is known to someone else. Counted off the `auth.mfa_failed` activity
+  log rows (`recentMfaFailureCount`), so there's no extra table and the tally
+  survives a restart; one alert per 15-minute window.
+- **New-network sign-in alerts** — opt-in (Control panel → Security → Policies). A
+  successful sign-in from a network the account has never used emails both the
+  account owner and the admins. Networks are matched on the /24 (IPv4) or /64
+  (IPv6) so rotating home/mobile addresses don't alert on every reconnect, and
+  sign-ins from trusted networks never alert. Every sign-in records its network in
+  `known_login_networks` regardless of the setting, and enabling the alert seeds
+  that table from sign-in history, so switching it on doesn't fire for devices
+  already in use. First sight of a network is also written to the activity log
+  (`auth.new_network`) whether or not email is on.
 
 Planned:
 

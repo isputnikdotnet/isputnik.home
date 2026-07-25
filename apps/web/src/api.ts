@@ -40,8 +40,14 @@ export function isAccessOrMissingApiError(error: unknown): boolean {
 
 // The double-submit CSRF token the server issued as a JS-readable cookie. Echoed
 // in the X-CSRF-Token header on every state-changing request (see core/csrf.ts).
+// Over HTTPS the server issues it under the __Host- prefix, which pins it to this
+// exact origin; on a plain-http LAN it can't (browsers require Secure for that
+// prefix) and the bare name is used. Always prefer the prefixed one: right after
+// an upgrade both can exist, and echoing the stale bare value would 403 forever.
 export function csrfToken(): string {
-  const match = document.cookie.match(/(?:^|;\s*)isputnik_csrf=([^;]+)/);
+  const match =
+    document.cookie.match(/(?:^|;\s*)__Host-isputnik_csrf=([^;]+)/) ??
+    document.cookie.match(/(?:^|;\s*)isputnik_csrf=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : "";
 }
 

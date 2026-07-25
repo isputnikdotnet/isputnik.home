@@ -4,6 +4,7 @@ import { db, logActivity, selfUser, THEME_PREFERENCES, type User } from "../../d
 import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { hashPassword, verifyPassword } from "../../crypto.js";
 import { currentSessionHash } from "../../auth.js";
+import { alertEmailChanged, alertPasswordChanged } from "../../core/security-alerts.js";
 
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
@@ -88,6 +89,7 @@ export async function profilePlugin(app: FastifyInstance) {
       `).run(user.id, sessionHash, sessionHash ?? "");
     })();
 
+    alertPasswordChanged(user.email, false, request.ip);
     logActivity({
       event: "profile.password_changed",
       actorUserId: user.id,
@@ -144,6 +146,7 @@ export async function profilePlugin(app: FastifyInstance) {
     }
 
     const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id) as User;
+    alertEmailChanged(user.email, parsed.data.newEmail, request.ip);
     logActivity({
       event: "profile.email_changed",
       actorUserId: user.id,
