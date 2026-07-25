@@ -372,9 +372,18 @@ export function getRoute(): Route {
 // Reads the `?from=` referrer param (a path to return to), if present. Used so
 // detail pages reached via an in-app link can offer a "Back" to the origin page
 // instead of always falling back to their list.
+//
+// The value ends up in a "Back" link's href, so it has to be a path on THIS site
+// and nothing else. A leading "/" alone doesn't guarantee that: "//evil.com" is a
+// protocol-relative URL, and "/\evil.com" becomes one because browsers normalize
+// backslashes in the authority position. Either would send someone off-site from a
+// link that appears on your own domain — a click-through this page effectively
+// vouches for. A left click is caught by followRoute, but a middle- or ctrl-click
+// bypasses it and follows the raw href, so the value itself must be safe.
 export function getReferrer(): string | null {
   const from = new URLSearchParams(window.location.search).get("from");
-  return from && from.startsWith("/") ? from : null;
+  if (!from || !from.startsWith("/")) return null;
+  return from[1] === "/" || from[1] === "\\" ? null : from;
 }
 
 export function navigate(path: string) {
