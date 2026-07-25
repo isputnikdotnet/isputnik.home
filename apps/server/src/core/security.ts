@@ -58,6 +58,27 @@ export function hasForwardedHeader(headers: Record<string, unknown>): boolean {
   return Boolean(headers["x-forwarded-for"] || headers["forwarded"]);
 }
 
+// The scheme a proxy says the visitor actually used, or null when nothing says.
+// X-Forwarded-Proto accumulates left-to-right through a chain ("https,http"), and
+// the FIRST entry is the one the client spoke — the only one that matters here.
+export function forwardedProto(headers: Record<string, unknown>): string | null {
+  const raw = headers["x-forwarded-proto"];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value !== "string") return null;
+  const first = value.split(",")[0]?.trim().toLowerCase();
+  return first === "http" || first === "https" ? first : null;
+}
+
+// The Host header, accepted only if it is a bare hostname with an optional port.
+// It is client-supplied, so it must never be pasted into a redirect unchecked: a
+// value like "evil.com" or one carrying userinfo/backslashes would turn this
+// server into an open redirect that points off-site from our own domain. Anything
+// that isn't plainly a host is refused, and the caller then does not redirect.
+export function safeRedirectHost(host: unknown): string | null {
+  if (typeof host !== "string") return null;
+  return /^[a-z0-9.-]+(:\d{1,5})?$/i.test(host) ? host : null;
+}
+
 // The configured reverse-proxy hop count from TRUST_PROXY_HOPS (0 = trust nothing,
 // i.e. request.ip is the direct socket). Read live so admin UI can surface it.
 export function getTrustProxyHops(): number {

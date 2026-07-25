@@ -31,9 +31,18 @@ proxy is the only way in.
 | `COOKIE_SECURE` | `true` | Send the session cookie only over HTTPS |
 | `TRUST_PROXY_HOPS` | number of proxies in front (usually `1`) | So rate limits and logs see the real visitor, not the proxy |
 
-Setting `APP_URL` to an `https://` address also turns on **HSTS** — the header
-that tells browsers to only ever reach your domain over HTTPS. Nothing extra to
-configure; set `HSTS=false` if your reverse proxy already sends that header itself.
+Setting `APP_URL` to an `https://` address also turns on two HTTPS protections:
+**HSTS** (browsers are told to only ever reach your domain over HTTPS) and an
+**http → https redirect** for visitors who arrive without it. Neither does anything
+on a plain-http `APP_URL`, so a home install is unaffected. Set `HSTS=false` or
+`HTTPS_REDIRECT=false` if your reverse proxy already handles that one itself.
+
+Prefer doing the redirect at the proxy when it offers it (Cloudflare's "Always Use
+HTTPS", Caddy's automatic redirect, an nginx `return 301`): the request is then
+turned around at the edge and never reaches the app at all. The app's own redirect
+is a backstop for proxies that don't, and it depends on the proxy sending an
+`X-Forwarded-Proto` header — without one, the app cannot tell how the visitor
+arrived and deliberately does nothing rather than risk a redirect loop.
 
 ### About `TRUST_PROXY_HOPS`
 
