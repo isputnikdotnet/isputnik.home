@@ -8,6 +8,7 @@ import { config } from "../../config.js";
 import { parseBody, setupSchema, getUserByEmail, requestOrigin } from "../../core/shared.js";
 import { getDefaultTheme } from "../../core/app-config.js";
 import { alertNewAdmin } from "../../core/security-alerts.js";
+import { noteSignInNetwork } from "../../core/security.js";
 
 const inviteSchema = z.object({
   role: z.enum(["admin", "member"]).default("member"),
@@ -177,6 +178,9 @@ export async function invitesPlugin(app: FastifyInstance) {
     })();
 
     issueSession(reply, user.id, request);
+    // Accepting an invite is a legitimate first session: remember the network so
+    // the account's next sign-in from it isn't reported as a new location.
+    noteSignInNetwork(user.id, request.ip);
     if (invite.role === "admin") alertNewAdmin(user.email, "an invite link");
     logActivity({
       event: "invite.accepted",

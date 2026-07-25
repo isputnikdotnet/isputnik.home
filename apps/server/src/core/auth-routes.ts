@@ -1,11 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { db, logActivity, publicUser, type User } from "../db.js";
-import { verifyPassword } from "../crypto.js";
+import { verifyDummyPassword, verifyPassword } from "../crypto.js";
 import { clearSession, currentUserPayload, issueSession, revokeCurrentSession } from "../auth.js";
 import { parseBody, credentialsSchema, getUserByEmail } from "./shared.js";
 import { createMfaChallenge, setMfaChallengeCookie } from "./mfa-routes.js";
 import { isTrustedIp, isAccountLocked, recordLoginAttempt, maybeAutoBlockIp } from "./security.js";
-import { alertAccountLocked, alertIpAutoBlocked } from "./security-alerts.js";
+import { alertAccountLocked, alertIpAutoBlocked, reviewSignInLocation } from "./security-alerts.js";
 
 export async function authPlugin(app: FastifyInstance) {
   app.post("/api/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
@@ -30,8 +30,20 @@ export async function authPlugin(app: FastifyInstance) {
     }
 
     const user = getUserByEmail(email);
-    const ok = Boolean(user && user.is_active && (await verifyPassword(parsed.data.password, user.password_hash)));
-    recordLoginAttempt(email, request.ip, ok);
+    // No account, or a deactivated one: still spend a password verification, so a
+    // miss can't be told from a wrong password by how long the answer took.
+    const ok =
+      user && user.is_active
+        ? await verifyPassword(parsed.data.password, user.password_hash)
+        : await verifyDummyPassword(parsed.data.password);
+
+    // A password success is only a completed sign-in when there's no second factor
+    // to come. Recording it here for an MFA account would clear the failure tally
+    // (accountFailureCount counts back to the last success), so a caller who knows
+    // the password could reset the lockout between code guesses and never lock out.
+    // The success is recorded when the second factor completes — see mfa-routes.
+    const awaitingSecondFactor = ok && Boolean(user!.mfa_enabled) && !trusted;
+    if (!awaitingSecondFactor) recordLoginAttempt(email, request.ip, ok);
 
     if (!ok) {
       logActivity({
@@ -68,6 +80,7 @@ export async function authPlugin(app: FastifyInstance) {
     }
 
     issueSession(reply, authed.id, request);
+    reviewSignInLocation(authed, request);
     logActivity({
       event: "auth.login",
       actorUserId: authed.id,

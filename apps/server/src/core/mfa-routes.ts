@@ -6,7 +6,16 @@ import { config } from "../config.js";
 import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody } from "./shared.js";
-import { alertMfaDisabled } from "./security-alerts.js";
+import {
+  alertAccountLocked,
+  alertIpAutoBlocked,
+  alertMfaBackupCodesRegenerated,
+  alertMfaDisabled,
+  alertMfaEnabled,
+  alertMfaFailures,
+  reviewSignInLocation
+} from "./security-alerts.js";
+import { isAccountLocked, isTrustedIp, maybeAutoBlockIp, recordLoginAttempt } from "./security.js";
 import {
   encryptSecret,
   decryptSecret,
@@ -181,6 +190,7 @@ export async function mfaRoutes(app: FastifyInstance) {
       reply.code(400).send({ error: "That code didn't match. Make sure the clock is right, then enter a fresh code." });
       return;
     }
+    alertMfaEnabled(request.user!.email, request.ip);
     logActivity({
       event: "profile.mfa_enabled",
       actorUserId: request.user!.id,
@@ -230,6 +240,7 @@ export async function mfaRoutes(app: FastifyInstance) {
       return;
     }
     const codes = regenerateBackupCodes(request.user!.id);
+    alertMfaBackupCodesRegenerated(request.user!.email, request.ip);
     logActivity({
       event: "profile.mfa_backup_regenerated",
       actorUserId: request.user!.id,
@@ -282,6 +293,8 @@ export async function mfaRoutes(app: FastifyInstance) {
       }
       if (!ok) ok = consumeBackupCode(user.id, parsed.data.token);
 
+      const trusted = isTrustedIp(request.ip);
+
       if (!ok) {
         const attempts = failMfaChallenge(challengeId);
         logActivity({
@@ -291,6 +304,25 @@ export async function mfaRoutes(app: FastifyInstance) {
           detail: "A two-factor code was rejected.",
           ipAddress: request.ip
         });
+        // After the log write, so this failure counts toward the tally.
+        alertMfaFailures(user, request.ip);
+        // A rejected code is a failed sign-in like any other: it feeds the account
+        // lockout and the per-IP auto-block. Without this an attacker holding a
+        // working password could keep guessing codes indefinitely — the per-
+        // challenge cap is no limit when re-entering the password mints a new one.
+        recordLoginAttempt(user.email, request.ip, false);
+        if (!trusted) {
+          if (maybeAutoBlockIp(request.ip)) alertIpAutoBlocked(request.ip);
+          if (isAccountLocked(user.email)) {
+            // The live challenge would otherwise still be good for its remaining
+            // attempts, letting the guessing continue past the lock.
+            alertAccountLocked(user.email, request.ip);
+            clearMfaChallenge(challengeId);
+            clearMfaChallengeCookie(reply);
+            reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes." });
+            return;
+          }
+        }
         if (attempts >= MFA_MAX_ATTEMPTS) {
           clearMfaChallengeCookie(reply);
           reply.code(401).send({ error: "Too many attempts. Enter your password again." });
@@ -302,7 +334,11 @@ export async function mfaRoutes(app: FastifyInstance) {
 
       clearMfaChallenge(challengeId);
       clearMfaChallengeCookie(reply);
+      // The sign-in is complete: clear the failure tally the same way a successful
+      // password does (accountFailureCount only counts failures after a success).
+      recordLoginAttempt(user.email, request.ip, true);
       issueSession(reply, user.id, request);
+      reviewSignInLocation(user, request);
       logActivity({
         event: "auth.mfa_verified",
         actorUserId: user.id,

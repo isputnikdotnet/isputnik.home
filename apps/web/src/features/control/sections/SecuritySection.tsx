@@ -7,6 +7,7 @@ import {
   Info,
   ListChecks,
   LockKeyhole,
+  MailWarning,
   Plus,
   Save,
   ShieldCheck,
@@ -44,6 +45,7 @@ interface SecurityPolicy {
   ipFailThreshold: number;
   ipFailWindowMinutes: number;
   ipAutoblockMinutes: number;
+  alertNewIpSignIn: boolean;
 }
 
 interface PasswordPolicy {
@@ -59,11 +61,13 @@ interface SecurityData {
     forwardedHeaderSeen: boolean;
   };
   passwordPolicy: PasswordPolicy;
+  mailConfigured: boolean;
   trustedNetworks: TrustedNetwork[];
   blockedIps: BlockedIp[];
 }
 
 type SecurityTab = "overview" | "policies" | "trusted" | "blocked";
+type PolicyScope = "thresholds" | "alerts";
 
 const SECURITY_TABS: { key: SecurityTab; label: string; icon: LucideIcon }[] = [
   { key: "overview", label: "Overview", icon: ShieldCheck },
@@ -78,9 +82,10 @@ export function SecuritySection() {
   const [activeTab, setActiveTab] = useState<SecurityTab>("overview");
 
   const [policyForm, setPolicyForm] = useState<SecurityPolicy | null>(null);
-  const [savingPolicy, setSavingPolicy] = useState(false);
-  const [policyError, setPolicyError] = useState("");
-  const [policySaved, setPolicySaved] = useState(false);
+  // Both policy cards write the same blob, so each tracks its own busy/result flags.
+  const [savingPolicy, setSavingPolicy] = useState<PolicyScope | null>(null);
+  const [policyError, setPolicyError] = useState<{ scope: PolicyScope; message: string } | null>(null);
+  const [policySaved, setPolicySaved] = useState<PolicyScope | null>(null);
 
   const [pwForm, setPwForm] = useState<PasswordPolicy | null>(null);
   const [savingPw, setSavingPw] = useState(false);
@@ -114,24 +119,25 @@ export function SecuritySection() {
     load();
   }, [load]);
 
-  const savePolicy = async (event: FormEvent) => {
+  const savePolicy = async (event: FormEvent, scope: PolicyScope) => {
     event.preventDefault();
     if (!policyForm) return;
-    setSavingPolicy(true);
-    setPolicyError("");
-    setPolicySaved(false);
+    setSavingPolicy(scope);
+    setPolicyError(null);
+    setPolicySaved(null);
     try {
       const res = await api<{ policy: SecurityPolicy }>("/api/security/policy", {
         method: "PATCH",
         body: JSON.stringify(policyForm)
       });
       setPolicyForm(res.policy);
-      setPolicySaved(true);
+      setPolicySaved(scope);
       await load();
     } catch (err) {
-      setPolicyError(err instanceof Error ? err.message : "Unable to save thresholds");
+      const fallback = scope === "alerts" ? "Unable to save alert settings" : "Unable to save thresholds";
+      setPolicyError({ scope, message: err instanceof Error ? err.message : fallback });
     } finally {
-      setSavingPolicy(false);
+      setSavingPolicy(null);
     }
   };
 
@@ -334,6 +340,28 @@ export function SecuritySection() {
                   </article>
 
                   <article className="security-overview-card">
+                    <span
+                      className={`security-overview-card-icon ${
+                        data.policy.alertNewIpSignIn && !data.mailConfigured ? "warning" : "info"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      <MailWarning size={26} />
+                    </span>
+                    <div className="security-overview-card-copy">
+                      <span className="security-overview-card-label">Sign-in alerts</span>
+                      <strong>{data.policy.alertNewIpSignIn ? "On" : "Off"}</strong>
+                      <span>
+                        {!data.policy.alertNewIpSignIn
+                          ? "New networks are not emailed"
+                          : data.mailConfigured
+                            ? "Emailed on a new network"
+                            : "SMTP not configured"}
+                      </span>
+                    </div>
+                  </article>
+
+                  <article className="security-overview-card">
                     <span className="security-overview-card-icon success" aria-hidden="true">
                       <ShieldCheck size={26} />
                     </span>
@@ -439,7 +467,7 @@ export function SecuritySection() {
                   </div>
                 </div>
                 {policyForm && (
-                  <form className="security-policy-form" onSubmit={savePolicy}>
+                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "thresholds")}>
                     <label className="security-setting-row">
                       <span className="security-setting-copy">
                         <span className="security-setting-label">Lock account after (failed sign-ins)</span>
@@ -510,17 +538,88 @@ export function SecuritySection() {
                         }
                       />
                     </label>
-                    {policyError && <MessageBox tone="error" title="Unable to save">{policyError}</MessageBox>}
-                    {policySaved && <MessageBox tone="success" title="Saved">Thresholds updated.</MessageBox>}
+                    {policyError?.scope === "thresholds" && (
+                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                    )}
+                    {policySaved === "thresholds" && (
+                      <MessageBox tone="success" title="Saved">Thresholds updated.</MessageBox>
+                    )}
                     <div className="security-policy-actions">
                       <Button
                         variant="primary"
                         className="security-save-button"
                         type="submit"
-                        disabled={savingPolicy}
+                        disabled={savingPolicy !== null}
                       >
                         <Save size={16} />
-                        {savingPolicy ? "Saving…" : "Save thresholds"}
+                        {savingPolicy === "thresholds" ? "Saving…" : "Save thresholds"}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
+
+              <section className="security-block security-policy-card" aria-labelledby="signin-alert-heading">
+                <div className="security-policy-card-head">
+                  <span className="security-policy-icon" aria-hidden="true">
+                    <MailWarning size={24} />
+                  </span>
+                  <div>
+                    <h2 id="signin-alert-heading">Sign-in alerts</h2>
+                    <p className="section-description">
+                      Warn about a successful sign-in from somewhere the account has never been used.
+                    </p>
+                  </div>
+                </div>
+                {policyForm && (
+                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "alerts")}>
+                    <label className="security-setting-row security-setting-row-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={policyForm.alertNewIpSignIn}
+                        onChange={(event) =>
+                          setPolicyForm({ ...policyForm, alertNewIpSignIn: event.target.checked })
+                        }
+                      />
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">Email on a sign-in from a new network</span>
+                        <span className="security-setting-help">
+                          The account owner and the admins are emailed. Networks are matched loosely (the /24 for
+                          IPv4, the /64 for IPv6) so a changing home or mobile address doesn't alert every time.
+                          Sign-ins from trusted networks never alert.
+                        </span>
+                      </span>
+                    </label>
+
+                    {!data.mailConfigured && (
+                      <MessageBox tone="warning" title="Email is not set up">
+                        These alerts are sent over SMTP. Configure it under Control panel → Configuration → Email,
+                        or this setting has no effect.
+                      </MessageBox>
+                    )}
+
+                    {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
+                      <MessageBox tone="warning" title="Client IPs aren't accurate yet">
+                        Requests arrive through a proxy but <code>TRUST_PROXY_HOPS</code> is not set, so every visitor
+                        looks like the proxy address. Until you set it, a new network is never detected.
+                      </MessageBox>
+                    )}
+
+                    {policyError?.scope === "alerts" && (
+                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                    )}
+                    {policySaved === "alerts" && (
+                      <MessageBox tone="success" title="Saved">Sign-in alerts updated.</MessageBox>
+                    )}
+                    <div className="security-policy-actions">
+                      <Button
+                        variant="primary"
+                        className="security-save-button"
+                        type="submit"
+                        disabled={savingPolicy !== null}
+                      >
+                        <Save size={16} />
+                        {savingPolicy === "alerts" ? "Saving…" : "Save sign-in alerts"}
                       </Button>
                     </div>
                   </form>

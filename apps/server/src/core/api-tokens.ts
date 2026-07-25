@@ -68,6 +68,14 @@ export function resolveApiToken(raw: string, scope: ApiTokenScope = "opds", ip?:
   return row;
 }
 
+// True when this raw token matches no api_tokens row whatsoever — not even a
+// revoked or expired one. Distinguishes a guess from a reader app still holding a
+// token its owner has since revoked, which shouldn't count against the source IP.
+export function isUnknownApiToken(raw: string): boolean {
+  if (!raw) return true;
+  return !db.prepare("SELECT 1 FROM api_tokens WHERE token_hash = ?").get(sha256(raw));
+}
+
 // A user's active (non-revoked) tokens — never the secret.
 export function listApiTokens(userId: string, scope?: ApiTokenScope): ApiTokenRow[] {
   const sql = `

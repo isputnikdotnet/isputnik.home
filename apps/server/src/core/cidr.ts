@@ -93,6 +93,24 @@ export function ipInAnyCidr(ip: string, cidrs: string[]): boolean {
   return cidrs.some((cidr) => ipInCidr(ip, cidr));
 }
 
+// A coarse "same place" key for an address: the /24 for IPv4, the /64 for IPv6.
+// Home and mobile connections rotate the host part constantly, so comparing whole
+// addresses would read as a new location on every reconnect. Returns null when the
+// input doesn't parse, so callers can fall back to the raw address.
+export function ipNetworkKey(ip: string): string | null {
+  const parsed = parseIp(ip);
+  if (!parsed) return null;
+  if (parsed.bits === 32) {
+    const network = parsed.value & 0xffffff00n;
+    const octets = [24n, 16n, 8n, 0n].map((shift) => (network >> shift) & 0xffn);
+    return `${octets.join(".")}/24`;
+  }
+  const network = parsed.value >> 64n;
+  const groups: string[] = [];
+  for (let i = 3; i >= 0; i -= 1) groups.push(((network >> BigInt(i * 16)) & 0xffffn).toString(16));
+  return `${groups.join(":")}::/64`;
+}
+
 // True when the string is a usable address or CIDR (for validating admin input).
 export function isValidCidr(cidr: string): boolean {
   const slash = cidr.indexOf("/");

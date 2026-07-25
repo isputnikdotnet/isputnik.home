@@ -5,6 +5,7 @@ import { hashPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody, setupSchema } from "./shared.js";
 import { getDefaultTheme } from "./app-config.js";
+import { noteSignInNetwork } from "./security.js";
 
 export async function setupPlugin(app: FastifyInstance) {
   app.get("/api/setup/status", async () => ({
@@ -36,6 +37,7 @@ export async function setupPlugin(app: FastifyInstance) {
     })();
 
     issueSession(reply, user.id, request);
+    noteSignInNetwork(user.id, request.ip);
     logActivity({
       event: "account.setup",
       actorUserId: user.id,

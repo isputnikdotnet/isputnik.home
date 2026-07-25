@@ -1,0 +1,7 @@
+# A private family media library. Nothing here is meant for search engines —
+# not the app, and not the guest share links, which are unlisted by design and
+# would otherwise stay in an index long after the link itself was revoked.
+# Enforced for real by the X-Robots-Tag response header (see apps/server/src/index.ts);
+# this file is the polite half, and only well-behaved crawlers read it.
+User-agent: *
+Disallow: /

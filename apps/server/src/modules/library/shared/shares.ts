@@ -1285,11 +1285,23 @@ export async function librarySharesPlugin(app: FastifyInstance) {
 
   // --- Public: guest access (no authentication) ---------------------------
 
+  // These are the only routes on the box reachable without an account, so they get
+  // their own per-IP buckets instead of riding the generous global ceiling. The
+  // token can't be guessed (~216 bits), so this isn't about brute force — it bounds
+  // what a *leaked* link can cost in bandwidth and CPU. Sized per shape: opening a
+  // shared album fans out into one page load plus a thumbnail per photo, seeking
+  // within a video issues many range requests, and building a zip of a whole album
+  // is expensive enough to deserve a hard ceiling.
+  const SHARE_PAGE_LIMIT = { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } };
+  const SHARE_THUMB_LIMIT = { config: { rateLimit: { max: 1200, timeWindow: "1 minute" } } };
+  const SHARE_MEDIA_LIMIT = { config: { rateLimit: { max: 600, timeWindow: "1 minute" } } };
+  const SHARE_ZIP_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
+
   // Resolve a token to its (link, item), or send 404. Used by every public route.
   // Only digital-library modules are servable here.
   function resolveOr404(request: FastifyRequest, reply: FastifyReply) {
     const token = (request.params as { token: string }).token;
-    const link = resolveShareLink(token);
+    const link = resolveShareLink(token, request);
     if (!link || (link.module !== "audiobook" && link.module !== "ebook" && link.module !== "gallery")) {
       reply.code(404).send({ error: "Share not found or expired" });
       return null;
@@ -1302,11 +1314,11 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     return { token, link, module: link.module as MediaModule, item };
   }
 
-  app.get("/api/share/:token", async (request, reply) => {
+  app.get("/api/share/:token", SHARE_PAGE_LIMIT, async (request, reply) => {
     // Multi-item gallery links dispatch before the single-item resolver — they
     // have no single resource for it to load.
     const rawToken = (request.params as { token: string }).token;
-    const setLink = resolveShareLink(rawToken);
+    const setLink = resolveShareLink(rawToken, request);
     if (setLink && GALLERY_MULTI_MODULES.has(setLink.module)) {
       const meta = db.prepare(`
         SELECT share_links.label, share_links.expires_at, users.display_name AS shared_by
@@ -1452,7 +1464,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     });
   });
 
-  app.get("/api/share/:token/cover", async (request, reply) => {
+  app.get("/api/share/:token/cover", SHARE_THUMB_LIMIT, async (request, reply) => {
     const resolved = resolveOr404(request, reply);
     if (!resolved) return;
     const { item } = resolved;
@@ -1479,7 +1491,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
 
   const resolveSetItem = (request: FastifyRequest, reply: FastifyReply) => {
     const { token, itemId } = request.params as { token: string; itemId: string };
-    const link = resolveShareLink(token);
+    const link = resolveShareLink(token, request);
     if (!link || !GALLERY_MULTI_MODULES.has(link.module)) {
       reply.code(404).send({ error: "Share not found or expired" });
       return null;
@@ -1492,7 +1504,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     return { link, item };
   };
 
-  app.get("/api/share/:token/items/:itemId/cover", async (request, reply) => {
+  app.get("/api/share/:token/items/:itemId/cover", SHARE_THUMB_LIMIT, async (request, reply) => {
     const resolved = resolveSetItem(request, reply);
     if (!resolved) return;
     if (!resolved.item.cover_storage_key) {
@@ -1503,7 +1515,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   });
 
   // Larger render for the viewer overlay; falls back to the grid thumbnail.
-  app.get("/api/share/:token/items/:itemId/preview", async (request, reply) => {
+  app.get("/api/share/:token/items/:itemId/preview", SHARE_THUMB_LIMIT, async (request, reply) => {
     const resolved = resolveSetItem(request, reply);
     if (!resolved) return;
     const key = resolved.item.preview_storage_key ?? resolved.item.cover_storage_key;
@@ -1514,7 +1526,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     await sendThumbnail(reply, key);
   });
 
-  app.get("/api/share/:token/items/:itemId/file", (request, reply) => {
+  app.get("/api/share/:token/items/:itemId/file", SHARE_MEDIA_LIMIT, (request, reply) => {
     const resolved = resolveSetItem(request, reply);
     if (!resolved) return;
     const { item } = resolved;
@@ -1531,7 +1543,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     });
   });
 
-  app.get("/api/share/:token/items/:itemId/download", (request, reply) => {
+  app.get("/api/share/:token/items/:itemId/download", SHARE_MEDIA_LIMIT, (request, reply) => {
     const resolved = resolveSetItem(request, reply);
     if (!resolved) return;
     const { link, item } = resolved;
@@ -1559,9 +1571,9 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   // Download every photo/video in a shared set as one zip. Stored (level 0) — the
   // members are already-compressed JP/MP4, so compression only burns CPU. Missing
   // files are skipped; duplicate basenames get a " (n)" suffix so none overwrite.
-  app.get("/api/share/:token/download-all", (request, reply) => {
+  app.get("/api/share/:token/download-all", SHARE_ZIP_LIMIT, (request, reply) => {
     const token = (request.params as { token: string }).token;
-    const link = resolveShareLink(token);
+    const link = resolveShareLink(token, request);
     if (!link || !GALLERY_MULTI_MODULES.has(link.module)) {
       reply.code(404).send({ error: "Share not found or expired" });
       return;
@@ -1621,7 +1633,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   });
 
   // Audiobook only: stream one audio track (direct play, no transcode, range).
-  app.get("/api/share/:token/stream/:fileId", (request, reply) => {
+  app.get("/api/share/:token/stream/:fileId", SHARE_MEDIA_LIMIT, (request, reply) => {
     const resolved = resolveOr404(request, reply);
     if (!resolved) return;
     const { module, item } = resolved;
@@ -1659,7 +1671,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   // Ebook: serve the book's document inline for the guest reader (range support lets
   // the browser's PDF viewer fetch pages on demand). Gallery: serve the original
   // photo/video inline, with range so a guest's <video> can seek.
-  app.get("/api/share/:token/file", (request, reply) => {
+  app.get("/api/share/:token/file", SHARE_MEDIA_LIMIT, (request, reply) => {
     const resolved = resolveOr404(request, reply);
     if (!resolved) return;
     const { module, item } = resolved;
@@ -1708,7 +1720,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     });
   });
 
-  app.get("/api/share/:token/download", (request, reply) => {
+  app.get("/api/share/:token/download", SHARE_MEDIA_LIMIT, (request, reply) => {
     const resolved = resolveOr404(request, reply);
     if (!resolved) return;
     const { module, item, link } = resolved;

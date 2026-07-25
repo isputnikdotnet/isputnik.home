@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ipInCidr, ipInAnyCidr, isValidCidr } from "../src/core/cidr.js";
+import { ipInCidr, ipInAnyCidr, isValidCidr, ipNetworkKey } from "../src/core/cidr.js";
 
 describe("ipInCidr (IPv4)", () => {
   it("matches an address inside the range", () => {
@@ -58,5 +58,24 @@ describe("ipInAnyCidr / isValidCidr", () => {
     expect(isValidCidr("192.168.0.0/33")).toBe(false);
     expect(isValidCidr("999.1.1.1")).toBe(false);
     expect(isValidCidr("not-an-ip")).toBe(false);
+  });
+});
+
+describe("ipNetworkKey", () => {
+  it("collapses an IPv4 address to its /24", () => {
+    expect(ipNetworkKey("203.0.113.10")).toBe("203.0.113.0/24");
+    expect(ipNetworkKey("203.0.113.250")).toBe("203.0.113.0/24");
+    expect(ipNetworkKey("203.0.114.10")).toBe("203.0.114.0/24");
+  });
+
+  it("collapses an IPv6 address to its /64", () => {
+    expect(ipNetworkKey("2001:db8:1:2:3:4:5:6")).toBe("2001:db8:1:2::/64");
+    expect(ipNetworkKey("2001:db8:1:2::ffff")).toBe("2001:db8:1:2::/64");
+    expect(ipNetworkKey("2001:db8:1:3::1")).toBe("2001:db8:1:3::/64");
+  });
+
+  it("keys a mapped address as IPv4 and reports unparsable input", () => {
+    expect(ipNetworkKey("::ffff:203.0.113.10")).toBe("203.0.113.0/24");
+    expect(ipNetworkKey("not-an-ip")).toBeNull();
   });
 });
