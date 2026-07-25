@@ -31,6 +31,10 @@ proxy is the only way in.
 | `COOKIE_SECURE` | `true` | Send the session cookie only over HTTPS |
 | `TRUST_PROXY_HOPS` | number of proxies in front (usually `1`) | So rate limits and logs see the real visitor, not the proxy |
 
+Setting `APP_URL` to an `https://` address also turns on **HSTS** — the header
+that tells browsers to only ever reach your domain over HTTPS. Nothing extra to
+configure; set `HSTS=false` if your reverse proxy already sends that header itself.
+
 ### About `TRUST_PROXY_HOPS`
 
 The app needs the real visitor's IP address for rate limiting and the activity
@@ -65,9 +69,15 @@ one adding the header.
 
 ## Note for maintainers
 
-Security headers are sent by `@fastify/helmet`. The Content-Security-Policy
-currently ships in **report-only** mode — it reports violations to the browser
-console but doesn't block them — so the policy can be validated against the reader,
-cover images, and the installable PWA before it's enforced. Flip `reportOnly`
-to `false` in `apps/server/src/index.ts` once that pass is done. HSTS is left off
-until HTTPS is confirmed working, then enabled via helmet's `hsts` option.
+Security headers are sent by `@fastify/helmet` (see `apps/server/src/index.ts`).
+The Content-Security-Policy is **enforced**, not report-only: it was validated
+against the reader, cover images, the gallery map, and the installable PWA first.
+Anything new that loads an external resource has to be added to the policy or the
+browser will block it.
+
+HSTS follows `APP_URL`: it's sent (one year, no `includeSubDomains`, no preload)
+when `APP_URL` starts with `https://`, and omitted otherwise, so the default
+plain-HTTP LAN deployment can't pin a browser to a scheme it doesn't serve. Set
+`HSTS=false` to suppress it when the reverse proxy already sends its own.
+`includeSubDomains` and `preload` are intentionally left to the proxy — both
+affect hostnames this app knows nothing about, and preload can't be undone quickly.

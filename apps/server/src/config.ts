@@ -20,6 +20,11 @@ export const config = {
   backupPath: process.env.BACKUP_PATH ?? path.join(rootDir, "data", "backups"),
   backupRetention: Number(process.env.BACKUP_RETENTION ?? 10),
   cookieSecure: process.env.COOKIE_SECURE === "true" || (process.env.NODE_ENV === "production" && process.env.COOKIE_SECURE !== "false"),
+  // HSTS only means something once TLS terminates in front of the app, and a
+  // max-age handed to a browser on a plain-http LAN deployment would strand it.
+  // APP_URL is the operator's own statement of how the app is reached, so it
+  // gates the header; HSTS=false opts out when the proxy sends its own.
+  hsts: (process.env.APP_URL ?? "").startsWith("https://") && process.env.HSTS !== "false",
   sessionDays: Number(process.env.SESSION_DAYS ?? 14),
   inviteDays: Number(process.env.INVITE_DAYS ?? 7),
   version: packageInfo.version,
