@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.13.3",
+          label: "Staying on HTTPS, and a sign-in fix for home installs",
+          changes: [
+            "Arriving over plain http now takes you to https. If your server has an https address, typing it without the https — or following an old link — no longer leaves you on an unencrypted page typing your password into it. Where your reverse proxy or Cloudflare already does this, nothing changes: the app only steps in when nothing in front of it did, and it stays out of the way entirely on a home network served over plain http.",
+            "A sign-in fix for home installs. The Unraid template offered a \"cookie secure\" setting of \"auto\", which the app did not actually recognise and treated as \"always on\" — and a cookie marked secure is never sent over a plain http home network, so sign-in was refused with nothing on screen to explain why. \"auto\" now means what it always claimed: it follows your app address, on for an https address and off for a plain http one. If this caught you, updating is the whole fix — there is nothing to change yourself."
+          ]
+        },
+        {
           version: "1.13.2",
           label: "Two small fixes for servers opened to the internet",
           changes: [
