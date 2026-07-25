@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.13.4",
+          label: "A way to report a security problem",
+          changes: [
+            "The server now answers at the standard address security researchers look for. Anyone who finds a security problem in isputnik.home can now find where to report it, at /.well-known/security.txt, and it points them at the project rather than at you — a flaw in the software is the same flaw in every copy of it, and it needs fixing where the code lives. Nothing about your household or your address is published there."
+          ]
+        },
+        {
           version: "1.13.3",
           label: "Staying on HTTPS, and a sign-in fix for home installs",
           changes: [
