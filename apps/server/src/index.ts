@@ -63,9 +63,12 @@ await app.register(cors, {
 await app.register(helmet, {
   crossOriginEmbedderPolicy: false,
   referrerPolicy: { policy: "no-referrer" },
-  // HSTS belongs to the TLS-terminating proxy and stays off here until HTTPS is
-  // confirmed, so a mis-set max-age can't strand the http LAN deployment.
-  hsts: false,
+  // HSTS is sent only when APP_URL says the app is reached over HTTPS (see
+  // config.hsts), so the default http LAN deployment can't pin itself to a
+  // scheme it doesn't serve. Subdomains are deliberately excluded: the same
+  // domain often carries plain-http LAN hostnames, and preload is a one-way
+  // door — an operator who wants either sets them at their proxy.
+  hsts: config.hsts ? { maxAge: 31536000, includeSubDomains: false, preload: false } : false,
   contentSecurityPolicy: {
     useDefaults: false,
     directives: {
