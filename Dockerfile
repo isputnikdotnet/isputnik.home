@@ -60,7 +60,20 @@ RUN cd apps/server && node -e 'const deps=Object.keys(require("./package.json").
   console.error("runtime dep failed to load:",d,"-",e.message);process.exit(1)}}\
 console.log(deps.length+" runtime deps load OK")})()'
 
-# ── Stage 5: production image ─────────────────────────────────────
+# ── Stage 5: face recogniser model ────────────────────────────────
+# The 167 MB ArcFace model is fetched from a GitHub release rather than carried
+# in git-LFS: every image build pulled it through the LFS quota, and once that
+# budget ran out checkout failed before a single file compiled, so no image was
+# published at all. Its own stage keeps the download out of the code layers —
+# a server change doesn't refetch it — and the script verifies a pinned SHA-256,
+# so a replaced or truncated asset fails the build instead of shipping an image
+# whose face clustering is quietly wrong.
+FROM node:22-slim AS face-model
+WORKDIR /build
+COPY scripts/fetch-face-model.mjs ./scripts/
+RUN node scripts/fetch-face-model.mjs --dest /build/models/face
+
+# ── Stage 6: production image ─────────────────────────────────────
 FROM node:22-slim
 WORKDIR /app
 
@@ -81,9 +94,12 @@ COPY --from=prod-deps /build/apps/server/node_modules ./apps/server/node_modules
 # Compiled server
 COPY --from=server-build /build/apps/server/dist ./apps/server/dist
 
-# Vendored ONNX face-recognition models (InsightFace: SCRFD-500MF detector +
-# ArcFace ResNet50 recogniser). Resolved at runtime from apps/server/models/face/ (cwd is /app).
+# ONNX face-recognition models (InsightFace: SCRFD-500MF detector + ArcFace
+# ResNet50 recogniser). Resolved at runtime from apps/server/models/face/ (cwd is
+# /app). The 2.5 MB detector rides along in git; the 167 MB recogniser is fetched
+# in the face-model stage above and lands in the same directory.
 COPY apps/server/models ./apps/server/models
+COPY --from=face-model /build/models/face/w600k_r50.onnx ./apps/server/models/face/
 
 # Built frontend (served as static files by Fastify)
 COPY --from=web-build /build/apps/web/dist ./web

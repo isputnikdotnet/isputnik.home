@@ -14,3 +14,6 @@ mfa.key
 # Personal scratch notes under Documents — keep local only (case-insensitive)
 Documents/notes/
 Documents/Notes/
+# Fetched at build time from a GitHub release (scripts/fetch-face-model.mjs),
+# not carried in the repo — 167 MB through git-LFS is what broke image builds.
+apps/server/models/face/w600k_r50.onnx

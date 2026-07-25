@@ -220,8 +220,13 @@ embedding (cosine = dot product). Runs on `onnxruntime-node` (CPU by default; se
 `FACE_ORT_PROVIDERS=cuda,cpu` / `dml,cpu` to try an accelerator). CPU fallback is
 automatic at both model **load** and — because DirectML can accept a model and still
 reject an op mid-run — at **execution** time: the first runtime failure rebuilds the
-engine CPU-only, retries the photo, and stays on CPU until restart. Models are vendored
-under `apps/server/models/face/` (`det_500m.onnx`, `w600k_r50.onnx`). The engine loads
+engine CPU-only, retries the photo, and stays on CPU until restart. Both models load from
+`apps/server/models/face/`. The 2.5 MB detector (`det_500m.onnx`) is in the repo; the
+167 MB recogniser (`w600k_r50.onnx`) is **not** — it comes from a GitHub release asset via
+`npm run fetch:face-model` (the Docker build runs the same script, see
+`scripts/fetch-face-model.mjs`). It lived in git-LFS until the LFS budget ran out and took
+every image build down with it at checkout. Face scanning is the only feature that needs
+it; without it the rest of the app runs fine. The engine loads
 lazily on first detection and disables sharp's cache for the duration (a scan sees only
 unique images). Faces of one photo are recognised in a single batched `rec.run` on CPU;
 on a GPU provider they run one at a time instead (DirectML rejects the dynamic batch dim

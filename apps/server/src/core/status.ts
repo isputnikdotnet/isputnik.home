@@ -502,7 +502,7 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
-          version: "1.13.1",
+          version: "1.13.2",
           label: "Two small fixes for servers opened to the internet",
           changes: [
             "Browsers are now told to stay on HTTPS. When your server is set up with an https address, it now sends the instruction that tells every browser to keep using HTTPS for the next year and never quietly fall back to plain, unencrypted http — even if someone types the address without it or follows an old link. Servers running on the home network over plain http are untouched: nothing is sent unless your address already says https, so a home setup can't lock itself out of its own site.",
