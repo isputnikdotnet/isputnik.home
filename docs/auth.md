@@ -110,6 +110,11 @@ Shipped:
   backed by a disallow-all `robots.txt` and a `robots` meta tag in the app shell.
   This matters most for guest share links: unlisted by design, and otherwise liable
   to outlive their own revocation inside a search index.
+- **Reportable** — `/.well-known/security.txt` (and the legacy `/security.txt`)
+  answer per RFC 9116, pointing at the upstream project's security advisories
+  rather than the operator: a flaw here is a flaw in the software, and the
+  household running a copy usually can't fix it. `Expires` is computed per request
+  (`core/security-txt.ts`), so no installation ever serves a stale one.
 - **Multi-factor authentication (TOTP)** — see below.
 - **Security headers** — `@fastify/helmet` with an enforced CSP tailored to the app, plus no-sniff, frame-ancestors, `form-action 'self'` (so injected markup can't post to an attacker's host), and a no-referrer policy.
 - **CSRF protection** — a double-submit `isputnik_csrf` token validated on every state-changing request (`core/csrf.ts`), layered on `SameSite=Lax`. Where the

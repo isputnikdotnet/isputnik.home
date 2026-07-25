@@ -9,6 +9,7 @@ import { statusPlugin } from "./status.js";
 import { appConfigPlugin } from "./app-config.js";
 import { mailPlugin } from "./mail-routes.js";
 import { securityRoutes } from "./security-routes.js";
+import { securityTxtPlugin } from "./security-txt.js";
 
 export async function corePlugin(app: FastifyInstance) {
   await app.register(setupPlugin);
@@ -21,4 +22,5 @@ export async function corePlugin(app: FastifyInstance) {
   await app.register(logsPlugin);
   await app.register(statusPlugin);
   await app.register(securityRoutes);
+  await app.register(securityTxtPlugin);
 }
