@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.14.1",
+          label: "A redesigned family tree view",
+          changes: [
+            "The family tree now reads left to right: earlier generations on the left, children on the right, with each generation in its own column and couples stacked together with a small rings marker between them — the way printed family charts are usually drawn.",
+            "Person cards were redesigned around the photo: the portrait sits on top, larger than before, with the name and years beneath it.",
+            "Each card now carries its own buttons — one opens the person's profile, and for admins a pencil opens the edit form right from the tree. The \"Open profile\" bar that used to sit under the chart is gone."
+          ]
+        },
+        {
           version: "1.14.0",
           label: "Family tree: GEDCOM files, life stories, and sources",
           changes: [
