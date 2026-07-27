@@ -20,13 +20,13 @@
 import type { FamilyPerson, FamilyTree } from "./types";
 
 // Vertical cards: portrait on top, name, then dates.
-export const NODE_W = 132; // card width (generation axis)
-export const NODE_H = 136; // card height (stacking axis)
-const SPOUSE_GAP = 34; // vertical gap between spouse cards (the badge sits here)
-const SIBLING_GAP = 20;
-const GEN_W = 208; // horizontal pitch between generation columns
-const BLOCK_GAP = 36;
-const BUS_RISE = 30; // how far left of a child column its connector bus runs
+export const NODE_W = 156; // card width (generation axis)
+export const NODE_H = 148; // card height (stacking axis)
+const SPOUSE_GAP = 42; // vertical gap between spouse cards (the badge sits here)
+const SIBLING_GAP = 28;
+const GEN_W = 238; // horizontal pitch between generation columns
+const BLOCK_GAP = 46;
+const BUS_RISE = 34; // how far left of a child column its connector bus runs
 
 export interface PlacedNode {
   person: FamilyPerson;
@@ -281,7 +281,7 @@ export function computeChartLayout(tree: FamilyTree, focusId: string): ChartLayo
   const nodes = [...placed.values()];
   const xs = nodes.map((n) => n.x);
   const ys = nodes.map((n) => n.y);
-  const pad = 60;
+  const pad = 96;
   return {
     nodes,
     dots,
