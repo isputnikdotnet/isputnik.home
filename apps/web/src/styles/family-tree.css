@@ -671,8 +671,51 @@
   stroke-width: 1.6;
 }
 
-.ft-chart-dot {
-  fill: var(--muted);
+/* Union badge: a circle with two "rings" between spouse cards. */
+.ft-chart-union-badge > circle:first-child {
+  fill: var(--surface);
+  stroke: var(--line);
+  stroke-width: 1.2;
+}
+
+.ft-chart-union-ring {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.4;
+}
+
+/* Per-card action badges (open profile / edit) on the card's top edge. */
+.ft-chart-action {
+  cursor: pointer;
+}
+
+.ft-chart-action > circle {
+  fill: var(--surface);
+  stroke: var(--line);
+  stroke-width: 1.2;
+  transition: stroke 120ms ease;
+}
+
+.ft-chart-action path,
+.ft-chart-action g circle {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 120ms ease;
+}
+
+.ft-chart-action:hover > circle,
+.ft-chart-action:focus-visible > circle {
+  stroke: var(--gold);
+}
+
+.ft-chart-action:hover path,
+.ft-chart-action:hover g circle,
+.ft-chart-action:focus-visible path,
+.ft-chart-action:focus-visible g circle {
+  stroke: var(--gold);
 }
 
 .ft-chart-node {
@@ -703,21 +746,21 @@
 
 .ft-chart-initial {
   fill: var(--muted);
-  font-size: 14px;
+  font-size: 22px;
   font-weight: 700;
   user-select: none;
 }
 
 .ft-chart-name {
   fill: var(--ink);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   user-select: none;
 }
 
 .ft-chart-years {
   fill: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   user-select: none;
 }
 
@@ -728,21 +771,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-.ft-tree-focus-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-}
-
-.ft-tree-focus-card .secondary-button {
-  margin-left: auto;
 }
 
 /* ── Mobile ── */

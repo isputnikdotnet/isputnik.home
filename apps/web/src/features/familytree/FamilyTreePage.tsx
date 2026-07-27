@@ -30,6 +30,7 @@ export function FamilyTreePage({
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [editPerson, setEditPerson] = useState<FamilyPerson | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -54,8 +55,6 @@ export function FamilyTreePage({
     if (focusId && tree.persons.some((p) => p.id === focusId)) return focusId;
     return defaultFocusId(tree);
   }, [tree, focusId]);
-
-  const focusPerson = tree?.persons.find((p) => p.id === activeFocusId) ?? null;
 
   const term = search.trim().toLowerCase();
   const matches = term && tree
@@ -170,25 +169,11 @@ export function FamilyTreePage({
           <FamilyTreeChart
             tree={tree}
             focusId={activeFocusId}
+            isAdmin={isAdmin}
             onFocus={(personId) => { if (personId !== activeFocusId) navigate(`/family/tree/${personId}`); }}
+            onOpenProfile={(personId) => navigate(`/family/people/${personId}?from=/family/tree/${activeFocusId}`)}
+            onEditPerson={setEditPerson}
           />
-        )}
-
-        {focusPerson && (
-          <footer className="ft-tree-focus-card">
-            <PersonAvatar person={focusPerson} size={34} />
-            <span className="ft-picker-row-name">
-              <strong>{focusPerson.name}</strong>
-              {lifeYears(focusPerson) && <small>{lifeYears(focusPerson)}</small>}
-            </span>
-            <a
-              className="secondary-button compact-button"
-              href={`/family/people/${focusPerson.id}?from=/family/tree/${focusPerson.id}`}
-              onClick={(event) => followRoute(event, `/family/people/${focusPerson.id}?from=/family/tree/${focusPerson.id}`)}
-            >
-              Open profile
-            </a>
-          </footer>
         )}
       </section>
 
@@ -197,6 +182,14 @@ export function FamilyTreePage({
           person={null}
           onClose={() => setAddOpen(false)}
           onSaved={(person) => { setAddOpen(false); loadTree(); navigate(`/family/tree/${person.id}`); }}
+        />
+      )}
+
+      {editPerson && (
+        <PersonEditModal
+          person={editPerson}
+          onClose={() => setEditPerson(null)}
+          onSaved={() => { setEditPerson(null); loadTree(); }}
         />
       )}
 
