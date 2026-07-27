@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.14.0",
+          label: "Family tree: GEDCOM files, life stories, and sources",
+          changes: [
+            "The family tree can now import and export GEDCOM files — the format Ancestry, MyHeritage, FamilySearch, and Gramps all speak. Bring a tree you built elsewhere in with one click (adding to what's here, or replacing it), and download yours as a .ged file any time as a backup or to continue it in another program. Anything the importer can't make sense of is skipped with a plain-language note rather than failing the whole file.",
+            "Every person now has a life timeline. Beyond birth and death, you can record where someone went to school, where they worked, where they lived and when, military service, immigration, and anything else — each with a year or a full date, a range like 1971–1975, and a place. The profile shows it all in order, with marriages and divorces woven in.",
+            "Places got more room: alongside a birthplace, a person can have a place of death, and a marriage can have a place of its own.",
+            "Facts can carry their receipts. Sources — record indexes, church books, websites — live in one shared list, and any fact, event, or marriage can cite one, with a page reference and a link to the record itself. Importing a GEDCOM brings its sources and citations along, links included, and exporting writes them back out."
+          ]
+        },
+        {
           version: "1.13.5",
           label: "A tidier Gallery on your phone",
           changes: [
