@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.13.5",
+          label: "A tidier Gallery on your phone",
+          changes: [
+            "The Gallery header now fits a phone screen. On mobile the row of view tabs — Timeline, Memories, Albums, Slideshows, Folders, People, Map — folds into a single Browse menu next to the library picker, the same compact header Audiobooks and Ebooks already use. On a desktop browser nothing changes.",
+            "Memory cards open the photos straight away. Tapping a card in the \"On this day\" strip now opens the viewer on that year's photos immediately — the same as on the home page — instead of taking you to the Memories page first."
+          ]
+        },
+        {
           version: "1.13.4",
           label: "A way to report a security problem",
           changes: [
