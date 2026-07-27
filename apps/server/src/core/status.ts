@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.14.2",
+          label: "A richer person profile",
+          changes: [
+            "A person's profile is now organised into tabs — Relationships, Timeline, Photos, Sources, and Notes — instead of one long page, with a summary of who they are (age, gender, current partner) up top.",
+            "Relationships grew wider: alongside parents, partners, and children, the profile now also shows siblings and grandparents, each as a card you can jump to.",
+            "The timeline reads better: dates are written out (\"Jun 3, 1947\" rather than raw numbers), each event carries an icon for its kind — school, work, home, service, travel — and ages are computed where the dates allow.",
+            "Small touches on the tree itself: bigger cards with more breathing room, a silhouette instead of a bare initial when there's no photo, a Focus badge on the centred person, gender-tinted portraits, and the current zoom level shown between the zoom buttons."
+          ]
+        },
+        {
           version: "1.14.1",
           label: "A redesigned family tree view",
           changes: [
