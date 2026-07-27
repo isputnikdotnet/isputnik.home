@@ -364,6 +364,22 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
       if (!has("web_video_key")) db.exec("ALTER TABLE gallery_details ADD COLUMN web_video_key TEXT");
       if (!has("web_video_attempts")) db.exec("ALTER TABLE gallery_details ADD COLUMN web_video_attempts INTEGER NOT NULL DEFAULT 0");
     }
+  },
+  // Family tree: place of death and place of marriage (the family_tree_events
+  // table itself is new and comes from schema.sql). Conditional because
+  // schema.sql (run first) already adds the columns on fresh databases.
+  {
+    version: 21,
+    up: (db) => {
+      const personColumns = db.pragma("table_info(family_tree_persons)") as { name: string }[];
+      if (!personColumns.some((column) => column.name === "death_place")) {
+        db.exec("ALTER TABLE family_tree_persons ADD COLUMN death_place TEXT");
+      }
+      const unionColumns = db.pragma("table_info(family_tree_unions)") as { name: string }[];
+      if (!unionColumns.some((column) => column.name === "married_place")) {
+        db.exec("ALTER TABLE family_tree_unions ADD COLUMN married_place TEXT");
+      }
+    }
   }
 ];
 

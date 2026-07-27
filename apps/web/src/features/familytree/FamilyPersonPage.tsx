@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, Baby, Heart, ImagePlus, Link2, Network, Pencil, Play, Trash2, Upload, X
+  ArrowLeft, Baby, BookMarked, CalendarPlus, ExternalLink, Heart, ImagePlus, Link2, Network, Pencil, Play, Trash2, Upload, X
 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -10,13 +10,117 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { AddChildModal } from "./AddChildModal";
 import { AddUnionModal } from "./AddUnionModal";
+import { CitationEditModal } from "./CitationEditModal";
+import { EventEditModal } from "./EventEditModal";
 import { FamilyPhotoPicker } from "./FamilyPhotoPicker";
 import { GalleryPersonLinkModal } from "./GalleryPersonLinkModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
-import { lifeYears, UNION_STATUS_OPTIONS, type FamilyPersonProfile, type FamilyPhoto } from "./types";
+import {
+  lifeYears, EVENT_TYPE_OPTIONS, UNION_STATUS_OPTIONS,
+  type FamilyCitation, type FamilyEvent, type FamilyPersonProfile, type FamilyPhoto
+} from "./types";
 
 const PHOTO_PAGE = 40;
+
+const eventTypeLabel = (type: FamilyEvent["type"]) =>
+  EVENT_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
+
+// One row of the life timeline. Real events carry `event` (editable); birth,
+// marriages, and death are synthesized from person/union fields and edited
+// through their own modals instead.
+interface TimelineEntry {
+  key: string;
+  sortKey: string;
+  dateText: string;
+  title: string;
+  meta: string[];
+  note: string | null;
+  event: FamilyEvent | null;
+}
+
+function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
+  const entries: TimelineEntry[] = [];
+  if (profile.birthDate || profile.birthplace) {
+    entries.push({
+      key: "birth",
+      sortKey: "0000",
+      dateText: profile.birthDate ?? "",
+      title: "Born",
+      meta: profile.birthplace ? [profile.birthplace] : [],
+      note: null,
+      event: null
+    });
+  }
+  for (const union of profile.unions) {
+    if (union.partner && (union.marriedDate || union.marriedPlace)) {
+      entries.push({
+        key: `marr-${union.id}`,
+        sortKey: union.marriedDate ?? "9998",
+        dateText: union.marriedDate ?? "",
+        title: `Married ${union.partner.name}`,
+        meta: union.marriedPlace ? [union.marriedPlace] : [],
+        note: null,
+        event: null
+      });
+    }
+    if (union.partner && union.divorcedDate) {
+      entries.push({
+        key: `div-${union.id}`,
+        sortKey: union.divorcedDate,
+        dateText: union.divorcedDate,
+        title: `Divorced ${union.partner.name}`,
+        meta: [],
+        note: null,
+        event: null
+      });
+    }
+  }
+  for (const event of profile.events) {
+    entries.push({
+      key: event.id,
+      sortKey: event.date ?? "9998",
+      dateText: [event.date, event.endDate].filter(Boolean).join("–"),
+      title: event.label || eventTypeLabel(event.type),
+      meta: [event.label ? eventTypeLabel(event.type) : "", event.place ?? ""].filter(Boolean),
+      note: event.note,
+      event
+    });
+  }
+  if (profile.deathDate || profile.deathPlace) {
+    entries.push({
+      key: "death",
+      sortKey: profile.deathDate ?? "9999",
+      dateText: profile.deathDate ?? "",
+      title: "Died",
+      meta: profile.deathPlace ? [profile.deathPlace] : [],
+      note: null,
+      event: null
+    });
+  }
+  return entries.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+}
+
+// "What does this citation support?" — resolved against the profile so the
+// Sources section can show "Birth", "Residence (2001)", "Marriage to X".
+function citationContext(citation: FamilyCitation, profile: FamilyPersonProfile): string {
+  if (citation.eventId) {
+    const event = profile.events.find((e) => e.id === citation.eventId);
+    if (!event) return "Event";
+    const what = event.label || eventTypeLabel(event.type);
+    return event.date ? `${what} (${event.date.slice(0, 4)})` : what;
+  }
+  if (citation.unionId) {
+    const union = profile.unions.find((u) => u.id === citation.unionId);
+    const partner = union?.partner?.name;
+    if (citation.fact === "divorce") return partner ? `Divorce from ${partner}` : "Divorce";
+    return partner ? `Marriage to ${partner}` : "Marriage";
+  }
+  if (citation.fact === "name") return "Name";
+  if (citation.fact === "birth") return "Birth";
+  if (citation.fact === "death") return "Death";
+  return "General";
+}
 
 function PersonChip({ person, relation }: { person: { id: string; name: string; portraitUrl: string | null }; relation?: string }) {
   return (
@@ -53,6 +157,11 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   const [photoPicker, setPhotoPicker] = useState(false);
   const [portraitPicker, setPortraitPicker] = useState(false);
   const [linkModal, setLinkModal] = useState(false);
+  // false = closed, null = adding, FamilyEvent = editing.
+  const [eventModal, setEventModal] = useState<FamilyEvent | null | false>(false);
+  const [removeEvent, setRemoveEvent] = useState<FamilyEvent | null>(null);
+  const [citationModal, setCitationModal] = useState<FamilyCitation | null | false>(false);
+  const [removeCitation, setRemoveCitation] = useState<FamilyCitation | null>(null);
   const [removeUnionId, setRemoveUnionId] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
   const portraitFileRef = useRef<HTMLInputElement>(null);
@@ -119,6 +228,30 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Unable to remove the child link");
+    }
+  };
+
+  const deleteEvent = async () => {
+    if (!removeEvent) return;
+    try {
+      await api(`/api/family-tree/events/${removeEvent.id}`, { method: "DELETE" });
+      setRemoveEvent(null);
+      refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Unable to delete the event");
+      setRemoveEvent(null);
+    }
+  };
+
+  const deleteCitation = async () => {
+    if (!removeCitation) return;
+    try {
+      await api(`/api/family-tree/citations/${removeCitation.id}`, { method: "DELETE" });
+      setRemoveCitation(null);
+      refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Unable to remove the citation");
+      setRemoveCitation(null);
     }
   };
 
@@ -329,6 +462,134 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
 
             <section className="ft-section">
               <div className="ft-section-head">
+                <h2>Life events</h2>
+                {isAdmin && (
+                  <div className="row-actions">
+                    <Button variant="secondary" compact onClick={() => setEventModal(null)}>
+                      <CalendarPlus size={15} aria-hidden="true" />
+                      Add event
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {(() => {
+                const entries = timelineEntries(profile);
+                if (entries.length === 0) {
+                  return (
+                    <p className="management-empty">
+                      {isAdmin
+                        ? "No events yet. Add school, work, moves, or anything else that tells this person's story."
+                        : "No events recorded yet."}
+                    </p>
+                  );
+                }
+                return (
+                  <ol className="ft-timeline">
+                    {entries.map((entry) => (
+                      <li key={entry.key} className="ft-timeline-row">
+                        <span className="ft-timeline-date">{entry.dateText || "—"}</span>
+                        <span className="ft-timeline-body">
+                          <strong>{entry.title}</strong>
+                          {entry.meta.length > 0 && <small>{entry.meta.join(" · ")}</small>}
+                          {entry.note && <span className="ft-timeline-note">{entry.note}</span>}
+                        </span>
+                        {isAdmin && entry.event && (
+                          <span className="ft-timeline-actions">
+                            <Button
+                              variant="icon"
+                              title="Edit event"
+                              aria-label={`Edit ${entry.title}`}
+                              onClick={() => setEventModal(entry.event)}
+                            >
+                              <Pencil size={14} aria-hidden="true" />
+                            </Button>
+                            <Button
+                              variant="icon"
+                              danger
+                              title="Delete event"
+                              aria-label={`Delete ${entry.title}`}
+                              onClick={() => setRemoveEvent(entry.event)}
+                            >
+                              <Trash2 size={14} aria-hidden="true" />
+                            </Button>
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                );
+              })()}
+            </section>
+
+            <section className="ft-section">
+              <div className="ft-section-head">
+                <h2>Sources{profile.citations.length > 0 ? ` (${profile.citations.length})` : ""}</h2>
+                {isAdmin && (
+                  <div className="row-actions">
+                    <Button variant="secondary" compact onClick={() => setCitationModal(null)}>
+                      <BookMarked size={15} aria-hidden="true" />
+                      Add source
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {profile.citations.length === 0 ? (
+                <p className="management-empty">
+                  {isAdmin
+                    ? "No sources yet. Cite the records, sites, or documents that back this person's facts."
+                    : "No sources recorded yet."}
+                </p>
+              ) : (
+                <ul className="ft-citations">
+                  {profile.citations.map((citation) => {
+                    const link = citation.url || citation.sourceUrl;
+                    return (
+                      <li key={citation.id} className="ft-citation-row">
+                        <span className="ft-citation-context">{citationContext(citation, profile)}</span>
+                        <span className="ft-citation-body">
+                          <strong>
+                            {link ? (
+                              <a href={link} target="_blank" rel="noreferrer noopener">
+                                {citation.sourceTitle}
+                                <ExternalLink size={12} aria-hidden="true" />
+                              </a>
+                            ) : citation.sourceTitle}
+                          </strong>
+                          {citation.detail && <small>{citation.detail}</small>}
+                          {citation.note && <small className="ft-citation-note">{citation.note}</small>}
+                        </span>
+                        {isAdmin && (
+                          <span className="ft-timeline-actions">
+                            <Button
+                              variant="icon"
+                              title="Edit citation"
+                              aria-label={`Edit citation of ${citation.sourceTitle}`}
+                              onClick={() => setCitationModal(citation)}
+                            >
+                              <Pencil size={14} aria-hidden="true" />
+                            </Button>
+                            <Button
+                              variant="icon"
+                              danger
+                              title="Remove citation"
+                              aria-label={`Remove citation of ${citation.sourceTitle}`}
+                              onClick={() => setRemoveCitation(citation)}
+                            >
+                              <Trash2 size={14} aria-hidden="true" />
+                            </Button>
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+            <section className="ft-section">
+              <div className="ft-section-head">
                 <h2>Photos{photoTotal > 0 ? ` (${photoTotal})` : ""}</h2>
                 {isAdmin && (
                   <div className="row-actions">
@@ -429,6 +690,45 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
           onCancel={() => setRemoveUnionId(null)}
         >
           The partnership and its children links are removed. No people or photos are deleted.
+        </ConfirmDialog>
+      )}
+      {eventModal !== false && profile && (
+        <EventEditModal
+          personId={profile.id}
+          personName={profile.name}
+          event={eventModal}
+          onClose={() => setEventModal(false)}
+          onSaved={() => { setEventModal(false); refresh(); }}
+        />
+      )}
+      {removeEvent && (
+        <ConfirmDialog
+          title={`Delete "${removeEvent.label || eventTypeLabel(removeEvent.type)}"?`}
+          confirmLabel="Delete event"
+          danger
+          onConfirm={() => void deleteEvent()}
+          onCancel={() => setRemoveEvent(null)}
+        >
+          This removes the event from the timeline. Nothing else is affected.
+        </ConfirmDialog>
+      )}
+      {citationModal !== false && profile && (
+        <CitationEditModal
+          profile={profile}
+          citation={citationModal}
+          onClose={() => setCitationModal(false)}
+          onSaved={() => { setCitationModal(false); refresh(); }}
+        />
+      )}
+      {removeCitation && (
+        <ConfirmDialog
+          title={`Remove citation of "${removeCitation.sourceTitle}"?`}
+          confirmLabel="Remove citation"
+          danger
+          onConfirm={() => void deleteCitation()}
+          onCancel={() => setRemoveCitation(null)}
+        >
+          The citation is removed from this fact. The source itself stays available for other citations.
         </ConfirmDialog>
       )}
       {unionModal && profile && (

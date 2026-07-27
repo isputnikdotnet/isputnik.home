@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, UserRound, UserRoundPlus, UsersRound } from "lucide-react";
+import { Download, FileUp, Search, UserRound, UserRoundPlus, UsersRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
@@ -7,6 +7,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { defaultFocusId } from "./chart-layout";
 import { FamilyTreeChart } from "./FamilyTreeChart";
+import { GedcomImportModal } from "./GedcomImportModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { lifeYears, type FamilyPerson, type FamilyTree } from "./types";
@@ -29,6 +30,7 @@ export function FamilyTreePage({
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const loadTree = () => {
@@ -109,6 +111,26 @@ export function FamilyTreePage({
               <UsersRound size={16} aria-hidden="true" />
               All people
             </a>
+            {tree && tree.persons.length > 0 && (
+              <Button
+                variant="icon"
+                title="Export GEDCOM (.ged)"
+                aria-label="Export GEDCOM"
+                onClick={() => window.location.assign("/api/family-tree/export")}
+              >
+                <Download size={17} aria-hidden="true" />
+              </Button>
+            )}
+            {isAdmin && (
+              <Button
+                variant="icon"
+                title="Import GEDCOM (.ged)"
+                aria-label="Import GEDCOM"
+                onClick={() => setImportOpen(true)}
+              >
+                <FileUp size={17} aria-hidden="true" />
+              </Button>
+            )}
             {isAdmin && (
               <Button variant="primary" compact onClick={() => setAddOpen(true)}>
                 <UserRoundPlus size={16} aria-hidden="true" />
@@ -130,10 +152,16 @@ export function FamilyTreePage({
                 : "The family tree hasn't been started yet."}
             </p>
             {isAdmin && (
-              <Button variant="primary" onClick={() => setAddOpen(true)}>
-                <UserRoundPlus size={16} aria-hidden="true" />
-                Add person
-              </Button>
+              <div className="ft-tree-empty-actions">
+                <Button variant="primary" onClick={() => setAddOpen(true)}>
+                  <UserRoundPlus size={16} aria-hidden="true" />
+                  Add person
+                </Button>
+                <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                  <FileUp size={16} aria-hidden="true" />
+                  Import GEDCOM
+                </Button>
+              </div>
             )}
           </div>
         )}
@@ -169,6 +197,14 @@ export function FamilyTreePage({
           person={null}
           onClose={() => setAddOpen(false)}
           onSaved={(person) => { setAddOpen(false); loadTree(); navigate(`/family/tree/${person.id}`); }}
+        />
+      )}
+
+      {importOpen && (
+        <GedcomImportModal
+          personCount={tree?.persons.length ?? 0}
+          onClose={() => setImportOpen(false)}
+          onImported={() => { setImportOpen(false); loadTree(); }}
         />
       )}
     </DashboardShell>

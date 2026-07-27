@@ -33,6 +33,7 @@ export function PersonEditModal({
   const [birthDate, setBirthDate] = useState(fullDate(person?.birthDate));
   const [deathDate, setDeathDate] = useState(fullDate(person?.deathDate));
   const [birthplace, setBirthplace] = useState(person?.birthplace ?? "");
+  const [deathPlace, setDeathPlace] = useState(person?.deathPlace ?? "");
   const [bio, setBio] = useState(person?.bio ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -50,6 +51,7 @@ export function PersonEditModal({
       birthDate: birthDate || null,
       deathDate: deathDate || null,
       birthplace: birthplace.trim() || null,
+      deathPlace: deathPlace.trim() || null,
       bio: bio.trim() || null
     };
     try {
@@ -117,6 +119,10 @@ export function PersonEditModal({
         <label className="field">
           <span>Died</span>
           <input type="date" value={deathDate} min={birthDate || undefined} onChange={(event) => setDeathDate(event.target.value)} />
+        </label>
+        <label className="field">
+          <span>Place of death</span>
+          <input type="text" value={deathPlace} onChange={(event) => setDeathPlace(event.target.value)} />
         </label>
       </div>
       <label className="field ft-bio-field">

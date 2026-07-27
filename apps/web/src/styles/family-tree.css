@@ -290,6 +290,148 @@
   margin-bottom: 4px;
 }
 
+/* Life-events timeline: date rail | body | admin actions. The rail keeps all
+   dates on one vertical line so the eye can scan the years. */
+.ft-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ft-timeline-row {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: 4px 14px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ft-timeline-row:last-child {
+  border-bottom: 0;
+}
+
+.ft-timeline-date {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.ft-timeline-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ft-timeline-body small {
+  color: var(--muted);
+}
+
+.ft-timeline-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+.ft-timeline-actions {
+  display: inline-flex;
+  gap: 4px;
+  align-self: center;
+}
+
+@media (max-width: 740px) {
+  .ft-timeline-row {
+    grid-template-columns: 84px 1fr auto;
+  }
+}
+
+/* Sources & citations: context tag | source + detail | admin actions. */
+.ft-citations {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ft-citation-row {
+  display: grid;
+  grid-template-columns: 150px 1fr auto;
+  gap: 4px 14px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ft-citation-row:last-child {
+  border-bottom: 0;
+}
+
+.ft-citation-context {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.ft-citation-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ft-citation-body a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ft-citation-body small,
+.ft-citation-note {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.ft-citation-source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 46px;
+}
+
+.ft-citation-source-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 740px) {
+  .ft-citation-row {
+    grid-template-columns: 92px 1fr auto;
+  }
+}
+
+/* GEDCOM import: stacked mode radios and a scrollable warning list (a messy
+   file can produce dozens of skipped-entry warnings). */
+.ft-import-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.ft-import-warnings {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
 /* Shared chrome for every family-tree card modal: a compact header (the 58px
    icon and 1.25rem title of a plain confirm dialog are outsized for these
    forms) and a real gap below it — .modal-title-row has no bottom margin, so
@@ -489,6 +631,12 @@
 .ft-tree-empty p {
   margin: 0;
   max-width: 46ch;
+}
+
+.ft-tree-empty-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
 }
 
 /* A definite height is required, not just flex: 1 — an SVG with height:100% in
