@@ -1,30 +1,38 @@
-// Person-centered chart layout: pure geometry, no React. Given the whole tree
-// and a focus person, produces positioned cards, union dots, and edge paths:
+// Person-centered chart layout: pure geometry, no React. Generations flow
+// LEFT → RIGHT (ancestors left, descendants right) and each generation is a
+// column in which cards stack vertically — spouses adjacent with the union
+// badge between them. Given the whole tree and a focus person, produces
+// positioned cards, union badges, and edge paths:
 //
-//   • the focus person with their spouses side by side, descendants laid out
-//     below (classic recursive subtree widths, parents centered over children);
-//   • ancestors above in pedigree style (each parent couple centered over the
-//     slot its own ancestors need);
-//   • the focus person's siblings beside them (cards only — their descendants
-//     stay collapsed to bound the width).
+//   • the focus person with their spouses stacked together, descendants laid
+//     out to the right (classic recursive subtree extents, parents centered
+//     beside their children);
+//   • ancestors to the left in pedigree style (each parent couple centered
+//     beside the slot its own ancestors need);
+//   • the focus person's siblings above them (cards only — their descendants
+//     stay collapsed to bound the height).
 //
-// Positions are computed first, then a per-row sweep resolves any overlap
-// between the independently-anchored ancestor/descendant passes, and edges are
-// drawn last from the final positions — so edges can never detach.
+// Internally the math packs along one scalar axis ("extent" = screen Y) per
+// generation; positions are computed first, then a per-column sweep resolves
+// any overlap between the independently-anchored ancestor/descendant passes,
+// and edges are drawn last from the final positions — so edges can never
+// detach.
 import type { FamilyPerson, FamilyTree } from "./types";
 
-export const NODE_W = 130;
-export const NODE_H = 50;
-const SPOUSE_GAP = 28;
-const SIBLING_GAP = 22;
-const ROW_H = 132;
+// Vertical cards: portrait on top, name, then dates.
+export const NODE_W = 132; // card width (generation axis)
+export const NODE_H = 136; // card height (stacking axis)
+const SPOUSE_GAP = 34; // vertical gap between spouse cards (the badge sits here)
+const SIBLING_GAP = 20;
+const GEN_W = 208; // horizontal pitch between generation columns
 const BLOCK_GAP = 36;
-const BUS_RISE = 20; // how far above a child row its connector bus runs
+const BUS_RISE = 30; // how far left of a child column its connector bus runs
 
 export interface PlacedNode {
   person: FamilyPerson;
   x: number; // card center
   y: number; // card center
+  gen: number; // generation relative to the focus person (negative = ancestors)
   isFocus: boolean;
 }
 
@@ -87,97 +95,102 @@ export function defaultFocusId(tree: FamilyTree): string | null {
 export function computeChartLayout(tree: FamilyTree, focusId: string): ChartLayout {
   const ix = buildIndexes(tree);
   const focus = ix.personById.get(focusId) ?? ix.personById.get(defaultFocusId(tree) ?? "");
-  if (!focus) return { nodes: [], dots: [], edgePaths: [], bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 } };
+  if (!focus) {
+    return { nodes: [], dots: [], edgePaths: [], bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 } };
+  }
 
   const placed = new Map<string, PlacedNode>();
-  const place = (person: FamilyPerson, x: number, gen: number) => {
+  // `extent` is the stacking-axis coordinate (screen Y); the generation index
+  // becomes the column's X.
+  const place = (person: FamilyPerson, extent: number, gen: number) => {
     if (placed.has(person.id)) return;
-    placed.set(person.id, { person, x, y: gen * ROW_H, isFocus: person.id === focus.id });
+    placed.set(person.id, { person, x: gen * GEN_W, y: extent, gen, isFocus: person.id === focus.id });
   };
 
   // ── Descendant pass ──
-  // A "unit" is a person plus their spouses in one row; its children hang below.
+  // A "unit" is a person plus their spouses stacked in one column; its
+  // children hang in the next column to the right.
   const unitMembers = (personId: string): string[] => {
     const partners = (ix.unionsByPartner.get(personId) ?? [])
       .map((u) => (u.person1Id === personId ? u.person2Id : u.person1Id))
       .filter((id): id is string => id != null && ix.personById.has(id));
     if (partners.length === 0) return [personId];
     if (partners.length === 1) return [personId, partners[0]];
-    // Two unions read best with the person in the middle; extras go right.
+    // Two unions read best with the person in the middle; extras stack below.
     return [partners[0], personId, ...partners.slice(1)];
   };
 
   const unitChildren = (personId: string): string[] =>
     (ix.unionsByPartner.get(personId) ?? []).flatMap((u) => ix.childrenByUnion.get(u.id) ?? []);
 
-  const widthCache = new Map<string, number>();
-  const subtreeWidth = (personId: string, seen: Set<string>): number => {
-    if (seen.has(personId)) return NODE_W; // defensive — data should be acyclic
+  const extentCache = new Map<string, number>();
+  const subtreeExtent = (personId: string, seen: Set<string>): number => {
+    if (seen.has(personId)) return NODE_H; // defensive — data should be acyclic
     seen.add(personId);
-    const cached = widthCache.get(personId);
+    const cached = extentCache.get(personId);
     if (cached != null) return cached;
     const members = unitMembers(personId);
-    const blockW = members.length * NODE_W + (members.length - 1) * SPOUSE_GAP;
+    const blockE = members.length * NODE_H + (members.length - 1) * SPOUSE_GAP;
     const kids = unitChildren(personId);
-    const kidsW = kids.length > 0
-      ? kids.reduce((sum, kid) => sum + subtreeWidth(kid, seen), 0) + (kids.length - 1) * SIBLING_GAP
+    const kidsE = kids.length > 0
+      ? kids.reduce((sum, kid) => sum + subtreeExtent(kid, seen), 0) + (kids.length - 1) * SIBLING_GAP
       : 0;
-    const width = Math.max(blockW, kidsW);
-    widthCache.set(personId, width);
-    return width;
+    const extent = Math.max(blockE, kidsE);
+    extentCache.set(personId, extent);
+    return extent;
   };
 
-  const placeSubtree = (personId: string, leftX: number, gen: number, seen: Set<string>) => {
+  const placeSubtree = (personId: string, topExtent: number, gen: number, seen: Set<string>) => {
     if (seen.has(personId)) return;
     seen.add(personId);
-    const width = subtreeWidth(personId, new Set());
+    const extent = subtreeExtent(personId, new Set());
     const members = unitMembers(personId);
-    const blockW = members.length * NODE_W + (members.length - 1) * SPOUSE_GAP;
+    const blockE = members.length * NODE_H + (members.length - 1) * SPOUSE_GAP;
     const kids = unitChildren(personId);
 
     if (kids.length > 0) {
-      const kidsW = kids.reduce((sum, kid) => sum + subtreeWidth(kid, new Set()), 0) + (kids.length - 1) * SIBLING_GAP;
-      let cx = leftX + (width - kidsW) / 2;
+      const kidsE = kids.reduce((sum, kid) => sum + subtreeExtent(kid, new Set()), 0) + (kids.length - 1) * SIBLING_GAP;
+      let ce = topExtent + (extent - kidsE) / 2;
       for (const kid of kids) {
-        const kidW = subtreeWidth(kid, new Set());
-        placeSubtree(kid, cx, gen + 1, seen);
-        cx += kidW + SIBLING_GAP;
+        const kidE = subtreeExtent(kid, new Set());
+        placeSubtree(kid, ce, gen + 1, seen);
+        ce += kidE + SIBLING_GAP;
       }
     }
 
-    const blockLeft = leftX + (width - blockW) / 2;
+    const blockTop = topExtent + (extent - blockE) / 2;
     members.forEach((memberId, i) => {
       const person = ix.personById.get(memberId);
-      if (person) place(person, blockLeft + NODE_W / 2 + i * (NODE_W + SPOUSE_GAP), gen);
+      if (person) place(person, blockTop + NODE_H / 2 + i * (NODE_H + SPOUSE_GAP), gen);
     });
   };
 
-  const focusWidth = subtreeWidth(focus.id, new Set());
-  placeSubtree(focus.id, -focusWidth / 2, 0, new Set());
+  const focusExtent = subtreeExtent(focus.id, new Set());
+  placeSubtree(focus.id, -focusExtent / 2, 0, new Set());
 
   // ── Sibling pass ──
-  // Focus siblings render as collapsed cards left of the focus unit, oldest first.
+  // Focus siblings render as collapsed cards above the focus unit, oldest first.
   const parentUnionId = ix.parentUnionOf.get(focus.id);
   if (parentUnionId) {
     const siblings = (ix.childrenByUnion.get(parentUnionId) ?? []).filter((id) => id !== focus.id);
-    const focusUnitLeft = Math.min(
-      ...unitMembers(focus.id).map((id) => placed.get(id)?.x ?? Infinity)
-    ) - NODE_W / 2;
-    let x = focusUnitLeft - BLOCK_GAP - (siblings.length - 1) * (NODE_W + SIBLING_GAP) - NODE_W / 2;
+    const focusUnitTop = Math.min(
+      ...unitMembers(focus.id).map((id) => placed.get(id)?.y ?? Infinity)
+    ) - NODE_H / 2;
+    let e = focusUnitTop - BLOCK_GAP - (siblings.length - 1) * (NODE_H + SIBLING_GAP) - NODE_H / 2;
     for (const siblingId of siblings) {
       const person = ix.personById.get(siblingId);
       if (person && !placed.has(siblingId)) {
-        place(person, x, 0);
-        x += NODE_W + SIBLING_GAP;
+        place(person, e, 0);
+        e += NODE_H + SIBLING_GAP;
       }
     }
   }
 
   // ── Ancestor pass (pedigree) ──
-  // ancSlot(p) = width p's card plus all their ancestors need above it.
+  // ancSlot(p) = extent p's card plus all their ancestors need beside it.
   const slotCache = new Map<string, number>();
   const ancSlot = (personId: string, seen: Set<string>): number => {
-    if (seen.has(personId)) return NODE_W;
+    if (seen.has(personId)) return NODE_H;
     seen.add(personId);
     const cached = slotCache.get(personId);
     if (cached != null) return cached;
@@ -187,8 +200,8 @@ export function computeChartLayout(tree: FamilyTree, focusId: string): ChartLayo
       ? [union.person1Id, union.person2Id].filter((id): id is string => id != null && ix.personById.has(id))
       : [];
     const slot = parents.length === 0
-      ? NODE_W
-      : Math.max(NODE_W, parents.reduce((sum, p) => sum + ancSlot(p, seen), 0) + (parents.length - 1) * SPOUSE_GAP);
+      ? NODE_H
+      : Math.max(NODE_H, parents.reduce((sum, p) => sum + ancSlot(p, seen), 0) + (parents.length - 1) * SPOUSE_GAP);
     slotCache.set(personId, slot);
     return slot;
   };
@@ -205,61 +218,61 @@ export function computeChartLayout(tree: FamilyTree, focusId: string): ChartLayo
       .filter((id): id is string => id != null && ix.personById.has(id));
     if (parents.length === 0) return;
     const total = parents.reduce((sum, p) => sum + ancSlot(p, new Set()), 0) + (parents.length - 1) * SPOUSE_GAP;
-    let left = child.x - total / 2;
+    let top = child.y - total / 2;
     for (const parentId of parents) {
       const slot = ancSlot(parentId, new Set());
       const person = ix.personById.get(parentId)!;
-      place(person, left + slot / 2, gen - 1);
-      left += slot + SPOUSE_GAP;
+      place(person, top + slot / 2, gen - 1);
+      top += slot + SPOUSE_GAP;
     }
     for (const parentId of parents) placeAncestors(parentId, gen - 1, seen);
   };
   placeAncestors(focus.id, 0, new Set());
 
-  // ── Per-row overlap sweep ──
-  // The passes anchor independently, so cards in one row can collide. Push
-  // colliding cards right, keeping left-to-right order.
-  const rows = new Map<number, PlacedNode[]>();
+  // ── Per-column overlap sweep ──
+  // The passes anchor independently, so cards in one column can collide. Push
+  // colliding cards down, keeping top-to-bottom order.
+  const columnsMap = new Map<number, PlacedNode[]>();
   for (const node of placed.values()) {
-    const row = rows.get(node.y) ?? [];
-    row.push(node);
-    rows.set(node.y, row);
+    const column = columnsMap.get(node.gen) ?? [];
+    column.push(node);
+    columnsMap.set(node.gen, column);
   }
-  for (const row of rows.values()) {
-    row.sort((a, b) => a.x - b.x);
-    for (let i = 1; i < row.length; i++) {
-      const minX = row[i - 1].x + NODE_W + 18;
-      if (row[i].x < minX) row[i].x = minX;
+  for (const column of columnsMap.values()) {
+    column.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < column.length; i++) {
+      const minY = column[i - 1].y + NODE_H + 16;
+      if (column[i].y < minY) column[i].y = minY;
     }
   }
 
-  // ── Union dots + edges, from final positions ──
+  // ── Union badges + edges, from final positions ──
   const dots: PlacedUnionDot[] = [];
   const edgePaths: string[] = [];
   for (const union of tree.unions) {
     const p1 = union.person1Id ? placed.get(union.person1Id) : undefined;
     const p2 = union.person2Id ? placed.get(union.person2Id) : undefined;
     let dot: PlacedUnionDot | null = null;
-    if (p1 && p2 && p1.y === p2.y) {
-      const [left, right] = p1.x <= p2.x ? [p1, p2] : [p2, p1];
-      dot = { unionId: union.id, x: (left.x + right.x) / 2, y: left.y };
-      edgePaths.push(`M ${left.x + NODE_W / 2} ${left.y} H ${right.x - NODE_W / 2}`);
+    if (p1 && p2 && p1.gen === p2.gen) {
+      const [top, bottom] = p1.y <= p2.y ? [p1, p2] : [p2, p1];
+      dot = { unionId: union.id, x: top.x, y: (top.y + bottom.y) / 2 };
+      edgePaths.push(`M ${top.x} ${top.y + NODE_H / 2} V ${bottom.y - NODE_H / 2}`);
     } else {
       const solo = p1 ?? p2;
-      if (solo) dot = { unionId: union.id, x: solo.x, y: solo.y + NODE_H / 2 + 10 };
+      if (solo) dot = { unionId: union.id, x: solo.x + NODE_W / 2 + 12, y: solo.y };
     }
     if (!dot) continue;
 
     const kids = (ix.childrenByUnion.get(union.id) ?? [])
       .map((id) => placed.get(id))
-      .filter((n): n is PlacedNode => n != null && n.y > dot!.y);
+      .filter((n): n is PlacedNode => n != null && n.x > dot!.x);
     if (kids.length > 0) {
-      const busY = Math.min(...kids.map((k) => k.y)) - NODE_H / 2 - BUS_RISE;
-      const xs = [...kids.map((k) => k.x), dot.x];
-      edgePaths.push(`M ${dot.x} ${dot.y} V ${busY}`);
-      edgePaths.push(`M ${Math.min(...xs)} ${busY} H ${Math.max(...xs)}`);
+      const busX = Math.min(...kids.map((k) => k.x)) - NODE_W / 2 - BUS_RISE;
+      const ys = [...kids.map((k) => k.y), dot.y];
+      edgePaths.push(`M ${dot.x} ${dot.y} H ${busX}`);
+      edgePaths.push(`M ${busX} ${Math.min(...ys)} V ${Math.max(...ys)}`);
       for (const kid of kids) {
-        edgePaths.push(`M ${kid.x} ${busY} V ${kid.y - NODE_H / 2}`);
+        edgePaths.push(`M ${busX} ${kid.y} H ${kid.x - NODE_W / 2}`);
       }
     }
     if (kids.length > 0 || (p1 && p2)) dots.push(dot);

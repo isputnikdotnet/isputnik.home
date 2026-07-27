@@ -2,24 +2,70 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Maximize, Minus, Plus } from "lucide-react";
 import { Button } from "../../shared/Button";
 import { computeChartLayout, NODE_H, NODE_W, type ChartLayout } from "./chart-layout";
-import { lifeYears, type FamilyTree } from "./types";
+import { lifeYears, type FamilyPerson, type FamilyTree } from "./types";
 
 const MIN_SCALE = 0.3;
 const MAX_SCALE = 3;
 
 interface ViewBox { x: number; y: number; w: number; h: number }
 
-// The pan/zoom SVG chart. All layout math lives in chart-layout.ts; this
-// component renders it and owns the viewport: drag to pan, wheel/pinch to zoom,
-// buttons for zoom/fit. Clicking a card re-centers the tree on that person.
+// A small circular action badge on a card's top edge. Icons are lucide paths
+// (24×24 stroke drawings) scaled down — real lucide components can't render
+// inside SVG geometry.
+function ActionBadge({
+  cx,
+  cy,
+  label,
+  onActivate,
+  children
+}: {
+  cx: number;
+  cy: number;
+  label: string;
+  onActivate: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <g
+      className="ft-chart-action"
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      onClick={(event) => { event.stopPropagation(); onActivate(); }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          onActivate();
+        }
+      }}
+    >
+      <title>{label}</title>
+      <circle cx={cx} cy={cy} r={10} />
+      <g transform={`translate(${cx - 6} ${cy - 6}) scale(0.5)`}>{children}</g>
+    </g>
+  );
+}
+
+// The pan/zoom SVG chart, laid out left-to-right by generation (see
+// chart-layout.ts). This component renders it and owns the viewport: drag to
+// pan, wheel/pinch to zoom, buttons for zoom/fit. Clicking a card re-centers
+// the tree on that person; the badges on each card open the profile or (for
+// admins) the edit form directly.
 export function FamilyTreeChart({
   tree,
   focusId,
-  onFocus
+  isAdmin,
+  onFocus,
+  onOpenProfile,
+  onEditPerson
 }: {
   tree: FamilyTree;
   focusId: string;
+  isAdmin: boolean;
   onFocus: (personId: string) => void;
+  onOpenProfile: (personId: string) => void;
+  onEditPerson: (person: FamilyPerson) => void;
 }) {
   const layout: ChartLayout = useMemo(() => computeChartLayout(tree, focusId), [tree, focusId]);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -155,17 +201,24 @@ export function FamilyTreeChart({
             <path key={i} d={d} />
           ))}
         </g>
+        {/* Union badges: the little "rings" marker between spouse cards. */}
         <g>
           {layout.dots.map((dot) => (
-            <circle key={dot.unionId} className="ft-chart-dot" cx={dot.x} cy={dot.y} r={5} />
+            <g key={dot.unionId} className="ft-chart-union-badge">
+              <circle cx={dot.x} cy={dot.y} r={11} />
+              <circle className="ft-chart-union-ring" cx={dot.x - 2.4} cy={dot.y} r={3.6} />
+              <circle className="ft-chart-union-ring" cx={dot.x + 2.4} cy={dot.y} r={3.6} />
+            </g>
           ))}
         </g>
         <g>
           {layout.nodes.map(({ person, x, y, isFocus }) => {
             const years = lifeYears(person);
             const initial = person.name.trim().charAt(0).toUpperCase();
-            const portraitR = 15;
-            const portraitCx = x - NODE_W / 2 + 23;
+            // Vertical card: portrait on top, name under it, dates last.
+            const top = y - NODE_H / 2;
+            const portraitR = 30;
+            const portraitCy = top + 46;
             return (
               <g
                 key={person.id}
@@ -176,37 +229,57 @@ export function FamilyTreeChart({
                 <title>{years ? `${person.name} (${years})` : person.name}</title>
                 <rect
                   x={x - NODE_W / 2}
-                  y={y - NODE_H / 2}
+                  y={top}
                   width={NODE_W}
                   height={NODE_H}
-                  rx={10}
+                  rx={12}
                 />
                 <clipPath id={`ft-clip-${person.id}`}>
-                  <circle cx={portraitCx} cy={y} r={portraitR} />
+                  <circle cx={x} cy={portraitCy} r={portraitR} />
                 </clipPath>
-                <circle className="ft-chart-portrait-bg" cx={portraitCx} cy={y} r={portraitR} />
+                <circle className="ft-chart-portrait-bg" cx={x} cy={portraitCy} r={portraitR} />
                 {person.portraitUrl ? (
                   <image
                     href={person.portraitUrl}
-                    x={portraitCx - portraitR}
-                    y={y - portraitR}
+                    x={x - portraitR}
+                    y={portraitCy - portraitR}
                     width={portraitR * 2}
                     height={portraitR * 2}
                     clipPath={`url(#ft-clip-${person.id})`}
                     preserveAspectRatio="xMidYMid slice"
                   />
                 ) : (
-                  <text className="ft-chart-initial" x={portraitCx} y={y + 5} textAnchor="middle">
+                  <text className="ft-chart-initial" x={x} y={portraitCy + 7} textAnchor="middle">
                     {initial}
                   </text>
                 )}
-                <text className="ft-chart-name" x={portraitCx + portraitR + 8} y={years ? y - 1 : y + 4}>
-                  {person.name.length > 12 ? `${person.name.slice(0, 11)}…` : person.name}
+                <text className="ft-chart-name" x={x} y={top + 98} textAnchor="middle">
+                  {person.name.length > 16 ? `${person.name.slice(0, 15)}…` : person.name}
                 </text>
                 {years && (
-                  <text className="ft-chart-years" x={portraitCx + portraitR + 8} y={y + 13}>
+                  <text className="ft-chart-years" x={x} y={top + 116} textAnchor="middle">
                     {years}
                   </text>
+                )}
+                <ActionBadge
+                  cx={x + NODE_W / 2 - (isAdmin ? 38 : 16)}
+                  cy={y - NODE_H / 2}
+                  label={`Open ${person.name}'s profile`}
+                  onActivate={() => { if (!movedRef.current) onOpenProfile(person.id); }}
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx={12} cy={7} r={4} />
+                </ActionBadge>
+                {isAdmin && (
+                  <ActionBadge
+                    cx={x + NODE_W / 2 - 16}
+                    cy={y - NODE_H / 2}
+                    label={`Edit ${person.name}`}
+                    onActivate={() => { if (!movedRef.current) onEditPerson(person); }}
+                  >
+                    <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+                    <path d="m15 5 4 4" />
+                  </ActionBadge>
                 )}
               </g>
             );
