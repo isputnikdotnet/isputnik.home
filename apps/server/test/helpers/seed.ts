@@ -34,6 +34,7 @@ export function resetDb(): void {
     "gallery_album_items", "gallery_albums",
     "taggables", "collection_items", "collections", "work_items", "works",
     "family_tree_photos", "family_tree_children", "family_tree_unions", "family_tree_persons",
+    "family_tree_events", "family_tree_citations", "family_tree_sources",
     "library_scan_rule_paths", "library_scan_rules",
     "library_items", "people", "series", "libraries", "user_groups", "users",
     "activity_logs", "app_settings"

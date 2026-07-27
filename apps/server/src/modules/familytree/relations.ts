@@ -23,13 +23,14 @@ interface UnionRow {
   person2_id: string | null;
   status: string;
   married_date: string | null;
+  married_place: string | null;
   divorced_date: string | null;
   note: string | null;
 }
 
 function getUnionRow(unionId: string): UnionRow | null {
   const row = db.prepare(
-    "SELECT id, person1_id, person2_id, status, married_date, divorced_date, note FROM family_tree_unions WHERE id = ?"
+    "SELECT id, person1_id, person2_id, status, married_date, married_place, divorced_date, note FROM family_tree_unions WHERE id = ?"
   ).get(unionId) as UnionRow | undefined;
   return row ?? null;
 }
@@ -46,6 +47,7 @@ function personExists(personId: string): boolean {
 export interface UnionFields {
   status?: string;
   marriedDate?: string | null;
+  marriedPlace?: string | null;
   divorcedDate?: string | null;
   note?: string | null;
 }
@@ -61,11 +63,12 @@ export function createUnion(
   }
   const id = nanoid(16);
   db.prepare(`
-    INSERT INTO family_tree_unions (id, person1_id, person2_id, status, married_date, divorced_date, note)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO family_tree_unions (id, person1_id, person2_id, status, married_date, married_place, divorced_date, note)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, person1Id, person2Id, fields.status ?? "unknown",
-    fields.marriedDate || null, fields.divorcedDate || null, fields.note?.trim() || null
+    fields.marriedDate || null, fields.marriedPlace?.trim() || null,
+    fields.divorcedDate || null, fields.note?.trim() || null
   );
   return { union: getUnion(id)! };
 }
@@ -76,6 +79,7 @@ export function updateUnion(unionId: string, fields: UnionFields): FamilyUnionSu
   const set = (column: string, value: unknown) => { sets.push(`${column} = ?`); params.push(value); };
   if (fields.status !== undefined) set("status", fields.status);
   if (fields.marriedDate !== undefined) set("married_date", fields.marriedDate || null);
+  if (fields.marriedPlace !== undefined) set("married_place", fields.marriedPlace?.trim() || null);
   if (fields.divorcedDate !== undefined) set("divorced_date", fields.divorcedDate || null);
   if (fields.note !== undefined) set("note", fields.note?.trim() || null);
   if (sets.length === 0) return getUnion(unionId);

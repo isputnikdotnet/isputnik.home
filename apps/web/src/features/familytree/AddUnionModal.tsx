@@ -24,6 +24,7 @@ export function AddUnionModal({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [status, setStatus] = useState<FamilyUnion["status"]>("married");
   const [marriedDate, setMarriedDate] = useState("");
+  const [marriedPlace, setMarriedPlace] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,7 +39,8 @@ export function AddUnionModal({
           person1Id: person.id,
           person2Id: partner?.id ?? null,
           status,
-          marriedDate: marriedDate || null
+          marriedDate: marriedDate || null,
+          marriedPlace: marriedPlace.trim() || null
         })
       });
       onAdded();
@@ -99,6 +101,10 @@ export function AddUnionModal({
         <label className="field">
           <span>Married / together since</span>
           <input type="date" value={marriedDate} onChange={(event) => setMarriedDate(event.target.value)} />
+        </label>
+        <label className="field">
+          <span>Place of marriage</span>
+          <input type="text" value={marriedPlace} onChange={(event) => setMarriedPlace(event.target.value)} />
         </label>
       </div>
       <div className="modal-actions">

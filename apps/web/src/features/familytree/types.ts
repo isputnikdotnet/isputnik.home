@@ -10,6 +10,7 @@ export interface FamilyPerson {
   birthDate: string | null;
   deathDate: string | null;
   birthplace: string | null;
+  deathPlace: string | null;
   bio: string | null;
   portraitUrl: string | null;
   portraitItemId: string | null;
@@ -22,7 +23,19 @@ export interface FamilyUnion {
   person2Id: string | null;
   status: "married" | "partners" | "divorced" | "widowed" | "unknown";
   marriedDate: string | null;
+  marriedPlace: string | null;
   divorcedDate: string | null;
+  note: string | null;
+}
+
+export interface FamilyEvent {
+  id: string;
+  personId: string;
+  type: "residence" | "education" | "occupation" | "military" | "immigration" | "emigration" | "burial" | "custom";
+  label: string | null;
+  date: string | null;
+  endDate: string | null;
+  place: string | null;
   note: string | null;
 }
 
@@ -42,16 +55,43 @@ export interface FamilyUnionDetail {
   id: string;
   status: FamilyUnion["status"];
   marriedDate: string | null;
+  marriedPlace: string | null;
   divorcedDate: string | null;
   note: string | null;
   partner: FamilyPerson | null;
   children: (FamilyPerson & { relation: FamilyChildLink["relation"] })[];
 }
 
+export interface FamilySource {
+  id: string;
+  title: string;
+  author: string | null;
+  publisher: string | null;
+  url: string | null;
+  note: string | null;
+  citationCount: number;
+}
+
+export interface FamilyCitation {
+  id: string;
+  sourceId: string;
+  sourceTitle: string;
+  sourceUrl: string | null;
+  personId: string | null;
+  eventId: string | null;
+  unionId: string | null;
+  fact: "name" | "birth" | "death" | "marriage" | "divorce" | null;
+  detail: string | null;
+  url: string | null;
+  note: string | null;
+}
+
 export interface FamilyPersonProfile extends FamilyPerson {
   parents: FamilyPerson[];
   parentRelation: FamilyChildLink["relation"] | null;
   unions: FamilyUnionDetail[];
+  events: FamilyEvent[];
+  citations: FamilyCitation[];
   galleryPerson: { id: string; name: string } | null;
 }
 
@@ -72,6 +112,19 @@ export const UNION_STATUS_OPTIONS = [
   { value: "divorced", label: "Divorced" },
   { value: "widowed", label: "Widowed" },
   { value: "unknown", label: "Unknown" }
+] as const;
+
+// Timeline event types. `custom` needs a label; for the rest the label is an
+// optional short "what" (occupation title, school name).
+export const EVENT_TYPE_OPTIONS = [
+  { value: "education", label: "Education" },
+  { value: "occupation", label: "Work" },
+  { value: "residence", label: "Residence" },
+  { value: "military", label: "Military service" },
+  { value: "immigration", label: "Immigration" },
+  { value: "emigration", label: "Emigration" },
+  { value: "burial", label: "Burial" },
+  { value: "custom", label: "Other event" }
 ] as const;
 
 export const CHILD_RELATION_OPTIONS = [

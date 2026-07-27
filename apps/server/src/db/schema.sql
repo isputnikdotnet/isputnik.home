@@ -1006,6 +1006,7 @@ CREATE TABLE IF NOT EXISTS family_tree_persons (
   birth_date        TEXT,
   death_date        TEXT,
   birthplace        TEXT,
+  death_place       TEXT,
   bio               TEXT,
   -- Portrait is EITHER an uploaded image in the thumbnail store (bucket
   -- 'familytree') OR a chosen gallery item whose cover is used; app code clears
@@ -1028,6 +1029,7 @@ CREATE TABLE IF NOT EXISTS family_tree_unions (
   person2_id    TEXT REFERENCES family_tree_persons(id) ON DELETE SET NULL,
   status        TEXT NOT NULL DEFAULT 'unknown' CHECK (status IN ('married', 'partners', 'divorced', 'widowed', 'unknown')),
   married_date  TEXT,
+  married_place TEXT,
   divorced_date TEXT,
   note          TEXT,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -1044,6 +1046,62 @@ CREATE TABLE IF NOT EXISTS family_tree_children (
   PRIMARY KEY (union_id, child_id)
 );
 
+-- Life events beyond the birth/death/marriage columns: a person's timeline
+-- (school, work, moves, service…). GEDCOM-shaped — each row maps to an INDI
+-- event tag (RESI/EDUC/OCCU/…) or a custom EVEN. `label` is the short "what"
+-- for every type (occupation title, school name); required in app code for
+-- `custom`. Dates are partial ISO like everywhere else; `end_date` covers
+-- ranges ("residence 2001–2007").
+CREATE TABLE IF NOT EXISTS family_tree_events (
+  id         TEXT PRIMARY KEY,
+  person_id  TEXT NOT NULL REFERENCES family_tree_persons(id) ON DELETE CASCADE,
+  type       TEXT NOT NULL CHECK (type IN ('residence', 'education', 'occupation', 'military', 'immigration', 'emigration', 'burial', 'custom')),
+  label      TEXT,
+  date       TEXT,
+  end_date   TEXT,
+  place      TEXT,
+  note       TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- Where a fact came from: books, record indexes, websites (GEDCOM SOUR
+-- records). Shared — one source can back many citations.
+CREATE TABLE IF NOT EXISTS family_tree_sources (
+  id         TEXT PRIMARY KEY,
+  title      TEXT NOT NULL,
+  author     TEXT,
+  publisher  TEXT,
+  url        TEXT,
+  note       TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- A citation ties a source to exactly one target: a person (optionally a
+-- specific fact — name/birth/death), a life event, or a union (optionally
+-- marriage/divorce). `detail` is GEDCOM PAGE ("where in the source"); `url`
+-- is a citation-specific link (e.g. a Geneanet record page) as opposed to the
+-- source's general URL.
+CREATE TABLE IF NOT EXISTS family_tree_citations (
+  id         TEXT PRIMARY KEY,
+  source_id  TEXT NOT NULL REFERENCES family_tree_sources(id) ON DELETE CASCADE,
+  person_id  TEXT REFERENCES family_tree_persons(id) ON DELETE CASCADE,
+  event_id   TEXT REFERENCES family_tree_events(id) ON DELETE CASCADE,
+  union_id   TEXT REFERENCES family_tree_unions(id) ON DELETE CASCADE,
+  fact       TEXT CHECK (fact IN ('name', 'birth', 'death', 'marriage', 'divorce')),
+  detail     TEXT,
+  url        TEXT,
+  note       TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  CHECK ((person_id IS NOT NULL) + (event_id IS NOT NULL) + (union_id IS NOT NULL) = 1)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ft_citations_source ON family_tree_citations(source_id);
+CREATE INDEX IF NOT EXISTS idx_ft_citations_person ON family_tree_citations(person_id);
+CREATE INDEX IF NOT EXISTS idx_ft_citations_event  ON family_tree_citations(event_id);
+CREATE INDEX IF NOT EXISTS idx_ft_citations_union  ON family_tree_citations(union_id);
+
 -- Gallery photos/videos attached to a family member. CASCADE like
 -- gallery_album_items — an attachment is meaningless without its item.
 CREATE TABLE IF NOT EXISTS family_tree_photos (
@@ -1058,5 +1116,6 @@ CREATE TABLE IF NOT EXISTS family_tree_photos (
 CREATE INDEX IF NOT EXISTS idx_ft_unions_p1             ON family_tree_unions(person1_id);
 CREATE INDEX IF NOT EXISTS idx_ft_unions_p2             ON family_tree_unions(person2_id);
 CREATE INDEX IF NOT EXISTS idx_ft_children_child        ON family_tree_children(child_id);
+CREATE INDEX IF NOT EXISTS idx_ft_events_person         ON family_tree_events(person_id);
 CREATE INDEX IF NOT EXISTS idx_ft_photos_item           ON family_tree_photos(item_id);
 CREATE INDEX IF NOT EXISTS idx_ft_persons_gallery_person ON family_tree_persons(gallery_person_id);

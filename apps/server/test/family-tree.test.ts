@@ -19,6 +19,22 @@ import {
   removeChild,
   getUnion
 } from "../src/modules/familytree/relations.js";
+import {
+  createFamilyEvent,
+  updateFamilyEvent,
+  deleteFamilyEvent,
+  listFamilyEvents
+} from "../src/modules/familytree/events.js";
+import {
+  createFamilySource,
+  updateFamilySource,
+  deleteFamilySource,
+  listFamilySources,
+  createFamilyCitation,
+  updateFamilyCitation,
+  deleteFamilyCitation,
+  listPersonCitations
+} from "../src/modules/familytree/sources.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
 
 beforeEach(() => {
@@ -50,6 +66,66 @@ describe("partial dates", () => {
     for (const value of ["43", "1943-13", "1943-00", "1943-05-40", "1943-02-30", "2023-02-29", "05-1943", "1943/05"]) {
       expect(partialDateSchema.safeParse(value).success, value).toBe(false);
     }
+  });
+});
+
+describe("family events", () => {
+  it("creates, updates, deletes, and lists events chronologically", () => {
+    const p = person("Anna");
+    expect(createFamilyEvent("missing", { type: "residence" })).toBeNull();
+
+    const school = createFamilyEvent(p.id, { type: "education", label: "School #5", date: "1971", endDate: "1975" })!;
+    createFamilyEvent(p.id, { type: "custom", label: "Award" }); // undated → sorts last
+    createFamilyEvent(p.id, { type: "occupation", label: "Engineer", date: "1980", place: "Minsk" });
+
+    expect(listFamilyEvents(p.id).map((e) => e.label)).toEqual(["School #5", "Engineer", "Award"]);
+
+    const updated = updateFamilyEvent(school.id, { label: "School #7", endDate: null });
+    expect(updated).toMatchObject({ label: "School #7", date: "1971", endDate: null });
+    expect(updateFamilyEvent("missing", { label: "X" })).toBeNull();
+
+    expect(deleteFamilyEvent(school.id)).toBe(true);
+    expect(listFamilyEvents(p.id)).toHaveLength(2);
+
+    // Deleting the person cascades their events.
+    deleteFamilyPerson(p.id);
+    expect(listFamilyEvents(p.id)).toHaveLength(0);
+  });
+});
+
+describe("family sources & citations", () => {
+  it("creates sources and cites them on persons, events, and unions", () => {
+    const p = person("Anna");
+    const source = createFamilySource({ title: "Church book", url: "https://example.org/book" });
+    expect(listFamilySources()).toMatchObject([{ title: "Church book", citationCount: 0 }]);
+
+    const result = createFamilyCitation({ sourceId: source.id, personId: p.id, fact: "birth", detail: "p. 14" });
+    if ("error" in result) throw new Error(result.error);
+    expect(result.citation).toMatchObject({ sourceTitle: "Church book", fact: "birth", detail: "p. 14" });
+
+    // Exactly one target, and it must exist.
+    expect(createFamilyCitation({ sourceId: source.id })).toEqual({ error: "bad_target" });
+    expect(createFamilyCitation({ sourceId: source.id, personId: p.id, eventId: "e1" })).toEqual({ error: "bad_target" });
+    expect(createFamilyCitation({ sourceId: "missing", personId: p.id })).toEqual({ error: "source_not_found" });
+    expect(createFamilyCitation({ sourceId: source.id, personId: "missing" })).toEqual({ error: "target_not_found" });
+
+    const updated = updateFamilyCitation(result.citation.id, { detail: null, note: "Faded ink." });
+    expect(updated).toMatchObject({ detail: null, note: "Faded ink." });
+
+    expect(updateFamilySource(source.id, { author: "Fr. Pavel" })).toMatchObject({ author: "Fr. Pavel", citationCount: 1 });
+
+    // A partner sees union citations on their profile too.
+    const p2 = person("Boris");
+    const union = family(p.id, p2.id);
+    const unionCite = createFamilyCitation({ sourceId: source.id, unionId: union.id, fact: "marriage" });
+    if ("error" in unionCite) throw new Error(unionCite.error);
+    expect(listPersonCitations(p2.id)).toHaveLength(1);
+    expect(listPersonCitations(p.id)).toHaveLength(2);
+
+    expect(deleteFamilyCitation(result.citation.id)).toBe(true);
+    // Deleting the source cascades its remaining citations.
+    expect(deleteFamilySource(source.id)).toBe(true);
+    expect(listPersonCitations(p.id)).toHaveLength(0);
   });
 });
 

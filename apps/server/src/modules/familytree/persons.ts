@@ -9,6 +9,8 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../../db.js";
+import { listFamilyEvents, type FamilyEventSummary } from "./events.js";
+import { listPersonCitations, type FamilyCitationSummary } from "./sources.js";
 
 // Partial ISO dates: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'. Lexicographic order is
 // chronological, and GEDCOM's partial dates map onto this 1:1 for a later import.
@@ -35,6 +37,7 @@ export interface FamilyPersonSummary {
   birthDate: string | null;
   deathDate: string | null;
   birthplace: string | null;
+  deathPlace: string | null;
   bio: string | null;
   portraitUrl: string | null;
   portraitItemId: string | null;
@@ -49,6 +52,7 @@ interface PersonRow {
   birth_date: string | null;
   death_date: string | null;
   birthplace: string | null;
+  death_place: string | null;
   bio: string | null;
   portrait_storage_key: string | null;
   portrait_item_id: string | null;
@@ -63,7 +67,7 @@ interface PersonRow {
 // cache when the underlying image is replaced or the photo is edited/rotated.
 const PERSON_SELECT = `
   SELECT p.id, p.name, p.maiden_name, p.gender, p.birth_date, p.death_date,
-    p.birthplace, p.bio, p.portrait_storage_key, p.portrait_item_id,
+    p.birthplace, p.death_place, p.bio, p.portrait_storage_key, p.portrait_item_id,
     p.gallery_person_id, p.updated_at,
     im.cover_storage_key AS portrait_item_cover,
     gd.updated_at AS portrait_item_updated
@@ -88,6 +92,7 @@ function mapPerson(row: PersonRow): FamilyPersonSummary {
     birthDate: row.birth_date,
     deathDate: row.death_date,
     birthplace: row.birthplace,
+    deathPlace: row.death_place,
     bio: row.bio,
     portraitUrl,
     portraitItemId: row.portrait_item_id,
@@ -115,6 +120,7 @@ export interface FamilyUnionSummary {
   person2Id: string | null;
   status: string;
   marriedDate: string | null;
+  marriedPlace: string | null;
   divorcedDate: string | null;
   note: string | null;
 }
@@ -131,6 +137,7 @@ interface UnionRow {
   person2_id: string | null;
   status: string;
   married_date: string | null;
+  married_place: string | null;
   divorced_date: string | null;
   note: string | null;
 }
@@ -142,6 +149,7 @@ export function mapUnion(row: UnionRow): FamilyUnionSummary {
     person2Id: row.person2_id,
     status: row.status,
     marriedDate: row.married_date,
+    marriedPlace: row.married_place,
     divorcedDate: row.divorced_date,
     note: row.note
   };
@@ -156,7 +164,7 @@ export function getFamilyTree(): {
 } {
   const persons = listFamilyPersons();
   const unions = (db.prepare(
-    "SELECT id, person1_id, person2_id, status, married_date, divorced_date, note FROM family_tree_unions ORDER BY married_date IS NULL, married_date"
+    "SELECT id, person1_id, person2_id, status, married_date, married_place, divorced_date, note FROM family_tree_unions ORDER BY married_date IS NULL, married_date"
   ).all() as UnionRow[]).map(mapUnion);
   const children = (db.prepare(
     "SELECT union_id, child_id, relation FROM family_tree_children"
@@ -172,18 +180,20 @@ export interface FamilyPersonFields {
   birthDate?: string | null;
   deathDate?: string | null;
   birthplace?: string | null;
+  deathPlace?: string | null;
   bio?: string | null;
 }
 
 export function createFamilyPerson(fields: FamilyPersonFields, createdBy: string): FamilyPersonSummary {
   const id = nanoid(16);
   db.prepare(`
-    INSERT INTO family_tree_persons (id, name, maiden_name, gender, birth_date, death_date, birthplace, bio, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO family_tree_persons (id, name, maiden_name, gender, birth_date, death_date, birthplace, death_place, bio, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, fields.name.trim(), fields.maidenName?.trim() || null, fields.gender ?? "unknown",
     fields.birthDate || null, fields.deathDate || null,
-    fields.birthplace?.trim() || null, fields.bio?.trim() || null, createdBy
+    fields.birthplace?.trim() || null, fields.deathPlace?.trim() || null,
+    fields.bio?.trim() || null, createdBy
   );
   return getFamilyPerson(id)!;
 }
@@ -205,6 +215,7 @@ export function updateFamilyPerson(
   if (fields.birthDate !== undefined) set("birth_date", fields.birthDate || null);
   if (fields.deathDate !== undefined) set("death_date", fields.deathDate || null);
   if (fields.birthplace !== undefined) set("birthplace", fields.birthplace?.trim() || null);
+  if (fields.deathPlace !== undefined) set("death_place", fields.deathPlace?.trim() || null);
   if (fields.bio !== undefined) set("bio", fields.bio?.trim() || null);
   if (fields.galleryPersonId !== undefined) set("gallery_person_id", fields.galleryPersonId);
   if (fields.portraitItemId !== undefined) {
@@ -298,11 +309,14 @@ export interface FamilyPersonProfile extends FamilyPersonSummary {
     id: string;
     status: string;
     marriedDate: string | null;
+    marriedPlace: string | null;
     divorcedDate: string | null;
     note: string | null;
     partner: FamilyPersonSummary | null;
     children: (FamilyPersonSummary & { relation: string })[];
   }[];
+  events: FamilyEventSummary[];
+  citations: FamilyCitationSummary[];
   galleryPerson: { id: string; name: string } | null;
 }
 
@@ -323,7 +337,7 @@ export function getFamilyPersonProfile(personId: string): FamilyPersonProfile | 
     : [];
 
   const unionRows = db.prepare(`
-    SELECT id, person1_id, person2_id, status, married_date, divorced_date, note
+    SELECT id, person1_id, person2_id, status, married_date, married_place, divorced_date, note
     FROM family_tree_unions WHERE person1_id = ? OR person2_id = ?
     ORDER BY married_date IS NULL, married_date
   `).all(personId, personId) as UnionRow[];
@@ -343,6 +357,7 @@ export function getFamilyPersonProfile(personId: string): FamilyPersonProfile | 
       id: row.id,
       status: row.status,
       marriedDate: row.married_date,
+      marriedPlace: row.married_place,
       divorcedDate: row.divorced_date,
       note: row.note,
       partner: partnerId ? getFamilyPerson(partnerId) : null,
@@ -355,5 +370,13 @@ export function getFamilyPersonProfile(personId: string): FamilyPersonProfile | 
         .get(person.galleryPersonId) as { id: string; name: string } | undefined) ?? null
     : null;
 
-  return { ...person, parents, parentRelation: parentLink?.relation ?? null, unions, galleryPerson };
+  return {
+    ...person,
+    parents,
+    parentRelation: parentLink?.relation ?? null,
+    unions,
+    events: listFamilyEvents(personId),
+    citations: listPersonCitations(personId),
+    galleryPerson
+  };
 }
