@@ -76,7 +76,10 @@ export function FamilyTreePage({
           <div className="audiobook-page-title">
             <h1>Family Tree</h1>
             {tree && tree.persons.length > 0 && (
-              <p>{tree.persons.length} {tree.persons.length === 1 ? "person" : "people"}</p>
+              <p className="ft-tree-count">
+                <UsersRound size={17} aria-hidden="true" />
+                {tree.persons.length} {tree.persons.length === 1 ? "person" : "people"}
+              </p>
             )}
           </div>
           <div className="ft-tree-header-actions">

@@ -17,17 +17,23 @@ function ActionBadge({
   cy,
   label,
   onActivate,
-  children
+  children,
+  className = "",
+  radius = 11,
+  iconSize = 12
 }: {
   cx: number;
   cy: number;
   label: string;
   onActivate: () => void;
   children: React.ReactNode;
+  className?: string;
+  radius?: number;
+  iconSize?: number;
 }) {
   return (
     <g
-      className="ft-chart-action"
+      className={`ft-chart-action ${className}`.trim()}
       role="button"
       tabIndex={0}
       aria-label={label}
@@ -41,10 +47,20 @@ function ActionBadge({
       }}
     >
       <title>{label}</title>
-      <circle cx={cx} cy={cy} r={10} />
-      <g transform={`translate(${cx - 6} ${cy - 6}) scale(0.5)`}>{children}</g>
+      <circle cx={cx} cy={cy} r={radius} />
+      <g transform={`translate(${cx - iconSize / 2} ${cy - iconSize / 2}) scale(${iconSize / 24})`}>{children}</g>
     </g>
   );
+}
+
+function personTone(person: FamilyPerson) {
+  return person.gender === "male" || person.gender === "female" || person.gender === "other"
+    ? person.gender
+    : "unknown";
+}
+
+function shortName(name: string) {
+  return name.length > 18 ? `${name.slice(0, 17)}…` : name;
 }
 
 // The pan/zoom SVG chart, laid out left-to-right by generation (see
@@ -181,6 +197,12 @@ export function FamilyTreeChart({
     w: layout.bounds.maxX - layout.bounds.minX,
     h: layout.bounds.maxY - layout.bounds.minY
   };
+  const currentScale = (() => {
+    const svg = svgRef.current;
+    if (!svg || !view) return 100;
+    const rect = svg.getBoundingClientRect();
+    return rect.width > 0 ? Math.round((rect.width / view.w) * 100) : 100;
+  })();
 
   return (
     <div className="ft-chart-wrap">
@@ -212,17 +234,17 @@ export function FamilyTreeChart({
           ))}
         </g>
         <g>
-          {layout.nodes.map(({ person, x, y, isFocus }) => {
+          {layout.nodes.map(({ person, x, y, isFocus }, index) => {
             const years = lifeYears(person);
-            const initial = person.name.trim().charAt(0).toUpperCase();
             // Vertical card: portrait on top, name under it, dates last.
             const top = y - NODE_H / 2;
-            const portraitR = 30;
-            const portraitCy = top + 46;
+            const portraitR = 34;
+            const portraitCy = top + 54;
+            const tone = personTone(person);
             return (
               <g
                 key={person.id}
-                className={`ft-chart-node${isFocus ? " is-focus" : ""}`}
+                className={`ft-chart-node is-${tone}${isFocus ? " is-focus" : ""}`}
                 onClick={() => { if (!movedRef.current) onFocus(person.id); }}
               >
                 {/* Compact cards truncate long names — expose the full one on hover. */}
@@ -232,9 +254,15 @@ export function FamilyTreeChart({
                   y={top}
                   width={NODE_W}
                   height={NODE_H}
-                  rx={12}
+                  rx={8}
                 />
-                <clipPath id={`ft-clip-${person.id}`}>
+                {isFocus && (
+                  <g className="ft-chart-focus-badge">
+                    <rect x={x - NODE_W / 2 + 12} y={top + 12} width={44} height={20} rx={10} />
+                    <text x={x - NODE_W / 2 + 34} y={top + 26} textAnchor="middle">Focus</text>
+                  </g>
+                )}
+                <clipPath id={`ft-clip-${index}`}>
                   <circle cx={x} cy={portraitCy} r={portraitR} />
                 </clipPath>
                 <circle className="ft-chart-portrait-bg" cx={x} cy={portraitCy} r={portraitR} />
@@ -245,37 +273,44 @@ export function FamilyTreeChart({
                     y={portraitCy - portraitR}
                     width={portraitR * 2}
                     height={portraitR * 2}
-                    clipPath={`url(#ft-clip-${person.id})`}
+                    clipPath={`url(#ft-clip-${index})`}
                     preserveAspectRatio="xMidYMid slice"
                   />
                 ) : (
-                  <text className="ft-chart-initial" x={x} y={portraitCy + 7} textAnchor="middle">
-                    {initial}
-                  </text>
+                  <g className="ft-chart-silhouette" transform={`translate(${x - 19} ${portraitCy - 19}) scale(1.58)`}>
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                    <circle cx={12} cy={7} r={4} />
+                  </g>
                 )}
-                <text className="ft-chart-name" x={x} y={top + 98} textAnchor="middle">
-                  {person.name.length > 16 ? `${person.name.slice(0, 15)}…` : person.name}
+                <text className="ft-chart-name" x={x} y={top + 114} textAnchor="middle">
+                  {shortName(person.name)}
                 </text>
                 {years && (
-                  <text className="ft-chart-years" x={x} y={top + 116} textAnchor="middle">
+                  <text className="ft-chart-years" x={x} y={top + 132} textAnchor="middle">
                     {years}
                   </text>
                 )}
                 <ActionBadge
-                  cx={x + NODE_W / 2 - (isAdmin ? 38 : 16)}
-                  cy={y - NODE_H / 2}
+                  cx={x + NODE_W / 2 - 22}
+                  cy={top + 22}
                   label={`Open ${person.name}'s profile`}
                   onActivate={() => { if (!movedRef.current) onOpenProfile(person.id); }}
+                  className="ft-chart-person-action"
+                  radius={13}
+                  iconSize={14}
                 >
                   <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                   <circle cx={12} cy={7} r={4} />
                 </ActionBadge>
                 {isAdmin && (
                   <ActionBadge
-                    cx={x + NODE_W / 2 - 16}
-                    cy={y - NODE_H / 2}
+                    cx={x + NODE_W / 2 - 52}
+                    cy={top + 22}
                     label={`Edit ${person.name}`}
                     onActivate={() => { if (!movedRef.current) onEditPerson(person); }}
+                    className="ft-chart-edit-action"
+                    radius={11}
+                    iconSize={12}
                   >
                     <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
                     <path d="m15 5 4 4" />
@@ -287,12 +322,13 @@ export function FamilyTreeChart({
         </g>
       </svg>
 
-      <div className="ft-chart-controls">
-        <Button variant="icon" aria-label="Zoom in" title="Zoom in" onClick={() => zoomAt(1.3)}>
-          <Plus size={17} />
-        </Button>
+      <div className="ft-chart-controls" aria-label="Tree view controls">
         <Button variant="icon" aria-label="Zoom out" title="Zoom out" onClick={() => zoomAt(1 / 1.3)}>
           <Minus size={17} />
+        </Button>
+        <span className="ft-chart-zoom-value" aria-label={`Current zoom ${currentScale}%`}>{currentScale}%</span>
+        <Button variant="icon" aria-label="Zoom in" title="Zoom in" onClick={() => zoomAt(1.3)}>
+          <Plus size={17} />
         </Button>
         <Button variant="icon" aria-label="Fit tree to view" title="Fit to view" onClick={fit}>
           <Maximize size={17} />

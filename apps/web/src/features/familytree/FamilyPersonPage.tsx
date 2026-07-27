@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Children, useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, Baby, BookMarked, CalendarPlus, ExternalLink, Heart, ImagePlus, Link2, Network, Pencil, Play, Trash2, Upload, X
+  ArrowLeft, Baby, BookMarked, BriefcaseBusiness, CalendarDays, CalendarPlus, Camera, ExternalLink, FileText,
+  GraduationCap, Heart, Home as HomeIcon, ImagePlus, Link2, MapPin, Network, Pencil, Plane, Play, Shield,
+  Trash2, UserRound, X
 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -18,10 +20,19 @@ import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import {
   lifeYears, EVENT_TYPE_OPTIONS, UNION_STATUS_OPTIONS,
-  type FamilyCitation, type FamilyEvent, type FamilyPersonProfile, type FamilyPhoto
+  type FamilyCitation, type FamilyEvent, type FamilyPerson, type FamilyPersonProfile, type FamilyPhoto, type FamilyTree
 } from "./types";
 
 const PHOTO_PAGE = 40;
+const PERSON_DETAIL_TABS = [
+  { id: "family", label: "Relationships" },
+  { id: "timeline", label: "Timeline" },
+  { id: "photos", label: "Photos" },
+  { id: "sources", label: "Sources" },
+  { id: "notes", label: "Notes" }
+] as const;
+
+type PersonDetailTabId = typeof PERSON_DETAIL_TABS[number]["id"];
 
 const eventTypeLabel = (type: FamilyEvent["type"]) =>
   EVENT_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
@@ -36,7 +47,21 @@ interface TimelineEntry {
   title: string;
   meta: string[];
   note: string | null;
+  tone: "birth" | "union" | "event" | "death";
   event: FamilyEvent | null;
+}
+
+function formatPartialDate(date: string | null): string {
+  if (!date) return "";
+  const [year, month, day] = date.split("-");
+  if (!month) return year;
+  const monthLabel = new Date(Date.UTC(Number(year), Number(month) - 1, 1))
+    .toLocaleString(undefined, { month: "short", timeZone: "UTC" });
+  return day ? `${monthLabel} ${Number(day)}, ${year}` : `${monthLabel} ${year}`;
+}
+
+function formatDateRange(start: string | null, end: string | null): string {
+  return [formatPartialDate(start), formatPartialDate(end)].filter(Boolean).join("–");
 }
 
 function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
@@ -44,11 +69,12 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
   if (profile.birthDate || profile.birthplace) {
     entries.push({
       key: "birth",
-      sortKey: "0000",
-      dateText: profile.birthDate ?? "",
+      sortKey: profile.birthDate ?? "0000",
+      dateText: formatPartialDate(profile.birthDate),
       title: "Born",
       meta: profile.birthplace ? [profile.birthplace] : [],
       note: null,
+      tone: "birth",
       event: null
     });
   }
@@ -57,10 +83,11 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
       entries.push({
         key: `marr-${union.id}`,
         sortKey: union.marriedDate ?? "9998",
-        dateText: union.marriedDate ?? "",
+        dateText: formatPartialDate(union.marriedDate),
         title: `Married ${union.partner.name}`,
         meta: union.marriedPlace ? [union.marriedPlace] : [],
         note: null,
+        tone: "union",
         event: null
       });
     }
@@ -68,10 +95,11 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
       entries.push({
         key: `div-${union.id}`,
         sortKey: union.divorcedDate,
-        dateText: union.divorcedDate,
+        dateText: formatPartialDate(union.divorcedDate),
         title: `Divorced ${union.partner.name}`,
         meta: [],
         note: null,
+        tone: "union",
         event: null
       });
     }
@@ -80,10 +108,11 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
     entries.push({
       key: event.id,
       sortKey: event.date ?? "9998",
-      dateText: [event.date, event.endDate].filter(Boolean).join("–"),
+      dateText: formatDateRange(event.date, event.endDate),
       title: event.label || eventTypeLabel(event.type),
       meta: [event.label ? eventTypeLabel(event.type) : "", event.place ?? ""].filter(Boolean),
       note: event.note,
+      tone: "event",
       event
     });
   }
@@ -91,10 +120,11 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
     entries.push({
       key: "death",
       sortKey: profile.deathDate ?? "9999",
-      dateText: profile.deathDate ?? "",
+      dateText: formatPartialDate(profile.deathDate),
       title: "Died",
       meta: profile.deathPlace ? [profile.deathPlace] : [],
       note: null,
+      tone: "death",
       event: null
     });
   }
@@ -122,17 +152,128 @@ function citationContext(citation: FamilyCitation, profile: FamilyPersonProfile)
   return "General";
 }
 
-function PersonChip({ person, relation }: { person: { id: string; name: string; portraitUrl: string | null }; relation?: string }) {
+type RelationPerson = Pick<FamilyPerson, "id" | "name" | "gender" | "birthDate" | "deathDate" | "portraitUrl">;
+
+function uniquePeople(people: RelationPerson[]): RelationPerson[] {
+  const seen = new Set<string>();
+  return people.filter((person) => {
+    if (seen.has(person.id)) return false;
+    seen.add(person.id);
+    return true;
+  });
+}
+
+function extendedFamily(profile: FamilyPersonProfile, tree: FamilyTree | null) {
+  if (!tree) return { siblings: [] as RelationPerson[], grandparents: [] as RelationPerson[] };
+  const personById = new Map(tree.persons.map((person) => [person.id, person]));
+  const unionById = new Map(tree.unions.map((union) => [union.id, union]));
+  const parentUnionId = tree.children.find((link) => link.childId === profile.id)?.unionId;
+  const siblings = parentUnionId
+    ? tree.children
+        .filter((link) => link.unionId === parentUnionId && link.childId !== profile.id)
+        .map((link) => personById.get(link.childId))
+        .filter((person): person is FamilyPerson => person != null)
+    : [];
+  const grandparents = profile.parents.flatMap((parent) => {
+    const parentParentUnionId = tree.children.find((link) => link.childId === parent.id)?.unionId;
+    const union = parentParentUnionId ? unionById.get(parentParentUnionId) : undefined;
+    return union
+      ? [union.person1Id, union.person2Id].map((personId) => personId ? personById.get(personId) : null)
+      : [];
+  }).filter((person): person is FamilyPerson => person != null);
+  return { siblings: uniquePeople(siblings), grandparents: uniquePeople(grandparents) };
+}
+
+function ageFromDates(birthDate: string | null, endDate: string | null): number | null {
+  if (!birthDate) return null;
+  const partialToDate = (date: string, endOfPeriod: boolean) => {
+    const [yearText, monthText, dayText] = date.split("-");
+    const year = Number(yearText);
+    const month = monthText ? Number(monthText) : endOfPeriod ? 12 : 1;
+    const day = dayText ? Number(dayText) : endOfPeriod ? new Date(year, month, 0).getDate() : 1;
+    return Number.isFinite(year) ? new Date(year, month - 1, day) : null;
+  };
+  const birth = partialToDate(birthDate, false);
+  const end = endDate ? partialToDate(endDate, true) : new Date();
+  if (!birth || !end) return null;
+  let age = end.getFullYear() - birth.getFullYear();
+  const [, birthMonth, birthDay] = birthDate.split("-").map(Number);
+  if (birthMonth && birthDay) {
+    const hadBirthday = end.getMonth() + 1 > birthMonth || (end.getMonth() + 1 === birthMonth && end.getDate() >= birthDay);
+    if (!hadBirthday) age -= 1;
+  }
+  return Math.max(0, age);
+}
+
+function genderLabel(gender: FamilyPerson["gender"]): string {
+  if (gender === "male") return "Male";
+  if (gender === "female") return "Female";
+  if (gender === "other") return "Other";
+  return "Unknown";
+}
+
+function relationSummary(profile: FamilyPersonProfile, statusLabel: (status: string) => string) {
+  const union = profile.unions.find((item) => item.partner);
+  if (!union?.partner) return profile.unions.some((item) => item.children.length > 0) ? "Parent" : "No partner recorded";
+  const status = union.status === "married"
+    ? "Married to"
+    : union.status === "divorced"
+      ? "Divorced from"
+      : union.status === "widowed"
+        ? "Widowed from"
+        : `${statusLabel(union.status)} with`;
+  return `${status} ${union.partner.name}`;
+}
+
+function TimelineIcon({ entry }: { entry: TimelineEntry }) {
+  if (entry.tone === "birth") return <Baby size={16} aria-hidden="true" />;
+  if (entry.tone === "union") return <Heart size={16} aria-hidden="true" />;
+  if (entry.tone === "death") return <FileText size={16} aria-hidden="true" />;
+  if (entry.event?.type === "education") return <GraduationCap size={16} aria-hidden="true" />;
+  if (entry.event?.type === "occupation") return <BriefcaseBusiness size={16} aria-hidden="true" />;
+  if (entry.event?.type === "residence") return <HomeIcon size={16} aria-hidden="true" />;
+  if (entry.event?.type === "military") return <Shield size={16} aria-hidden="true" />;
+  if (entry.event?.type === "immigration" || entry.event?.type === "emigration") return <Plane size={16} aria-hidden="true" />;
+  if (entry.event?.type === "burial") return <MapPin size={16} aria-hidden="true" />;
+  return <CalendarDays size={16} aria-hidden="true" />;
+}
+
+function RelationCard({
+  person,
+  detail,
+  action
+}: {
+  person: RelationPerson;
+  detail?: string;
+  action?: React.ReactNode;
+}) {
   return (
-    <a
-      className="ft-chip"
-      href={`/family/people/${person.id}`}
-      onClick={(event) => followRoute(event, `/family/people/${person.id}`)}
-    >
-      <PersonAvatar person={person} size={28} />
-      <span>{person.name}</span>
-      {relation && relation !== "biological" && <small className="ft-chip-relation">{relation}</small>}
-    </a>
+    <span className="ft-relation-card-wrap">
+      <a
+        className="ft-relation-card"
+        href={`/family/people/${person.id}`}
+        onClick={(event) => followRoute(event, `/family/people/${person.id}`)}
+      >
+        <PersonAvatar person={person} size={28} />
+        <span className="ft-relation-card-copy">
+          <strong>{person.name}</strong>
+          <small>{detail || lifeYears(person) || "Life dates unknown"}</small>
+        </span>
+      </a>
+      {action}
+    </span>
+  );
+}
+
+function FamilyGroup({ title, children, empty = "None recorded" }: { title: string; children: React.ReactNode; empty?: string }) {
+  const hasChildren = Children.toArray(children).filter(Boolean).length > 0;
+  return (
+    <div className="ft-family-group">
+      <h3>{title}</h3>
+      <div className="ft-family-card-grid">
+        {hasChildren ? children : <span className="ft-relation-empty">{empty}</span>}
+      </div>
+    </div>
   );
 }
 
@@ -142,6 +283,7 @@ function PersonChip({ person, relation }: { person: { id: string; name: string; 
 export function FamilyPersonPage({ id, user, logout }: { id: string; user: PublicUser; logout: () => Promise<void> }) {
   const isAdmin = user.role === "admin";
   const [profile, setProfile] = useState<FamilyPersonProfile | null>(null);
+  const [familyTree, setFamilyTree] = useState<FamilyTree | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState("");
   const [photos, setPhotos] = useState<FamilyPhoto[]>([]);
@@ -155,7 +297,6 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   const [unionModal, setUnionModal] = useState(false);
   const [childModal, setChildModal] = useState(false);
   const [photoPicker, setPhotoPicker] = useState(false);
-  const [portraitPicker, setPortraitPicker] = useState(false);
   const [linkModal, setLinkModal] = useState(false);
   // false = closed, null = adding, FamilyEvent = editing.
   const [eventModal, setEventModal] = useState<FamilyEvent | null | false>(false);
@@ -164,6 +305,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   const [removeCitation, setRemoveCitation] = useState<FamilyCitation | null>(null);
   const [removeUnionId, setRemoveUnionId] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
+  const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTabId>("family");
   const portraitFileRef = useRef<HTMLInputElement>(null);
 
   const loadProfile = useCallback(async () => {
@@ -177,6 +319,14 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
     }
   }, [id]);
 
+  const loadFamilyTree = useCallback(async () => {
+    try {
+      setFamilyTree(await api<FamilyTree>("/api/family-tree/tree"));
+    } catch {
+      setFamilyTree(null);
+    }
+  }, []);
+
   const loadPhotos = useCallback(async (offset: number) => {
     const payload = await api<{ assets: FamilyPhoto[]; total: number }>(
       `/api/family-tree/persons/${id}/photos?limit=${PHOTO_PAGE}&offset=${offset}`
@@ -189,12 +339,15 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
     setProfile(null);
     setPhotos([]);
     setError("");
+    setActiveDetailTab("family");
     void loadProfile();
+    void loadFamilyTree();
     loadPhotos(0).catch(() => {});
-  }, [loadProfile, loadPhotos]);
+  }, [loadProfile, loadFamilyTree, loadPhotos]);
 
   const refresh = () => {
     void loadProfile();
+    void loadFamilyTree();
     loadPhotos(0).catch(() => {});
   };
 
@@ -306,357 +459,452 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
 
   return (
     <DashboardShell active="family" user={user} logout={logout}>
-      <section className="audiobook-main-page ft-profile-page">
-        {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}
-        {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}
+      <section className="work-area book-detail-area ft-profile-page">
+        <div className="book-detail-shell">
+          {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}
+          {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}
 
-        {profile && (
-          <>
-            <div className="ft-profile-top">
-              <a className="text-button ft-back-link" href={back} onClick={(event) => followRoute(event, back)}>
-                <ArrowLeft size={16} aria-hidden="true" />
-                Back
-              </a>
-              <a
-                className="secondary-button compact-button"
-                href={`/family/tree/${profile.id}`}
-                onClick={(event) => followRoute(event, `/family/tree/${profile.id}`)}
-              >
-                <Network size={16} aria-hidden="true" />
-                Show in tree
-              </a>
-            </div>
+        {profile && (() => {
+          const family = extendedFamily(profile, familyTree);
+          const entries = timelineEntries(profile);
+          const age = ageFromDates(profile.birthDate, profile.deathDate);
+          const subtitle = [
+            profile.maidenName ? `née ${profile.maidenName}` : "",
+            lifeYears(profile),
+            profile.deathDate ? "Deceased" : "Living",
+            age != null ? `Age ${age}` : ""
+          ].filter(Boolean).join(" · ");
+          const partners = profile.unions.map((union) => ({ union, person: union.partner })).filter((item) => item.person);
+          const children = profile.unions.flatMap((union) => union.children.map((child) => ({ union, child })));
 
-            <header className="ft-profile-header">
-              <PersonAvatar person={profile} size={112} />
-              <div className="ft-profile-headline">
-                <h1>{profile.name}</h1>
-                <p className="ft-profile-sub">
-                  {[
-                    profile.maidenName ? `née ${profile.maidenName}` : "",
-                    lifeYears(profile),
-                    profile.birthplace ? `born in ${profile.birthplace}` : ""
-                  ].filter(Boolean).join(" · ")}
-                </p>
-                {isAdmin && (
-                  <div className="ft-profile-actions">
-                    <Button variant="secondary" compact onClick={() => setEditOpen(true)}>
-                      <Pencil size={15} aria-hidden="true" />
-                      Edit
-                    </Button>
-                    <Button variant="secondary" compact onClick={() => portraitFileRef.current?.click()}>
-                      <Upload size={15} aria-hidden="true" />
-                      Upload portrait
-                    </Button>
-                    <Button variant="secondary" compact onClick={() => setPortraitPicker(true)}>
-                      <ImagePlus size={15} aria-hidden="true" />
-                      Portrait from gallery
-                    </Button>
-                    {(profile.portraitUrl || profile.portraitItemId) && (
+          return (
+            <div className="book-detail-view ft-person-detail-view">
+              <div className="book-detail-topbar">
+                <a className="audiobook-back-button" href={back} onClick={(event) => followRoute(event, back)}>
+                  <ArrowLeft size={18} aria-hidden="true" />
+                  <span>Back</span>
+                </a>
+              </div>
+
+              <div className="book-detail-head ft-person-detail-head">
+                <div className="book-detail-cover-col ft-person-detail-cover-col">
+                  <div className="book-detail-cover ft-person-detail-cover" aria-hidden="true">
+                    <PersonAvatar person={profile} size={220} />
+                    {isAdmin && (
+                      <Button
+                        variant="icon"
+                        className="ft-portrait-button"
+                        title="Upload portrait"
+                        aria-label="Upload portrait"
+                        onClick={() => portraitFileRef.current?.click()}
+                      >
+                        <Camera size={16} aria-hidden="true" />
+                      </Button>
+                    )}
+                  </div>
+                  {isAdmin && (profile.portraitUrl || profile.portraitItemId) && (
+                    <div className="book-tags book-tags-under-cover ft-person-cover-actions" aria-label="Portrait actions">
                       <Button variant="text" compact danger onClick={() => void removePortrait()}>
                         Remove portrait
                       </Button>
-                    )}
-                    <Button variant="secondary" compact danger onClick={() => setDeleteOpen(true)}>
-                      <Trash2 size={15} aria-hidden="true" />
-                      Delete
-                    </Button>
-                    <input
-                      ref={portraitFileRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      hidden
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        event.target.value = "";
-                        if (file) void uploadPortrait(file);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </header>
-
-            {profile.bio && <p className="ft-profile-bio">{profile.bio}</p>}
-
-            <section className="ft-section">
-              <div className="ft-section-head">
-                <h2>Family</h2>
-                {isAdmin && (
-                  <div className="row-actions">
-                    <Button variant="secondary" compact onClick={() => setUnionModal(true)}>
-                      <Heart size={15} aria-hidden="true" />
-                      Add partner
-                    </Button>
-                    <Button variant="secondary" compact onClick={() => setChildModal(true)}>
-                      <Baby size={15} aria-hidden="true" />
-                      Add child
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {profile.parents.length > 0 && (
-                <div className="ft-relation-row">
-                  <span className="ft-relation-label">Parents</span>
-                  <div className="ft-chip-row">
-                    {profile.parents.map((parent) => (
-                      <PersonChip key={parent.id} person={parent} relation={profile.parentRelation ?? undefined} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {profile.unions.map((union) => (
-                <div key={union.id} className="ft-union-block">
-                  <div className="ft-relation-row">
-                    <span className="ft-relation-label">
-                      {union.partner ? statusLabel(union.status) : "Single parent"}
-                      {union.marriedDate ? ` ${union.marriedDate.slice(0, 4)}` : ""}
-                    </span>
-                    <div className="ft-chip-row">
-                      {union.partner && <PersonChip person={union.partner} />}
-                      {isAdmin && (
-                        <button
-                          type="button"
-                          className="ft-chip-remove"
-                          title="Remove this union"
-                          aria-label="Remove this union"
-                          onClick={() => setRemoveUnionId(union.id)}
-                        >
-                          <X size={14} aria-hidden="true" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {union.children.length > 0 && (
-                    <div className="ft-relation-row ft-children-row">
-                      <span className="ft-relation-label">Children</span>
-                      <div className="ft-chip-row">
-                        {union.children.map((child) => (
-                          <span key={child.id} className="ft-chip-wrap">
-                            <PersonChip person={child} relation={child.relation} />
-                            {isAdmin && (
-                              <button
-                                type="button"
-                                className="ft-chip-remove"
-                                title={`Remove ${child.name} from this family`}
-                                aria-label={`Remove ${child.name} from this family`}
-                                onClick={() => void removeChildLink(union.id, child.id)}
-                              >
-                                <X size={14} aria-hidden="true" />
-                              </button>
-                            )}
-                          </span>
-                        ))}
-                      </div>
                     </div>
                   )}
                 </div>
-              ))}
 
-              {profile.parents.length === 0 && profile.unions.length === 0 && (
-                <p className="management-empty">No relationships recorded yet.</p>
-              )}
-            </section>
+                <div className="book-detail-info">
+                  <h1 className="book-detail-title">{profile.name}</h1>
+                  {subtitle && <p className="book-detail-author ft-person-detail-subtitle">{subtitle}</p>}
 
-            <section className="ft-section">
-              <div className="ft-section-head">
-                <h2>Life events</h2>
-                {isAdmin && (
-                  <div className="row-actions">
-                    <Button variant="secondary" compact onClick={() => setEventModal(null)}>
-                      <CalendarPlus size={15} aria-hidden="true" />
-                      Add event
-                    </Button>
-                  </div>
-                )}
-              </div>
+                  <dl className="book-detail-meta-grid">
+                    <div className="book-detail-meta-item">
+                      <CalendarDays size={18} aria-hidden="true" />
+                      <dt>Born</dt>
+                      <dd>{profile.birthDate ? formatPartialDate(profile.birthDate) : "Unknown"}</dd>
+                    </div>
+                    <div className="book-detail-meta-item">
+                      <MapPin size={18} aria-hidden="true" />
+                      <dt>Birthplace</dt>
+                      <dd>{profile.birthplace || "Unknown"}</dd>
+                    </div>
+                    <div className="book-detail-meta-item">
+                      <UserRound size={18} aria-hidden="true" />
+                      <dt>Gender</dt>
+                      <dd>{genderLabel(profile.gender)}</dd>
+                    </div>
+                    <div className="book-detail-meta-item">
+                      <Heart size={18} aria-hidden="true" />
+                      <dt>Relationship</dt>
+                      <dd>{relationSummary(profile, statusLabel)}</dd>
+                    </div>
+                  </dl>
 
-              {(() => {
-                const entries = timelineEntries(profile);
-                if (entries.length === 0) {
-                  return (
-                    <p className="management-empty">
-                      {isAdmin
-                        ? "No events yet. Add school, work, moves, or anything else that tells this person's story."
-                        : "No events recorded yet."}
-                    </p>
-                  );
-                }
-                return (
-                  <ol className="ft-timeline">
-                    {entries.map((entry) => (
-                      <li key={entry.key} className="ft-timeline-row">
-                        <span className="ft-timeline-date">{entry.dateText || "—"}</span>
-                        <span className="ft-timeline-body">
-                          <strong>{entry.title}</strong>
-                          {entry.meta.length > 0 && <small>{entry.meta.join(" · ")}</small>}
-                          {entry.note && <span className="ft-timeline-note">{entry.note}</span>}
-                        </span>
-                        {isAdmin && entry.event && (
-                          <span className="ft-timeline-actions">
-                            <Button
-                              variant="icon"
-                              title="Edit event"
-                              aria-label={`Edit ${entry.title}`}
-                              onClick={() => setEventModal(entry.event)}
-                            >
-                              <Pencil size={14} aria-hidden="true" />
-                            </Button>
-                            <Button
-                              variant="icon"
-                              danger
-                              title="Delete event"
-                              aria-label={`Delete ${entry.title}`}
-                              onClick={() => setRemoveEvent(entry.event)}
-                            >
-                              <Trash2 size={14} aria-hidden="true" />
-                            </Button>
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                );
-              })()}
-            </section>
-
-            <section className="ft-section">
-              <div className="ft-section-head">
-                <h2>Sources{profile.citations.length > 0 ? ` (${profile.citations.length})` : ""}</h2>
-                {isAdmin && (
-                  <div className="row-actions">
-                    <Button variant="secondary" compact onClick={() => setCitationModal(null)}>
-                      <BookMarked size={15} aria-hidden="true" />
-                      Add source
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {profile.citations.length === 0 ? (
-                <p className="management-empty">
-                  {isAdmin
-                    ? "No sources yet. Cite the records, sites, or documents that back this person's facts."
-                    : "No sources recorded yet."}
-                </p>
-              ) : (
-                <ul className="ft-citations">
-                  {profile.citations.map((citation) => {
-                    const link = citation.url || citation.sourceUrl;
-                    return (
-                      <li key={citation.id} className="ft-citation-row">
-                        <span className="ft-citation-context">{citationContext(citation, profile)}</span>
-                        <span className="ft-citation-body">
-                          <strong>
-                            {link ? (
-                              <a href={link} target="_blank" rel="noreferrer noopener">
-                                {citation.sourceTitle}
-                                <ExternalLink size={12} aria-hidden="true" />
-                              </a>
-                            ) : citation.sourceTitle}
-                          </strong>
-                          {citation.detail && <small>{citation.detail}</small>}
-                          {citation.note && <small className="ft-citation-note">{citation.note}</small>}
-                        </span>
-                        {isAdmin && (
-                          <span className="ft-timeline-actions">
-                            <Button
-                              variant="icon"
-                              title="Edit citation"
-                              aria-label={`Edit citation of ${citation.sourceTitle}`}
-                              onClick={() => setCitationModal(citation)}
-                            >
-                              <Pencil size={14} aria-hidden="true" />
-                            </Button>
-                            <Button
-                              variant="icon"
-                              danger
-                              title="Remove citation"
-                              aria-label={`Remove citation of ${citation.sourceTitle}`}
-                              onClick={() => setRemoveCitation(citation)}
-                            >
-                              <Trash2 size={14} aria-hidden="true" />
-                            </Button>
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-
-            <section className="ft-section">
-              <div className="ft-section-head">
-                <h2>Photos{photoTotal > 0 ? ` (${photoTotal})` : ""}</h2>
-                {isAdmin && (
-                  <div className="row-actions">
-                    <Button variant="secondary" compact onClick={() => setLinkModal(true)}>
-                      <Link2 size={15} aria-hidden="true" />
-                      {profile.galleryPerson ? `Linked: ${profile.galleryPerson.name || "Unnamed"}` : "Link gallery person"}
-                    </Button>
-                    <Button variant="primary" compact onClick={() => setPhotoPicker(true)}>
-                      <ImagePlus size={15} aria-hidden="true" />
-                      Add photos
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {photos.length === 0 ? (
-                <p className="management-empty">
-                  {isAdmin
-                    ? "No photos yet. Attach some from the gallery, or link a gallery person to surface their photos automatically."
-                    : "No photos yet."}
-                </p>
-              ) : (
-                <div className="gallery-grid ft-photo-grid">
-                  {photos.map((photo) => (
-                    <div key={photo.id} className="ft-photo-tile">
+                  <div className="book-detail-actions">
+                    <div className="book-detail-secondary-actions" aria-label="Person actions">
                       <a
-                        className="gallery-tile"
-                        href={`/gallery/assets/${photo.id}?from=/family/people/${profile.id}`}
-                        onClick={(event) => followRoute(event, `/gallery/assets/${photo.id}?from=/family/people/${profile.id}`)}
-                        title={photo.title}
+                        className="book-detail-icon-action"
+                        href={`/family/tree/${profile.id}`}
+                        onClick={(event) => followRoute(event, `/family/tree/${profile.id}`)}
+                        title="View in tree"
+                        aria-label="View in tree"
                       >
-                        {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" />}
-                        {photo.kind === "video" && (
-                          <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
-                        )}
+                        <Network size={18} aria-hidden="true" />
                       </a>
-                      {isAdmin && photo.attached && (
-                        <button
-                          type="button"
-                          className="ft-photo-remove"
-                          title="Remove from this person"
-                          aria-label="Remove from this person"
-                          onClick={() => void detachPhoto(photo.id)}
+                      {isAdmin && (
+                        <Button
+                          variant="icon"
+                          className="book-detail-icon-action"
+                          onClick={() => setEditOpen(true)}
+                          title="Edit person"
+                          aria-label="Edit person"
                         >
-                          <X size={14} aria-hidden="true" />
-                        </button>
+                          <Pencil size={18} aria-hidden="true" />
+                        </Button>
+                      )}
+                      {isAdmin && (
+                        <Button
+                          variant="icon"
+                          danger
+                          className="book-detail-icon-action"
+                          onClick={() => setDeleteOpen(true)}
+                          title="Delete person"
+                          aria-label="Delete person"
+                        >
+                          <Trash2 size={18} aria-hidden="true" />
+                        </Button>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
 
-              {photos.length < photoTotal && (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setLoadingMore(true);
-                    loadPhotos(photos.length).catch(() => {}).finally(() => setLoadingMore(false));
-                  }}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? "Loading…" : "Load more"}
-                </Button>
-              )}
-            </section>
-          </>
-        )}
+                  <input
+                    ref={portraitFileRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    hidden
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file) void uploadPortrait(file);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <section className="book-detail-tabs-section ft-person-detail-tabs-section">
+                <nav className="book-detail-tabs" aria-label="Person detail sections">
+                  {PERSON_DETAIL_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      className={activeDetailTab === tab.id ? "active" : ""}
+                      onClick={() => setActiveDetailTab(tab.id)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </nav>
+
+                <div className="book-detail-tab-panel ft-person-detail-tab-panel">
+                  {activeDetailTab === "family" && (
+                    <section className="ft-section ft-profile-section">
+                      {isAdmin && (
+                        <div className="ft-tab-actions">
+                          <Button variant="secondary" compact onClick={() => setUnionModal(true)}>
+                            <Heart size={15} aria-hidden="true" />
+                            Add partner
+                          </Button>
+                          <Button variant="secondary" compact onClick={() => setChildModal(true)}>
+                            <Baby size={15} aria-hidden="true" />
+                            Add child
+                          </Button>
+                        </div>
+                      )}
+
+                      <div className="ft-family-grid">
+                        <FamilyGroup title="Parents">
+                          {profile.parents.map((parent) => (
+                            <RelationCard
+                              key={parent.id}
+                              person={parent}
+                              detail={profile.parentRelation && profile.parentRelation !== "biological" ? profile.parentRelation : undefined}
+                            />
+                          ))}
+                        </FamilyGroup>
+                        <FamilyGroup title="Siblings">
+                          {family.siblings.map((sibling) => <RelationCard key={sibling.id} person={sibling} />)}
+                        </FamilyGroup>
+                        <FamilyGroup title="Grandparents">
+                          {family.grandparents.map((grandparent) => <RelationCard key={grandparent.id} person={grandparent} />)}
+                        </FamilyGroup>
+                        <FamilyGroup title={partners.length === 1 ? "Partner" : "Partners"}>
+                          {partners.map(({ union, person }) => person && (
+                            <RelationCard
+                              key={union.id}
+                              person={person}
+                              detail={[statusLabel(union.status), union.marriedDate ? formatPartialDate(union.marriedDate) : ""].filter(Boolean).join(" · ")}
+                              action={isAdmin && (
+                                <Button
+                                  variant="icon"
+                                  danger
+                                  className="ft-relation-card-action"
+                                  title="Remove this union"
+                                  aria-label="Remove this union"
+                                  onClick={() => setRemoveUnionId(union.id)}
+                                >
+                                  <X size={14} aria-hidden="true" />
+                                </Button>
+                              )}
+                            />
+                          ))}
+                        </FamilyGroup>
+                        <FamilyGroup title="Children">
+                          {children.map(({ union, child }) => (
+                            <RelationCard
+                              key={`${union.id}-${child.id}`}
+                              person={child}
+                              detail={child.relation !== "biological" ? child.relation : undefined}
+                              action={isAdmin && (
+                                <Button
+                                  variant="icon"
+                                  danger
+                                  className="ft-relation-card-action"
+                                  title={`Remove ${child.name} from this family`}
+                                  aria-label={`Remove ${child.name} from this family`}
+                                  onClick={() => void removeChildLink(union.id, child.id)}
+                                >
+                                  <X size={14} aria-hidden="true" />
+                                </Button>
+                              )}
+                            />
+                          ))}
+                        </FamilyGroup>
+                      </div>
+                    </section>
+                  )}
+
+                  {activeDetailTab === "timeline" && (
+                    <section className="ft-section ft-profile-section">
+                      {isAdmin && (
+                        <div className="ft-tab-actions">
+                          <Button variant="secondary" compact onClick={() => setEventModal(null)}>
+                            <CalendarPlus size={15} aria-hidden="true" />
+                            Add event
+                          </Button>
+                        </div>
+                      )}
+
+                      {entries.length === 0 ? (
+                        <div className="ft-empty-panel">
+                          <CalendarDays size={22} aria-hidden="true" />
+                          <strong>No events yet</strong>
+                        </div>
+                      ) : (
+                        <ol className="ft-timeline">
+                          {entries.map((entry) => (
+                            <li key={entry.key} className={`ft-timeline-row is-${entry.tone}`}>
+                              <span className="ft-timeline-date">{entry.dateText || "—"}</span>
+                              <span className="ft-timeline-marker"><TimelineIcon entry={entry} /></span>
+                              <span className="ft-timeline-body">
+                                <strong>{entry.title}</strong>
+                                {entry.meta.length > 0 && <small>{entry.meta.join(" · ")}</small>}
+                                {entry.note && <span className="ft-timeline-note">{entry.note}</span>}
+                              </span>
+                              {isAdmin && entry.event && (
+                                <span className="ft-timeline-actions">
+                                  <Button
+                                    variant="icon"
+                                    title="Edit event"
+                                    aria-label={`Edit ${entry.title}`}
+                                    onClick={() => setEventModal(entry.event)}
+                                  >
+                                    <Pencil size={14} aria-hidden="true" />
+                                  </Button>
+                                  <Button
+                                    variant="icon"
+                                    danger
+                                    title="Delete event"
+                                    aria-label={`Delete ${entry.title}`}
+                                    onClick={() => setRemoveEvent(entry.event)}
+                                  >
+                                    <Trash2 size={14} aria-hidden="true" />
+                                  </Button>
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </section>
+                  )}
+
+                  {activeDetailTab === "photos" && (
+                    <section className="ft-section ft-profile-section">
+                      {isAdmin && (
+                        <div className="ft-tab-actions">
+                          <Button variant="secondary" compact onClick={() => setLinkModal(true)}>
+                            <Link2 size={15} aria-hidden="true" />
+                            {profile.galleryPerson ? `Linked: ${profile.galleryPerson.name || "Unnamed"}` : "Link gallery person"}
+                          </Button>
+                          <Button variant="primary" compact onClick={() => setPhotoPicker(true)}>
+                            <ImagePlus size={15} aria-hidden="true" />
+                            Add photos
+                          </Button>
+                        </div>
+                      )}
+
+                      {photos.length === 0 ? (
+                        <div className="ft-empty-panel">
+                          <ImagePlus size={22} aria-hidden="true" />
+                          <strong>No photos yet</strong>
+                        </div>
+                      ) : (
+                        <div className="gallery-grid ft-photo-grid">
+                          {photos.map((photo) => (
+                            <div key={photo.id} className="ft-photo-tile">
+                              <a
+                                className="gallery-tile"
+                                href={`/gallery/assets/${photo.id}?from=/family/people/${profile.id}`}
+                                onClick={(event) => followRoute(event, `/gallery/assets/${photo.id}?from=/family/people/${profile.id}`)}
+                                title={photo.title}
+                              >
+                                {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" />}
+                                {photo.kind === "video" && (
+                                  <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
+                                )}
+                              </a>
+                              {isAdmin && photo.attached && (
+                                <Button
+                                  variant="icon"
+                                  danger
+                                  className="ft-photo-remove"
+                                  title="Remove from this person"
+                                  aria-label="Remove from this person"
+                                  onClick={() => void detachPhoto(photo.id)}
+                                >
+                                  <X size={14} aria-hidden="true" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          {isAdmin && (
+                            <Button
+                              variant="secondary"
+                              className="ft-photo-add-tile"
+                              title="Add photos"
+                              aria-label="Add photos"
+                              onClick={() => setPhotoPicker(true)}
+                            >
+                              <ImagePlus size={24} aria-hidden="true" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {photos.length < photoTotal && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setLoadingMore(true);
+                            loadPhotos(photos.length).catch(() => {}).finally(() => setLoadingMore(false));
+                          }}
+                          disabled={loadingMore}
+                        >
+                          {loadingMore ? "Loading…" : "Load more"}
+                        </Button>
+                      )}
+                    </section>
+                  )}
+
+                  {activeDetailTab === "sources" && (
+                    <section className="ft-section ft-profile-section">
+                      {isAdmin && (
+                        <div className="ft-tab-actions">
+                          <Button variant="secondary" compact onClick={() => setCitationModal(null)}>
+                            <BookMarked size={15} aria-hidden="true" />
+                            Add source
+                          </Button>
+                        </div>
+                      )}
+
+                      {profile.citations.length === 0 ? (
+                        <div className="ft-empty-panel">
+                          <BookMarked size={22} aria-hidden="true" />
+                          <strong>No sources yet</strong>
+                        </div>
+                      ) : (
+                        <ul className="ft-citations">
+                          {profile.citations.map((citation) => {
+                            const link = citation.url || citation.sourceUrl;
+                            return (
+                              <li key={citation.id} className="ft-citation-row">
+                                <span className="ft-citation-context">{citationContext(citation, profile)}</span>
+                                <span className="ft-citation-body">
+                                  <strong>
+                                    {link ? (
+                                      <a href={link} target="_blank" rel="noreferrer noopener">
+                                        {citation.sourceTitle}
+                                        <ExternalLink size={12} aria-hidden="true" />
+                                      </a>
+                                    ) : citation.sourceTitle}
+                                  </strong>
+                                  {citation.detail && <small>{citation.detail}</small>}
+                                  {citation.note && <small className="ft-citation-note">{citation.note}</small>}
+                                </span>
+                                {isAdmin && (
+                                  <span className="ft-timeline-actions">
+                                    <Button
+                                      variant="icon"
+                                      title="Edit citation"
+                                      aria-label={`Edit citation of ${citation.sourceTitle}`}
+                                      onClick={() => setCitationModal(citation)}
+                                    >
+                                      <Pencil size={14} aria-hidden="true" />
+                                    </Button>
+                                    <Button
+                                      variant="icon"
+                                      danger
+                                      title="Remove citation"
+                                      aria-label={`Remove citation of ${citation.sourceTitle}`}
+                                      onClick={() => setRemoveCitation(citation)}
+                                    >
+                                      <Trash2 size={14} aria-hidden="true" />
+                                    </Button>
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </section>
+                  )}
+
+                  {activeDetailTab === "notes" && (
+                    <section className="ft-section ft-profile-section">
+                      {isAdmin && (
+                        <div className="ft-tab-actions">
+                          <Button variant="secondary" compact onClick={() => setEditOpen(true)}>
+                            <FileText size={15} aria-hidden="true" />
+                            Edit notes
+                          </Button>
+                        </div>
+                      )}
+
+                      {profile.bio ? (
+                        <p className="ft-profile-bio">{profile.bio}</p>
+                      ) : (
+                        <div className="ft-empty-panel">
+                          <FileText size={22} aria-hidden="true" />
+                          <strong>No notes yet</strong>
+                        </div>
+                      )}
+                    </section>
+                  )}
+                </div>
+              </section>
+            </div>
+          );
+        })()}
+        </div>
       </section>
 
       {editOpen && profile && (
@@ -757,22 +1005,6 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
             loadPhotos(0).catch(() => {});
           }}
           onClose={() => setPhotoPicker(false)}
-        />
-      )}
-      {portraitPicker && profile && (
-        <FamilyPhotoPicker
-          title={`Choose a portrait for ${profile.name}`}
-          single
-          onPickSingle={(asset) => {
-            setPortraitPicker(false);
-            api(`/api/family-tree/persons/${profile.id}`, {
-              method: "PATCH",
-              body: JSON.stringify({ portraitItemId: asset.id })
-            })
-              .then(() => refresh())
-              .catch((err) => setActionError(err instanceof Error ? err.message : "Unable to set the portrait"));
-          }}
-          onClose={() => setPortraitPicker(false)}
         />
       )}
       {linkModal && profile && (
