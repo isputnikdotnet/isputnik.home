@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
@@ -8,6 +8,7 @@ import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiobooks/AudiobooksPage";
+import { useIsMobile } from "../../shared/useIsMobile";
 import type { SortKey } from "../audiobooks/BookFilter";
 import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
@@ -193,8 +194,7 @@ export function GalleryPage({
   const [loading, setLoading] = useState(false);
 
   // Memories ("On this day"): feeds the strip above the timeline AND the
-  // dedicated Memories view. `pendingYear` scrolls the view to a year section
-  // right after a strip card opens it.
+  // dedicated Memories view.
   const [memories, setMemories] = useState<GalleryMemories | null>(null);
   const [memorySuggestions, setMemorySuggestions] = useState<GalleryMemorySuggestion[]>([]);
   // A suggestion opened for PREVIEW — nothing is created until the user picks an
@@ -206,7 +206,6 @@ export function GalleryPage({
   // Confirm + delete the open slideshow's rendered movie.
   const [movieDeleteOpen, setMovieDeleteOpen] = useState(false);
   const [movieDeleteBusy, setMovieDeleteBusy] = useState(false);
-  const [pendingYear, setPendingYear] = useState<number | null>(null);
 
   // Folder state.
   const [parent, setParent] = useState("");
@@ -275,11 +274,21 @@ export function GalleryPage({
   const [visiblePeople, setVisiblePeople] = useState(PEOPLE_PAGE);
   const [visibleSmall, setVisibleSmall] = useState(PEOPLE_PAGE);
 
+  const isMobile = useIsMobile();
+
   // Library selector dropdown (mirrors the audiobooks/ebooks main page chip).
   const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
   const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
   const libraryTriggerRef = useRef<HTMLButtonElement>(null);
   const libraryMenuRef = useRef<HTMLDivElement>(null);
+
+  // Mobile / PWA: "Browse" dropdown that collapses the view tabs (Timeline,
+  // Memories, Albums, …), matching the audiobooks/ebooks compact header.
+  // ("viewMenu" rather than "browse" — browseOpen is the slideshow photo browser.)
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const [viewMenuPos, setViewMenuPos] = useState<{ top: number; left: number | null; right: number | null } | null>(null);
+  const viewMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const viewMenuRef = useRef<HTMLDivElement>(null);
 
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
   const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person" | "memory" | "album" | "slideshow"; index: number; autoPlay?: boolean } | null>(null);
@@ -857,16 +866,19 @@ export function GalleryPage({
   const memoryItems = useMemo(() => memories?.groups.flatMap((group) => group.items) ?? [], [memories]);
 
   // A strip card opens the Memories view anchored at its year.
+  // A strip card opens the viewer directly at that year's first photo (same as
+  // the home page) — the full memory set is already loaded, no view switch.
   const openMemoryYear = useCallback((year: number) => {
-    setPendingYear(year);
-    setView("memories");
-  }, []);
-
-  useEffect(() => {
-    if (view !== "memories" || pendingYear == null) return;
-    document.getElementById(`gallery-memories-${pendingYear}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    setPendingYear(null);
-  }, [view, pendingYear]);
+    const groups = memories?.groups ?? [];
+    let start = 0;
+    for (const group of groups) {
+      if (group.year === year) break;
+      start += group.items.length;
+    }
+    const total = groups.reduce((sum, group) => sum + group.items.length, 0);
+    if (total === 0) return;
+    setLightbox({ source: "memory", index: Math.min(start, total - 1) });
+  }, [memories]);
 
   // Fetch one asset and open it standalone in the lightbox (used by map markers).
   const openAssetById = useCallback((id: string) => {
@@ -943,6 +955,41 @@ export function GalleryPage({
       window.removeEventListener("scroll", dismiss, true);
     };
   }, [libraryMenuOpen]);
+
+  // Mobile "Browse" (views) dropdown open/close + outside-click dismissal.
+  const toggleViewMenu = () => {
+    setViewMenuOpen((open) => {
+      if (!open && viewMenuTriggerRef.current) {
+        const rect = viewMenuTriggerRef.current.getBoundingClientRect();
+        const alignRight = rect.left + 200 > window.innerWidth;
+        setViewMenuPos({
+          top: rect.bottom + 8,
+          left: alignRight ? null : rect.left,
+          right: alignRight ? window.innerWidth - rect.right : null
+        });
+      }
+      return !open;
+    });
+  };
+
+  useEffect(() => {
+    if (!viewMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (viewMenuTriggerRef.current?.contains(target)) return;
+      if (viewMenuRef.current?.contains(target)) return;
+      setViewMenuOpen(false);
+    };
+    const dismiss = () => setViewMenuOpen(false);
+    window.addEventListener("mousedown", close);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
+  }, [viewMenuOpen]);
 
   // Album overflow (…) menu — right-aligned under its trigger, same dismissal.
   const toggleAlbumMenu = () => {
@@ -1306,68 +1353,129 @@ export function GalleryPage({
                   )}
                 </div>
 
-                <nav className="audiobook-page-tabs" aria-label="Gallery views">
-                  <a
-                    href="/gallery"
-                    className={view === "timeline" ? "active" : ""}
-                    onClick={(event) => { event.preventDefault(); setView("timeline"); }}
-                  >
-                    <CalendarDays size={19} aria-hidden="true" />
-                    <span>Timeline</span>
-                  </a>
-                  {(memories?.groups.length ?? 0) > 0 && (
-                    <a
-                      href="/gallery/memories"
-                      className={view === "memories" ? "active" : ""}
-                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("memories"); }}
+                {isMobile ? (
+                  <div className="audiobook-library-shortcuts">
+                    <button
+                      ref={viewMenuTriggerRef}
+                      type="button"
+                      className="audiobook-library-tab"
+                      onClick={toggleViewMenu}
+                      aria-haspopup="menu"
+                      aria-expanded={viewMenuOpen}
+                      aria-label="Browse gallery views"
                     >
-                      <Sparkles size={19} aria-hidden="true" />
-                      <span>Memories</span>
-                    </a>
-                  )}
-                  <a
-                    href="/gallery"
-                    className={view === "albums" ? "active" : ""}
-                    onClick={(event) => { event.preventDefault(); setSearchText(""); setView("albums"); }}
-                  >
-                    <Album size={19} aria-hidden="true" />
-                    <span>Albums</span>
-                  </a>
-                  <a
-                    href="/gallery"
-                    className={view === "slideshows" ? "active" : ""}
-                    onClick={(event) => { event.preventDefault(); setSearchText(""); setView("slideshows"); }}
-                  >
-                    <Film size={19} aria-hidden="true" />
-                    <span>Slideshows</span>
-                  </a>
-                  <a
-                    href="/gallery"
-                    className={view === "folder" ? "active" : ""}
-                    onClick={(event) => { event.preventDefault(); setSearchText(""); setView("folder"); }}
-                  >
-                    <FolderOpen size={19} aria-hidden="true" />
-                    <span>Folders</span>
-                  </a>
-                  <a
-                    href="/gallery"
-                    className={view === "people" ? "active" : ""}
-                    onClick={(event) => { event.preventDefault(); setSearchText(""); setView("people"); }}
-                  >
-                    <Users size={19} aria-hidden="true" />
-                    <span>People</span>
-                  </a>
-                  {mapCount > 0 && (
+                      <Compass size={19} aria-hidden="true" />
+                      <span>Browse</span>
+                      <ChevronDown size={16} aria-hidden="true" />
+                    </button>
+                    {viewMenuOpen && viewMenuPos && createPortal(
+                      <div
+                        ref={viewMenuRef}
+                        className="book-detail-action-menu audiobook-library-menu"
+                        role="menu"
+                        aria-label="Browse"
+                        style={{ position: "fixed", top: viewMenuPos.top, left: viewMenuPos.left ?? undefined, right: viewMenuPos.right ?? undefined }}
+                      >
+                        <button type="button" role="menuitem" className={view === "timeline" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setView("timeline"); }}>
+                          <CalendarDays size={16} aria-hidden="true" />
+                          <span>Timeline</span>
+                        </button>
+                        {(memories?.groups.length ?? 0) > 0 && (
+                          <button type="button" role="menuitem" className={view === "memories" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("memories"); }}>
+                            <Sparkles size={16} aria-hidden="true" />
+                            <span>Memories</span>
+                          </button>
+                        )}
+                        <button type="button" role="menuitem" className={view === "albums" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("albums"); }}>
+                          <Album size={16} aria-hidden="true" />
+                          <span>Albums</span>
+                        </button>
+                        <button type="button" role="menuitem" className={view === "slideshows" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("slideshows"); }}>
+                          <Film size={16} aria-hidden="true" />
+                          <span>Slideshows</span>
+                        </button>
+                        <button type="button" role="menuitem" className={view === "folder" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("folder"); }}>
+                          <FolderOpen size={16} aria-hidden="true" />
+                          <span>Folders</span>
+                        </button>
+                        <button type="button" role="menuitem" className={view === "people" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("people"); }}>
+                          <Users size={16} aria-hidden="true" />
+                          <span>People</span>
+                        </button>
+                        {mapCount > 0 && (
+                          <button type="button" role="menuitem" className={view === "map" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("map"); }}>
+                            <MapPin size={16} aria-hidden="true" />
+                            <span>Map</span>
+                          </button>
+                        )}
+                      </div>,
+                      document.body
+                    )}
+                  </div>
+                ) : (
+                  <nav className="audiobook-page-tabs" aria-label="Gallery views">
                     <a
                       href="/gallery"
-                      className={view === "map" ? "active" : ""}
-                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("map"); }}
+                      className={view === "timeline" ? "active" : ""}
+                      onClick={(event) => { event.preventDefault(); setView("timeline"); }}
                     >
-                      <MapPin size={19} aria-hidden="true" />
-                      <span>Map</span>
+                      <CalendarDays size={19} aria-hidden="true" />
+                      <span>Timeline</span>
                     </a>
-                  )}
-                </nav>
+                    {(memories?.groups.length ?? 0) > 0 && (
+                      <a
+                        href="/gallery/memories"
+                        className={view === "memories" ? "active" : ""}
+                        onClick={(event) => { event.preventDefault(); setSearchText(""); setView("memories"); }}
+                      >
+                        <Sparkles size={19} aria-hidden="true" />
+                        <span>Memories</span>
+                      </a>
+                    )}
+                    <a
+                      href="/gallery"
+                      className={view === "albums" ? "active" : ""}
+                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("albums"); }}
+                    >
+                      <Album size={19} aria-hidden="true" />
+                      <span>Albums</span>
+                    </a>
+                    <a
+                      href="/gallery"
+                      className={view === "slideshows" ? "active" : ""}
+                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("slideshows"); }}
+                    >
+                      <Film size={19} aria-hidden="true" />
+                      <span>Slideshows</span>
+                    </a>
+                    <a
+                      href="/gallery"
+                      className={view === "folder" ? "active" : ""}
+                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("folder"); }}
+                    >
+                      <FolderOpen size={19} aria-hidden="true" />
+                      <span>Folders</span>
+                    </a>
+                    <a
+                      href="/gallery"
+                      className={view === "people" ? "active" : ""}
+                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("people"); }}
+                    >
+                      <Users size={19} aria-hidden="true" />
+                      <span>People</span>
+                    </a>
+                    {mapCount > 0 && (
+                      <a
+                        href="/gallery"
+                        className={view === "map" ? "active" : ""}
+                        onClick={(event) => { event.preventDefault(); setSearchText(""); setView("map"); }}
+                      >
+                        <MapPin size={19} aria-hidden="true" />
+                        <span>Map</span>
+                      </a>
+                    )}
+                  </nav>
+                )}
               </div>
             </div>
 
