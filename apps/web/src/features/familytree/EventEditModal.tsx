@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { PartialDateField } from "./PartialDateField";
 import { EVENT_TYPE_OPTIONS, type FamilyEvent } from "./types";
 
 // What goes in the label field, per type — the short "what happened".
@@ -102,30 +103,8 @@ export function EventEditModal({
             onChange={(event) => setLabel(event.target.value)}
           />
         </label>
-        <label className="field">
-          <span>From</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={date}
-            placeholder="1971 or 1971-09-01"
-            pattern="\d{4}(-\d{2}(-\d{2})?)?"
-            title="Year, year-month, or full date (1971, 1971-09, 1971-09-01)"
-            onChange={(event) => setDate(event.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span>To (optional)</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={endDate}
-            placeholder="1975"
-            pattern="\d{4}(-\d{2}(-\d{2})?)?"
-            title="Year, year-month, or full date (1975, 1975-06, 1975-06-30)"
-            onChange={(event) => setEndDate(event.target.value)}
-          />
-        </label>
+        <PartialDateField label="From" value={date} onChange={setDate} />
+        <PartialDateField label="To (optional)" value={endDate} placeholder="1975" onChange={setEndDate} />
         <label className="field">
           <span>Place</span>
           <input type="text" value={place} onChange={(event) => setPlace(event.target.value)} />
