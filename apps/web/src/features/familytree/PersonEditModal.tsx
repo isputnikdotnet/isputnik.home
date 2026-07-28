@@ -4,12 +4,14 @@ import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { PartialDateField } from "./PartialDateField";
 import { GENDER_OPTIONS, type FamilyPerson } from "./types";
 
 // Create or edit a family member's profile. Uses the standard field pattern:
 // each control sits in a `.field` label, dropdowns are native <select>s, and
-// Born/Died are native date inputs (calendar picker). Full dates only here; the
-// server still accepts partial dates for imports.
+// Born/Died are free-text partial dates (see PartialDateField) — imported data
+// is mostly year-only, which a native date input would blank out and erase on
+// save.
 export function PersonEditModal({
   person,
   onClose,
@@ -27,11 +29,8 @@ export function PersonEditModal({
   const [gender, setGender] = useState<"female" | "male" | "">(
     person?.gender === "male" || person?.gender === "female" ? person.gender : ""
   );
-  // Native date inputs need a full YYYY-MM-DD; a stored partial date (import)
-  // simply shows blank until re-picked.
-  const fullDate = (value: string | null | undefined) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "");
-  const [birthDate, setBirthDate] = useState(fullDate(person?.birthDate));
-  const [deathDate, setDeathDate] = useState(fullDate(person?.deathDate));
+  const [birthDate, setBirthDate] = useState(person?.birthDate ?? "");
+  const [deathDate, setDeathDate] = useState(person?.deathDate ?? "");
   const [birthplace, setBirthplace] = useState(person?.birthplace ?? "");
   const [deathPlace, setDeathPlace] = useState(person?.deathPlace ?? "");
   const [bio, setBio] = useState(person?.bio ?? "");
@@ -48,8 +47,8 @@ export function PersonEditModal({
       maidenName: maidenName.trim() || null,
       // Omit when unselected: create → server default; edit → leave unchanged.
       ...(gender ? { gender } : {}),
-      birthDate: birthDate || null,
-      deathDate: deathDate || null,
+      birthDate: birthDate.trim() || null,
+      deathDate: deathDate.trim() || null,
       birthplace: birthplace.trim() || null,
       deathPlace: deathPlace.trim() || null,
       bio: bio.trim() || null
@@ -112,14 +111,8 @@ export function PersonEditModal({
           <span>Birthplace</span>
           <input type="text" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} />
         </label>
-        <label className="field">
-          <span>Born</span>
-          <input type="date" value={birthDate} max={deathDate || undefined} onChange={(event) => setBirthDate(event.target.value)} />
-        </label>
-        <label className="field">
-          <span>Died</span>
-          <input type="date" value={deathDate} min={birthDate || undefined} onChange={(event) => setDeathDate(event.target.value)} />
-        </label>
+        <PartialDateField label="Born" value={birthDate} onChange={setBirthDate} />
+        <PartialDateField label="Died" value={deathDate} placeholder="2024 or 2024-03-15" onChange={setDeathDate} />
         <label className="field">
           <span>Place of death</span>
           <input type="text" value={deathPlace} onChange={(event) => setDeathPlace(event.target.value)} />

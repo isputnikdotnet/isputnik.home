@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { PartialDateField } from "./PartialDateField";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonPickerModal } from "./PersonPickerModal";
 import { UNION_STATUS_OPTIONS, type FamilyPerson, type FamilyUnion } from "./types";
@@ -39,7 +40,7 @@ export function AddUnionModal({
           person1Id: person.id,
           person2Id: partner?.id ?? null,
           status,
-          marriedDate: marriedDate || null,
+          marriedDate: marriedDate.trim() || null,
           marriedPlace: marriedPlace.trim() || null
         })
       });
@@ -98,10 +99,7 @@ export function AddUnionModal({
             ))}
           </select>
         </label>
-        <label className="field">
-          <span>Married / together since</span>
-          <input type="date" value={marriedDate} onChange={(event) => setMarriedDate(event.target.value)} />
-        </label>
+        <PartialDateField label="Married / together since" value={marriedDate} placeholder="2010 or 2010-06-12" onChange={setMarriedDate} />
         <label className="field">
           <span>Place of marriage</span>
           <input type="text" value={marriedPlace} onChange={(event) => setMarriedPlace(event.target.value)} />
