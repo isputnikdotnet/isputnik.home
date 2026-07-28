@@ -2,15 +2,18 @@ import { Children, useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, Baby, BookMarked, BriefcaseBusiness, CalendarDays, CalendarPlus, Camera, ExternalLink, FileText,
   GraduationCap, Heart, Home as HomeIcon, ImagePlus, Link2, MapPin, Network, Pencil, Plane, Play, Shield,
-  Trash2, UserRound, X
+  Trash2, UserRound, UserRoundPlus, UsersRound, X
 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, getReferrer, navigate } from "../../router";
+import { ActionMenu } from "../../shared/ActionMenu";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { AddChildModal } from "./AddChildModal";
+import { AddParentModal } from "./AddParentModal";
+import { AddSiblingModal } from "./AddSiblingModal";
 import { AddUnionModal } from "./AddUnionModal";
 import { CitationEditModal } from "./CitationEditModal";
 import { EventEditModal } from "./EventEditModal";
@@ -18,9 +21,11 @@ import { FamilyPhotoPicker } from "./FamilyPhotoPicker";
 import { GalleryPersonLinkModal } from "./GalleryPersonLinkModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
+import { UnionEditModal } from "./UnionEditModal";
 import {
   lifeYears, EVENT_TYPE_OPTIONS, UNION_STATUS_OPTIONS,
-  type FamilyCitation, type FamilyEvent, type FamilyPerson, type FamilyPersonProfile, type FamilyPhoto, type FamilyTree
+  type FamilyCitation, type FamilyEvent, type FamilyPerson, type FamilyPersonProfile, type FamilyPhoto,
+  type FamilyTree, type FamilyUnionDetail
 } from "./types";
 
 const PHOTO_PAGE = 40;
@@ -100,6 +105,24 @@ function timelineEntries(profile: FamilyPersonProfile): TimelineEntry[] {
         meta: [],
         note: null,
         tone: "union",
+        event: null
+      });
+    }
+    for (const child of union.children) {
+      const noun = child.gender === "male" ? "son" : child.gender === "female" ? "daughter" : "child";
+      const relationNoun = child.relation === "step"
+        ? `step${noun}`
+        : child.relation === "adopted" || child.relation === "foster"
+          ? `${child.relation} ${noun}`
+          : noun;
+      entries.push({
+        key: `child-${child.id}`,
+        sortKey: child.birthDate ?? "9998",
+        dateText: formatPartialDate(child.birthDate),
+        title: `Birth of ${relationNoun} ${child.name}`,
+        meta: child.birthplace ? [child.birthplace] : [],
+        note: null,
+        tone: "birth",
         event: null
       });
     }
@@ -212,17 +235,40 @@ function genderLabel(gender: FamilyPerson["gender"]): string {
   return "Unknown";
 }
 
+// The current partner: an undissolved union. Dates win over the status field —
+// a marriage with a divorce date recorded is over regardless of what the
+// status says. If several qualify, the latest start date wins.
+function currentUnion(profile: FamilyPersonProfile): FamilyUnionDetail | null {
+  const candidates = profile.unions.filter(
+    (u) => u.partner != null && !u.divorcedDate && u.status !== "divorced" && u.status !== "widowed"
+  );
+  if (candidates.length === 0) return null;
+  return [...candidates].sort((a, b) => (b.marriedDate ?? "").localeCompare(a.marriedDate ?? ""))[0];
+}
+
+// "since 2010", "2010 – 2015", "until 2015" — the union's span for card detail.
+function unionDates(union: FamilyUnionDetail): string {
+  const married = union.marriedDate ? formatPartialDate(union.marriedDate) : "";
+  const divorced = union.divorcedDate ? formatPartialDate(union.divorcedDate) : "";
+  if (married && divorced) return `${married} – ${divorced}`;
+  if (married) return `since ${married}`;
+  if (divorced) return `until ${divorced}`;
+  return "";
+}
+
 function relationSummary(profile: FamilyPersonProfile, statusLabel: (status: string) => string) {
-  const union = profile.unions.find((item) => item.partner);
-  if (!union?.partner) return profile.unions.some((item) => item.children.length > 0) ? "Parent" : "No partner recorded";
-  const status = union.status === "married"
-    ? "Married to"
-    : union.status === "divorced"
-      ? "Divorced from"
-      : union.status === "widowed"
-        ? "Widowed from"
-        : `${statusLabel(union.status)} with`;
-  return `${status} ${union.partner.name}`;
+  const current = currentUnion(profile);
+  if (current?.partner) {
+    if (current.status === "married") return `Married to ${current.partner.name}`;
+    if (current.status === "partners") return `Together with ${current.partner.name}`;
+    return `${statusLabel(current.status)} · ${current.partner.name}`;
+  }
+  const past = [...profile.unions]
+    .filter((item) => item.partner)
+    .sort((a, b) => (b.divorcedDate ?? "").localeCompare(a.divorcedDate ?? ""))[0];
+  if (!past?.partner) return profile.unions.some((item) => item.children.length > 0) ? "Parent" : "No partner recorded";
+  if (past.status === "widowed") return `Widowed from ${past.partner.name}`;
+  return `Divorced from ${past.partner.name}`;
 }
 
 function TimelineIcon({ entry }: { entry: TimelineEntry }) {
@@ -296,6 +342,9 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   const [deleteError, setDeleteError] = useState("");
   const [unionModal, setUnionModal] = useState(false);
   const [childModal, setChildModal] = useState(false);
+  const [parentModal, setParentModal] = useState(false);
+  const [siblingModal, setSiblingModal] = useState(false);
+  const [editUnion, setEditUnion] = useState<FamilyUnionDetail | null>(null);
   const [photoPicker, setPhotoPicker] = useState(false);
   const [linkModal, setLinkModal] = useState(false);
   // false = closed, null = adding, FamilyEvent = editing.
@@ -445,6 +494,14 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
 
   const back = getReferrer() ?? "/family/people";
   const statusLabel = (status: string) => UNION_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
+  // The union this person hangs off as a child — where siblings and the
+  // "other parent" attach.
+  const parentUnionId = profile && familyTree
+    ? familyTree.children.find((link) => link.childId === profile.id)?.unionId ?? null
+    : null;
+  const siblingIds = profile && familyTree && parentUnionId
+    ? familyTree.children.filter((link) => link.unionId === parentUnionId && link.childId !== profile.id).map((link) => link.childId)
+    : [];
 
   if (notFound) {
     return (
@@ -474,7 +531,12 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
             profile.deathDate ? "Deceased" : "Living",
             age != null ? `Age ${age}` : ""
           ].filter(Boolean).join(" · ");
-          const partners = profile.unions.map((union) => ({ union, person: union.partner })).filter((item) => item.person);
+          const current = currentUnion(profile);
+          // Current partner first; former unions follow.
+          const partners = profile.unions
+            .map((union) => ({ union, person: union.partner }))
+            .filter((item) => item.person)
+            .sort((a, b) => Number(b.union.id === current?.id) - Number(a.union.id === current?.id));
           const children = profile.unions.flatMap((union) => union.children.map((child) => ({ union, child })));
 
           return (
@@ -608,14 +670,39 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                     <section className="ft-section ft-profile-section">
                       {isAdmin && (
                         <div className="ft-tab-actions">
-                          <Button variant="secondary" compact onClick={() => setUnionModal(true)}>
-                            <Heart size={15} aria-hidden="true" />
-                            Add partner
-                          </Button>
-                          <Button variant="secondary" compact onClick={() => setChildModal(true)}>
-                            <Baby size={15} aria-hidden="true" />
-                            Add child
-                          </Button>
+                          <ActionMenu
+                            label="Add relative"
+                            icon={<UserRoundPlus size={15} aria-hidden="true" />}
+                            compact
+                            items={[
+                              {
+                                key: "parent",
+                                label: "Parent",
+                                icon: <UsersRound size={15} aria-hidden="true" />,
+                                disabledReason: profile.parents.length >= 2 ? "Both parents are already recorded" : undefined,
+                                onSelect: () => setParentModal(true)
+                              },
+                              {
+                                key: "partner",
+                                label: "Partner",
+                                icon: <Heart size={15} aria-hidden="true" />,
+                                onSelect: () => setUnionModal(true)
+                              },
+                              {
+                                key: "child",
+                                label: "Child",
+                                icon: <Baby size={15} aria-hidden="true" />,
+                                onSelect: () => setChildModal(true)
+                              },
+                              {
+                                key: "sibling",
+                                label: "Sibling",
+                                icon: <UserRound size={15} aria-hidden="true" />,
+                                disabledReason: parentUnionId ? undefined : "Record a parent first — siblings share parents",
+                                onSelect: () => setSiblingModal(true)
+                              }
+                            ]}
+                          />
                         </div>
                       )}
 
@@ -640,18 +727,31 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                             <RelationCard
                               key={union.id}
                               person={person}
-                              detail={[statusLabel(union.status), union.marriedDate ? formatPartialDate(union.marriedDate) : ""].filter(Boolean).join(" · ")}
+                              detail={[
+                                union.id === current?.id ? "Current" : "",
+                                statusLabel(union.status),
+                                unionDates(union)
+                              ].filter(Boolean).join(" · ")}
                               action={isAdmin && (
-                                <Button
-                                  variant="icon"
-                                  danger
-                                  className="ft-relation-card-action"
-                                  title="Remove this union"
-                                  aria-label="Remove this union"
-                                  onClick={() => setRemoveUnionId(union.id)}
-                                >
-                                  <X size={14} aria-hidden="true" />
-                                </Button>
+                                <span className="ft-relation-card-actions">
+                                  <Button
+                                    variant="icon"
+                                    title={`Edit relationship with ${person.name}`}
+                                    aria-label={`Edit relationship with ${person.name}`}
+                                    onClick={() => setEditUnion(union)}
+                                  >
+                                    <Pencil size={13} aria-hidden="true" />
+                                  </Button>
+                                  <Button
+                                    variant="icon"
+                                    danger
+                                    title="Remove this union"
+                                    aria-label="Remove this union"
+                                    onClick={() => setRemoveUnionId(union.id)}
+                                  >
+                                    <X size={14} aria-hidden="true" />
+                                  </Button>
+                                </span>
                               )}
                             />
                           ))}
@@ -663,16 +763,17 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                               person={child}
                               detail={child.relation !== "biological" ? child.relation : undefined}
                               action={isAdmin && (
-                                <Button
-                                  variant="icon"
-                                  danger
-                                  className="ft-relation-card-action"
-                                  title={`Remove ${child.name} from this family`}
-                                  aria-label={`Remove ${child.name} from this family`}
-                                  onClick={() => void removeChildLink(union.id, child.id)}
-                                >
-                                  <X size={14} aria-hidden="true" />
-                                </Button>
+                                <span className="ft-relation-card-actions">
+                                  <Button
+                                    variant="icon"
+                                    danger
+                                    title={`Remove ${child.name} from this family`}
+                                    aria-label={`Remove ${child.name} from this family`}
+                                    onClick={() => void removeChildLink(union.id, child.id)}
+                                  >
+                                    <X size={14} aria-hidden="true" />
+                                  </Button>
+                                </span>
                               )}
                             />
                           ))}
@@ -991,6 +1092,31 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
           person={profile}
           onClose={() => setChildModal(false)}
           onAdded={() => { setChildModal(false); refresh(); }}
+        />
+      )}
+      {parentModal && profile && (
+        <AddParentModal
+          person={profile}
+          parentUnionId={parentUnionId}
+          onClose={() => setParentModal(false)}
+          onAdded={() => { setParentModal(false); refresh(); }}
+        />
+      )}
+      {siblingModal && profile && parentUnionId && (
+        <AddSiblingModal
+          person={profile}
+          parentUnionId={parentUnionId}
+          siblingIds={siblingIds}
+          onClose={() => setSiblingModal(false)}
+          onAdded={() => { setSiblingModal(false); refresh(); }}
+        />
+      )}
+      {editUnion && profile && (
+        <UnionEditModal
+          union={editUnion}
+          personName={profile.name}
+          onClose={() => setEditUnion(null)}
+          onSaved={() => { setEditUnion(null); refresh(); }}
         />
       )}
       {photoPicker && profile && (
