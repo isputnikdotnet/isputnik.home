@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.15.0",
+          label: "The family tree, the way family trees are drawn",
+          changes: [
+            "The tree now flows top to bottom: the person you're looking at sits in the middle, parents and grandparents rise above, children hang below, and everyone of the same generation shares a row. Aunts, uncles, and cousins now appear too, laid out beside the direct line on their own generation's row.",
+            "Person cards were redrawn compact, the way genealogy sites draw them: a square photo up top, first and last name on their own lines, then the years. People without a photo get a proper silhouette — blue for men, rose with a bun for women — and the centred person's card is inverted so it stands out at a glance.",
+            "Adding relatives is one button now. \"Add relative\" on the Relationships tab offers Parent, Partner, Child, and Sibling in one menu — including flows that didn't exist before: adding a parent (even the second parent to an existing family) and adding a sibling.",
+            "Relationships can carry their history: a pencil on each partner card opens marriage and divorce/separation dates, the place, and a status — including partners who are together but not married. Who counts as the current partner follows from those dates, former partners show their span, and the profile header says it plainly: married to, together with, divorced from, or widowed from.",
+            "Two fixes on the profile: the timeline now lists the birth of each child in its right place chronologically, and editing a person no longer shows blank Born/Died fields when only a year is recorded — dates can be entered as a year, a month, or a full day, and a year-only date is never silently erased on save."
+          ]
+        },
+        {
           version: "1.14.2",
           label: "A richer person profile",
           changes: [
