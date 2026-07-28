@@ -16,7 +16,7 @@ import {
 } from "./persons.js";
 import {
   UNION_STATUSES, CHILD_RELATIONS, type RelationError,
-  getUnion, createUnion, updateUnion, deleteUnion, addChild, removeChild
+  getUnion, createUnion, updateUnion, setUnionPartner, deleteUnion, addChild, removeChild
 } from "./relations.js";
 import { attachFamilyPhotos, detachFamilyPhoto, getFamilyPersonPhotos } from "./photos.js";
 import { exportGedcom, importGedcom } from "./gedcom.js";
@@ -33,6 +33,7 @@ const RELATION_ERRORS: Record<RelationError, { code: number; message: string }> 
   same_person: { code: 400, message: "A union needs two different people." },
   child_is_partner: { code: 400, message: "A person can't be a child of their own union." },
   child_has_parents: { code: 409, message: "This person already has parents. Remove them from their current family first." },
+  union_has_partner: { code: 409, message: "This family already has two parents." },
   would_create_cycle: { code: 400, message: "This link would make someone their own ancestor." }
 };
 
@@ -67,6 +68,9 @@ const unionFieldsSchema = z.object({
 const createUnionSchema = unionFieldsSchema.extend({
   person1Id: z.string().trim().min(1),
   person2Id: z.string().trim().min(1).nullable().optional()
+});
+const updateUnionSchema = unionFieldsSchema.extend({
+  person2Id: z.string().trim().min(1).optional()
 });
 const addChildSchema = z.object({
   childId: z.string().trim().min(1),
@@ -353,13 +357,25 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.code(201).send({ union: result.union });
   });
 
+  // `person2Id` fills the empty partner slot of a single-parent union (the
+  // "add the other parent" flow); the field updates apply in the same request.
   app.patch("/api/family-tree/unions/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const parsed = parseBody(unionFieldsSchema, request.body);
+    const parsed = parseBody(updateUnionSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid changes", details: parsed.error });
       return;
     }
-    const union = updateUnion((request.params as { id: string }).id, parsed.data);
+    const unionId = (request.params as { id: string }).id;
+    const { person2Id, ...fields } = parsed.data;
+    if (person2Id) {
+      const result = setUnionPartner(unionId, person2Id);
+      if ("error" in result) {
+        const err = RELATION_ERRORS[result.error];
+        reply.code(err.code).send({ error: err.message });
+        return;
+      }
+    }
+    const union = updateUnion(unionId, fields);
     if (!union) {
       reply.code(404).send({ error: "Union not found" });
       return;

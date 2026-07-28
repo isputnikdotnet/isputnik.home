@@ -14,6 +14,7 @@ import {
 import {
   createUnion,
   updateUnion,
+  setUnionPartner,
   deleteUnion,
   addChild,
   removeChild,
@@ -214,6 +215,27 @@ describe("unions and children", () => {
     const gUnion = family(g.id, null);
     expect(isAncestorOf(a.id, g.id)).toBe(true);
     expect(addChild(gUnion.id, a.id, "biological")).toEqual({ error: "would_create_cycle" });
+  });
+
+  it("fills the empty partner slot of a single-parent union, with guards", () => {
+    const a = person("Anna");
+    const b = person("Boris");
+    const c = person("Carol");
+    const union = family(a.id, null, [c.id]);
+
+    expect(setUnionPartner(union.id, a.id)).toEqual({ error: "same_person" });
+    expect(setUnionPartner(union.id, "missing")).toEqual({ error: "person_not_found" });
+    expect(setUnionPartner(union.id, c.id)).toEqual({ error: "child_is_partner" });
+    // Carol's descendant can't become her parent.
+    const g = person("Grandchild");
+    family(c.id, null, [g.id]);
+    expect(setUnionPartner(union.id, g.id)).toEqual({ error: "would_create_cycle" });
+
+    expect(setUnionPartner(union.id, b.id)).toMatchObject({ union: { person2Id: b.id } });
+    expect(getFamilyPersonProfile(c.id)!.parents.map((p) => p.name).sort()).toEqual(["Anna", "Boris"]);
+    // Both slots taken now.
+    const d = person("Dmitri");
+    expect(setUnionPartner(union.id, d.id)).toEqual({ error: "union_has_partner" });
   });
 
   it("updates and deletes a union without touching persons", () => {

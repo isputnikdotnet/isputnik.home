@@ -15,6 +15,7 @@ export type RelationError =
   | "same_person"
   | "child_is_partner"
   | "child_has_parents"
+  | "union_has_partner"
   | "would_create_cycle";
 
 interface UnionRow {
@@ -86,6 +87,32 @@ export function updateUnion(unionId: string, fields: UnionFields): FamilyUnionSu
   sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')");
   const res = db.prepare(`UPDATE family_tree_unions SET ${sets.join(", ")} WHERE id = ?`).run(...params, unionId);
   return res.changes > 0 ? getUnion(unionId) : null;
+}
+
+// Fill the empty partner slot of a single-parent union — the "add the other
+// parent" flow. Only an empty slot can be filled; replacing a partner means
+// deleting the union and starting over, which is a deliberate act.
+export function setUnionPartner(
+  unionId: string,
+  partnerId: string
+): { union: FamilyUnionSummary } | { error: RelationError } {
+  const union = getUnionRow(unionId);
+  if (!union) return { error: "union_not_found" };
+  if (!personExists(partnerId)) return { error: "person_not_found" };
+  if (union.person2_id) return { error: "union_has_partner" };
+  if (partnerId === union.person1_id) return { error: "same_person" };
+  const children = db.prepare("SELECT child_id FROM family_tree_children WHERE union_id = ?")
+    .all(unionId) as { child_id: string }[];
+  for (const { child_id } of children) {
+    if (child_id === partnerId) return { error: "child_is_partner" };
+    // The new partner becomes a parent of every child in this union — the same
+    // cycle rule addChild enforces, from the other side.
+    if (isAncestorOf(child_id, partnerId)) return { error: "would_create_cycle" };
+  }
+  db.prepare(
+    "UPDATE family_tree_unions SET person2_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+  ).run(partnerId, unionId);
+  return { union: getUnion(unionId)! };
 }
 
 // Child links cascade away with the union; the child persons are untouched.

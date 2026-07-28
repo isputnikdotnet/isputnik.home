@@ -421,20 +421,26 @@
   background: color-mix(in srgb, var(--field) 42%, transparent);
 }
 
-.ft-relation-card-action.icon-button {
+/* Hover-revealed action cluster (edit / remove) on a relation card's right edge. */
+.ft-relation-card-actions {
   position: absolute;
   top: 50%;
   right: 4px;
-  width: 22px;
-  height: 22px;
-  min-height: 0;
-  border-radius: 50%;
+  display: inline-flex;
+  gap: 2px;
   transform: translateY(-50%);
   opacity: 0;
 }
 
-.ft-relation-card-wrap:hover .ft-relation-card-action,
-.ft-relation-card-action:focus-visible {
+.ft-relation-card-actions .icon-button {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  border-radius: 50%;
+}
+
+.ft-relation-card-wrap:hover .ft-relation-card-actions,
+.ft-relation-card-actions:focus-within {
   opacity: 1;
 }
 
@@ -878,6 +884,7 @@
 }
 
 /* Beats `.confirm-modal p`, which would otherwise impose its 12/24 margins. */
+.ft-modal .ft-modal-hint,
 .confirm-modal .ft-modal-hint {
   color: var(--muted);
   font-size: 0.88rem;

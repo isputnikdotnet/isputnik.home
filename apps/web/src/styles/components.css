@@ -419,6 +419,16 @@
   place-items: center;
 }
 
+/* ActionMenu variant: one-shot actions, so no check column. */
+.action-menu-option.text-button {
+  grid-template-columns: 22px minmax(0, 1fr);
+}
+
+.action-menu-option.text-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .select-menu-option > span:last-child {
   overflow: hidden;
   font-weight: 750;
