@@ -59,11 +59,39 @@ function personTone(person: FamilyPerson) {
     : "unknown";
 }
 
-function shortName(name: string) {
-  return name.length > 18 ? `${name.slice(0, 17)}…` : name;
+function shortText(text: string, max: number) {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-// The pan/zoom SVG chart, laid out left-to-right by generation (see
+// "Anna Maria Posse" → ["Anna Maria", "Posse"]; single-word names get one line.
+function splitName(name: string): [string, string | null] {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length <= 1) return [parts[0] ?? "", null];
+  return [parts.slice(0, -1).join(" "), parts[parts.length - 1]];
+}
+
+// Filled placeholder silhouettes for cards without a portrait — a bust for
+// men, a bust with a bun for women (24×24 coordinate space, scaled by caller).
+function SilhouetteShape({ tone }: { tone: string }) {
+  return (
+    <>
+      {tone === "female" ? (
+        <>
+          <circle cx={11.6} cy={8.4} r={4.1} />
+          <circle cx={15.7} cy={4.6} r={2.1} />
+          <path d="M11.8 13.8c-4.8 0-7.6 2.6-8 6.3-.06.5.34.9.85.9h14.3c.5 0 .9-.4.85-.9-.4-3.7-3.2-6.3-8-6.3z" />
+        </>
+      ) : (
+        <>
+          <circle cx={12} cy={7.8} r={4.3} />
+          <path d="M12 13.4c-5 0-7.9 2.7-8.3 6.6-.06.5.34.9.85.9h14.9c.5 0 .9-.4.85-.9-.4-3.9-3.3-6.6-8.3-6.6z" />
+        </>
+      )}
+    </>
+  );
+}
+
+// The pan/zoom SVG chart, laid out top-to-bottom by generation (see
 // chart-layout.ts). This component renders it and owns the viewport: drag to
 // pan, wheel/pinch to zoom, buttons for zoom/fit. Clicking a card re-centers
 // the tree on that person; the badges on each card open the profile or (for
@@ -236,11 +264,16 @@ export function FamilyTreeChart({
         <g>
           {layout.nodes.map(({ person, x, y, isFocus }, index) => {
             const years = lifeYears(person);
-            // Vertical card: portrait on top, name under it, dates last.
+            // Compact vertical card: square portrait block on top, first and
+            // last name on separate lines, years last.
             const top = y - NODE_H / 2;
-            const portraitR = 34;
-            const portraitCy = top + 54;
+            const left = x - NODE_W / 2;
+            const photoInset = 7;
+            const photoSize = NODE_W - photoInset * 2;
+            const photoTop = top + photoInset;
             const tone = personTone(person);
+            const [firstName, lastName] = splitName(person.name);
+            const silScale = 3;
             return (
               <g
                 key={person.id}
@@ -250,67 +283,79 @@ export function FamilyTreeChart({
                 {/* Compact cards truncate long names — expose the full one on hover. */}
                 <title>{years ? `${person.name} (${years})` : person.name}</title>
                 <rect
-                  x={x - NODE_W / 2}
+                  className="ft-chart-card"
+                  x={left}
                   y={top}
                   width={NODE_W}
                   height={NODE_H}
-                  rx={8}
+                  rx={10}
                 />
-                {isFocus && (
-                  <g className="ft-chart-focus-badge">
-                    <rect x={x - NODE_W / 2 + 12} y={top + 12} width={44} height={20} rx={10} />
-                    <text x={x - NODE_W / 2 + 34} y={top + 26} textAnchor="middle">Focus</text>
-                  </g>
-                )}
                 <clipPath id={`ft-clip-${index}`}>
-                  <circle cx={x} cy={portraitCy} r={portraitR} />
+                  <rect x={left + photoInset} y={photoTop} width={photoSize} height={photoSize} rx={6} />
                 </clipPath>
-                <circle className="ft-chart-portrait-bg" cx={x} cy={portraitCy} r={portraitR} />
+                <rect
+                  className="ft-chart-portrait-bg"
+                  x={left + photoInset}
+                  y={photoTop}
+                  width={photoSize}
+                  height={photoSize}
+                  rx={6}
+                />
                 {person.portraitUrl ? (
                   <image
                     href={person.portraitUrl}
-                    x={x - portraitR}
-                    y={portraitCy - portraitR}
-                    width={portraitR * 2}
-                    height={portraitR * 2}
+                    x={left + photoInset}
+                    y={photoTop}
+                    width={photoSize}
+                    height={photoSize}
                     clipPath={`url(#ft-clip-${index})`}
                     preserveAspectRatio="xMidYMid slice"
                   />
                 ) : (
-                  <g className="ft-chart-silhouette" transform={`translate(${x - 19} ${portraitCy - 19}) scale(1.58)`}>
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                    <circle cx={12} cy={7} r={4} />
+                  // No clip on this group: a userSpaceOnUse clip rect would be
+                  // dragged along by the transform; the shape fits the photo
+                  // square by construction.
+                  <g
+                    className="ft-chart-silhouette"
+                    transform={`translate(${x - 12 * silScale} ${photoTop + photoSize - 21.5 * silScale}) scale(${silScale})`}
+                  >
+                    <SilhouetteShape tone={tone} />
                   </g>
                 )}
-                <text className="ft-chart-name" x={x} y={top + 114} textAnchor="middle">
-                  {shortName(person.name)}
+                <text className="ft-chart-name" x={x} y={top + (lastName ? 113 : 120)} textAnchor="middle">
+                  {shortText(firstName, 14)}
                 </text>
+                {lastName && (
+                  <text className="ft-chart-name" x={x} y={top + 127} textAnchor="middle">
+                    {shortText(lastName, 14)}
+                  </text>
+                )}
                 {years && (
-                  <text className="ft-chart-years" x={x} y={top + 132} textAnchor="middle">
+                  <text className="ft-chart-years" x={x} y={top + 141} textAnchor="middle">
                     {years}
                   </text>
                 )}
                 <ActionBadge
-                  cx={x + NODE_W / 2 - 22}
-                  cy={top + 22}
+                  cx={left + NODE_W - 15}
+                  cy={top + 15}
                   label={`Open ${person.name}'s profile`}
                   onActivate={() => { if (!movedRef.current) onOpenProfile(person.id); }}
                   className="ft-chart-person-action"
-                  radius={13}
-                  iconSize={14}
+                  radius={11}
+                  iconSize={12}
                 >
                   <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                   <circle cx={12} cy={7} r={4} />
                 </ActionBadge>
                 {isAdmin && (
                   <ActionBadge
-                    cx={x + NODE_W / 2 - 52}
-                    cy={top + 22}
+                    cx={left + NODE_W - 15}
+                    cy={top + 39}
                     label={`Edit ${person.name}`}
                     onActivate={() => { if (!movedRef.current) onEditPerson(person); }}
                     className="ft-chart-edit-action"
-                    radius={11}
-                    iconSize={12}
+                    radius={10}
+                    iconSize={11}
                   >
                     <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
                     <path d="m15 5 4 4" />
