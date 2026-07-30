@@ -13,7 +13,8 @@
     "typecheck": "npm run typecheck --workspace apps/server && npm run typecheck --workspace apps/web",
     "check:ui": "node scripts/check-ui-conventions.mjs",
     "fetch:face-model": "node scripts/fetch-face-model.mjs",
-    "test": "npm run test --workspace apps/server"
+    "test": "npm run test --workspace apps/server",
+    "docs:shots": "node scripts/doc-screenshots.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
