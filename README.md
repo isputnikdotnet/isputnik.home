@@ -12,6 +12,13 @@ This project represents my vision of a self-hosted home server where media, docu
 
 iSputnik.home is still in its very early stages of development. Many features are experimental, designs continue to evolve, and the overall direction may change as new ideas are explored. The project should be considered a work in progress and the beginning of a much larger journey rather than a finished product.
 
+## Documentation
+
+* [User guides](docs/users/README.md) — setting up a new install, and using each
+  part of it. Start with [first run](docs/users/first-run.md).
+* [Technical reference](docs/architecture.md) — architecture, schema, and the
+  design notes behind each module.
+
 ## Current Progress
 
 The project currently includes a functional web interface for managing audiobook and ebook libraries. Existing features include library scanning, metadata management, cover artwork, authors, narrators, series organization, categories, tags, and search capabilities.
