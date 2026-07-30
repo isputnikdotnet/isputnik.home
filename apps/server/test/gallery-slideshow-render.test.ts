@@ -421,179 +421,54 @@ describe("random transition persistence", () => {
   });
 });
 
-describe("migration 14: widen the transition CHECK", () => {
-  it("rebuilds an old gallery_slideshows in place, preserving rows and the child FK", () => {
-    // A v13-era database: gallery_slideshows WITHOUT 'random' in the CHECK (movie_*
-    // columns already added by v13), with a slideshow and a child item present.
-    const scratch = new Database(":memory:");
-    // The migration's restore runs with FKs ON (schema.sql sets the pragma), so the
-    // fixture provides the referenced user and item in minimal tables — schema.sql
-    // skips them via IF NOT EXISTS and only migration 14 runs at user_version 13. FKs
-    // stay OFF during fixture setup because the remaining parent tables don't exist
-    // until migrate() has applied schema.sql.
-    scratch.pragma("foreign_keys = OFF");
-    scratch.exec(`
-      CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT, password_hash TEXT, display_name TEXT, role TEXT);
-      INSERT INTO users (id) VALUES ('u1');
-      CREATE TABLE library_items (id TEXT PRIMARY KEY, library_id TEXT, type TEXT, folder_path TEXT, status TEXT);
-      INSERT INTO library_items (id) VALUES ('i1');
-      CREATE TABLE gallery_slideshows (
-        id             TEXT PRIMARY KEY,
-        name           TEXT NOT NULL,
-        source_kind    TEXT NOT NULL DEFAULT 'manual' CHECK (source_kind IN ('manual', 'memory', 'album')),
-        source_ref     TEXT,
-        music_track_id TEXT REFERENCES gallery_music_tracks(id) ON DELETE SET NULL,
-        transition     TEXT NOT NULL DEFAULT 'crossfade'
-                         CHECK (transition IN ('none', 'crossfade', 'fade', 'slide', 'kenburns')),
-        slide_seconds  REAL NOT NULL DEFAULT 4,
-        render_status  TEXT NOT NULL DEFAULT 'draft'
-                         CHECK (render_status IN ('draft', 'queued', 'rendering', 'ready', 'failed')),
-        render_job_id  TEXT REFERENCES jobs(id) ON DELETE SET NULL,
-        output_storage_key TEXT,
-        output_bytes   INTEGER,
-        rendered_at    TEXT,
-        render_error   TEXT,
-        movie_library_id    TEXT REFERENCES libraries(id) ON DELETE SET NULL,
-        movie_relative_path TEXT,
-        movie_item_id       TEXT REFERENCES library_items(id) ON DELETE SET NULL,
-        created_by     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-      );
-      CREATE TABLE gallery_slideshow_items (
-        slideshow_id  TEXT NOT NULL REFERENCES gallery_slideshows(id) ON DELETE CASCADE,
-        item_id       TEXT NOT NULL,
-        position      REAL NOT NULL,
-        dwell_seconds REAL,
-        added_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        PRIMARY KEY (slideshow_id, item_id)
-      );
-      INSERT INTO gallery_slideshows (id, name, transition, created_by) VALUES ('s1', 'Trip', 'kenburns', 'u1');
-      INSERT INTO gallery_slideshow_items (slideshow_id, item_id, position) VALUES ('s1', 'i1', 1);
-    `);
-    scratch.pragma("user_version = 13"); // only migration 14 should run
-
+describe('schema baseline (2.0.0)', () => {
+  // 2.0.0 folded migrations 2-22 into schema.sql. What those migrations used to
+  // guarantee is now a property of the schema itself, so that is what we test:
+  // a database built in one pass accepts every value the rebuilds widened to.
+  it('builds a complete schema in one pass and stamps the baseline', () => {
+    const scratch = new Database(':memory:');
     migrate(scratch);
+    expect(scratch.pragma('user_version', { simple: true })).toBe(23);
 
-    // The row survived the rebuild and 'random' is now writable.
-    const row = scratch.prepare("SELECT name, transition FROM gallery_slideshows WHERE id = 's1'").get() as { name: string; transition: string };
-    expect(row).toEqual({ name: "Trip", transition: "kenburns" });
-    scratch.prepare("UPDATE gallery_slideshows SET transition = 'random' WHERE id = 's1'").run(); // would throw under the old CHECK
-    // The child kept its row and its FK still targets gallery_slideshows (not _old).
-    expect((scratch.prepare("SELECT COUNT(*) AS n FROM gallery_slideshow_items").get() as { n: number }).n).toBe(1);
-    const itemsSql = (scratch.prepare("SELECT sql FROM sqlite_master WHERE name = 'gallery_slideshow_items'").get() as { sql: string }).sql;
-    expect(itemsSql).toContain("REFERENCES gallery_slideshows(");
-    expect(scratch.prepare("SELECT 1 FROM sqlite_master WHERE name LIKE '%_backup'").get()).toBeUndefined();
+    const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
+    expect(userColumns).toEqual(expect.arrayContaining(['ereader_email', 'mfa_enabled', 'mfa_secret', 'mfa_backup_codes']));
+    const itemColumns = (scratch.pragma('table_info(library_items)') as { name: string }[]).map((c) => c.name);
+    expect(itemColumns).toContain('scan_rule_id');
     scratch.close();
   });
 
-  it("migration 15 repairs a child table left pointing at gallery_slideshows_old", () => {
-    // The state v14's first, flawed rebuild left behind: parent already widened, but
-    // the child's FK rewritten to the dropped _old table (every insert failed).
-    const scratch = new Database(":memory:");
-    scratch.pragma("foreign_keys = OFF");
-    scratch.exec(`
-      -- Minimal parent whose CHECK already allows every value, so only migration 15
-      -- (the child repair under test) runs — the CHECK-widening rebuilds all skip.
-      CREATE TABLE gallery_slideshows (
-        id TEXT PRIMARY KEY, name TEXT NOT NULL,
-        transition TEXT NOT NULL DEFAULT 'crossfade'
-          CHECK (transition IN ('none', 'crossfade', 'fade', 'slide', 'kenburns', 'dipblack', 'random')),
-        created_by TEXT NOT NULL
-      );
-      CREATE TABLE gallery_slideshow_items (
-        slideshow_id  TEXT NOT NULL REFERENCES "gallery_slideshows_old"(id) ON DELETE CASCADE,
-        item_id       TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
-        position      REAL NOT NULL,
-        dwell_seconds REAL,
-        added_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        PRIMARY KEY (slideshow_id, item_id)
-      );
-      CREATE INDEX idx_gallery_slideshow_items_item ON gallery_slideshow_items (item_id);
-      INSERT INTO gallery_slideshows (id, name, created_by) VALUES ('s1', 'S', 'u1');
-      CREATE TABLE library_items (id TEXT PRIMARY KEY, library_id TEXT, type TEXT, folder_path TEXT, status TEXT);
-      INSERT INTO library_items (id) VALUES ('i1');
-    `);
-    scratch.pragma("user_version = 14"); // only migration 15 should run
-
+  it('accepts the transition and event values the old rebuilds widened to', () => {
+    const scratch = new Database(':memory:');
     migrate(scratch);
-
-    // The FK targets gallery_slideshows again and inserts work.
-    const itemsSql = (scratch.prepare("SELECT sql FROM sqlite_master WHERE name = 'gallery_slideshow_items'").get() as { sql: string }).sql;
-    expect(itemsSql).not.toContain("gallery_slideshows_old");
-    expect(itemsSql).toContain("REFERENCES gallery_slideshows(");
-    scratch.prepare("INSERT INTO gallery_slideshow_items (slideshow_id, item_id, position) VALUES ('s1', 'i1', 1)").run();
-    scratch.close();
-  });
-
-  it("migration 18 widens the CHECK to allow 'dipblack', preserving rows and the child FK", () => {
-    // A v17-era database: 'random' already allowed, transition_seconds and movie_*
-    // present, but no 'dipblack' — with a slideshow and a child item to survive.
-    const scratch = new Database(":memory:");
-    scratch.pragma("foreign_keys = OFF");
-    scratch.exec(`
-      CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT, password_hash TEXT, display_name TEXT, role TEXT);
-      INSERT INTO users (id) VALUES ('u1');
-      CREATE TABLE library_items (id TEXT PRIMARY KEY, library_id TEXT, type TEXT, folder_path TEXT, status TEXT);
-      INSERT INTO library_items (id) VALUES ('i1');
-      CREATE TABLE gallery_slideshows (
-        id             TEXT PRIMARY KEY,
-        name           TEXT NOT NULL,
-        source_kind    TEXT NOT NULL DEFAULT 'manual' CHECK (source_kind IN ('manual', 'memory', 'album')),
-        source_ref     TEXT,
-        music_track_id TEXT REFERENCES gallery_music_tracks(id) ON DELETE SET NULL,
-        transition     TEXT NOT NULL DEFAULT 'crossfade'
-                         CHECK (transition IN ('none', 'crossfade', 'fade', 'slide', 'kenburns', 'random')),
-        slide_seconds  REAL NOT NULL DEFAULT 4,
-        transition_seconds REAL NOT NULL DEFAULT 2,
-        render_status  TEXT NOT NULL DEFAULT 'draft'
-                         CHECK (render_status IN ('draft', 'queued', 'rendering', 'ready', 'failed')),
-        render_job_id  TEXT REFERENCES jobs(id) ON DELETE SET NULL,
-        output_storage_key TEXT,
-        output_bytes   INTEGER,
-        rendered_at    TEXT,
-        render_error   TEXT,
-        movie_library_id    TEXT REFERENCES libraries(id) ON DELETE SET NULL,
-        movie_relative_path TEXT,
-        movie_item_id       TEXT REFERENCES library_items(id) ON DELETE SET NULL,
-        created_by     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-      );
-      CREATE TABLE gallery_slideshow_items (
-        slideshow_id  TEXT NOT NULL REFERENCES gallery_slideshows(id) ON DELETE CASCADE,
-        item_id       TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
-        position      REAL NOT NULL,
-        dwell_seconds REAL,
-        added_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        PRIMARY KEY (slideshow_id, item_id)
-      );
-      CREATE INDEX idx_gallery_slideshow_items_item ON gallery_slideshow_items (item_id);
-      INSERT INTO gallery_slideshows (id, name, transition, transition_seconds, created_by) VALUES ('s1', 'Trip', 'random', 3.5, 'u1');
-      INSERT INTO gallery_slideshow_items (slideshow_id, item_id, position) VALUES ('s1', 'i1', 1);
-    `);
-    scratch.pragma("user_version = 17"); // only migration 18 should run
-
-    migrate(scratch);
-
-    const row = scratch.prepare("SELECT name, transition, transition_seconds FROM gallery_slideshows WHERE id = 's1'")
-      .get() as { name: string; transition: string; transition_seconds: number };
-    expect(row).toEqual({ name: "Trip", transition: "random", transition_seconds: 3.5 });
-    scratch.prepare("UPDATE gallery_slideshows SET transition = 'dipblack' WHERE id = 's1'").run(); // would throw under the old CHECK
-    expect((scratch.prepare("SELECT COUNT(*) AS n FROM gallery_slideshow_items").get() as { n: number }).n).toBe(1);
-    const itemsSql = (scratch.prepare("SELECT sql FROM sqlite_master WHERE name = 'gallery_slideshow_items'").get() as { sql: string }).sql;
-    expect(itemsSql).toContain("REFERENCES gallery_slideshows(");
-    expect(scratch.prepare("SELECT 1 FROM sqlite_master WHERE name LIKE '%_backup'").get()).toBeUndefined();
-    scratch.close();
-  });
-
-  it("leaves an already-widened table alone (fresh databases)", () => {
-    const scratch = new Database(":memory:");
-    migrate(scratch); // fresh: schema.sql already contains 'random'; v14's guard skips
     scratch.prepare("INSERT INTO users (id, email, password_hash, display_name, role) VALUES ('u1', 'u@x', 'x', 'u', 'member')").run();
-    scratch.prepare("INSERT INTO gallery_slideshows (id, name, transition, created_by) VALUES ('s1', 'S', 'random', 'u1')").run();
-    expect((scratch.prepare("SELECT transition FROM gallery_slideshows WHERE id = 's1'").get() as { transition: string }).transition).toBe("random");
+    for (const transition of ['random', 'dipblack']) {
+      scratch.prepare('INSERT INTO gallery_slideshows (id, name, transition, created_by) VALUES (?, ?, ?, ?)')
+        .run(transition, 'S', transition, 'u1');
+    }
+    expect(scratch.prepare('SELECT COUNT(*) AS n FROM gallery_slideshows').get()).toEqual({ n: 2 });
+
+    scratch.prepare("INSERT INTO family_tree_persons (id, name, gender) VALUES ('p1', 'P', 'unknown')").run();
+    for (const type of ['travel', 'award', 'graduation', 'retirement', 'naturalization', 'baptism']) {
+      scratch.prepare('INSERT INTO family_tree_events (id, person_id, type) VALUES (?, ?, ?)').run(type, 'p1', type);
+    }
+    expect(scratch.prepare('SELECT COUNT(*) AS n FROM family_tree_events').get()).toEqual({ n: 6 });
     scratch.close();
+  });
+
+  it('adopts a fully-migrated 1.x database but refuses an older one', () => {
+    const current = new Database(':memory:');
+    migrate(current);
+    current.pragma('user_version = 22'); // the last 1.x schema — already complete
+    expect(() => migrate(current)).not.toThrow();
+    expect(current.pragma('user_version', { simple: true })).toBe(23);
+    current.close();
+
+    // Older databases still needed steps that no longer exist: stop, don't stamp.
+    const stale = new Database(':memory:');
+    migrate(stale);
+    stale.pragma('user_version = 12');
+    expect(() => migrate(stale)).toThrow(/older version/);
+    stale.close();
   });
 });
 

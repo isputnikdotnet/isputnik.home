@@ -117,6 +117,16 @@ export function listFamilyPersons(query?: string): FamilyPersonSummary[] {
   return rows.map(mapPerson);
 }
 
+// Everyone carrying one tag — the family arm of the global tag browse. Reads
+// are open to every signed-in user, like the rest of the tree.
+export function listFamilyPersonsByTag(tagId: string): FamilyPersonSummary[] {
+  const rows = db.prepare(`${PERSON_SELECT}
+    JOIN taggables ON taggables.entity_id = p.id
+      AND taggables.entity_type = '${FAMILY_PERSON_ENTITY_TYPE}' AND taggables.tag_id = ?
+    ORDER BY p.name COLLATE NOCASE`).all(tagId) as PersonRow[];
+  return rows.map(mapPerson);
+}
+
 export interface FamilyUnionSummary {
   id: string;
   person1Id: string;

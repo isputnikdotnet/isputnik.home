@@ -34,6 +34,13 @@ CREATE TABLE IF NOT EXISTS users (
   theme                 TEXT NOT NULL DEFAULT 'dark',
   protected_from_delete INTEGER NOT NULL DEFAULT 0 CHECK (protected_from_delete IN (0, 1)),
   is_active             INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+  -- Delivery address for "Send to e-reader" (Kindle/Kobo).
+  ereader_email         TEXT,
+  -- Two-factor auth (TOTP): enable flag, encrypted secret, and hashed
+  -- single-use backup codes (JSON array). Handling lives in core/mfa.ts.
+  mfa_enabled           INTEGER NOT NULL DEFAULT 0,
+  mfa_secret            TEXT,
+  mfa_backup_codes      TEXT,
   created_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   deleted_at            TEXT
@@ -191,6 +198,10 @@ CREATE TABLE IF NOT EXISTS library_items (
   status        TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ready', 'error')),
   -- 'manual' = the item's series membership is user-curated; the scanner won't touch it.
   series_source TEXT NOT NULL DEFAULT 'scan' CHECK (series_source IN ('scan', 'manual')),
+  -- The custom scan rule that produced this item; NULL = the default scanner.
+  -- Forward reference: library_scan_rules is created further down this file,
+  -- which SQLite resolves lazily (the column is nullable and only set later).
+  scan_rule_id  TEXT REFERENCES library_scan_rules(id) ON DELETE SET NULL,
   discovered_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   deleted_at    TEXT,

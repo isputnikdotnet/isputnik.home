@@ -130,6 +130,59 @@
   font-weight: 500;
 }
 
+/* Tag list controls: the scope pills and the sort select share one row, so the
+   toggle's own bottom margin gives way to the row's. */
+.tag-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0 0 18px;
+}
+
+.tag-filter-row .kind-toggle {
+  margin: 0;
+}
+
+.tag-cloud-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+/* A tag can span types, so its detail page stacks a book grid, a photo grid,
+   and a people grid. Photo tiles are buttons (they open the lightbox in place,
+   never navigate to the gallery), so they need the anchor's neutral chrome. */
+.tag-photo-grid {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  margin-bottom: 18px;
+}
+
+.tag-photo-grid .gallery-tile {
+  padding: 0;
+  border: 0;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Scope headings between the stacked grids in the "All" view. */
+.audiobook-main-page .gallery-section-label {
+  margin: 4px 0 10px;
+}
+
+/* A disabled scope (no tags of that type) stays visible but inert. */
+.kind-toggle button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.kind-toggle button:disabled:hover {
+  color: var(--muted);
+  background: transparent;
+}
+
 /* ── Series grid & cards ────────────────────────────────────────── */
 
 .series-grid {
