@@ -1,9 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, LibraryBig, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { followRoute, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
@@ -1301,7 +1301,23 @@ export function GalleryPage({
           <div className="empty-state library-empty">
             <ImageIcon size={58} aria-hidden="true" />
             <h2>No gallery libraries yet</h2>
-            <p className="muted">An administrator can add a gallery library from the control panel.</p>
+            {isAdmin ? (
+              <>
+                <p className="muted">
+                  Create a library and point it at the folder holding your photos and videos — the scanner takes it from there.
+                </p>
+                <a
+                  className="primary-button"
+                  href="/control/libraries"
+                  onClick={(event) => followRoute(event, "/control/libraries")}
+                >
+                  <LibraryBig size={16} aria-hidden="true" />
+                  Create a library
+                </a>
+              </>
+            ) : (
+              <p className="muted">An administrator can add a gallery library from the control panel.</p>
+            )}
           </div>
         ) : (
           <>

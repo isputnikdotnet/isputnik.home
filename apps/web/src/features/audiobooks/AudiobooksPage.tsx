@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDownUp, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { ArrowDownUp, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, LibraryBig, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { activeFilterCount, FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
@@ -9,7 +9,7 @@ import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { DEFAULT_COVERS } from "./covers";
 import { PeopleCombobox } from "./PeopleCombobox";
-import { navigate } from "../../router";
+import { followRoute, navigate } from "../../router";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { CatalogRowMobile } from "./CatalogRowMobile";
 import { listDownloads } from "../../offline/downloads";
@@ -1351,7 +1351,23 @@ export function AudiobooksPage({
           <div className="empty-state library-empty">
             <BookOpen size={58} aria-hidden="true" />
             <h2>No audiobook libraries yet</h2>
-            <p className="muted">An administrator can add libraries from the control panel.</p>
+            {user.role === "admin" ? (
+              <>
+                <p className="muted">
+                  Create a library and point it at the folder holding your audiobooks — the scanner takes it from there.
+                </p>
+                <a
+                  className="primary-button"
+                  href="/control/libraries"
+                  onClick={(event) => followRoute(event, "/control/libraries")}
+                >
+                  <LibraryBig size={16} aria-hidden="true" />
+                  Create a library
+                </a>
+              </>
+            ) : (
+              <p className="muted">An administrator can add libraries from the control panel.</p>
+            )}
           </div>
         ) : (
           <>

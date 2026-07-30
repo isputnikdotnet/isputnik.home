@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.1.0",
+          label: "Adding photos to the family tree, and a gentler first run",
+          changes: [
+            "Photos and videos can now be uploaded straight from the family tree. Wherever you add photos to a person or an event, there is a second tab beside Browse for uploading new files — they are added to the gallery and attached in one step, filed by the date they were taken.",
+            "A Settings button gathers the family tree's administration in one place: which gallery library uploads go to, GEDCOM import and export, and Branch access — who may edit which family branch. Branch access moved here from the People page.",
+            "Starting out is clearer. Audiobooks, Ebooks and Gallery now explain what a library is for when there isn't one yet and offer a button straight to where libraries are created; the Libraries page does the same for storage, which has to be set up first.",
+            "Links that look like buttons now behave like buttons — no stray underline, and their icons match the button's text instead of turning a different colour."
+          ]
+        },
+        {
           version: "2.0.0",
           label: "Tags across everything, and a fresh foundation",
           changes: [

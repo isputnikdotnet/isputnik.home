@@ -2,8 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, ChevronRight, Folder, FolderOpen, Image as ImageIcon, Play } from "lucide-react";
 import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
+import { FileUpload } from "../../shared/FileUpload";
 import { Modal } from "../../shared/Modal";
 import type { GalleryAsset, GalleryFolder, GalleryLibrary } from "../gallery/types";
+
+// Where family-tree uploads land, and whether this viewer may put files there.
+export interface FamilyUploadSettings {
+  galleryLibrary: { id: string; name: string } | null;
+  canUpload: boolean;
+  isAdmin: boolean;
+}
 
 // Browse the galleries by folder and pick photos/videos for a family member —
 // the slideshow photo browser's flow (breadcrumbs, cross-folder multi-select,
@@ -38,12 +46,22 @@ export function FamilyPhotoPicker({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [added, setAdded] = useState<Set<string>>(() => new Set(existingIds));
   const [adding, setAdding] = useState(false);
+  // Browse picks from what the gallery already holds; Upload adds new files to
+  // the library the family tree is configured to use, then attaches them.
+  const [tab, setTab] = useState<"browse" | "upload">("browse");
+  const [uploadSettings, setUploadSettings] = useState<FamilyUploadSettings | null>(null);
+  const [uploadNotice, setUploadNotice] = useState("");
 
   useEffect(() => {
     api<{ libraries: GalleryLibrary[] }>("/api/library/gallery-libraries")
       .then((payload) => setLibraries(payload.libraries))
       .catch(() => {}); // scope select just stays on "All libraries"
-  }, []);
+    if (!single) {
+      api<FamilyUploadSettings>("/api/family-tree/settings")
+        .then(setUploadSettings)
+        .catch(() => {}); // the Upload tab explains itself when this is unknown
+    }
+  }, [single]);
 
   const load = useCallback(async (nextScope: string, nextParent: string) => {
     setLoading(true);
@@ -108,7 +126,34 @@ export function FamilyPhotoPicker({
     }
   };
 
-  const librarySelect = (
+  // Uploading needs a destination, which an admin nominates once in the family
+  // tree's settings — browsing works across every gallery, but a new file has
+  // to land somewhere specific.
+  const uploadTarget = uploadSettings?.galleryLibrary ?? null;
+  const uploadLibrary = uploadTarget ? libraries.find((l) => l.id === uploadTarget.id) : undefined;
+
+  const uploadFinished = async (itemIds: string[]) => {
+    if (itemIds.length === 0 || !onAttach) return;
+    setAdding(true);
+    setError("");
+    try {
+      // Fetch what was just uploaded so callers that stage thumbnails locally
+      // (the event editor) get real assets, not bare ids.
+      const assets = (await Promise.all(itemIds.map((id) =>
+        api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${id}`).then((p) => p.asset).catch(() => null)
+      ))).filter((a): a is GalleryAsset => a != null);
+      await onAttach(itemIds, assets);
+      setAdded((prev) => new Set([...prev, ...itemIds]));
+      setUploadNotice(`${itemIds.length} ${itemIds.length === 1 ? "file" : "files"} uploaded and attached.`);
+      void load(scope, parent);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Uploaded, but attaching failed");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const librarySelect = tab === "browse" ? (
     <label className="slideshow-browse-scope">
       <span className="sr-only">Gallery library</span>
       <select value={scope} onChange={(e) => { setScope(e.target.value); }} disabled={adding}>
@@ -118,7 +163,7 @@ export function FamilyPhotoPicker({
         ))}
       </select>
     </label>
-  );
+  ) : undefined;
 
   return (
     <Modal
@@ -130,6 +175,63 @@ export function FamilyPhotoPicker({
       headerAction={librarySelect}
       onClose={onClose}
     >
+      {!single && (
+        <div className="modal-tabs">
+          <button
+            type="button"
+            className={`modal-tab${tab === "browse" ? " active" : ""}`}
+            onClick={() => setTab("browse")}
+          >
+            Browse gallery
+          </button>
+          <button
+            type="button"
+            className={`modal-tab${tab === "upload" ? " active" : ""}`}
+            onClick={() => { setTab("upload"); setUploadNotice(""); }}
+          >
+            Upload
+          </button>
+        </div>
+      )}
+
+      {tab === "upload" ? (
+        <div className="modal-tab-content ft-upload-panel">
+          {error && <MessageBox tone="error" title="Upload problem">{error}</MessageBox>}
+          {uploadNotice && <MessageBox tone="success" title="Added">{uploadNotice}</MessageBox>}
+          {!uploadTarget ? (
+            <MessageBox tone="info" title="No upload library chosen yet">
+              {uploadSettings?.isAdmin
+                ? "Pick which gallery library family-tree photos and videos are added to — Family tree → Settings → Photo library. Until then you can still attach photos the gallery already holds, from the Browse tab."
+                : "An administrator needs to choose which gallery library family-tree uploads go to. Until then you can attach photos the gallery already holds, from the Browse tab."}
+            </MessageBox>
+          ) : !uploadSettings?.canUpload || !uploadLibrary ? (
+            <MessageBox tone="warning" title="Uploading isn't allowed here">
+              Photos and videos would go to “{uploadTarget.name}”, but you don't have permission to upload to that library.
+            </MessageBox>
+          ) : (
+            <>
+              <p className="ft-modal-hint">
+                Files are added to “{uploadTarget.name}” and attached here in one step. They appear in the
+                gallery too, filed by the date they were taken.
+              </p>
+              <FileUpload
+                endpoint={`/api/library/gallery-libraries/${uploadLibrary.id}/assets/upload`}
+                accept={uploadLibrary.uploadExtensions}
+                maxBytes={uploadLibrary.maxUploadMB != null ? uploadLibrary.maxUploadMB * 1024 * 1024 : null}
+                multiple
+                maxFiles={100}
+                hint={`Accepted: ${uploadLibrary.uploadExtensions.map((ext) => `.${ext}`).join(", ")}${uploadLibrary.maxUploadMB != null ? ` · up to ${uploadLibrary.maxUploadMB} MB per file` : ""}`}
+                onUploaded={(response) => {
+                  const payload = response as { itemIds?: string[] };
+                  void uploadFinished(payload.itemIds ?? []);
+                }}
+                onBusyChange={setAdding}
+              />
+            </>
+          )}
+        </div>
+      ) : (
+      <>
       <div className="add-to-album-head">
         {error && <MessageBox tone="error" title="Unable to add photos">{error}</MessageBox>}
         <div className="gallery-breadcrumb slideshow-browse-crumbs">
@@ -200,8 +302,10 @@ export function FamilyPhotoPicker({
         {loading && folders.length === 0 && assets.length === 0 && <p className="management-empty">Loading…</p>}
         {!loading && folders.length === 0 && assets.length === 0 && <p className="management-empty">This folder is empty.</p>}
       </div>
+      </>
+      )}
 
-      {!single && (
+      {!single && tab === "browse" && (
         <div className="modal-actions slideshow-browse-actions">
           <span className="muted">{selected.size > 0 ? `${selected.size} selected` : "Select photos to add"}</span>
           <div className="row-actions">

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookMarked, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, ListMusic, Loader2, RotateCcw, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { BookMarked, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, LibraryBig, ListMusic, Loader2, RotateCcw, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { followRoute, navigate } from "../../router";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { CatalogRowMobile } from "./CatalogRowMobile";
 import { DEFAULT_COVERS } from "./covers";
@@ -703,7 +703,23 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
           <div className="empty-state library-empty">
             <BookMarked size={58} aria-hidden="true" />
             <h2>No ebook libraries yet</h2>
-            <p className="muted">An administrator can add an ebook library from the control panel.</p>
+            {user.role === "admin" ? (
+              <>
+                <p className="muted">
+                  Create a library and point it at the folder holding your ebooks — the scanner takes it from there.
+                </p>
+                <a
+                  className="primary-button"
+                  href="/control/libraries"
+                  onClick={(event) => followRoute(event, "/control/libraries")}
+                >
+                  <LibraryBig size={16} aria-hidden="true" />
+                  Create a library
+                </a>
+              </>
+            ) : (
+              <p className="muted">An administrator can add an ebook library from the control panel.</p>
+            )}
           </div>
         ) : (
           <>

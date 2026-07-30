@@ -335,7 +335,9 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.code(201).send({ uploaded: createdIds.length });
+    // `itemIds` lets a caller act on what it just uploaded — the family tree
+    // attaches them to a person or event straight after the upload.
+    reply.code(201).send({ uploaded: createdIds.length, itemIds: createdIds });
   });
 
   // ── Browse: Timeline (by date) and Folders (by on-disk structure) ──

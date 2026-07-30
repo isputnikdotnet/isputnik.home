@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Network, ShieldCheck, UserRoundPlus } from "lucide-react";
+import { Network, Settings, UserRoundPlus } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { AudiobookPageHeader } from "../audiobooks/AudiobooksPage";
-import { FamilyTagAccessModal } from "./FamilyTagAccessModal";
+import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { lifeYears, type FamilyPerson, type FamilyTreeAccess } from "./types";
@@ -66,8 +66,8 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
               </a>
               {isAdmin && (
                 <Button variant="secondary" compact onClick={() => setAccessOpen(true)}>
-                  <ShieldCheck size={16} aria-hidden="true" />
-                  Branch access
+                  <Settings size={16} aria-hidden="true" />
+                  Settings
                 </Button>
               )}
               {access?.canAdd && (
@@ -137,7 +137,13 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
         />
       )}
 
-      {accessOpen && <FamilyTagAccessModal onClose={() => setAccessOpen(false)} />}
+      {accessOpen && (
+        <FamilyTreeSettingsModal
+          personCount={persons.length}
+          onClose={() => setAccessOpen(false)}
+          onChanged={() => window.location.reload()}
+        />
+      )}
     </DashboardShell>
   );
 }

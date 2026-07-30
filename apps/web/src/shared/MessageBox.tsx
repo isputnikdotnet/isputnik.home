@@ -5,11 +5,15 @@ export function MessageBox({
   tone,
   title,
   className,
+  action,
   children
 }: {
   tone: "info" | "warning" | "error" | "success";
   title: string;
   className?: string;
+  /** Optional call to action (a Button or link) shown under the message —
+      for notices whose fix is one click away, like "set up storage". */
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const Icon = {
@@ -27,6 +31,7 @@ export function MessageBox({
       <div>
         <strong>{title}</strong>
         <p>{children}</p>
+        {action && <div className="message-box-action">{action}</div>}
       </div>
     </div>
   );
