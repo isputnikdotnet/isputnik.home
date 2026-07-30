@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.1.1",
+          label: "Guides for every part of the app",
+          changes: [
+            "There are now written guides for setting up and using iSputnik — first run, storage, adding libraries, and one for each of audiobooks, ebooks, the gallery and the family tree. They are illustrated, and open from Help & guides.",
+            "The Help page lists them all, grouped by what you're trying to do. Setup guides are shown only to administrators, since they describe the control panel."
+          ]
+        },
+        {
           version: "2.1.0",
           label: "Adding photos to the family tree, and a gentler first run",
           changes: [
