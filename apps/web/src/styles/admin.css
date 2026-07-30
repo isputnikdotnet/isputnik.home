@@ -28,7 +28,9 @@
   background: var(--control-primary-button-hover);
 }
 
-.library-empty svg {
+/* The big decorative icon only — a direct child. Icons inside buttons in the
+   panel keep their button's colour. */
+.library-empty > svg {
   color: var(--mint);
 }
 

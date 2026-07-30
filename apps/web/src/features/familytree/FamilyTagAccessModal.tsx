@@ -3,7 +3,6 @@ import { ShieldCheck, Tags, Trash2, UserPlus, Users } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
-import { Modal } from "../../shared/Modal";
 import type { ManagedGroup, ManagedUser } from "../control/types";
 import type { FamilyTag } from "./types";
 
@@ -55,7 +54,9 @@ function RoleControl({
   );
 }
 
-export function FamilyTagAccessModal({ onClose }: { onClose: () => void }) {
+// The branch-access body, rendered as the Security tab of the family-tree
+// settings modal (it used to be a modal of its own).
+export function FamilyTagAccessPanel() {
   const [tags, setTags] = useState<FamilyTag[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
@@ -141,13 +142,7 @@ export function FamilyTagAccessModal({ onClose }: { onClose: () => void }) {
   const activeTag = tags.find((t) => t.id === tagId) ?? null;
 
   return (
-    <Modal
-      title="Branch access"
-      icon={<ShieldCheck size={18} />}
-      className="library-members-modal ft-modal"
-      busy={saving}
-      onClose={onClose}
-    >
+    <div className="ft-access-panel">
       <p className="ft-modal-hint">
         Family tags group people into branches. Granting the Editor role on a tag lets a user or group edit
         every person carrying that tag and add relatives to them. Assign tags to people via Edit person (admins only).
@@ -253,9 +248,6 @@ export function FamilyTagAccessModal({ onClose }: { onClose: () => void }) {
         </>
       )}
 
-      <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose} disabled={saving}>Close</Button>
-      </div>
-    </Modal>
+    </div>
   );
 }

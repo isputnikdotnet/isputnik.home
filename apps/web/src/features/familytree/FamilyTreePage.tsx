@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, FileUp, Search, UserRound, UserRoundPlus, UsersRound } from "lucide-react";
+import { Download, FileUp, Search, Settings, UserRound, UserRoundPlus, UsersRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
@@ -7,7 +7,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { defaultFocusId } from "./chart-layout";
 import { FamilyTreeChart } from "./FamilyTreeChart";
-import { GedcomImportModal } from "./GedcomImportModal";
+import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { lifeYears, type FamilyPerson, type FamilyTree } from "./types";
@@ -31,7 +31,7 @@ export function FamilyTreePage({
   const [searchOpen, setSearchOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editPerson, setEditPerson] = useState<FamilyPerson | null>(null);
-  const [importOpen, setImportOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const loadTree = () => {
@@ -126,11 +126,11 @@ export function FamilyTreePage({
             {isAdmin && (
               <Button
                 variant="icon"
-                title="Import GEDCOM (.ged)"
-                aria-label="Import GEDCOM"
-                onClick={() => setImportOpen(true)}
+                title="Family tree settings"
+                aria-label="Family tree settings"
+                onClick={() => setSettingsOpen(true)}
               >
-                <FileUp size={17} aria-hidden="true" />
+                <Settings size={17} aria-hidden="true" />
               </Button>
             )}
             {tree?.access.canAdd && (
@@ -160,7 +160,7 @@ export function FamilyTreePage({
                   Add person
                 </Button>
                 {isAdmin && (
-                  <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                  <Button variant="secondary" onClick={() => setSettingsOpen(true)}>
                     <FileUp size={16} aria-hidden="true" />
                     Import GEDCOM
                   </Button>
@@ -199,11 +199,11 @@ export function FamilyTreePage({
         />
       )}
 
-      {importOpen && (
-        <GedcomImportModal
+      {settingsOpen && (
+        <FamilyTreeSettingsModal
           personCount={tree?.persons.length ?? 0}
-          onClose={() => setImportOpen(false)}
-          onImported={() => { setImportOpen(false); loadTree(); }}
+          onClose={() => setSettingsOpen(false)}
+          onChanged={loadTree}
         />
       )}
     </DashboardShell>

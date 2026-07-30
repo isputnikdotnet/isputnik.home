@@ -12,12 +12,14 @@ import {
   Info,
   Search,
   Folder,
+  HardDrive,
   LayoutGrid,
   LibraryBig,
   Wand2,
   ScanFace
 } from "lucide-react";
 import { api } from "../../../api";
+import { followRoute } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
@@ -406,7 +408,20 @@ export function LibrariesSection() {
 
       {error && <MessageBox tone="error" title="Library error">{error}</MessageBox>}
       {!setupReady && (
-        <MessageBox tone="warning" title="Storage setup required">
+        <MessageBox
+          tone="warning"
+          title="Storage setup required"
+          action={
+            <a
+              className="primary-button compact-button"
+              href="/control/storage"
+              onClick={(event) => followRoute(event, "/control/storage")}
+            >
+              <HardDrive size={16} aria-hidden="true" />
+              Set up storage
+            </a>
+          }
+        >
           Configure thumbnail storage and at least one Digital Library container before adding libraries.
         </MessageBox>
       )}

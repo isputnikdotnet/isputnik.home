@@ -157,6 +157,23 @@
   gap: 8px;
 }
 
+/* A link styled as a button is still a link: kill the underline, and let its
+   icon take the button's text colour rather than any ambient link/icon tint. */
+a.primary-button,
+a.secondary-button,
+a.danger-button,
+a.text-button,
+a.icon-button {
+  text-decoration: none;
+}
+
+a.primary-button svg,
+a.secondary-button svg,
+a.danger-button svg,
+a.icon-button svg {
+  color: inherit;
+}
+
 .primary-button {
   min-height: 44px;
   padding: 0 16px;
@@ -460,6 +477,14 @@
 .message-box p {
   margin: 0;
   color: inherit;
+}
+
+/* Call to action under a notice whose fix is one click away. */
+.message-box-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .message-box code {

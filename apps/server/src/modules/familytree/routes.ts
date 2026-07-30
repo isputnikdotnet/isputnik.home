@@ -29,6 +29,8 @@ import {
   canEditAnyPerson, canEditPerson, canEditTree, decoratePersons, getEditableTags, listFamilyTags
 } from "./access.js";
 import { normalizeText } from "../library/audiobook/categorize.js";
+import { getFamilyUploadLibrary, setFamilyTreeSettings } from "./settings.js";
+import { can, parsePolicy } from "../../core/permissions.js";
 import { exportGedcom, importGedcom } from "./gedcom.js";
 import { EVENT_TYPES, createFamilyEvent, updateFamilyEvent, deleteFamilyEvent, getFamilyEvent } from "./events.js";
 import {
@@ -200,6 +202,58 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
   app.get("/api/family-tree/tags", { preHandler: app.authenticate }, async () => ({
     tags: listFamilyTags()
   }));
+
+  // ── Settings ──
+  // Read is open: the photo picker needs to know where uploads go (and whether
+  // the viewer may upload there at all) before it offers the option.
+  app.get("/api/family-tree/settings", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const library = getFamilyUploadLibrary();
+    let canUpload = false;
+    if (library) {
+      const row = db.prepare("SELECT id, policy_json FROM libraries WHERE id = ?")
+        .get(library.id) as { id: string; policy_json: string } | undefined;
+      if (row) {
+        canUpload = can(user, { objectType: "library", objectId: row.id, policy: parsePolicy(row.policy_json) }, "upload");
+      }
+    }
+    return {
+      galleryLibrary: library,
+      canUpload,
+      isAdmin: user.role === "admin"
+    };
+  });
+
+  const settingsSchema = z.object({
+    galleryLibraryId: z.string().trim().min(1).nullable()
+  });
+
+  app.put("/api/family-tree/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(settingsSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid settings", details: parsed.error });
+      return;
+    }
+    const { galleryLibraryId } = parsed.data;
+    if (galleryLibraryId) {
+      const exists = db.prepare("SELECT 1 FROM libraries WHERE id = ? AND type = 'gallery'").get(galleryLibraryId);
+      if (!exists) {
+        reply.code(404).send({ error: "Gallery library not found" });
+        return;
+      }
+    }
+    setFamilyTreeSettings({ galleryLibraryId }, request.user!.id);
+    logActivity({
+      event: "familytree.settings.updated",
+      actorUserId: request.user!.id,
+      targetType: "family_tree",
+      detail: galleryLibraryId
+        ? "Set the gallery library family-tree uploads are added to."
+        : "Cleared the gallery library for family-tree uploads.",
+      ipAddress: request.ip
+    });
+    reply.send({ galleryLibrary: getFamilyUploadLibrary() });
+  });
 
   app.get("/api/family-tree/persons/:id/photos", { preHandler: app.authenticate }, async (request, reply) => {
     const qp = request.query as { limit?: string; offset?: string };
