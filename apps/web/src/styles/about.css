@@ -260,10 +260,29 @@
   max-width: 620px;
 }
 
+/* Guides are grouped (getting started, your libraries, …) so the list stays
+   scannable as it grows. */
+.help-section {
+  margin-top: 30px;
+}
+
+.help-section-title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.help-section-blurb {
+  margin: 4px 0 0;
+  max-width: 620px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .help-card-list {
   display: grid;
   gap: 12px;
-  margin-top: 28px;
+  margin-top: 14px;
 }
 
 .help-card {
