@@ -1,7 +1,11 @@
-# Permissions & Access — Proposal (Draft)
+# Permissions & Access
 
-> **Status:** Draft for discussion. Not implemented yet. The goal is to agree on the
-> model before touching code. The database can be reset, so no migration is needed.
+> **Status:** Implemented. This began as a proposal and the design below is what
+> shipped, so the reasoning is kept for context. Two things have moved on since:
+> `object_type` has been generalized beyond libraries (see *Beyond libraries*), and
+> `users.role` is still the source of admin status — the System Admins group swap
+> described below has not happened yet (`isServerAdmin()` in
+> [`core/permissions.ts`](../apps/server/src/core/permissions.ts) carries the TODO).
 
 ## Why change anything
 
@@ -303,13 +307,34 @@ replaces the library-specific resolver and the per-endpoint capability helpers.
 
 ---
 
+## Beyond libraries
+
+`object_type` was generalized once a second kind of object needed grants. The engine
+never touches the `libraries` table — `resolveObjectRole(objectType, objectId, user)`
+works for anything — so a new object type needs **no migration** and no changes here.
+
+| `object_type` | `object_id` | Grants |
+|---|---|---|
+| `library` | `libraries.id` | The role table above |
+| `family_tree_tag` | `tags.id` | Edit rights over every family member carrying that tag ("branch editors") — see [family-tree.md](family-tree.md) |
+
+Adding another follows the same three steps: resolve the role with `can()`, clean up
+with `deleteAssignmentsForObject()` when the object is deleted, and copy the
+list/grant/revoke routes from
+[`shared/members.ts`](../apps/server/src/modules/library/shared/members.ts).
+
+One lesson from the family-tree case: if the thing being granted on is *also*
+user-editable data, decide who may change it. Tags carry permissions, so **assigning
+a tag is admin-only** — otherwise an editor could tag any person into their own
+branch and grant themselves rights over them.
+
 ## Open questions (to think about)
 
 1. **Policy switches** — which, if any, do we actually need now beyond download-via-role?
-2. **Scope of the rollout** — generalize `object_type` immediately (collections, etc.),
-   or ship libraries-only with the column ready for later?
-3. **Take ownership** — when an admin takes over a private library, does the original
+2. **Take ownership** — when an admin takes over a private library, does the original
    owner's `manager` grant stay, or get replaced?
+3. **The System Admins swap** — admin status still reads `users.role`; moving it to
+   group membership is still outstanding.
 
 *Decided so far:* roles `viewer` / `member` / `contributor` / `manager` (+ `deny`);
 Everyone may be viewer/member/contributor but never manager; two built-in locked groups

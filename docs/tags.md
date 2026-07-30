@@ -32,9 +32,13 @@ Both scanners store their source genres/subjects as tags via
   ([`catalog-core.ts`](../apps/server/src/modules/library/shared/catalog-core.ts)). The Ebooks
   filter lists only tags present on ebooks; an audiobook-only tag never appears there. A tag shared
   by both types correctly appears in both filters.
-- **Global Tags page (cross-type).** A searchable cloud of every tag across all book-like
-  libraries, surfaced in the account menu. A tag's detail page shows audiobooks **and** ebooks
-  together, each badged by media type with an audiobook/ebook filter toggle.
+- **Global Tags page (cross-type).** A searchable cloud of every tag in use anywhere, surfaced in
+  the account menu. A filter row — All / Audiobooks / Ebooks / Gallery / Family tree — narrows the
+  cloud to where a tag is actually used, and each chip then shows that scope's count. The list
+  renders the 100 most-used with "Show all N", and a sort control switches most-used ↔ A–Z. A
+  tag's detail page shows books, gallery photos, and family members together, each in its own
+  section, with the same filter across the types that tag actually spans. Photos there open in a
+  lightbox in place; family members link to their profile.
 
 The cross-type browse lives at the library level in
 [`tags.ts`](../apps/server/src/modules/library/tags.ts) and reuses the shared
@@ -60,15 +64,26 @@ category alias lives in the Categories section.
 
 | Method & path | Action | Scope |
 |---|---|---|
-| `GET /api/library/tags` | List tags + combined usage counts | book-like types (also feeds editor autocomplete) |
-| `GET /api/library/tags/:name/books` | Books carrying a tag, cross-type (`FeedItem` shape) | book-like types |
+| `GET /api/library/tags` | List tags + per-type counts (`audiobookCount`, `ebookCount`, `galleryCount`, `familyCount`) | everything the viewer can see (also feeds editor autocomplete) |
+| `GET /api/library/tags/:name/books` | Everything carrying a tag: `books` (`FeedItem`), `photos` (gallery assets), `people` (family members) | all types |
 | `GET /api/library/{audiobooks,ebooks}/facets` | Filter facet options (incl. tags) | one type / library |
 | `GET/POST/PATCH/DELETE /api/library/manage/tags[...]` | Tag CRUD + merge | admin |
 | `POST /api/library/manage/tags/prune` | Delete tags with no live books | admin |
 
-## Extending to other library types
+## Extending to other entity types
 
-Because `taggables` is already polymorphic, a new type joins tag browse with **no migration**: its
-scanner writes links with its own `entity_type`, and the cross-type query includes that type's
-items (today the helper is scoped to `bookLibraryIds`; widening it is a small, additive change).
-This is why tags — not categories — are the natural cross-library label for Gallery and Documents.
+Because `taggables` is polymorphic, a new type joins tag browse with **no migration** — it writes
+links with its own `entity_type` and the browse queries pick it up. This is why tags, not
+categories, are the natural cross-library label; categories are book-shaped, tags aren't.
+
+Two types have already been added this way:
+
+- **Gallery** — photos and videos are `library_item` rows like books, so they are separated by
+  their library's `type` rather than a distinct `entity_type`.
+- **Family tree** — `entity_type = 'family_tree_person'`. These tags also carry permissions
+  (an `assignments` row on `object_type = 'family_tree_tag'` grants branch edit rights), which is
+  why assigning them is admin-only. See [family-tree.md](family-tree.md).
+
+The permission twist is worth remembering when touching the admin tag manager: **delete, merge and
+prune are family-tag aware**. Merging moves grants onto the surviving tag, deleting clears them,
+and prune counts non-book usage so a family-only tag isn't treated as unused.

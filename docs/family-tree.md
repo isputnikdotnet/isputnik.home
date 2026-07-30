@@ -1,0 +1,227 @@
+# Family tree
+
+A genealogy module: family members, how they relate, what happened to them, and
+the photos that show it. It sits beside the Digital Library in the main nav but
+is **not a library type** — it has no source folder, no scanner, and no files of
+its own. Its defining choice:
+
+> **The tree is data, not media.** Everything lives in `family_tree_*` tables and
+> is typed in by hand or imported from GEDCOM. Photos are *borrowed* from gallery
+> libraries by reference, so a photo is never copied or owned by the tree.
+
+That has a practical consequence worth knowing up front: a library rebuilds
+itself from disk by rescanning, but **the family tree only exists in the
+database**. Back it up, or export GEDCOM, before anything drastic.
+
+## Three kinds of "person"
+
+The app has three unrelated person concepts. Confusing them is the classic bug:
+
+| Table | What it is |
+|---|---|
+| `people` | Book contributors — authors, narrators |
+| `gallery_people` | Face clusters found by face recognition |
+| `family_tree_persons` | Family members |
+
+`family_tree_persons.gallery_person_id` bridges the third to the second, so a
+member's face-cluster photos surface on their profile. (The dormant
+`gallery_people.linked_person_id` points at *contributors* — not this.)
+
+## Data model
+
+```
+family_tree_persons      one row per family member; portrait, dates, bio
+family_tree_unions       a couple (person1 + optional person2) with marriage info
+family_tree_children     union → child, with a relation (biological/adopted/…)
+family_tree_events       a person's timeline entries beyond birth/death
+family_tree_event_photos gallery items attached to one event
+family_tree_photos       gallery items attached to one person
+family_tree_sources      shared bibliography ("where a fact came from")
+family_tree_citations    source → exactly one person, event, or union
+```
+
+**Children always hang off a union**, never off a person directly — that is what
+makes a second parent, a remarriage, or a single parent (`person2_id IS NULL`)
+all expressible in one shape. Two guards protect the graph: one parent-union per
+child, and a cycle check so nobody becomes their own ancestor.
+
+Deleting a person promotes any surviving partner into `person1_id`, so the
+remaining single-parent union keeps its children. A union with nobody left is
+deleted, cascading only its child *links* — never the child rows.
+
+### Partial dates
+
+Dates are TEXT in `YYYY`, `YYYY-MM`, or `YYYY-MM-DD` form, validated by
+`partialDateSchema`. Lexicographic order is chronological, and GEDCOM's partial
+dates map onto this 1:1. Date inputs are free text, not native date pickers —
+year-only is the norm in genealogy and a date input would silently blank it.
+
+## The chart
+
+`FamilyTreeChart.tsx` renders hand-rolled SVG; the layout maths is pure and
+lives in `chart-layout.ts`. It flows top-to-bottom in the Ancestry style:
+generations are rows, ancestors rise above the focused person, descendants hang
+below, and siblings/cousins lay outward on their own generation's row. Clicking
+a card re-centres via a real navigation to `/family/tree/:id`, so Back walks the
+focus history.
+
+> **Footgun:** never put a `clipPath` on a transformed silhouette `<g>` —
+> `userSpaceOnUse` clip rects get dragged by the transform and the silhouettes
+> vanish.
+
+## Life events
+
+`family_tree_events` covers what the birth/death columns can't: residence,
+education, graduation, occupation, retirement, military, immigration,
+emigration, naturalization, travel, award, baptism, burial, and a catch-all
+custom. `label` is the short "what" (job title, school name) and is required
+only for `custom`. `date`/`end_date` express ranges ("school 1971–1975").
+
+Each event can carry its own gallery photos. On the profile timeline a row shows
+the first four with a "+N" tile that expands in place, and a note longer than
+~200 characters clamps to three lines behind a More toggle.
+
+Adding event types means widening a `CHECK`, which SQLite can't alter in place —
+see [database.md](database.md) for the rebuild pattern.
+
+## Photos
+
+A person's photo wall merges two sources, in this order:
+
+1. **Attached** (`family_tree_photos`) — curated by hand, ordered by `position`.
+2. **Automatic** — everything the linked `gallery_person_id` face cluster found,
+   deduped against the attached set.
+
+Listings are always scoped to the gallery libraries **the viewer** can access, so
+a member never learns a photo exists in a library they can't see, even when an
+admin attached it.
+
+The profile's Photos tab is a preview of twelve with "View all photos" leading to
+`/family/people/:id/photos`. That page lives in the family tree rather than
+linking into the gallery because this merged set has no equivalent gallery view.
+Photos open in a lightbox **in place** on whichever family page you clicked from —
+closing one returns you there instead of stranding you in the gallery.
+
+**Portraits** are either an uploaded file (thumbnail store, bucket `familytree`)
+or a chosen gallery item's cover. The two are mutually exclusive; picking one
+clears the other.
+
+### Uploading
+
+Attaching an existing photo works across every gallery the viewer can see and
+needs no configuration. **Uploading a new one has to put the file somewhere**, so
+an admin nominates a destination in Settings → Photo library (stored in
+`app_settings` under `family_tree_settings`). The photo picker then offers an
+Upload tab beside Browse; files are added to that library — filed into dated
+folders like any gallery upload — and attached in the same step. When no library
+is nominated, or the viewer can't upload to it, the tab says so rather than
+disappearing.
+
+## Tags and branch permissions
+
+Family members can carry **tags**, normally a branch surname. Tags reuse the
+app-wide polymorphic tag system (`taggables` with
+`entity_type = 'family_tree_person'`), so one tag can span books, photos, and
+people at once — see [tags.md](tags.md).
+
+Tags double as the **permission scope**. An `assignments` row with
+`object_type = 'family_tree_tag'` and `object_id = tags.id` grants a user or
+group edit rights over every person carrying that tag:
+
+| Who | May do |
+|---|---|
+| Any signed-in user | View the whole tree; export GEDCOM |
+| Branch editor (`contributor` on a tag) | Edit tagged people — details, portrait, events, photos, citations — and add relatives to them; new people they create are auto-tagged into the branch |
+| Admin | Everything, plus deleting people, removing relationships, GEDCOM import, sources, and assigning tags |
+
+**Assigning tags is admin-only on purpose.** If editors could tag, they could tag
+any person into their own branch and grant themselves edit rights over them.
+`deny` works as everywhere else and overrides grants, including group ones.
+
+Resolution lives in `modules/familytree/access.ts` (`getEditableTags`,
+`canEditPerson`, `canEditAnyPerson`, `decoratePersons`). A union is editable when
+**at least one** involved person is — that's what makes marrying someone in from
+another branch work. The client gates on server-sent `canEdit` per person and a
+top-level `access { isAdmin, canAdd }`, never on the account role, except for the
+handful of genuinely admin-only affordances.
+
+Grants are managed in Settings → Security. Because grants hang off tag ids, the
+admin tag manager's delete, merge, and prune are family-tag aware: merging moves
+grants onto the survivor, deleting clears them, and prune no longer counts a
+family-only tag as unused.
+
+## GEDCOM
+
+`gedcom.ts` imports and exports GEDCOM 5.5.1 — the format Ancestry, MyHeritage
+and Gramps speak. The parser is deliberately tolerant: unreadable dates and
+unmapped tags become **warnings**, not failures.
+
+- **Import** (admin) takes `{ gedcom, mode: "add" | "replace" }` with a 32 MiB
+  body limit. Replace wipes people *and* sources first. The v1 one-parent-union
+  guard still applies: the first `FAM` wins and the rest become warnings.
+- **Export** is open to every signed-in user — it's a read of what they can
+  already see.
+- Custom tags `_STATUS` (on `FAM`) and `_REL` (on `FAMC`) round-trip partner
+  statuses and step relations. Typed events map to standard tags where one
+  exists (`GRAD`, `RETI`, `BAPM`, `NATU`); travel and award have no standard tag,
+  so they go out as `EVEN` + `TYPE` and come back typed.
+
+## Settings
+
+Admin-only, reached from the gear on the tree page or Settings on the People
+page. Three tabs: **Photo library** (upload destination), **Import / export**
+(GEDCOM), and **Security** (branch access). GEDCOM export also stays as an icon
+in the tree header, since it's available to every user and the panel isn't.
+
+## API
+
+Reads are open to any signed-in user; writes are admin or branch-scoped per the
+table above.
+
+| Route | Notes |
+|---|---|
+| `GET /api/family-tree/tree` | Whole tree in one payload + `access` |
+| `GET /api/family-tree/persons[/:id]` | List / profile, each carrying `tags` + `canEdit` |
+| `GET /api/family-tree/persons/:id/photos` | Merged, viewer-scoped, paged |
+| `POST/PATCH/DELETE /api/family-tree/persons[...]` | Person CRUD; `tags` and `galleryPersonId` are admin-only fields |
+| `PUT/DELETE /api/family-tree/persons/:id/portrait` | Raw image body, not multipart |
+| `POST/PATCH/DELETE /api/family-tree/unions[...]`, `.../children[...]` | Relationships |
+| `POST/PATCH/DELETE /api/family-tree/persons/:id/events`, `/events/:id` | Timeline |
+| `POST/DELETE /api/family-tree/events/:id/photos[/:itemId]` | Event photos |
+| `GET/POST/PATCH/DELETE /api/family-tree/sources`, `/citations` | Bibliography (admin) |
+| `GET /api/family-tree/tags` | Family tags with usage + editor counts |
+| `GET/POST/DELETE /api/family-tree/tags/:tagId/editors[...]` | Branch access (admin) |
+| `GET/PUT /api/family-tree/settings` | Upload library; PUT is admin |
+| `GET /api/family-tree/export`, `POST /api/family-tree/import` | GEDCOM |
+
+## Code map
+
+```
+apps/server/src/modules/familytree/
+  persons.ts    person CRUD, profile assembly, partial dates
+  relations.ts  unions, children, cycle guard
+  events.ts     timeline events
+  photos.ts     person + event photo attachments, viewer scoping
+  sources.ts    sources and citations
+  access.ts     tag-scoped edit rights
+  settings.ts   upload destination (app_settings)
+  gedcom.ts     import/export
+  routes.ts     the HTTP surface and its guards
+
+apps/web/src/features/familytree/   chart, people list, profile, modals
+apps/web/src/styles/family-tree.css
+```
+
+Routes: `/family`, `/family/tree/:id`, `/family/people`, `/family/people/:id`,
+`/family/people/:id/photos`.
+
+## Testing
+
+`apps/server/test/family-tree*.test.ts` covers the model, GEDCOM round trips,
+photos, and the permission matrix. The access tests drive the real routes with
+`fastify.inject` and stubbed auth decorators.
+
+> **Footgun:** a new `family_tree_*` table must be added to `resetDb()` in
+> `test/helpers/seed.ts` or state leaks between tests. Don't set a JSON
+> content-type on a body-less DELETE in `inject` — Fastify 400s before the guard
+> runs.

@@ -4,7 +4,7 @@
 
 ## Overview
 
-isputnik.home is a private, self-hosted web app for friends and family. It provides a shared digital space built around a **Digital Library** for media — audiobooks and ebooks today, with photo/video types and a **Notes** module planned. Everything runs on a home server — no cloud accounts, no external services required.
+isputnik.home is a private, self-hosted web app for friends and family. It provides a shared digital space built around a **Digital Library** for media — audiobooks, ebooks, and a photo/video gallery — plus a **Family tree** beside it, with a **Notes** module planned. Everything runs on a home server — no cloud accounts, no external services required.
 
 ---
 
@@ -88,6 +88,10 @@ The primary content module. Supports multiple **library types** — each type ha
 | Ebook | Active (EPUB/PDF, in-app reader) | [`ebook-library.md`](ebook-library.md) |
 | Gallery | Active (photos + videos, timeline + folder views) | [`gallery-library.md`](gallery-library.md) |
 | Podcast | Future | — |
+
+The **Family tree** sits beside these rather than among them: it is a module, not a
+library type — no source folder, no scanner, no files of its own. It borrows photos
+from gallery libraries by reference. See [`family-tree.md`](family-tree.md).
 
 **Shared across all library types:**
 
@@ -174,9 +178,11 @@ apps/server/src/
     uploads/                  ← upload streaming helpers
     backups/                  ← backup / restore
     collections/              ← cross-type user collections
-    familytree/               ← family members, unions/children, gallery photo links
-                                 (view: any user; edit: admin; persons can link to a
-                                 gallery face cluster to auto-surface tagged photos)
+    familytree/               ← family members, unions/children, events, sources,
+                                 gallery photo links, GEDCOM (see family-tree.md).
+                                 View: any user. Edit: admin, or tag-scoped "branch
+                                 editors" (access.ts). Persons can link to a gallery
+                                 face cluster to auto-surface tagged photos.
     maintenance/              ← scheduled upkeep jobs + the Tasks view over the job queue
     library/
       shared/                 ← library crud / access / serializer, trash, members,
@@ -259,6 +265,7 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 | [`database.md`](database.md) | Database schema — unified `library_items` model, conventions, old→new map, table reference |
 | [`ebook-library.md`](ebook-library.md) | Ebook library type — EPUB/PDF catalog, in-app reader, per-type series |
 | [`gallery-library.md`](gallery-library.md) | Gallery library type — photos/videos, asset-as-item, timeline + folder views |
+| [`family-tree.md`](family-tree.md) | Family tree — people/unions/events, borrowed gallery photos, branch permissions, GEDCOM |
 | [`categories.md`](categories.md) | Categories — global genre taxonomy, scan matching, cross-type browse |
 | [`tags.md`](tags.md) | Tags — polymorphic labels, cross-type browse, admin management |
 | [`uploads.md`](uploads.md) | Upload process — end-to-end flow, streaming primitive, adding consumers |
