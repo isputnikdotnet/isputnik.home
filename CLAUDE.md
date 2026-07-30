@@ -6,6 +6,8 @@ and `apps/web` (React + Vite PWA).
 - `npm run dev` — server on :4000 + Vite dev server
 - `npm run typecheck` — both workspaces
 - `npm run check:ui` — UI-convention checker (see below)
+- `npm run docs:shots` — regenerate the screenshots in `docs/users/images` (needs
+  `npm run dev` running and an admin account; pass name fragments to do a subset)
 - `npm test` — server test suite (Vitest, in-memory SQLite; tests in `apps/server/test/`)
 
 ## Repo-root files — do not delete
