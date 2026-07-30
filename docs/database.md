@@ -385,13 +385,29 @@ kind). `module` on `shares`/`share_links` is unchanged.
 
 ## Versioning & migrations
 
-A fresh database applies `schema.sql` and sets `PRAGMA user_version` to the
-current migration count. Going forward — once there is data worth keeping —
-schema changes are **ordered, append-only migration files** run by a small
-runner that compares `user_version` to the highest migration and applies the
-gap inside a transaction. This replaces the ad-hoc `PRAGMA table_info` + `ALTER`
-checks that previously lived inline in `db.ts`. Seed data (navigation categories
-and alias keywords) is applied idempotently after migrations.
+`schema.sql` is the **whole** schema and is idempotent (`CREATE TABLE IF NOT
+EXISTS`), so a fresh database is built in one pass and stamped with `baseline`
+(`PRAGMA user_version`). Schema changes are then **ordered, append-only
+migrations** run by a small runner that compares `user_version` to the highest
+migration and applies the gap inside a transaction. Seed data (navigation
+categories and alias keywords) is applied idempotently after migrations.
+
+**2.0.0 reset the baseline.** Migrations 2–22 were folded back into
+`schema.sql` and the list emptied, so there is no history to replay on a new
+install. Consequences:
+
+- A database from 1.16.0 (`user_version` 22) adopts the new baseline unchanged —
+  it already has every column.
+- A database older than that stops the server with an explanatory error: the
+  steps it still needs no longer exist. Upgrade to 1.16.0 first, or start empty.
+- **Both places must stay in step from now on.** A new column on an existing
+  table needs the `ALTER` in `migrations[]` *and* the column in `schema.sql`,
+  or fresh installs and upgraded ones drift apart. (In-development tables that
+  have never shipped can still be edited in `schema.sql` alone.)
+- A widened `CHECK` can't be altered in place: rebuild the table (back up
+  children, drop child-first, recreate from `schema.sql`, restore) — never
+  `RENAME`, which rewrites children's `REFERENCES` even under
+  `legacy_alter_table`. Migration 22 in the 1.x history was the worked example.
 
 ---
 

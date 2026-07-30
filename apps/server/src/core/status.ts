@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.0.0",
+          label: "Tags across everything, and a fresh foundation",
+          changes: [
+            "The Tags page now covers the whole library, not just books. A row of filters — All, Audiobooks, Ebooks, Gallery, Family tree — narrows the list to where a tag is actually used, and each tag shows its count for the type you picked.",
+            "Opening a tag shows everything carrying it: books, photos and videos, and family members, each in its own section. Photos open right there rather than sending you off to the gallery, and a family member opens their profile.",
+            "The tag list stays readable at any size: the most-used tags are shown first with \"Show all\" for the rest, and a sort control switches between most-used and A–Z.",
+            "Under the hood, the database schema was consolidated into a single definition, so a new installation is set up in one step. Existing installations running 1.16.0 carry over untouched; an installation older than that should be updated to 1.16.0 first, which prepares it for this version."
+          ]
+        },
+        {
           version: "1.16.0",
           label: "Family branches, and a richer timeline",
           changes: [
