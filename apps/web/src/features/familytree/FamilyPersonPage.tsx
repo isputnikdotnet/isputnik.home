@@ -1,8 +1,8 @@
 import { Children, useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, Baby, BookMarked, BriefcaseBusiness, CalendarDays, CalendarPlus, Camera, ExternalLink, FileText,
-  GraduationCap, Heart, Home as HomeIcon, ImagePlus, Link2, MapPin, Network, Pencil, Plane, Play, Shield,
-  Trash2, UserRound, UserRoundPlus, UsersRound, X
+  Armchair, ArrowLeft, Award, Baby, BookMarked, BriefcaseBusiness, CalendarDays, CalendarPlus, Camera, Church,
+  ExternalLink, FileText, Flag, GraduationCap, Heart, Home as HomeIcon, ImagePlus, Images, Link2, Luggage, MapPin,
+  Network, Pencil, Plane, Play, Shield, Tags, Trash2, UserRound, UserRoundPlus, UsersRound, X
 } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
@@ -11,6 +11,8 @@ import { ActionMenu } from "../../shared/ActionMenu";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
+import { GalleryLightbox } from "../gallery/GalleryLightbox";
+import type { GalleryAsset } from "../gallery/types";
 import { AddChildModal } from "./AddChildModal";
 import { AddParentModal } from "./AddParentModal";
 import { AddSiblingModal } from "./AddSiblingModal";
@@ -29,6 +31,10 @@ import {
 } from "./types";
 
 const PHOTO_PAGE = 40;
+// The Photos tab is a preview, not a browser: it shows this many and then links
+// to the person's full photos page. Photos still open in a lightbox in place —
+// clicking one must never strand the reader in the gallery.
+const PHOTO_PREVIEW = 12;
 const PERSON_DETAIL_TABS = [
   { id: "family", label: "Relationships" },
   { id: "timeline", label: "Timeline" },
@@ -275,14 +281,24 @@ function TimelineIcon({ entry }: { entry: TimelineEntry }) {
   if (entry.tone === "birth") return <Baby size={16} aria-hidden="true" />;
   if (entry.tone === "union") return <Heart size={16} aria-hidden="true" />;
   if (entry.tone === "death") return <FileText size={16} aria-hidden="true" />;
-  if (entry.event?.type === "education") return <GraduationCap size={16} aria-hidden="true" />;
+  if (entry.event?.type === "education" || entry.event?.type === "graduation") return <GraduationCap size={16} aria-hidden="true" />;
   if (entry.event?.type === "occupation") return <BriefcaseBusiness size={16} aria-hidden="true" />;
+  if (entry.event?.type === "retirement") return <Armchair size={16} aria-hidden="true" />;
   if (entry.event?.type === "residence") return <HomeIcon size={16} aria-hidden="true" />;
   if (entry.event?.type === "military") return <Shield size={16} aria-hidden="true" />;
   if (entry.event?.type === "immigration" || entry.event?.type === "emigration") return <Plane size={16} aria-hidden="true" />;
+  if (entry.event?.type === "naturalization") return <Flag size={16} aria-hidden="true" />;
+  if (entry.event?.type === "travel") return <Luggage size={16} aria-hidden="true" />;
+  if (entry.event?.type === "award") return <Award size={16} aria-hidden="true" />;
+  if (entry.event?.type === "baptism") return <Church size={16} aria-hidden="true" />;
   if (entry.event?.type === "burial") return <MapPin size={16} aria-hidden="true" />;
   return <CalendarDays size={16} aria-hidden="true" />;
 }
+
+// Above this many characters a timeline note starts clamped, with a More toggle.
+const NOTE_CLAMP_CHARS = 200;
+// Photos shown on a collapsed timeline row before the "+N" tile.
+const EVENT_PHOTO_PREVIEW = 4;
 
 function RelationCard({
   person,
@@ -324,8 +340,10 @@ function FamilyGroup({ title, children, empty = "None recorded" }: { title: stri
 }
 
 // One family member: profile fields, relationships, and the merged photo wall
-// (curated attachments + linked face-cluster photos). Admins edit everything
-// here; everyone else gets a read-only view of the same layout.
+// (curated attachments + linked face-cluster photos). Admins edit everything;
+// branch editors (a tag grant, see server access.ts) edit their tagged people;
+// everyone else gets a read-only view of the same layout. Deleting the person,
+// removing relationships, tags, and the gallery link stay admin-only.
 export function FamilyPersonPage({ id, user, logout }: { id: string; user: PublicUser; logout: () => Promise<void> }) {
   const isAdmin = user.role === "admin";
   const [profile, setProfile] = useState<FamilyPersonProfile | null>(null);
@@ -334,7 +352,9 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   const [error, setError] = useState("");
   const [photos, setPhotos] = useState<FamilyPhoto[]>([]);
   const [photoTotal, setPhotoTotal] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  // Lightbox opened from this page: `assets` is the set it pages through, so a
+  // timeline event's strip browses that event's photos, not the whole wall.
+  const [lightbox, setLightbox] = useState<{ assets: GalleryAsset[]; index: number } | null>(null);
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -355,6 +375,9 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   const [removeUnionId, setRemoveUnionId] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
   const [activeDetailTab, setActiveDetailTab] = useState<PersonDetailTabId>("family");
+  // Timeline rows start collapsed: long notes clamp, photo strips show a few.
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const [expandedEventPhotos, setExpandedEventPhotos] = useState<Set<string>>(new Set());
   const portraitFileRef = useRef<HTMLInputElement>(null);
 
   const loadProfile = useCallback(async () => {
@@ -492,6 +515,8 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
     }
   };
 
+  // Server-computed: true for admins and for tag-granted branch editors.
+  const canEdit = profile?.canEdit ?? false;
   const back = getReferrer() ?? "/family/people";
   const statusLabel = (status: string) => UNION_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
   // The union this person hangs off as a child — where siblings and the
@@ -552,7 +577,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                 <div className="book-detail-cover-col ft-person-detail-cover-col">
                   <div className="book-detail-cover ft-person-detail-cover" aria-hidden="true">
                     <PersonAvatar person={profile} size={220} />
-                    {isAdmin && (
+                    {canEdit && (
                       <Button
                         variant="icon"
                         className="ft-portrait-button"
@@ -564,7 +589,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       </Button>
                     )}
                   </div>
-                  {isAdmin && (profile.portraitUrl || profile.portraitItemId) && (
+                  {canEdit && (profile.portraitUrl || profile.portraitItemId) && (
                     <div className="book-tags book-tags-under-cover ft-person-cover-actions" aria-label="Portrait actions">
                       <Button variant="text" compact danger onClick={() => void removePortrait()}>
                         Remove portrait
@@ -598,6 +623,27 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       <dt>Relationship</dt>
                       <dd>{relationSummary(profile, statusLabel)}</dd>
                     </div>
+                    {profile.tags.length > 0 && (
+                      <div className="book-detail-meta-item">
+                        <Tags size={18} aria-hidden="true" />
+                        <dt>Family tags</dt>
+                        <dd>
+                          <span className="ft-profile-tags">
+                            {profile.tags.map((tag) => (
+                              <a
+                                key={tag}
+                                className="book-tag-chip book-tag-chip-tag"
+                                href="/family/people"
+                                onClick={(event) => followRoute(event, "/family/people")}
+                                title={`Show everyone tagged ${tag}`}
+                              >
+                                {tag}
+                              </a>
+                            ))}
+                          </span>
+                        </dd>
+                      </div>
+                    )}
                   </dl>
 
                   <div className="book-detail-actions">
@@ -611,7 +657,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       >
                         <Network size={18} aria-hidden="true" />
                       </a>
-                      {isAdmin && (
+                      {canEdit && (
                         <Button
                           variant="icon"
                           className="book-detail-icon-action"
@@ -668,7 +714,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                 <div className="book-detail-tab-panel ft-person-detail-tab-panel">
                   {activeDetailTab === "family" && (
                     <section className="ft-section ft-profile-section">
-                      {isAdmin && (
+                      {canEdit && (
                         <div className="ft-tab-actions">
                           <ActionMenu
                             label="Add relative"
@@ -732,7 +778,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                 statusLabel(union.status),
                                 unionDates(union)
                               ].filter(Boolean).join(" · ")}
-                              action={isAdmin && (
+                              action={canEdit && (
                                 <span className="ft-relation-card-actions">
                                   <Button
                                     variant="icon"
@@ -742,15 +788,17 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                   >
                                     <Pencil size={13} aria-hidden="true" />
                                   </Button>
-                                  <Button
-                                    variant="icon"
-                                    danger
-                                    title="Remove this union"
-                                    aria-label="Remove this union"
-                                    onClick={() => setRemoveUnionId(union.id)}
-                                  >
-                                    <X size={14} aria-hidden="true" />
-                                  </Button>
+                                  {isAdmin && (
+                                    <Button
+                                      variant="icon"
+                                      danger
+                                      title="Remove this union"
+                                      aria-label="Remove this union"
+                                      onClick={() => setRemoveUnionId(union.id)}
+                                    >
+                                      <X size={14} aria-hidden="true" />
+                                    </Button>
+                                  )}
                                 </span>
                               )}
                             />
@@ -784,7 +832,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
 
                   {activeDetailTab === "timeline" && (
                     <section className="ft-section ft-profile-section">
-                      {isAdmin && (
+                      {canEdit && (
                         <div className="ft-tab-actions">
                           <Button variant="secondary" compact onClick={() => setEventModal(null)}>
                             <CalendarPlus size={15} aria-hidden="true" />
@@ -807,9 +855,67 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                               <span className="ft-timeline-body">
                                 <strong>{entry.title}</strong>
                                 {entry.meta.length > 0 && <small>{entry.meta.join(" · ")}</small>}
-                                {entry.note && <span className="ft-timeline-note">{entry.note}</span>}
+                                {entry.note && (() => {
+                                  const long = entry.note.length > NOTE_CLAMP_CHARS;
+                                  const open = expandedNotes.has(entry.key);
+                                  return (
+                                    <>
+                                      <span className={`ft-timeline-note${long && !open ? " is-clamped" : ""}`}>{entry.note}</span>
+                                      {long && (
+                                        <button
+                                          type="button"
+                                          className="ft-timeline-more"
+                                          onClick={() => setExpandedNotes((prev) => {
+                                            const next = new Set(prev);
+                                            if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key);
+                                            return next;
+                                          })}
+                                        >
+                                          {open ? "Less" : "More"}
+                                        </button>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                                {entry.event && entry.event.photos.length > 0 && (() => {
+                                  const all = entry.event.photos;
+                                  const open = expandedEventPhotos.has(entry.key);
+                                  const shown = open ? all : all.slice(0, EVENT_PHOTO_PREVIEW);
+                                  const hidden = all.length - shown.length;
+                                  const toggle = () => setExpandedEventPhotos((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key);
+                                    return next;
+                                  });
+                                  return (
+                                    <span className="ft-timeline-photos">
+                                      {shown.map((photo, photoIndex) => (
+                                        <button
+                                          key={photo.id}
+                                          type="button"
+                                          className="ft-timeline-photo"
+                                          onClick={() => setLightbox({ assets: all, index: photoIndex })}
+                                          title={photo.title}
+                                        >
+                                          {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" />}
+                                          {photo.kind === "video" && <Play size={11} className="ft-timeline-photo-play" aria-hidden="true" />}
+                                        </button>
+                                      ))}
+                                      {hidden > 0 && (
+                                        <button type="button" className="ft-timeline-photo ft-timeline-photo-more" onClick={toggle}>
+                                          +{hidden}
+                                        </button>
+                                      )}
+                                      {open && all.length > EVENT_PHOTO_PREVIEW && (
+                                        <button type="button" className="ft-timeline-photo ft-timeline-photo-more" onClick={toggle}>
+                                          Less
+                                        </button>
+                                      )}
+                                    </span>
+                                  );
+                                })()}
                               </span>
-                              {isAdmin && entry.event && (
+                              {canEdit && entry.event && (
                                 <span className="ft-timeline-actions">
                                   <Button
                                     variant="icon"
@@ -839,12 +945,14 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
 
                   {activeDetailTab === "photos" && (
                     <section className="ft-section ft-profile-section">
-                      {isAdmin && (
+                      {canEdit && (
                         <div className="ft-tab-actions">
-                          <Button variant="secondary" compact onClick={() => setLinkModal(true)}>
-                            <Link2 size={15} aria-hidden="true" />
-                            {profile.galleryPerson ? `Linked: ${profile.galleryPerson.name || "Unnamed"}` : "Link gallery person"}
-                          </Button>
+                          {isAdmin && (
+                            <Button variant="secondary" compact onClick={() => setLinkModal(true)}>
+                              <Link2 size={15} aria-hidden="true" />
+                              {profile.galleryPerson ? `Linked: ${profile.galleryPerson.name || "Unnamed"}` : "Link gallery person"}
+                            </Button>
+                          )}
                           <Button variant="primary" compact onClick={() => setPhotoPicker(true)}>
                             <ImagePlus size={15} aria-hidden="true" />
                             Add photos
@@ -859,20 +967,20 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                         </div>
                       ) : (
                         <div className="gallery-grid ft-photo-grid">
-                          {photos.map((photo) => (
+                          {photos.slice(0, PHOTO_PREVIEW).map((photo, index) => (
                             <div key={photo.id} className="ft-photo-tile">
-                              <a
+                              <button
+                                type="button"
                                 className="gallery-tile"
-                                href={`/gallery/assets/${photo.id}?from=/family/people/${profile.id}`}
-                                onClick={(event) => followRoute(event, `/gallery/assets/${photo.id}?from=/family/people/${profile.id}`)}
+                                onClick={() => setLightbox({ assets: photos, index })}
                                 title={photo.title}
                               >
                                 {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" />}
                                 {photo.kind === "video" && (
                                   <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
                                 )}
-                              </a>
-                              {isAdmin && photo.attached && (
+                              </button>
+                              {canEdit && photo.attached && (
                                 <Button
                                   variant="icon"
                                   danger
@@ -886,38 +994,25 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                               )}
                             </div>
                           ))}
-                          {isAdmin && (
-                            <Button
-                              variant="secondary"
-                              className="ft-photo-add-tile"
-                              title="Add photos"
-                              aria-label="Add photos"
-                              onClick={() => setPhotoPicker(true)}
-                            >
-                              <ImagePlus size={24} aria-hidden="true" />
-                            </Button>
-                          )}
                         </div>
                       )}
 
-                      {photos.length < photoTotal && (
-                        <Button
-                          variant="secondary"
-                          onClick={() => {
-                            setLoadingMore(true);
-                            loadPhotos(photos.length).catch(() => {}).finally(() => setLoadingMore(false));
-                          }}
-                          disabled={loadingMore}
+                      {photoTotal > PHOTO_PREVIEW && (
+                        <a
+                          className="secondary-button compact-button ft-photos-all-link"
+                          href={`/family/people/${profile.id}/photos`}
+                          onClick={(event) => followRoute(event, `/family/people/${profile.id}/photos`)}
                         >
-                          {loadingMore ? "Loading…" : "Load more"}
-                        </Button>
+                          <Images size={16} aria-hidden="true" />
+                          View all {photoTotal} photos
+                        </a>
                       )}
                     </section>
                   )}
 
                   {activeDetailTab === "sources" && (
                     <section className="ft-section ft-profile-section">
-                      {isAdmin && (
+                      {canEdit && (
                         <div className="ft-tab-actions">
                           <Button variant="secondary" compact onClick={() => setCitationModal(null)}>
                             <BookMarked size={15} aria-hidden="true" />
@@ -950,7 +1045,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                   {citation.detail && <small>{citation.detail}</small>}
                                   {citation.note && <small className="ft-citation-note">{citation.note}</small>}
                                 </span>
-                                {isAdmin && (
+                                {canEdit && (
                                   <span className="ft-timeline-actions">
                                     <Button
                                       variant="icon"
@@ -981,7 +1076,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
 
                   {activeDetailTab === "notes" && (
                     <section className="ft-section ft-profile-section">
-                      {isAdmin && (
+                      {canEdit && (
                         <div className="ft-tab-actions">
                           <Button variant="secondary" compact onClick={() => setEditOpen(true)}>
                             <FileText size={15} aria-hidden="true" />
@@ -1011,6 +1106,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
       {editOpen && profile && (
         <PersonEditModal
           person={profile}
+          showTags={isAdmin}
           onClose={() => setEditOpen(false)}
           onSaved={() => { setEditOpen(false); refresh(); }}
         />
@@ -1065,6 +1161,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
         <CitationEditModal
           profile={profile}
           citation={citationModal}
+          canEditSources={isAdmin}
           onClose={() => setCitationModal(false)}
           onSaved={() => { setCitationModal(false); refresh(); }}
         />
@@ -1138,6 +1235,18 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
           person={profile}
           onClose={() => setLinkModal(false)}
           onUpdated={() => { setLinkModal(false); refresh(); }}
+        />
+      )}
+      {lightbox && lightbox.assets[lightbox.index] && (
+        <GalleryLightbox
+          assets={lightbox.assets}
+          index={lightbox.index}
+          canDelete={false}
+          canEdit={false}
+          canShare={false}
+          onClose={() => setLightbox(null)}
+          onIndexChange={(next) => setLightbox((current) => (current ? { ...current, index: next } : current))}
+          onChanged={refresh}
         />
       )}
     </DashboardShell>

@@ -380,6 +380,79 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE family_tree_unions ADD COLUMN married_place TEXT");
       }
     }
+  },
+  // More life-event types (graduation, retirement, naturalization, travel, award,
+  // baptism): widen the family_tree_events type CHECK. Same no-rename rebuild as
+  // v14/v18 — children (family_tree_citations, family_tree_event_photos) are
+  // backed up, dropped first, recreated verbatim from schema.sql, and restored.
+  // Skipped when the CHECK already allows 'travel' (fresh DBs get it from
+  // schema.sql, which runs before migrations).
+  {
+    version: 22,
+    up: (db) => {
+      const master = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'family_tree_events'")
+        .get() as { sql: string } | undefined;
+      if (!master || master.sql.includes("'travel'")) return;
+      db.exec(`
+        CREATE TABLE family_tree_events_backup AS SELECT * FROM family_tree_events;
+        CREATE TABLE family_tree_citations_backup AS SELECT * FROM family_tree_citations;
+        CREATE TABLE family_tree_event_photos_backup AS SELECT * FROM family_tree_event_photos;
+        DROP TABLE family_tree_event_photos;
+        DROP TABLE family_tree_citations;
+        DROP TABLE family_tree_events;
+        CREATE TABLE family_tree_events (
+          id         TEXT PRIMARY KEY,
+          person_id  TEXT NOT NULL REFERENCES family_tree_persons(id) ON DELETE CASCADE,
+          type       TEXT NOT NULL CHECK (type IN ('residence', 'education', 'graduation', 'occupation', 'retirement', 'military', 'immigration', 'emigration', 'naturalization', 'travel', 'award', 'baptism', 'burial', 'custom')),
+          label      TEXT,
+          date       TEXT,
+          end_date   TEXT,
+          place      TEXT,
+          note       TEXT,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        );
+        CREATE TABLE family_tree_citations (
+          id         TEXT PRIMARY KEY,
+          source_id  TEXT NOT NULL REFERENCES family_tree_sources(id) ON DELETE CASCADE,
+          person_id  TEXT REFERENCES family_tree_persons(id) ON DELETE CASCADE,
+          event_id   TEXT REFERENCES family_tree_events(id) ON DELETE CASCADE,
+          union_id   TEXT REFERENCES family_tree_unions(id) ON DELETE CASCADE,
+          fact       TEXT CHECK (fact IN ('name', 'birth', 'death', 'marriage', 'divorce')),
+          detail     TEXT,
+          url        TEXT,
+          note       TEXT,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          CHECK ((person_id IS NOT NULL) + (event_id IS NOT NULL) + (union_id IS NOT NULL) = 1)
+        );
+        CREATE TABLE family_tree_event_photos (
+          event_id TEXT NOT NULL REFERENCES family_tree_events(id) ON DELETE CASCADE,
+          item_id  TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+          position REAL NOT NULL,
+          added_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+          added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          PRIMARY KEY (event_id, item_id)
+        );
+        CREATE INDEX idx_ft_citations_source ON family_tree_citations(source_id);
+        CREATE INDEX idx_ft_citations_person ON family_tree_citations(person_id);
+        CREATE INDEX idx_ft_citations_event  ON family_tree_citations(event_id);
+        CREATE INDEX idx_ft_citations_union  ON family_tree_citations(union_id);
+        CREATE INDEX idx_ft_events_person    ON family_tree_events(person_id);
+        CREATE INDEX idx_ft_event_photos_item ON family_tree_event_photos(item_id);
+        INSERT INTO family_tree_events
+          SELECT id, person_id, type, label, date, end_date, place, note, created_at, updated_at
+          FROM family_tree_events_backup;
+        INSERT INTO family_tree_citations
+          SELECT id, source_id, person_id, event_id, union_id, fact, detail, url, note, created_at
+          FROM family_tree_citations_backup;
+        INSERT INTO family_tree_event_photos
+          SELECT event_id, item_id, position, added_by, added_at
+          FROM family_tree_event_photos_backup;
+        DROP TABLE family_tree_events_backup;
+        DROP TABLE family_tree_citations_backup;
+        DROP TABLE family_tree_event_photos_backup;
+      `);
+    }
   }
 ];
 

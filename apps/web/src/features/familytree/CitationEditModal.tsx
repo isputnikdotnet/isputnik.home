@@ -47,12 +47,16 @@ function targetOptions(profile: FamilyPersonProfile): TargetOption[] {
 export function CitationEditModal({
   profile,
   citation: existing,
+  canEditSources = true,
   onClose,
   onSaved
 }: {
   profile: FamilyPersonProfile;
   /** null = add a new citation. */
   citation: FamilyCitation | null;
+  /** Sources are a shared bibliography — creating/editing them is admin-only.
+      Branch editors can still cite the existing ones. */
+  canEditSources?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -95,6 +99,8 @@ export function CitationEditModal({
 
   const showSourceFields = sourceId === NEW_SOURCE || editSource;
   const selectedSource = sources.find((s) => s.id === sourceId);
+  // Without source-edit rights and no existing sources there is nothing to cite.
+  const noSourceAvailable = !canEditSources && sources.length === 0;
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -159,9 +165,11 @@ export function CitationEditModal({
               : (
                 <span className="ft-citation-source-row">
                   <span className="ft-citation-source-name">{existing.sourceTitle}</span>
-                  <Button variant="text" compact onClick={beginEditSource} disabled={saving || sources.length === 0}>
-                    Edit source details
-                  </Button>
+                  {canEditSources && (
+                    <Button variant="text" compact onClick={beginEditSource} disabled={saving || sources.length === 0}>
+                      Edit source details
+                    </Button>
+                  )}
                 </span>
               )}
           </label>
@@ -175,11 +183,16 @@ export function CitationEditModal({
               {sources.map((source) => (
                 <option key={source.id} value={source.id}>{source.title}</option>
               ))}
-              <option value={NEW_SOURCE}>+ New source…</option>
+              {canEditSources && <option value={NEW_SOURCE}>+ New source…</option>}
             </select>
           </label>
         )}
-        {!existing && sourceId !== NEW_SOURCE && selectedSource && (
+        {noSourceAvailable && (
+          <MessageBox tone="info" title="No sources yet">
+            Only admins can add sources to the shared bibliography. Ask an admin to create the source first, then cite it here.
+          </MessageBox>
+        )}
+        {canEditSources && !existing && sourceId !== NEW_SOURCE && selectedSource && (
           <Button variant="text" compact onClick={beginEditSource} disabled={saving || editSource}>
             Edit source details
           </Button>
@@ -231,7 +244,7 @@ export function CitationEditModal({
       </div>
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button variant="primary" type="submit" disabled={saving}>
+        <Button variant="primary" type="submit" disabled={saving || noSourceAvailable}>
           {saving ? "Saving…" : existing ? "Save changes" : "Add citation"}
         </Button>
       </div>

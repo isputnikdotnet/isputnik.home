@@ -3,12 +3,15 @@
 // family members. gallery_person_id bridges a member to their face cluster so
 // tagged photos surface on the profile (see photos.ts).
 //
-// Everyone signed in can view the tree; only admins mutate it (enforced at the
-// route layer), so reads here return full rows without per-user filtering. The
-// exception is photo listings, which are always scoped to accessible libraries.
+// Everyone signed in can view the tree; mutations are admin- or tag-scoped
+// (enforced at the route layer via access.ts), so reads here return full rows
+// without per-user filtering. The exception is photo listings, which are always
+// scoped to accessible libraries.
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../../db.js";
+import { setEntityTags } from "../library/audiobook/categorize.js";
+import { FAMILY_PERSON_ENTITY_TYPE } from "./access.js";
 import { listFamilyEvents, type FamilyEventSummary } from "./events.js";
 import { listPersonCitations, type FamilyCitationSummary } from "./sources.js";
 
@@ -184,17 +187,22 @@ export interface FamilyPersonFields {
   bio?: string | null;
 }
 
-export function createFamilyPerson(fields: FamilyPersonFields, createdBy: string): FamilyPersonSummary {
+// Tags are applied in the same transaction as the insert: for a branch editor
+// the tag is the permission anchor, so a person must never exist without it.
+export function createFamilyPerson(fields: FamilyPersonFields, createdBy: string, tags?: string[]): FamilyPersonSummary {
   const id = nanoid(16);
-  db.prepare(`
-    INSERT INTO family_tree_persons (id, name, maiden_name, gender, birth_date, death_date, birthplace, death_place, bio, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    id, fields.name.trim(), fields.maidenName?.trim() || null, fields.gender ?? "unknown",
-    fields.birthDate || null, fields.deathDate || null,
-    fields.birthplace?.trim() || null, fields.deathPlace?.trim() || null,
-    fields.bio?.trim() || null, createdBy
-  );
+  db.transaction(() => {
+    db.prepare(`
+      INSERT INTO family_tree_persons (id, name, maiden_name, gender, birth_date, death_date, birthplace, death_place, bio, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, fields.name.trim(), fields.maidenName?.trim() || null, fields.gender ?? "unknown",
+      fields.birthDate || null, fields.deathDate || null,
+      fields.birthplace?.trim() || null, fields.deathPlace?.trim() || null,
+      fields.bio?.trim() || null, createdBy
+    );
+    if (tags && tags.length > 0) setEntityTags(FAMILY_PERSON_ENTITY_TYPE, id, tags);
+  })();
   return getFamilyPerson(id)!;
 }
 
@@ -203,7 +211,7 @@ export function createFamilyPerson(fields: FamilyPersonFields, createdBy: string
 // file key (the caller removes the file); the two sources are mutually exclusive.
 export function updateFamilyPerson(
   personId: string,
-  fields: Partial<FamilyPersonFields> & { galleryPersonId?: string | null; portraitItemId?: string | null }
+  fields: Partial<FamilyPersonFields> & { galleryPersonId?: string | null; portraitItemId?: string | null; tags?: string[] }
 ): FamilyPersonSummary | null {
   const sets: string[] = [];
   const params: unknown[] = [];
@@ -222,11 +230,18 @@ export function updateFamilyPerson(
     set("portrait_item_id", fields.portraitItemId);
     if (fields.portraitItemId) set("portrait_storage_key", null);
   }
-  if (sets.length === 0) return getFamilyPerson(personId);
+  // Tags live in taggables, not a column — they apply even when no column changed.
+  if (sets.length === 0 && fields.tags === undefined) return getFamilyPerson(personId);
 
-  sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')");
-  const res = db.prepare(`UPDATE family_tree_persons SET ${sets.join(", ")} WHERE id = ?`).run(...params, personId);
-  return res.changes > 0 ? getFamilyPerson(personId) : null;
+  return db.transaction(() => {
+    if (!db.prepare("SELECT 1 FROM family_tree_persons WHERE id = ?").get(personId)) return null;
+    if (fields.tags !== undefined) setEntityTags(FAMILY_PERSON_ENTITY_TYPE, personId, fields.tags);
+    if (sets.length > 0) {
+      sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')");
+      db.prepare(`UPDATE family_tree_persons SET ${sets.join(", ")} WHERE id = ?`).run(...params, personId);
+    }
+    return getFamilyPerson(personId);
+  })();
 }
 
 export function getPortraitStorageKey(personId: string): string | null {
@@ -267,6 +282,8 @@ export function deleteFamilyPerson(personId: string): { deleted: boolean; portra
         db.prepare("DELETE FROM family_tree_unions WHERE id = ?").run(union.id);
       }
     }
+    // taggables has no FK on entity_id, so the person's tag links need explicit cleanup.
+    db.prepare(`DELETE FROM taggables WHERE entity_type = '${FAMILY_PERSON_ENTITY_TYPE}' AND entity_id = ?`).run(personId);
     return db.prepare("DELETE FROM family_tree_persons WHERE id = ?").run(personId).changes > 0;
   })();
   return { deleted, portraitKey: deleted ? portraitKey : null };

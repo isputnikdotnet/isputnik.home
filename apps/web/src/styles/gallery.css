@@ -1169,6 +1169,10 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  /* This footer sits inside a padding-less panel modal (.metadata-modal), so it
+     carries its own inset — without it the buttons hug the modal border. */
+  padding: 0 16px 14px;
+  margin-top: 14px;
 }
 
 /* Presentation settings above the reorderable grid (transition + timing). */

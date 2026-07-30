@@ -6,8 +6,9 @@ import { nanoid } from "nanoid";
 import { db } from "../../db.js";
 
 export const EVENT_TYPES = [
-  "residence", "education", "occupation", "military",
-  "immigration", "emigration", "burial", "custom"
+  "residence", "education", "graduation", "occupation", "retirement", "military",
+  "immigration", "emigration", "naturalization", "travel", "award", "baptism",
+  "burial", "custom"
 ] as const;
 
 export interface FamilyEventSummary {

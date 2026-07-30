@@ -1,6 +1,8 @@
-// Family-tree API. Read endpoints are open to every signed-in user; every
-// mutation is admin-only — the tree is shared family data, so curation is
-// centralised rather than per-library like gallery write access.
+// Family-tree API. Read endpoints are open to every signed-in user. Mutations
+// are admin-only by default, with a tag-scoped exception: a user granted edit
+// rights on a family tag (see access.ts) may edit tagged persons and add
+// relatives to them. Destructive restructuring (deleting people, removing
+// relationships), GEDCOM import, sources, and tag assignment stay admin-only.
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
@@ -18,7 +20,15 @@ import {
   UNION_STATUSES, CHILD_RELATIONS, type RelationError,
   getUnion, createUnion, updateUnion, setUnionPartner, deleteUnion, addChild, removeChild
 } from "./relations.js";
-import { attachFamilyPhotos, detachFamilyPhoto, getFamilyPersonPhotos } from "./photos.js";
+import {
+  attachFamilyPhotos, detachFamilyPhoto, getFamilyPersonPhotos,
+  attachFamilyEventPhotos, detachFamilyEventPhoto, getFamilyEventPhotos
+} from "./photos.js";
+import {
+  FAMILY_TAG_OBJECT_TYPE,
+  canEditAnyPerson, canEditPerson, canEditTree, decoratePersons, getEditableTags, listFamilyTags
+} from "./access.js";
+import { normalizeText } from "../library/audiobook/categorize.js";
 import { exportGedcom, importGedcom } from "./gedcom.js";
 import { EVENT_TYPES, createFamilyEvent, updateFamilyEvent, deleteFamilyEvent, getFamilyEvent } from "./events.js";
 import {
@@ -50,12 +60,14 @@ const personFields = {
   bio: z.string().trim().max(4000).nullable().optional()
 };
 
-const createPersonSchema = z.object(personFields);
+const tagsSchema = z.array(z.string().trim().min(1).max(120)).max(50);
+const createPersonSchema = z.object({ ...personFields, tags: tagsSchema.optional() });
 const updatePersonSchema = z.object({
   ...personFields,
   name: personFields.name.optional(),
   galleryPersonId: z.string().trim().min(1).nullable().optional(),
-  portraitItemId: z.string().trim().min(1).nullable().optional()
+  portraitItemId: z.string().trim().min(1).nullable().optional(),
+  tags: tagsSchema.optional()
 });
 
 const unionFieldsSchema = z.object({
@@ -138,11 +150,23 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
 
   // ── Browse (any signed-in user) ──
 
-  app.get("/api/family-tree/tree", { preHandler: app.authenticate }, async () => getFamilyTree());
+  // `access` tells the client what to offer: admins see everything, branch
+  // editors see edit affordances on their tagged persons plus "Add person".
+  const accessFor = (user: { id: string; role: string }) => ({
+    isAdmin: user.role === "admin",
+    canAdd: canEditTree(user)
+  });
+
+  app.get("/api/family-tree/tree", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const tree = getFamilyTree();
+    return { ...tree, persons: decoratePersons(user, tree.persons), access: accessFor(user) };
+  });
 
   app.get("/api/family-tree/persons", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
     const q = String((request.query as { q?: string }).q ?? "").trim();
-    return { persons: listFamilyPersons(q || undefined) };
+    return { persons: decoratePersons(user, listFamilyPersons(q || undefined)), access: accessFor(user) };
   });
 
   app.get("/api/family-tree/persons/:id", { preHandler: app.authenticate }, async (request, reply) => {
@@ -151,8 +175,31 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
       reply.code(404).send({ error: "Person not found" });
       return;
     }
-    reply.send({ person: profile });
+    // Decorate the nested person summaries too, so every person object the
+    // client sees carries tags/canEdit. Event photos are viewer-scoped to
+    // accessible gallery libraries, like the person photo wall.
+    const user = request.user!;
+    const eventPhotos = getFamilyEventPhotos(user, profile.id);
+    reply.send({
+      person: {
+        ...decoratePersons(user, [profile])[0],
+        parents: decoratePersons(user, profile.parents),
+        unions: profile.unions.map((union) => ({
+          ...union,
+          partner: union.partner ? decoratePersons(user, [union.partner])[0] : null,
+          children: decoratePersons(user, union.children)
+        })),
+        events: profile.events.map((event) => ({ ...event, photos: eventPhotos.get(event.id) ?? [] }))
+      }
+    });
   });
+
+  // Family-tag listing: feeds the person-edit autocomplete, the people-page
+  // filter, and the admin branch-access modal (editorCount). The library tag
+  // browse counts only library_item taggables, so family tags need their own.
+  app.get("/api/family-tree/tags", { preHandler: app.authenticate }, async () => ({
+    tags: listFamilyTags()
+  }));
 
   app.get("/api/family-tree/persons/:id/photos", { preHandler: app.authenticate }, async (request, reply) => {
     const qp = request.query as { limit?: string; offset?: string };
@@ -207,32 +254,69 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.send(result);
   });
 
-  // ── Persons (admin) ──
+  // ── Persons (admin or branch editor) ──
 
-  app.post("/api/family-tree/persons", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.post("/api/family-tree/persons", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
     const parsed = parseBody(createPersonSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid person", details: parsed.error });
       return;
     }
-    const person = createFamilyPerson(parsed.data, request.user!.id);
+    let tags = parsed.data.tags;
+    if (user.role !== "admin") {
+      const editable = getEditableTags(user);
+      if (editable === "all" || editable.length === 0) {
+        reply.code(403).send({ error: "You don't have permission to add family members." });
+        return;
+      }
+      // A branch editor's new person must carry a tag they can edit through —
+      // otherwise it would be immediately un-editable for them. They may pick a
+      // subset of their editable tags; anything else is rejected.
+      const editableByKey = new Map(editable.map((t) => [t.key, t.name]));
+      if (tags !== undefined) {
+        const keys = tags.map(normalizeText);
+        if (keys.length === 0 || keys.some((key) => !editableByKey.has(key))) {
+          reply.code(403).send({ error: "New family members can only carry tags you have edit rights on." });
+          return;
+        }
+        tags = keys.map((key) => editableByKey.get(key)!);
+      } else {
+        tags = [...editableByKey.values()];
+      }
+    }
+    const { tags: _ignored, ...fields } = parsed.data;
+    const person = createFamilyPerson(fields, user.id, tags);
     logActivity({
       event: "familytree.person.created",
-      actorUserId: request.user!.id,
+      actorUserId: user.id,
       targetType: "family_tree_person",
       targetId: person.id,
       detail: `Added "${person.name}" to the family tree.`,
       ipAddress: request.ip
     });
-    reply.code(201).send({ person });
+    reply.code(201).send({ person: decoratePersons(user, [person])[0] });
   });
 
-  app.patch("/api/family-tree/persons/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.patch("/api/family-tree/persons/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
     const personId = (request.params as { id: string }).id;
     const parsed = parseBody(updatePersonSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid changes", details: parsed.error });
       return;
+    }
+    if (user.role !== "admin") {
+      // Tags are the permission boundary and the gallery link bridges to face
+      // clusters — both stay admin-only even inside an editable branch.
+      if (parsed.data.tags !== undefined || parsed.data.galleryPersonId !== undefined) {
+        reply.code(403).send({ error: "Only admins can change tags or gallery links." });
+        return;
+      }
+      if (!canEditPerson(user, personId)) {
+        reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+        return;
+      }
     }
     if (parsed.data.galleryPersonId) {
       const exists = db.prepare("SELECT 1 FROM gallery_people WHERE id = ?").get(parsed.data.galleryPersonId);
@@ -262,7 +346,7 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     if (oldPortraitKey) {
       await fs.rm(thumbnailAbsolutePath(oldPortraitKey), { force: true }).catch(() => {});
     }
-    reply.send({ person });
+    reply.send({ person: decoratePersons(user, [person])[0] });
   });
 
   app.delete("/api/family-tree/persons/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -287,12 +371,16 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.send({ deleted: true });
   });
 
-  // ── Portrait upload (admin) ──
+  // ── Portrait upload (admin or branch editor) ──
 
-  app.put("/api/family-tree/persons/:id/portrait", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.put("/api/family-tree/persons/:id/portrait", { preHandler: app.authenticate }, async (request, reply) => {
     const personId = (request.params as { id: string }).id;
     if (!getFamilyPerson(personId)) {
       reply.code(404).send({ error: "Person not found" });
+      return;
+    }
+    if (!canEditPerson(request.user!, personId)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
       return;
     }
     const contentType = request.headers["content-type"]?.split(";")[0]?.toLowerCase();
@@ -324,10 +412,14 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.send({ person: getFamilyPerson(personId) });
   });
 
-  app.delete("/api/family-tree/persons/:id/portrait", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.delete("/api/family-tree/persons/:id/portrait", { preHandler: app.authenticate }, async (request, reply) => {
     const personId = (request.params as { id: string }).id;
     if (!getFamilyPerson(personId)) {
       reply.code(404).send({ error: "Person not found" });
+      return;
+    }
+    if (!canEditPerson(request.user!, personId)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
       return;
     }
     const oldKey = getPortraitStorageKey(personId);
@@ -339,15 +431,22 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.send({ person: getFamilyPerson(personId) });
   });
 
-  // ── Unions (admin) ──
+  // ── Unions (admin or branch editor) ──
+  // A branch editor may create or edit a union when at least one involved
+  // person is theirs to edit — that is how a spouse from another (or no)
+  // branch marries into the family.
 
-  app.post("/api/family-tree/unions", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.post("/api/family-tree/unions", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createUnionSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid union", details: parsed.error });
       return;
     }
     const { person1Id, person2Id, ...fields } = parsed.data;
+    if (!canEditAnyPerson(request.user!, [person1Id, person2Id])) {
+      reply.code(403).send({ error: "You can only add relationships for family members in a branch you have edit rights on." });
+      return;
+    }
     const result = createUnion(person1Id, person2Id ?? null, fields);
     if ("error" in result) {
       const err = RELATION_ERRORS[result.error];
@@ -359,7 +458,7 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
 
   // `person2Id` fills the empty partner slot of a single-parent union (the
   // "add the other parent" flow); the field updates apply in the same request.
-  app.patch("/api/family-tree/unions/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.patch("/api/family-tree/unions/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(updateUnionSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid changes", details: parsed.error });
@@ -367,6 +466,15 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     }
     const unionId = (request.params as { id: string }).id;
     const { person2Id, ...fields } = parsed.data;
+    const existing = getUnion(unionId);
+    if (!existing) {
+      reply.code(404).send({ error: "Union not found" });
+      return;
+    }
+    if (!canEditAnyPerson(request.user!, [existing.person1Id, existing.person2Id, person2Id])) {
+      reply.code(403).send({ error: "You can only edit relationships of family members in a branch you have edit rights on." });
+      return;
+    }
     if (person2Id) {
       const result = setUnionPartner(unionId, person2Id);
       if ("error" in result) {
@@ -391,13 +499,22 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.send({ deleted: true });
   });
 
-  // ── Children (admin) ──
+  // ── Children (admin or branch editor) ──
 
-  app.post("/api/family-tree/unions/:id/children", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.post("/api/family-tree/unions/:id/children", { preHandler: app.authenticate }, async (request, reply) => {
     const unionId = (request.params as { id: string }).id;
     const parsed = parseBody(addChildSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid child link", details: parsed.error });
+      return;
+    }
+    const union = getUnion(unionId);
+    if (!union) {
+      reply.code(404).send({ error: "Union not found" });
+      return;
+    }
+    if (!canEditAnyPerson(request.user!, [union.person1Id, union.person2Id, parsed.data.childId])) {
+      reply.code(403).send({ error: "You can only add relationships for family members in a branch you have edit rights on." });
       return;
     }
     const result = addChild(unionId, parsed.data.childId, parsed.data.relation ?? "biological");
@@ -418,15 +535,20 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.send({ removed: true });
   });
 
-  // ── Life events (admin) ──
+  // ── Life events (admin or branch editor) ──
 
-  app.post("/api/family-tree/persons/:id/events", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.post("/api/family-tree/persons/:id/events", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createEventSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid event", details: parsed.error });
       return;
     }
-    const event = createFamilyEvent((request.params as { id: string }).id, parsed.data);
+    const personId = (request.params as { id: string }).id;
+    if (!canEditPerson(request.user!, personId)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+      return;
+    }
+    const event = createFamilyEvent(personId, parsed.data);
     if (!event) {
       reply.code(404).send({ error: "Person not found" });
       return;
@@ -434,27 +556,80 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.code(201).send({ event });
   });
 
-  app.patch("/api/family-tree/events/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.patch("/api/family-tree/events/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(updateEventSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid changes", details: parsed.error });
       return;
     }
-    const event = updateFamilyEvent((request.params as { id: string }).id, parsed.data);
+    const existing = getFamilyEvent((request.params as { id: string }).id);
+    if (!existing) {
+      reply.code(404).send({ error: "Event not found" });
+      return;
+    }
+    if (!canEditPerson(request.user!, existing.personId)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+      return;
+    }
+    const event = updateFamilyEvent(existing.id, parsed.data);
+    reply.send({ event });
+  });
+
+  app.delete("/api/family-tree/events/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const existing = getFamilyEvent((request.params as { id: string }).id);
+    if (!existing) {
+      reply.code(404).send({ error: "Event not found" });
+      return;
+    }
+    if (!canEditPerson(request.user!, existing.personId)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+      return;
+    }
+    deleteFamilyEvent(existing.id);
+    reply.send({ deleted: true });
+  });
+
+  // ── Event photo attachments (admin or branch editor, via the event's person) ──
+
+  app.post("/api/family-tree/events/:id/photos", { preHandler: app.authenticate }, async (request, reply) => {
+    const event = getFamilyEvent((request.params as { id: string }).id);
     if (!event) {
       reply.code(404).send({ error: "Event not found" });
       return;
     }
-    reply.send({ event });
+    const parsed = parseBody(attachPhotosSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid photo selection", details: parsed.error });
+      return;
+    }
+    if (!canEditPerson(request.user!, event.personId)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+      return;
+    }
+    const result = attachFamilyEventPhotos(event.id, parsed.data.itemIds, request.user!.id);
+    if ("error" in result) {
+      reply.code(404).send({ error: result.error === "event_not_found" ? "Event not found" : "Gallery item not found" });
+      return;
+    }
+    reply.send({ attached: result.attached });
   });
 
-  app.delete("/api/family-tree/events/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
-    if (!getFamilyEvent((request.params as { id: string }).id)) {
+  app.delete("/api/family-tree/events/:id/photos/:itemId", { preHandler: app.authenticate }, async (request, reply) => {
+    const { id: eventId, itemId } = request.params as { id: string; itemId: string };
+    const event = getFamilyEvent(eventId);
+    if (!event) {
       reply.code(404).send({ error: "Event not found" });
       return;
     }
-    deleteFamilyEvent((request.params as { id: string }).id);
-    reply.send({ deleted: true });
+    if (!canEditPerson(request.user!, event.personId)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+      return;
+    }
+    if (!detachFamilyEventPhoto(eventId, itemId)) {
+      reply.code(404).send({ error: "Attachment not found" });
+      return;
+    }
+    reply.send({ removed: true });
   });
 
   // ── Sources & citations ──
@@ -495,10 +670,34 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.send({ deleted: true });
   });
 
-  app.post("/api/family-tree/citations", { preHandler: app.requireAdmin }, async (request, reply) => {
+  // A citation is editable through the person it documents: the cited person,
+  // the event's person, or (for a union) either partner. Editors may cite
+  // existing sources; creating sources themselves stays admin-only.
+  const canEditCitationTarget = (
+    user: { id: string; role: string },
+    target: { personId?: string | null; eventId?: string | null; unionId?: string | null }
+  ): boolean => {
+    if (user.role === "admin") return true;
+    if (target.personId) return canEditPerson(user, target.personId);
+    if (target.eventId) {
+      const event = getFamilyEvent(target.eventId);
+      return event != null && canEditPerson(user, event.personId);
+    }
+    if (target.unionId) {
+      const union = getUnion(target.unionId);
+      return union != null && canEditAnyPerson(user, [union.person1Id, union.person2Id]);
+    }
+    return false;
+  };
+
+  app.post("/api/family-tree/citations", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createCitationSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid citation", details: parsed.error });
+      return;
+    }
+    if (!canEditCitationTarget(request.user!, parsed.data)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
       return;
     }
     const result = createFamilyCitation(parsed.data);
@@ -510,36 +709,50 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.code(201).send({ citation: result.citation });
   });
 
-  app.patch("/api/family-tree/citations/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.patch("/api/family-tree/citations/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(updateCitationSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid changes", details: parsed.error });
       return;
     }
-    const citation = updateFamilyCitation((request.params as { id: string }).id, parsed.data);
-    if (!citation) {
+    const existing = getFamilyCitation((request.params as { id: string }).id);
+    if (!existing) {
       reply.code(404).send({ error: "Citation not found" });
       return;
     }
+    if (!canEditCitationTarget(request.user!, existing)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+      return;
+    }
+    const citation = updateFamilyCitation(existing.id, parsed.data);
     reply.send({ citation });
   });
 
-  app.delete("/api/family-tree/citations/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
-    if (!getFamilyCitation((request.params as { id: string }).id)) {
+  app.delete("/api/family-tree/citations/:id", { preHandler: app.authenticate }, async (request, reply) => {
+    const existing = getFamilyCitation((request.params as { id: string }).id);
+    if (!existing) {
       reply.code(404).send({ error: "Citation not found" });
       return;
     }
-    deleteFamilyCitation((request.params as { id: string }).id);
+    if (!canEditCitationTarget(request.user!, existing)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+      return;
+    }
+    deleteFamilyCitation(existing.id);
     reply.send({ deleted: true });
   });
 
-  // ── Photo attachments (admin) ──
+  // ── Photo attachments (admin or branch editor) ──
 
-  app.post("/api/family-tree/persons/:id/photos", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.post("/api/family-tree/persons/:id/photos", { preHandler: app.authenticate }, async (request, reply) => {
     const personId = (request.params as { id: string }).id;
     const parsed = parseBody(attachPhotosSchema, request.body);
     if (parsed.error) {
       reply.code(400).send({ error: "Invalid photo selection", details: parsed.error });
+      return;
+    }
+    if (!canEditPerson(request.user!, personId)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
       return;
     }
     const result = attachFamilyPhotos(personId, parsed.data.itemIds, request.user!.id);
@@ -559,12 +772,107 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     reply.send({ attached: result.attached });
   });
 
-  app.delete("/api/family-tree/persons/:id/photos/:itemId", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.delete("/api/family-tree/persons/:id/photos/:itemId", { preHandler: app.authenticate }, async (request, reply) => {
     const { id: personId, itemId } = request.params as { id: string; itemId: string };
+    if (!canEditPerson(request.user!, personId)) {
+      reply.code(403).send({ error: "You can only edit family members in a branch you have edit rights on." });
+      return;
+    }
     if (!detachFamilyPhoto(personId, itemId)) {
       reply.code(404).send({ error: "Attachment not found" });
       return;
     }
     reply.send({ removed: true });
+  });
+
+  // ── Branch access (admin) ──
+  // Assignments with object_type 'family_tree_tag' grant a user or group edit
+  // rights over every person carrying the tag. Same pattern as library members.
+
+  const editorGrantSchema = z.object({
+    subjectType: z.enum(["user", "group"]),
+    subjectId: z.string().trim().min(1),
+    role: z.enum(["contributor", "deny"])
+  });
+
+  const getTag = (tagId: string) =>
+    db.prepare("SELECT id, display_name AS name FROM tags WHERE id = ?").get(tagId) as { id: string; name: string } | undefined;
+
+  app.get("/api/family-tree/tags/:tagId/editors", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const tag = getTag((request.params as { tagId: string }).tagId);
+    if (!tag) {
+      reply.code(404).send({ error: "Tag not found" });
+      return;
+    }
+    const editors = db.prepare(`
+      SELECT a.subject_type AS subjectType, a.subject_id AS subjectId, a.role, a.created_at AS createdAt,
+        COALESCE(u.display_name, g.name) AS name,
+        u.email AS email,
+        ((a.subject_type = 'user' AND u.id IS NULL) OR (a.subject_type = 'group' AND g.id IS NULL)) AS missing
+      FROM assignments a
+      LEFT JOIN users u ON a.subject_type = 'user' AND u.id = a.subject_id
+      LEFT JOIN user_groups g ON a.subject_type = 'group' AND g.id = a.subject_id
+      WHERE a.object_type = '${FAMILY_TAG_OBJECT_TYPE}' AND a.object_id = ?
+      ORDER BY a.subject_type, name COLLATE NOCASE
+    `).all(tag.id);
+    reply.send({ tag, editors });
+  });
+
+  app.post("/api/family-tree/tags/:tagId/editors", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const tag = getTag((request.params as { tagId: string }).tagId);
+    if (!tag) {
+      reply.code(404).send({ error: "Tag not found" });
+      return;
+    }
+    const parsed = parseBody(editorGrantSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid grant", details: parsed.error });
+      return;
+    }
+    const { subjectType, subjectId, role } = parsed.data;
+    const subjectTable = subjectType === "user" ? "users" : "user_groups";
+    if (!db.prepare(`SELECT 1 FROM ${subjectTable} WHERE id = ?`).get(subjectId)) {
+      reply.code(404).send({ error: subjectType === "user" ? "User not found" : "Group not found" });
+      return;
+    }
+    db.prepare(`
+      INSERT INTO assignments (subject_type, subject_id, object_type, object_id, role, created_by)
+      VALUES (?, ?, '${FAMILY_TAG_OBJECT_TYPE}', ?, ?, ?)
+      ON CONFLICT (subject_type, subject_id, object_type, object_id) DO UPDATE SET role = excluded.role, created_by = excluded.created_by
+    `).run(subjectType, subjectId, tag.id, role, request.user!.id);
+    logActivity({
+      event: "familytree.editor.granted",
+      actorUserId: request.user!.id,
+      targetType: "family_tree_tag",
+      targetId: tag.id,
+      detail: `Granted ${role === "deny" ? "an edit block" : "edit rights"} on family tag "${tag.name}" to a ${subjectType}.`,
+      ipAddress: request.ip
+    });
+    reply.code(201).send({ granted: true });
+  });
+
+  app.delete("/api/family-tree/tags/:tagId/editors/:subjectType/:subjectId", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { tagId, subjectType, subjectId } = request.params as { tagId: string; subjectType: string; subjectId: string };
+    const tag = getTag(tagId);
+    if (!tag || (subjectType !== "user" && subjectType !== "group")) {
+      reply.code(404).send({ error: "Tag not found" });
+      return;
+    }
+    const res = db.prepare(
+      `DELETE FROM assignments WHERE object_type = '${FAMILY_TAG_OBJECT_TYPE}' AND object_id = ? AND subject_type = ? AND subject_id = ?`
+    ).run(tag.id, subjectType, subjectId);
+    if (res.changes === 0) {
+      reply.code(404).send({ error: "Grant not found" });
+      return;
+    }
+    logActivity({
+      event: "familytree.editor.revoked",
+      actorUserId: request.user!.id,
+      targetType: "family_tree_tag",
+      targetId: tag.id,
+      detail: `Revoked edit rights on family tag "${tag.name}" from a ${subjectType}.`,
+      ipAddress: request.ip
+    });
+    reply.send({ revoked: true });
   });
 }

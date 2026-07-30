@@ -10,8 +10,13 @@ for future ones (Gallery, Documents) with no schema change.
 - **`tags`** — `key` (normalized) + `display_name`. Global; merging renames collapse onto the key.
 - **`taggables`** — the link: `(tag_id, entity_type, entity_id)`
   ([`db.ts`](../apps/server/src/db.ts)). The `entity_type` column is the key design choice — the
-  schema comment notes *"any entity type (book, photo, note, …) can be tagged."* Today every link
-  is `entity_type = 'book'`, covering audiobooks and ebooks alike.
+  schema comment notes *"any entity type (book, photo, note, …) can be tagged."* Links are
+  `entity_type = 'library_item'` (audiobooks and ebooks alike) or `'family_tree_person'` —
+  family-branch tags that also scope edit rights (see
+  [`familytree/access.ts`](../apps/server/src/modules/familytree/access.ts): assignments with
+  `object_type = 'family_tree_tag'` grant a user/group edit access to every person carrying the
+  tag). Because tags carry permissions there, tagging family persons is admin-only, and the admin
+  tag manager's delete/merge/prune handle `family_tree_tag` assignments and non-book usage counts.
 
 ## Auto-tagging at scan
 
