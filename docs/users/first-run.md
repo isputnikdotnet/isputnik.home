@@ -9,6 +9,8 @@ and can configure everything else.
 Open the app in a browser. Instead of a sign-in form you get **First run —
 Create the setup admin**:
 
+![Creating the setup admin on a brand-new install](images/00-first-run.png)
+
 Fill in three things:
 
 | Field | Notes |

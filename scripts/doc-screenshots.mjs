@@ -42,7 +42,13 @@ const HELPERS = `
 `;
 
 const SHOTS = [
-  { name: "01-login", url: "login", auth: false, state: "signed out" },
+  // Only reachable before the first account exists, so it can't be regenerated
+  // on a configured install — capture it while the database is still empty.
+  { name: "00-first-run", url: "install", auth: false, state: "no accounts yet" },
+  // Needs an account to exist: with an empty database /login redirects to the
+  // first-run form, so capturing it then would silently overwrite this with
+  // 00-first-run's screen. Don't run the two together on a fresh install.
+  { name: "01-login", url: "login", auth: false, state: "signed out, at least one account" },
   { name: "02-home", url: "" },
 
   { name: "10-storage-empty", url: "control/storage", state: "before storage is configured" },
@@ -208,7 +214,9 @@ async function main() {
   const health = await fetch(`${BASE}/`, { redirect: "manual" }).catch(() => null);
   if (!health) throw new Error(`${BASE} is not responding — is \`npm run dev\` running?`);
 
-  const session = mintSession();
+  // Only needed for authenticated pages — the first-run and sign-in shots are
+  // captured against an install that has no accounts to sign in as.
+  const session = wanted.some((shot) => shot.auth !== false) ? mintSession() : null;
   const browser = await launch();
   let ws;
   try {
@@ -263,7 +271,7 @@ async function main() {
     console.log(`\n${wanted.length} screenshot(s) written to docs/users/images.`);
   } finally {
     ws?.close();
-    session.release();
+    session?.release();
     browser?.kill();
   }
 }
