@@ -133,7 +133,7 @@ export function FamilyTreePage({
                 <FileUp size={17} aria-hidden="true" />
               </Button>
             )}
-            {isAdmin && (
+            {tree?.access.canAdd && (
               <Button variant="primary" compact onClick={() => setAddOpen(true)}>
                 <UserRoundPlus size={16} aria-hidden="true" />
                 Add person
@@ -149,20 +149,22 @@ export function FamilyTreePage({
             <UserRound size={40} aria-hidden="true" />
             <h2>No family members yet</h2>
             <p>
-              {isAdmin
+              {tree.access.canAdd
                 ? "Start the tree by adding the first person — then add partners, children, and photos."
                 : "The family tree hasn't been started yet."}
             </p>
-            {isAdmin && (
+            {tree.access.canAdd && (
               <div className="ft-tree-empty-actions">
                 <Button variant="primary" onClick={() => setAddOpen(true)}>
                   <UserRoundPlus size={16} aria-hidden="true" />
                   Add person
                 </Button>
-                <Button variant="secondary" onClick={() => setImportOpen(true)}>
-                  <FileUp size={16} aria-hidden="true" />
-                  Import GEDCOM
-                </Button>
+                {isAdmin && (
+                  <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                    <FileUp size={16} aria-hidden="true" />
+                    Import GEDCOM
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -172,7 +174,6 @@ export function FamilyTreePage({
           <FamilyTreeChart
             tree={tree}
             focusId={activeFocusId}
-            isAdmin={isAdmin}
             onFocus={(personId) => { if (personId !== activeFocusId) navigate(`/family/tree/${personId}`); }}
             onOpenProfile={(personId) => navigate(`/family/people/${personId}?from=/family/tree/${activeFocusId}`)}
             onEditPerson={setEditPerson}
@@ -183,6 +184,7 @@ export function FamilyTreePage({
       {addOpen && (
         <PersonEditModal
           person={null}
+          showTags={isAdmin}
           onClose={() => setAddOpen(false)}
           onSaved={(person) => { setAddOpen(false); loadTree(); navigate(`/family/tree/${person.id}`); }}
         />
@@ -191,6 +193,7 @@ export function FamilyTreePage({
       {editPerson && (
         <PersonEditModal
           person={editPerson}
+          showTags={isAdmin}
           onClose={() => setEditPerson(null)}
           onSaved={() => { setEditPerson(null); loadTree(); }}
         />

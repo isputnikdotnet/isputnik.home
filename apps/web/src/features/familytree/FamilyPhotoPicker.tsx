@@ -23,8 +23,9 @@ export function FamilyPhotoPicker({
   /** One-click mode: pick a single asset and close (portrait choice). */
   single?: boolean;
   onPickSingle?: (asset: GalleryAsset) => void;
-  /** Multi mode: attach the selection; resolves when the server accepted it. */
-  onAttach?: (itemIds: string[]) => Promise<void>;
+  /** Multi mode: attach the selection (ids + their asset objects, so callers
+      can stage thumbnails without refetching); resolves when accepted. */
+  onAttach?: (itemIds: string[], assets: GalleryAsset[]) => Promise<void>;
   onClose: () => void;
 }) {
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
@@ -68,6 +69,10 @@ export function FamilyPhotoPicker({
 
   const breadcrumbParts = useMemo(() => (parent ? parent.split("/") : []), [parent]);
 
+  // Selection can span folders, so remember each selected asset object — the
+  // current folder's `assets` alone can't resolve ids picked elsewhere.
+  const [selectedAssets, setSelectedAssets] = useState<Map<string, GalleryAsset>>(new Map());
+
   const toggle = (asset: GalleryAsset) => {
     if (single) {
       onPickSingle?.(asset);
@@ -79,6 +84,11 @@ export function FamilyPhotoPicker({
       if (next.has(asset.id)) next.delete(asset.id); else next.add(asset.id);
       return next;
     });
+    setSelectedAssets((prev) => {
+      const next = new Map(prev);
+      if (next.has(asset.id)) next.delete(asset.id); else next.set(asset.id, asset);
+      return next;
+    });
   };
 
   const attachSelected = async () => {
@@ -87,9 +97,10 @@ export function FamilyPhotoPicker({
     setAdding(true);
     setError("");
     try {
-      await onAttach(ids);
+      await onAttach(ids, ids.map((id) => selectedAssets.get(id)).filter((a): a is GalleryAsset => a != null));
       setAdded((prev) => new Set([...prev, ...ids]));
       setSelected(new Set());
+      setSelectedAssets(new Map());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to add the photos");
     } finally {

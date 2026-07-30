@@ -539,16 +539,28 @@
   border-radius: 8px;
 }
 
-.ft-photo-add-tile.secondary-button {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  min-height: 0;
-  aspect-ratio: 4 / 3;
-  border-style: dashed;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--field) 48%, transparent);
-  color: var(--blue);
+/* Tiles are buttons (they open the lightbox in place, never navigate away), so
+   they need the anchor's neutral chrome. */
+.ft-photo-grid .gallery-tile {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+/* "View all N photos" under the preview grid, and the paging button on the
+   full photos page. */
+.ft-photos-all-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  text-decoration: none;
+}
+
+.ft-photos-page-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
 }
 
 .ft-photo-remove {
@@ -586,6 +598,42 @@
   grid-template-columns: 1fr 1fr;
   gap: 14px 16px;
   margin-bottom: 14px;
+}
+
+/* Person form tab bar — stretches edge-to-edge across the card's 24px padding
+   so the underline rule spans the whole modal. */
+.ft-person-form-tabs {
+  margin: -4px -24px 18px;
+}
+
+/* A form-grid field that takes the whole row (the gender radios). */
+.ft-field-span {
+  grid-column: 1 / -1;
+}
+
+/* Tab panels share one body sized to the tallest tab (Details), so the modal
+   keeps its height when switching tabs; the notes textarea fills the space. */
+.ft-person-form-body {
+  min-height: 348px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The body's min-height is the spacer; the grid's own bottom margin would
+   make the Details tab 14px taller than the others. */
+.ft-person-form-body > .ft-form-grid {
+  margin-bottom: 0;
+}
+
+.ft-person-form-body .ft-bio-field {
+  flex: 1;
+  grid-template-rows: auto 1fr;
+}
+
+.ft-person-form-body .ft-bio-field textarea {
+  height: 100%;
+  min-height: 160px;
+  resize: none;
 }
 
 /* Native date inputs size their own calendar control; keep them full-width and
@@ -715,6 +763,125 @@
   color: var(--muted);
   font-size: 0.84rem;
   white-space: pre-wrap;
+}
+
+/* Long notes start clamped; the More button below toggles the full text. */
+.ft-timeline-note.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ft-timeline-more {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mint);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ft-timeline-more:hover {
+  text-decoration: underline;
+}
+
+/* Photos attached to an event: a strip of small thumbs; collapsed rows show a
+   few plus a "+N" tile that expands in place. */
+.ft-timeline-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ft-timeline-photo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+.ft-timeline-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ft-timeline-photo-play {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.ft-timeline-photo-more {
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ft-timeline-photo-more:hover {
+  color: var(--ink);
+}
+
+/* Event modal photo strip: staged thumbs with a remove badge + Add button. */
+.ft-event-photo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ft-event-photo-thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+.ft-event-photo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ft-event-photo-play {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.ft-event-photo-thumb .ft-event-photo-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
 }
 
 .ft-timeline-actions {
@@ -881,6 +1048,27 @@
 .ft-field-stack {
   display: grid;
   gap: 14px;
+}
+
+/* Tag filter chips on the people page (reuses .book-tag-chip for the look). */
+.ft-tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: 0 0 18px;
+}
+
+.ft-tag-chip-active {
+  border-color: var(--mint);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--mint) 16%, transparent);
+}
+
+/* Read-only tag chips on the person profile meta grid. */
+.ft-profile-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
 }
 
 /* Beats `.confirm-modal p`, which would otherwise impose its 12/24 margins. */

@@ -99,14 +99,12 @@ function SilhouetteShape({ tone }: { tone: string }) {
 export function FamilyTreeChart({
   tree,
   focusId,
-  isAdmin,
   onFocus,
   onOpenProfile,
   onEditPerson
 }: {
   tree: FamilyTree;
   focusId: string;
-  isAdmin: boolean;
   onFocus: (personId: string) => void;
   onOpenProfile: (personId: string) => void;
   onEditPerson: (person: FamilyPerson) => void;
@@ -347,7 +345,7 @@ export function FamilyTreeChart({
                   <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                   <circle cx={12} cy={7} r={4} />
                 </ActionBadge>
-                {isAdmin && (
+                {person.canEdit && (
                   <ActionBadge
                     cx={left + NODE_W - 15}
                     cy={top + 39}

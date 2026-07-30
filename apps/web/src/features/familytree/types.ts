@@ -15,6 +15,24 @@ export interface FamilyPerson {
   portraitUrl: string | null;
   portraitItemId: string | null;
   galleryPersonId: string | null;
+  // Family tags (branch names) on this person; also the edit-permission scope.
+  tags: string[];
+  // Whether the current user may edit this person (admin, or a tag grant).
+  canEdit: boolean;
+}
+
+// What the current user may do with the tree overall. `canAdd` is true for
+// admins and for anyone holding edit rights on at least one family tag.
+export interface FamilyTreeAccess {
+  isAdmin: boolean;
+  canAdd: boolean;
+}
+
+export interface FamilyTag {
+  id: string;
+  name: string;
+  count: number;
+  editorCount: number;
 }
 
 export interface FamilyUnion {
@@ -31,12 +49,17 @@ export interface FamilyUnion {
 export interface FamilyEvent {
   id: string;
   personId: string;
-  type: "residence" | "education" | "occupation" | "military" | "immigration" | "emigration" | "burial" | "custom";
+  type:
+    | "residence" | "education" | "graduation" | "occupation" | "retirement" | "military"
+    | "immigration" | "emigration" | "naturalization" | "travel" | "award" | "baptism"
+    | "burial" | "custom";
   label: string | null;
   date: string | null;
   endDate: string | null;
   place: string | null;
   note: string | null;
+  // Attached gallery photos, viewer-scoped; present on the profile payload.
+  photos: GalleryAsset[];
 }
 
 export interface FamilyChildLink {
@@ -49,6 +72,7 @@ export interface FamilyTree {
   persons: FamilyPerson[];
   unions: FamilyUnion[];
   children: FamilyChildLink[];
+  access: FamilyTreeAccess;
 }
 
 export interface FamilyUnionDetail {
@@ -115,15 +139,22 @@ export const UNION_STATUS_OPTIONS = [
 ] as const;
 
 // Timeline event types. `custom` needs a label; for the rest the label is an
-// optional short "what" (occupation title, school name).
+// optional short "what" (occupation title, school name). Alphabetical by
+// label, with the "Other event" catch-all last.
 export const EVENT_TYPE_OPTIONS = [
-  { value: "education", label: "Education" },
-  { value: "occupation", label: "Work" },
-  { value: "residence", label: "Residence" },
-  { value: "military", label: "Military service" },
-  { value: "immigration", label: "Immigration" },
-  { value: "emigration", label: "Emigration" },
+  { value: "award", label: "Award" },
+  { value: "baptism", label: "Baptism" },
   { value: "burial", label: "Burial" },
+  { value: "education", label: "Education" },
+  { value: "emigration", label: "Emigration" },
+  { value: "graduation", label: "Graduation" },
+  { value: "immigration", label: "Immigration" },
+  { value: "military", label: "Military service" },
+  { value: "naturalization", label: "Naturalization" },
+  { value: "residence", label: "Residence" },
+  { value: "retirement", label: "Retirement" },
+  { value: "travel", label: "Travel" },
+  { value: "occupation", label: "Work" },
   { value: "custom", label: "Other event" }
 ] as const;
 

@@ -328,11 +328,48 @@ describe("gedcom export", () => {
       { type: "education", label: "Belarusian State University", date: "1938", endDate: "1943", place: "Minsk" },
       { type: "occupation", label: "Teacher", date: "1944", note: "Village school." },
       { type: "residence", date: "1960", place: "Leningrad", label: null },
-      { type: "custom", label: "Award", note: "Medal for labour.", date: null }
+      // A custom event labelled "Award" comes back as the typed award event —
+      // the label matches a typed event's EVEN round-trip (EVEN_TYPE_BY_LABEL).
+      { type: "award", label: "Award", note: "Medal for labour.", date: null }
     ]);
     const profile = getFamilyPersonProfile(reimported.id)!;
     expect(profile.unions[0]).toMatchObject({ marriedDate: "1950-05-09", marriedPlace: "Gomel" });
     expect(profile.events).toHaveLength(4);
+  });
+
+  it("round-trips the typed events added in 1.16 (GRAD/RETI/BAPM/NATU + EVEN travel/award)", () => {
+    const person = createFamilyPerson({ name: "Max Typed", gender: "male" }, "admin");
+    createFamilyEvent(person.id, { type: "graduation", label: "MIT", date: "1950" });
+    createFamilyEvent(person.id, { type: "retirement", date: "1980" });
+    createFamilyEvent(person.id, { type: "baptism", place: "Vilnius" });
+    createFamilyEvent(person.id, { type: "naturalization", date: "1955" });
+    createFamilyEvent(person.id, { type: "travel", label: "Trip to Riga", date: "1960" });
+    createFamilyEvent(person.id, { type: "award", date: "1970" });
+
+    const gedcom = exportGedcom();
+    expect(gedcom).toContain("1 GRAD");
+    expect(gedcom).toContain("1 RETI");
+    expect(gedcom).toContain("1 BAPM");
+    expect(gedcom).toContain("1 NATU");
+    // Travel/award have no GEDCOM tag; the TYPE keeps them typed on re-import,
+    // falling back to the default label when the event has none.
+    expect(gedcom).toContain("2 TYPE Trip to Riga");
+    expect(gedcom).toContain("2 TYPE Award");
+
+    const outcome = importGedcom(gedcom, "replace", "admin");
+    if ("error" in outcome) throw new Error(outcome.error);
+    const reimported = listFamilyPersons().find((p) => p.name === "Max Typed")!;
+    const types = listFamilyEvents(reimported.id).map((e) => ({ type: e.type, label: e.label }));
+    expect(types).toEqual(expect.arrayContaining([
+      { type: "graduation", label: "MIT" },
+      { type: "retirement", label: null },
+      { type: "baptism", label: null },
+      { type: "naturalization", label: null },
+      // "Trip to Riga" doesn't match a typed EVEN label, so it lands as custom
+      // with the label kept — only bare "Travel"/"Award" TYPEs restore the type.
+      { type: "custom", label: "Trip to Riga" },
+      { type: "award", label: "Award" }
+    ]));
   });
 
   it("round-trips sources and citations across facts, events, and unions", () => {

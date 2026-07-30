@@ -502,6 +502,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "1.16.0",
+          label: "Family branches, and a richer timeline",
+          changes: [
+            "Family members can be tagged by branch — usually a last name — and the People page gained a row of tag chips to filter by. Tags live under their own tab in the Add/Edit person form, alongside Bio / notes.",
+            "Those tags now grant editing rights. \"Branch access\" on the People page lets an administrator make someone the editor of one branch: they can edit everyone carrying that tag and add relatives to them (new people join the branch automatically), while deleting people, unpicking relationships, importing a GEDCOM file, and the tags themselves stay with administrators.",
+            "The timeline understands more of a life: alongside school, work, homes and service, there are now graduations, retirements, travel, awards, baptisms and naturalizations, each with its own icon. The list of kinds reads alphabetically.",
+            "Timeline events can carry their own photos — the trip, the ceremony, the medal — picked from the gallery when you add or edit the event. A row shows the first few and a \"+3\" opens the rest, and a long note is trimmed to a few lines with a More link.",
+            "Photos on a profile no longer take you away: clicking one opens it right there, so closing it puts you back on the family page instead of in the gallery. The Photos tab shows a preview of twelve with \"View all photos\" for the complete set.",
+            "The Add/Edit person form was tidied: Born sits beside Birthplace and Died beside its place, and the form keeps one size as you move between its tabs."
+          ]
+        },
+        {
           version: "1.15.0",
           label: "The family tree, the way family trees are drawn",
           changes: [

@@ -201,7 +201,7 @@ group_members(group_id, user_id, PRIMARY KEY (group_id, user_id));
 assignments(
   subject_type CHECK (subject_type IN ('user', 'group')),
   subject_id,                              -- polymorphic, no FK
-  object_type,                             -- 'library' now; 'collection', … later
+  object_type,                             -- 'library' | 'family_tree_tag' now; 'collection', … later
   object_id,                               -- polymorphic, no FK
   role         CHECK (role IN ('viewer', 'member', 'contributor', 'manager', 'deny')),
   PRIMARY KEY (subject_type, subject_id, object_type, object_id)

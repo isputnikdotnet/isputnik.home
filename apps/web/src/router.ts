@@ -22,6 +22,7 @@ export type Route =
   | { name: "familyTree"; focusId?: string }
   | { name: "familyPeople" }
   | { name: "familyPerson"; id: string }
+  | { name: "familyPersonPhotos"; id: string }
   | { name: "ebookAuthorDetail"; personName: string }
   | { name: "ebookSeries" }
   | { name: "ebookSeriesDetail"; seriesId: string }
@@ -97,6 +98,14 @@ export function getRoute(): Route {
 
   // Family tree: the chart (optionally focused on one person — a real path so
   // re-centering builds browser history), the people list, and person profiles.
+  // The profile shows a photo preview; this is its "see everything" page — kept
+  // inside the family tree because the set (curated attachments + face-cluster
+  // photos) has no equivalent view in the gallery.
+  const familyPersonPhotosMatch = path.match(/^\/family\/people\/([^/]+)\/photos$/);
+  if (familyPersonPhotosMatch) {
+    return { name: "familyPersonPhotos", id: familyPersonPhotosMatch[1] };
+  }
+
   const familyPersonMatch = path.match(/^\/family\/people\/([^/]+)$/);
   if (familyPersonMatch) {
     return { name: "familyPerson", id: familyPersonMatch[1] };

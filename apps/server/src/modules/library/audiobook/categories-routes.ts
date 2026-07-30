@@ -9,6 +9,8 @@ import { parseBody } from "../../../core/shared.js";
 import { CATEGORY_SEED, isBuiltinCategoryImageKey } from "../../../categories-seed.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { normalizeText, rematchAllCategories } from "./categorize.js";
+import { deleteAssignmentsForObject } from "../../../core/permissions.js";
+import { FAMILY_TAG_OBJECT_TYPE } from "../../familytree/access.js";
 
 function imageUrl(imageStorageKey: string | null) {
   if (isBuiltinCategoryImageKey(imageStorageKey)) {
@@ -394,8 +396,10 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
   });
 
   // ── Tag management ────────────────────────────────────────────────
-  // Global tag list with usage counts (books not soft-deleted).
-  function listTags(): { id: string; name: string; bookCount: number }[] {
+  // Global tag list with usage counts. `bookCount` counts books not soft-deleted;
+  // `otherCount` counts non-book uses (family-tree persons today) so prune and
+  // the UI don't treat a family-only tag as unused.
+  function listTags(): { id: string; name: string; bookCount: number; otherCount: number }[] {
     return db.prepare(`
       SELECT
         tags.id AS id,
@@ -407,10 +411,16 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
           WHERE taggables.tag_id = tags.id
             AND taggables.entity_type = 'library_item'
             AND library_items.deleted_at IS NULL
-        ) AS bookCount
+        ) AS bookCount,
+        (
+          SELECT COUNT(*)
+          FROM taggables
+          WHERE taggables.tag_id = tags.id
+            AND taggables.entity_type != 'library_item'
+        ) AS otherCount
       FROM tags
       ORDER BY tags.display_name COLLATE NOCASE
-    `).all() as { id: string; name: string; bookCount: number }[];
+    `).all() as { id: string; name: string; bookCount: number; otherCount: number }[];
   }
 
   app.get("/api/library/manage/tags", { preHandler: app.requireAdmin }, async () => {
@@ -487,6 +497,13 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
           SELECT ?, entity_type, entity_id FROM taggables WHERE tag_id = ?
         `).run(collision.id, id);
         db.prepare("DELETE FROM taggables WHERE tag_id = ?").run(id);
+        // Family-tree edit grants ride along onto the survivor (existing grants win ties).
+        db.prepare(`
+          INSERT OR IGNORE INTO assignments (subject_type, subject_id, object_type, object_id, role, created_by)
+          SELECT subject_type, subject_id, object_type, ?, role, created_by FROM assignments
+          WHERE object_type = '${FAMILY_TAG_OBJECT_TYPE}' AND object_id = ?
+        `).run(collision.id, id);
+        deleteAssignmentsForObject(FAMILY_TAG_OBJECT_TYPE, id);
         db.prepare("DELETE FROM tags WHERE id = ?").run(id);
         // Keep the survivor's display name in sync with the chosen spelling.
         db.prepare("UPDATE tags SET display_name = ? WHERE id = ?").run(displayName, collision.id);
@@ -520,6 +537,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
 
     db.transaction(() => {
       db.prepare("DELETE FROM taggables WHERE tag_id = ?").run(id);
+      deleteAssignmentsForObject(FAMILY_TAG_OBJECT_TYPE, id);
       db.prepare("DELETE FROM tags WHERE id = ?").run(id);
     })();
 
@@ -535,12 +553,14 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     return { deleted: true };
   });
 
-  // Delete tags that aren't linked to any non-deleted book.
+  // Delete tags that aren't linked to any non-deleted book — or to anything
+  // else (a family-tree-only tag is in use, not unused).
   app.post("/api/library/manage/tags/prune", { preHandler: app.requireAdmin }, async (request) => {
-    const unused = listTags().filter((tag) => tag.bookCount === 0);
+    const unused = listTags().filter((tag) => tag.bookCount === 0 && tag.otherCount === 0);
     db.transaction(() => {
       for (const tag of unused) {
         db.prepare("DELETE FROM taggables WHERE tag_id = ?").run(tag.id);
+        deleteAssignmentsForObject(FAMILY_TAG_OBJECT_TYPE, tag.id);
         db.prepare("DELETE FROM tags WHERE id = ?").run(tag.id);
       }
     })();

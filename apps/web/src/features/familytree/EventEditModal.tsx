@@ -1,20 +1,28 @@
 import { useState } from "react";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, ImagePlus, Play, X } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import type { GalleryAsset } from "../gallery/types";
+import { FamilyPhotoPicker } from "./FamilyPhotoPicker";
 import { PartialDateField } from "./PartialDateField";
 import { EVENT_TYPE_OPTIONS, type FamilyEvent } from "./types";
 
 // What goes in the label field, per type — the short "what happened".
 const LABEL_HINTS: Record<FamilyEvent["type"], string> = {
   education: "School or university",
+  graduation: "School or university",
   occupation: "Job title or employer",
+  retirement: "e.g. Retired from the railway",
   residence: "e.g. Family home",
   military: "Unit or service",
   immigration: "e.g. Arrived by ship",
   emigration: "e.g. Left for work",
+  naturalization: "e.g. Became a citizen",
+  travel: "e.g. Trip to Italy",
+  award: "Medal or honor",
+  baptism: "Church or parish",
   burial: "Cemetery",
   custom: "What happened"
 };
@@ -22,6 +30,10 @@ const LABEL_HINTS: Record<FamilyEvent["type"], string> = {
 // Create or edit a timeline event. Dates are free-text partial dates — a year
 // is the norm for "went to school 1971–1975", which native date inputs can't
 // express; the server validates the YYYY[-MM[-DD]] shape.
+//
+// Photos are staged locally (picker adds to the list, ✕ removes) and only
+// written on save — attach for new ids, detach for removed ones — so Cancel
+// leaves the event untouched.
 export function EventEditModal({
   personId,
   personName,
@@ -42,6 +54,8 @@ export function EventEditModal({
   const [endDate, setEndDate] = useState(existing?.endDate ?? "");
   const [place, setPlace] = useState(existing?.place ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
+  const [photos, setPhotos] = useState<GalleryAsset[]>(existing?.photos ?? []);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -62,10 +76,28 @@ export function EventEditModal({
       note: note.trim() || null
     };
     try {
+      let eventId = existing?.id;
       if (existing) {
         await api(`/api/family-tree/events/${existing.id}`, { method: "PATCH", body: JSON.stringify(body) });
       } else {
-        await api(`/api/family-tree/persons/${personId}/events`, { method: "POST", body: JSON.stringify(body) });
+        const created = await api<{ event: FamilyEvent }>(`/api/family-tree/persons/${personId}/events`, {
+          method: "POST",
+          body: JSON.stringify(body)
+        });
+        eventId = created.event.id;
+      }
+      const initialIds = new Set((existing?.photos ?? []).map((p) => p.id));
+      const currentIds = new Set(photos.map((p) => p.id));
+      const addedIds = [...currentIds].filter((id) => !initialIds.has(id));
+      const removedIds = [...initialIds].filter((id) => !currentIds.has(id));
+      if (addedIds.length > 0) {
+        await api(`/api/family-tree/events/${eventId}/photos`, {
+          method: "POST",
+          body: JSON.stringify({ itemIds: addedIds })
+        });
+      }
+      for (const itemId of removedIds) {
+        await api(`/api/family-tree/events/${eventId}/photos/${itemId}`, { method: "DELETE" });
       }
       onSaved();
     } catch (err) {
@@ -75,13 +107,16 @@ export function EventEditModal({
   };
 
   return (
+    <>
     <Modal
       variant="card"
       title={existing ? "Edit event" : `Add event for ${personName}`}
       icon={<CalendarClock size={18} />}
       className="ft-modal ft-person-form-modal"
       busy={saving}
-      onClose={onClose}
+      // While the photo picker is stacked on top, Escape must close only the
+      // picker — both modals listen on document.
+      onClose={() => { if (!pickerOpen) onClose(); }}
       onSubmit={submit}
     >
       {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
@@ -114,12 +149,59 @@ export function EventEditModal({
         <span>Notes</span>
         <textarea value={note} rows={3} onChange={(event) => setNote(event.target.value)} />
       </label>
+      <div className="field">
+        <span>Photos</span>
+        <div className="ft-event-photo-strip">
+          {photos.map((photo) => (
+            <span key={photo.id} className="ft-event-photo-thumb">
+              {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" />}
+              {photo.kind === "video" && <Play size={12} className="ft-event-photo-play" aria-hidden="true" />}
+              <Button
+                variant="icon"
+                danger
+                className="ft-event-photo-remove"
+                title={`Remove ${photo.title}`}
+                aria-label={`Remove ${photo.title}`}
+                onClick={() => setPhotos((prev) => prev.filter((p) => p.id !== photo.id))}
+              >
+                <X size={11} aria-hidden="true" />
+              </Button>
+            </span>
+          ))}
+          <Button
+            variant="secondary"
+            compact
+            className="ft-event-photo-add"
+            onClick={() => setPickerOpen(true)}
+          >
+            <ImagePlus size={15} aria-hidden="true" />
+            Add photos
+          </Button>
+        </div>
+      </div>
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
         <Button variant="primary" type="submit" disabled={saving}>
           {saving ? "Saving…" : existing ? "Save changes" : "Add event"}
         </Button>
       </div>
+
     </Modal>
+
+    {pickerOpen && (
+      <FamilyPhotoPicker
+        title="Add photos to this event"
+        existingIds={photos.map((p) => p.id)}
+        onAttach={(_ids, assets) => {
+          setPhotos((prev) => {
+            const have = new Set(prev.map((p) => p.id));
+            return [...prev, ...assets.filter((a) => !have.has(a.id))];
+          });
+          return Promise.resolve();
+        }}
+        onClose={() => setPickerOpen(false)}
+      />
+    )}
+    </>
   );
 }

@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UserRound } from "lucide-react";
 import { api } from "../../api";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { PeopleCombobox } from "../audiobooks/PeopleCombobox";
 import { PartialDateField } from "./PartialDateField";
-import { GENDER_OPTIONS, type FamilyPerson } from "./types";
+import { GENDER_OPTIONS, type FamilyPerson, type FamilyTag } from "./types";
 
 // Create or edit a family member's profile. Uses the standard field pattern:
 // each control sits in a `.field` label, dropdowns are native <select>s, and
@@ -14,11 +15,14 @@ import { GENDER_OPTIONS, type FamilyPerson } from "./types";
 // save.
 export function PersonEditModal({
   person,
+  showTags = false,
   onClose,
   onSaved
 }: {
   /** null = create a new person. */
   person: FamilyPerson | null;
+  /** Admin-only: family tags double as the edit-permission scope. */
+  showTags?: boolean;
   onClose: () => void;
   onSaved: (person: FamilyPerson) => void;
 }) {
@@ -34,8 +38,18 @@ export function PersonEditModal({
   const [birthplace, setBirthplace] = useState(person?.birthplace ?? "");
   const [deathPlace, setDeathPlace] = useState(person?.deathPlace ?? "");
   const [bio, setBio] = useState(person?.bio ?? "");
+  const [tags, setTags] = useState<string[]>(person?.tags ?? []);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<"details" | "notes" | "tags">("details");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!showTags) return;
+    api<{ tags: FamilyTag[] }>("/api/family-tree/tags")
+      .then((payload) => setTagSuggestions(payload.tags.map((t) => t.name)))
+      .catch(() => {});
+  }, [showTags]);
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -51,7 +65,9 @@ export function PersonEditModal({
       deathDate: deathDate.trim() || null,
       birthplace: birthplace.trim() || null,
       deathPlace: deathPlace.trim() || null,
-      bio: bio.trim() || null
+      bio: bio.trim() || null,
+      // Tags are admin-only on the server; non-admin editors never send them.
+      ...(showTags ? { tags } : {})
     };
     try {
       const payload = person
@@ -81,47 +97,93 @@ export function PersonEditModal({
       onSubmit={submit}
     >
       {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
-      <div className="ft-form-grid">
-        <label className="field">
-          <span>Name</span>
-          <input type="text" value={name} onChange={(event) => setName(event.target.value)} required autoFocus />
-        </label>
-        <label className="field">
-          <span>Maiden name</span>
-          <input type="text" value={maidenName} onChange={(event) => setMaidenName(event.target.value)} />
-        </label>
-        <div className="field">
-          <span>Gender</span>
-          <div className="ft-gender-radios" role="radiogroup" aria-label="Gender">
-            {GENDER_OPTIONS.map((option) => (
-              <label key={option.value} className="ft-radio">
-                <input
-                  type="radio"
-                  name="ft-gender"
-                  value={option.value}
-                  checked={gender === option.value}
-                  onChange={() => setGender(option.value)}
-                />
-                <span>{option.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-        <label className="field">
-          <span>Birthplace</span>
-          <input type="text" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} />
-        </label>
-        <PartialDateField label="Born" value={birthDate} onChange={setBirthDate} />
-        <PartialDateField label="Died" value={deathDate} placeholder="2024 or 2024-03-15" onChange={setDeathDate} />
-        <label className="field">
-          <span>Place of death</span>
-          <input type="text" value={deathPlace} onChange={(event) => setDeathPlace(event.target.value)} />
-        </label>
+      <div className="modal-tabs ft-person-form-tabs">
+        <button
+          type="button"
+          className={`modal-tab${activeTab === "details" ? " active" : ""}`}
+          onClick={() => setActiveTab("details")}
+        >
+          Details
+        </button>
+        <button
+          type="button"
+          className={`modal-tab${activeTab === "notes" ? " active" : ""}`}
+          onClick={() => setActiveTab("notes")}
+        >
+          Bio / notes
+        </button>
+        {showTags && (
+          <button
+            type="button"
+            className={`modal-tab${activeTab === "tags" ? " active" : ""}`}
+            onClick={() => setActiveTab("tags")}
+          >
+            Tags
+          </button>
+        )}
       </div>
-      <label className="field ft-bio-field">
-        <span>Bio / notes</span>
-        <textarea value={bio} rows={5} onChange={(event) => setBio(event.target.value)} />
-      </label>
+
+      <div className="ft-person-form-body">
+      {activeTab === "details" && (
+        <div className="ft-form-grid">
+          <label className="field">
+            <span>Name</span>
+            <input type="text" value={name} onChange={(event) => setName(event.target.value)} required autoFocus />
+          </label>
+          <label className="field">
+            <span>Maiden name</span>
+            <input type="text" value={maidenName} onChange={(event) => setMaidenName(event.target.value)} />
+          </label>
+          <div className="field ft-field-span">
+            <span>Gender</span>
+            <div className="ft-gender-radios" role="radiogroup" aria-label="Gender">
+              {GENDER_OPTIONS.map((option) => (
+                <label key={option.value} className="ft-radio">
+                  <input
+                    type="radio"
+                    name="ft-gender"
+                    value={option.value}
+                    checked={gender === option.value}
+                    onChange={() => setGender(option.value)}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <PartialDateField label="Born" value={birthDate} onChange={setBirthDate} />
+          <label className="field">
+            <span>Birthplace</span>
+            <input type="text" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} />
+          </label>
+          <PartialDateField label="Died" value={deathDate} placeholder="2024 or 2024-03-15" onChange={setDeathDate} />
+          <label className="field">
+            <span>Place of death</span>
+            <input type="text" value={deathPlace} onChange={(event) => setDeathPlace(event.target.value)} />
+          </label>
+        </div>
+      )}
+
+      {activeTab === "notes" && (
+        <label className="field ft-bio-field">
+          <span>Bio / notes</span>
+          <textarea value={bio} onChange={(event) => setBio(event.target.value)} />
+        </label>
+      )}
+
+      {activeTab === "tags" && showTags && (
+        <div className="field">
+          <span>Family tags</span>
+          <PeopleCombobox
+            value={tags}
+            onChange={setTags}
+            suggestions={tagSuggestions}
+            placeholder="Add a family tag (e.g. a last name)…"
+          />
+          <small className="ft-modal-hint">Tags group people by branch and scope edit rights (see Branch access).</small>
+        </div>
+      )}
+      </div>
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
         <Button variant="primary" type="submit" disabled={saving || !name.trim()}>

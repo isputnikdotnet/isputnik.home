@@ -5,11 +5,15 @@ import { ingestGalleryAsset } from "../src/modules/library/gallery/scanner.js";
 import { kindForExtension } from "../src/modules/library/gallery/media.js";
 import { createGalleryPerson, tagAssetPerson } from "../src/modules/library/gallery/people.js";
 import { createFamilyPerson, updateFamilyPerson } from "../src/modules/familytree/persons.js";
+import { createFamilyEvent } from "../src/modules/familytree/events.js";
 import {
   attachFamilyPhotos,
   detachFamilyPhoto,
   attachedFamilyPhotoIds,
-  getFamilyPersonPhotos
+  getFamilyPersonPhotos,
+  attachFamilyEventPhotos,
+  detachFamilyEventPhoto,
+  getFamilyEventPhotos
 } from "../src/modules/familytree/photos.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
@@ -136,5 +140,50 @@ describe("family tree photo attachments", () => {
     const result = getFamilyPersonPhotos(admin, p.id, 50, 0)!;
     expect(result.total).toBe(0);
     expect(result.assets).toEqual([]);
+  });
+});
+
+describe("family event photo attachments", () => {
+  it("attaches in order, is idempotent, detaches, and validates targets", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("GAL", "a.jpg", T), false);
+    const b = await ingestGalleryAsset("GAL", asset("GAL", "b.jpg", T + DAY), false);
+    const p = createFamilyPerson({ name: "Anna" }, "admin");
+    const trip = createFamilyEvent(p.id, { type: "travel", label: "Trip to Riga" })!;
+
+    expect(attachFamilyEventPhotos("missing", [a], "admin")).toEqual({ error: "event_not_found" });
+    expect(attachFamilyEventPhotos(trip.id, [a, "missing"], "admin"))
+      .toEqual({ error: "item_not_found", itemId: "missing" });
+
+    expect(attachFamilyEventPhotos(trip.id, [a, b], "admin")).toEqual({ attached: 2 });
+    expect(attachFamilyEventPhotos(trip.id, [a], "admin")).toEqual({ attached: 0 });
+
+    const byEvent = getFamilyEventPhotos(admin, p.id);
+    expect(byEvent.get(trip.id)!.map((x) => x.id)).toEqual([a, b]);
+
+    expect(detachFamilyEventPhoto(trip.id, a)).toBe(true);
+    expect(detachFamilyEventPhoto(trip.id, a)).toBe(false);
+    expect(getFamilyEventPhotos(admin, p.id).get(trip.id)!.map((x) => x.id)).toEqual([b]);
+  });
+
+  it("scopes the listing to the viewer's accessible libraries", async () => {
+    const pub = await ingestGalleryAsset("GAL", asset("GAL", "pub.jpg", T), false);
+    const secret = await ingestGalleryAsset("PRIV", asset("PRIV", "secret.jpg", T + DAY), false);
+    const p = createFamilyPerson({ name: "Anna" }, "admin");
+    const award = createFamilyEvent(p.id, { type: "award", label: "Medal" })!;
+    attachFamilyEventPhotos(award.id, [pub, secret], "admin");
+
+    expect(getFamilyEventPhotos(admin, p.id).get(award.id)!.map((x) => x.id)).toEqual([pub, secret]);
+    expect(getFamilyEventPhotos(member, p.id).get(award.id)!.map((x) => x.id)).toEqual([pub]);
+  });
+
+  it("cascades attachments away with the event", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("GAL", "a.jpg", T), false);
+    const p = createFamilyPerson({ name: "Anna" }, "admin");
+    const event = createFamilyEvent(p.id, { type: "baptism" })!;
+    attachFamilyEventPhotos(event.id, [a], "admin");
+
+    db.prepare("DELETE FROM family_tree_events WHERE id = ?").run(event.id);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM family_tree_event_photos WHERE event_id = ?").get(event.id))
+      .toEqual({ n: 0 });
   });
 });

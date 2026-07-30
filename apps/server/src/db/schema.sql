@@ -1055,7 +1055,7 @@ CREATE TABLE IF NOT EXISTS family_tree_children (
 CREATE TABLE IF NOT EXISTS family_tree_events (
   id         TEXT PRIMARY KEY,
   person_id  TEXT NOT NULL REFERENCES family_tree_persons(id) ON DELETE CASCADE,
-  type       TEXT NOT NULL CHECK (type IN ('residence', 'education', 'occupation', 'military', 'immigration', 'emigration', 'burial', 'custom')),
+  type       TEXT NOT NULL CHECK (type IN ('residence', 'education', 'graduation', 'occupation', 'retirement', 'military', 'immigration', 'emigration', 'naturalization', 'travel', 'award', 'baptism', 'burial', 'custom')),
   label      TEXT,
   date       TEXT,
   end_date   TEXT,
@@ -1064,6 +1064,18 @@ CREATE TABLE IF NOT EXISTS family_tree_events (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
+
+-- Gallery photos/videos attached to a life event (the trip, the ceremony…),
+-- separate from the person-level wall. CASCADE like family_tree_photos.
+CREATE TABLE IF NOT EXISTS family_tree_event_photos (
+  event_id TEXT NOT NULL REFERENCES family_tree_events(id) ON DELETE CASCADE,
+  item_id  TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  position REAL NOT NULL,
+  added_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (event_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ft_event_photos_item ON family_tree_event_photos(item_id);
 
 -- Where a fact came from: books, record indexes, websites (GEDCOM SOUR
 -- records). Shared — one source can back many citations.

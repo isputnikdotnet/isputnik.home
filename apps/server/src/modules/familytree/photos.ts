@@ -60,6 +60,78 @@ export function detachFamilyPhoto(personId: string, itemId: string): boolean {
   ).run(personId, itemId).changes > 0;
 }
 
+// ── Event photos ── same shape as the person wall, keyed on the event. ──
+
+export function attachFamilyEventPhotos(
+  eventId: string,
+  itemIds: string[],
+  addedBy: string
+): { attached: number } | { error: "event_not_found" | "item_not_found"; itemId?: string } {
+  const event = db.prepare("SELECT 1 FROM family_tree_events WHERE id = ?").get(eventId);
+  if (!event) return { error: "event_not_found" };
+
+  const isGalleryItem = db.prepare(`
+    SELECT 1 FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    WHERE library_items.id = ? AND library_items.deleted_at IS NULL
+  `);
+  for (const itemId of itemIds) {
+    if (!isGalleryItem.get(itemId)) return { error: "item_not_found", itemId };
+  }
+
+  const attached = db.transaction(() => {
+    let position = (db.prepare(
+      "SELECT COALESCE(MAX(position), 0) AS max FROM family_tree_event_photos WHERE event_id = ?"
+    ).get(eventId) as { max: number }).max;
+    let count = 0;
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO family_tree_event_photos (event_id, item_id, position, added_by)
+      VALUES (?, ?, ?, ?)
+    `);
+    for (const itemId of itemIds) {
+      position += 1;
+      count += insert.run(eventId, itemId, position, addedBy).changes;
+    }
+    return count;
+  })();
+  return { attached };
+}
+
+export function detachFamilyEventPhoto(eventId: string, itemId: string): boolean {
+  return db.prepare(
+    "DELETE FROM family_tree_event_photos WHERE event_id = ? AND item_id = ?"
+  ).run(eventId, itemId).changes > 0;
+}
+
+// All event photos for one person's timeline in a single query, grouped by
+// event, viewer-scoped to accessible gallery libraries like the person wall.
+export function getFamilyEventPhotos(
+  user: { id: string; role: string },
+  personId: string
+): Map<string, ReturnType<typeof mapAsset>[]> {
+  const byEvent = new Map<string, ReturnType<typeof mapAsset>[]>();
+  const libIds = [...accessibleLibraryIds(user.id, user.role, "gallery")];
+  if (libIds.length === 0) return byEvent;
+
+  const rows = db.prepare(`
+    SELECT ${ASSET_COLUMNS}, ep.event_id AS event_id
+    ${ASSET_JOINS}
+    JOIN family_tree_event_photos ep ON ep.item_id = library_items.id
+    JOIN family_tree_events ev ON ev.id = ep.event_id
+    WHERE ev.person_id = ?
+      AND library_items.library_id IN (${inClause(libIds.length)})
+      AND library_items.deleted_at IS NULL
+    ORDER BY ep.event_id, ep.position
+  `).all(user.id, personId, ...libIds) as (GalleryAssetRow & { event_id: string })[];
+
+  for (const row of rows) {
+    const list = byEvent.get(row.event_id) ?? [];
+    list.push(mapAsset(row));
+    byEvent.set(row.event_id, list);
+  }
+  return byEvent;
+}
+
 export function attachedFamilyPhotoIds(personId: string): string[] {
   return (db.prepare(
     "SELECT item_id FROM family_tree_photos WHERE person_id = ? ORDER BY position"

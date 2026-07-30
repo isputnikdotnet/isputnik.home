@@ -168,31 +168,43 @@ const PEDI_RELATION: Record<string, string> = { adopted: "adopted", foster: "fos
 const EVENT_TAG_MAP: Record<string, { type: string; label?: string }> = {
   RESI: { type: "residence" },
   EDUC: { type: "education" },
-  GRAD: { type: "education", label: "Graduation" },
+  GRAD: { type: "graduation" },
   OCCU: { type: "occupation" },
   _MILT: { type: "military" },
   IMMI: { type: "immigration" },
   EMIG: { type: "emigration" },
   BURI: { type: "burial" },
   CREM: { type: "burial", label: "Cremation" },
-  NATU: { type: "custom", label: "Naturalization" },
-  RETI: { type: "custom", label: "Retirement" },
-  CHR: { type: "custom", label: "Christening" },
-  BAPM: { type: "custom", label: "Baptism" },
+  NATU: { type: "naturalization" },
+  RETI: { type: "retirement" },
+  CHR: { type: "baptism", label: "Christening" },
+  BAPM: { type: "baptism" },
   CONF: { type: "custom", label: "Confirmation" },
   CENS: { type: "custom", label: "Census" },
   EVEN: { type: "custom", label: "Event" }
 };
 
+// Round-trip for typed events exported as `EVEN` + TYPE: an incoming EVEN whose
+// label matches one of these becomes the typed event again instead of custom.
+const EVEN_TYPE_BY_LABEL: Record<string, string> = { travel: "travel", award: "award" };
+
 // family_tree_events → GEDCOM tag; value-bearing tags carry the label on the
 // event line itself, the rest put it in a TYPE subtag.
-const EVENT_TYPE_TAG: Record<string, { tag: string; labelAsValue: boolean }> = {
+const EVENT_TYPE_TAG: Record<string, { tag: string; labelAsValue: boolean; defaultLabel?: string }> = {
   residence: { tag: "RESI", labelAsValue: false },
   education: { tag: "EDUC", labelAsValue: true },
+  graduation: { tag: "GRAD", labelAsValue: false },
   occupation: { tag: "OCCU", labelAsValue: true },
+  retirement: { tag: "RETI", labelAsValue: false },
   military: { tag: "_MILT", labelAsValue: true },
   immigration: { tag: "IMMI", labelAsValue: false },
   emigration: { tag: "EMIG", labelAsValue: false },
+  naturalization: { tag: "NATU", labelAsValue: false },
+  // No standard GEDCOM tag — exported as EVEN with a TYPE that survives the
+  // round trip (see EVEN_TYPE_BY_LABEL on import).
+  travel: { tag: "EVEN", labelAsValue: false, defaultLabel: "Travel" },
+  award: { tag: "EVEN", labelAsValue: false, defaultLabel: "Award" },
+  baptism: { tag: "BAPM", labelAsValue: false },
   burial: { tag: "BURI", labelAsValue: false },
   custom: { tag: "EVEN", labelAsValue: false }
 };
@@ -249,6 +261,11 @@ export function importGedcom(text: string, mode: GedcomImportMode, createdBy: st
       // Persons cascade unions, which cascade child links; photo attachments,
       // events, and citations cascade too. Sources are tree data, so replacing
       // the tree replaces them as well. Gallery items and people are untouched.
+      // Tag links have no FK on entity_id, so they need explicit cleanup.
+      db.prepare(`
+        DELETE FROM taggables WHERE entity_type = 'family_tree_person'
+          AND entity_id IN (SELECT id FROM family_tree_persons)
+      `).run();
       result.personsRemoved = db.prepare("DELETE FROM family_tree_persons").run().changes;
       db.prepare("DELETE FROM family_tree_sources").run();
     }
@@ -384,14 +401,16 @@ export function importGedcom(text: string, mode: GedcomImportMode, createdBy: st
           || childValue(node, "TYPE")
           || mapping.label
           || null;
+        // An EVEN whose TYPE names one of our typed events comes back typed.
+        const eventType = (node.tag === "EVEN" && label && EVEN_TYPE_BY_LABEL[label.toLowerCase()]) || mapping.type;
         const rawDate = childValue(node, "DATE");
         const range = rawDate ? gedcomDateRangeToIso(rawDate) : null;
         if (rawDate && !range) {
-          warnings.push(`${name}: couldn't read date "${rawDate}" on a ${mapping.type} event — left blank.`);
+          warnings.push(`${name}: couldn't read date "${rawDate}" on a ${eventType} event — left blank.`);
         }
         const eventId = nanoid(16);
         insertEvent.run(
-          eventId, id, mapping.type,
+          eventId, id, eventType,
           label ? label.slice(0, 120) : null,
           range?.start ?? null, range?.end ?? null,
           childValue(node, "PLAC").slice(0, 200) || null,
@@ -618,7 +637,8 @@ export function exportGedcom(): string {
     for (const event of eventRows.filter((e) => e.person_id === person.id)) {
       const mapping = EVENT_TYPE_TAG[event.type] ?? EVENT_TYPE_TAG.custom;
       push(1, mapping.tag, mapping.labelAsValue && event.label ? event.label : "");
-      if (event.label && !mapping.labelAsValue) push(2, "TYPE", event.label);
+      const typeLabel = mapping.labelAsValue ? null : (event.label || mapping.defaultLabel || null);
+      if (typeLabel) push(2, "TYPE", typeLabel);
       if (event.date && event.end_date) {
         push(2, "DATE", `FROM ${isoToGedcomDate(event.date)} TO ${isoToGedcomDate(event.end_date)}`);
       } else if (event.date) {

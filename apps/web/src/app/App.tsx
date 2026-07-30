@@ -26,6 +26,7 @@ import { GalleryPage } from "../features/gallery/GalleryPage";
 import { FamilyTreePage } from "../features/familytree/FamilyTreePage";
 import { FamilyPeoplePage } from "../features/familytree/FamilyPeoplePage";
 import { FamilyPersonPage } from "../features/familytree/FamilyPersonPage";
+import { FamilyPersonPhotosPage } from "../features/familytree/FamilyPersonPhotosPage";
 import { LibraryFeedPage } from "../features/library/LibraryFeedPage";
 import { CollectionsPage } from "../features/collections/CollectionsPage";
 import { CollectionDetailPage } from "../features/collections/CollectionDetailPage";
@@ -314,6 +315,10 @@ export function App() {
 
   if (route.name === "familyPerson") {
     return <FamilyPersonPage id={route.id} user={session.user} logout={logout} />;
+  }
+
+  if (route.name === "familyPersonPhotos") {
+    return <FamilyPersonPhotosPage id={route.id} user={session.user} logout={logout} />;
   }
 
   if (route.name === "libraryFeed") {
