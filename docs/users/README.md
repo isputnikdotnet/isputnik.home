@@ -14,6 +14,12 @@ library.
 3. [Setting up libraries](libraries.md) — the Add-library wizard, pointing a
    library at a folder, and what happens on the first scan.
 
+## Your account
+
+- [Your account](your-account.md) — display name and sign-in email, themes, the
+  e-reader address, and where favorites, bookmarks, quotes, collections and things
+  shared with you live.
+
 ## Using your libraries
 
 - [Audiobooks](library-audiobooks.md) — how folders become books with chapters,

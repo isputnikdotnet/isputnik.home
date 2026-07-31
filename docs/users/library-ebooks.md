@@ -49,7 +49,9 @@ read the EPUB.
 
 - **Download** saves the original file.
 - **Send to e-reader** mails it to a Kindle or Kobo, once mail is configured on
-  the server ([guide](email.md)) and you've set your device address in Settings.
+  the server ([guide](email.md)) and you've set your device address in
+  [Profile → Devices](your-account.md#send-to-e-reader). Your device also has to
+  approve the server's sender address, or it drops the mail silently.
 - The app is installable: add it to your home screen and downloaded books stay
   readable offline.
 
