@@ -7,6 +7,9 @@ import { migrate } from "./db/migrate.js";
 import { seed } from "./db/seed.js";
 
 export type Role = "admin" | "member";
+// Which second factor an account uses: a rolling code from an authenticator app,
+// or a one-time code emailed at sign-in. Handling lives in core/mfa.ts.
+export type MfaMethod = "totp" | "email";
 export const THEME_PREFERENCES = ["system", "light", "dark", "plain-light", "plain-dark", "expanse"] as const;
 export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 
@@ -19,6 +22,7 @@ export interface User {
   theme: ThemePreference;
   ereader_email: string | null;
   mfa_enabled: 0 | 1;
+  mfa_method: MfaMethod;
   mfa_secret: string | null;
   mfa_backup_codes: string | null;
   protected_from_delete: 0 | 1;
@@ -122,5 +126,10 @@ export function publicUser(user: User) {
 // through publicUser (which is reused for the admin user list and people pickers).
 // Use only when returning the current user to themselves (session + profile).
 export function selfUser(user: User) {
-  return { ...publicUser(user), ereaderEmail: user.ereader_email ?? null, mfaEnabled: Boolean(user.mfa_enabled) };
+  return {
+    ...publicUser(user),
+    ereaderEmail: user.ereader_email ?? null,
+    mfaEnabled: Boolean(user.mfa_enabled),
+    mfaMethod: user.mfa_method
+  };
 }

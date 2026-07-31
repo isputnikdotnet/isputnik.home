@@ -502,6 +502,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.2.0",
+          label: "Two-factor codes by email, and a starting person for the tree",
+          changes: [
+            "The family tree can now be told who to open on. An administrator picks the person once in the tree's settings, under Starting person, and the chart centres on them for everyone — instead of on whoever happened to come first. Opening a link to a particular person still takes you straight to them.",
+            "Building the tree no longer means going back and forth to profiles. Each card in the chart now carries a + button, beside the ones for opening and editing the person, which adds a parent or a child to them on the spot. It appears on the people you're allowed to edit.",
+            "Two-factor authentication no longer means installing an authenticator app. When you turn it on, you choose how you want your codes: from an app on your phone, or sent to the email address you sign in with.",
+            "Signing in with the email method sends a 6-digit code to your inbox and waits for you to type it. If it doesn't arrive, there's a Send another code button on the same screen.",
+            "The app is still the safer choice, and the setup screen says so plainly: an emailed code travels by email, so anyone who can read that inbox can reach your library. Pick whichever you'll actually keep using.",
+            "The email option only appears if your server can send email, which an administrator sets up under Email in the control panel. Your backup codes work with either method — and they matter more with email, since they're what gets you in if the server can't send mail."
+          ]
+        },
+        {
           version: "2.1.1",
           label: "Guides for every part of the app",
           changes: [

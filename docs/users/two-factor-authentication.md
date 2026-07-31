@@ -1,15 +1,25 @@
 # Two-factor authentication
 
 Two-factor authentication (2FA) adds a second step to signing in: after your
-password, you enter a short code from an app on your phone. Even if someone learns
-your password, they can't get into your account without that code.
+password, you enter a short one-time code. Even if someone learns your password,
+they can't get into your account without that code.
 
 It's optional, but recommended — especially if your library is reachable from the
 internet.
 
-## What you'll need
+## Choose how you get your codes
 
-An **authenticator app** on your phone. Any of these work:
+You pick one of two methods when you turn 2FA on.
+
+| | **Authenticator app** | **Email** |
+|---|---|---|
+| What you need | An app on your phone | Nothing to install |
+| Works offline | Yes | No |
+| Where the code comes from | Your phone, every 30 seconds | Your inbox, one per sign-in |
+| Security | Stronger | Weaker — see below |
+
+**Authenticator app** is the safer choice: the code is generated on your phone and
+never travels anywhere. Any of these work:
 
 - Google Authenticator
 - Microsoft Authenticator
@@ -17,24 +27,38 @@ An **authenticator app** on your phone. Any of these work:
 - Apple Passwords (built into iPhone, iPad, and Mac)
 - 1Password, Bitwarden, or most password managers
 
+**Email** is easier — nothing to set up or carry — but it's the weaker of the two:
+the code travels by email, so **anyone who can read your inbox can get into your
+library**. It also depends on the server being able to send email; if email breaks,
+your backup codes are the way in.
+
+> The email option only appears if an administrator has set up email on the server
+> (Control panel → **Email**). Codes go to the same address you sign in with.
+
 ## Turning it on
 
 1. Open **Profile** (your name → Profile).
 2. Find **Two-factor authentication** and select **Set up two-factor**.
-3. Enter your account password to confirm it's you.
-4. **Scan the QR code** with your authenticator app. Can't scan? Type the key
-   shown beneath the code into the app by hand.
-5. Your app now shows a 6-digit code that changes every 30 seconds. Enter the
-   current code and select **Turn on two-factor**.
+3. Choose **Authenticator app** or **Email**, enter your account password to
+   confirm it's you, and select **Continue**.
+4. Prove the codes reach you:
+   - **Authenticator app** — scan the QR code with your app. Can't scan? Type the
+     key shown beneath it into the app by hand. Your app now shows a 6-digit code
+     that changes every 30 seconds; enter the current one.
+   - **Email** — check your inbox for a 6-digit code and enter it. Nothing
+     arrived? Select **Send another code**.
+5. Select **Turn on two-factor**.
 6. **Save your backup codes** (see below), then select **Done**.
 
 From now on, signing in asks for a code after your password.
 
+To switch methods later, turn 2FA off and set it up again with the other one.
+
 ## Backup codes — save these
 
 When you turn on 2FA you're shown a set of **backup codes**. Each one lets you
-sign in **once** if you don't have your phone — for example if it's lost or out of
-battery.
+sign in **once** when your second factor is out of reach — a lost phone, a flat
+battery, or an inbox you can't get to.
 
 - **Write them down or download them** and keep them somewhere safe — not next to
   your password.
@@ -42,11 +66,18 @@ battery.
 - You can get a fresh set anytime from Profile → Two-factor authentication →
   **Regenerate backup codes** (this cancels the old set).
 
+If you chose the email method, these matter more than usual: they're what gets you
+in when the server can't send mail.
+
 ## Signing in with 2FA
 
 1. Enter your email and password as usual.
-2. When asked, open your authenticator app and enter the current 6-digit code.
-3. No phone? Enter one of your **backup codes** instead.
+2. When asked, enter the 6-digit code:
+   - **Authenticator app** — open the app and read the current code.
+   - **Email** — check your inbox. The code lasts about 10 minutes and works once.
+     If it doesn't arrive, select **Send another code** (allowed a couple of times
+     per sign-in; after that, start over from your password).
+3. No code? Enter one of your **backup codes** instead.
 
 ## Turning it off
 
@@ -55,10 +86,10 @@ and your account goes back to password-only.
 
 ## Locked out?
 
-If you've lost your phone **and** your backup codes, ask an **administrator** to
-reset two-factor on your account. Afterwards you can sign in with just your
-password and set 2FA up again.
+If you've lost your second factor **and** your backup codes, ask an
+**administrator** to reset two-factor on your account. Afterwards you can sign in
+with just your password and set 2FA up again.
 
 > **For administrators:** Control panel → **Users** → the person's row → the shield
-> icon (**Reset two-factor**). This clears their authenticator and backup codes. It
-> does not change their password or touch their content.
+> icon (**Reset two-factor**). This clears their method and backup codes. It does
+> not change their password or touch their content.

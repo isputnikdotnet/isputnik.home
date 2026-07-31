@@ -36,7 +36,13 @@ import {
   deleteFamilyCitation,
   listPersonCitations
 } from "../src/modules/familytree/sources.js";
-import { resetDb, makeUser } from "./helpers/seed.js";
+import {
+  getFamilyTreeSettings,
+  setFamilyTreeSettings,
+  getFamilyDefaultPerson,
+  getFamilyUploadLibrary
+} from "../src/modules/familytree/settings.js";
+import { resetDb, makeUser, makeLibrary } from "./helpers/seed.js";
 
 beforeEach(() => {
   resetDb();
@@ -304,5 +310,46 @@ describe("whole tree payload", () => {
     expect(tree.persons).toHaveLength(3);
     expect(tree.unions).toHaveLength(1);
     expect(tree.children).toEqual([{ unionId: union.id, childId: c.id, relation: "biological" }]);
+  });
+});
+
+describe("family tree settings", () => {
+  it("reads as unset before anything is stored", () => {
+    expect(getFamilyTreeSettings()).toEqual({ galleryLibraryId: null, defaultPersonId: null });
+    expect(getFamilyDefaultPerson()).toBeNull();
+  });
+
+  it("resolves the starting person to their current name", () => {
+    const anna = person("Anna");
+    setFamilyTreeSettings({ defaultPersonId: anna.id }, "admin");
+    expect(getFamilyDefaultPerson()).toEqual({ id: anna.id, name: "Anna" });
+
+    updateFamilyPerson(anna.id, { name: "Anna Petrova" });
+    expect(getFamilyDefaultPerson()?.name).toBe("Anna Petrova");
+  });
+
+  it("reads as unset once the starting person is deleted", () => {
+    const anna = person("Anna");
+    setFamilyTreeSettings({ defaultPersonId: anna.id }, "admin");
+    deleteFamilyPerson(anna.id);
+    // The id is still stored; resolving it against the table is what degrades it,
+    // so the chart falls back instead of centring on someone who isn't there.
+    expect(getFamilyTreeSettings().defaultPersonId).toBe(anna.id);
+    expect(getFamilyDefaultPerson()).toBeNull();
+  });
+
+  it("saving one setting leaves the other alone", () => {
+    const anna = person("Anna");
+    makeLibrary("gal", { createdBy: "admin", type: "gallery" });
+
+    setFamilyTreeSettings({ galleryLibraryId: "gal" }, "admin");
+    setFamilyTreeSettings({ defaultPersonId: anna.id }, "admin");
+    expect(getFamilyUploadLibrary()?.id).toBe("gal");
+    expect(getFamilyDefaultPerson()?.id).toBe(anna.id);
+
+    // …and clearing one still leaves the other.
+    setFamilyTreeSettings({ defaultPersonId: null }, "admin");
+    expect(getFamilyDefaultPerson()).toBeNull();
+    expect(getFamilyUploadLibrary()?.id).toBe("gal");
   });
 });

@@ -5,6 +5,7 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
+import { AddRelativeModal } from "./AddRelativeModal";
 import { defaultFocusId } from "./chart-layout";
 import { FamilyTreeChart } from "./FamilyTreeChart";
 import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
@@ -31,6 +32,7 @@ export function FamilyTreePage({
   const [searchOpen, setSearchOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editPerson, setEditPerson] = useState<FamilyPerson | null>(null);
+  const [addRelativeTo, setAddRelativeTo] = useState<FamilyPerson | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -50,9 +52,15 @@ export function FamilyTreePage({
     return () => document.removeEventListener("pointerdown", close);
   }, [searchOpen]);
 
+  // The URL wins (that's how clicking a card and the back button work), then the
+  // starting person an admin chose, then the chart's own guess. Each step checks
+  // the person is really in the tree, so a stale id falls through instead of
+  // leaving the chart with nothing to centre on.
   const activeFocusId = useMemo(() => {
     if (!tree) return null;
-    if (focusId && tree.persons.some((p) => p.id === focusId)) return focusId;
+    const inTree = (id: string | null) => Boolean(id && tree.persons.some((p) => p.id === id));
+    if (inTree(focusId)) return focusId;
+    if (inTree(tree.defaultPersonId)) return tree.defaultPersonId;
     return defaultFocusId(tree);
   }, [tree, focusId]);
 
@@ -177,6 +185,7 @@ export function FamilyTreePage({
             onFocus={(personId) => { if (personId !== activeFocusId) navigate(`/family/tree/${personId}`); }}
             onOpenProfile={(personId) => navigate(`/family/people/${personId}?from=/family/tree/${activeFocusId}`)}
             onEditPerson={setEditPerson}
+            onAddRelative={setAddRelativeTo}
           />
         )}
       </section>
@@ -196,6 +205,17 @@ export function FamilyTreePage({
           showTags={isAdmin}
           onClose={() => setEditPerson(null)}
           onSaved={() => { setEditPerson(null); loadTree(); }}
+        />
+      )}
+
+      {addRelativeTo && tree && (
+        <AddRelativeModal
+          person={addRelativeTo}
+          tree={tree}
+          onClose={() => setAddRelativeTo(null)}
+          // The new relative changes the shape of the chart — reload, but stay
+          // centred where the user was rather than jumping to the person added.
+          onAdded={() => { setAddRelativeTo(null); loadTree(); }}
         />
       )}
 

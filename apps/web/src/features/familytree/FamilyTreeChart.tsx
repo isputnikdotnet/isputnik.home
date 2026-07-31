@@ -94,20 +94,22 @@ function SilhouetteShape({ tone }: { tone: string }) {
 // The pan/zoom SVG chart, laid out top-to-bottom by generation (see
 // chart-layout.ts). This component renders it and owns the viewport: drag to
 // pan, wheel/pinch to zoom, buttons for zoom/fit. Clicking a card re-centers
-// the tree on that person; the badges on each card open the profile or (for
-// admins) the edit form directly.
+// the tree on that person; the badges on each card open the profile or — for
+// anyone who may edit that person — the edit form and the add-relative flow.
 export function FamilyTreeChart({
   tree,
   focusId,
   onFocus,
   onOpenProfile,
-  onEditPerson
+  onEditPerson,
+  onAddRelative
 }: {
   tree: FamilyTree;
   focusId: string;
   onFocus: (personId: string) => void;
   onOpenProfile: (personId: string) => void;
   onEditPerson: (person: FamilyPerson) => void;
+  onAddRelative: (person: FamilyPerson) => void;
 }) {
   const layout: ChartLayout = useMemo(() => computeChartLayout(tree, focusId), [tree, focusId]);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -357,6 +359,20 @@ export function FamilyTreeChart({
                   >
                     <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
                     <path d="m15 5 4 4" />
+                  </ActionBadge>
+                )}
+                {person.canEdit && (
+                  <ActionBadge
+                    cx={left + NODE_W - 15}
+                    cy={top + 63}
+                    label={`Add a relative to ${person.name}`}
+                    onActivate={() => { if (!movedRef.current) onAddRelative(person); }}
+                    className="ft-chart-add-action"
+                    radius={10}
+                    iconSize={12}
+                  >
+                    <path d="M5 12h14" />
+                    <path d="M12 5v14" />
                   </ActionBadge>
                 )}
               </g>

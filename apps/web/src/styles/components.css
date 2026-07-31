@@ -453,6 +453,79 @@ a.icon-button svg {
   white-space: nowrap;
 }
 
+/* ── Choice group (shared/ChoiceGroup) ──────────────────────────── */
+
+.choice-group {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice-group > legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.choice {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  cursor: pointer;
+  user-select: none;
+}
+
+.choice.is-selected {
+  border-color: var(--control-primary-button, var(--mint));
+  box-shadow: 0 0 0 1px var(--control-primary-button, var(--mint));
+}
+
+.choice.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.choice input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--control-primary-button, var(--mint));
+  cursor: inherit;
+}
+
+.choice-body {
+  display: grid;
+  gap: 3px;
+}
+
+.choice-label {
+  font-size: 0.95rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.choice-description,
+.choice-note {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.choice-note {
+  font-style: italic;
+}
+
 /* ── Message box ────────────────────────────────────────────────── */
 
 .message-box {

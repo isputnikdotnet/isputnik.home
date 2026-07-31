@@ -122,3 +122,48 @@ export function verifyTotp(secret: string, token: string): boolean {
 export function totpQrDataUrl(secret: string, accountName: string): Promise<string> {
   return QRCode.toDataURL(totpKeyUri(secret, accountName));
 }
+
+// ── Emailed one-time codes ───────────────────────────────────────────────────
+// The alternative second factor for people who don't want an authenticator app:
+// a 6-digit code mailed to the address they sign in with. There's no shared
+// secret to keep — each code is minted per challenge and stored only as a hash,
+// exactly like a backup code, so a stolen database yields nothing replayable.
+//
+// It is the weaker of the two methods (the code crosses the internet in
+// plaintext and anyone holding the mailbox holds the factor), and it depends on
+// SMTP being up. Both facts are surfaced in the UI where the method is chosen.
+
+// Codes live only as long as it takes an email to arrive and be typed. Longer
+// than a TOTP challenge — delivery can take a minute — but still short.
+export const EMAIL_CODE_MINUTES = 10;
+// A resend budget per challenge, so a caller who knows the password can't use
+// the sign-in screen to bombard the owner's inbox.
+export const EMAIL_CODE_MAX_SENDS = 3;
+export const EMAIL_CODE_RESEND_SECONDS = 60;
+
+export function generateEmailCode(): string {
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+export function hashEmailCode(code: string): string {
+  return sha256(code.replace(/\D/g, ""));
+}
+
+export function verifyEmailCode(storedHash: string, code: string): boolean {
+  const candidate = Buffer.from(hashEmailCode(code));
+  const expected = Buffer.from(storedHash);
+  // Equal-length by construction (both sha256 hex), but guard before comparing.
+  if (candidate.length !== expected.length) return false;
+  return crypto.timingSafeEqual(candidate, expected);
+}
+
+// "sergey@example.com" → "s•••y@example.com". Shown back to the person who just
+// passed the password check, so it only has to jog their memory of which inbox.
+export function maskEmail(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at < 1) return "•••";
+  const name = email.slice(0, at);
+  const domain = email.slice(at);
+  if (name.length <= 2) return `${name[0]}•••${domain}`;
+  return `${name[0]}•••${name[name.length - 1]}${domain}`;
+}

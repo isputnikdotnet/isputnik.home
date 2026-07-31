@@ -115,7 +115,7 @@ Shipped:
   rather than the operator: a flaw here is a flaw in the software, and the
   household running a copy usually can't fix it. `Expires` is computed per request
   (`core/security-txt.ts`), so no installation ever serves a stale one.
-- **Multi-factor authentication (TOTP)** — see below.
+- **Multi-factor authentication** — an authenticator app (TOTP) or emailed codes, per user's choice. See below.
 - **Security headers** — `@fastify/helmet` with an enforced CSP tailored to the app, plus no-sniff, frame-ancestors, `form-action 'self'` (so injected markup can't post to an attacker's host), and a no-referrer policy.
 - **CSRF protection** — a double-submit `isputnik_csrf` token validated on every state-changing request (`core/csrf.ts`), layered on `SameSite=Lax`. Where the
   cookie can carry `Secure` (HTTPS) it's issued under the `__Host-` prefix, which
@@ -180,25 +180,36 @@ Planned:
 
 ---
 
-## Multi-Factor Authentication (TOTP)
+## Multi-Factor Authentication
 
-Optional time-based one-time-password (TOTP) second factor, compatible with Google Authenticator, Authy, Apple Passwords, and similar apps. No external service. User-facing guide: [`users/two-factor-authentication.md`](users/two-factor-authentication.md).
+Optional second factor, in one of two **mutually exclusive** methods the user picks at enrollment (`users.mfa_method`):
+
+- **`totp`** — a time-based one-time password from Google Authenticator, Authy, Apple Passwords, and similar apps.
+- **`email`** — a 6-digit code mailed to the address the account signs in with, over the server's own SMTP settings (Control panel → Email). Offered only when `isMailConfigured()`.
+
+Neither needs an external service. Backup codes rescue either. User-facing guide: [`users/two-factor-authentication.md`](users/two-factor-authentication.md).
+
+Email is the **weaker** method — the code crosses the internet in plaintext, anyone holding the mailbox holds the factor, and it stops working if SMTP does. It exists because "I lost my authenticator" is the most common way a household member locks themselves out. The Profile chooser says as much, ranks TOTP first, and disables the option when the server can't send mail.
 
 ### Storage
 
 ```sql
-users (additions)              -- migration v4
+users (additions)
 -----------------
 mfa_enabled        -- 0 or 1
-mfa_secret         -- TOTP secret, AES-256-GCM encrypted at rest
+mfa_method         -- 'totp' | 'email'  (migration v24)
+mfa_secret         -- TOTP secret, AES-256-GCM encrypted at rest; NULL for 'email'
 mfa_backup_codes   -- JSON array of sha256 hashes, single-use
 
 mfa_challenges     -- a pending second-factor step between password and session
 -----------------
-id, user_id, created_at, expires_at, attempts
+id, user_id, purpose, created_at, expires_at, attempts,
+code_hash, sends, last_sent_at            -- the last three: 'email' only
 ```
 
-The TOTP secret is **encrypted** (not hashed) because it must be recoverable to verify codes. The key comes from `MFA_ENCRYPTION_KEY` (any string, sha256-derived to 32 bytes); if unset, a random key is persisted beside the database as `mfa.key`. Keep the key stable — changing it makes stored secrets undecryptable and forces re-enrolment (relevant when restoring a backup onto a new host). Backup codes are hashed like every other secret and consumed on use. Secret/code handling lives in `core/mfa.ts`; routes and the challenge in `core/mfa-routes.ts`.
+The TOTP secret is **encrypted** (not hashed) because it must be recoverable to verify codes. The key comes from `MFA_ENCRYPTION_KEY` (any string, sha256-derived to 32 bytes); if unset, a random key is persisted beside the database as `mfa.key`. Keep the key stable — changing it makes stored secrets undecryptable and forces re-enrolment (relevant when restoring a backup onto a new host).
+
+Emailed codes need no such key: each is minted per challenge and stored **hashed** (`code_hash`), like a backup code, so a stolen database yields nothing replayable. `purpose` lets the same row shape serve both a sign-in (`login`) and the code that confirms an email enrollment (`enroll`) — one row per user per purpose. Secret/code handling lives in `core/mfa.ts`; routes and the challenge in `core/mfa-routes.ts`.
 
 ### Login flow with MFA enabled
 
@@ -206,24 +217,35 @@ The TOTP secret is **encrypted** (not hashed) because it must be recoverable to 
 POST /api/auth/login
   → verify email + password
   → if mfa_enabled:
-      create an mfa_challenges row, set a short-lived (5 min) challenge cookie
-      return { mfaRequired: true }   (no session issued yet)
+      create an mfa_challenges row, set a challenge cookie
+        (5 min for totp; 10 min for email — a mail has to arrive first)
+      if method = email: mail the code, fire-and-forget (a dead SMTP host
+        must not stall the sign-in; the reply carries emailSent so the UI can
+        point at backup codes instead)
+      return { mfaRequired: true, method, sentTo? }   (no session issued yet)
+
+POST /api/auth/mfa/resend            -- email method only
+  → 60s cooldown, 3 sends per challenge, expiry NOT extended
+  → mints a new code and retires the previous one
 
 POST /api/auth/mfa/verify
   → resolve the challenge cookie
-  → verify a TOTP code, or consume a single-use backup code
+  → verify the code for the account's method, or consume a single-use backup code
   → valid:   issue the full session, clear the challenge
   → invalid: count the attempt; after 5, destroy the challenge (re-enter password)
 ```
 
+Only the "is this code correct?" line branches on the method — the attempt cap, account lockout, per-IP auto-block, and alerting are shared, so the email path inherits all of it unchanged.
+
 ### Enrollment & recovery
 
-- **Enroll** (Profile, password-gated): `setup` (returns the secret + a QR data URL) → `enable` (confirms a code, reveals backup codes once).
-- **Manage**: turn off (password-gated) and regenerate backup codes.
-- **Admin reset**: `POST /api/users/:id/mfa/reset` clears MFA for a member who lost their authenticator and backup codes — there is no email-based recovery.
+- **Enroll** (Profile, password-gated): `setup` (TOTP: the secret + a QR data URL; email: mails a code to the account address and returns the masked recipient) → `enable` (confirms a code, reveals backup codes once). Nothing is switched on until the factor is proven to reach the user.
+- **Manage**: turn off (password-gated) and regenerate backup codes. Switching methods = turn off, set up again.
+- **Admin reset**: `POST /api/users/:id/mfa/reset` clears MFA — method, secret, and backup codes — for a member locked out of their second factor. There is no self-service recovery.
 
 ### Technology
 
 - `otplib` (v12 — the stable line; v13 is an incompatible rewrite) — TOTP generation/verification
 - `qrcode` — setup QR as a data URL (Google Authenticator, Authy, Apple Passwords)
+- `nodemailer`, via the shared `core/mail.ts` SMTP settings — delivery for emailed codes
 - No external service required

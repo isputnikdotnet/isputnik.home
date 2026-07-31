@@ -65,6 +65,32 @@ audiobook library selector.
 />
 ```
 
+### ChoiceGroup — `shared/ChoiceGroup.tsx`
+
+Use `<ChoiceGroup>` when the user picks between **approaches**, not values — each
+option needs a sentence of explanation, so it renders as a radio card with the
+description inside the click target. (Picking a value from a list is SelectMenu's
+job; a single on/off is ToggleSwitch's.) Options may be `disabled` with a `note`
+saying why, which is how an unavailable choice stays visible instead of vanishing.
+
+```tsx
+<ChoiceGroup
+  legend="How you'll get your codes"
+  value={method}
+  onChange={setMethod}
+  options={[
+    { value: "totp", label: "Authenticator app", description: "A rolling code from your phone. Works offline." },
+    {
+      value: "email",
+      label: "Email",
+      description: "A one-time code sent to you at each sign-in.",
+      disabled: !emailAvailable,
+      note: "Unavailable — this server can't send email."
+    }
+  ]}
+/>
+```
+
 **Verb vocabulary** (keep it consistent):
 
 - **Add** — put an existing thing somewhere (add to collection, add member).

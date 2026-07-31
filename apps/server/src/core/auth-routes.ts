@@ -3,7 +3,9 @@ import { db, logActivity, publicUser, type User } from "../db.js";
 import { verifyDummyPassword, verifyPassword } from "../crypto.js";
 import { clearSession, currentUserPayload, issueSession, revokeCurrentSession } from "../auth.js";
 import { parseBody, credentialsSchema, getUserByEmail } from "./shared.js";
-import { createMfaChallenge, setMfaChallengeCookie } from "./mfa-routes.js";
+import { createMfaChallenge, sendMfaCodeEmail, setMfaChallengeCookie } from "./mfa-routes.js";
+import { isMailConfigured } from "./mail.js";
+import { maskEmail } from "./mfa.js";
 import { isTrustedIp, isAccountLocked, recordLoginAttempt, maybeAutoBlockIp } from "./security.js";
 import { alertAccountLocked, alertIpAutoBlocked, reviewSignInLocation } from "./security-alerts.js";
 
@@ -65,8 +67,27 @@ export async function authPlugin(app: FastifyInstance) {
     // With MFA on, password success only earns a short-lived challenge — unless the
     // request is from a trusted network, which skips the second factor.
     if (authed.mfa_enabled && !trusted) {
-      const challengeId = createMfaChallenge(authed.id);
-      setMfaChallengeCookie(reply, challengeId);
+      const { id: challengeId, code } = createMfaChallenge(authed.id);
+      setMfaChallengeCookie(reply, challengeId, authed.mfa_method);
+
+      // An emailed code is sent without waiting on SMTP: the browser gets the code
+      // prompt immediately, and a slow or dead mail server can't stall the sign-in.
+      // The user is told whether we could even try — with mail down their backup
+      // codes are the way in, and saying so beats waiting for a mail that won't come.
+      const byEmail = authed.mfa_method === "email";
+      const emailSent = byEmail && isMailConfigured();
+      if (code && emailSent) {
+        void sendMfaCodeEmail(authed.email, code, "login").catch(() => {
+          logActivity({
+            event: "auth.mfa_code_send_failed",
+            targetType: "user",
+            targetId: authed.id,
+            detail: "Couldn't email a two-factor sign-in code.",
+            ipAddress: request.ip
+          });
+        });
+      }
+
       logActivity({
         event: "auth.mfa_required",
         actorUserId: authed.id,
@@ -75,7 +96,11 @@ export async function authPlugin(app: FastifyInstance) {
         detail: "Password accepted; awaiting a two-factor code.",
         ipAddress: request.ip
       });
-      reply.send({ mfaRequired: true });
+      reply.send({
+        mfaRequired: true,
+        method: authed.mfa_method,
+        ...(byEmail ? { emailSent, sentTo: maskEmail(authed.email) } : {})
+      });
       return;
     }
 

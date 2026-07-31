@@ -27,12 +27,27 @@ Once someone exists, open their profile and use **Add relative** to attach a
 couples, which is what lets the app handle remarriages, single parents, and
 step- or adopted children without special cases.
 
+You can also build the tree without leaving the chart: each card you're allowed
+to edit carries a **+** button that adds a **parent** or a **child** to that
+person directly. Partners and siblings stay on the profile, where the rest of
+their family is in view.
+
 ## The chart
 
 The tree view centres on one person: parents and grandparents above,
 children below, partners alongside, and siblings and cousins on their own
 generation's row. Click any card to re-centre on that person — the browser's
 Back button retraces your steps. Drag to pan, scroll or pinch to zoom.
+
+Down the right edge of each card are small round buttons: **open their profile**,
+and — if you're allowed to edit that person — **edit** them and **+** to add a
+parent or child.
+
+**Where it starts.** Opening the family tree centres on the **starting person**,
+which an admin chooses once in Settings → Starting person. It's the same for
+everyone. Until one is chosen the tree opens on whoever happens to come first,
+which is rarely the person you'd pick. Following a link to a particular
+person — from search, All people, or a bookmark — still opens on them.
 
 ## A person's profile
 
@@ -70,13 +85,20 @@ Photo library). Files are added to that library and attached in one step.
 
 ## Settings
 
-The gear on the tree page — admins only — holds three things:
+The gear on the tree page — admins only — holds four things:
 
 | Tab | What it's for |
 |---|---|
 | **Photo library** | Which gallery library uploaded family photos are added to |
+| **Starting person** | Who the chart opens on, for everyone |
 | **Import / export** | GEDCOM in and out |
 | **Security** | Who may edit which branch — see below |
+
+**Starting person** — select **Choose a person**, search for them, and that's it;
+the change applies immediately for everyone. **Change** picks someone else and the
+**✕** clears the setting, putting the tree back to its own guess. If the person
+you chose is later deleted from the tree, the setting quietly stops applying
+rather than breaking the chart.
 
 ## Letting a relative maintain their own branch
 
