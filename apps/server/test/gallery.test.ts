@@ -437,3 +437,48 @@ describe("gallery rotation", () => {
     expect(rowFor(id).coverUrl).toMatch(/\?v=/);
   });
 });
+
+// A photo whose metadata was stripped (phone export, WhatsApp, Takeout) has no EXIF
+// date, and its mtime is whatever the last copy wrote. The filename is then the best
+// evidence of when it was taken.
+describe("taken_at from the filename", () => {
+  const takenOf = (itemId: string) =>
+    (db.prepare("SELECT taken_at FROM gallery_details WHERE item_id = ?").get(itemId) as { taken_at: string }).taken_at;
+
+  it("prefers a date in the name over the file's mtime", async () => {
+    const copied = Date.parse("2025-02-27T22:04:00.000Z");
+    const id = await ingestGalleryAsset("GAL", asset("2012-12-02T16-38-20_3.jpg", copied), false);
+    expect(new Date(takenOf(id)).getFullYear()).toBe(2012);
+  });
+
+  it("still falls back to mtime when the name holds no date", async () => {
+    const copied = Date.parse("2025-02-27T22:04:00.000Z");
+    const id = await ingestGalleryAsset("GAL", asset("DSC_0042.jpg", copied), false);
+    expect(takenOf(id)).toBe(new Date(copied).toISOString());
+  });
+
+  it("backfills an unchanged row that was cataloged with the mtime fallback", async () => {
+    const copied = Date.parse("2025-02-27T22:04:00.000Z");
+    const file = asset("2012-12-02T16-38-20_3.jpg", copied);
+    const id = await ingestGalleryAsset("GAL", file, false);
+    // Simulate a row from before filename parsing: date = mtime, and a preview key
+    // so the re-scan takes the "unchanged" fast path.
+    db.prepare("UPDATE gallery_details SET taken_at = modified_at, preview_storage_key = 'x' WHERE item_id = ?").run(id);
+    expect(new Date(takenOf(id)).getFullYear()).toBe(2025);
+
+    await ingestGalleryAsset("GAL", file, false);
+    expect(new Date(takenOf(id)).getFullYear()).toBe(2012);
+  });
+
+  it("never overwrites a hand-set date", async () => {
+    const copied = Date.parse("2025-02-27T22:04:00.000Z");
+    const file = asset("2012-12-02T16-38-20_3.jpg", copied);
+    const id = await ingestGalleryAsset("GAL", file, false);
+    db.prepare(
+      "UPDATE gallery_details SET taken_at = modified_at, taken_at_source = 'manual', preview_storage_key = 'x' WHERE item_id = ?"
+    ).run(id);
+
+    await ingestGalleryAsset("GAL", file, false);
+    expect(new Date(takenOf(id)).getFullYear()).toBe(2025);
+  });
+});

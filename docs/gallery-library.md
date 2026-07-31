@@ -11,7 +11,8 @@ Immich rather than the book-like types. Its defining choice:
 ## Three views over one asset set
 
 - **Timeline** (default) — assets newest-first by `gallery_details.taken_at`
-  (EXIF date, falling back to file mtime), grouped into month headers in the UI.
+  (EXIF date, then a date in the filename, then file mtime — see [Scan
+  pipeline](#when-was-it-taken)), grouped into month headers in the UI.
 - **Folder** — a file-explorer over the on-disk directory structure, for libraries
   that keep their own folder layout (the common case for a read-only source).
 - **Map** — geotagged assets plotted on a Leaflet/OpenStreetMap map with clustered
@@ -69,7 +70,9 @@ Three surfaces consume it (`queryGalleryMemories` in `catalog.ts`):
 (symlink-safe, dot-folders skipped). For each file:
 
 1. **Skip unchanged** — if size + mtime match the stored `gallery_details` row and a
-   preview already exists, the file is left untouched (a rescan only does new/changed work).
+   preview already exists, the file is left untouched (a rescan only does new/changed
+   work). Two cheap backfills still run on that path, for rows cataloged before the
+   feature existed: the perceptual hash, and a filename date (see below).
 2. **Metadata** (`media.ts`, when *File metadata* is enabled):
    - photos — dimensions/orientation via `sharp`; date / GPS / camera via `exifr`.
    - videos — dimensions / duration / creation time via `ffprobe`.
@@ -81,6 +84,30 @@ Three surfaces consume it (`queryGalleryMemories` in `catalog.ts`):
 Every probe degrades gracefully: if `ffmpeg`/`ffprobe` are missing or a file can't
 be decoded, the asset is still indexed (just without dimensions/thumbnail). The scan
 runs on the shared job queue (`SCAN_GALLERY_LIBRARY`), mirroring the ebook worker.
+
+### When was it taken?
+
+`taken_at` is resolved in three steps: **EXIF → filename → mtime.**
+
+The middle step (`filename-date.ts`) exists because mtime is a lie on any photo that
+has been copied, synced or restored — a 2012 photo through OneDrive arrives with a
+2025 timestamp — while metadata-stripped exports (phone, WhatsApp, Takeout,
+screenshots) usually carry the real date in the name. It reads the delimited form
+(`2012-12-02T16-38-20`, `2012-12-02 16.38.20`) and the compact ones (`IMG_20121202_163820`,
+`PXL_20121202_163820123`, `IMG-20121202-WA0001`), and treats the result as local wall
+time, matching how `exifr` hands back EXIF's naive timestamps.
+
+A wrong guess here would date a photo confidently and wrongly, so matching is strict:
+the digits must not sit inside a longer number, the calendar date must exist (30
+February is rejected, not rolled forward), and the year must be between 1900 and next
+year. An invalid *time* degrades to midnight rather than voiding the date. Anything
+short of that returns null and mtime takes over.
+
+Existing rows are repaired without a forced rescan: on the skip-unchanged path, a row
+whose `taken_at` equals its `modified_at` — the fingerprint of the mtime fallback —
+gets the filename date if there is one. `taken_at_source = 'manual'` is never touched.
+The source column stays `scan`, since a filename date *is* scanner-derived; splitting
+it out would mean rewriting a CHECK constraint for no behavioural gain.
 
 Two edge cases the pipeline handles explicitly:
 

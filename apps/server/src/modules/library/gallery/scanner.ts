@@ -11,6 +11,7 @@ import { normaliseRelativePath, relativePathWithinRoot } from "../shared/storage
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
+import { dateFromFileName } from "./filename-date.js";
 import {
   normalizeLibrarySettings,
   normalizeScanSources,
@@ -126,8 +127,12 @@ export async function ingestGalleryAsset(
   // by the gallery_details UPSERT, which never writes it).
   let existingRotation = 0;
   if (existing) {
-    const prior = db.prepare("SELECT size, modified_at, preview_storage_key, rotation, playable, phash FROM gallery_details WHERE item_id = ?")
-      .get(itemId) as { size: number | null; modified_at: string | null; preview_storage_key: string | null; rotation: number | null; playable: number | null; phash: string | null } | undefined;
+    const prior = db.prepare("SELECT size, modified_at, preview_storage_key, rotation, playable, phash, taken_at, taken_at_source FROM gallery_details WHERE item_id = ?")
+      .get(itemId) as {
+        size: number | null; modified_at: string | null; preview_storage_key: string | null;
+        rotation: number | null; playable: number | null; phash: string | null;
+        taken_at: string | null; taken_at_source: string | null;
+      } | undefined;
     existingRotation = prior?.rotation ?? 0;
     // Re-probe an unchanged video whose playable flag was never computed (rows from
     // before this feature) so a single rescan backfills the grid hint.
@@ -143,6 +148,22 @@ export async function ingestGalleryAsset(
           if (hash) db.prepare("UPDATE gallery_details SET phash = ? WHERE item_id = ?").run(hash, itemId);
         } catch { /* thumb store unavailable — retried next scan */ }
       }
+      // Backfill a filename date onto rows cataloged before that step existed.
+      // taken_at === modified_at is the fingerprint of the mtime fallback: EXIF
+      // matching the mtime to the millisecond doesn't happen in practice, and a
+      // hand-set date is excluded outright. Costs one filename parse — no file
+      // read — so an ordinary incremental scan repairs an existing library.
+      if (
+        prior!.taken_at_source !== "manual"
+        && prior!.taken_at != null
+        && prior!.taken_at === prior!.modified_at
+      ) {
+        const fromName = dateFromFileName(file.fileName);
+        if (fromName && fromName !== prior!.taken_at) {
+          db.prepare("UPDATE gallery_details SET taken_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?")
+            .run(fromName, itemId);
+        }
+      }
       // Revive a previously-missing row without re-reading the file.
       db.prepare("UPDATE library_items SET status = 'ready', deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(itemId);
       return itemId;
@@ -152,8 +173,11 @@ export async function ingestGalleryAsset(
   const metadata = metaEnabled
     ? await readAssetMetadata(file.kind, file.absolutePath)
     : { width: null, height: null, orientation: null, durationSeconds: null, takenAt: null, gpsLat: null, gpsLng: null, cameraMake: null, cameraModel: null, videoCodec: null, audioCodec: null };
-  // Fall back to the file's mtime so every asset has a Timeline date.
-  const takenAt = metadata.takenAt ?? modifiedIso;
+  // When EXIF is silent, a date in the filename beats the file's mtime: mtime is
+  // rewritten by any copy, sync or restore, while a name like "2012-12-02T16-38-20"
+  // still carries the real date. mtime remains the last resort so every asset has
+  // a Timeline date.
+  const takenAt = metadata.takenAt ?? dateFromFileName(file.fileName) ?? modifiedIso;
   // Videos carry a browser-playability flag (1/0); photos and un-probed videos stay
   // NULL. SQLite has no boolean, so store 1/0.
   const playable = file.kind === "video"
