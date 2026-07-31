@@ -29,6 +29,9 @@ library.
 
 - [Two-factor authentication](two-factor-authentication.md) — add a one-time code
   to your sign-in, manage backup codes, and what to do if you get locked out.
+- [Setting up email](email.md) — the SMTP settings, what the server sends, and why
+  a save-and-test usually fails the first time. Needed before anyone can use
+  emailed two-factor codes or receive security alerts.
 - [Exposing your library to the internet](exposing-to-the-internet.md) — for the
   person running the server: putting it behind HTTPS and the settings to set first.
 

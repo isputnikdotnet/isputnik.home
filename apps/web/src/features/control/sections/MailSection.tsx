@@ -105,8 +105,9 @@ export function MailSection() {
     <section className="config-block">
       <h2>Email (SMTP)</h2>
       <p className="muted">
-        Outgoing mail for “Send to e-reader”. Point this at your mail provider or relay (e.g. a Gmail app
-        password, Fastmail, or your own SMTP server). The password is stored on the server and never shown again.
+        Outgoing mail for two-factor codes, security alerts, and “Send to e-reader”. Point this at your mail
+        provider or relay (e.g. a Gmail app password, Fastmail, or your own SMTP server). Most providers need an
+        app password rather than your account password. The password is stored on the server and never shown again.
       </p>
 
       {loadError && <MessageBox tone="error" title="Email settings">{loadError}</MessageBox>}

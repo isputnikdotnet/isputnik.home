@@ -33,7 +33,8 @@ library**. It also depends on the server being able to send email; if email brea
 your backup codes are the way in.
 
 > The email option only appears if an administrator has set up email on the server
-> (Control panel → **Email**). Codes go to the same address you sign in with.
+> (Control panel → **Config** → **Email** — see [Setting up email](email.md)). Codes
+> go to the same address you sign in with.
 
 ## Turning it on
 
