@@ -11,6 +11,10 @@ RUN npm ci
 
 # ── Stage 2: build the Vite frontend ─────────────────────────────
 FROM deps AS web-build
+# The git ref being built (CI passes the tag; defaults to the branch docs live on).
+# Baked into the bundle so in-app Help links point at THIS version's guides.
+ARG DOCS_REF=main
+ENV DOCS_REF=$DOCS_REF
 COPY apps/web ./apps/web
 RUN npm run build --workspace apps/web
 

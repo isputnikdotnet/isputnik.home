@@ -8,6 +8,11 @@ export default defineConfig({
   // merge into one folder whose on-disk name wins, breaking case-sensitive static
   // servers that then 404 the hashed bundles. Use a distinct name to avoid it.
   build: { assetsDir: "static" },
+  // Docs ship in the repo and change with the code, so a Help link has to point at
+  // the ref THIS build came from — otherwise a 2.1.0 install reads 2.3.x guides
+  // describing features it doesn't have. CI passes the tag or branch it built
+  // (DOCS_REF = github.ref_name, always a real ref); a local build says "main".
+  define: { __DOCS_REF__: JSON.stringify(process.env.DOCS_REF || "main") },
   plugins: [
     react(),
     VitePWA({
