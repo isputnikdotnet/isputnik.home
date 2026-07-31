@@ -16,6 +16,10 @@ FROM deps AS web-build
 ARG DOCS_REF=main
 ENV DOCS_REF=$DOCS_REF
 COPY apps/web ./apps/web
+# The user guides are a build input, not just documentation: vite.config.ts copies
+# them into public/ so the app can render them at /help. Without this the build
+# fails outright (ENOENT on docs/users) rather than quietly shipping no help.
+COPY docs/users ./docs/users
 RUN npm run build --workspace apps/web
 
 # ── Stage 3: compile the TypeScript server ────────────────────────

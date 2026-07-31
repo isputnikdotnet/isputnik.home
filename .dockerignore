@@ -10,4 +10,7 @@ apps/server/dist
 data/
 Documents/
 *.md
+# ...except the user guides, which the web build copies into the app so Help works
+# offline. They are a build input, not documentation the image can do without.
+!docs/users/**
 .claude
