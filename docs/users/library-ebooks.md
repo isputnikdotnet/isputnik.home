@@ -49,7 +49,7 @@ read the EPUB.
 
 - **Download** saves the original file.
 - **Send to e-reader** mails it to a Kindle or Kobo, once mail is configured on
-  the server and you've set your device address in Settings.
+  the server ([guide](email.md)) and you've set your device address in Settings.
 - The app is installable: add it to your home screen and downloaded books stay
   readable offline.
 

@@ -65,6 +65,9 @@ one adding the header.
 
 - **Turn on two-factor authentication** for admin accounts, and encourage everyone
   to use it — see [two-factor-authentication.md](two-factor-authentication.md).
+- **Set up email** ([email.md](email.md)) so the server can tell you about locked
+  accounts, blocked addresses, and sign-ins from networks it hasn't seen. On an
+  internet-facing install this is how you find out something is being tried.
 - **Use strong, unique passwords.**
 - **Keep the app updated.**
 
@@ -78,6 +81,7 @@ one adding the header.
 [ ] TRUST_PROXY_HOPS = number of proxies (usually 1)
 [ ] First-run admin setup completed on the home network
 [ ] Two-factor enabled for admin accounts
+[ ] Email configured, so security alerts actually reach you
 ```
 
 ## Note for maintainers

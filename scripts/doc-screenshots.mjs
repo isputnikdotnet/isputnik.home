@@ -96,7 +96,16 @@ const SHOTS = [
   { name: "30-audiobooks", url: "audiobooks" },
   { name: "31-ebooks", url: "ebooks" },
   { name: "32-gallery", url: "gallery" },
-  { name: "40-family-tree", url: "family" }
+  { name: "40-family-tree", url: "family" },
+
+  // Config opens on Appearance; the email form is behind its own tab. Captured on
+  // an install where SMTP is filled in — an empty form documents nothing.
+  {
+    name: "50-email",
+    url: "control/config",
+    state: "email settings filled in",
+    setup: `button(document, "Email").click(); await sleep(400); "opened";`
+  }
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
