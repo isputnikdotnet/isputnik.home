@@ -1,6 +1,6 @@
 import {
   BookOpen, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, LibraryBig,
-  Rocket, ShieldCheck, Wifi, type LucideIcon
+  Mail, Rocket, Settings, ShieldCheck, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
@@ -98,6 +98,14 @@ const HELP_SECTIONS: HelpSection[] = [
     title: "Your account",
     links: [
       {
+        icon: UserRound,
+        title: "Your account",
+        description:
+          "Your name and sign-in email, themes, the e-reader address, and where favorites, bookmarks, quotes and collections live.",
+        href: guide("your-account.md"),
+        external: true
+      },
+      {
         icon: ShieldCheck,
         title: "Two-factor authentication",
         description:
@@ -110,6 +118,22 @@ const HELP_SECTIONS: HelpSection[] = [
   {
     title: "Running the server",
     links: [
+      {
+        icon: Settings,
+        title: "The control panel",
+        description: "A tour of every section: status, backups, security, labels, logs, scheduled jobs, and accounts.",
+        href: guide("control-panel.md"),
+        external: true,
+        adminOnly: true
+      },
+      {
+        icon: Mail,
+        title: "Setting up email",
+        description: "The SMTP settings, what the server sends, and why a save-and-test usually fails the first time.",
+        href: guide("email.md"),
+        external: true,
+        adminOnly: true
+      },
       {
         icon: Wifi,
         title: "Exposing your library to the internet",
