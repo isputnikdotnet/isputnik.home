@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.2.1",
+          label: "A security fix for the Back button",
+          changes: [
+            "Fixed a flaw in the Back button on person, series, category and tag pages. A link to your library crafted by someone else could make that button lead to another website instead of back where you came from — a page that looked like yours sending you somewhere that isn't.",
+            "Nothing on your server was reachable through it and no account or file was exposed, but updating is recommended, especially if your library is reachable from the internet."
+          ]
+        },
+        {
           version: "2.2.0",
           label: "Two-factor codes by email, and a starting person for the tree",
           changes: [
