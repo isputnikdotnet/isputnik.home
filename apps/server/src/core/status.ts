@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.4.0",
+          label: "The guides now live inside the app",
+          changes: [
+            "Help & guides used to send you to GitHub to read anything. The guides are now part of your server: they open inside the app, they work with no internet connection at all, and they describe the version you're actually running.",
+            "That matters most when you need them least conveniently — a server on a home network with no way out, or a connection that's down, still has its full documentation.",
+            "Pictures in the guides are the one thing still fetched over the network, to keep the offline copy small. A guide read offline shows its text and skips the screenshots.",
+            "Every guide keeps a “View this guide on GitHub” link at the bottom, for when you want the newest version rather than the one that shipped with your install."
+          ]
+        },
+        {
           version: "2.3.2",
           label: "Three new guides, and help that matches your version",
           changes: [
