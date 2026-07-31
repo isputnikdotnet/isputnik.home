@@ -31,6 +31,12 @@ jobs:
         id: release
         run: echo "publish=${{ startsWith(github.ref, 'refs/tags/v') }}" >> "$GITHUB_OUTPUT"
 
+      # The runner's default builder uses the plain "docker" driver, which cannot
+      # export a cache ("Cache export is not supported for the docker driver").
+      # buildx's container driver can, and the layer cache below needs it.
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
       # Only a release needs the registry — a dry run never pushes, so it needs no
       # credentials at all.
       - name: Log in to GitHub Container Registry
