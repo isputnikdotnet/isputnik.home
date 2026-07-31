@@ -383,16 +383,30 @@ export function getRoute(): Route {
 // instead of always falling back to their list.
 //
 // The value ends up in a "Back" link's href, so it has to be a path on THIS site
-// and nothing else. A leading "/" alone doesn't guarantee that: "//evil.com" is a
-// protocol-relative URL, and "/\evil.com" becomes one because browsers normalize
-// backslashes in the authority position. Either would send someone off-site from a
-// link that appears on your own domain — a click-through this page effectively
-// vouches for. A left click is caught by followRoute, but a middle- or ctrl-click
-// bypasses it and follows the raw href, so the value itself must be safe.
+// and nothing else. Anything else would send someone off-site from a link that
+// appears on your own domain — a click-through this page effectively vouches for.
+// A left click is caught by followRoute, but a middle- or ctrl-click bypasses it
+// and follows the raw href, so the value itself must be safe.
+//
+// Don't pattern-match the raw string for that. Spotting "//evil.com" and
+// "/\evil.com" (browsers normalize a backslash in the authority position) leaves
+// the same hole one step further along: the URL parser strips ASCII tab, newline
+// and carriage return from ANYWHERE in the input before resolving, so
+// "/<tab>/evil.com" — which passes any per-character check on the second
+// character — lands on evil.com. Resolve it the way the browser will and compare
+// the origin instead; that covers this and every other normalisation quirk.
 export function getReferrer(): string | null {
-  const from = new URLSearchParams(window.location.search).get("from");
-  if (!from || !from.startsWith("/")) return null;
-  return from[1] === "/" || from[1] === "\\" ? null : from;
+  const raw = new URLSearchParams(window.location.search).get("from");
+  if (!raw || !raw.startsWith("/")) return null;
+  let resolved: URL;
+  try {
+    resolved = new URL(raw, window.location.origin);
+  } catch {
+    return null;
+  }
+  if (resolved.origin !== window.location.origin) return null;
+  // The normalized form, so the href is exactly what was just validated.
+  return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 }
 
 export function navigate(path: string) {
