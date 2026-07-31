@@ -18,7 +18,7 @@
 // generation; positions are computed first, then a per-row sweep resolves any
 // overlap between the independently-anchored passes, and edges are drawn last
 // from the final positions — so edges can never detach.
-import type { FamilyPerson, FamilyTree } from "./types";
+import type { FamilyPerson, FamilyTree, FamilyUnion } from "./types";
 
 // Compact vertical cards: portrait block on top, name lines, then years.
 export const NODE_W = 104; // card width (row axis)
@@ -45,13 +45,27 @@ export interface PlacedUnionDot {
   unionId: string;
   x: number;
   y: number;
+  // Drives the badge: a union that ended reads differently from a current one,
+  // so two partners on the same row can't both look like the current spouse.
+  status: FamilyUnion["status"];
+}
+
+/** A spouse link that ended is drawn dashed; everything else is a plain line. */
+export interface EdgePath {
+  d: string;
+  ended?: boolean;
 }
 
 export interface ChartLayout {
   nodes: PlacedNode[];
   dots: PlacedUnionDot[];
-  edgePaths: string[];
+  edgePaths: EdgePath[];
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
+}
+
+/** Divorced/widowed unions are past; the rest are treated as current. */
+export function isEndedUnion(status: FamilyUnion["status"]): boolean {
+  return status === "divorced" || status === "widowed";
 }
 
 interface Indexes {
@@ -300,18 +314,20 @@ export function computeChartLayout(tree: FamilyTree, focusId: string): ChartLayo
 
   // ── Union badges + edges, from final positions ──
   const dots: PlacedUnionDot[] = [];
-  const edgePaths: string[] = [];
+  const edgePaths: EdgePath[] = [];
   for (const union of tree.unions) {
     const p1 = union.person1Id ? placed.get(union.person1Id) : undefined;
     const p2 = union.person2Id ? placed.get(union.person2Id) : undefined;
+    const ended = isEndedUnion(union.status);
     let dot: PlacedUnionDot | null = null;
     if (p1 && p2 && p1.gen === p2.gen) {
       const [left, right] = p1.x <= p2.x ? [p1, p2] : [p2, p1];
-      dot = { unionId: union.id, x: (left.x + right.x) / 2, y: left.y };
-      edgePaths.push(`M ${left.x + NODE_W / 2} ${left.y} H ${right.x - NODE_W / 2}`);
+      dot = { unionId: union.id, x: (left.x + right.x) / 2, y: left.y, status: union.status };
+      edgePaths.push({ d: `M ${left.x + NODE_W / 2} ${left.y} H ${right.x - NODE_W / 2}`, ended });
     } else {
       const solo = p1 ?? p2;
-      if (solo) dot = { unionId: union.id, x: solo.x, y: solo.y + NODE_H / 2 + 12 };
+      // +14 clears the card edge by the badge's radius plus a hair.
+      if (solo) dot = { unionId: union.id, x: solo.x, y: solo.y + NODE_H / 2 + 14, status: union.status };
     }
     if (!dot) continue;
 
@@ -321,10 +337,12 @@ export function computeChartLayout(tree: FamilyTree, focusId: string): ChartLayo
     if (kids.length > 0) {
       const busY = Math.min(...kids.map((k) => k.y)) - NODE_H / 2 - BUS_DROP;
       const xs = [...kids.map((k) => k.x), dot.x];
-      edgePaths.push(`M ${dot.x} ${dot.y} V ${busY}`);
-      edgePaths.push(`M ${Math.min(...xs)} ${busY} H ${Math.max(...xs)}`);
+      // Descent lines stay solid whatever became of the union — the children
+      // are no less the couple's for it.
+      edgePaths.push({ d: `M ${dot.x} ${dot.y} V ${busY}` });
+      edgePaths.push({ d: `M ${Math.min(...xs)} ${busY} H ${Math.max(...xs)}` });
       for (const kid of kids) {
-        edgePaths.push(`M ${kid.x} ${busY} V ${kid.y - NODE_H / 2}`);
+        edgePaths.push({ d: `M ${kid.x} ${busY} V ${kid.y - NODE_H / 2}` });
       }
     }
     if (kids.length > 0 || (p1 && p2)) dots.push(dot);

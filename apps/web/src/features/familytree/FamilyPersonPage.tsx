@@ -1,4 +1,4 @@
-import { Children, useCallback, useEffect, useRef, useState } from "react";
+import { Children, useCallback, useEffect, useState } from "react";
 import {
   Armchair, ArrowLeft, Award, Baby, BookMarked, BriefcaseBusiness, CalendarDays, CalendarPlus, Camera, Church,
   ExternalLink, FileText, Flag, GraduationCap, Heart, Home as HomeIcon, ImagePlus, Images, Link2, Luggage, MapPin,
@@ -378,7 +378,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   // Timeline rows start collapsed: long notes clamp, photo strips show a few.
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const [expandedEventPhotos, setExpandedEventPhotos] = useState<Set<string>>(new Set());
-  const portraitFileRef = useRef<HTMLInputElement>(null);
+  const [portraitPicker, setPortraitPicker] = useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -490,18 +490,20 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
     }
   };
 
-  const uploadPortrait = async (file: File) => {
+  // Every portrait is a gallery item now — a face match, a browsed photo, or a
+  // file uploaded into the tree's photo library, which becomes an item like any
+  // other. Setting one clears an uploaded portrait left over from before.
+  const setPortraitFromGallery = async (itemId: string) => {
     setActionError("");
     try {
-      const type = ["image/jpeg", "image/png", "image/webp"].includes(file.type) ? file.type : "image/jpeg";
-      await api(`/api/family-tree/persons/${id}/portrait`, {
-        method: "PUT",
-        headers: { "Content-Type": type },
-        body: file
+      await api(`/api/family-tree/persons/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ portraitItemId: itemId })
       });
+      setPortraitPicker(false);
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to upload the portrait");
+      setActionError(err instanceof Error ? err.message : "Unable to set the portrait");
     }
   };
 
@@ -581,9 +583,9 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       <Button
                         variant="icon"
                         className="ft-portrait-button"
-                        title="Upload portrait"
-                        aria-label="Upload portrait"
-                        onClick={() => portraitFileRef.current?.click()}
+                        title="Change portrait"
+                        aria-label="Change portrait"
+                        onClick={() => setPortraitPicker(true)}
                       >
                         <Camera size={16} aria-hidden="true" />
                       </Button>
@@ -683,17 +685,6 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                     </div>
                   </div>
 
-                  <input
-                    ref={portraitFileRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    hidden
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      event.target.value = "";
-                      if (file) void uploadPortrait(file);
-                    }}
-                  />
                 </div>
               </div>
 
@@ -1141,6 +1132,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
         <EventEditModal
           personId={profile.id}
           personName={profile.name}
+          facePerson={profile.galleryPerson}
           event={eventModal}
           onClose={() => setEventModal(false)}
           onSaved={() => { setEventModal(false); refresh(); }}
@@ -1216,10 +1208,20 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
           onSaved={() => { setEditUnion(null); refresh(); }}
         />
       )}
+      {portraitPicker && profile && (
+        <FamilyPhotoPicker
+          title={`Portrait for ${profile.name}`}
+          single
+          facePerson={profile.galleryPerson}
+          onPickSingle={(asset) => void setPortraitFromGallery(asset.id)}
+          onClose={() => setPortraitPicker(false)}
+        />
+      )}
       {photoPicker && profile && (
         <FamilyPhotoPicker
           title={`Add photos of ${profile.name}`}
           existingIds={photos.filter((p) => p.attached).map((p) => p.id)}
+          facePerson={profile.galleryPerson}
           onAttach={async (itemIds) => {
             await api(`/api/family-tree/persons/${profile.id}/photos`, {
               method: "POST",

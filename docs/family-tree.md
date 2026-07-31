@@ -80,16 +80,60 @@ falls through to the next rather than leaving the chart with nothing to centre o
 
 **Card badges** are SVG `<g role="button">` (`ActionBadge`), not DOM buttons —
 lucide components can't render inside SVG geometry, so the icons are inlined
-paths. Every card carries "open profile"; a card the viewer may edit adds "edit"
-and "add a relative", stacked down the portrait's right edge at 24px intervals.
+paths. Each card carries exactly one: a "⋯" badge in the top-right corner that
+opens the card menu (open profile; plus edit and add-a-relative when the viewer
+may edit that person). The menu itself is HTML floating over the SVG — its
+position is mapped from the badge's user-space coordinates every render, so it
+stays glued to the card while the chart pans and zooms, and any pan, zoom, or
+click elsewhere dismisses it.
 
-The add badge opens `AddRelativeModal`, which asks parent or child and then hands
+**Chart chrome** — three floating panels inside the frame. Top-left, a
+**rail** (icon over a small label): **Add person** on its own above a divider
+(when the viewer may add), then **Home** (drops the `:id` from the URL so the
+chart returns to the starting person, and re-fits), **All People**, **Families**,
+then under a second divider **Import** and **Settings** (admin) and **Export**.
+Each of those is a prop on `FamilyTreeChart` that the page leaves undefined when
+the viewer may not do it, so permission lives in one place. Fitting is the
+bottom-right control's job only — it was in the rail too and that was one button
+too many.
+Right edge, the **legend**: parent/child connector, marriage rings, and the card
+tints (male/female/not recorded/focused). Bottom-right, zoom −/+ with the current
+percentage and a fit button. On mobile the rail collapses to icons and the legend
+is hidden. All of this used to sit in the page header, which is now just the
+title, the person count, and search.
+
+The add-relative item opens `AddRelativeModal`, which asks parent or child and then hands
 off to the same `AddParentModal` / `AddChildModal` the profile page uses. Those
 need a full `FamilyPersonProfile` to know what they're doing (fill an empty
 parent slot vs start a new family; which union a child hangs off), and the chart
 only holds summaries — so the profile is fetched **after** a kind is chosen: one
 request per use of the badge, none for rendering the chart. Partner and sibling
 stay on the profile, where the surrounding family is in view.
+
+**Current vs former partner** — a person can sit between two spouse cards, so
+`UnionBadge` draws each union's status. All four are built from arcs, so they
+stay crisp at any zoom:
+
+| status | badge |
+| --- | --- |
+| `married` | interlocked rings, **woven**, gold |
+| `partners`, `unknown` | the same rings in neutral ink |
+| `widowed` | the same rings as a faded ghost, dashed plate |
+| `divorced` | rings pulled apart, cut by the genealogist's `//`, rose, dashed plate |
+
+The weave is the trick worth knowing: draw both rings, then redraw a short arc of
+the right ring over the crossing — first in the plate colour at double width (the
+"cut"), then in the ring colour. Its endpoints are on the right ring either side
+of the crossing at `(x, y ± 3.264)`, so the arc's midpoint lands exactly on the
+crossing; move `offset` or `ringR` and those numbers must be recomputed or the
+rings stop looking linked.
+
+`isEndedUnion` (divorced/widowed) also dashes the **spouse link** itself, which is
+what you actually notice from across the chart. Descent lines never dash — the
+children are no less the couple's for it. The badge's `<title>` names the exact
+status, which is how you tell divorced from widowed. `unknown` deliberately reads
+as current: it is the default for quick-created and GEDCOM-imported unions, and
+guessing "ended" from missing data would be worse than showing nothing.
 
 > **Footgun:** never put a `clipPath` on a transformed silhouette `<g>` —
 > `userSpaceOnUse` clip rects get dragged by the transform and the silhouettes
@@ -130,18 +174,40 @@ closing one returns you there instead of stranding you in the gallery.
 
 **Portraits** are either an uploaded file (thumbnail store, bucket `familytree`)
 or a chosen gallery item's cover. The two are mutually exclusive; picking one
-clears the other.
+clears the other — `PATCH …/persons/:id` with `portraitItemId` deletes the
+uploaded file, and `PUT …/persons/:id/portrait` clears the item.
 
-### Uploading
+The camera button on the profile opens the same `FamilyPhotoPicker` in `single`
+mode, with the same three sources as the photo wall: **Face matches**, **Browse
+gallery**, and **Upload** — one click, or one file, sets the portrait. A portrait
+upload goes into the tree's photo library like every other upload, becoming a
+gallery item that is then set with `portraitItemId`; the raw
+`PUT …/persons/:id/portrait` route stays for existing portraits and for API use,
+but nothing in the UI writes to the thumbnail store any more. Uploading is gated
+the same way everywhere: **no photo library nominated, no Upload tab.**
 
-Attaching an existing photo works across every gallery the viewer can see and
-needs no configuration. **Uploading a new one has to put the file somewhere**, so
-an admin nominates a destination in Settings → Photo library (stored in
-`app_settings` under `family_tree_settings`). The photo picker then offers an
-Upload tab beside Browse; files are added to that library — filed into dated
-folders like any gallery upload — and attached in the same step. When no library
-is nominated, or the viewer can't upload to it, the tab says so rather than
-disappearing.
+### Adding photos
+
+`FamilyPhotoPicker` offers up to three tabs, and only the ones that can actually
+do something:
+
+1. **Face matches** — present when the person is linked to a gallery person.
+   Lists everything the face scan matched (`GET /api/library/gallery/people/:id`,
+   paged 120 at a time) and opens on this tab, since those are almost always the
+   photos you came for. Attaching one *pins* it: the wall would show it anyway
+   via the cluster, but a pinned photo survives the match later being corrected.
+2. **Browse gallery** — folder navigation across every gallery the viewer can
+   see; needs no configuration.
+3. **Upload** — new files from the device. Shown **only** when an admin has
+   nominated a destination in Settings → Photo library (stored in `app_settings`
+   under `family_tree_settings`) *and* this viewer may upload to it. Files land
+   in that library — filed into dated folders like any gallery upload — and are
+   attached in the same step.
+
+Uploading has to put the file somewhere, which is why it is the one gated tab.
+It used to render regardless and explain itself; a tab that can only apologise
+is worse than no tab. Admins still get a one-line hint under the tabs naming the
+setting to change, since they are the only ones who can change it.
 
 ## Tags and branch permissions
 
@@ -194,11 +260,12 @@ unmapped tags become **warnings**, not failures.
 
 ## Settings
 
-Admin-only, reached from the gear on the tree page or Settings on the People
-page. Four tabs: **Photo library** (upload destination), **Starting person** (who
-the chart opens on), **Import / export** (GEDCOM), and **Security** (branch
-access). GEDCOM export also stays as an icon in the tree header, since it's
-available to every user and the panel isn't.
+Admin-only, reached from **Settings** in the chart's rail or on the People page.
+Four tabs: **Photo library** (upload destination), **Starting person** (who the
+chart opens on), **Import / export** (GEDCOM), and **Security** (branch access).
+The rail also links import and export directly — import opens `GedcomImportModal`
+without the panel around it, and export is its own item because every signed-in
+user may export while the panel is admin-only.
 
 Both stored settings live in one `app_settings` blob under `family_tree_settings`
 (`settings.ts`). `setFamilyTreeSettings` takes a **partial** and merges over what
@@ -243,12 +310,18 @@ apps/server/src/modules/familytree/
   gedcom.ts     import/export
   routes.ts     the HTTP surface and its guards
 
-apps/web/src/features/familytree/   chart, people list, profile, modals
+apps/web/src/features/familytree/   chart, people list, families list, profile, modals
 apps/web/src/styles/family-tree.css
 ```
 
-Routes: `/family`, `/family/tree/:id`, `/family/people`, `/family/people/:id`,
-`/family/people/:id/photos`.
+Routes: `/family`, `/family/tree/:id`, `/family/people`, `/family/families`,
+`/family/people/:id`, `/family/people/:id/photos`.
+
+`/family/families` (`FamilyFamiliesPage.tsx`) is a client-side rollup of
+`/api/family-tree/persons`: one card per surname — the last word of the display
+name, maiden names not folded in — ordered by size. Choosing one opens the chart
+on that family's earliest-born member, which is the "focus on this branch" entry
+point into a tree too big to scan person by person.
 
 ## Testing
 

@@ -21,6 +21,7 @@ export type Route =
   | { name: "galleryAsset"; id: string }
   | { name: "familyTree"; focusId?: string }
   | { name: "familyPeople" }
+  | { name: "familyFamilies" }
   | { name: "familyPerson"; id: string }
   | { name: "familyPersonPhotos"; id: string }
   | { name: "ebookAuthorDetail"; personName: string }
@@ -113,6 +114,11 @@ export function getRoute(): Route {
 
   if (path === "/family/people") {
     return { name: "familyPeople" };
+  }
+
+  // Family names only — the "pick a branch" entry point into the chart.
+  if (path === "/family/families") {
+    return { name: "familyFamilies" };
   }
 
   const familyFocusMatch = path.match(/^\/family\/tree\/([^/]+)$/);

@@ -82,6 +82,65 @@
   min-height: 1em;
 }
 
+/* ── Families (one card per family name) ── */
+
+.ft-family-name-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(214px, 1fr));
+  gap: 14px;
+}
+
+.ft-family-name-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 14px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.ft-family-name-card:hover,
+.ft-family-name-card:focus-visible {
+  border-color: var(--gold);
+  transform: translateY(-2px);
+  outline: 0;
+}
+
+/* Overlapping portraits — a glance at who is in the family. */
+.ft-family-name-faces {
+  display: flex;
+  margin-bottom: 4px;
+  padding-left: 10px;
+}
+
+.ft-family-name-faces .ft-avatar {
+  margin-left: -10px;
+  border: 2px solid var(--surface);
+}
+
+.ft-family-name-card strong {
+  font-size: 1.02rem;
+}
+
+.ft-family-name-card small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.ft-family-name-anchor {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.82;
+}
+
 /* ── Person profile ── */
 
 .ft-profile-page {
@@ -1104,6 +1163,17 @@
   gap: 14px;
 }
 
+/* Why an admin can't see the Upload tab; sits just under the picker's tabs. */
+.ft-upload-off-hint {
+  margin: 10px 18px 0;
+}
+
+.ft-face-more {
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 4px;
+}
+
 /* Tag filter chips on the people page (reuses .book-tag-chip for the look). */
 .ft-tag-filter {
   display: flex;
@@ -1360,18 +1430,75 @@
   stroke-linejoin: round;
 }
 
-/* Union badge: a circle with two "rings" between spouse cards. */
-.ft-chart-union-badge > circle:first-child {
-  fill: color-mix(in srgb, var(--surface-raised, var(--surface)) 92%, transparent);
+/* A spouse link whose union ended: dashed, so a former partner reads as former
+   from across the chart. Descent lines are never dashed. */
+.ft-chart-edges path.is-ended {
+  stroke-dasharray: 7 5;
+  stroke: color-mix(in srgb, var(--muted) 34%, transparent);
+}
+
+/* Union badge: wedding rings on a plate, between the spouse cards. The plate's
+   fill doubles as the "cut" colour that makes the rings look woven. */
+.ft-chart-union-badge {
+  --ft-union-plate: color-mix(in srgb, var(--surface-raised, var(--surface)) 96%, var(--canvas));
+  --ft-union-ink: color-mix(in srgb, var(--gold) 76%, var(--ink));
+}
+
+.ft-chart-union-plate {
+  fill: var(--ft-union-plate);
   stroke: color-mix(in srgb, var(--muted) 42%, var(--line));
   stroke-width: 1.4;
   filter: drop-shadow(0 4px 8px color-mix(in srgb, var(--shadow) 38%, transparent));
 }
 
-.ft-chart-union-ring {
+.ft-chart-union-ring,
+.ft-chart-union-weave {
   fill: none;
-  stroke: color-mix(in srgb, var(--muted) 72%, var(--ink));
-  stroke-width: 1.5;
+  stroke: var(--ft-union-ink);
+  stroke-width: 1.7;
+}
+
+/* Redrawn under the weave arc in the plate colour, so the ring beneath is
+   broken exactly where the other ring passes over it. */
+.ft-chart-union-weave-cut {
+  fill: none;
+  stroke: var(--ft-union-plate);
+  stroke-width: 3.4;
+}
+
+/* Partners, and unions with no status recorded: linked, but not a marriage —
+   the same rings in neutral ink. */
+.ft-chart-union-badge.is-partners,
+.ft-chart-union-badge.is-unknown {
+  --ft-union-ink: color-mix(in srgb, var(--muted) 78%, var(--ink));
+}
+
+/* Ended: the plate outline goes dashed, whatever ended it. */
+.ft-chart-union-badge.is-ended .ft-chart-union-plate {
+  stroke-dasharray: 3 2.6;
+}
+
+/* Widowed — still linked, drawn as a ghost of the marriage. */
+.ft-chart-union-badge.is-widowed {
+  --ft-union-ink: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+.ft-chart-union-badge.is-widowed .ft-chart-union-ring,
+.ft-chart-union-badge.is-widowed .ft-chart-union-weave {
+  stroke-width: 1.4;
+}
+
+/* Divorced — rings pulled apart, with the "//" that genealogists cut a
+   marriage line with. */
+.ft-chart-union-badge.is-divorced {
+  --ft-union-ink: color-mix(in srgb, var(--rose) 62%, var(--muted));
+}
+
+.ft-chart-union-break {
+  fill: none;
+  stroke: var(--ft-union-ink);
+  stroke-width: 1.6;
+  stroke-linecap: round;
 }
 
 /* Per-card action badges (open profile / edit) on the card's top edge. */
@@ -1396,16 +1523,6 @@
   transition: stroke 120ms ease;
 }
 
-.ft-chart-person-action > circle {
-  fill: color-mix(in srgb, var(--ft-person-accent) 14%, var(--surface-raised, var(--surface)));
-  stroke: color-mix(in srgb, var(--ft-person-accent) 58%, var(--line));
-}
-
-.ft-chart-person-action path,
-.ft-chart-person-action g circle {
-  stroke: var(--ft-person-accent);
-}
-
 .ft-chart-action:hover > circle,
 .ft-chart-action:focus-visible > circle {
   fill: color-mix(in srgb, var(--ft-person-accent, var(--gold)) 18%, var(--surface-raised, var(--surface)));
@@ -1417,6 +1534,29 @@
 .ft-chart-action:focus-visible path,
 .ft-chart-action:focus-visible g circle {
   stroke: var(--ft-person-accent, var(--gold));
+}
+
+/* The single "⋯" badge each card carries: filled dots, tinted with the
+   person's accent, brighter while its menu is open. */
+.ft-chart-menu-action > circle {
+  fill: color-mix(in srgb, var(--ft-person-accent) 14%, var(--surface-raised, var(--surface)));
+  stroke: color-mix(in srgb, var(--ft-person-accent) 58%, var(--line));
+}
+
+.ft-chart-menu-action .ft-chart-dots circle {
+  fill: var(--ft-person-accent);
+  stroke: none;
+}
+
+.ft-chart-action:hover .ft-chart-dots circle,
+.ft-chart-action:focus-visible .ft-chart-dots circle {
+  fill: var(--ft-person-accent, var(--gold));
+  stroke: none;
+}
+
+.ft-chart-node.is-menu-open .ft-chart-menu-action > circle {
+  fill: color-mix(in srgb, var(--ft-person-accent) 28%, var(--surface-raised, var(--surface)));
+  stroke: var(--ft-person-accent);
 }
 
 .ft-chart-node {
@@ -1523,6 +1663,205 @@
   text-align: center;
 }
 
+/* Navigation rail, top-left inside the chart frame: icon over a small label. */
+.ft-chart-rail {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  z-index: 5;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-raised, var(--surface)) 88%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--shadow) 32%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.ft-chart-rail-button.text-button {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  width: 76px;
+  min-height: 0;
+  padding: 8px 4px 7px;
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.ft-chart-rail-button.text-button:hover,
+.ft-chart-rail-button.text-button:focus-visible {
+  color: var(--ink);
+  background: var(--hover);
+  outline: 0;
+}
+
+/* Add person is the rail's one call to action. */
+.ft-chart-rail-button.is-accent.text-button {
+  color: var(--gold);
+}
+
+.ft-chart-rail-button.is-accent.text-button:hover,
+.ft-chart-rail-button.is-accent.text-button:focus-visible {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+}
+
+/* Splits the view/browse group from the manage group. */
+.ft-chart-rail-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: color-mix(in srgb, var(--line) 80%, transparent);
+}
+
+/* Card menu: HTML floating over the SVG, positioned in JS from the badge it
+   belongs to (see FamilyTreeChart) — hence the inline left/top. */
+.ft-chart-card-menu {
+  position: absolute;
+  z-index: 8;
+  display: grid;
+  gap: 1px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised, var(--surface));
+  box-shadow: 0 16px 36px var(--shadow);
+}
+
+.ft-chart-card-menu-name {
+  overflow: hidden;
+  margin: 2px 8px 5px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Denser than the page-level menus — this one floats over the chart. */
+.ft-chart-card-menu .select-menu-option.text-button {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 0.8rem;
+}
+
+.ft-chart-card-menu .select-menu-option > span:last-child {
+  font-weight: 700;
+}
+
+/* Legend: what the card tints and the connectors mean. Right edge, opposite
+   the navigation rail. */
+.ft-chart-legend {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  z-index: 5;
+  padding: 10px 13px 11px;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-raised, var(--surface)) 88%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--shadow) 32%, transparent);
+  backdrop-filter: blur(16px);
+  transform: translateY(-50%);
+}
+
+.ft-chart-legend-title {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.ft-chart-legend-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ft-chart-legend-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.ft-legend-swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--legend-accent, var(--mint)) 70%, var(--field));
+}
+
+.ft-legend-swatch.is-male {
+  --legend-accent: var(--blue);
+}
+
+.ft-legend-swatch.is-female {
+  --legend-accent: var(--rose);
+}
+
+.ft-legend-swatch.is-unknown {
+  --legend-accent: var(--mint);
+}
+
+/* Matches the highlighted focus card in the chart. */
+.ft-legend-swatch.is-focus {
+  background: var(--gold);
+}
+
+.ft-legend-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+}
+
+.ft-legend-mark svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Miniatures of the chart's union badges — same construction, same colours. */
+.ft-legend-union-ring {
+  fill: none;
+  stroke: color-mix(in srgb, var(--gold) 76%, var(--ink));
+  stroke-width: 1.7;
+}
+
+.ft-legend-union-cut {
+  fill: none;
+  stroke: color-mix(in srgb, var(--surface-raised, var(--surface)) 96%, var(--canvas));
+  stroke-width: 3.4;
+}
+
+.ft-legend-union-ring.is-ended {
+  stroke: color-mix(in srgb, var(--rose) 62%, var(--muted));
+  stroke-width: 1.6;
+}
+
+.ft-legend-edge {
+  fill: none;
+  stroke: color-mix(in srgb, var(--muted) 72%, transparent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* ── Mobile ── */
 
 @media (max-width: 1050px) {
@@ -1590,5 +1929,46 @@
   .ft-chart-controls {
     right: 10px;
     bottom: 10px;
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .ft-chart-controls .icon-button {
+    width: 30px;
+    height: 30px;
+  }
+
+  .ft-chart-zoom-value {
+    min-width: 42px;
+    font-size: 0.8rem;
+  }
+
+  /* A phone has no room for both panels beside the chart: the rail shrinks to
+     icons and the legend steps aside entirely. */
+  .ft-chart-rail {
+    left: 10px;
+    top: 10px;
+    padding: 4px;
+  }
+
+  .ft-chart-rail-button.text-button {
+    width: 40px;
+    padding: 8px 2px;
+  }
+
+  .ft-chart-rail-button.text-button span {
+    display: none;
+  }
+
+  .ft-chart-rail-divider {
+    margin: 3px 4px;
+  }
+
+  .ft-chart-legend {
+    display: none;
+  }
+
+  .ft-family-name-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
