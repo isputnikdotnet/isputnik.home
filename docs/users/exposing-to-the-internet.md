@@ -64,8 +64,8 @@ one adding the header.
 ## 3. Strongly recommended
 
 - **Turn on two-factor authentication** for admin accounts, and encourage everyone
-  to use it — see [two-factor-authentication.md](two-factor-authentication.md).
-- **Set up email** ([email.md](email.md)) so the server can tell you about locked
+  to use it — see [Two-factor authentication](two-factor-authentication.md).
+- **Set up email** ([guide](email.md)) so the server can tell you about locked
   accounts, blocked addresses, and sign-ins from networks it hasn't seen. On an
   internet-facing install this is how you find out something is being tried.
 - **Use strong, unique passwords.**

@@ -1448,6 +1448,24 @@
   vertical-align: top;
 }
 
+/* Several guides use a label column with an empty header ("| | What it is |"),
+   which the browser sizes from its content alone. base.css lets <strong> break
+   anywhere — sensible for long titles in a card, wrong here, where it split
+   "Thumbnail" across two lines. Words stay whole; a table too wide for the page
+   scrolls instead (overflow-x above). */
+.guide-body th,
+.guide-body td,
+.guide-body th strong,
+.guide-body td strong {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.guide-body th:first-child,
+.guide-body td:first-child {
+  min-width: 7.5rem;
+}
+
 .guide-body th {
   background: var(--surface);
   font-weight: 700;
@@ -1466,6 +1484,14 @@
   margin: 28px 0;
   border: 0;
   border-top: 1px solid var(--line);
+}
+
+/* A guide that separates its parts with "---" would otherwise draw that rule and
+   the next heading's own top border as two lines a few pixels apart. */
+.guide-body hr + h2 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .guide-source {
