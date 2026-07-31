@@ -44,3 +44,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # The ref this image is built from, so the app's Help links resolve to
+          # the matching guides. A tag run gives "v2.3.1"; a manual dispatch gives
+          # the branch name — either way a ref that exists on GitHub.
+          build-args: |
+            DOCS_REF=${{ github.ref_name }}
