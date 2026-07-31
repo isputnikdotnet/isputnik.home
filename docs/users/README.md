@@ -2,6 +2,16 @@
 
 Friendly, task-focused guides for people using and running isputnik.home.
 
+> These files are **shipped inside the app**. The web build copies this folder to
+> `apps/web/public/guides/` and renders it at `/help/<name>`, so a server with no
+> internet still has its documentation and always shows the version it's running.
+> Editing a guide here changes what the app shows on the next build — and
+> `npm run check:ui` fails if a guide isn't listed on the in-app Help page.
+>
+> Two things follow from that: link between guides with a plain relative name
+> (`[Storage](storage.md)`), which is rewritten to an in-app route, and keep images
+> under `images/`, which is rewritten to `/guides/images/`.
+
 ## Getting started
 
 New install? These three, in order, take you from a blank page to a working
