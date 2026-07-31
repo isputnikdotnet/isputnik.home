@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.4.1",
+          label: "Tidier guides",
+          changes: [
+            "Tidied up how the guides look now that they're read inside the app: words in table headings no longer break across two lines, narrow columns keep their width, and a section break no longer draws two lines where it meant to draw one."
+          ]
+        },
+        {
           version: "2.4.0",
           label: "The guides now live inside the app",
           changes: [
