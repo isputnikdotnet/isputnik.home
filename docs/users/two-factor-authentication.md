@@ -38,7 +38,8 @@ your backup codes are the way in.
 
 ## Turning it on
 
-1. Open **Profile** (your name → Profile).
+1. Open **Profile** (your name → Profile) and pick the **Security** tab — see
+   [Your account](your-account.md) for what else lives there.
 2. Find **Two-factor authentication** and select **Set up two-factor**.
 3. Choose **Authenticator app** or **Email**, enter your account password to
    confirm it's you, and select **Continue**.
