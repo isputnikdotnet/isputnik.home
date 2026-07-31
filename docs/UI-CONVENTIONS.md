@@ -201,6 +201,12 @@ Error message copy: say what failed and keep the server message when it's useful
 - `modal-backdrop` is used outside `shared/Modal.tsx`;
 - `confirm-modal` / `metadata-modal` surface classes are instantiated outside `shared/`.
 
+It also checks the **Help page against `docs/users/`**, both directions: a guide
+that nothing on `HelpPage.tsx` links to, and a `guide("…")` link pointing at a file
+that no longer exists. The Help page is the only way into the guides from inside
+the app, so a missing entry means a doc nobody can reach — and it fails silently,
+which is exactly what happened three commits running before this check existed.
+
 If the checker blocks something legitimately new, extend the shared component
 (new prop or variant) rather than bypassing it — that is the entire point.
 
