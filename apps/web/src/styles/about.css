@@ -1336,3 +1336,148 @@
   padding: 1px 9px;
   white-space: nowrap;
 }
+
+/* ── A rendered user guide (/help/:slug) ────────────────────────── */
+
+.guide-area {
+  width: min(100%, 820px);
+}
+
+/* Long-form prose: a reading measure, and headings that separate sections
+   without shouting. The markdown comes from docs/users/, so the elements here
+   are whatever GitHub-flavoured markdown produces — style by tag, not class. */
+.guide-body {
+  margin-top: 18px;
+  color: var(--ink);
+  font-size: 0.97rem;
+  line-height: 1.65;
+}
+
+.guide-body > *:first-child { margin-top: 0; }
+
+.guide-body h1 {
+  margin: 0 0 8px;
+  font-size: 1.9rem;
+  line-height: 1.2;
+}
+
+.guide-body h2 {
+  margin: 34px 0 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 1.28rem;
+}
+
+.guide-body h3 {
+  margin: 24px 0 8px;
+  font-size: 1.05rem;
+}
+
+.guide-body h4 {
+  margin: 20px 0 6px;
+  font-size: 0.97rem;
+}
+
+.guide-body p,
+.guide-body ul,
+.guide-body ol {
+  margin: 0 0 14px;
+}
+
+.guide-body ul,
+.guide-body ol {
+  padding-left: 22px;
+}
+
+.guide-body li { margin-bottom: 6px; }
+.guide-body li > ul,
+.guide-body li > ol { margin: 6px 0 0; }
+
+.guide-body a { color: var(--control-primary-button, var(--mint)); }
+
+.guide-body strong { color: var(--ink); font-weight: 700; }
+
+.guide-body code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--field);
+  font-size: 0.88em;
+}
+
+.guide-body pre {
+  overflow-x: auto;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.guide-body pre code {
+  padding: 0;
+  background: none;
+}
+
+/* Asides in the guides are written as blockquotes ("> Note", "> Footgun"). */
+.guide-body blockquote {
+  margin: 0 0 16px;
+  padding: 10px 16px;
+  border-left: 3px solid color-mix(in srgb, var(--gold) 70%, transparent);
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--gold) 8%, transparent);
+}
+
+.guide-body blockquote > *:last-child { margin-bottom: 0; }
+
+/* Tables carry a lot of the guides' content and can be wide — let the table
+   scroll inside the page rather than stretching the layout. */
+.guide-body table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  margin: 0 0 18px;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.guide-body th,
+.guide-body td {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.guide-body th {
+  background: var(--surface);
+  font-weight: 700;
+}
+
+.guide-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 6px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.guide-body hr {
+  margin: 28px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.guide-source {
+  margin: 26px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 0.86rem;
+}
+
+.guide-source a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}

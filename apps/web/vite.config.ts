@@ -1,6 +1,23 @@
-import { defineConfig } from "vite";
+import { cpSync, rmSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+
+// The user guides are authored in docs/users/ and reviewed with the code. Copy
+// them into public/ so the app can serve and render them itself: a self-hosted
+// library on a LAN with no internet still has its documentation, and what it
+// shows always matches the version installed. The copy is generated output —
+// gitignored, rebuilt on every dev start and every build.
+function userGuides(): Plugin {
+  const from = fileURLToPath(new URL("../../docs/users", import.meta.url));
+  const to = fileURLToPath(new URL("./public/guides", import.meta.url));
+  const sync = () => {
+    rmSync(to, { recursive: true, force: true });
+    cpSync(from, to, { recursive: true });
+  };
+  return { name: "isputnik-user-guides", buildStart: sync, configureServer: sync };
+}
 
 export default defineConfig({
   // The public dir ships an `Assets/` folder (capital A). Vite's default build
@@ -15,6 +32,7 @@ export default defineConfig({
   define: { __DOCS_REF__: JSON.stringify(process.env.DOCS_REF || "main") },
   plugins: [
     react(),
+    userGuides(),
     VitePWA({
       // The service worker self-updates in the background; the app reloads onto
       // the new version on the next navigation.
@@ -44,8 +62,12 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // Precache the app shell so the UI boots with no network.
-        globPatterns: ["**/*.{js,css,html,svg,woff2}"],
+        // Precache the app shell so the UI boots with no network. The guides are
+        // included — all twelve are ~55 KB of text, and help is exactly what you
+        // want when something isn't working. Their screenshots are ~1.8 MB and
+        // are NOT precached; they load over the network and stick in the runtime
+        // image cache below, so an offline guide reads fine minus the pictures.
+        globPatterns: ["**/*.{js,css,html,svg,woff2}", "guides/*.md"],
         // SPA fallback mirrors the server's index.html catch-all — but never for
         // API calls, which must hit the network (or their own runtime cache).
         navigateFallback: "/index.html",
@@ -57,7 +79,9 @@ export default defineConfig({
             urlPattern: ({ request, url }) =>
               request.destination === "image" &&
               url.origin === self.location.origin &&
-              (url.pathname.startsWith("/static/") || url.pathname.startsWith("/Assets/")),
+              (url.pathname.startsWith("/static/")
+                || url.pathname.startsWith("/Assets/")
+                || url.pathname.startsWith("/guides/")),
             handler: "CacheFirst",
             options: {
               cacheName: "isputnik-static-images",

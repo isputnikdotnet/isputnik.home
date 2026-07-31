@@ -5,7 +5,7 @@ import {
 import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute } from "../router";
-import { REPO_ISSUES_URL, repoFileUrl } from "../shared/links";
+import { REPO_ISSUES_URL } from "../shared/links";
 
 interface HelpLink {
   icon: LucideIcon;
@@ -23,11 +23,14 @@ interface HelpSection {
   links: HelpLink[];
 }
 
-const guide = (file: string) => repoFileUrl(`docs/users/${file}`);
+// Guides render in-app at /help/<name>, from the copy of docs/users/ that ships in
+// the build — so they work with no internet and always match this version. The
+// file name is kept as the argument (not the slug) because `check:ui` reads these
+// calls to prove every guide in docs/users/ is listed here.
+const guide = (file: string) => `/help/${file.replace(/\.md$/, "")}`;
 
-// User-facing guides live in docs/users/ (see docs/users/README.md). They open on
-// GitHub rather than rendering in-app, matching how Security links its docs — so
-// this list has to stay in step with that folder's README.
+// User-facing guides live in docs/users/ (see docs/users/README.md), so this list
+// has to stay in step with that folder — check:ui fails when it doesn't.
 const HELP_SECTIONS: HelpSection[] = [
   {
     title: "Getting started",
@@ -38,7 +41,7 @@ const HELP_SECTIONS: HelpSection[] = [
         title: "First run",
         description: "Creating the setup admin, signing in, and inviting the rest of the family.",
         href: guide("first-run.md"),
-        external: true,
+        external: false,
         adminOnly: true
       },
       {
@@ -47,7 +50,7 @@ const HELP_SECTIONS: HelpSection[] = [
         description:
           "The two things every install needs: somewhere for generated thumbnails, and the folders libraries may read.",
         href: guide("storage.md"),
-        external: true,
+        external: false,
         adminOnly: true
       },
       {
@@ -55,7 +58,7 @@ const HELP_SECTIONS: HelpSection[] = [
         title: "Setting up libraries",
         description: "The Add-library wizard, pointing a library at a folder, and what the first scan does.",
         href: guide("libraries.md"),
-        external: true,
+        external: false,
         adminOnly: true
       }
     ]
@@ -69,28 +72,28 @@ const HELP_SECTIONS: HelpSection[] = [
         title: "Audiobooks",
         description: "How folders become books with chapters, and where your place is kept.",
         href: guide("library-audiobooks.md"),
-        external: true
+        external: false
       },
       {
         icon: BookOpen,
         title: "Ebooks",
         description: "EPUB and PDF, the in-app reader, and books that come in more than one format.",
         href: guide("library-ebooks.md"),
-        external: true
+        external: false
       },
       {
         icon: Images,
         title: "Gallery",
         description: "Photos and videos, the timeline, albums, slideshows, and face recognition.",
         href: guide("library-gallery.md"),
-        external: true
+        external: false
       },
       {
         icon: FolderTree,
         title: "Family tree",
         description: "Adding relatives, life events and photos, and letting someone edit their own branch.",
         href: guide("family-tree.md"),
-        external: true
+        external: false
       }
     ]
   },
@@ -103,7 +106,7 @@ const HELP_SECTIONS: HelpSection[] = [
         description:
           "Your name and sign-in email, themes, the e-reader address, and where favorites, bookmarks, quotes and collections live.",
         href: guide("your-account.md"),
-        external: true
+        external: false
       },
       {
         icon: ShieldCheck,
@@ -111,7 +114,7 @@ const HELP_SECTIONS: HelpSection[] = [
         description:
           "Add a one-time code to your sign-in, manage backup codes, and what to do if you're locked out.",
         href: guide("two-factor-authentication.md"),
-        external: true
+        external: false
       }
     ]
   },
@@ -123,7 +126,7 @@ const HELP_SECTIONS: HelpSection[] = [
         title: "The control panel",
         description: "A tour of every section: status, backups, security, labels, logs, scheduled jobs, and accounts.",
         href: guide("control-panel.md"),
-        external: true,
+        external: false,
         adminOnly: true
       },
       {
@@ -131,7 +134,7 @@ const HELP_SECTIONS: HelpSection[] = [
         title: "Setting up email",
         description: "The SMTP settings, what the server sends, and why a save-and-test usually fails the first time.",
         href: guide("email.md"),
-        external: true,
+        external: false,
         adminOnly: true
       },
       {
@@ -139,7 +142,7 @@ const HELP_SECTIONS: HelpSection[] = [
         title: "Exposing your library to the internet",
         description: "Putting it behind HTTPS, the settings to turn on first, and the risks to weigh.",
         href: guide("exposing-to-the-internet.md"),
-        external: true,
+        external: false,
         adminOnly: true
       },
       {
@@ -174,8 +177,8 @@ export function HelpPage({ user, logout }: { user: PublicUser; logout: () => Pro
         <p className="eyebrow">Support</p>
         <h1>Help &amp; guides</h1>
         <p className="section-description">
-          Friendly, task-focused guides for using and running iSputnik. They open on GitHub, where
-          they're kept up to date with the app.
+          Friendly, task-focused guides for using and running iSputnik. They're part of this install,
+          so they work without an internet connection and describe the version you're running.
         </p>
 
         {sections.map((section) => (

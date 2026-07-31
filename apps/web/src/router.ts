@@ -44,6 +44,7 @@ export type Route =
   | { name: "controlCategoryEditor"; categoryId: string | null }
   | { name: "about" }
   | { name: "help" }
+  | { name: "guide"; slug: string }
   | { name: "profile" }
   | { name: "invite"; token: string }
   | { name: "share"; token: string }
@@ -379,6 +380,12 @@ export function getRoute(): Route {
 
   if (path === "/help") {
     return { name: "help" };
+  }
+
+  // One user guide, rendered in-app from the copy of docs/users/ in the build.
+  const guideMatch = path.match(/^\/help\/([a-z0-9-]+)$/);
+  if (guideMatch) {
+    return { name: "guide", slug: guideMatch[1] };
   }
 
   return { name: "home" };
