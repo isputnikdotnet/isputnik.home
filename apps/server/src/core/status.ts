@@ -502,6 +502,21 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.3.0",
+          label: "A family tree you can steer, and photos that land on the right person",
+          changes: [
+            "The family tree's buttons have moved off the page and onto the chart itself, as a strip down the left: Add person, Home, All People, Families, Import, Export and Settings. Home returns to the person the tree opens on and refits the view. The header above keeps just the name, the count, and the search box.",
+            "Each card in the chart now carries a single ⋯ button instead of a stack of small icons. It opens a short menu: open the profile, edit the person, add a relative — whichever of those you're allowed to do.",
+            "A legend on the right explains what the chart is showing: who is who by colour, which person is in focus, and the two kinds of line between cards.",
+            "The chart now tells a current partner from a former one. A marriage still in place shows two linked wedding rings; a divorce shows them pulled apart and cut through, and the line between the couple turns dashed. Someone who has remarried no longer looks married to two people at once. The lines down to children never change — they are no less the couple's children for it.",
+            "There is a new Families page listing your family names, one card each, with the people in them. Choosing one opens the chart on that family's earliest member — a way into a large tree without hunting for a name.",
+            "When a person in the tree is linked to a face in the gallery, adding photos to them now starts from that list of matches instead of making you go through folders. The same list is offered when you set their portrait and when you add photos to a life event.",
+            "The portrait button on a profile now offers the same three choices as everywhere else — face matches, any photo in the gallery, or a file from your device — rather than going straight to a file dialog.",
+            "Uploading from the family tree is now only offered once an administrator has chosen which gallery library those photos go to, instead of offering it and then explaining it can't. Portraits go to that library too, so every picture you add lives in the gallery like any other photo.",
+            "In the gallery, a group of faces that wrongly swept in a stranger can now be corrected properly. Open the person, choose Pick photos, select the ones that aren't them, and move them to the right person — or to a new one you name there and then. The rest of the group stays put, other people in those photos are untouched, and the correction survives the next face scan."
+          ]
+        },
+        {
           version: "2.2.1",
           label: "A security fix for the Back button",
           changes: [
