@@ -36,9 +36,11 @@ CREATE TABLE IF NOT EXISTS users (
   is_active             INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
   -- Delivery address for "Send to e-reader" (Kindle/Kobo).
   ereader_email         TEXT,
-  -- Two-factor auth (TOTP): enable flag, encrypted secret, and hashed
-  -- single-use backup codes (JSON array). Handling lives in core/mfa.ts.
+  -- Two-factor auth: enable flag, the chosen second factor, the encrypted TOTP
+  -- secret (NULL when the method is 'email' — those codes live on the challenge
+  -- row), and hashed single-use backup codes (JSON array). See core/mfa.ts.
   mfa_enabled           INTEGER NOT NULL DEFAULT 0,
+  mfa_method            TEXT NOT NULL DEFAULT 'totp' CHECK (mfa_method IN ('totp', 'email')),
   mfa_secret            TEXT,
   mfa_backup_codes      TEXT,
   created_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -60,12 +62,21 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 -- Short-lived second-factor step between password success and a full session.
 -- One row per in-progress MFA sign-in; cleared on success, expiry, or attempt cap.
+-- Also carries the emailed one-time code for the 'email' method: code_hash is the
+-- sha256 of the digits last sent, and sends/last_sent_at bound resending. TOTP
+-- challenges leave those NULL — the factor is the user's own secret.
+-- `purpose` reuses the same mechanics (expiry, attempt cap, resend budget) for the
+-- code that confirms an email enrollment; one row per user per purpose.
 CREATE TABLE IF NOT EXISTS mfa_challenges (
-  id          TEXT PRIMARY KEY,
-  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  expires_at  TEXT NOT NULL,
-  attempts    INTEGER NOT NULL DEFAULT 0
+  id            TEXT PRIMARY KEY,
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  purpose       TEXT NOT NULL DEFAULT 'login' CHECK (purpose IN ('login', 'enroll')),
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  expires_at    TEXT NOT NULL,
+  attempts      INTEGER NOT NULL DEFAULT 0,
+  code_hash     TEXT,
+  sends         INTEGER NOT NULL DEFAULT 0,
+  last_sent_at  TEXT
 );
 
 -- Brute-force defense & source-IP access control.

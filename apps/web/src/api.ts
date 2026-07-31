@@ -14,7 +14,12 @@ export interface PublicUser {
   // Whether two-factor is on. Self-only on the session/profile payload; also
   // surfaced on the admin user list so an admin can reset a locked-out member.
   mfaEnabled?: boolean;
+  // Which second factor the account uses — a code from an authenticator app, or
+  // one emailed at sign-in. Only meaningful when mfaEnabled is true.
+  mfaMethod?: MfaMethod;
 }
+
+export type MfaMethod = "totp" | "email";
 
 interface ApiErrorPayload {
   error?: string;

@@ -55,6 +55,7 @@ export async function usersPlugin(app: FastifyInstance) {
         ...publicUser(user),
         activeSessions: user.active_sessions,
         mfaEnabled: Boolean(user.mfa_enabled),
+        mfaMethod: user.mfa_method,
         locked: isAccountLocked(user.email)
       }))
     };
@@ -215,8 +216,9 @@ export async function usersPlugin(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Rescue a member who lost their authenticator and backup codes — no email-based
-  // recovery exists, so an admin clears MFA and the user re-enrolls on next sign-in.
+  // Rescue a member locked out of their second factor (lost authenticator, or an
+  // inbox they can't reach) with no backup codes left — there's no self-service
+  // recovery, so an admin clears MFA and the user re-enrolls after signing in.
   app.post("/api/users/:id/mfa/reset", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;

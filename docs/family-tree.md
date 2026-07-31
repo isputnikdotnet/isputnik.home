@@ -65,6 +65,32 @@ below, and siblings/cousins lay outward on their own generation's row. Clicking
 a card re-centres via a real navigation to `/family/tree/:id`, so Back walks the
 focus history.
 
+**Who it opens on** — three fallbacks, resolved in `FamilyTreePage.tsx`:
+
+1. the `:id` in the URL,
+2. `tree.defaultPersonId` — the house-wide **starting person** an admin sets in
+   Settings → Starting person, shipped on the `/tree` payload so the first render
+   is already correct (a second request would show the fallback, then jump),
+3. `defaultFocusId()` in `chart-layout.ts` — `person1` of the earliest-married
+   union, else the alphabetically-first person.
+
+Each step checks the person is actually in the loaded tree, so a stale id (a
+bookmark to someone since deleted, or a starting person removed from the tree)
+falls through to the next rather than leaving the chart with nothing to centre on.
+
+**Card badges** are SVG `<g role="button">` (`ActionBadge`), not DOM buttons —
+lucide components can't render inside SVG geometry, so the icons are inlined
+paths. Every card carries "open profile"; a card the viewer may edit adds "edit"
+and "add a relative", stacked down the portrait's right edge at 24px intervals.
+
+The add badge opens `AddRelativeModal`, which asks parent or child and then hands
+off to the same `AddParentModal` / `AddChildModal` the profile page uses. Those
+need a full `FamilyPersonProfile` to know what they're doing (fill an empty
+parent slot vs start a new family; which union a child hangs off), and the chart
+only holds summaries — so the profile is fetched **after** a kind is chosen: one
+request per use of the badge, none for rendering the chart. Partner and sibling
+stay on the profile, where the surrounding family is in view.
+
 > **Footgun:** never put a `clipPath` on a transformed silhouette `<g>` —
 > `userSpaceOnUse` clip rects get dragged by the transform and the silhouettes
 > vanish.
@@ -169,9 +195,18 @@ unmapped tags become **warnings**, not failures.
 ## Settings
 
 Admin-only, reached from the gear on the tree page or Settings on the People
-page. Three tabs: **Photo library** (upload destination), **Import / export**
-(GEDCOM), and **Security** (branch access). GEDCOM export also stays as an icon
-in the tree header, since it's available to every user and the panel isn't.
+page. Four tabs: **Photo library** (upload destination), **Starting person** (who
+the chart opens on), **Import / export** (GEDCOM), and **Security** (branch
+access). GEDCOM export also stays as an icon in the tree header, since it's
+available to every user and the panel isn't.
+
+Both stored settings live in one `app_settings` blob under `family_tree_settings`
+(`settings.ts`). `setFamilyTreeSettings` takes a **partial** and merges over what
+is stored, and the PUT's fields are optional, so the modal can save one setting
+without blanking the other — `null` clears a field, omitting it leaves it alone.
+Both are resolved through the tables they point at (`getFamilyUploadLibrary`,
+`getFamilyDefaultPerson`) rather than trusted as stored, so a deleted library or
+person reads as unset instead of dangling.
 
 ## API
 
@@ -191,7 +226,7 @@ table above.
 | `GET/POST/PATCH/DELETE /api/family-tree/sources`, `/citations` | Bibliography (admin) |
 | `GET /api/family-tree/tags` | Family tags with usage + editor counts |
 | `GET/POST/DELETE /api/family-tree/tags/:tagId/editors[...]` | Branch access (admin) |
-| `GET/PUT /api/family-tree/settings` | Upload library; PUT is admin |
+| `GET/PUT /api/family-tree/settings` | Upload library + starting person; PUT is admin |
 | `GET /api/family-tree/export`, `POST /api/family-tree/import` | GEDCOM |
 
 ## Code map
@@ -204,7 +239,7 @@ apps/server/src/modules/familytree/
   photos.ts     person + event photo attachments, viewer scoping
   sources.ts    sources and citations
   access.ts     tag-scoped edit rights
-  settings.ts   upload destination (app_settings)
+  settings.ts   upload destination + starting person (app_settings)
   gedcom.ts     import/export
   routes.ts     the HTTP surface and its guards
 

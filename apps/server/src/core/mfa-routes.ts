@@ -1,11 +1,12 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { db, logActivity, publicUser, type User } from "../db.js";
+import { db, logActivity, nowIso, publicUser, type MfaMethod, type User } from "../db.js";
 import { config } from "../config.js";
 import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody } from "./shared.js";
+import { isMailConfigured, sendMail } from "./mail.js";
 import {
   alertAccountLocked,
   alertIpAutoBlocked,
@@ -24,52 +25,125 @@ import {
   totpQrDataUrl,
   verifyTotp,
   generateBackupCodes,
-  hashBackupCode
+  hashBackupCode,
+  generateEmailCode,
+  hashEmailCode,
+  verifyEmailCode,
+  maskEmail,
+  EMAIL_CODE_MINUTES,
+  EMAIL_CODE_MAX_SENDS,
+  EMAIL_CODE_RESEND_SECONDS
 } from "./mfa.js";
 
-// Two-factor (TOTP) enrollment, management, and the login second-factor step.
-// Service functions are exported and unit-tested directly (see test/mfa-routes.test.ts);
-// the plugin routes are thin wrappers that add password-gating, cookies, and logging —
-// mirroring api-tokens.ts.
+// Two-factor enrollment, management, and the login second-factor step, for both
+// methods: a rolling TOTP code from an authenticator app, or a one-time code
+// emailed at sign-in. A user picks one — `users.mfa_method` — and backup codes
+// rescue either. Service functions are exported and unit-tested directly (see
+// test/mfa-routes.test.ts); the plugin routes are thin wrappers that add
+// password-gating, cookies, and logging — mirroring api-tokens.ts.
 
 const MFA_COOKIE = "isputnik_mfa";
 const MFA_CHALLENGE_MINUTES = 5;
 export const MFA_MAX_ATTEMPTS = 5;
 
+// A challenge either completes a sign-in or confirms an email enrollment. Both
+// want the same expiry / attempt cap / resend budget, so they share the table —
+// one row per user per purpose.
+export type ChallengePurpose = "login" | "enroll";
+
+export interface MfaChallenge {
+  id: string;
+  user_id: string;
+  purpose: ChallengePurpose;
+  attempts: number;
+  code_hash: string | null;
+  sends: number;
+  last_sent_at: string | null;
+}
+
+const CHALLENGE_COLUMNS = "id, user_id, purpose, attempts, code_hash, sends, last_sent_at";
+
+export function getMfaMethod(userId: string): MfaMethod {
+  const row = db.prepare("SELECT mfa_method FROM users WHERE id = ?").get(userId) as { mfa_method: MfaMethod } | undefined;
+  return row?.mfa_method ?? "totp";
+}
+
+// How long a challenge lives. Email needs the slack: a TOTP code is already on
+// the phone, a mailed one has to be delivered first.
+function challengeMinutes(method: MfaMethod): number {
+  return method === "email" ? EMAIL_CODE_MINUTES : MFA_CHALLENGE_MINUTES;
+}
+
 // ── Enrollment / management ──────────────────────────────────────────────────
 
-export function getMfaStatus(userId: string): { enabled: boolean; backupCodesRemaining: number } {
-  const row = db.prepare("SELECT mfa_enabled, mfa_backup_codes FROM users WHERE id = ?").get(userId) as
-    | { mfa_enabled: number; mfa_backup_codes: string | null }
-    | undefined;
-  if (!row) return { enabled: false, backupCodesRemaining: 0 };
-  const codes = row.mfa_backup_codes ? (JSON.parse(row.mfa_backup_codes) as string[]) : [];
-  return { enabled: Boolean(row.mfa_enabled), backupCodesRemaining: codes.length };
+export interface MfaStatus {
+  enabled: boolean;
+  method: MfaMethod;
+  backupCodesRemaining: number;
 }
 
-// Generate a fresh secret and stash it encrypted but NOT yet enabled — the secret is
-// only switched on once the user proves their authenticator works (activateMfa).
-export function beginMfaSetup(userId: string): { secret: string; otpauthUri: string } {
+export function getMfaStatus(userId: string): MfaStatus {
+  const row = db.prepare("SELECT mfa_enabled, mfa_method, mfa_backup_codes FROM users WHERE id = ?").get(userId) as
+    | { mfa_enabled: number; mfa_method: MfaMethod; mfa_backup_codes: string | null }
+    | undefined;
+  if (!row) return { enabled: false, method: "totp", backupCodesRemaining: 0 };
+  const codes = row.mfa_backup_codes ? (JSON.parse(row.mfa_backup_codes) as string[]) : [];
+  return { enabled: Boolean(row.mfa_enabled), method: row.mfa_method, backupCodesRemaining: codes.length };
+}
+
+export type MfaSetup =
+  | { method: "totp"; secret: string; otpauthUri: string }
+  | { method: "email"; email: string; code: string };
+
+// Stash the pending configuration for the chosen method without switching MFA on —
+// it's only enabled once the user proves the factor reaches them (activateMfa).
+// For TOTP that's an encrypted secret to scan; for email, a code mailed to the
+// address they sign in with (the caller sends it — see the setup route).
+export function beginMfaSetup(userId: string, method: MfaMethod = "totp"): MfaSetup {
   const user = db.prepare("SELECT email FROM users WHERE id = ?").get(userId) as { email: string } | undefined;
   if (!user) throw new Error("User not found");
+
+  if (method === "email") {
+    // No shared secret for this method — clear any half-finished TOTP enrollment.
+    db.prepare("UPDATE users SET mfa_method = 'email', mfa_secret = NULL WHERE id = ?").run(userId);
+    const { code } = createMfaChallenge(userId, "enroll");
+    // createMfaChallenge mints a code because the method is now 'email'.
+    return { method: "email", email: user.email, code: code! };
+  }
+
+  db.prepare("DELETE FROM mfa_challenges WHERE user_id = ? AND purpose = 'enroll'").run(userId);
   const secret = generateTotpSecret();
-  db.prepare("UPDATE users SET mfa_secret = ? WHERE id = ?").run(encryptSecret(secret), userId);
-  return { secret, otpauthUri: totpKeyUri(secret, user.email) };
+  db.prepare("UPDATE users SET mfa_method = 'totp', mfa_secret = ? WHERE id = ?").run(encryptSecret(secret), userId);
+  return { method: "totp", secret, otpauthUri: totpKeyUri(secret, user.email) };
 }
 
-// Confirm a code against the pending secret; on success enable MFA and return the
-// one-time backup codes (shown once). Returns null when there's no pending secret or
-// the code doesn't match.
+// Confirm a code against the pending enrollment; on success enable MFA and return
+// the one-time backup codes (shown once). Returns null when there's nothing pending
+// or the code doesn't match.
 export function activateMfa(userId: string, token: string): string[] | null {
-  const row = db.prepare("SELECT mfa_secret FROM users WHERE id = ?").get(userId) as { mfa_secret: string | null } | undefined;
-  if (!row?.mfa_secret) return null;
-  let secret: string;
-  try {
-    secret = decryptSecret(row.mfa_secret);
-  } catch {
-    return null;
+  const row = db.prepare("SELECT mfa_method, mfa_secret FROM users WHERE id = ?").get(userId) as
+    | { mfa_method: MfaMethod; mfa_secret: string | null }
+    | undefined;
+  if (!row) return null;
+
+  if (row.mfa_method === "email") {
+    const challenge = resolveEnrollChallenge(userId);
+    if (!challenge?.code_hash) return null;
+    if (!verifyEmailCode(challenge.code_hash, token)) {
+      failMfaChallenge(challenge.id);
+      return null;
+    }
+    clearMfaChallenge(challenge.id);
+  } else {
+    if (!row.mfa_secret) return null;
+    let secret: string;
+    try {
+      secret = decryptSecret(row.mfa_secret);
+    } catch {
+      return null;
+    }
+    if (!verifyTotp(secret, token)) return null;
   }
-  if (!verifyTotp(secret, token)) return null;
 
   const { plain, hashes } = generateBackupCodes();
   db.prepare("UPDATE users SET mfa_enabled = 1, mfa_backup_codes = ? WHERE id = ?").run(JSON.stringify(hashes), userId);
@@ -94,29 +168,78 @@ export function consumeBackupCode(userId: string, code: string): boolean {
   return true;
 }
 
-// Full teardown: clears the flag, secret, backup codes, and any pending challenge.
-// Used by self-service disable and by an admin rescuing a locked-out account.
+// Full teardown: clears the flag, method, secret, backup codes, and any pending
+// challenge. Used by self-service disable and by an admin rescuing a locked-out
+// account — the next enrollment starts from a clean slate, method included.
 export function resetMfa(userId: string): void {
-  db.prepare("UPDATE users SET mfa_enabled = 0, mfa_secret = NULL, mfa_backup_codes = NULL WHERE id = ?").run(userId);
+  db.prepare(
+    "UPDATE users SET mfa_enabled = 0, mfa_method = 'totp', mfa_secret = NULL, mfa_backup_codes = NULL WHERE id = ?"
+  ).run(userId);
   db.prepare("DELETE FROM mfa_challenges WHERE user_id = ?").run(userId);
 }
 
-// ── Login challenge ──────────────────────────────────────────────────────────
+// ── Challenges ───────────────────────────────────────────────────────────────
 
-export function createMfaChallenge(userId: string): string {
+// Opens a challenge for the user's chosen method. Returns the plaintext code to
+// mail when that method is email (it is stored only as a hash) and null for TOTP,
+// where the factor is the user's own secret and nothing needs sending.
+export function createMfaChallenge(userId: string, purpose: ChallengePurpose = "login"): { id: string; code: string | null } {
+  const method = getMfaMethod(userId);
   const id = nanoid(24);
-  const expiresAt = new Date(Date.now() + MFA_CHALLENGE_MINUTES * 60_000).toISOString();
-  // One pending challenge per user — supersede any earlier one.
-  db.prepare("DELETE FROM mfa_challenges WHERE user_id = ?").run(userId);
-  db.prepare("INSERT INTO mfa_challenges (id, user_id, expires_at) VALUES (?, ?, ?)").run(id, userId, expiresAt);
-  return id;
+  const expiresAt = new Date(Date.now() + challengeMinutes(method) * 60_000).toISOString();
+  const code = method === "email" ? generateEmailCode() : null;
+  // One pending challenge per user per purpose — supersede any earlier one.
+  db.prepare("DELETE FROM mfa_challenges WHERE user_id = ? AND purpose = ?").run(userId, purpose);
+  db.prepare(
+    "INSERT INTO mfa_challenges (id, user_id, purpose, expires_at, code_hash, sends, last_sent_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(id, userId, purpose, expiresAt, code ? hashEmailCode(code) : null, code ? 1 : 0, code ? nowIso() : null);
+  return { id, code };
 }
 
-export function resolveMfaChallenge(id: string): { id: string; user_id: string; attempts: number } | null {
+export function resolveMfaChallenge(id: string, purpose: ChallengePurpose = "login"): MfaChallenge | null {
   const row = db
-    .prepare("SELECT id, user_id, attempts FROM mfa_challenges WHERE id = ? AND datetime(expires_at) > datetime('now')")
-    .get(id) as { id: string; user_id: string; attempts: number } | undefined;
+    .prepare(
+      `SELECT ${CHALLENGE_COLUMNS} FROM mfa_challenges
+       WHERE id = ? AND purpose = ? AND datetime(expires_at) > datetime('now')`
+    )
+    .get(id, purpose) as MfaChallenge | undefined;
   return row ?? null;
+}
+
+// The enrollment challenge is never handed to the browser — it's looked up from
+// the authenticated user instead of a cookie.
+export function resolveEnrollChallenge(userId: string): MfaChallenge | null {
+  const row = db
+    .prepare(
+      `SELECT ${CHALLENGE_COLUMNS} FROM mfa_challenges
+       WHERE user_id = ? AND purpose = 'enroll' AND datetime(expires_at) > datetime('now')`
+    )
+    .get(userId) as MfaChallenge | undefined;
+  return row ?? null;
+}
+
+export type ResendOutcome =
+  | { ok: true; code: string }
+  | { ok: false; reason: "cooldown" | "limit" };
+
+// Mint a replacement code for a live email challenge when the first didn't arrive.
+// Bounded two ways: a cooldown between sends and a per-challenge budget, so a
+// caller holding the password can't turn the sign-in screen into an inbox flood.
+// The challenge's own expiry is NOT extended — a resend buys a code, not more time.
+export function rotateEmailCode(challengeId: string): ResendOutcome {
+  const challenge = resolveMfaChallenge(challengeId);
+  if (!challenge) return { ok: false, reason: "limit" };
+  if (challenge.sends >= EMAIL_CODE_MAX_SENDS) return { ok: false, reason: "limit" };
+  const since = challenge.last_sent_at ? Date.now() - Date.parse(challenge.last_sent_at) : Infinity;
+  if (since < EMAIL_CODE_RESEND_SECONDS * 1000) return { ok: false, reason: "cooldown" };
+
+  const code = generateEmailCode();
+  db.prepare("UPDATE mfa_challenges SET code_hash = ?, sends = sends + 1, last_sent_at = ? WHERE id = ?").run(
+    hashEmailCode(code),
+    nowIso(),
+    challengeId
+  );
+  return { ok: true, code };
 }
 
 // Record a failed code; once the cap is hit the challenge is destroyed so the user
@@ -135,13 +258,13 @@ export function clearMfaChallenge(id: string): void {
   db.prepare("DELETE FROM mfa_challenges WHERE id = ?").run(id);
 }
 
-export function setMfaChallengeCookie(reply: FastifyReply, challengeId: string): void {
+export function setMfaChallengeCookie(reply: FastifyReply, challengeId: string, method: MfaMethod = "totp"): void {
   reply.setCookie(MFA_COOKIE, challengeId, {
     httpOnly: true,
     secure: config.cookieSecure,
     sameSite: "lax",
     path: "/",
-    maxAge: MFA_CHALLENGE_MINUTES * 60
+    maxAge: challengeMinutes(method) * 60
   });
 }
 
@@ -149,15 +272,50 @@ export function clearMfaChallengeCookie(reply: FastifyReply): void {
   reply.clearCookie(MFA_COOKIE, { path: "/" });
 }
 
+// ── Delivering a code ────────────────────────────────────────────────────────
+
+// Sign-in codes are not security alerts, so they don't go through the throttled
+// fire-and-forget helpers in security-alerts.ts — a code the user is waiting for
+// must either be sent or reported as failed.
+export async function sendMfaCodeEmail(to: string, code: string, purpose: ChallengePurpose): Promise<void> {
+  const heading =
+    purpose === "enroll"
+      ? "Enter this code to finish turning on two-factor authentication by email:"
+      : "Enter this code to finish signing in to iSputnik:";
+  await sendMail({
+    to,
+    subject: `${code} is your iSputnik code`,
+    text: [
+      heading,
+      "",
+      `    ${code}`,
+      "",
+      `It expires in ${EMAIL_CODE_MINUTES} minutes and can be used once.`,
+      "",
+      "If you didn't try to sign in, someone else knows your password — change it now",
+      "and tell your server's administrator."
+    ].join("\n")
+  });
+}
+
 // ── Routes ───────────────────────────────────────────────────────────────────
 
-const passwordGateSchema = z.object({ currentPassword: z.string().min(1, "Enter your current password").max(200) });
+const passwordGateSchema = z.object({
+  currentPassword: z.string().min(1, "Enter your current password").max(200),
+  method: z.enum(["totp", "email"]).optional()
+});
 const codeSchema = z.object({ token: z.string().trim().min(6).max(40) });
 
 export async function mfaRoutes(app: FastifyInstance) {
-  app.get("/api/profile/mfa", { preHandler: app.authenticate }, async (request) => getMfaStatus(request.user!.id));
+  app.get("/api/profile/mfa", { preHandler: app.authenticate }, async (request) => ({
+    ...getMfaStatus(request.user!.id),
+    // The email method is only offerable when the server can actually send mail.
+    emailAvailable: isMailConfigured(),
+    emailAddress: maskEmail(request.user!.email)
+  }));
 
-  // Step 1 of enrollment: prove the password, get a secret + QR to scan.
+  // Step 1 of enrollment: prove the password, then either get a secret + QR to
+  // scan (TOTP) or receive a code in the inbox (email).
   app.post("/api/profile/mfa/setup", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(passwordGateSchema, request.body);
     if (parsed.error) {
@@ -165,17 +323,37 @@ export async function mfaRoutes(app: FastifyInstance) {
       return;
     }
     const user = request.user!;
+    const method = parsed.data.method ?? "totp";
     if (user.mfa_enabled) {
       reply.code(409).send({ error: "Two-factor authentication is already on. Turn it off first to re-enroll." });
+      return;
+    }
+    if (method === "email" && !isMailConfigured()) {
+      reply.code(409).send({ error: "This server can't send email yet. An administrator has to set up email first." });
       return;
     }
     if (!(await verifyPassword(parsed.data.currentPassword, user.password_hash))) {
       reply.code(403).send({ error: "Your current password is incorrect." });
       return;
     }
-    const { secret, otpauthUri } = beginMfaSetup(user.id);
-    const qrDataUrl = await totpQrDataUrl(secret, user.email);
-    reply.send({ secret, otpauthUri, qrDataUrl });
+
+    const setup = beginMfaSetup(user.id, method);
+    if (setup.method === "email") {
+      try {
+        await sendMfaCodeEmail(setup.email, setup.code, "enroll");
+      } catch {
+        // Nothing is enabled yet, so a delivery failure just ends the attempt —
+        // but don't leave a pending email enrollment the user can't complete.
+        resetMfa(user.id);
+        reply.code(502).send({ error: "We couldn't send the code. Check the email settings and try again." });
+        return;
+      }
+      reply.send({ method: "email", sentTo: maskEmail(setup.email), expiresInMinutes: EMAIL_CODE_MINUTES });
+      return;
+    }
+
+    const qrDataUrl = await totpQrDataUrl(setup.secret, user.email);
+    reply.send({ method: "totp", secret: setup.secret, otpauthUri: setup.otpauthUri, qrDataUrl });
   });
 
   // Step 2 of enrollment: confirm a code, switch MFA on, reveal backup codes once.
@@ -185,18 +363,27 @@ export async function mfaRoutes(app: FastifyInstance) {
       reply.code(400).send({ error: "Enter the 6-digit code", details: parsed.error });
       return;
     }
+    const method = getMfaMethod(request.user!.id);
     const codes = activateMfa(request.user!.id, parsed.data.token);
     if (!codes) {
-      reply.code(400).send({ error: "That code didn't match. Make sure the clock is right, then enter a fresh code." });
+      reply.code(400).send({
+        error:
+          method === "email"
+            ? "That code didn't match, or it expired. Start again to get a fresh one."
+            : "That code didn't match. Make sure the clock is right, then enter a fresh code."
+      });
       return;
     }
-    alertMfaEnabled(request.user!.email, request.ip);
+    alertMfaEnabled(request.user!.email, request.ip, method);
     logActivity({
       event: "profile.mfa_enabled",
       actorUserId: request.user!.id,
       targetType: "user",
       targetId: request.user!.id,
-      detail: "Turned on two-factor authentication.",
+      detail:
+        method === "email"
+          ? "Turned on two-factor authentication (codes by email)."
+          : "Turned on two-factor authentication (authenticator app).",
       ipAddress: request.ip
     });
     reply.send({ backupCodes: codes });
@@ -252,7 +439,59 @@ export async function mfaRoutes(app: FastifyInstance) {
     reply.send({ backupCodes: codes });
   });
 
-  // Login step 2: complete the pending challenge with a TOTP or backup code.
+  // Email method only: send a replacement code when the first didn't arrive.
+  // Answers identically whatever the pending challenge is — it is reachable
+  // without a session, so it must not report whose sign-in is in progress.
+  app.post(
+    "/api/auth/mfa/resend",
+    { config: { rateLimit: { max: 5, timeWindow: "5 minutes" } } },
+    async (request, reply) => {
+      const challengeId = request.cookies[MFA_COOKIE];
+      const challenge = challengeId ? resolveMfaChallenge(challengeId) : null;
+      if (!challenge) {
+        clearMfaChallengeCookie(reply);
+        reply.code(401).send({ error: "Your sign-in expired. Enter your password again." });
+        return;
+      }
+
+      const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1").get(
+        challenge.user_id
+      ) as User | undefined;
+      if (!user || !user.mfa_enabled || user.mfa_method !== "email") {
+        reply.code(409).send({ error: "This sign-in doesn't use emailed codes." });
+        return;
+      }
+
+      const outcome = rotateEmailCode(challenge.id);
+      if (!outcome.ok) {
+        reply.code(429).send({
+          error:
+            outcome.reason === "cooldown"
+              ? `Wait ${EMAIL_CODE_RESEND_SECONDS} seconds before asking for another code.`
+              : "No more codes for this sign-in. Enter your password again to start over."
+        });
+        return;
+      }
+
+      try {
+        await sendMfaCodeEmail(user.email, outcome.code, "login");
+      } catch {
+        reply.code(502).send({ error: "We couldn't send the code. Use a backup code, or ask your administrator." });
+        return;
+      }
+      logActivity({
+        event: "auth.mfa_code_resent",
+        targetType: "user",
+        targetId: user.id,
+        detail: "Resent a two-factor code by email.",
+        ipAddress: request.ip
+      });
+      reply.send({ sentTo: maskEmail(user.email) });
+    }
+  );
+
+  // Login step 2: complete the pending challenge with a code (from the app or the
+  // email, per the account's method) or a backup code.
   app.post(
     "/api/auth/mfa/verify",
     { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
@@ -278,7 +517,9 @@ export async function mfaRoutes(app: FastifyInstance) {
       const user = db
         .prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1")
         .get(challenge.user_id) as User | undefined;
-      if (!user || !user.mfa_enabled || !user.mfa_secret) {
+      // The factor has to still exist: a secret for TOTP, a live code for email.
+      const ready = user?.mfa_method === "email" ? Boolean(challenge.code_hash) : Boolean(user?.mfa_secret);
+      if (!user || !user.mfa_enabled || !ready) {
         clearMfaChallenge(challengeId);
         clearMfaChallengeCookie(reply);
         reply.code(401).send({ error: "Enter your password again." });
@@ -287,10 +528,14 @@ export async function mfaRoutes(app: FastifyInstance) {
 
       let ok = false;
       try {
-        ok = verifyTotp(decryptSecret(user.mfa_secret), parsed.data.token);
+        ok =
+          user.mfa_method === "email"
+            ? verifyEmailCode(challenge.code_hash!, parsed.data.token)
+            : verifyTotp(decryptSecret(user.mfa_secret!), parsed.data.token);
       } catch {
         ok = false;
       }
+      // Either method falls back to a backup code — that's what they're for.
       if (!ok) ok = consumeBackupCode(user.id, parsed.data.token);
 
       const trusted = isTrustedIp(request.ip);

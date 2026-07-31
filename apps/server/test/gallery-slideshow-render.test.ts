@@ -425,13 +425,17 @@ describe('schema baseline (2.0.0)', () => {
   // 2.0.0 folded migrations 2-22 into schema.sql. What those migrations used to
   // guarantee is now a property of the schema itself, so that is what we test:
   // a database built in one pass accepts every value the rebuilds widened to.
-  it('builds a complete schema in one pass and stamps the baseline', () => {
+  it('builds a complete schema in one pass and stamps the current version', () => {
     const scratch = new Database(':memory:');
     migrate(scratch);
-    expect(scratch.pragma('user_version', { simple: true })).toBe(23);
+    // Baseline 23 plus the migrations released since — the adds are all guarded,
+    // so replaying them over a schema.sql-built file is a no-op that just stamps.
+    expect(scratch.pragma('user_version', { simple: true })).toBe(24);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
-    expect(userColumns).toEqual(expect.arrayContaining(['ereader_email', 'mfa_enabled', 'mfa_secret', 'mfa_backup_codes']));
+    expect(userColumns).toEqual(
+      expect.arrayContaining(['ereader_email', 'mfa_enabled', 'mfa_method', 'mfa_secret', 'mfa_backup_codes'])
+    );
     const itemColumns = (scratch.pragma('table_info(library_items)') as { name: string }[]).map((c) => c.name);
     expect(itemColumns).toContain('scan_rule_id');
     scratch.close();
@@ -460,7 +464,7 @@ describe('schema baseline (2.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 22'); // the last 1.x schema — already complete
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(23);
+    expect(current.pragma('user_version', { simple: true })).toBe(24);
     current.close();
 
     // Older databases still needed steps that no longer exist: stop, don't stamp.

@@ -29,7 +29,7 @@ import {
   canEditAnyPerson, canEditPerson, canEditTree, decoratePersons, getEditableTags, listFamilyTags
 } from "./access.js";
 import { normalizeText } from "../library/audiobook/categorize.js";
-import { getFamilyUploadLibrary, setFamilyTreeSettings } from "./settings.js";
+import { getFamilyDefaultPerson, getFamilyUploadLibrary, setFamilyTreeSettings } from "./settings.js";
 import { can, parsePolicy } from "../../core/permissions.js";
 import { exportGedcom, importGedcom } from "./gedcom.js";
 import { EVENT_TYPES, createFamilyEvent, updateFamilyEvent, deleteFamilyEvent, getFamilyEvent } from "./events.js";
@@ -162,7 +162,14 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
   app.get("/api/family-tree/tree", { preHandler: app.authenticate }, async (request) => {
     const user = request.user!;
     const tree = getFamilyTree();
-    return { ...tree, persons: decoratePersons(user, tree.persons), access: accessFor(user) };
+    return {
+      ...tree,
+      persons: decoratePersons(user, tree.persons),
+      access: accessFor(user),
+      // Ships with the tree so the chart can centre on the right person in its
+      // first render — a second round-trip would show the fallback, then jump.
+      defaultPersonId: getFamilyDefaultPerson()?.id ?? null
+    };
   });
 
   app.get("/api/family-tree/persons", { preHandler: app.authenticate }, async (request) => {
@@ -220,12 +227,17 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
     return {
       galleryLibrary: library,
       canUpload,
+      defaultPerson: getFamilyDefaultPerson(),
       isAdmin: user.role === "admin"
     };
   });
 
+  // Both fields are optional: the modal PUTs only the one the admin just changed,
+  // and setFamilyTreeSettings merges over the stored blob. `null` clears a setting;
+  // omitting it leaves it alone — so the two can't clobber each other.
   const settingsSchema = z.object({
-    galleryLibraryId: z.string().trim().min(1).nullable()
+    galleryLibraryId: z.string().trim().min(1).nullable().optional(),
+    defaultPersonId: z.string().trim().min(1).nullable().optional()
   });
 
   app.put("/api/family-tree/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -234,7 +246,7 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
       reply.code(400).send({ error: "Invalid settings", details: parsed.error });
       return;
     }
-    const { galleryLibraryId } = parsed.data;
+    const { galleryLibraryId, defaultPersonId } = parsed.data;
     if (galleryLibraryId) {
       const exists = db.prepare("SELECT 1 FROM libraries WHERE id = ? AND type = 'gallery'").get(galleryLibraryId);
       if (!exists) {
@@ -242,17 +254,41 @@ export async function familyTreeRoutesPlugin(app: FastifyInstance) {
         return;
       }
     }
-    setFamilyTreeSettings({ galleryLibraryId }, request.user!.id);
-    logActivity({
-      event: "familytree.settings.updated",
-      actorUserId: request.user!.id,
-      targetType: "family_tree",
-      detail: galleryLibraryId
-        ? "Set the gallery library family-tree uploads are added to."
-        : "Cleared the gallery library for family-tree uploads.",
-      ipAddress: request.ip
-    });
-    reply.send({ galleryLibrary: getFamilyUploadLibrary() });
+    if (defaultPersonId) {
+      const exists = db.prepare("SELECT 1 FROM family_tree_persons WHERE id = ?").get(defaultPersonId);
+      if (!exists) {
+        reply.code(404).send({ error: "Person not found" });
+        return;
+      }
+    }
+
+    setFamilyTreeSettings(parsed.data, request.user!.id);
+
+    const details: string[] = [];
+    if (galleryLibraryId !== undefined) {
+      details.push(
+        galleryLibraryId
+          ? "Set the gallery library family-tree uploads are added to."
+          : "Cleared the gallery library for family-tree uploads."
+      );
+    }
+    if (defaultPersonId !== undefined) {
+      details.push(
+        defaultPersonId
+          ? `Set the person the family tree opens on to ${getFamilyDefaultPerson()?.name ?? defaultPersonId}.`
+          : "Cleared the person the family tree opens on."
+      );
+    }
+    if (details.length > 0) {
+      logActivity({
+        event: "familytree.settings.updated",
+        actorUserId: request.user!.id,
+        targetType: "family_tree",
+        detail: details.join(" "),
+        ipAddress: request.ip
+      });
+    }
+    reply.send({ galleryLibrary: getFamilyUploadLibrary(), defaultPerson: getFamilyDefaultPerson() });
   });
 
   app.get("/api/family-tree/persons/:id/photos", { preHandler: app.authenticate }, async (request, reply) => {

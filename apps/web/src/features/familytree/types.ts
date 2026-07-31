@@ -73,6 +73,11 @@ export interface FamilyTree {
   unions: FamilyUnion[];
   children: FamilyChildLink[];
   access: FamilyTreeAccess;
+  /**
+   * Who the chart opens on when no person is named in the URL — set by an admin
+   * in Family tree settings, and null when unset or the person has been deleted.
+   */
+  defaultPersonId: string | null;
 }
 
 export interface FamilyUnionDetail {

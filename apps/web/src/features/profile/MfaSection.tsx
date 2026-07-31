@@ -1,20 +1,26 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { api } from "../../api";
+import { api, type MfaMethod } from "../../api";
 import { Button } from "../../shared/Button";
+import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import { Field } from "../../shared/Field";
 import { Modal } from "../../shared/Modal";
 import { MessageBox } from "../../shared/MessageBox";
 
 interface MfaStatus {
   enabled: boolean;
+  method: MfaMethod;
   backupCodesRemaining: number;
+  // Whether the server can send email at all — the email method is unofferable
+  // without it, and an admin has to set SMTP up in Control panel → Email.
+  emailAvailable: boolean;
+  emailAddress: string;
 }
 
-interface SetupData {
-  secret: string;
-  otpauthUri: string;
-  qrDataUrl: string;
-}
+// The setup call answers differently per method: a secret to scan, or the masked
+// address a code was just mailed to.
+type SetupData =
+  | { method: "totp"; secret: string; otpauthUri: string; qrDataUrl: string }
+  | { method: "email"; sentTo: string; expiresInMinutes: number };
 
 type Mode = null | "setup" | "regenerate" | "disable";
 
@@ -65,18 +71,27 @@ export function MfaSection() {
     <section className="mfa-section" aria-labelledby="mfa-heading">
       <h2 id="mfa-heading">Two-factor authentication</h2>
       <p className="mfa-intro">
-        Ask for a one-time code from an authenticator app at sign-in, so a stolen password alone can't reach your account.
+        Ask for a one-time code at sign-in — from an authenticator app or sent to your email — so a stolen password
+        alone can't reach your account.
       </p>
       {loadError && <MessageBox tone="error" title="Unable to load">{loadError}</MessageBox>}
 
       {status?.enabled && (
         <>
           <MessageBox tone="success" title="Two-factor is on">
-            You'll enter a code from your authenticator app when you sign in.{" "}
+            {status.method === "email"
+              ? `You'll enter a code sent to ${status.emailAddress} when you sign in. `
+              : "You'll enter a code from your authenticator app when you sign in. "}
             {status.backupCodesRemaining > 0
               ? `${status.backupCodesRemaining} backup code${status.backupCodesRemaining === 1 ? "" : "s"} remaining.`
               : "No backup codes left — regenerate a set."}
           </MessageBox>
+          {status.method === "email" && !status.emailAvailable && (
+            <MessageBox tone="warning" title="This server can't send email">
+              Your codes have nowhere to go until an administrator sets email up again. Use a backup code to sign in
+              meanwhile.
+            </MessageBox>
+          )}
           <div className="mfa-actions">
             <Button variant="secondary" onClick={() => setMode("regenerate")}>Regenerate backup codes</Button>
             <Button variant="danger" onClick={() => setMode("disable")}>Turn off</Button>
@@ -90,16 +105,35 @@ export function MfaSection() {
         </div>
       )}
 
-      {mode === "setup" && <MfaSetupModal onClose={() => setMode(null)} onDone={done} />}
+      {mode === "setup" && status && (
+        <MfaSetupModal
+          emailAvailable={status.emailAvailable}
+          emailAddress={status.emailAddress}
+          onClose={() => setMode(null)}
+          onDone={done}
+        />
+      )}
       {mode === "regenerate" && <MfaRegenerateModal onClose={() => setMode(null)} onDone={done} />}
       {mode === "disable" && <MfaDisableModal onClose={() => setMode(null)} onDone={done} />}
     </section>
   );
 }
 
-// Enrollment wizard: confirm password → scan QR + enter a code → save backup codes.
-function MfaSetupModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const [step, setStep] = useState<"password" | "scan" | "codes">("password");
+// Enrollment wizard: pick a method + confirm password → prove the factor reaches
+// you (scan a QR, or read the emailed code) → save backup codes.
+function MfaSetupModal({
+  emailAvailable,
+  emailAddress,
+  onClose,
+  onDone
+}: {
+  emailAvailable: boolean;
+  emailAddress: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [step, setStep] = useState<"password" | "confirm" | "codes">("password");
+  const [method, setMethod] = useState<MfaMethod>("totp");
   const [password, setPassword] = useState("");
   const [setupData, setSetupData] = useState<SetupData | null>(null);
   const [code, setCode] = useState("");
@@ -107,17 +141,19 @@ function MfaSetupModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const startSetup = async (event: FormEvent) => {
-    event.preventDefault();
+  // Also the resend for the email method: asking again mints and mails a new code.
+  const startSetup = async (event?: FormEvent) => {
+    event?.preventDefault();
     setBusy(true);
     setError("");
     try {
       const data = await api<SetupData>("/api/profile/mfa/setup", {
         method: "POST",
-        body: JSON.stringify({ currentPassword: password })
+        body: JSON.stringify({ currentPassword: password, method })
       });
       setSetupData(data);
-      setStep("scan");
+      setCode("");
+      setStep("confirm");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to start setup");
     } finally {
@@ -146,7 +182,29 @@ function MfaSetupModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
   if (step === "password") {
     return (
       <Modal variant="card" title="Set up two-factor" busy={busy} onClose={onClose} onSubmit={startSetup}>
-        <p>Confirm your password to begin.</p>
+        <ChoiceGroup
+          legend="How you'll get your codes"
+          value={method}
+          onChange={setMethod}
+          disabled={busy}
+          options={[
+            {
+              value: "totp",
+              label: "Authenticator app",
+              description:
+                "A rolling code from Google Authenticator, Authy, Apple Passwords… Works offline and never leaves your phone."
+            },
+            {
+              value: "email",
+              label: "Email",
+              description: `A one-time code sent to ${emailAddress} each time you sign in. Nothing to install.`,
+              disabled: !emailAvailable,
+              note: emailAvailable
+                ? "Less secure: codes travel by email, so anyone who can read that inbox can get in."
+                : "Unavailable — this server can't send email. An administrator sets it up in Control panel → Email."
+            }
+          ]}
+        />
         <Field label="Current password" type="password" value={password} onChange={setPassword} autoComplete="current-password" />
         {error && <MessageBox tone="error" title="Unable to continue">{error}</MessageBox>}
         <div className="modal-actions">
@@ -159,7 +217,7 @@ function MfaSetupModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
     );
   }
 
-  if (step === "scan" && setupData) {
+  if (step === "confirm" && setupData?.method === "totp") {
     return (
       <Modal variant="card" title="Scan the QR code" busy={busy} onClose={onClose} onSubmit={confirmCode}>
         <p>
@@ -186,10 +244,31 @@ function MfaSetupModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
     );
   }
 
+  if (step === "confirm" && setupData?.method === "email") {
+    return (
+      <Modal variant="card" title="Check your email" busy={busy} onClose={onClose} onSubmit={confirmCode}>
+        <p>
+          We sent a 6-digit code to <strong>{setupData.sentTo}</strong>. Enter it to confirm the address can reach you.
+          It expires in {setupData.expiresInMinutes} minutes.
+        </p>
+        <Field label="6-digit code" value={code} onChange={setCode} autoComplete="one-time-code" />
+        {error && <MessageBox tone="error" title="Unable to turn on two-factor">{error}</MessageBox>}
+        <div className="modal-actions">
+          <Button variant="text" onClick={() => startSetup()} disabled={busy}>Send another code</Button>
+          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="primary" type="submit" disabled={busy || code.trim().length < 6}>
+            {busy ? "Verifying…" : "Turn on two-factor"}
+          </Button>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <Modal variant="card" title="Save your backup codes" onClose={onDone}>
       <MessageBox tone="warning" title="Save these now">
-        Each code lets you sign in once if you lose your authenticator. They won't be shown again.
+        Each code lets you sign in once if your second factor is out of reach — a lost authenticator, or an inbox you
+        can't get to. They won't be shown again.
       </MessageBox>
       <BackupCodes codes={backupCodes} />
       <div className="modal-actions">

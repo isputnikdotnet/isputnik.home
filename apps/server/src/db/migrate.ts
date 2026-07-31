@@ -19,7 +19,41 @@ const baseline = 23;
 // add back, so it stops the server instead of failing later at a query.
 const LAST_LEGACY_VERSION = 22;
 
-const migrations: { version: number; up: (db: Database.Database) => void }[] = [];
+// ALTER TABLE ADD COLUMN is the one thing schema.sql can't do for an existing
+// database — and schema.sql has already run by the time migrations replay, so a
+// fresh file arrives here with the column present. Guard every add.
+function hasColumn(db: Database.Database, table: string, column: string): boolean {
+  return (db.pragma(`table_info(${table})`) as { name: string }[]).some((c) => c.name === column);
+}
+
+const migrations: { version: number; up: (db: Database.Database) => void }[] = [
+  {
+    // Email as an alternative second factor: which method a user chose, plus the
+    // emailed code (hash + resend budget) carried on the challenge row.
+    version: 24,
+    up: (db) => {
+      if (!hasColumn(db, "users", "mfa_method")) {
+        db.exec(
+          "ALTER TABLE users ADD COLUMN mfa_method TEXT NOT NULL DEFAULT 'totp' CHECK (mfa_method IN ('totp', 'email'))"
+        );
+      }
+      // Pending challenges from before the upgrade have no purpose/code columns;
+      // they're seconds-lived, so defaults are enough — nothing needs backfilling.
+      if (!hasColumn(db, "mfa_challenges", "purpose")) {
+        db.exec("ALTER TABLE mfa_challenges ADD COLUMN purpose TEXT NOT NULL DEFAULT 'login'");
+      }
+      if (!hasColumn(db, "mfa_challenges", "code_hash")) {
+        db.exec("ALTER TABLE mfa_challenges ADD COLUMN code_hash TEXT");
+      }
+      if (!hasColumn(db, "mfa_challenges", "sends")) {
+        db.exec("ALTER TABLE mfa_challenges ADD COLUMN sends INTEGER NOT NULL DEFAULT 0");
+      }
+      if (!hasColumn(db, "mfa_challenges", "last_sent_at")) {
+        db.exec("ALTER TABLE mfa_challenges ADD COLUMN last_sent_at TEXT");
+      }
+    }
+  }
+];
 
 function userVersion(db: Database.Database): number {
   return db.pragma("user_version", { simple: true }) as number;

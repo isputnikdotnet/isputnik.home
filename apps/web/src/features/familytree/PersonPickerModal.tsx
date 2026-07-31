@@ -12,12 +12,19 @@ import { lifeYears, type FamilyPerson } from "./types";
 export function PersonPickerModal({
   title,
   excludeIds = [],
+  allowCreate = true,
   onPick,
   onClose
 }: {
   title: string;
   /** Persons that can't be picked (e.g. the person themself, existing relatives). */
   excludeIds?: string[];
+  /**
+   * Whether to offer creating someone inline. Off where the pick is about an
+   * existing person rather than filling a relationship — choosing the tree's
+   * starting person, say, where inventing a new one makes no sense.
+   */
+  allowCreate?: boolean;
   onPick: (person: FamilyPerson) => void;
   onClose: () => void;
 }) {
@@ -97,6 +104,7 @@ export function PersonPickerModal({
         )}
       </div>
 
+      {allowCreate && (
       <div className="ft-picker-create">
         <label className="field">
           <span>Or add someone new</span>
@@ -115,6 +123,7 @@ export function PersonPickerModal({
           {creating ? "Creating…" : "Create"}
         </Button>
       </div>
+      )}
     </Modal>
   );
 }

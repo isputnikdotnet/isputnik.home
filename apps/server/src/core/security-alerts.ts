@@ -1,5 +1,5 @@
 import type { FastifyRequest } from "fastify";
-import { db, logActivity, type User } from "../db.js";
+import { db, logActivity, type MfaMethod, type User } from "../db.js";
 import { isMailConfigured, sendMail } from "./mail.js";
 import {
   getSecurityPolicy,
@@ -169,14 +169,16 @@ export function alertMfaFailures(user: User, ip: string | null): void {
     ...context(ip)
   ];
 
-  void notify([user.email], "Someone has your password but not your phone", [
+  void notify([user.email], "Someone has your password but not your second factor", [
     "Your iSputnik account has just refused several two-factor codes.",
     "",
     "Reaching the code step means the password was accepted — so whoever is trying knows it.",
     "",
     ...facts,
     "",
-    "If this was you fumbling a code, or your authenticator's clock has drifted, nothing is wrong.",
+    user.mfa_method === "email"
+      ? "If this was you mistyping a code, nothing is wrong."
+      : "If this was you fumbling a code, or your authenticator's clock has drifted, nothing is wrong.",
     "If it wasn't, change your password now: the second factor is the only thing still holding."
   ]);
 
@@ -235,16 +237,17 @@ export function alertPasswordChanged(email: string, byAdmin: boolean, ip: string
 
 // The mirror of alertMfaDisabled: an attacker enrolling their own authenticator
 // locks the owner out just as effectively as switching two-factor off.
-export function alertMfaEnabled(email: string, ip: string | null): void {
+export function alertMfaEnabled(email: string, ip: string | null, method: MfaMethod = "totp"): void {
   if (throttled(`mfaon:${email.toLowerCase()}`, CHANGE_THROTTLE_MS)) return;
   void notify([email], "Two-factor authentication was turned on", [
     "Two-factor authentication is now on for your iSputnik account. Sign-ins will ask for a code",
-    "from the authenticator app that was just enrolled.",
+    method === "email" ? "sent to this address." : "from the authenticator app that was just enrolled.",
     "",
     ...context(ip),
     "",
-    "If you didn't set this up, the codes are going to someone else's device — contact your",
-    "server's administrator immediately."
+    method === "email"
+      ? "If you didn't set this up, someone else knows your password — contact your server's administrator immediately."
+      : "If you didn't set this up, the codes are going to someone else's device — contact your server's administrator immediately."
   ]);
 }
 

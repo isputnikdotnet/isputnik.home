@@ -310,7 +310,11 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                         </Button>
                         <Button
                           variant="icon"
-                          title={account.mfaEnabled ? "Reset two-factor authentication" : "This user doesn't have two-factor on"}
+                          title={
+                            account.mfaEnabled
+                              ? `Reset two-factor authentication (${account.mfaMethod === "email" ? "codes by email" : "authenticator app"})`
+                              : "This user doesn't have two-factor on"
+                          }
                           aria-label={`Reset two-factor for ${account.displayName}`}
                           disabled={!account.mfaEnabled}
                           onClick={() => {
@@ -491,7 +495,10 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
           onConfirm={resetMfa}
           onCancel={() => setPendingMfaReset(null)}
         >
-          <p>This turns off two-factor and clears their authenticator and backup codes.</p>
+          <p>
+            This turns off two-factor and clears their backup codes along with
+            {pendingMfaReset.mfaMethod === "email" ? " the emailed-code setting" : " their authenticator"}.
+          </p>
           <p><strong>They'll sign in with just their password until they set it up again.</strong></p>
         </ConfirmDialog>
       )}

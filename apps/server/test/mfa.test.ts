@@ -8,7 +8,11 @@ import {
   normalizeBackupCode,
   generateTotpSecret,
   totpKeyUri,
-  verifyTotp
+  verifyTotp,
+  generateEmailCode,
+  hashEmailCode,
+  verifyEmailCode,
+  maskEmail
 } from "../src/core/mfa.js";
 
 describe("MFA secret encryption", () => {
@@ -74,5 +78,54 @@ describe("TOTP", () => {
     expect(uri.startsWith("otpauth://totp/")).toBe(true);
     expect(uri).toContain("isputnik.home");
     expect(uri).toContain("user%40test.local");
+  });
+});
+
+describe("Emailed one-time codes", () => {
+  it("generates 6 digits, keeping leading zeros", () => {
+    for (let i = 0; i < 200; i += 1) expect(generateEmailCode()).toMatch(/^\d{6}$/);
+  });
+
+  it("verifies the code it hashed", () => {
+    const code = generateEmailCode();
+    expect(verifyEmailCode(hashEmailCode(code), code)).toBe(true);
+  });
+
+  it("tolerates spaces or dashes the user typed", () => {
+    expect(verifyEmailCode(hashEmailCode("012345"), "012 345")).toBe(true);
+    expect(verifyEmailCode(hashEmailCode("012345"), "012-345")).toBe(true);
+  });
+
+  it("rejects a different code", () => {
+    expect(verifyEmailCode(hashEmailCode("012345"), "543210")).toBe(false);
+  });
+
+  it("rejects input with no digits rather than matching an empty hash", () => {
+    expect(verifyEmailCode(hashEmailCode("012345"), "ABCDE-FGHJK")).toBe(false);
+    expect(verifyEmailCode(hashEmailCode("012345"), "")).toBe(false);
+  });
+
+  it("stores nothing replayable — the hash never contains the code", () => {
+    const code = generateEmailCode();
+    expect(hashEmailCode(code)).not.toContain(code);
+    expect(hashEmailCode(code)).toHaveLength(64);
+  });
+});
+
+describe("Email masking", () => {
+  it("keeps the first and last character of the name and the whole domain", () => {
+    expect(maskEmail("sergey@example.com")).toBe("s•••y@example.com");
+  });
+
+  it("handles very short names", () => {
+    expect(maskEmail("jo@example.com")).toBe("j•••@example.com");
+  });
+
+  it("survives an address with an @ in the local part", () => {
+    expect(maskEmail("a@b@example.com")).toBe("a•••b@example.com");
+  });
+
+  it("gives up safely on something that isn't an address", () => {
+    expect(maskEmail("nonsense")).toBe("•••");
   });
 });

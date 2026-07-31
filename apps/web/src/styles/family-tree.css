@@ -1070,6 +1070,21 @@
   gap: 10px;
 }
 
+/* The chosen starting person: avatar, name, and the change/clear controls. */
+.ft-settings-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.ft-settings-person .ft-picker-row-name {
+  flex: 1;
+}
+
 .ft-settings-modal .modal-actions {
   padding: 0 16px 14px;
   margin-top: 0;
@@ -1205,6 +1220,14 @@
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 12px;
+}
+
+/* Parent / child, the two ways in from a card's add badge. Equal columns so
+   neither reads as the primary choice; stacked when there's no room. */
+.ft-relative-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
 }
 
 /* ── Tree page + chart ── */
