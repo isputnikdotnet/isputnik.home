@@ -33,6 +33,8 @@ library.
 
 ## Running the server
 
+- [The control panel](control-panel.md) — a tour of every section: status, backups,
+  security, labels, logs, scheduled jobs, the recycle bin, and accounts.
 - [Two-factor authentication](two-factor-authentication.md) — add a one-time code
   to your sign-in, manage backup codes, and what to do if you get locked out.
 - [Setting up email](email.md) — the SMTP settings, what the server sends, and why
