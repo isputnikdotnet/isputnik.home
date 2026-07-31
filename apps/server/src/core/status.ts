@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.3.2",
+          label: "Three new guides, and help that matches your version",
+          changes: [
+            "There are now written guides for the parts of the app that had none: your account (your name and sign-in email, themes, the e-reader address, and where favorites, bookmarks, quotes and collections live), setting up email, and a tour of the control panel. All three open from Help & guides.",
+            "The email guide covers the two things people get stuck on: most mail providers need an app password rather than your normal one, and the encryption setting has to match the port — mismatch them and the test sits there until it gives up rather than saying what's wrong.",
+            "The control panel guide spells out two things the screens don't. Deleting a user only deactivates the account and signs them out — their libraries, groups and files stay. And restoring a backup doesn't take effect until the server restarts.",
+            "Help links now open the guides for the version you're actually running, instead of always the newest ones. Reading about a button that isn't in your copy of the app was needlessly confusing. This starts working from this release onward."
+          ]
+        },
+        {
           version: "2.3.1",
           label: "Old photos land on the right date again",
           changes: [
