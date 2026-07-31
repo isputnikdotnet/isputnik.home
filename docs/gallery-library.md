@@ -272,6 +272,23 @@ options and via `sharp.concurrency()`.
   loading ORT.
 - `thumbnails.ts` — per-face avatar crops; `clear.ts` — wipe a library's face data.
 
+**Fixing a bad cluster.** Three corrections, in increasing precision:
+
+- **Merge all** folds one person entirely into another — right when a person got split
+  into two clusters.
+- **Remove** (the ✕ on a tile) says only "not this person in this photo": the face is
+  rejected and an exclusion is written, but nobody claims it.
+- **Pick photos → Move to…** moves *some* photos to another person, existing or newly
+  named (`POST …/people/:id/reassign` → `reassignPersonPhotos`). This is the fix for a
+  cluster that swept in a stranger, where merging everything would be wrong. Per photo,
+  every non-rejected face of the source moves to the target; **other people's faces in
+  the same photo are untouched**. The target's exclusion for that photo is cleared (we
+  just asserted it *is* them) and the source is excluded from it, so a rescan can't undo
+  the move; the target is flagged `curated` for the same reason a merge target is.
+  The move is photo-level because the picker is — there is no per-face UI, so a photo
+  where the source genuinely also appears loses them too. Write access is checked per
+  photo, not once, so a viewer can't curate people in a library they can only read.
+
 **Storage:** `gallery_faces` (one row per detected face — box, embedding, `embedding_model`),
 `gallery_people` (incl. the `curated` anchor flag set on merge targets), `gallery_face_scans`
 (per-photo scan marker with the model used, plus `status`/`attempts` for the bounded
