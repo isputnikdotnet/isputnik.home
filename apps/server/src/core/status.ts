@@ -502,10 +502,11 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
-          version: "2.4.1",
+          version: "2.4.2",
           label: "Tidier guides",
           changes: [
-            "Tidied up how the guides look now that they're read inside the app: words in table headings no longer break across two lines, narrow columns keep their width, and a section break no longer draws two lines where it meant to draw one."
+            "Tidied up how the guides look now that they're read inside the app: words in table headings no longer break across two lines, narrow columns keep their width, and a section break no longer draws two lines where it meant to draw one.",
+            "Versions 2.4.0 and 2.4.1 were tagged but never published — the packaging step left the guides out and the build stopped. This release is those changes plus the fix, so upgrade straight to it."
           ]
         },
         {
