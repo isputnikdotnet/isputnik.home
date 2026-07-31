@@ -269,6 +269,11 @@ export function GalleryPage({
   const [renameValue, setRenameValue] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [personDeleteOpen, setPersonDeleteOpen] = useState(false);
+  // Picking individual photos out of the open person, to move them to someone else
+  // — the fix for a cluster that swept in a stranger (a whole-cluster merge can't).
+  const [personPick, setPersonPick] = useState<Set<string> | null>(null);
+  const [moveNewName, setMoveNewName] = useState<string | null>(null);
+  const [movingPhotos, setMovingPhotos] = useState(false);
   const [showSmallGroups, setShowSmallGroups] = useState(false);
   // How many cards each section of the People grid currently renders (paged).
   const [visiblePeople, setVisiblePeople] = useState(PEOPLE_PAGE);
@@ -774,6 +779,36 @@ export function GalleryPage({
       setError(err instanceof Error ? err.message : "Unable to remove the photo");
     }
   }, [selectedPerson, loadPeople]);
+
+  // Leaving (or switching) the open person drops any half-made selection, so it
+  // can't be applied to the wrong cluster later.
+  useEffect(() => { setPersonPick(null); setMoveNewName(null); }, [selectedPerson?.id]);
+
+  // Move the picked photos to another person (existing, or a name to create). The
+  // moved photos leave this person's grid; both people's counts change, so the
+  // people list reloads.
+  const movePickedPhotos = useCallback(async (target: { intoId: string } | { name: string }) => {
+    if (!selectedPerson || !personPick || personPick.size === 0) return;
+    const itemIds = [...personPick];
+    setMovingPhotos(true);
+    setError("");
+    try {
+      const payload = await api<{ moved: number }>(
+        `/api/library/gallery/people/${selectedPerson.id}/reassign`,
+        { method: "POST", body: JSON.stringify({ itemIds, ...target }) }
+      );
+      setPersonAssets((prev) => prev.filter((a) => !personPick.has(a.id)));
+      setPersonTotal((n) => Math.max(0, n - payload.moved));
+      setPersonPick(null);
+      setMoveNewName(null);
+      void loadPeople();
+      setNotice(`${payload.moved} ${payload.moved === 1 ? "photo" : "photos"} moved.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to move the photos");
+    } finally {
+      setMovingPhotos(false);
+    }
+  }, [selectedPerson, personPick, loadPeople]);
 
   const confirmDeletePerson = useCallback(async () => {
     if (!selectedPerson) return;
@@ -1618,9 +1653,16 @@ export function GalleryPage({
                       )}
                       {people.length > 1 && (
                         <button type="button" className="secondary-button compact-button" onClick={() => setMergeOpen((v) => !v)}>
-                          <Combine size={14} aria-hidden="true" /> Merge
+                          <Combine size={14} aria-hidden="true" /> Merge all
                         </button>
                       )}
+                      <button
+                        type="button"
+                        className="secondary-button compact-button"
+                        onClick={() => { setPersonPick(personPick ? null : new Set()); setMoveNewName(null); setMergeOpen(false); }}
+                      >
+                        <SquareCheck size={14} aria-hidden="true" /> {personPick ? "Cancel selection" : "Pick photos"}
+                      </button>
                       <button type="button" className="danger-button compact-button" onClick={() => setPersonDeleteOpen(true)}>
                         <Trash2 size={14} aria-hidden="true" /> Delete
                       </button>
@@ -1640,16 +1682,79 @@ export function GalleryPage({
                     </div>
                   )}
 
+                  {personPick && (
+                    <div className="gallery-move-panel">
+                      <span className="audiobook-bulk-count">
+                        {personPick.size} selected
+                      </span>
+                      <button
+                        type="button"
+                        className="secondary-button compact-button"
+                        onClick={() => setPersonPick(new Set(personAssets.map((asset) => asset.id)))}
+                        disabled={personAssets.length === 0 || movingPhotos}
+                      >
+                        Select all loaded
+                      </button>
+                      {moveNewName == null ? (
+                        <label className="gallery-move-target">
+                          <span className="sr-only">Move the selected photos to</span>
+                          <select
+                            value=""
+                            disabled={personPick.size === 0 || movingPhotos}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              if (value === "__new") setMoveNewName("");
+                              else if (value) void movePickedPhotos({ intoId: value });
+                            }}
+                          >
+                            <option value="" disabled>{movingPhotos ? "Moving…" : "Move to…"}</option>
+                            {people.filter((p) => p.id !== selectedPerson.id).map((p) => (
+                              <option key={p.id} value={p.id}>{(p.name || "Unnamed")} ({p.faceCount})</option>
+                            ))}
+                            <option value="__new">New person…</option>
+                          </select>
+                        </label>
+                      ) : (
+                        <form
+                          className="gallery-person-rename"
+                          onSubmit={(event) => { event.preventDefault(); void movePickedPhotos({ name: moveNewName.trim() }); }}
+                        >
+                          <input
+                            value={moveNewName}
+                            onChange={(event) => setMoveNewName(event.target.value)}
+                            placeholder="New person's name"
+                            autoFocus
+                            maxLength={120}
+                          />
+                          <button type="submit" className="primary-button compact-button" disabled={!moveNewName.trim() || movingPhotos}>
+                            {movingPhotos ? "Moving…" : "Move"}
+                          </button>
+                          <button type="button" className="icon-button" onClick={() => setMoveNewName(null)} aria-label="Cancel">
+                            <X size={14} aria-hidden="true" />
+                          </button>
+                        </form>
+                      )}
+                      <span className="muted gallery-move-hint">
+                        Photos of someone else? Move them instead of removing — the correction survives the next scan.
+                      </span>
+                    </div>
+                  )}
+
                   <div className="gallery-grid">
                     {personAssets.map((asset, index) => (
                       <AssetTile
                         key={asset.id}
                         asset={asset}
                         onOpen={() => setLightbox({ source: "person", index })}
-                        selectionMode={false}
-                        selected={false}
-                        onToggleSelect={() => { /* selection disabled in People view */ }}
-                        onRemove={canCuratePeople ? () => void removeFromPerson(asset.id) : undefined}
+                        selectionMode={personPick != null}
+                        selected={personPick?.has(asset.id) ?? false}
+                        onToggleSelect={() => setPersonPick((prev) => {
+                          if (!prev) return prev;
+                          const next = new Set(prev);
+                          if (next.has(asset.id)) next.delete(asset.id); else next.add(asset.id);
+                          return next;
+                        })}
+                        onRemove={canCuratePeople && !personPick ? () => void removeFromPerson(asset.id) : undefined}
                       />
                     ))}
                   </div>

@@ -205,6 +205,59 @@ export function mergeGalleryPeople(sourceId: string, targetId: string): boolean 
   return true;
 }
 
+// Move SOME of a person's photos to another person — the partial merge. A cluster
+// that swept in a stranger can't be fixed by merging (that moves everything) or by
+// removing (that only says "not this person"): the faces have to land on whoever
+// they really are. Per photo, every non-rejected face currently assigned to the
+// source moves to the target.
+//
+// Faces belonging to anyone else in the same photo are untouched — a group photo
+// keeps its other people.
+//
+// The exclusion bookkeeping is what makes the correction stick across a rescan:
+// the target's exclusion for that photo is cleared (we've just asserted it IS
+// them, overriding any earlier "not this person"), and the source is excluded
+// from it. The move is photo-level, not face-level — the UI picks photos — so
+// after it the source has no faces left there by construction, and excluding it
+// is simply the durable form of what the user just said.
+// Returns the number of photos actually changed, or null if either id is unknown.
+export function reassignPersonPhotos(sourceId: string, targetId: string, itemIds: string[]): number | null {
+  if (sourceId === targetId) return null;
+  if (!getGalleryPersonRow(sourceId) || !getGalleryPersonRow(targetId)) return null;
+  if (itemIds.length === 0) return 0;
+
+  const moveFaces = db.prepare(`
+    UPDATE gallery_faces SET person_id = ?, assignment = 'confirmed',
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    WHERE item_id = ? AND person_id = ? AND assignment != 'rejected'
+  `);
+  const clearTargetExclusion = db.prepare(
+    "DELETE FROM gallery_face_exclusions WHERE item_id = ? AND person_id = ?"
+  );
+  const excludeSource = db.prepare(
+    "INSERT OR IGNORE INTO gallery_face_exclusions (item_id, person_id) VALUES (?, ?)"
+  );
+
+  const moved = db.transaction(() => {
+    let count = 0;
+    for (const itemId of itemIds) {
+      if (moveFaces.run(targetId, itemId, sourceId).changes === 0) continue;
+      count++;
+      clearTargetExclusion.run(itemId, targetId);
+      excludeSource.run(itemId, sourceId);
+    }
+    if (count > 0) {
+      // Same reasoning as a merge: a hand-moved photo is deliberate curation, so
+      // anchor the target against the next reclustering pass.
+      db.prepare("UPDATE gallery_people SET curated = 1 WHERE id = ?").run(targetId);
+      recomputeClusterCentroid(targetId);
+      recomputeClusterCentroid(sourceId);
+    }
+    return count;
+  })();
+  return moved;
+}
+
 // Tag one photo with a person (manual, whole-photo). Idempotent: re-tagging the same
 // person on the same photo is a no-op. Returns false if the person doesn't exist.
 export function tagAssetPerson(itemId: string, personId: string): boolean {

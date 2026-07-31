@@ -14,6 +14,7 @@ import {
   setGalleryPersonHidden,
   deleteGalleryPerson,
   mergeGalleryPeople,
+  reassignPersonPhotos,
   tagAssetPerson,
   untagAssetPerson,
   getGalleryPersonRow
@@ -231,6 +232,69 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       return;
     }
     reply.send({ merged: true });
+  });
+
+  // Move SOME of :id's photos to another person — the fix for a cluster that swept
+  // in a stranger, where a whole-cluster merge would be wrong. The target is either
+  // an existing person or a name to create (same create-or-link rule as tagging).
+  const reassignSchema = z.object({
+    itemIds: z.array(z.string().trim().min(1)).min(1).max(500),
+    intoId: z.string().trim().min(1).optional(),
+    name: z.string().trim().min(1).max(120).optional()
+  }).refine((v) => v.intoId || v.name, { message: "Provide an intoId or a name." });
+
+  app.post("/api/library/gallery/people/:id/reassign", { preHandler: app.authenticate }, async (request, reply) => {
+    if (!canWriteAnyGallery(request.user!)) {
+      reply.code(403).send({ error: "Write access to a gallery library is required." });
+      return;
+    }
+    const sourceId = (request.params as { id: string }).id;
+    const parsed = parseBody(reassignSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid move", details: parsed.error });
+      return;
+    }
+    // Each photo is re-tagged individually, so each needs write access to its own
+    // library — a viewer must not curate people in a library they can only read.
+    const denied = parsed.data.itemIds.find((itemId) => !requireAssetWrite(request, itemId));
+    if (denied) {
+      reply.code(403).send({ error: "Write access is required for every photo being moved." });
+      return;
+    }
+
+    let targetId = parsed.data.intoId ?? null;
+    let createdName: string | null = null;
+    if (!targetId && parsed.data.name) {
+      const existing = findGalleryPersonByName(parsed.data.name);
+      if (existing) {
+        targetId = existing.id;
+      } else {
+        const person = createGalleryPerson(parsed.data.name);
+        targetId = person.id;
+        createdName = person.name;
+      }
+    }
+    if (!targetId) {
+      reply.code(404).send({ error: "Person not found" });
+      return;
+    }
+
+    const moved = reassignPersonPhotos(sourceId, targetId, parsed.data.itemIds);
+    if (moved == null) {
+      reply.code(404).send({ error: "Person not found" });
+      return;
+    }
+
+    logActivity({
+      event: "library.gallery.person.reassigned",
+      actorUserId: request.user!.id,
+      targetType: "gallery_person",
+      targetId: sourceId,
+      detail: `Moved ${moved} ${moved === 1 ? "photo" : "photos"} to ${createdName ? `new person "${createdName}"` : "another person"}.`,
+      ipAddress: request.ip
+    });
+
+    reply.send({ moved, targetId });
   });
 
   // ── Face recognition (admin): per-library enablement + the detection pass ──
