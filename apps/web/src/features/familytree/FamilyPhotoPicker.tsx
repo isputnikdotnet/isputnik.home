@@ -13,6 +13,10 @@ export interface FamilyUploadSettings {
   isAdmin: boolean;
 }
 
+type PickerTab = "browse" | "face" | "upload";
+
+const FACE_PAGE = 120;
+
 // Browse the galleries by folder and pick photos/videos for a family member —
 // the slideshow photo browser's flow (breadcrumbs, cross-folder multi-select,
 // "Added" badges) pointed at the family-tree attach endpoint. `single` turns it
@@ -21,6 +25,7 @@ export function FamilyPhotoPicker({
   title,
   existingIds = [],
   single = false,
+  facePerson = null,
   onPickSingle,
   onAttach,
   onClose
@@ -30,6 +35,9 @@ export function FamilyPhotoPicker({
   existingIds?: string[];
   /** One-click mode: pick a single asset and close (portrait choice). */
   single?: boolean;
+  /** The linked gallery person, when there is one: adds a tab listing every
+      photo the face scan matched to them, which beats hunting through folders. */
+  facePerson?: { id: string; name: string } | null;
   onPickSingle?: (asset: GalleryAsset) => void;
   /** Multi mode: attach the selection (ids + their asset objects, so callers
       can stage thumbnails without refetching); resolves when accepted. */
@@ -46,22 +54,25 @@ export function FamilyPhotoPicker({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [added, setAdded] = useState<Set<string>>(() => new Set(existingIds));
   const [adding, setAdding] = useState(false);
-  // Browse picks from what the gallery already holds; Upload adds new files to
-  // the library the family tree is configured to use, then attaches them.
-  const [tab, setTab] = useState<"browse" | "upload">("browse");
+  // Browse picks from what the gallery already holds, Face lists what the scan
+  // matched to the linked person, and Upload adds new files to the library the
+  // family tree is configured to use, then attaches them.
+  const [tab, setTab] = useState<PickerTab>(facePerson ? "face" : "browse");
   const [uploadSettings, setUploadSettings] = useState<FamilyUploadSettings | null>(null);
   const [uploadNotice, setUploadNotice] = useState("");
+  const [faceAssets, setFaceAssets] = useState<GalleryAsset[]>([]);
+  const [faceTotal, setFaceTotal] = useState(0);
+  const [faceLoading, setFaceLoading] = useState(false);
 
   useEffect(() => {
     api<{ libraries: GalleryLibrary[] }>("/api/library/gallery-libraries")
       .then((payload) => setLibraries(payload.libraries))
       .catch(() => {}); // scope select just stays on "All libraries"
-    if (!single) {
-      api<FamilyUploadSettings>("/api/family-tree/settings")
-        .then(setUploadSettings)
-        .catch(() => {}); // the Upload tab explains itself when this is unknown
-    }
-  }, [single]);
+    // Both modes need this: it decides whether an Upload tab exists at all.
+    api<FamilyUploadSettings>("/api/family-tree/settings")
+      .then(setUploadSettings)
+      .catch(() => {}); // no settings, no Upload tab
+  }, []);
 
   const load = useCallback(async (nextScope: string, nextParent: string) => {
     setLoading(true);
@@ -84,6 +95,27 @@ export function FamilyPhotoPicker({
   }, []);
 
   useEffect(() => { void load(scope, ""); }, [scope, load]);
+
+  // The linked person's matches, paged like the gallery's own person view — a
+  // well-photographed relative can have thousands.
+  const loadFaces = useCallback(async (offset: number) => {
+    if (!facePerson) return;
+    setFaceLoading(true);
+    setError("");
+    try {
+      const payload = await api<{ assets: GalleryAsset[]; total: number }>(
+        `/api/library/gallery/people/${facePerson.id}?limit=${FACE_PAGE}&offset=${offset}`
+      );
+      setFaceAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
+      setFaceTotal(payload.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load this person's photos");
+    } finally {
+      setFaceLoading(false);
+    }
+  }, [facePerson]);
+
+  useEffect(() => { if (facePerson) void loadFaces(0); }, [facePerson, loadFaces]);
 
   const breadcrumbParts = useMemo(() => (parent ? parent.split("/") : []), [parent]);
 
@@ -128,12 +160,16 @@ export function FamilyPhotoPicker({
 
   // Uploading needs a destination, which an admin nominates once in the family
   // tree's settings — browsing works across every gallery, but a new file has
-  // to land somewhere specific.
+  // to land somewhere specific. No destination (or no permission to write to
+  // it) means no Upload tab at all: a tab that can only apologise is worse than
+  // no tab, and attaching what the gallery already holds still works.
   const uploadTarget = uploadSettings?.galleryLibrary ?? null;
   const uploadLibrary = uploadTarget ? libraries.find((l) => l.id === uploadTarget.id) : undefined;
+  const canUploadHere = Boolean(uploadTarget && uploadSettings?.canUpload && uploadLibrary);
+  const activeTab: PickerTab = tab === "upload" && !canUploadHere ? "browse" : tab;
 
   const uploadFinished = async (itemIds: string[]) => {
-    if (itemIds.length === 0 || !onAttach) return;
+    if (itemIds.length === 0) return;
     setAdding(true);
     setError("");
     try {
@@ -142,6 +178,14 @@ export function FamilyPhotoPicker({
       const assets = (await Promise.all(itemIds.map((id) =>
         api<{ asset: GalleryAsset }>(`/api/library/gallery/assets/${id}`).then((p) => p.asset).catch(() => null)
       ))).filter((a): a is GalleryAsset => a != null);
+      // Portrait mode: the file is now a gallery item like any other, so the
+      // caller sets it the same way it sets a browsed one.
+      if (single) {
+        if (assets[0]) onPickSingle?.(assets[0]);
+        else setError("Uploaded, but the picture couldn't be read back to set as the portrait.");
+        return;
+      }
+      if (!onAttach) return;
       await onAttach(itemIds, assets);
       setAdded((prev) => new Set([...prev, ...itemIds]));
       setUploadNotice(`${itemIds.length} ${itemIds.length === 1 ? "file" : "files"} uploaded and attached.`);
@@ -153,7 +197,38 @@ export function FamilyPhotoPicker({
     }
   };
 
-  const librarySelect = tab === "browse" ? (
+  // One tile grid for both picking surfaces (folder browse and face matches).
+  const assetGrid = (list: GalleryAsset[]) => (
+    <div className="gallery-grid">
+      {list.map((asset) => {
+        const isAdded = !single && added.has(asset.id);
+        const isSelected = !single && selected.has(asset.id);
+        return (
+          <button
+            key={asset.id}
+            type="button"
+            className={`gallery-tile slideshow-browse-tile${isAdded ? " is-added" : isSelected ? " is-selected" : ""}`}
+            onClick={() => toggle(asset)}
+            disabled={isAdded || adding}
+            aria-pressed={isSelected}
+            title={isAdded ? "Already added" : asset.title}
+          >
+            {asset.coverUrl ? <img src={asset.coverUrl} alt="" loading="lazy" /> : (
+              <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
+            )}
+            {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>}
+            {isAdded ? (
+              <span className="slideshow-browse-badge added">Added</span>
+            ) : isSelected ? (
+              <span className="slideshow-browse-badge selected"><Check size={16} aria-hidden="true" /></span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const librarySelect = activeTab === "browse" ? (
     <label className="slideshow-browse-scope">
       <span className="sr-only">Gallery library</span>
       <select value={scope} onChange={(e) => { setScope(e.target.value); }} disabled={adding}>
@@ -175,58 +250,91 @@ export function FamilyPhotoPicker({
       headerAction={librarySelect}
       onClose={onClose}
     >
-      {!single && (
-        <div className="modal-tabs">
+      <div className="modal-tabs">
+        {facePerson && (
           <button
             type="button"
-            className={`modal-tab${tab === "browse" ? " active" : ""}`}
-            onClick={() => setTab("browse")}
+            className={`modal-tab${activeTab === "face" ? " active" : ""}`}
+            onClick={() => setTab("face")}
           >
-            Browse gallery
+            Face matches{faceTotal > 0 ? ` · ${faceTotal}` : ""}
           </button>
+        )}
+        <button
+          type="button"
+          className={`modal-tab${activeTab === "browse" ? " active" : ""}`}
+          onClick={() => setTab("browse")}
+        >
+          Browse gallery
+        </button>
+        {canUploadHere && (
           <button
             type="button"
-            className={`modal-tab${tab === "upload" ? " active" : ""}`}
+            className={`modal-tab${activeTab === "upload" ? " active" : ""}`}
             onClick={() => { setTab("upload"); setUploadNotice(""); }}
           >
             Upload
           </button>
-        </div>
+        )}
+      </div>
+      {/* Only an admin can fix a missing destination, so only an admin is told
+          why the Upload tab isn't there. */}
+      {!canUploadHere && uploadSettings?.isAdmin && (
+        <p className="ft-modal-hint ft-upload-off-hint">
+          Uploading new files is off until a photo library is chosen in Family tree → Settings → Photo library.
+        </p>
       )}
 
-      {tab === "upload" ? (
+      {activeTab === "upload" && uploadLibrary && uploadTarget ? (
         <div className="modal-tab-content ft-upload-panel">
           {error && <MessageBox tone="error" title="Upload problem">{error}</MessageBox>}
           {uploadNotice && <MessageBox tone="success" title="Added">{uploadNotice}</MessageBox>}
-          {!uploadTarget ? (
-            <MessageBox tone="info" title="No upload library chosen yet">
-              {uploadSettings?.isAdmin
-                ? "Pick which gallery library family-tree photos and videos are added to — Family tree → Settings → Photo library. Until then you can still attach photos the gallery already holds, from the Browse tab."
-                : "An administrator needs to choose which gallery library family-tree uploads go to. Until then you can attach photos the gallery already holds, from the Browse tab."}
-            </MessageBox>
-          ) : !uploadSettings?.canUpload || !uploadLibrary ? (
-            <MessageBox tone="warning" title="Uploading isn't allowed here">
-              Photos and videos would go to “{uploadTarget.name}”, but you don't have permission to upload to that library.
-            </MessageBox>
+          <p className="ft-modal-hint">
+            {single
+              ? `The picture is added to “${uploadTarget.name}” and set as the portrait in one step — it lives in the gallery like any other photo.`
+              : `Files are added to “${uploadTarget.name}” and attached here in one step. They appear in the gallery too, filed by the date they were taken.`}
+          </p>
+          <FileUpload
+            endpoint={`/api/library/gallery-libraries/${uploadLibrary.id}/assets/upload`}
+            accept={uploadLibrary.uploadExtensions}
+            maxBytes={uploadLibrary.maxUploadMB != null ? uploadLibrary.maxUploadMB * 1024 * 1024 : null}
+            multiple={!single}
+            maxFiles={single ? 1 : 100}
+            hint={`Accepted: ${uploadLibrary.uploadExtensions.map((ext) => `.${ext}`).join(", ")}${uploadLibrary.maxUploadMB != null ? ` · up to ${uploadLibrary.maxUploadMB} MB per file` : ""}`}
+            onUploaded={(response) => {
+              const payload = response as { itemIds?: string[] };
+              void uploadFinished(payload.itemIds ?? []);
+            }}
+            onBusyChange={setAdding}
+          />
+        </div>
+      ) : activeTab === "face" && facePerson ? (
+        <div className="modal-tab-content add-to-album-body">
+          {error && <MessageBox tone="error" title="Unable to add photos">{error}</MessageBox>}
+          <p className="ft-modal-hint">
+            {single
+              ? `Every photo the face scan matched to “${facePerson.name}” — pick one to use as the portrait.`
+              : `Every photo the face scan matched to “${facePerson.name}”. Adding one attaches it here for good, so it stays even if the match is later corrected.`}
+          </p>
+          {faceAssets.length === 0 ? (
+            <p className="management-empty">
+              {faceLoading ? "Loading…" : "No photos have been matched to this person yet."}
+            </p>
           ) : (
             <>
-              <p className="ft-modal-hint">
-                Files are added to “{uploadTarget.name}” and attached here in one step. They appear in the
-                gallery too, filed by the date they were taken.
-              </p>
-              <FileUpload
-                endpoint={`/api/library/gallery-libraries/${uploadLibrary.id}/assets/upload`}
-                accept={uploadLibrary.uploadExtensions}
-                maxBytes={uploadLibrary.maxUploadMB != null ? uploadLibrary.maxUploadMB * 1024 * 1024 : null}
-                multiple
-                maxFiles={100}
-                hint={`Accepted: ${uploadLibrary.uploadExtensions.map((ext) => `.${ext}`).join(", ")}${uploadLibrary.maxUploadMB != null ? ` · up to ${uploadLibrary.maxUploadMB} MB per file` : ""}`}
-                onUploaded={(response) => {
-                  const payload = response as { itemIds?: string[] };
-                  void uploadFinished(payload.itemIds ?? []);
-                }}
-                onBusyChange={setAdding}
-              />
+              {assetGrid(faceAssets)}
+              {faceAssets.length < faceTotal && (
+                <div className="ft-face-more">
+                  <button
+                    type="button"
+                    className="secondary-button compact-button"
+                    disabled={faceLoading || adding}
+                    onClick={() => void loadFaces(faceAssets.length)}
+                  >
+                    {faceLoading ? "Loading…" : `Load more (${faceTotal - faceAssets.length} left)`}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -269,33 +377,7 @@ export function FamilyPhotoPicker({
         {assets.length > 0 && (
           <>
             <p className="gallery-section-label">Photos &amp; videos</p>
-            <div className="gallery-grid">
-              {assets.map((asset) => {
-                const isAdded = !single && added.has(asset.id);
-                const isSelected = !single && selected.has(asset.id);
-                return (
-                  <button
-                    key={asset.id}
-                    type="button"
-                    className={`gallery-tile slideshow-browse-tile${isAdded ? " is-added" : isSelected ? " is-selected" : ""}`}
-                    onClick={() => toggle(asset)}
-                    disabled={isAdded || adding}
-                    aria-pressed={isSelected}
-                    title={isAdded ? "Already added" : asset.title}
-                  >
-                    {asset.coverUrl ? <img src={asset.coverUrl} alt="" loading="lazy" /> : (
-                      <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
-                    )}
-                    {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>}
-                    {isAdded ? (
-                      <span className="slideshow-browse-badge added">Added</span>
-                    ) : isSelected ? (
-                      <span className="slideshow-browse-badge selected"><Check size={16} aria-hidden="true" /></span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
+            {assetGrid(assets)}
           </>
         )}
 
@@ -305,7 +387,7 @@ export function FamilyPhotoPicker({
       </>
       )}
 
-      {!single && tab === "browse" && (
+      {!single && activeTab !== "upload" && (
         <div className="modal-actions slideshow-browse-actions">
           <span className="muted">{selected.size > 0 ? `${selected.size} selected` : "Select photos to add"}</span>
           <div className="row-actions">

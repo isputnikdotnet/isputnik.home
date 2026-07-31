@@ -37,12 +37,16 @@ const LABEL_HINTS: Record<FamilyEvent["type"], string> = {
 export function EventEditModal({
   personId,
   personName,
+  facePerson = null,
   event: existing,
   onClose,
   onSaved
 }: {
   personId: string;
   personName: string;
+  /** The person's linked gallery person, so the picker can offer face matches —
+      an event's photos are usually photos of the person it belongs to. */
+  facePerson?: { id: string; name: string } | null;
   /** null = add a new event. */
   event: FamilyEvent | null;
   onClose: () => void;
@@ -192,6 +196,7 @@ export function EventEditModal({
       <FamilyPhotoPicker
         title="Add photos to this event"
         existingIds={photos.map((p) => p.id)}
+        facePerson={facePerson}
         onAttach={(_ids, assets) => {
           setPhotos((prev) => {
             const have = new Set(prev.map((p) => p.id));

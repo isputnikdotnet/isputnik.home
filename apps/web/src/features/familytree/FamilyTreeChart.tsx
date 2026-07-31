@@ -1,11 +1,43 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Maximize, Minus, Plus } from "lucide-react";
+import {
+  Download,
+  FileUp,
+  House,
+  Maximize,
+  Minus,
+  Network,
+  Pencil,
+  Plus,
+  Settings,
+  UserRound,
+  UserRoundPlus,
+  UsersRound
+} from "lucide-react";
+import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
-import { computeChartLayout, NODE_H, NODE_W, type ChartLayout } from "./chart-layout";
-import { lifeYears, type FamilyPerson, type FamilyTree } from "./types";
+import {
+  computeChartLayout,
+  isEndedUnion,
+  NODE_H,
+  NODE_W,
+  type ChartLayout,
+  type PlacedUnionDot
+} from "./chart-layout";
+import { lifeYears, type FamilyPerson, type FamilyTree, type FamilyUnion } from "./types";
 
 const MIN_SCALE = 0.3;
 const MAX_SCALE = 3;
+// Hover text on the union badge — the icon says current or ended, this says why.
+const UNION_BADGE_LABEL: Record<FamilyUnion["status"], string> = {
+  married: "Married",
+  partners: "Partners",
+  divorced: "Divorced",
+  widowed: "Widowed",
+  unknown: "Partners (status not recorded)"
+};
+// Card menu popover size, used to keep it inside the chart frame.
+const CARD_MENU_W = 208;
+const CARD_MENU_H = 176;
 
 interface ViewBox { x: number; y: number; w: number; h: number }
 
@@ -53,6 +85,45 @@ function ActionBadge({
   );
 }
 
+// The marker between two spouse cards. A union still in place gets interlocked
+// wedding rings — woven, so they read as linked and not as two loose circles;
+// a divorce separates them and cuts the link with the genealogist's "//"; a
+// union ended by death keeps the rings linked but drawn as an outline. All three
+// are built from arcs rather than an icon font so they survive any zoom.
+function UnionBadge({ dot }: { dot: PlacedUnionDot }) {
+  const { x, y, status } = dot;
+  const ended = isEndedUnion(status);
+  const parted = status === "divorced";
+  const offset = parted ? 4.5 : 2.8;
+  const ringR = parted ? 3.7 : 4.3;
+  // Where the right ring crosses the left one, top side: the arc redrawn there
+  // (over a wider "cut" in the badge colour) is what makes the weave.
+  const weaveFrom = { x: x + offset - 3.606, y: y - 2.342 };
+  const weaveTo = { x: x + offset - 1.749, y: y - 3.928 };
+  const weave = `M ${weaveFrom.x.toFixed(2)} ${weaveFrom.y.toFixed(2)} A ${ringR} ${ringR} 0 0 1 ${weaveTo.x.toFixed(2)} ${weaveTo.y.toFixed(2)}`;
+
+  return (
+    <g className={`ft-chart-union-badge is-${status}${ended ? " is-ended" : ""}`}>
+      <title>{UNION_BADGE_LABEL[status]}</title>
+      <circle className="ft-chart-union-plate" cx={x} cy={y} r={12} />
+      <circle className="ft-chart-union-ring" cx={x + offset} cy={y} r={ringR} />
+      <circle className="ft-chart-union-ring" cx={x - offset} cy={y} r={ringR} />
+      {!parted && (
+        <>
+          <path className="ft-chart-union-weave-cut" d={weave} />
+          <path className="ft-chart-union-weave" d={weave} />
+        </>
+      )}
+      {parted && (
+        <>
+          <path className="ft-chart-union-break" d={`M ${x - 1.7} ${y + 4.4} L ${x - 0.5} ${y - 4.4}`} />
+          <path className="ft-chart-union-break" d={`M ${x + 0.5} ${y + 4.4} L ${x + 1.7} ${y - 4.4}`} />
+        </>
+      )}
+    </g>
+  );
+}
+
 function personTone(person: FamilyPerson) {
   return person.gender === "male" || person.gender === "female" || person.gender === "other"
     ? person.gender
@@ -94,15 +165,21 @@ function SilhouetteShape({ tone }: { tone: string }) {
 // The pan/zoom SVG chart, laid out top-to-bottom by generation (see
 // chart-layout.ts). This component renders it and owns the viewport: drag to
 // pan, wheel/pinch to zoom, buttons for zoom/fit. Clicking a card re-centers
-// the tree on that person; the badges on each card open the profile or — for
-// anyone who may edit that person — the edit form and the add-relative flow.
+// the tree on that person; a single "⋯" badge per card opens the card menu
+// (profile, and — for anyone who may edit that person — edit and add-relative),
+// so the cards stay readable instead of carrying a stack of icons.
 export function FamilyTreeChart({
   tree,
   focusId,
   onFocus,
   onOpenProfile,
   onEditPerson,
-  onAddRelative
+  onAddRelative,
+  onHome,
+  onAddPerson,
+  onImport,
+  onExport,
+  onSettings
 }: {
   tree: FamilyTree;
   focusId: string;
@@ -110,14 +187,25 @@ export function FamilyTreeChart({
   onOpenProfile: (personId: string) => void;
   onEditPerson: (person: FamilyPerson) => void;
   onAddRelative: (person: FamilyPerson) => void;
+  /** Back to the tree's starting person (the chart re-fits on top of it). */
+  onHome: () => void;
+  // The rail's manage group; each is omitted when the viewer may not do it.
+  onAddPerson?: () => void;
+  onImport?: () => void;
+  onExport?: () => void;
+  onSettings?: () => void;
 }) {
   const layout: ChartLayout = useMemo(() => computeChartLayout(tree, focusId), [tree, focusId]);
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<ViewBox | null>(null);
+  const [cardMenuId, setCardMenuId] = useState<string | null>(null);
   // Live pointer state for pan + pinch; refs so move events don't re-render.
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gestureStart = useRef<{ view: ViewBox; dist: number | null } | null>(null);
   const movedRef = useRef(false);
+  // Which card menu was open when the gesture started, so tapping the same
+  // badge twice toggles instead of closing-then-reopening.
+  const cardMenuAtPointerDown = useRef<string | null>(null);
 
   const fit = () => {
     const svg = svgRef.current;
@@ -133,8 +221,27 @@ export function FamilyTreeChart({
     setView({ x: minX + contentW / 2 - w / 2, y: minY + contentH / 2 - h / 2, w, h });
   };
 
-  // Re-fit when the focus changes (the layout is rebuilt around a new origin).
-  useEffect(() => { fit(); }, [layout]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Re-fit when the focus changes (the layout is rebuilt around a new origin);
+  // a card menu anchored to the old layout goes with it.
+  useEffect(() => { fit(); setCardMenuId(null); }, [layout]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!cardMenuId) return;
+    // The chart's own pointer handler already decided the badge case; this
+    // covers clicks that land outside the chart entirely.
+    const onPointerDown = (event: PointerEvent) => {
+      if (!(event.target as Element | null)?.closest?.(".ft-chart-card-menu")) setCardMenuId(null);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCardMenuId(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [cardMenuId]);
 
   const zoomAt = (factor: number, clientX?: number, clientY?: number) => {
     const svg = svgRef.current;
@@ -159,6 +266,7 @@ export function FamilyTreeChart({
 
   const onWheel = (event: React.WheelEvent) => {
     event.preventDefault();
+    setCardMenuId(null);
     zoomAt(event.deltaY < 0 ? 1.15 : 1 / 1.15, event.clientX, event.clientY);
   };
 
@@ -172,6 +280,10 @@ export function FamilyTreeChart({
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (view) gestureStart.current = { view, dist: pinchDistance() };
     movedRef.current = false;
+    // Any touch on the canvas dismisses an open card menu; the badge's own
+    // click then re-opens it (or closes it, if it was that card's menu).
+    cardMenuAtPointerDown.current = cardMenuId;
+    setCardMenuId(null);
   };
 
   const onPointerMove = (event: React.PointerEvent) => {
@@ -232,6 +344,29 @@ export function FamilyTreeChart({
     return rect.width > 0 ? Math.round((rect.width / view.w) * 100) : 100;
   })();
 
+  // The open card's menu is HTML floating over the SVG, so its badge position
+  // has to be mapped from user space to pixels — recomputed every render, which
+  // is how it stays glued to the card while the chart pans and zooms.
+  const cardMenuNode = cardMenuId ? layout.nodes.find((node) => node.person.id === cardMenuId) ?? null : null;
+  const cardMenuPos = (() => {
+    const svg = svgRef.current;
+    if (!cardMenuNode || !svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    // Mirrors the default "xMidYMid meet" fit of the viewBox.
+    const scale = Math.min(rect.width / box.w, rect.height / box.h);
+    const badgeX = cardMenuNode.x + NODE_W / 2 - 15;
+    const badgeY = cardMenuNode.y - NODE_H / 2 + 15;
+    const left = (rect.width - box.w * scale) / 2 + (badgeX - box.x) * scale;
+    const top = (rect.height - box.h * scale) / 2 + (badgeY - box.y) * scale;
+    return {
+      left: Math.max(8, Math.min(left + 14, rect.width - CARD_MENU_W - 8)),
+      top: Math.max(8, Math.min(top + 14, rect.height - CARD_MENU_H - 8))
+    };
+  })();
+
+  const goHome = () => { onHome(); fit(); };
+
   return (
     <div className="ft-chart-wrap">
       <svg
@@ -247,18 +382,15 @@ export function FamilyTreeChart({
         onPointerCancel={onPointerUp}
       >
         <g className="ft-chart-edges">
-          {layout.edgePaths.map((d, i) => (
-            <path key={i} d={d} />
+          {layout.edgePaths.map((edge, i) => (
+            <path key={i} className={edge.ended ? "is-ended" : undefined} d={edge.d} />
           ))}
         </g>
-        {/* Union badges: the little "rings" marker between spouse cards. */}
+        {/* Union badges between spouse cards — so someone with a former and a
+            current partner doesn't read as married twice. */}
         <g>
           {layout.dots.map((dot) => (
-            <g key={dot.unionId} className="ft-chart-union-badge">
-              <circle cx={dot.x} cy={dot.y} r={11} />
-              <circle className="ft-chart-union-ring" cx={dot.x - 2.4} cy={dot.y} r={3.6} />
-              <circle className="ft-chart-union-ring" cx={dot.x + 2.4} cy={dot.y} r={3.6} />
-            </g>
+            <UnionBadge key={dot.unionId} dot={dot} />
           ))}
         </g>
         <g>
@@ -277,7 +409,7 @@ export function FamilyTreeChart({
             return (
               <g
                 key={person.id}
-                className={`ft-chart-node is-${tone}${isFocus ? " is-focus" : ""}`}
+                className={`ft-chart-node is-${tone}${isFocus ? " is-focus" : ""}${cardMenuId === person.id ? " is-menu-open" : ""}`}
                 onClick={() => { if (!movedRef.current) onFocus(person.id); }}
               >
                 {/* Compact cards truncate long names — expose the full one on hover. */}
@@ -335,51 +467,181 @@ export function FamilyTreeChart({
                     {years}
                   </text>
                 )}
+                {/* One badge per card: everything else lives in its menu. */}
                 <ActionBadge
                   cx={left + NODE_W - 15}
                   cy={top + 15}
-                  label={`Open ${person.name}'s profile`}
-                  onActivate={() => { if (!movedRef.current) onOpenProfile(person.id); }}
-                  className="ft-chart-person-action"
+                  label={`Actions for ${person.name}`}
+                  onActivate={() => {
+                    if (movedRef.current) return;
+                    setCardMenuId(cardMenuAtPointerDown.current === person.id ? null : person.id);
+                  }}
+                  className="ft-chart-menu-action"
                   radius={11}
-                  iconSize={12}
+                  iconSize={14}
                 >
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                  <circle cx={12} cy={7} r={4} />
+                  <g className="ft-chart-dots">
+                    <circle cx={5} cy={12} r={2.1} />
+                    <circle cx={12} cy={12} r={2.1} />
+                    <circle cx={19} cy={12} r={2.1} />
+                  </g>
                 </ActionBadge>
-                {person.canEdit && (
-                  <ActionBadge
-                    cx={left + NODE_W - 15}
-                    cy={top + 39}
-                    label={`Edit ${person.name}`}
-                    onActivate={() => { if (!movedRef.current) onEditPerson(person); }}
-                    className="ft-chart-edit-action"
-                    radius={10}
-                    iconSize={11}
-                  >
-                    <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
-                    <path d="m15 5 4 4" />
-                  </ActionBadge>
-                )}
-                {person.canEdit && (
-                  <ActionBadge
-                    cx={left + NODE_W - 15}
-                    cy={top + 63}
-                    label={`Add a relative to ${person.name}`}
-                    onActivate={() => { if (!movedRef.current) onAddRelative(person); }}
-                    className="ft-chart-add-action"
-                    radius={10}
-                    iconSize={12}
-                  >
-                    <path d="M5 12h14" />
-                    <path d="M12 5v14" />
-                  </ActionBadge>
-                )}
               </g>
             );
           })}
         </g>
       </svg>
+
+      {cardMenuNode && cardMenuPos && (
+        <div
+          className="ft-chart-card-menu"
+          style={{ left: cardMenuPos.left, top: cardMenuPos.top, width: CARD_MENU_W }}
+          role="menu"
+          aria-label={`Actions for ${cardMenuNode.person.name}`}
+        >
+          <p className="ft-chart-card-menu-name">{cardMenuNode.person.name}</p>
+          <Button
+            variant="text"
+            className="select-menu-option action-menu-option"
+            role="menuitem"
+            onClick={() => { setCardMenuId(null); onOpenProfile(cardMenuNode.person.id); }}
+          >
+            <span className="select-menu-option-icon" aria-hidden="true"><UserRound size={16} /></span>
+            <span>Open profile</span>
+          </Button>
+          {cardMenuNode.person.canEdit && (
+            <Button
+              variant="text"
+              className="select-menu-option action-menu-option"
+              role="menuitem"
+              onClick={() => { setCardMenuId(null); onEditPerson(cardMenuNode.person); }}
+            >
+              <span className="select-menu-option-icon" aria-hidden="true"><Pencil size={16} /></span>
+              <span>Edit person</span>
+            </Button>
+          )}
+          {cardMenuNode.person.canEdit && (
+            <Button
+              variant="text"
+              className="select-menu-option action-menu-option"
+              role="menuitem"
+              onClick={() => { setCardMenuId(null); onAddRelative(cardMenuNode.person); }}
+            >
+              <span className="select-menu-option-icon" aria-hidden="true"><UserRoundPlus size={16} /></span>
+              <span>Add a relative</span>
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Standing rail, top-left of the frame: the call to action, then the ways
+          out of the current view. Kept out of the page header so the chart owns
+          its own chrome. */}
+      <nav className="ft-chart-rail" aria-label="Tree navigation">
+        {onAddPerson && (
+          <>
+            <Button
+              variant="text"
+              className="ft-chart-rail-button is-accent"
+              title="Add a family member"
+              onClick={onAddPerson}
+            >
+              <UserRoundPlus size={19} aria-hidden="true" />
+              <span>Add person</span>
+            </Button>
+            <span className="ft-chart-rail-divider" />
+          </>
+        )}
+
+        <Button variant="text" className="ft-chart-rail-button" title="Back to the starting person" onClick={goHome}>
+          <House size={19} aria-hidden="true" />
+          <span>Home</span>
+        </Button>
+        <Button
+          variant="text"
+          className="ft-chart-rail-button"
+          title="Every family member"
+          onClick={() => navigate("/family/people")}
+        >
+          <UsersRound size={19} aria-hidden="true" />
+          <span>All People</span>
+        </Button>
+        <Button
+          variant="text"
+          className="ft-chart-rail-button"
+          title="Pick a family name to focus on"
+          onClick={() => navigate("/family/families")}
+        >
+          <Network size={19} aria-hidden="true" />
+          <span>Families</span>
+        </Button>
+
+        {(onImport || onExport || onSettings) && <span className="ft-chart-rail-divider" />}
+
+        {onImport && (
+          <Button variant="text" className="ft-chart-rail-button" title="Import a GEDCOM file" onClick={onImport}>
+            <FileUp size={19} aria-hidden="true" />
+            <span>Import</span>
+          </Button>
+        )}
+        {onExport && (
+          <Button
+            variant="text"
+            className="ft-chart-rail-button"
+            title="Export the whole tree as GEDCOM (.ged)"
+            onClick={onExport}
+          >
+            <Download size={19} aria-hidden="true" />
+            <span>Export</span>
+          </Button>
+        )}
+        {onSettings && (
+          <Button variant="text" className="ft-chart-rail-button" title="Family tree settings" onClick={onSettings}>
+            <Settings size={19} aria-hidden="true" />
+            <span>Settings</span>
+          </Button>
+        )}
+      </nav>
+
+      <aside className="ft-chart-legend" aria-label="Chart legend">
+        <strong className="ft-chart-legend-title">Legend</strong>
+        <ul className="ft-chart-legend-list">
+          <li>
+            <span className="ft-legend-mark" aria-hidden="true">
+              <svg viewBox="0 0 22 22" role="presentation">
+                <path className="ft-legend-edge" d="M4 5h7v12h7" />
+              </svg>
+            </span>
+            Parent / Child
+          </li>
+          <li>
+            <span className="ft-legend-mark" aria-hidden="true">
+              <svg viewBox="0 0 22 22" role="presentation">
+                <circle className="ft-legend-union-ring" cx={13.8} cy={11} r={4.3} />
+                <circle className="ft-legend-union-ring" cx={8.2} cy={11} r={4.3} />
+                <path className="ft-legend-union-cut" d="M10.19 8.66 A 4.3 4.3 0 0 1 12.05 7.07" />
+                <path className="ft-legend-union-ring" d="M10.19 8.66 A 4.3 4.3 0 0 1 12.05 7.07" />
+              </svg>
+            </span>
+            Married / Partner
+          </li>
+          <li>
+            <span className="ft-legend-mark" aria-hidden="true">
+              <svg viewBox="0 0 22 22" role="presentation">
+                <circle className="ft-legend-union-ring is-ended" cx={6.5} cy={11} r={3.7} />
+                <circle className="ft-legend-union-ring is-ended" cx={15.5} cy={11} r={3.7} />
+                <path className="ft-legend-union-ring is-ended" d="M9.3 15.4 L10.5 6.6" />
+                <path className="ft-legend-union-ring is-ended" d="M11.5 15.4 L12.7 6.6" />
+              </svg>
+            </span>
+            Divorced / Ended
+          </li>
+          <li><span className="ft-legend-swatch is-male" aria-hidden="true" />Male</li>
+          <li><span className="ft-legend-swatch is-female" aria-hidden="true" />Female</li>
+          <li><span className="ft-legend-swatch is-unknown" aria-hidden="true" />Not recorded</li>
+          <li><span className="ft-legend-swatch is-focus" aria-hidden="true" />Focused person</li>
+        </ul>
+      </aside>
 
       <div className="ft-chart-controls" aria-label="Tree view controls">
         <Button variant="icon" aria-label="Zoom out" title="Zoom out" onClick={() => zoomAt(1 / 1.3)}>

@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, FileUp, Search, Settings, UserRound, UserRoundPlus, UsersRound } from "lucide-react";
+import { FileUp, Search, UserRound, UserRoundPlus, UsersRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, navigate } from "../../router";
+import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { AddRelativeModal } from "./AddRelativeModal";
 import { defaultFocusId } from "./chart-layout";
 import { FamilyTreeChart } from "./FamilyTreeChart";
 import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
+import { GedcomImportModal } from "./GedcomImportModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { lifeYears, type FamilyPerson, type FamilyTree } from "./types";
@@ -34,6 +35,7 @@ export function FamilyTreePage({
   const [editPerson, setEditPerson] = useState<FamilyPerson | null>(null);
   const [addRelativeTo, setAddRelativeTo] = useState<FamilyPerson | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const loadTree = () => {
@@ -117,36 +119,6 @@ export function FamilyTreePage({
                 </div>
               )}
             </div>
-            <a className="secondary-button compact-button" href="/family/people" onClick={(event) => followRoute(event, "/family/people")}>
-              <UsersRound size={16} aria-hidden="true" />
-              All people
-            </a>
-            {tree && tree.persons.length > 0 && (
-              <Button
-                variant="icon"
-                title="Export GEDCOM (.ged)"
-                aria-label="Export GEDCOM"
-                onClick={() => window.location.assign("/api/family-tree/export")}
-              >
-                <Download size={17} aria-hidden="true" />
-              </Button>
-            )}
-            {isAdmin && (
-              <Button
-                variant="icon"
-                title="Family tree settings"
-                aria-label="Family tree settings"
-                onClick={() => setSettingsOpen(true)}
-              >
-                <Settings size={17} aria-hidden="true" />
-              </Button>
-            )}
-            {tree?.access.canAdd && (
-              <Button variant="primary" compact onClick={() => setAddOpen(true)}>
-                <UserRoundPlus size={16} aria-hidden="true" />
-                Add person
-              </Button>
-            )}
           </div>
         </header>
 
@@ -168,7 +140,7 @@ export function FamilyTreePage({
                   Add person
                 </Button>
                 {isAdmin && (
-                  <Button variant="secondary" onClick={() => setSettingsOpen(true)}>
+                  <Button variant="secondary" onClick={() => setImportOpen(true)}>
                     <FileUp size={16} aria-hidden="true" />
                     Import GEDCOM
                   </Button>
@@ -186,6 +158,13 @@ export function FamilyTreePage({
             onOpenProfile={(personId) => navigate(`/family/people/${personId}?from=/family/tree/${activeFocusId}`)}
             onEditPerson={setEditPerson}
             onAddRelative={setAddRelativeTo}
+            // "Home" drops the focus from the URL, so the chart falls back to
+            // the starting person the same way a fresh visit does.
+            onHome={() => { if (focusId) navigate("/family"); }}
+            onAddPerson={tree.access.canAdd ? () => setAddOpen(true) : undefined}
+            onImport={isAdmin ? () => setImportOpen(true) : undefined}
+            onExport={() => window.location.assign("/api/family-tree/export")}
+            onSettings={isAdmin ? () => setSettingsOpen(true) : undefined}
           />
         )}
       </section>
@@ -216,6 +195,15 @@ export function FamilyTreePage({
           // The new relative changes the shape of the chart — reload, but stay
           // centred where the user was rather than jumping to the person added.
           onAdded={() => { setAddRelativeTo(null); loadTree(); }}
+        />
+      )}
+
+      {importOpen && (
+        <GedcomImportModal
+          personCount={tree?.persons.length ?? 0}
+          onClose={() => setImportOpen(false)}
+          // An import rewrites the tree wholesale; reload and re-centre.
+          onImported={() => { setImportOpen(false); loadTree(); }}
         />
       )}
 

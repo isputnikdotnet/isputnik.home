@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Network, Settings, UserRoundPlus } from "lucide-react";
+import { ArrowLeft, Network, Settings, UserRoundPlus } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
@@ -52,6 +52,11 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
   return (
     <DashboardShell active="family" user={user} logout={logout}>
       <section className="audiobook-main-page">
+        <a className="audiobook-back-button" href="/family" onClick={(event) => followRoute(event, "/family")}>
+          <ArrowLeft size={18} aria-hidden="true" />
+          <span>Back to the tree</span>
+        </a>
+
         <AudiobookPageHeader
           title="Family members"
           subtitle={`${persons.length} ${persons.length === 1 ? "person" : "people"}`}
@@ -60,9 +65,9 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
           searchPlaceholder="Search family members..."
           actions={
             <>
-              <a className="secondary-button compact-button" href="/family" onClick={(event) => followRoute(event, "/family")}>
+              <a className="secondary-button compact-button" href="/family/families" onClick={(event) => followRoute(event, "/family/families")}>
                 <Network size={16} aria-hidden="true" />
-                Tree view
+                Families
               </a>
               {isAdmin && (
                 <Button variant="secondary" compact onClick={() => setAccessOpen(true)}>
