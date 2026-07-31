@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.3.1",
+          label: "Old photos land on the right date again",
+          changes: [
+            "Photos that carry no date of their own — anything sent through a messaging app, exported from a phone, or downloaded from a photo service — were being filed under the day they arrived on your server rather than the day they were taken. A holiday from 2012 could sit in the middle of this year's timeline.",
+            "Where the date is in the file's name, as it usually is for those photos, it is now used. Names like 2012-12-02T16-38-20.jpg, IMG_20121202_163820.jpg and IMG-20121202-WA0001.jpg are all understood. A date recorded by the camera still wins, and a date you set by hand is never touched.",
+            "The reading is deliberately cautious: a name has to hold a real, plausible date to be believed, so a photo named after a serial number won't be filed under a made-up day. Anything unclear falls back to the old behaviour.",
+            "Photos already in your library are corrected as their library is scanned — no need to re-import anything. Only the ones that were filed by arrival date change; everything else stays where it is."
+          ]
+        },
+        {
           version: "2.3.0",
           label: "A family tree you can steer, and photos that land on the right person",
           changes: [
