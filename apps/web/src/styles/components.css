@@ -768,6 +768,13 @@ a.icon-button svg {
   justify-content: space-between;
   gap: 18px;
   margin-bottom: 24px;
+  /* Header actions drop to their own line rather than being crushed — without
+     this a narrow window squeezes a menu button until its label is clipped. */
+  flex-wrap: wrap;
+}
+
+.section-head > .row-actions {
+  flex: 0 0 auto;
 }
 
 .icon-button {

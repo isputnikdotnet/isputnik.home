@@ -123,7 +123,7 @@ function ClusterHealthPanel({ health, loading, error, mergingKey, onMerge, onRec
 // Admin popup: turn face recognition on/off per gallery library and trigger a full
 // rescan. Enabling a library kicks off an initial scan automatically (server side);
 // "Rescan" reprocesses every photo from scratch. Live scan progress is shown on the
-// Tasks page (Control panel → Libraries → Tasks), not here.
+// Tasks page (Control panel → Overview → Tasks), not here.
 export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
   const [libraries, setLibraries] = useState<GalleryFaceLibrary[]>([]);
   const [strength, setStrength] = useState(8); // matches server DEFAULT_FACE_K until the real value loads
@@ -217,7 +217,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
         body: JSON.stringify({ libraryId: library.id, enabled })
       });
       setLibraries(payload.libraries);
-      if (enabled) setNotice(`Face recognition on for "${library.name}" — scanning has started. Follow progress under Control panel → Libraries → Tasks.`);
+      if (enabled) setNotice(`Face recognition on for "${library.name}" — scanning has started. Follow progress under Control panel → Overview → Tasks.`);
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update");
@@ -232,7 +232,7 @@ export function GalleryFaceSettingsModal({ onClose, onChanged }: { onClose: () =
     setNotice("");
     try {
       await api("/api/library/gallery/faces/scan", { method: "POST", body: JSON.stringify({ libraryId: library.id, force: true }) });
-      setNotice(`Full rescan started for "${library.name}". People update as photos are reprocessed — follow progress under Control panel → Libraries → Tasks.`);
+      setNotice(`Full rescan started for "${library.name}". People update as photos are reprocessed — follow progress under Control panel → Overview → Tasks.`);
       setConfirmRescan(null);
       await load();
       onChanged();

@@ -326,7 +326,7 @@ function BookDetailView({
 
 
   // Move this item to the Recycle Bin, then return to the list (where it's now gone).
-  // Recoverable from Control Panel → Recycle Bin until it's purged. Shared by both types.
+  // Recoverable from Control panel → Maintenance → Recycle Bin until it's purged. Shared by both types.
   const moveToRecycleBin = async () => {
     setDeleteBusy(true);
     setDeleteError("");
@@ -1364,8 +1364,8 @@ function BookDetailView({
           onCancel={() => { if (!deleteBusy) setConfirmDelete(false); }}
         >
           {isEbook
-            ? "This ebook moves into the Recycle Bin and leaves the library for everyone. An administrator can restore it from Control Panel → Recycle Bin."
-            : "This audiobook moves into the Recycle Bin and leaves the library for everyone (any shares stop working). An administrator can restore it from Control Panel → Recycle Bin."}
+            ? "This ebook moves into the Recycle Bin and leaves the library for everyone. An administrator can restore it from Control panel → Maintenance → Recycle Bin."
+            : "This audiobook moves into the Recycle Bin and leaves the library for everyone (any shares stop working). An administrator can restore it from Control panel → Maintenance → Recycle Bin."}
         </ConfirmDialog>
       )}
 

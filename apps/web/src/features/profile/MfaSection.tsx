@@ -11,7 +11,7 @@ interface MfaStatus {
   method: MfaMethod;
   backupCodesRemaining: number;
   // Whether the server can send email at all — the email method is unofferable
-  // without it, and an admin has to set SMTP up in Control panel → Email.
+  // without it, and an admin has to set SMTP up in Control panel → Settings → Email.
   emailAvailable: boolean;
   emailAddress: string;
 }
@@ -201,7 +201,7 @@ function MfaSetupModal({
               disabled: !emailAvailable,
               note: emailAvailable
                 ? "Less secure: codes travel by email, so anyone who can read that inbox can get in."
-                : "Unavailable — this server can't send email. An administrator sets it up in Control panel → Email."
+                : "Unavailable — this server can't send email. An administrator sets it up in Control panel → Settings → Email."
             }
           ]}
         />

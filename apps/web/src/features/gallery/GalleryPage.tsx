@@ -396,7 +396,7 @@ export function GalleryPage({
 
   // Admin: rescan just the folder currently open (a single library must be in
   // scope — a folder path can exist under several libraries otherwise). The scan
-  // runs on the server; progress shows on Control panel → Libraries → Tasks.
+  // runs on the server; progress shows on Control panel → Overview → Tasks.
   const [folderRescanBusy, setFolderRescanBusy] = useState(false);
   const rescanFolder = useCallback(async () => {
     if (scopeId === "all" || !parent) return;
@@ -408,7 +408,7 @@ export function GalleryPage({
         method: "POST",
         body: JSON.stringify({ folder: parent })
       });
-      setNotice(`Rescanning "${parent}" — new, changed, and removed files there update shortly. Follow progress under Control panel → Libraries → Tasks.`);
+      setNotice(`Rescanning "${parent}" — new, changed, and removed files there update shortly. Follow progress under Control panel → Overview → Tasks.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to start the folder rescan");
     } finally {
