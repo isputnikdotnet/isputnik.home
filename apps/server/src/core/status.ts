@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.6.0",
+          label: "The same photo, saved twice",
+          changes: [
+            "Duplicate photos now also finds the same picture saved as a different file — a copy that came back smaller from a messaging app, an export at another quality, a resized version you made and forgot about. Until now it only caught files that were byte-for-byte identical.",
+            "These land in their own “Near-identical” list, kept separate from the identical ones on purpose. They're matched on what the picture looks like, deliberately narrowly, so two similar shots of the same moment are left alone — but they're still worth a look before you remove anything, and “Delete all extras” never touches them.",
+            "One difference worth knowing: when you remove an identical copy, people tagged on it move to the copy you keep. For a near-identical one they don't — a face marked on a smaller version sits in the wrong place on the original, so it's left alone rather than moved somewhere wrong. The app says so before you delete."
+          ]
+        },
+        {
           version: "2.5.0",
           label: "Find the same photo twice",
           changes: [
