@@ -195,6 +195,12 @@ tab entry there — nothing else keeps a parallel list.
   link through `controlHref(section)`, never a string literal. In-page `useState`
   tab rows are not allowed in the control panel — a setting with no URL can't be
   bookmarked, linked from a guide, or reached by search.
+
+  Profile follows the same rule (`PROFILE_PATHS` / `profileHref(tab)`). The test
+  is whether a tab is a *destination* someone would return to or link to. About's
+  two panels are one page's worth of reading, so they stay local state; a
+  two-factor setup or a device address is somewhere you go back to, so it gets an
+  address.
 - **Pages open with `ControlSectionHead`.** It reads the eyebrow (group) and `<h1>`
   (tab) from `nav.ts`, so a page can't disagree with the nav about where it lives.
   Pass `description` for the one-line summary and `children` for header actions.

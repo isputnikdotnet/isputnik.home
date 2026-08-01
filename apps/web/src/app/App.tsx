@@ -242,6 +242,7 @@ export function App() {
   if (route.name === "profile") {
     return (
       <ProfilePage
+        tab={route.tab}
         user={session.user}
         logout={logout}
         onUpdated={(user) => setSession((current) => ({ ...current, user }))}

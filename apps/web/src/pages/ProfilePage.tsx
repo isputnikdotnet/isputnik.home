@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Palette, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
+import { followRoute, profileHref, type ProfileTab } from "../router";
 import { UserAreaNav } from "../features/library/UserAreaNav";
 import { Field } from "../shared/Field";
 import { Button } from "../shared/Button";
@@ -12,8 +13,6 @@ import { ChangeEmailSection } from "../features/profile/ChangeEmailSection";
 import { ChangePasswordSection } from "../features/profile/ChangePasswordSection";
 import { MfaSection } from "../features/profile/MfaSection";
 
-type ProfileTab = "account" | "security" | "appearance" | "devices";
-
 const PROFILE_TABS: { key: ProfileTab; label: string; icon: LucideIcon }[] = [
   { key: "account", label: "Account", icon: UserRound },
   { key: "security", label: "Security", icon: ShieldCheck },
@@ -22,10 +21,12 @@ const PROFILE_TABS: { key: ProfileTab; label: string; icon: LucideIcon }[] = [
 ];
 
 export function ProfilePage({
+  tab: activeTab,
   user,
   logout,
   onUpdated
 }: {
+  tab: ProfileTab;
   user: PublicUser;
   logout: () => Promise<void>;
   onUpdated: (user: PublicUser) => void;
@@ -38,7 +39,6 @@ export function ProfilePage({
   const [ereaderEmail, setEreaderEmail] = useState(user.ereaderEmail ?? "");
   const [ereaderStatus, setEreaderStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [ereaderError, setEreaderError] = useState("");
-  const [activeTab, setActiveTab] = useState<ProfileTab>("account");
 
   const saveProfile = async (event: FormEvent) => {
     event.preventDefault();
@@ -115,24 +115,27 @@ export function ProfilePage({
           </div>
         </div>
 
+        {/* Real links, so a panel can be bookmarked, linked to from a guide, and
+            returned to with the back button. */}
         <div className="control-tabs profile-tabs" role="tablist" aria-label="Profile sections">
           {PROFILE_TABS.map((tab) => {
             const selected = activeTab === tab.key;
             const Icon = tab.icon;
+            const href = profileHref(tab.key);
             return (
-              <Button
+              <a
                 key={tab.key}
-                variant="text"
                 className={`profile-tab${selected ? " active" : ""}`}
                 role="tab"
                 aria-selected={selected}
                 aria-controls={`profile-panel-${tab.key}`}
                 id={`profile-tab-${tab.key}`}
-                onClick={() => setActiveTab(tab.key)}
+                href={href}
+                onClick={(event) => followRoute(event, href)}
               >
                 <Icon className="profile-tab-icon" size={18} aria-hidden="true" />
                 <span>{tab.label}</span>
-              </Button>
+              </a>
             );
           })}
         </div>
