@@ -508,7 +508,8 @@ export async function statusPlugin(app: FastifyInstance) {
             "A folder imported twice, or a phone backup copied in beside the originals, quietly leaves the same picture in your library several times. Control panel → Libraries → Duplicate photos now finds those and lets you keep one.",
             "Only files that are byte-for-byte identical are grouped, so a set is never a guess — two similar shots of the same moment are left alone. It's quick because identical files must be the same size: any photo whose size matches nothing else is skipped without ever being opened.",
             "The copy it suggests keeping is the one carrying work you can't get back — tags, albums, tagged people — and it says why. Pick a different one if you disagree; your choice sticks. Whatever you delete goes to the Recycle Bin, and its tags, albums and people move onto the copy you keep first, so nothing you filed by hand is lost.",
-            "Scan everything or just one library, and see beforehand how many files each would need to read. A new weekly job looks for duplicates on its own — it only ever reports, and nothing is deleted unless you ask."
+            "Scan everything or just one library, and see beforehand how many files each would need to read. A new weekly job looks for duplicates on its own — it only ever reports, and nothing is deleted unless you ask.",
+            "Elsewhere: the family tree has its own mark now — a small branch-and-figure drawing — standing in for relatives who have neither a photo nor a name yet, and a tree with nobody in it looks deliberately empty rather than broken."
           ]
         },
         {
