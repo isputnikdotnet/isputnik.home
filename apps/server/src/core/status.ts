@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.8.0",
+          label: "A control panel you can search",
+          changes: [
+            "The control panel has been reorganised into six sections — Overview, Library, Members, Security, Maintenance and Settings — each with its own row of tabs. Things now sit where you'd look for them: Backup is under Maintenance rather than hidden inside Config, and the photo cleanup tools moved out from behind the Libraries page.",
+            "Press Ctrl+K (⌘K on a Mac) anywhere in the control panel, or use Search at the top of the menu, and type what you're after. It searches the settings themselves, not just page names: “smtp” goes to Email, “lockout” to the security policies, “thumbnail” to Storage. It's usually faster than remembering which tab something lives on.",
+            "Every page in the control panel now has its own address, including ones that never did — the email server settings, reader access tokens, the lockout thresholds, trusted networks and blocked addresses. You can bookmark any of them, and links in the guides now go straight to the right page.",
+            "The three separate statistics tabs — audiobooks, ebooks, gallery — are one page with a media-type picker, and every page now says which section it belongs to in the same words as the menu.",
+            "All your old links still work. Anything you bookmarked before will land on the page it moved to."
+          ]
+        },
+        {
           version: "2.7.0",
           label: "You decide which copies stay",
           changes: [
