@@ -74,11 +74,8 @@
 }
 
 .field input,
-.field select,
 .field textarea,
-.invite-box input,
-.member-field select,
-.member-role-control select {
+.invite-box input {
   width: 100%;
   min-height: 46px;
   padding: 10px 12px;
@@ -88,12 +85,14 @@
   background: var(--field);
 }
 
+/* Selects already carry this chrome from base.css; a field only stretches them. */
+.field select {
+  width: 100%;
+}
+
 .field input:focus,
-.field select:focus,
 .field textarea:focus,
-.invite-box input:focus,
-.member-field select:focus,
-.member-role-control select:focus {
+.invite-box input:focus {
   border-color: var(--mint);
   outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
 }
@@ -434,6 +433,12 @@ a.icon-button svg {
 .select-menu-option-icon {
   display: grid;
   place-items: center;
+}
+
+/* No option in this menu carries an icon, so drop the icon column — leaving it in
+   strands the label in a 22px cell and clips it. */
+.select-menu-option.text-button.no-icon {
+  grid-template-columns: 24px minmax(0, 1fr);
 }
 
 /* ActionMenu variant: one-shot actions, so no check column. */
@@ -2197,11 +2202,7 @@ a.icon-button svg {
   width: 100%;
   min-height: 52px;
   padding: 0 14px;
-  border: 1px solid var(--line);
   border-radius: 8px;
-  color: var(--ink);
-  background: var(--field);
-  font: inherit;
 }
 
 @media (max-width: 820px) {
@@ -2909,10 +2910,6 @@ a.icon-button svg {
 .upload-size-custom-inputs select {
   min-height: 40px;
   padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--field);
-  color: var(--ink);
   font-size: 0.9rem;
   opacity: 0.55;
 }
