@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.8.3",
+          label: "One more line that wouldn't fit",
+          changes: [
+            "The database's “Last modified” card ran its timestamp onto two lines at every window size, full-screen included. The date now sits on the card's main line with the time underneath, the way the other cards carry a value and a note."
+          ]
+        },
+        {
           version: "2.8.2",
           label: "Readable numbers on smaller screens",
           changes: [
