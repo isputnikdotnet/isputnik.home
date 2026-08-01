@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.8.2",
+          label: "Readable numbers on smaller screens",
+          changes: [
+            "The metric cards on System and Statistics squeezed four or three across no matter how narrow the window, so on a smaller laptop a label broke as “Total librarie/s” and a size read “6.8/8 GB”. They now step down to two across, and to one on a phone, while a full-size window looks exactly as it did."
+          ]
+        },
+        {
           version: "2.8.1",
           label: "Follow-ups to the new control panel",
           changes: [
