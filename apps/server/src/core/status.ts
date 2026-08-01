@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.7.0",
+          label: "You decide which copies stay",
+          changes: [
+            "Duplicate photos used to keep exactly one copy from a set and remove the rest. Now every copy is yours to mark: click one to switch it between Keep and Delete. Keep two of three, keep all of them, or clear a whole set out — the set tells you what you've chosen before anything happens, and nothing is acted on until you press Delete.",
+            "Removing every copy is possible now, and asks in its own words rather than the usual reassurance that the kept photo is safe: there is no kept photo. The picture leaves the gallery entirely, and its tags, albums and tagged people go with it, because there's no copy left to move them onto. Everything still goes to the Recycle Bin, so it's undoable until you empty it.",
+            "A new view button opens a set full size — one copy at a time with the arrow keys, or two side by side. Comparing two is the point for near-identical sets, where the difference is in the picture and a thumbnail won't show it. Clicking a photo there marks it, exactly as clicking a tile does.",
+            "Long lists are easier to work through: search by filename, folder or library, sort by size to reclaim or number of copies or identical-first, and page through sets instead of scrolling one endless column. Sets whose copies share both a name and a size collapse to a single thumbnail — seeing the same picture three times tells you nothing.",
+            "Each copy now says which library and which folder it lives in, so two copies sharing a filename can finally be told apart at a glance, and its details open a link straight to that folder in the gallery."
+          ]
+        },
+        {
           version: "2.6.0",
           label: "The same photo, saved twice",
           changes: [
