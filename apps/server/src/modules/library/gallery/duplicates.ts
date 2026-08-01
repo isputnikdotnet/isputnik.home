@@ -410,6 +410,83 @@ function ignoredPairs(): Set<string> {
 
 const pairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
+// ── Perceptual fingerprints (tier 2) ────────────────────────────────────────
+//
+// similarity.ts already has hex-dHash helpers, but its popcount walks bits on a BigInt.
+// That is fine for the few hundred items the memory picker compares and far too slow for
+// the millions of comparisons banding produces, so parse once into two 32-bit halves and
+// use the SWAR popcount. similarity.ts is left alone — Memories depends on it.
+interface Fingerprint { hi: number; lo: number }
+
+function parseFingerprint(hex: string | null): Fingerprint | null {
+  if (!hex || !/^[0-9a-fA-F]{1,16}$/.test(hex)) return null;
+  const padded = hex.padStart(16, "0");
+  const hi = Number.parseInt(padded.slice(0, 8), 16);
+  const lo = Number.parseInt(padded.slice(8), 16);
+  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return null;
+  return { hi: hi >>> 0, lo: lo >>> 0 };
+}
+
+function popcount32(value: number): number {
+  let v = value - ((value >>> 1) & 0x55555555);
+  v = (v & 0x33333333) + ((v >>> 2) & 0x33333333);
+  v = (v + (v >>> 4)) & 0x0f0f0f0f;
+  return (v * 0x01010101) >>> 24;
+}
+
+export function fingerprintDistance(a: Fingerprint, b: Fingerprint): number {
+  return popcount32((a.hi ^ b.hi) >>> 0) + popcount32((a.lo ^ b.lo) >>> 0);
+}
+
+// Same picture, different file: a resized, re-compressed or re-exported copy. In
+// practice those land 0–3 bits from the original.
+//
+// This is NOT similarity.ts's NEAR_DUPLICATE_DISTANCE (10/64). That one deliberately
+// folds a whole burst into one representative for Memories — a different question, and
+// far too loose to propose deleting anything.
+export const NEAR_IDENTICAL_DISTANCE = 3;
+
+// The 64-bit hash is split into 4 x 16-bit bands. Any two hashes differing by at most
+// BAND_COUNT - 1 bits must, by pigeonhole, leave at least one band untouched — so
+// comparing only within band buckets misses NOTHING at distance 3. Raising
+// NEAR_IDENTICAL_DISTANCE without raising BAND_COUNT would silently start missing pairs.
+const BAND_COUNT = 4;
+
+function bandsOf(print: Fingerprint): number[] {
+  return [print.hi >>> 16, print.hi & 0xffff, print.lo >>> 16, print.lo & 0xffff];
+}
+
+function withinNearDistance(a: string | null, b: string | null): boolean {
+  const fa = parseFingerprint(a);
+  const fb = parseFingerprint(b);
+  if (!fa || !fb) return false;
+  return fingerprintDistance(fa, fb) <= NEAR_IDENTICAL_DISTANCE;
+}
+
+// Components over an explicit edge list (tier 2 links specific pairs, rather than tier
+// 1's "everything sharing a digest").
+function componentsFromEdges(edges: [string, string][]): string[][] {
+  const parent = new Map<string, string>();
+  const find = (id: string): string => {
+    if (!parent.has(id)) parent.set(id, id);
+    let root = id;
+    while (parent.get(root) !== root) root = parent.get(root)!;
+    while (parent.get(id) !== root) { const next = parent.get(id)!; parent.set(id, root); id = next; }
+    return root;
+  };
+  for (const [a, b] of edges) {
+    const [ra, rb] = [find(a), find(b)];
+    if (ra !== rb) parent.set(ra, rb);
+  }
+  const groups = new Map<string, string[]>();
+  for (const id of [...parent.keys()]) {
+    const root = find(id);
+    const bucket = groups.get(root);
+    if (bucket) bucket.push(id); else groups.set(root, [id]);
+  }
+  return [...groups.values()].filter((g) => g.length > 1).map((g) => g.sort());
+}
+
 // Split a candidate set into components over the pairs that are NOT dismissed. For an
 // exact group every pair matches, so one dismissal only breaks the set apart when it
 // disconnects it — dismissing A/B in {A,B,C} still leaves all three linked through C,
@@ -448,22 +525,77 @@ export interface DuplicateScanSummary {
 
 const memberSignature = (ids: string[]): string => [...ids].sort().join(",");
 
-// Rebuild the 'exact' groups from the digests currently on disk. Pure DB work — no file
-// access — so it is cheap to re-run and trivially testable.
-export function rebuildExactDuplicateGroups(): Omit<DuplicateScanSummary, "hashed" | "stale"> {
-  // Carry hand-picked keepers across the rebuild, keyed on the member set they were
-  // chosen for: if the set changes, the choice was made about a different question.
-  const manualKeepers = new Map<string, string>();
+export type GroupTotals = Omit<DuplicateScanSummary, "hashed" | "stale">;
+
+// Hand-picked keepers from the previous rebuild, keyed on the member set they were
+// chosen for: if the set changes, the choice was made about a different question.
+function manualKeepersFor(kind: "exact" | "near"): Map<string, string> {
+  const keepers = new Map<string, string>();
   const priorGroups = db.prepare(`
     SELECT g.id, g.keeper_item_id FROM gallery_duplicate_groups g
-    WHERE g.kind = 'exact' AND g.keeper_source = 'manual' AND g.keeper_item_id IS NOT NULL
-  `).all() as { id: string; keeper_item_id: string }[];
+    WHERE g.kind = ? AND g.keeper_source = 'manual' AND g.keeper_item_id IS NOT NULL
+  `).all(kind) as { id: string; keeper_item_id: string }[];
   const memberStmt = db.prepare("SELECT item_id FROM gallery_duplicate_members WHERE group_id = ?");
   for (const group of priorGroups) {
     const ids = (memberStmt.all(group.id) as { item_id: string }[]).map((r) => r.item_id);
-    manualKeepers.set(memberSignature(ids), group.keeper_item_id);
+    keepers.set(memberSignature(ids), group.keeper_item_id);
   }
+  return keepers;
+}
 
+// Replace one tier's groups wholesale. Shared by both tiers so keeper choice, manual
+// carry-over and the totals can't drift apart between them; only how the components are
+// derived, and what "distance" means, differ.
+function writeGroups(
+  kind: "exact" | "near",
+  components: string[][],
+  distanceFor: (keeperId: string, memberId: string) => number
+): GroupTotals {
+  const manualKeepers = manualKeepersFor(kind);
+  const details = loadDetails(components.flat());
+
+  let groups = 0;
+  let extraCopies = 0;
+  let reclaimableBytes = 0;
+
+  db.transaction(() => {
+    db.prepare("DELETE FROM gallery_duplicate_groups WHERE kind = ?").run(kind);
+    const insertGroup = db.prepare(
+      "INSERT INTO gallery_duplicate_groups (id, kind, keeper_item_id, keeper_source, keeper_reason) VALUES (?, ?, ?, ?, ?)"
+    );
+    const insertMember = db.prepare(
+      "INSERT INTO gallery_duplicate_members (group_id, item_id, distance) VALUES (?, ?, ?)"
+    );
+
+    for (const ids of components) {
+      // An id with no detail row lost its item between grouping and writing; dropping it
+      // here also keeps the member insert from violating its foreign key.
+      const rows = ids.map((id) => details.get(id)).filter((r): r is DetailRow => Boolean(r));
+      if (rows.length < 2) continue;
+      const memberIds = rows.map((r) => r.item_id);
+
+      const auto = pickKeeper(rows);
+      if (!auto) continue;
+      const manual = manualKeepers.get(memberSignature(memberIds));
+      const keeperId = manual && memberIds.includes(manual) ? manual : auto.keeperId;
+      const source = keeperId === manual ? "manual" : "auto";
+
+      const groupId = nanoid(16);
+      insertGroup.run(groupId, kind, keeperId, source, source === "manual" ? null : auto.reason);
+      for (const id of memberIds) insertMember.run(groupId, id, distanceFor(keeperId, id));
+
+      groups += 1;
+      extraCopies += rows.length - 1;
+      reclaimableBytes += rows.filter((r) => r.item_id !== keeperId).reduce((sum, r) => sum + (r.size ?? 0), 0);
+    }
+  })();
+
+  return { groups, extraCopies, reclaimableBytes };
+}
+
+// Rebuild the 'exact' groups from the digests currently on disk. Pure DB work — no file
+// access — so it is cheap to re-run and trivially testable.
+export function rebuildExactDuplicateGroups(): GroupTotals {
   const hashGroups = db.prepare(`
     SELECT gd.content_hash AS hash, gd.item_id
     ${CANDIDATE_SQL}
@@ -487,48 +619,90 @@ export function rebuildExactDuplicateGroups(): Omit<DuplicateScanSummary, "hashe
 
   const ignored = ignoredPairs();
   const components = [...byHash.values()].flatMap((ids) => connectedComponents(ids, ignored));
-  const details = loadDetails(components.flat());
+  return writeGroups("exact", components, () => 0);
+}
 
-  let groups = 0;
-  let extraCopies = 0;
-  let reclaimableBytes = 0;
+// Rebuild the 'near' groups: same picture, different file — a resized or re-compressed
+// copy. Runs over the dHash the catalog scan already computed for every photo, so this
+// costs no disk access at all.
+//
+// Must run AFTER rebuildExactDuplicateGroups: an identical set is already presented as
+// one row, so only its keeper takes part here. Otherwise every byte-identical copy would
+// reappear inside the near set sitting beside it.
+export function rebuildNearDuplicateGroups(): GroupTotals {
+  const suppressed = new Set(
+    (db.prepare(`
+      SELECT m.item_id FROM gallery_duplicate_members m
+      JOIN gallery_duplicate_groups g ON g.id = m.group_id AND g.kind = 'exact'
+      WHERE m.item_id IS NOT g.keeper_item_id
+    `).all() as { item_id: string }[]).map((r) => r.item_id)
+  );
 
-  db.transaction(() => {
-    db.prepare("DELETE FROM gallery_duplicate_groups WHERE kind = 'exact'").run();
-    const insertGroup = db.prepare(
-      "INSERT INTO gallery_duplicate_groups (id, kind, keeper_item_id, keeper_source, keeper_reason) VALUES (?, 'exact', ?, ?, ?)"
-    );
-    const insertMember = db.prepare(
-      "INSERT INTO gallery_duplicate_members (group_id, item_id, distance) VALUES (?, ?, 0)"
-    );
+  const rows = db.prepare(`
+    SELECT gd.item_id, gd.phash
+    FROM gallery_details gd
+    JOIN library_items li ON li.id = gd.item_id AND li.deleted_at IS NULL AND li.status = 'ready'
+    JOIN libraries lib ON lib.id = li.library_id AND lib.type = 'gallery'
+    WHERE gd.kind = 'photo' AND gd.phash IS NOT NULL
+    ORDER BY gd.item_id
+  `).all() as { item_id: string; phash: string }[];
 
-    for (const ids of components) {
-      const rows = ids.map((id) => details.get(id)).filter((r): r is DetailRow => Boolean(r));
-      if (rows.length < 2) continue;
+  const prints = new Map<string, Fingerprint>();
+  for (const row of rows) {
+    if (suppressed.has(row.item_id)) continue;
+    const print = parseFingerprint(row.phash);
+    if (print) prints.set(row.item_id, print);
+  }
 
-      const auto = pickKeeper(rows);
-      if (!auto) continue;
-      const manual = manualKeepers.get(memberSignature(ids));
-      const keeperId = manual && ids.includes(manual) ? manual : auto.keeperId;
-      const source = keeperId === manual ? "manual" : "auto";
+  // Bucket by (band index, band value); only items sharing a bucket are ever compared.
+  const buckets = new Map<string, string[]>();
+  for (const [id, print] of prints) {
+    bandsOf(print).forEach((band, index) => {
+      const key = `${index}:${band}`;
+      const bucket = buckets.get(key);
+      if (bucket) bucket.push(id); else buckets.set(key, [id]);
+    });
+  }
 
-      const groupId = nanoid(16);
-      insertGroup.run(groupId, keeperId, source, source === "manual" ? null : auto.reason);
-      for (const id of ids) insertMember.run(groupId, id);
-
-      groups += 1;
-      extraCopies += rows.length - 1;
-      reclaimableBytes += rows.filter((r) => r.item_id !== keeperId).reduce((sum, r) => sum + (r.size ?? 0), 0);
+  const ignored = ignoredPairs();
+  const edges: [string, string][] = [];
+  const compared = new Set<string>(); // a pair can share several bands
+  for (const bucket of buckets.values()) {
+    if (bucket.length < 2) continue;
+    for (let i = 0; i < bucket.length; i += 1) {
+      for (let j = i + 1; j < bucket.length; j += 1) {
+        const key = pairKey(bucket[i], bucket[j]);
+        if (compared.has(key)) continue;
+        compared.add(key);
+        if (ignored.has(key)) continue;
+        if (fingerprintDistance(prints.get(bucket[i])!, prints.get(bucket[j])!) > NEAR_IDENTICAL_DISTANCE) continue;
+        edges.push([bucket[i], bucket[j]]);
+      }
     }
+  }
 
-    db.prepare(`
-      INSERT INTO app_settings (key, value, updated_at)
-      VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-    `).run(LAST_SCAN_KEY);
-  })();
+  const components = componentsFromEdges(edges);
+  return writeGroups("near", components, (keeperId, memberId) => {
+    const keeper = prints.get(keeperId);
+    const member = prints.get(memberId);
+    return keeper && member ? fingerprintDistance(keeper, member) : 0;
+  });
+}
 
-  return { groups, extraCopies, reclaimableBytes };
+// Both tiers, in the order they depend on, plus the "last scanned" stamp.
+export function rebuildDuplicateGroups(): GroupTotals {
+  const exact = rebuildExactDuplicateGroups();
+  const near = rebuildNearDuplicateGroups();
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(LAST_SCAN_KEY);
+  return {
+    groups: exact.groups + near.groups,
+    extraCopies: exact.extraCopies + near.extraCopies,
+    reclaimableBytes: exact.reclaimableBytes + near.reclaimableBytes
+  };
 }
 
 // `libraryId` limits the disk reads to one library. Grouping still runs over every
@@ -539,7 +713,7 @@ export async function runDuplicateScan(
   libraryId?: string | null
 ): Promise<DuplicateScanSummary> {
   const pass = await hashDuplicateCandidates(onProgress, libraryId);
-  return { ...pass, ...rebuildExactDuplicateGroups() };
+  return { ...pass, ...rebuildDuplicateGroups() };
 }
 
 export function lastDuplicateScanAt(): string | null {
@@ -764,8 +938,15 @@ function pickFaceRowsToMove(keeperId: string, loserIds: string[]): string[] {
 // row; because the row is no longer attached to the loser, trashBook's face-crop cleanup
 // correctly leaves them alone. (This does NOT generalise to the near-identical tier,
 // where a resized copy's boxes would not transfer.)
-export function absorbDuplicateMetadata(keeperId: string, loserIds: string[]): void {
+export function absorbDuplicateMetadata(
+  keeperId: string,
+  loserIds: string[],
+  // Only ever true for tier 1. A near-identical copy is a DIFFERENT image — resized or
+  // re-cropped — so its normalised face boxes describe the wrong pixels on the keeper.
+  options: { moveFaces?: boolean } = {}
+): void {
   if (loserIds.length === 0) return;
+  const { moveFaces = true } = options;
   const losers = inList(loserIds);
   const args = [keeperId, ...loserIds];
 
@@ -773,7 +954,7 @@ export function absorbDuplicateMetadata(keeperId: string, loserIds: string[]): v
     `SELECT DISTINCT person_id FROM gallery_faces
      WHERE person_id IS NOT NULL AND item_id IN (${losers}, ?)`
   ).all(...loserIds, keeperId) as { person_id: string }[]).map((r) => r.person_id);
-  const faceIdsToMove = pickFaceRowsToMove(keeperId, loserIds);
+  const faceIdsToMove = moveFaces ? pickFaceRowsToMove(keeperId, loserIds) : [];
 
   db.transaction(() => {
     db.prepare(
@@ -903,26 +1084,27 @@ export function resolveDuplicateGroup(groupId: string, userId: string): Duplicat
   if (!group?.keeper_item_id) return null;
 
   const members = db.prepare(`
-    SELECT m.item_id, gd.content_hash
+    SELECT m.item_id, gd.content_hash, gd.phash
     FROM gallery_duplicate_members m
     JOIN gallery_details gd ON gd.item_id = m.item_id
     JOIN library_items li ON li.id = m.item_id AND li.deleted_at IS NULL AND li.status = 'ready'
     WHERE m.group_id = ?
-  `).all(groupId) as { item_id: string; content_hash: string | null }[];
+  `).all(groupId) as { item_id: string; content_hash: string | null; phash: string | null }[];
 
   const keeper = members.find((m) => m.item_id === group.keeper_item_id);
   if (!keeper) return null; // the copy we meant to keep is gone — never guess a new one
 
-  // For an exact group the digests must still agree; a mismatch means a file changed
-  // under us and these are no longer provably the same picture.
+  // Re-check the relationship the set was built on, per tier: identical digests, or a
+  // fingerprint still inside the near window. A mismatch means a file changed under us
+  // and these are no longer provably the same picture.
   const losers = members.filter((m) => m.item_id !== keeper.item_id);
-  const stillIdentical = group.kind !== "exact"
-    ? losers
-    : losers.filter((m) => m.content_hash != null && m.content_hash === keeper.content_hash);
-  if (stillIdentical.length === 0) return null;
+  const stillGrouped = group.kind === "exact"
+    ? losers.filter((m) => m.content_hash != null && m.content_hash === keeper.content_hash)
+    : losers.filter((m) => withinNearDistance(keeper.phash, m.phash));
+  if (stillGrouped.length === 0) return null;
 
-  const loserIds = stillIdentical.map((m) => m.item_id);
-  absorbDuplicateMetadata(keeper.item_id, loserIds);
+  const loserIds = stillGrouped.map((m) => m.item_id);
+  absorbDuplicateMetadata(keeper.item_id, loserIds, { moveFaces: group.kind === "exact" });
 
   const deletedItemIds: string[] = [];
   const failed: { itemId: string; error: string }[] = [];

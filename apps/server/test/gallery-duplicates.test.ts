@@ -15,6 +15,8 @@ import { thumbnailPathSettingKey } from "../src/modules/library/shared/thumbnail
 import {
   duplicateCandidateCount,
   rebuildExactDuplicateGroups,
+  rebuildDuplicateGroups,
+  NEAR_IDENTICAL_DISTANCE,
   runDuplicateScan,
   listDuplicateGroups,
   setDuplicateKeeper,
@@ -32,6 +34,8 @@ interface AssetOpts {
   library?: string;
   size?: number;
   hash?: string | null;
+  phash?: string | null;
+  kind?: string;
   width?: number;
   height?: number;
   takenAt?: string | null;
@@ -46,7 +50,8 @@ interface AssetOpts {
 // leaves behind, so grouping can be tested without touching a filesystem.
 function asset(id: string, relativePath: string, opts: AssetOpts = {}): string {
   const {
-    library = "GAL", size = 1000, hash = "h1", width = 4000, height = 3000,
+    library = "GAL", size = 1000, hash = "h1", phash = null, kind = "photo",
+    width = 4000, height = 3000,
     takenAt = "2024-05-01T10:00:00.000Z", takenAtSource = "scan", cameraMake = "Canon",
     deleted = false, status = "ready", discoveredAt = "2024-01-01T00:00:00.000Z"
   } = opts;
@@ -57,10 +62,19 @@ function asset(id: string, relativePath: string, opts: AssetOpts = {}): string {
   db.prepare(`
     INSERT INTO gallery_details
       (item_id, kind, relative_path, size, width, height, taken_at, taken_at_source,
-       camera_make, content_hash, content_hash_at, modified_at)
-    VALUES (?, 'photo', ?, ?, ?, ?, ?, ?, ?, ?, 'm1', 'm1')
-  `).run(id, relativePath, size, width, height, takenAt, takenAtSource, cameraMake, hash);
+       camera_make, content_hash, content_hash_at, modified_at, phash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'm1', 'm1', ?)
+  `).run(id, kind, relativePath, size, width, height, takenAt, takenAtSource, cameraMake, hash, phash);
   return id;
+}
+
+// A 64-bit dHash as 16 hex chars, with the given bit positions set. Bit 0-15 land in
+// band 3, 16-31 in band 2, 32-47 in band 1, 48-63 in band 0 — which is what makes it
+// possible to aim a difference at specific bands.
+function fingerprint(...bits: number[]): string {
+  let value = 0n;
+  for (const bit of bits) value |= 1n << BigInt(bit);
+  return value.toString(16).padStart(16, "0");
 }
 
 const groupsByMembers = () =>
@@ -136,6 +150,139 @@ describe("exact grouping", () => {
     db.prepare("DELETE FROM library_items WHERE id = 'b'").run();
     rebuildExactDuplicateGroups();
     expect(listDuplicateGroups()).toEqual([]);
+  });
+});
+
+describe("near-identical grouping", () => {
+  // Distinct digests throughout, so nothing here is caught by the exact tier instead.
+  const photo = (id: string, phash: string, opts: AssetOpts = {}) =>
+    asset(id, `${id}.jpg`, { hash: `h-${id}`, phash, ...opts });
+
+  const nearGroups = () =>
+    listDuplicateGroups().filter((g) => g.kind === "near").map((g) => g.members.map((m) => m.itemId).sort());
+
+  it("groups a re-encoded copy but leaves a different picture alone", () => {
+    photo("original", fingerprint(1, 2, 3, 40, 41));
+    photo("resized", fingerprint(1, 2, 3, 40));            // 1 bit away
+    photo("different", fingerprint(4, 5, 6, 7, 8, 9, 10)); // far away
+
+    rebuildDuplicateGroups();
+    expect(nearGroups()).toEqual([["original", "resized"]]);
+  });
+
+  it("finds a pair whose 3 differing bits are spread across three bands", () => {
+    // The tightest case the band index has to survive: 3 bits in 3 different bands
+    // leaves exactly one band untouched, which is the whole pigeonhole argument.
+    photo("a", fingerprint(0, 16, 32));
+    photo("b", fingerprint());
+
+    rebuildDuplicateGroups();
+    expect(nearGroups()).toEqual([["a", "b"]]);
+  });
+
+  it("stops at the threshold — a 4-bit difference is a different photo", () => {
+    // One bit in every band: no band survives untouched, which is exactly why the
+    // 4-band index is only exact up to 3. Raising this constant without adding bands
+    // would start missing pairs silently — hence the guard.
+    expect(NEAR_IDENTICAL_DISTANCE).toBe(3);
+    photo("a", fingerprint(0, 16, 32, 48));
+    photo("b", fingerprint());
+
+    rebuildDuplicateGroups();
+    expect(nearGroups()).toEqual([]);
+  });
+
+  it("records each copy's distance from the one being kept", () => {
+    photo("keeper", fingerprint(1, 2), { width: 4000, height: 3000 });
+    photo("close", fingerprint(1, 2, 3), { width: 800, height: 600 });
+    photo("closer", fingerprint(1, 2), { width: 1600, height: 1200 });
+
+    rebuildDuplicateGroups();
+    const group = listDuplicateGroups().find((g) => g.kind === "near")!;
+    expect(group.keeperItemId).toBe("keeper"); // highest resolution wins
+    const distances = db.prepare(
+      "SELECT item_id, distance FROM gallery_duplicate_members WHERE group_id = ? ORDER BY item_id"
+    ).all(group.id) as { item_id: string; distance: number }[];
+    expect(distances).toEqual([
+      { item_id: "close", distance: 1 },
+      { item_id: "closer", distance: 0 },
+      { item_id: "keeper", distance: 0 }
+    ]);
+  });
+
+  it("never groups videos — they have no fingerprint", () => {
+    photo("photo1", fingerprint(1, 2));
+    asset("video1", "video1.mp4", { hash: "h-v1", phash: null, kind: "video" });
+    asset("video2", "video2.mp4", { hash: "h-v2", phash: null, kind: "video" });
+
+    rebuildDuplicateGroups();
+    expect(nearGroups()).toEqual([]);
+  });
+
+  it("lets an identical set take part through its keeper only", () => {
+    // 'twinA'/'twinB' are byte-identical; 'resized' is a smaller copy of the same shot.
+    // The near set should pair the resized copy with the kept twin, not list all three.
+    asset("twinA", "twinA.jpg", { hash: "same", phash: fingerprint(1, 2), width: 4000, height: 3000 });
+    asset("twinB", "twinB.jpg", { hash: "same", phash: fingerprint(1, 2), width: 4000, height: 3000 });
+    photo("resized", fingerprint(1, 2, 3), { width: 800, height: 600 });
+
+    rebuildDuplicateGroups();
+    const exact = listDuplicateGroups().find((g) => g.kind === "exact")!;
+    expect(exact.members.map((m) => m.itemId).sort()).toEqual(["twinA", "twinB"]);
+    expect(nearGroups()).toEqual([[exact.keeperItemId!, "resized"].sort()]);
+  });
+
+  it("keeps a dismissed pair apart", () => {
+    photo("a", fingerprint(1, 2));
+    photo("b", fingerprint(1, 2, 3));
+    rebuildDuplicateGroups();
+    expect(nearGroups()).toHaveLength(1);
+
+    ignoreDuplicateGroup(listDuplicateGroups().find((g) => g.kind === "near")!.id);
+    rebuildDuplicateGroups();
+    expect(nearGroups()).toEqual([]);
+  });
+
+  it("absorbing a near-identical copy moves tags but NOT faces", () => {
+    // A resized copy's face boxes are normalised against different pixels, so carrying
+    // them over would land a box in the wrong place. Tags and albums have no such
+    // problem. (Tier 1 does move faces — covered under "metadata absorption".)
+    photo("keeper", fingerprint(1, 2), { width: 4000, height: 3000 });
+    photo("small", fingerprint(1, 2, 3), { width: 800, height: 600 });
+    db.prepare("INSERT INTO tags (id, key, display_name) VALUES ('t1', 'lake', 'Lake')").run();
+    db.prepare("INSERT INTO taggables (tag_id, entity_type, entity_id) VALUES ('t1', 'library_item', 'small')").run();
+    db.prepare("INSERT INTO gallery_people (id, name) VALUES ('p1', 'Mum')").run();
+    db.prepare("INSERT INTO gallery_faces (id, item_id, person_id, box_x) VALUES ('f1', 'small', 'p1', 0.25)").run();
+
+    absorbDuplicateMetadata("keeper", ["small"], { moveFaces: false });
+
+    expect(db.prepare("SELECT 1 FROM taggables WHERE tag_id='t1' AND entity_id='keeper'").get()).toBeTruthy();
+    expect(db.prepare("SELECT COUNT(*) AS n FROM gallery_faces WHERE item_id='keeper'").get()).toEqual({ n: 0 });
+  });
+
+  it("hands the keeper vote to whichever copy carries the tagging work", () => {
+    // Deliberate: the small copy wins despite being lower resolution, because tags and
+    // faces can't be recovered from the file and pixels can.
+    photo("big", fingerprint(1, 2), { width: 4000, height: 3000 });
+    photo("small", fingerprint(1, 2, 3), { width: 800, height: 600 });
+    db.prepare("INSERT INTO tags (id, key, display_name) VALUES ('t1', 'lake', 'Lake')").run();
+    db.prepare("INSERT INTO taggables (tag_id, entity_type, entity_id) VALUES ('t1', 'library_item', 'small')").run();
+
+    rebuildDuplicateGroups();
+    expect(listDuplicateGroups().find((g) => g.kind === "near")!.keeperItemId).toBe("small");
+  });
+
+  it("refuses to resolve when a fingerprint has drifted out of range", () => {
+    photo("a", fingerprint(1, 2), { width: 4000, height: 3000 });
+    photo("b", fingerprint(1, 2, 3), { width: 800, height: 600 });
+    rebuildDuplicateGroups();
+    const group = listDuplicateGroups().find((g) => g.kind === "near")!;
+
+    // The photo was re-edited between the scan and the click.
+    db.prepare("UPDATE gallery_details SET phash = ? WHERE item_id = 'b'").run(fingerprint(20, 21, 22, 23, 24));
+
+    expect(resolveDuplicateGroup(group.id, "u1")).toBeNull();
+    expect(db.prepare("SELECT COUNT(*) AS n FROM library_items").get()).toEqual({ n: 2 });
   });
 });
 
@@ -592,6 +739,32 @@ describe("end-to-end scan over real files", () => {
 
     // One copy left, so the set is no longer a duplicate set.
     expect(listDuplicateGroups()).toEqual([]);
+  });
+
+  it("bins a near-identical copy without carrying its faces onto the keeper", async () => {
+    file("big", "big.jpg", "PICTURE-ORIGINAL-LARGE");
+    file("small", "small.jpg", "PICTURE-SMALL");
+    db.prepare("UPDATE gallery_details SET phash = ?, width = 4000, height = 3000 WHERE item_id = 'big'")
+      .run(fingerprint(1, 2));
+    db.prepare("UPDATE gallery_details SET phash = ?, width = 800, height = 600 WHERE item_id = 'small'")
+      .run(fingerprint(1, 2, 3));
+    db.prepare("INSERT INTO gallery_people (id, name) VALUES ('p1', 'Mum')").run();
+    db.prepare("INSERT INTO gallery_faces (id, item_id, person_id, box_x) VALUES ('f1', 'small', 'p1', 0.25)").run();
+
+    await runDuplicateScan();
+    const group = listDuplicateGroups().find((g) => g.kind === "near")!;
+    // The small copy carries the face, so it wins the vote; override it so the face row
+    // sits on the copy being removed — which is the case that must not carry over.
+    expect(setDuplicateKeeper(group.id, "big")).toBe(true);
+
+    const result = resolveDuplicateGroup(group.id, "u1");
+    expect(result?.keptItemId).toBe("big");
+    expect(result?.deletedItemIds).toEqual(["small"]);
+    // The box was normalised against 800x600 pixels; it must not land on the 4000x3000
+    // keeper. The person survives via the library, not via a mis-placed box.
+    expect(db.prepare("SELECT COUNT(*) AS n FROM gallery_faces WHERE item_id = 'big'").get()).toEqual({ n: 0 });
+    expect(fs.existsSync(path.join(sourceRoot, "small.jpg"))).toBe(false);
+    expect(fs.existsSync(path.join(sourceRoot, "big.jpg"))).toBe(true);
   });
 
   it("sweeps every identical set with resolve-all", async () => {

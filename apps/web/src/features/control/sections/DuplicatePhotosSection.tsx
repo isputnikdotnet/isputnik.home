@@ -380,9 +380,18 @@ export function DuplicatePhotosSection() {
           rich
         >
           <p>
-            The copy at <strong>{deleteTarget.members.find((m) => m.isKeeper)?.path}</strong> is kept. Any tags, albums,
-            collections and tagged people on the other copies move onto it first, so nothing you filed by hand is lost.
+            The copy at <strong>{deleteTarget.members.find((m) => m.isKeeper)?.path}</strong> is kept. Any tags, albums
+            and collections on the other copies move onto it first, so nothing you filed by hand is lost.
           </p>
+          {deleteTarget.kind === "exact" ? (
+            <p>Tagged people move across too — these copies are the same file, so the faces line up exactly.</p>
+          ) : (
+            <p>
+              People tagged <em>only</em> on the copies being removed are not carried over: these are different files —
+              a resized or re-saved version — so a face marked on one doesn't line up on the other. Check the faces
+              before removing anything you've spent time tagging.
+            </p>
+          )}
           <p>
             The extra copies go to the Recycle Bin, where they can be restored until it's emptied. The kept photo is not
             affected.
