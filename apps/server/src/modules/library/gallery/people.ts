@@ -130,7 +130,9 @@ export function getGalleryPersonPhotos(
   return { person: { id: person.id, name: person.name }, assets: rows.map(mapAsset), total };
 }
 
-function recomputeFaceCount(personId: string) {
+// Exported for duplicates.ts, which moves face rows onto a kept copy and has to
+// recount afterwards (two items collapsing into one changes the distinct-item tally).
+export function recomputeFaceCount(personId: string) {
   db.prepare(`
     UPDATE gallery_people SET
       face_count = (

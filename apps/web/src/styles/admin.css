@@ -701,6 +701,116 @@
 /* The relative path wraps rather than stretching the table on deep folders. */
 .missing-path { word-break: break-all; }
 
+/* ── Duplicate photos ───────────────────────────────────────────── */
+
+.dup-head-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* This page shows a lot of small decisions at once, so its buttons sit at the
+   admin-table size (34px) rather than the 42px `compact` default. */
+.dup-head-actions .compact-button,
+.dup-group-actions .compact-button {
+  min-height: 32px;
+  padding: 0 10px;
+  gap: 6px;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+/* Scope picker sits inline with the header buttons, so it matches their height. */
+.dup-scope {
+  min-height: 32px;
+  height: 32px;
+  max-width: 260px;
+  padding: 0 8px;
+  font-size: 0.84rem;
+}
+.dup-status { margin: 0 0 10px; font-size: 0.84rem; }
+.dup-tier-heading { margin: 16px 0 4px; font-size: 0.95rem; }
+.dup-tier-note { margin: 0 0 8px; font-size: 0.8rem; }
+.dup-groups { display: flex; flex-direction: column; gap: 10px; }
+
+.dup-group {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 11px 11px;
+}
+.dup-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+.dup-group-summary { font-size: 0.85rem; min-width: 0; }
+.dup-group-actions { display: flex; align-items: center; gap: 6px; }
+
+/* One tile per copy. Clicking a tile makes that copy the one that survives, so the
+   whole tile is the button — hence the shared text Button carrying .dup-copy, whose
+   two-class selectors override the inline text-button defaults.
+   Tiles are a FIXED width, not `minmax(…, 1fr)`: a set of two copies would otherwise
+   stretch each thumbnail across half the page. */
+.dup-copies {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 118px);
+  gap: 8px;
+}
+.dup-copies .dup-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  min-width: 0;
+  height: auto;
+}
+.dup-copies .dup-copy:hover:not(:disabled) { border-color: var(--accent, #c8a24a); }
+.dup-copies .dup-copy.is-keeper {
+  border-color: var(--accent, #c8a24a);
+  box-shadow: inset 0 0 0 1px var(--accent, #c8a24a);
+}
+.dup-copy-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  color: var(--muted);
+}
+.dup-copy-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dup-copy-badge {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.dup-copy.is-keeper .dup-copy-badge { color: var(--accent, #c8a24a); font-weight: 600; }
+.dup-copy-meta { font-size: 0.72rem; line-height: 1.3; }
+/* Deep folder paths would otherwise make one tile far taller than its neighbours;
+   the full path stays available in the tile's tooltip. */
+.dup-copy-path {
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: var(--muted);
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 740px) {
+  /* Narrow screens have too little width for fixed tiles to tile neatly. */
+  .dup-copies { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+}
+
 /* ── Tasks ──────────────────────────────────────────────────────── */
 
 .task-idle-note {

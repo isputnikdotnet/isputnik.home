@@ -291,6 +291,15 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   -- few bits of each other. NULL = video / not yet hashed (the scan backfills).
   -- Used by memory suggestions to pick visually distinct photos (similarity.ts).
   phash               TEXT,
+  -- sha256 of the ORIGINAL file's bytes, written only by the duplicate scan
+  -- (duplicates.ts) and only for assets whose `size` collides with another asset —
+  -- byte-identical files must share a size, so most rows never need hashing and the
+  -- catalog scan never has to read a whole file. `content_hash_at` records the file's
+  -- own mtime at the moment it was hashed — read by stat during the duplicate scan, NOT
+  -- copied from `modified_at`, so a file edited in place between catalog scans still
+  -- rehashes. NULL = not a size-collision candidate / not hashed.
+  content_hash        TEXT,
+  content_hash_at     TEXT,
   -- Video only: a browser-playable H.264/AAC copy of a video the browser can't decode
   -- (playable = 0), produced by the weekly "convert unplayable videos" job and stored in
   -- the thumbnail bucket (see transcode.ts). NULL = native-playable / not converted /
@@ -300,6 +309,12 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);
+-- Drives the duplicate scan's size-collision candidate query.
+CREATE INDEX IF NOT EXISTS idx_gallery_size ON gallery_details(size);
+-- idx_gallery_content_hash is created by migration 25, NOT here: this file runs BEFORE
+-- the migrations, so on an existing database the column it indexes doesn't exist yet and
+-- CREATE INDEX would abort the whole schema pass. Any index over a migration-added
+-- column belongs in that migration.
 
 -- People in photos. A `gallery_people` row is a named person (e.g. "Mum") that spans
 -- every gallery library (people are global, like book contributors). It doubles as
@@ -441,6 +456,43 @@ CREATE TABLE IF NOT EXISTS gallery_faces (
   thumb_storage_key TEXT,                          -- cropped face thumbnail (Phase 2); NULL = use item cover
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- Duplicate photo detection (duplicates.ts). One row per set of assets found to be
+-- the same picture, with `keeper_item_id` naming the copy to keep. Groups are a
+-- derived CACHE: every scan deletes and rebuilds them, so they can never go stale.
+-- `keeper_source = 'manual'` marks a keeper the admin picked by hand, which the
+-- rebuild carries over when the same member set reappears.
+CREATE TABLE IF NOT EXISTS gallery_duplicate_groups (
+  id             TEXT PRIMARY KEY,
+  -- 'exact' = identical bytes (same content_hash). 'near' is reserved for the
+  -- perceptual-hash tier and is not produced yet.
+  kind           TEXT NOT NULL CHECK (kind IN ('exact', 'near')),
+  keeper_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  keeper_source  TEXT NOT NULL DEFAULT 'auto' CHECK (keeper_source IN ('auto', 'manual')),
+  -- Why the automatic keeper won, as a short pre-rendered list for the admin UI.
+  keeper_reason  TEXT,
+  created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS gallery_duplicate_members (
+  group_id TEXT NOT NULL REFERENCES gallery_duplicate_groups(id) ON DELETE CASCADE,
+  item_id  TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  -- Perceptual distance from the keeper in bits; always 0 for an 'exact' group.
+  distance INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (group_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_gallery_dup_members_item ON gallery_duplicate_members(item_id);
+
+-- "These two are not duplicates." Stored as an EDGE rather than against a group id
+-- so the decision survives a rebuild: when a third copy appears and regrouping
+-- changes the member set, the dismissed pair still refuses to link. `item_a` is
+-- always the lexically smaller id, so a pair has exactly one row.
+CREATE TABLE IF NOT EXISTS gallery_duplicate_ignores (
+  item_a     TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  item_b     TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (item_a, item_b)
 );
 
 -- Custom scan rules: a path-scoped override of the default scanner for specific

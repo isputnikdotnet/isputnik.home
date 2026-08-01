@@ -430,7 +430,7 @@ describe('schema baseline (2.0.0)', () => {
     migrate(scratch);
     // Baseline 23 plus the migrations released since — the adds are all guarded,
     // so replaying them over a schema.sql-built file is a no-op that just stamps.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(24);
+    expect(scratch.pragma('user_version', { simple: true })).toBe(25);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -464,7 +464,7 @@ describe('schema baseline (2.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 22'); // the last 1.x schema — already complete
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(24);
+    expect(current.pragma('user_version', { simple: true })).toBe(25);
     current.close();
 
     // Older databases still needed steps that no longer exist: stop, don't stamp.
@@ -473,6 +473,40 @@ describe('schema baseline (2.0.0)', () => {
     stale.pragma('user_version = 12');
     expect(() => migrate(stale)).toThrow(/older version/);
     stale.close();
+  });
+
+  // schema.sql runs BEFORE the migrations, so anything in it that references a
+  // migration-added column blows up on a real (already-populated) database while every
+  // fresh-build test stays green — the column is right there in CREATE TABLE. Migration
+  // 25 shipped exactly that bug: a partial index on gallery_details.content_hash sat in
+  // schema.sql and aborted the whole schema pass on any existing install. Rehearse the
+  // upgrade an existing database actually performs.
+  it('upgrades an existing pre-25 database, whose gallery_details has no content_hash', () => {
+    const existing = new Database(':memory:');
+    migrate(existing);
+
+    // Wind the database back to what 2.4.x left on disk: no digest columns, no index.
+    existing.exec('DROP INDEX IF EXISTS idx_gallery_content_hash');
+    existing.exec('ALTER TABLE gallery_details DROP COLUMN content_hash');
+    existing.exec('ALTER TABLE gallery_details DROP COLUMN content_hash_at');
+    existing.exec('DROP TABLE IF EXISTS gallery_duplicate_members');
+    existing.exec('DROP TABLE IF EXISTS gallery_duplicate_groups');
+    existing.exec('DROP TABLE IF EXISTS gallery_duplicate_ignores');
+    existing.pragma('user_version = 24');
+
+    expect(() => migrate(existing)).not.toThrow();
+    expect(existing.pragma('user_version', { simple: true })).toBe(25);
+
+    const columns = (existing.pragma('table_info(gallery_details)') as { name: string }[]).map((c) => c.name);
+    expect(columns).toEqual(expect.arrayContaining(['content_hash', 'content_hash_at']));
+
+    const objects = (existing.prepare(
+      "SELECT name FROM sqlite_master WHERE name IN ('idx_gallery_content_hash', 'gallery_duplicate_groups', 'gallery_duplicate_members', 'gallery_duplicate_ignores')"
+    ).all() as { name: string }[]).map((r) => r.name).sort();
+    expect(objects).toEqual([
+      'gallery_duplicate_groups', 'gallery_duplicate_ignores', 'gallery_duplicate_members', 'idx_gallery_content_hash'
+    ]);
+    existing.close();
   });
 });
 
