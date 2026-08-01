@@ -11,6 +11,7 @@ import { enqueueEbookScan } from "../library/ebook/scanner.js";
 import { enqueueGalleryScan } from "../library/gallery/scanner.js";
 import { purgeMissingGalleryPhotos, getMissingRetentionDays } from "../library/gallery/cleanup.js";
 import { enqueueTranscodeBatch, unplayableBacklogCount } from "../library/gallery/transcode.js";
+import { enqueueDuplicateScan, duplicatePendingCount } from "../library/gallery/duplicates.js";
 
 // Recurring maintenance tasks. The set of jobs is fixed and defined here; the
 // scheduled_jobs table only stores per-key state (enabled, schedule, last/next run).
@@ -173,6 +174,26 @@ const DEFINITIONS: ScheduledJobDef[] = [
       // keeps this module free of the ML/onnxruntime import chain.
       const batches = ids.reduce((sum, id) => sum + enqueueFaceScanBatches(id).length, 0);
       return `Queued ${batches} face-scan batch${batches === 1 ? "" : "es"} across ${ids.length} librar${ids.length === 1 ? "y" : "ies"} — new or stale-model photos process in the background.`;
+    }
+  },
+  {
+    key: "find_duplicate_photos",
+    label: "Find duplicate photos",
+    description: "Look for photos catalogued more than once — a folder imported twice, or a backup copied in beside the originals. Only files whose size matches another photo's are read, so most of the library is skipped entirely. This never deletes anything: it lists what it finds on the Duplicate photos page for you to review.",
+    defaultEnabled: true,
+    // Between the video conversions (01:45) and the face scan (05:00), so the three
+    // CPU/disk-heavy gallery jobs don't collide.
+    defaultFrequency: "weekly",
+    defaultTime: "02:15",
+    run: () => {
+      if (libraryJobRunning()) return "Skipped — a library or face task is already running; will retry at the next scheduled time.";
+      // An estimate from the catalogue; the scan itself checks each file and may read a
+      // few more (one edited in place since the last library scan looks settled here).
+      const pending = duplicatePendingCount();
+      if (!enqueueDuplicateScan()) return "A duplicate photo scan is already queued or running.";
+      return pending === 0
+        ? "Queued a duplicate photo scan — no new files to read, so it will just re-check the groupings."
+        : `Queued a duplicate photo scan — ${pending} photo${pending === 1 ? "" : "s"} to read. It runs in the background and only reports; nothing is deleted.`;
     }
   }
 ];
@@ -493,6 +514,15 @@ function summarizeTaskResult(type: string, result: Record<string, any> | null): 
   if (type === "TRANSCODE_GALLERY_VIDEO") {
     return result.bytes != null ? `Web copy ${(result.bytes / (1024 * 1024)).toFixed(1)} MB` : null;
   }
+  if (type === "SCAN_GALLERY_DUPLICATES") {
+    if (result.groups == null) return null;
+    const stale = result.stale > 0
+      ? ` · ${result.stale} changed on disk, rescan the library`
+      : "";
+    if (result.groups === 0) return `No duplicate photos found${stale}`;
+    const mb = ((result.reclaimableBytes ?? 0) / (1024 * 1024)).toFixed(1);
+    return `${result.groups} duplicate set${result.groups === 1 ? "" : "s"} · ${result.extraCopies} extra cop${result.extraCopies === 1 ? "y" : "ies"} · ${mb} MB${stale}`;
+  }
   return null;
 }
 
@@ -502,7 +532,8 @@ const PROGRESS_UNIT: Record<string, string> = {
   SCAN_GALLERY_LIBRARY: "items",
   SCAN_EBOOK_LIBRARY: "books",
   "gallery-slideshow-render": "seconds",
-  TRANSCODE_GALLERY_VIDEO: "seconds"
+  TRANSCODE_GALLERY_VIDEO: "seconds",
+  SCAN_GALLERY_DUPLICATES: "files"
 };
 
 function normalizeTaskProgress(type: string, progress: Record<string, any> | null, startedAt: string | null): TaskProgress | null {

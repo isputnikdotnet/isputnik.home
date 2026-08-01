@@ -118,13 +118,53 @@ guide](libraries.md). Three more pages live under this section:
   otherwise.
 - **Scheduled jobs** — the recurring work, each with its own on/off switch and
   frequency: scanning each library type for new files, scanning new photos for
-  faces, purging missing photos, cleaning task history, emptying the recycle bin,
-  and converting unplayable videos. Sensible defaults ship enabled; the face scan
-  runs after the nightly library scans so the day's new photos are already
-  cataloged.
+  faces, looking for duplicate photos, purging missing photos, cleaning task
+  history, emptying the recycle bin, and converting unplayable videos. Sensible
+  defaults ship enabled; the face scan runs after the nightly library scans so the
+  day's new photos are already cataloged.
 - **Missing photos** — files the catalog knows about that are no longer on disk.
   Usually a drive that didn't mount, which is why they aren't removed
   automatically.
+- **Duplicate photos** — the same picture catalogued more than once. See below.
+
+#### Duplicate photos
+
+A folder imported twice, or a phone backup copied in beside the originals, leaves
+the same picture in the library several times. This page finds those and lets you
+keep one.
+
+Only files that are **byte-for-byte identical** are grouped, so a set is never a
+guess — two similar shots of the same scene are left alone. Finding them is cheap
+because identical files must be the same size: photos whose size matches nothing
+else are skipped without ever being opened.
+
+Pick a scope and choose **Scan now**. The picker shows how many files each library
+would need to read, or says *up to date* when there's nothing new. Scoping to one
+library only limits what gets read — sets are still built across every library,
+which matters because the same photo landing in two libraries is the commonest case
+of all.
+
+Each set shows every copy. The one marked **Keeping** is chosen for you, favouring
+whichever copy carries work you can't get back — tags, albums, tagged people —
+then hand-edited details, then originals over things that look like copies
+(`IMG_1234 (1).jpg`, files under *Downloads* or *WhatsApp*). The reason is written
+next to the set. Click any other copy to keep that one instead; your choice sticks
+through later scans.
+
+Then either:
+
+- **Delete N copies** — the extras go to the Recycle Bin. Before they do, their
+  tags, albums, collections and tagged people are merged onto the copy you keep,
+  so nothing you filed by hand is lost.
+- **Not duplicates** — the set disappears and those photos are never grouped again.
+  Nothing is deleted.
+
+**Delete all extras** does the first of those for every identical set at once.
+
+Two things worth knowing. Nothing is deleted without you asking — a scan only ever
+reports. And if a photo has been edited on disk since the last library scan, it's
+left out of the comparison and the page says so; re-scan that library from
+**Libraries**, then scan for duplicates again.
 
 ### Recycle Bin
 

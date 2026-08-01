@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "statusEbookStats" | "statusGalleryStats" | "about" | "libraries" | "storage" | "recycleBin" | "groups" | "tasks" | "scheduledJobs" | "missingPhotos" | "backup" | "categories" | "tags" | "config" | "security";
+export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "statusEbookStats" | "statusGalleryStats" | "about" | "libraries" | "storage" | "recycleBin" | "groups" | "tasks" | "scheduledJobs" | "missingPhotos" | "duplicatePhotos" | "backup" | "categories" | "tags" | "config" | "security";
 
 export type Route =
   | { name: "install" }
@@ -329,6 +329,10 @@ export function getRoute(): Route {
 
   if (["/control/libraries/missing-photos", "/control/missing-photos"].includes(path)) {
     return { name: "control", section: "missingPhotos" };
+  }
+
+  if (["/control/libraries/duplicate-photos", "/control/duplicate-photos"].includes(path)) {
+    return { name: "control", section: "duplicatePhotos" };
   }
 
   if (["/control/config/backup", "/control/maintenance/backup", "/control/system/backup"].includes(path)) {

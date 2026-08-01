@@ -52,6 +52,26 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         db.exec("ALTER TABLE mfa_challenges ADD COLUMN last_sent_at TEXT");
       }
     }
+  },
+  {
+    // Duplicate photo detection: a content digest per gallery asset, plus the
+    // modified_at it was taken from so an edited file rehashes instead of grouping
+    // on a stale digest. Both stay NULL until the duplicate scan hashes the asset —
+    // nothing to backfill. The gallery_duplicate_* tables are new, so schema.sql
+    // creates them on its own.
+    version: 25,
+    up: (db) => {
+      if (!hasColumn(db, "gallery_details", "content_hash")) {
+        db.exec("ALTER TABLE gallery_details ADD COLUMN content_hash TEXT");
+      }
+      if (!hasColumn(db, "gallery_details", "content_hash_at")) {
+        db.exec("ALTER TABLE gallery_details ADD COLUMN content_hash_at TEXT");
+      }
+      // Has to be here rather than in schema.sql, which runs before this and would hit
+      // a column that doesn't exist yet on an existing database. Migrations replay on a
+      // fresh file too, so this is the one place that covers both.
+      db.exec("CREATE INDEX IF NOT EXISTS idx_gallery_content_hash ON gallery_details(content_hash) WHERE content_hash IS NOT NULL");
+    }
   }
 ];
 

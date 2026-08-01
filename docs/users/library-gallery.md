@@ -63,5 +63,10 @@ member to a face group and their profile fills with photos automatically.
 Re-scan after copying files in. Deleting a photo moves it to the **Recycle Bin**
 first, so it can be restored until the bin is emptied.
 
+If the same picture has been imported more than once, **Duplicate photos** in the
+control panel finds the copies and keeps one — merging its tags, albums and tagged
+people onto the copy that survives. See [the control panel
+guide](control-panel.md).
+
 Your originals are never modified — rotating a photo in the app changes the
 generated preview, not the file on disk.

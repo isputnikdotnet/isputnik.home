@@ -4,9 +4,11 @@ import { galleryPeopleRoutesPlugin } from "./people-routes.js";
 import { galleryAlbumRoutesPlugin } from "./album-routes.js";
 import { gallerySlideshowRoutesPlugin } from "./slideshow-routes.js";
 import { galleryMusicRoutesPlugin } from "./music-routes.js";
+import { galleryDuplicateRoutesPlugin } from "./duplicate-routes.js";
 import { removeBuiltinMusic } from "./music.js";
 import { startSlideshowRenderWorker } from "./slideshow-render.js";
 import { startTranscodeWorker } from "./transcode.js";
+import { startDuplicateScanWorker } from "./duplicates.js";
 import { galleryStreamPlugin } from "./stream.js";
 import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
@@ -17,6 +19,7 @@ export async function galleryPlugin(app: FastifyInstance) {
   await app.register(galleryAlbumRoutesPlugin);
   await app.register(gallerySlideshowRoutesPlugin);
   await app.register(galleryMusicRoutesPlugin);
+  await app.register(galleryDuplicateRoutesPlugin);
   await app.register(galleryStreamPlugin);
 
   // Slideshows use only user-uploaded music now; purge any built-in beds a prior
@@ -27,10 +30,12 @@ export async function galleryPlugin(app: FastifyInstance) {
   const stopFaceWorker = startFaceScanWorker();
   const stopRenderWorker = startSlideshowRenderWorker();
   const stopTranscodeWorker = startTranscodeWorker();
+  const stopDuplicateWorker = startDuplicateScanWorker();
   app.addHook("onClose", async () => {
     stopWorker();
     stopFaceWorker();
     stopRenderWorker();
     stopTranscodeWorker();
+    stopDuplicateWorker();
   });
 }
