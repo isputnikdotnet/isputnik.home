@@ -4,7 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
-import { formatManagedDate, formatBytes, formatUptime } from "../../../shared/utils";
+import { formatManagedDate, formatManagedDateParts, formatBytes, formatUptime } from "../../../shared/utils";
 import type { DbInfo, SystemStatus } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 
@@ -37,6 +37,8 @@ export function StatusSection() {
   useEffect(() => {
     loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to load status"));
   }, []);
+
+  const lastModified = dbInfo?.lastModified ? formatManagedDateParts(dbInfo.lastModified) : null;
 
   return (
     <>
@@ -86,7 +88,12 @@ export function StatusSection() {
                 <StatusMetric icon={Database} label="Database size" value={formatBytes(dbInfo.sizeBytes)} />
                 <StatusMetric icon={Database} label="WAL size" value={formatBytes(dbInfo.walSizeBytes)} />
                 <StatusMetric icon={HardDrive} label="Total on disk" value={formatBytes(dbInfo.totalSizeBytes)} />
-                <StatusMetric icon={Clock3} label="Last modified" value={dbInfo.lastModified ? formatManagedDate(dbInfo.lastModified) : "—"} />
+                <StatusMetric
+                  icon={Clock3}
+                  label="Last modified"
+                  value={lastModified?.date ?? "—"}
+                  note={lastModified?.time}
+                />
               </div>
               <p className="muted status-db-path">{dbInfo.path}</p>
               <p className="muted status-db-hint">

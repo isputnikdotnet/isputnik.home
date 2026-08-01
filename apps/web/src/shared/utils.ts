@@ -1,9 +1,25 @@
+// SQLite hands back "YYYY-MM-DD HH:MM:SS" with no zone; anything already
+// carrying a T is a real ISO string and is left alone.
+function parseManagedDate(value: string) {
+  return new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
+}
+
 export function formatManagedDate(value: string) {
-  const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short"
-  }).format(date);
+  }).format(parseManagedDate(value));
+}
+
+// Date and time separately, for the metric cards. Their value line is sized for
+// something short and scannable — "17.6 MB", "40" — so a full timestamp wraps in
+// them at any card width. The date goes on the value line, the time underneath.
+export function formatManagedDateParts(value: string): { date: string; time: string } {
+  const parsed = parseManagedDate(value);
+  return {
+    date: new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(parsed),
+    time: new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(parsed)
+  };
 }
 
 export function formatBytes(bytes: number) {
