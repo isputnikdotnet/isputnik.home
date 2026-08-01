@@ -17,6 +17,7 @@ import {
   setDuplicateKeeper,
   ignoreDuplicateGroup,
   resolveDuplicateGroup,
+  resolveDuplicateSelection,
   resolveAllExactGroups
 } from "./duplicates.js";
 
@@ -89,6 +90,25 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
       return;
     }
     reply.send({ keeperItemId: parsed.data.itemId });
+  });
+
+  // Delete an explicit selection from one set. `deleteItemIds` may name every copy,
+  // which removes the picture entirely — the client warns before sending that.
+  const selectionSchema = z.object({
+    deleteItemIds: z.array(z.string().min(1).max(64)).min(1).max(200)
+  });
+  app.post("/api/library/gallery/duplicates/:id/resolve-selection", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(selectionSchema, request.body);
+    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+    const { id } = request.params as { id: string };
+    const result = resolveDuplicateSelection(id, parsed.data.deleteItemIds, request.user!.id);
+    if (!result) {
+      reply.code(409).send({
+        error: "These photos have changed since the last scan. Run a new scan and review the set again."
+      });
+      return;
+    }
+    reply.send(result);
   });
 
   app.post("/api/library/gallery/duplicates/:id/resolve", { preHandler: app.requireAdmin }, async (request, reply) => {

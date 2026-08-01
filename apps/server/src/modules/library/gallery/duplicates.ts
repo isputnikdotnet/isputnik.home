@@ -261,6 +261,7 @@ interface DetailRow {
   title: string | null;
   metadata_source: string | null;
   cover_storage_key: string | null;
+  preview_storage_key: string | null;
   face_count: number;
   album_count: number;
   slideshow_count: number;
@@ -276,7 +277,7 @@ const DETAIL_COLUMNS = `
   gd.item_id, li.library_id, lib.name AS library_name, gd.relative_path, li.discovered_at,
   gd.size, gd.width, gd.height, gd.taken_at, gd.taken_at_source, gd.gps_source,
   gd.camera_make, gd.camera_model, gd.content_hash,
-  im.title, im.source AS metadata_source, im.cover_storage_key,
+  im.title, im.source AS metadata_source, im.cover_storage_key, gd.preview_storage_key,
   (SELECT COUNT(*) FROM gallery_faces f WHERE f.item_id = gd.item_id AND f.assignment != 'rejected') AS face_count,
   (SELECT COUNT(*) FROM gallery_album_items a WHERE a.item_id = gd.item_id) AS album_count,
   (SELECT COUNT(*) FROM gallery_slideshow_items s WHERE s.item_id = gd.item_id) AS slideshow_count,
@@ -831,6 +832,12 @@ export function listDuplicateGroups(): DuplicateGroup[] {
           path: row.relative_path,
           title: row.title ?? row.relative_path,
           coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
+          // The web-sized preview, for viewing a copy large without pulling the
+          // original down; `fileUrl` is the original itself.
+          previewUrl: row.preview_storage_key
+            ? `/api/library/covers/${row.preview_storage_key}`
+            : row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
+          fileUrl: `/api/library/gallery/assets/${row.item_id}/file`,
           width: row.width,
           height: row.height,
           size: row.size,
@@ -1136,6 +1143,108 @@ export function resolveDuplicateGroup(groupId: string, userId: string): Duplicat
   }
 
   return { keptItemId: keeper.item_id, deletedItemIds, failed };
+}
+
+export interface SelectionResolution {
+  keptItemIds: string[];
+  deletedItemIds: string[];
+  failed: { itemId: string; error: string }[];
+}
+
+// Delete an explicit set of copies, rather than "everything except the keeper".
+// Lets an admin keep two of three, or clear a whole set out.
+//
+// The pairwise re-check only applies when something survives: it exists to stop a copy
+// being deleted as a duplicate of a photo it no longer matches. Deleting every copy is
+// a deliberate "remove this picture entirely", so there is nothing to be a duplicate OF
+// and nothing to re-check against.
+export function resolveDuplicateSelection(
+  groupId: string,
+  deleteItemIds: string[],
+  userId: string
+): SelectionResolution | null {
+  const group = db.prepare(
+    "SELECT id, kind, keeper_item_id FROM gallery_duplicate_groups WHERE id = ?"
+  ).get(groupId) as { id: string; kind: string; keeper_item_id: string | null } | undefined;
+  if (!group) return null;
+
+  const members = db.prepare(`
+    SELECT m.item_id, gd.content_hash, gd.phash
+    FROM gallery_duplicate_members m
+    JOIN gallery_details gd ON gd.item_id = m.item_id
+    JOIN library_items li ON li.id = m.item_id AND li.deleted_at IS NULL AND li.status = 'ready'
+    WHERE m.group_id = ?
+  `).all(groupId) as { item_id: string; content_hash: string | null; phash: string | null }[];
+
+  const wanted = new Set(deleteItemIds);
+  // Only ever act on ids that are live members of THIS set — never delete on the
+  // strength of an id the caller supplied out of the blue.
+  const targets = members.filter((m) => wanted.has(m.item_id));
+  if (targets.length === 0 || targets.length !== wanted.size) return null;
+
+  const kept = members.filter((m) => !wanted.has(m.item_id));
+
+  let doomed = targets;
+  let absorbInto: string | null = null;
+  if (kept.length > 0) {
+    // The set's own keeper absorbs when it is one of the survivors; otherwise the
+    // first surviving copy does, so the deleted copies' tags and albums land
+    // somewhere rather than being dropped.
+    const keeper = kept.find((m) => m.item_id === group.keeper_item_id) ?? kept[0];
+    absorbInto = keeper.item_id;
+    doomed = group.kind === "exact"
+      ? targets.filter((m) => m.content_hash != null && m.content_hash === keeper.content_hash)
+      : targets.filter((m) => withinNearDistance(keeper.phash, m.phash));
+    if (doomed.length === 0) return null;
+  }
+
+  const doomedIds = doomed.map((m) => m.item_id);
+  if (absorbInto) {
+    absorbDuplicateMetadata(absorbInto, doomedIds, { moveFaces: group.kind === "exact" });
+  }
+
+  const deletedItemIds: string[] = [];
+  const failed: { itemId: string; error: string }[] = [];
+  for (const itemId of doomedIds) {
+    try {
+      trashBook(itemId, userId);
+      deletedItemIds.push(itemId);
+    } catch (err) {
+      failed.push({ itemId, error: err instanceof Error ? err.message : "Could not move the copy to the Recycle Bin." });
+    }
+  }
+
+  // trashBook hard-deletes the library_items row, so member rows cascade away; a set
+  // only means anything while two copies remain.
+  const remaining = (db.prepare(
+    "SELECT COUNT(*) AS n FROM gallery_duplicate_members WHERE group_id = ?"
+  ).get(groupId) as { n: number }).n;
+  if (remaining < 2) {
+    db.prepare("DELETE FROM gallery_duplicate_groups WHERE id = ?").run(groupId);
+  } else if (absorbInto) {
+    // The admin may have deleted the keeper itself and kept a different copy; the FK
+    // is ON DELETE SET NULL, so the set would be left with no keeper at all — which
+    // reads as "every copy is up for deletion" next time and blocks the bulk sweep.
+    // Promote the survivor that absorbed the metadata.
+    db.prepare(
+      "UPDATE gallery_duplicate_groups SET keeper_item_id = ? WHERE id = ? AND keeper_item_id IS NULL"
+    ).run(absorbInto, groupId);
+  }
+
+  if (deletedItemIds.length > 0) {
+    logActivity({
+      event: "library.gallery.duplicates_removed",
+      actorUserId: userId,
+      targetType: "library",
+      targetId: null,
+      detail: absorbInto
+        ? `Moved ${deletedItemIds.length} selected cop${deletedItemIds.length === 1 ? "y" : "ies"} to the Recycle Bin, keeping ${kept.length}.`
+        : `Moved all ${deletedItemIds.length} copies of a duplicate set to the Recycle Bin — no copy was kept.`,
+      ipAddress: null
+    });
+  }
+
+  return { keptItemIds: kept.map((m) => m.item_id), deletedItemIds, failed };
 }
 
 export interface BulkResolution {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Copy, ImageOff, Images, Info, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, ExternalLink, Folder, FolderOpen, ImageOff, Images, Info, Maximize2, RefreshCw, Search, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -8,6 +8,7 @@ import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { LibraryMenu } from "../../../shared/LibraryMenu";
 import { Pager } from "../../../shared/Pager";
+import { DuplicateViewer } from "./DuplicateViewer";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { AudiobookHeaderSort } from "../../audiobooks/AudiobooksPage";
 import type { SortKey } from "../../audiobooks/BookFilter";
@@ -19,6 +20,8 @@ interface DuplicateMember {
   path: string;
   title: string;
   coverUrl: string | null;
+  previewUrl: string | null;
+  fileUrl: string;
   width: number | null;
   height: number | null;
   size: number | null;
@@ -106,6 +109,26 @@ function fileName(member: DuplicateMember): string {
   return member.path.split("/").pop() || member.title || "Untitled";
 }
 
+// The folder holding the copy, relative to its library. "" is the library root.
+function folderOf(member: DuplicateMember): string {
+  const cut = member.path.lastIndexOf("/");
+  return cut === -1 ? "" : member.path.slice(0, cut);
+}
+
+// Just the folder the copy sits in, without its ancestors — that's what tells two
+// copies apart at a glance. The full path stays in the tooltip and the details.
+function folderName(member: DuplicateMember): string {
+  const folder = folderOf(member);
+  return folder ? folder.split("/").pop() || folder : "Library root";
+}
+
+// Deep link into the gallery's Folders view, scoped to the library this copy lives
+// in — the same relative folder can exist in more than one gallery library.
+function folderHref(member: DuplicateMember): string {
+  const folder = folderOf(member).split("/").map(encodeURIComponent).join("/");
+  return `/gallery/folders/${folder}?library=${encodeURIComponent(member.libraryId)}`;
+}
+
 // When every copy carries the same filename AND the same byte size, the tiles are
 // indistinguishable from one another — same picture, same name, same size — so
 // showing all of them side by side adds nothing. Those sets collapse to the copy
@@ -161,9 +184,14 @@ export function DuplicatePhotosSection() {
   const [ignoreTarget, setIgnoreTarget] = useState<DuplicateGroup | null>(null);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   // The tile shows only a filename now; everything else about a copy lives here.
-  const [infoTarget, setInfoTarget] = useState<DuplicateMember | null>(null);
+  const [infoTarget, setInfoTarget] = useState<{ member: DuplicateMember; mark: "keep" | "trash" } | null>(null);
+  // The set open in the full-size viewer. Held by id, not by value, so the marks it
+  // shows follow the same state the tiles use.
+  const [viewGroupId, setViewGroupId] = useState<string | null>(null);
   // Look-alike sets start collapsed; this holds the ones opened by hand.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // groupId → itemId → keep/trash, holding only the copies clicked in this sitting.
+  const [marks, setMarks] = useState<Record<string, Record<string, "keep" | "trash">>>({});
   const [deletingAll, setDeletingAll] = useState(false);
   // "" = every gallery library.
   const [scopeId, setScopeId] = useState("");
@@ -271,33 +299,45 @@ export function DuplicatePhotosSection() {
     }
   };
 
-  const chooseKeeper = async (group: DuplicateGroup, member: DuplicateMember) => {
-    if (member.isKeeper) return;
-    setBusyGroupId(group.id);
-    setActionError("");
-    try {
-      await api(`/api/library/gallery/duplicates/${group.id}/keeper`, {
-        method: "POST",
-        body: JSON.stringify({ itemId: member.itemId })
-      });
-      await load();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to change which copy is kept");
-    } finally {
-      setBusyGroupId("");
-    }
+  // Marks live in the page, not the database: a review is a sitting, and nothing is
+  // committed until Delete is pressed. Untouched copies fall back to the scan's own
+  // choice — its keeper stays, the rest are up for deletion — so a set you don't
+  // touch behaves exactly as it did before.
+  const markOf = (group: DuplicateGroup, member: DuplicateMember): "keep" | "trash" =>
+    marks[group.id]?.[member.itemId] ?? (member.isKeeper ? "keep" : "trash");
+
+  const trashedIds = (group: DuplicateGroup) =>
+    group.members.filter((member) => markOf(group, member) === "trash").map((member) => member.itemId);
+
+  const toggleMark = (group: DuplicateGroup, member: DuplicateMember) => {
+    const next = markOf(group, member) === "trash" ? "keep" : "trash";
+    setMarks((current) => ({
+      ...current,
+      [group.id]: { ...current[group.id], [member.itemId]: next }
+    }));
   };
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
+    const deleteItemIds = trashedIds(deleteTarget);
+    if (deleteItemIds.length === 0) return;
     setBusyGroupId(deleteTarget.id);
     setActionError("");
     try {
-      await api(`/api/library/gallery/duplicates/${deleteTarget.id}/resolve`, { method: "POST", body: "{}" });
+      await api(`/api/library/gallery/duplicates/${deleteTarget.id}/resolve-selection`, {
+        method: "POST",
+        body: JSON.stringify({ deleteItemIds })
+      });
+      // Whatever survived is a fresh decision next time round.
+      setMarks((current) => {
+        const next = { ...current };
+        delete next[deleteTarget.id];
+        return next;
+      });
       setDeleteTarget(null);
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to remove the extra copies");
+      setActionError(err instanceof Error ? err.message : "Unable to remove the selected copies");
     } finally {
       setBusyGroupId("");
     }
@@ -341,13 +381,18 @@ export function DuplicatePhotosSection() {
   };
 
   const renderGroup = (group: DuplicateGroup) => {
-    const keeper = group.members.find((member) => member.isKeeper);
+    const marked = trashedIds(group);
+    const keepCount = group.members.length - marked.length;
+    const clearingSet = marked.length === group.members.length;
     const extras = group.members.length - 1;
     const collapsible = copiesLookAlike(group);
     const expanded = !collapsible || expandedIds.has(group.id);
-    // Collapsed still shows the copy being kept — you should always be able to see
-    // the photo; what's hidden is the identical repeats of it.
-    const shownMembers = expanded ? group.members : group.members.filter((member) => member.isKeeper);
+    // Collapsed still shows a copy you're keeping — you should always be able to see
+    // the photo; what's hidden is the identical repeats of it. If every copy is marked
+    // for deletion there is no kept one to show, so fall back to the first.
+    const shownMembers = expanded
+      ? group.members
+      : [group.members.find((member) => markOf(group, member) === "keep") ?? group.members[0]];
     return (
       <div className="dup-group" key={group.id}>
         <div className="dup-group-head">
@@ -355,12 +400,24 @@ export function DuplicatePhotosSection() {
             <strong>{group.members.length} copies of the same photo</strong>
             <span className="datagrid-muted">
               {" · "}{formatBytes(group.reclaimableBytes)} to reclaim
-              {group.keeperSource === "manual"
-                ? " · you chose which copy to keep"
-                : group.keeperReason ? ` · keeping the one that is ${group.keeperReason}` : ""}
+              {" · "}
+              {marked.length === 0
+                ? "nothing selected — click a copy to mark it"
+                : clearingSet
+                  ? "every copy selected for deletion"
+                  : `keeping ${keepCount}, deleting ${marked.length}`}
             </span>
           </div>
           <div className="dup-group-actions">
+            <Button
+              variant="icon"
+              className="dup-group-view"
+              aria-label={`View all ${group.members.length} copies full size`}
+              title="View full size and compare"
+              onClick={() => setViewGroupId(group.id)}
+            >
+              <Maximize2 size={16} aria-hidden="true" />
+            </Button>
             <Button
               variant="secondary"
               compact
@@ -372,11 +429,12 @@ export function DuplicatePhotosSection() {
             <Button
               variant="danger"
               compact
-              disabled={busy || !keeper}
+              disabled={busy || marked.length === 0}
+              title={marked.length === 0 ? "Click a copy to mark it for deletion" : undefined}
               onClick={() => { setActionError(""); setDeleteTarget(group); }}
             >
               <Trash2 size={14} />
-              <span>Delete {copies(extras)}</span>
+              <span>{marked.length === 0 ? "Delete" : `Delete ${copies(marked.length)}`}</span>
             </Button>
             {collapsible && (
               <Button
@@ -395,28 +453,41 @@ export function DuplicatePhotosSection() {
         </div>
 
         <div className="dup-copies" id={`dup-copies-${group.id}`}>
-          {shownMembers.map((member) => (
+          {shownMembers.map((member) => {
+            const mark = markOf(group, member);
+            return (
             // A wrapper, not a button: the info control sits inside the tile, and a
             // button can't nest inside another button.
-            <div className={`dup-copy${member.isKeeper ? " is-keeper" : ""}`} key={member.itemId}>
+            <div className={`dup-copy${mark === "keep" ? " is-keep" : " is-trash"}`} key={member.itemId}>
               <Button
                 variant="text"
                 className="dup-copy-pick"
-                aria-pressed={member.isKeeper}
+                aria-pressed={mark === "trash"}
                 disabled={busy}
-                title={member.isKeeper ? "This copy is being kept" : "Keep this copy instead"}
-                onClick={() => void chooseKeeper(group, member)}
+                title={mark === "keep" ? "Marked to keep — click to delete it instead" : "Marked for deletion — click to keep it"}
+                onClick={() => toggleMark(group, member)}
               >
                 <span className="dup-copy-thumb" aria-hidden="true">
                   {member.coverUrl ? <img src={member.coverUrl} alt="" loading="lazy" /> : <ImageOff size={16} />}
                 </span>
                 <span className="dup-copy-name">{fileName(member)}</span>
+                {/* Copies of one photo routinely sit in different libraries or in
+                    different folders of the same one; the filename alone doesn't say
+                    which is which. */}
+                <span className="dup-copy-where">
+                  <Images size={11} aria-hidden="true" />
+                  <span>{member.libraryName}</span>
+                </span>
+                <span className="dup-copy-where" title={folderOf(member) || "Library root"}>
+                  <Folder size={11} aria-hidden="true" />
+                  <span>{folderName(member)}</span>
+                </span>
               </Button>
 
               {/* The state is already on the pick button as aria-pressed, so the chip
                   is decoration for the eye only. */}
               <span className="dup-copy-badge" aria-hidden="true">
-                {member.isKeeper ? "Keep" : "Delete"}
+                {mark === "keep" ? "Keep" : "Delete"}
               </span>
 
               <Button
@@ -424,12 +495,13 @@ export function DuplicatePhotosSection() {
                 className="dup-copy-info"
                 aria-label={`Details for ${fileName(member)}`}
                 title="Details"
-                onClick={() => setInfoTarget(member)}
+                onClick={() => setInfoTarget({ member, mark })}
               >
                 <Info size={14} aria-hidden="true" />
               </Button>
             </div>
-          ))}
+            );
+          })}
           {!expanded && (
             <Button
               variant="text"
@@ -602,29 +674,60 @@ export function DuplicatePhotosSection() {
         </div>
       )}
 
+      {viewGroupId && (() => {
+        // Read the set back out of the payload each render, so marks toggled inside
+        // the viewer show immediately and a reload can't leave it on a stale copy.
+        const group = payload.groups.find((candidate) => candidate.id === viewGroupId);
+        if (!group) return null;
+        return (
+          <DuplicateViewer
+            title={`${group.members.length} copies of the same photo`}
+            members={group.members}
+            busy={busy}
+            markOf={(member) => markOf(group, member as DuplicateMember)}
+            onToggleMark={(member) => toggleMark(group, member as DuplicateMember)}
+            onClose={() => setViewGroupId(null)}
+          />
+        );
+      })()}
+
       {infoTarget && (
-        <Modal title={fileName(infoTarget)} onClose={() => setInfoTarget(null)}>
+        <Modal title={fileName(infoTarget.member)} onClose={() => setInfoTarget(null)}>
           <dl className="dup-info-list">
             <dt>Library</dt>
-            <dd>{infoTarget.libraryName}</dd>
+            <dd>{infoTarget.member.libraryName}</dd>
+            <dt>Folder</dt>
+            <dd className="dup-info-path">
+              <a
+                href={folderHref(infoTarget.member)}
+                target="_blank"
+                rel="noreferrer"
+                className="dup-info-folder"
+                title="Open this folder in the gallery, in a new tab"
+              >
+                <FolderOpen size={14} aria-hidden="true" />
+                <span>{folderOf(infoTarget.member) || "Library root"}</span>
+                <ExternalLink size={13} aria-hidden="true" />
+              </a>
+            </dd>
             <dt>Path</dt>
-            <dd className="dup-info-path">{infoTarget.path}</dd>
+            <dd className="dup-info-path">{infoTarget.member.path}</dd>
             <dt>Dimensions</dt>
-            <dd>{dimensions(infoTarget)}</dd>
+            <dd>{dimensions(infoTarget.member)}</dd>
             <dt>File size</dt>
-            <dd>{infoTarget.size != null ? formatBytes(infoTarget.size) : "Unknown"}</dd>
+            <dd>{infoTarget.member.size != null ? formatBytes(infoTarget.member.size) : "Unknown"}</dd>
             <dt>Taken</dt>
-            <dd>{formatWhen(infoTarget.takenAt)}</dd>
+            <dd>{formatWhen(infoTarget.member.takenAt)}</dd>
             <dt>Camera</dt>
-            <dd>{infoTarget.camera || "Unknown"}</dd>
+            <dd>{infoTarget.member.camera || "Unknown"}</dd>
             <dt>Tags & links</dt>
             <dd>
-              {infoTarget.linkCount > 0
-                ? `${infoTarget.linkCount} tag${infoTarget.linkCount === 1 ? "" : "s"}/links`
+              {infoTarget.member.linkCount > 0
+                ? `${infoTarget.member.linkCount} tag${infoTarget.member.linkCount === 1 ? "" : "s"}/links`
                 : "None"}
             </dd>
-            <dt>Status</dt>
-            <dd>{infoTarget.isKeeper ? "Being kept" : "Will be deleted"}</dd>
+            <dt>Marked</dt>
+            <dd>{infoTarget.mark === "keep" ? "To keep" : "For deletion"}</dd>
           </dl>
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setInfoTarget(null)}>Close</Button>
@@ -632,37 +735,68 @@ export function DuplicatePhotosSection() {
         </Modal>
       )}
 
-      {deleteTarget && (
-        <ConfirmDialog
-          title={`Delete ${copies(deleteTarget.members.length - 1)} of this photo?`}
-          confirmLabel="Delete copies"
-          busyLabel="Deleting…"
-          danger
-          busy={busyGroupId === deleteTarget.id}
-          error={actionError}
-          onConfirm={confirmDelete}
-          onCancel={() => setDeleteTarget(null)}
-          rich
-        >
-          <p>
-            The copy at <strong>{deleteTarget.members.find((m) => m.isKeeper)?.path}</strong> is kept. Any tags, albums
-            and collections on the other copies move onto it first, so nothing you filed by hand is lost.
-          </p>
-          {deleteTarget.kind === "exact" ? (
-            <p>Tagged people move across too — these copies are the same file, so the faces line up exactly.</p>
-          ) : (
-            <p>
-              People tagged <em>only</em> on the copies being removed are not carried over: these are different files —
-              a resized or re-saved version — so a face marked on one doesn't line up on the other. Check the faces
-              before removing anything you've spent time tagging.
-            </p>
-          )}
-          <p>
-            The extra copies go to the Recycle Bin, where they can be restored until it's emptied. The kept photo is not
-            affected.
-          </p>
-        </ConfirmDialog>
-      )}
+      {deleteTarget && (() => {
+        const doomed = trashedIds(deleteTarget);
+        const survivors = deleteTarget.members.filter((member) => markOf(deleteTarget, member) === "keep");
+        // Nothing survives: this isn't de-duplicating any more, it's removing the
+        // picture from the library. Say that plainly rather than reusing the
+        // reassuring "the kept copy is not affected" wording.
+        const clearingSet = survivors.length === 0;
+        return (
+          <ConfirmDialog
+            title={clearingSet
+              ? `Delete every copy of this photo?`
+              : `Delete ${copies(doomed.length)} of this photo?`}
+            confirmLabel={clearingSet ? `Delete all ${copies(doomed.length)}` : "Delete copies"}
+            busyLabel="Deleting…"
+            danger
+            busy={busyGroupId === deleteTarget.id}
+            error={actionError}
+            onConfirm={confirmDelete}
+            onCancel={() => setDeleteTarget(null)}
+            rich
+          >
+            {clearingSet ? (
+              <>
+                <p>
+                  You've marked <strong>all {deleteTarget.members.length}</strong> copies for deletion, so no copy of
+                  this picture is left behind — it disappears from the gallery entirely.
+                </p>
+                <p>
+                  There is nothing to move its tags, albums, collections and tagged people onto, so those go with it.
+                </p>
+                <p>
+                  All {deleteTarget.members.length} files go to the Recycle Bin and can be restored until it's emptied.
+                  If you meant to keep one, cancel and click a copy to mark it Keep.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  {survivors.length === 1 ? "The copy at " : "These copies are kept: "}
+                  <strong>{survivors.map((member) => member.path).join(", ")}</strong>
+                  {survivors.length === 1 ? " is kept." : "."} Any tags, albums and collections on the copies being
+                  removed move onto {survivors.length === 1 ? "it" : "the first of them"} first, so nothing you filed by
+                  hand is lost.
+                </p>
+                {deleteTarget.kind === "exact" ? (
+                  <p>Tagged people move across too — these copies are the same file, so the faces line up exactly.</p>
+                ) : (
+                  <p>
+                    People tagged <em>only</em> on the copies being removed are not carried over: these are different
+                    files — a resized or re-saved version — so a face marked on one doesn't line up on the other. Check
+                    the faces before removing anything you've spent time tagging.
+                  </p>
+                )}
+                <p>
+                  The selected copies go to the Recycle Bin, where they can be restored until it's emptied. The kept
+                  {survivors.length === 1 ? " photo is" : " photos are"} not affected.
+                </p>
+              </>
+            )}
+          </ConfirmDialog>
+        );
+      })()}
 
       {ignoreTarget && (
         <ConfirmDialog
