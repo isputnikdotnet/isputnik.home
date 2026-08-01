@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { CalendarClock, CheckCircle2, Play, Save, XCircle } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ControlSectionHead } from "../ControlSectionHead";
 import { ToggleSwitch } from "../../../shared/ToggleSwitch";
 import { formatManagedDate } from "../../../shared/utils";
 
@@ -40,12 +41,7 @@ export function ScheduledJobsSection() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Maintenance</p>
-          <h1>Scheduled jobs</h1>
-        </div>
-      </div>
+      <ControlSectionHead section="scheduledJobs" />
 
       <p className="scheduled-jobs-intro muted">
         Recurring upkeep tasks. Pick how often each one runs — and on which day, at what

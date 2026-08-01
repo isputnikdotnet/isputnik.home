@@ -8,6 +8,7 @@ import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedUser } from "../types";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 type UserRole = "admin" | "member";
 
@@ -214,24 +215,19 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
   return (
     <>
-      <div className="section-head user-section-head">
-        <div className="user-title-wrap">
-          <span className="user-page-icon" aria-hidden="true">
-            <Users size={30} />
-          </span>
-          <div className="user-heading-copy">
-            <p className="eyebrow">User administration</p>
-            <h1>User management</h1>
-            <p className="section-description">Manage accounts, roles, sessions, and passwords.</p>
-          </div>
-        </div>
+      <ControlSectionHead
+        section="users"
+        icon={<Users size={30} />}
+        iconClassName="blue"
+        description="Accounts, roles, and password resets."
+      >
         <div className="row-actions">
           <Button variant="primary" onClick={openCreate} title="New user">
             <Plus size={18} />
             <span>New user</span>
           </Button>
         </div>
-      </div>
+      </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="User management error">{error}</MessageBox>}
 

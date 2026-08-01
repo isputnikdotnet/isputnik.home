@@ -289,10 +289,10 @@ Large tabbed modal for editing book metadata and searching external sources.
 ## admin.css
 **Control Center — all admin/management pages**
 
-### User management (`/control/users`)
+### User management (`/control/members`)
 `.user-list` / `.user-row` — card-based user list with name, email, role selector, and action button. `.role-select` — inline role dropdown. `.protected-badge` / `.current-badge` — small mint chips.
 
-### Invite management (`/control/invites`)
+### Invite management (`/control/members/invites`)
 `.invite-list` / `.invite-row` — four-column row: invite summary, status badge, dates, delete button. `.invite-link` — read-only token field + copy button visible when invite is active.
 
 ### Library management (`/control/libraries`)
@@ -308,13 +308,13 @@ Large tabbed modal for editing book metadata and searching external sources.
 | `.library-settings-panel` | Three-column settings row: name, path summary, save actions |
 | `.setting-status` | Inline "ready" / "needs attention" indicator |
 
-### Storage management (`/control/storage`)
+### Storage management (`/control/libraries/storage`)
 `.storage-section` / `.storage-section-head` / `.storage-path-cell` / `.storage-path-summary` — scan-root / storage path management UI.
 
-### Session management (`/control/sessions`)
+### Session management (`/control/members/sessions`)
 `.session-list` / `.session-row` — three-column rows: user info, session metadata (IP, UA, last seen), revoke button.
 
-### Logs (`/control/logs`)
+### Logs (`/control/overview/logs`)
 | Class | What it styles |
 |---|---|
 | `.log-controls` | Filter bar above the table |
@@ -326,7 +326,7 @@ Large tabbed modal for editing book metadata and searching external sources.
 | `.event-action` | Action name text in log rows |
 | `.log-pager` | Prev / page info / next pagination row |
 
-### Status / health (`/control/status`)
+### Status / health (`/control/overview`)
 `.health-line` / `.health-dot` — live service health indicator. `.status-grid` — 3-column metrics grid. `.status-metric` — individual metric card (label + large value).
 
 ### Profile & theme (shared with about page)

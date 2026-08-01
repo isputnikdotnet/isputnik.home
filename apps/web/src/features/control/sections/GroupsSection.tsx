@@ -7,6 +7,7 @@ import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import type { ManagedGroup, GroupMember, ManagedUser } from "../types";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 export function GroupsSection() {
   const [groups, setGroups] = useState<ManagedGroup[]>([]);
@@ -139,24 +140,19 @@ export function GroupsSection() {
 
   return (
     <>
-      <div className="section-head admin-section-head">
-        <div className="admin-title-wrap">
-          <span className="admin-page-icon groups" aria-hidden="true">
-            <Users size={30} />
-          </span>
-          <div className="admin-heading-copy">
-            <p className="eyebrow">User administration</p>
-            <h1>Groups</h1>
-            <p className="section-description">Manage shared access groups and library membership.</p>
-          </div>
-        </div>
+      <ControlSectionHead
+        section="groups"
+        icon={<Users size={30} />}
+        iconClassName="groups"
+        description="Shared access groups and the libraries they can reach."
+      >
         <div className="row-actions">
           <Button variant="primary" onClick={openCreate} title="New group">
             <Plus size={18} />
             <span>New group</span>
           </Button>
         </div>
-      </div>
+      </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Groups error">{error}</MessageBox>}
 

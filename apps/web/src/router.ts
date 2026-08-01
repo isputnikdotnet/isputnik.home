@@ -1,6 +1,138 @@
 import { useState, useEffect } from "react";
 
-export type ControlSection = "users" | "invites" | "sessions" | "logs" | "status" | "statusStats" | "statusEbookStats" | "statusGalleryStats" | "about" | "libraries" | "storage" | "recycleBin" | "groups" | "tasks" | "scheduledJobs" | "missingPhotos" | "duplicatePhotos" | "backup" | "categories" | "tags" | "config" | "security";
+// Every leaf destination in the control panel — one value per tab. The six nav
+// groups they hang off are described in features/control/nav.ts.
+export type ControlSection =
+  // Overview
+  | "status" | "stats" | "tasks" | "logs"
+  // Library
+  | "libraries" | "storage" | "categories" | "tags"
+  // Members
+  | "users" | "groups" | "invites" | "sessions"
+  // Security
+  | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
+  // Maintenance
+  | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos" | "duplicatePhotos"
+  // Settings
+  | "appearance" | "email" | "readerAccess" | "about";
+
+// The canonical address of every control-panel destination. The nav, the tab
+// rows and the search palette all link through controlHref(), so this table is
+// the single place a section's URL is written down. Every tab has one — nothing
+// in the control panel is reachable only by clicking, which is what lets search
+// jump straight to a setting.
+export const CONTROL_PATHS: Record<ControlSection, string> = {
+  status: "/control/overview",
+  stats: "/control/overview/statistics",
+  tasks: "/control/overview/tasks",
+  logs: "/control/overview/logs",
+
+  libraries: "/control/libraries",
+  storage: "/control/libraries/storage",
+  categories: "/control/libraries/categories",
+  tags: "/control/libraries/tags",
+
+  users: "/control/members",
+  groups: "/control/members/groups",
+  invites: "/control/members/invites",
+  sessions: "/control/members/sessions",
+
+  security: "/control/security",
+  securityPolicies: "/control/security/policies",
+  securityTrusted: "/control/security/trusted-networks",
+  securityBlocked: "/control/security/blocked-ips",
+
+  backup: "/control/maintenance/backup",
+  scheduledJobs: "/control/maintenance/scheduled-jobs",
+  recycleBin: "/control/maintenance/recycle-bin",
+  missingPhotos: "/control/maintenance/missing-photos",
+  duplicatePhotos: "/control/maintenance/duplicate-photos",
+
+  appearance: "/control/settings",
+  email: "/control/settings/email",
+  readerAccess: "/control/settings/reader-access",
+  about: "/control/settings/about"
+};
+
+export function controlHref(section: ControlSection): string {
+  return CONTROL_PATHS[section];
+}
+
+// Addresses the control panel used to live at. They keep resolving so existing
+// bookmarks, docs links and the odd typed URL still land somewhere sensible —
+// the panel has been reorganised more than once and old links outlive it.
+const CONTROL_ALIASES: Record<string, ControlSection> = {
+  "/control": "status",
+  "/admin": "status",
+  "/control/status": "status",
+  "/control/database": "status",
+  "/control/maintenance/database": "status",
+  "/control/system/database": "status",
+
+  // The per-media-type stat pages are one Statistics page with a type switch now.
+  "/control/status/audiobook-stats": "stats",
+  "/control/status/stats": "stats",
+  "/control/status/ebook-stats": "stats",
+  "/control/status/ebooks-stats": "stats",
+  "/control/status/gallery-stats": "stats",
+  "/control/status/galleries-stats": "stats",
+  "/control/library/stats": "stats",
+  "/control/libraries/stats": "stats",
+
+  "/control/libraries/tasks": "tasks",
+  "/control/libraries/jobs": "tasks",
+  "/control/maintenance/jobs": "tasks",
+  "/control/system": "tasks",
+  "/control/jobs": "tasks",
+
+  "/control/activity": "logs",
+  "/control/logs": "logs",
+
+  // Libraries of every type are managed on the one Libraries page.
+  "/control/library": "libraries",
+  "/control/ebooks": "libraries",
+  "/control/library/ebooks": "libraries",
+  "/control/libraries/ebooks": "libraries",
+
+  "/control/storage": "storage",
+  "/control/categories": "categories",
+  "/control/categories/tags": "tags",
+  "/control/tags": "tags",
+
+  "/control/accounts": "users",
+  "/control/users": "users",
+  "/control/accounts/groups": "groups",
+  "/control/groups": "groups",
+  "/control/accounts/invites": "invites",
+  "/control/invites": "invites",
+  "/control/accounts/sessions": "sessions",
+  "/control/sessions": "sessions",
+
+  // Backup used to hide behind Config; it is Maintenance's first tab now, so the
+  // bare /control/maintenance lands there rather than on Tasks.
+  "/control/maintenance": "backup",
+  "/control/config/backup": "backup",
+  "/control/system/backup": "backup",
+  "/control/libraries/scheduled-jobs": "scheduledJobs",
+  "/control/scheduled-jobs": "scheduledJobs",
+  "/control/recycle-bin": "recycleBin",
+  "/control/trash": "recycleBin",
+  "/control/libraries/missing-photos": "missingPhotos",
+  "/control/missing-photos": "missingPhotos",
+  "/control/libraries/duplicate-photos": "duplicatePhotos",
+  "/control/duplicate-photos": "duplicatePhotos",
+
+  // Config split into the Settings tabs; its old landing page was Appearance.
+  "/control/config": "appearance",
+  "/control/about": "about"
+};
+
+// Aliases first, canonical paths second: a later entry wins, so a stale alias can
+// never shadow the page that actually owns the address.
+const CONTROL_SECTION_BY_PATH = new Map<string, ControlSection>([
+  ...Object.entries(CONTROL_ALIASES),
+  ...Object.entries(CONTROL_PATHS).map(([section, path]) => [path, section as ControlSection] as const)
+]);
 
 export type Route =
   | { name: "install" }
@@ -70,10 +202,6 @@ export function getRoute(): Route {
 
   if (path === "/login") {
     return { name: "login" };
-  }
-
-  if (["/admin", "/control"].includes(path)) {
-    return { name: "control", section: "status" };
   }
 
   if (path === "/audiobooks") {
@@ -279,108 +407,20 @@ export function getRoute(): Route {
     return { name: "tagDetail", tagName: decodeURIComponent(tagDetailMatch[1]) };
   }
 
-  if (["/control/accounts", "/control/users"].includes(path)) {
-    return { name: "control", section: "users" };
-  }
+  // The whole control panel resolves off the one path table above. The category
+  // editor is the single control route that isn't a section, so it is matched
+  // after the table — that way /control/libraries/categories/tags-style tab
+  // paths win over the editor's `:id` wildcard.
+  if (path === "/admin" || path.startsWith("/control")) {
+    const section = CONTROL_SECTION_BY_PATH.get(path);
+    if (section) {
+      return { name: "control", section };
+    }
 
-  if (["/control/accounts/invites", "/control/invites"].includes(path)) {
-    return { name: "control", section: "invites" };
-  }
-
-  if (["/control/accounts/sessions", "/control/sessions"].includes(path)) {
-    return { name: "control", section: "sessions" };
-  }
-
-  if (["/control/accounts/groups", "/control/groups"].includes(path)) {
-    return { name: "control", section: "groups" };
-  }
-
-  if (["/control/activity", "/control/logs"].includes(path)) {
-    return { name: "control", section: "logs" };
-  }
-
-  // Database info now lives on the Status page; old database paths land there.
-  if (["/control/status", "/control/database", "/control/maintenance/database", "/control/system/database"].includes(path)) {
-    return { name: "control", section: "status" };
-  }
-
-  if (["/control/status/audiobook-stats", "/control/status/stats", "/control/library/stats", "/control/libraries/stats"].includes(path)) {
-    return { name: "control", section: "statusStats" };
-  }
-
-  if (["/control/status/ebook-stats", "/control/status/ebooks-stats"].includes(path)) {
-    return { name: "control", section: "statusEbookStats" };
-  }
-
-  if (["/control/status/gallery-stats", "/control/status/galleries-stats"].includes(path)) {
-    return { name: "control", section: "statusGalleryStats" };
-  }
-
-  if (path === "/control/storage") {
-    return { name: "control", section: "storage" };
-  }
-
-  if (["/control/recycle-bin", "/control/trash"].includes(path)) {
-    return { name: "control", section: "recycleBin" };
-  }
-
-  if (path === "/control/config") {
-    return { name: "control", section: "config" };
-  }
-
-  if (path === "/control/security") {
-    return { name: "control", section: "security" };
-  }
-
-  // Tasks (formerly "Job logs") live under Libraries; backup under Config. Old paths still resolve.
-  if (["/control/libraries/tasks", "/control/libraries/jobs", "/control/maintenance", "/control/maintenance/jobs", "/control/system", "/control/jobs"].includes(path)) {
-    return { name: "control", section: "tasks" };
-  }
-
-  if (["/control/libraries/scheduled-jobs", "/control/maintenance/scheduled-jobs", "/control/scheduled-jobs"].includes(path)) {
-    return { name: "control", section: "scheduledJobs" };
-  }
-
-  if (["/control/libraries/missing-photos", "/control/missing-photos"].includes(path)) {
-    return { name: "control", section: "missingPhotos" };
-  }
-
-  if (["/control/libraries/duplicate-photos", "/control/duplicate-photos"].includes(path)) {
-    return { name: "control", section: "duplicatePhotos" };
-  }
-
-  if (["/control/config/backup", "/control/maintenance/backup", "/control/system/backup"].includes(path)) {
-    return { name: "control", section: "backup" };
-  }
-
-  if (["/control/library", "/control/libraries"].includes(path)) {
-    return { name: "control", section: "libraries" };
-  }
-
-  // Libraries of every type are managed on the one Libraries page now.
-  if (["/control/ebooks", "/control/library/ebooks", "/control/libraries/ebooks"].includes(path)) {
-    return { name: "control", section: "libraries" };
-  }
-
-  if (path === "/control/categories") {
-    return { name: "control", section: "categories" };
-  }
-
-  if (["/control/categories/tags", "/control/tags"].includes(path)) {
-    return { name: "control", section: "tags" };
-  }
-
-  if (path === "/control/categories/new") {
-    return { name: "controlCategoryEditor", categoryId: null };
-  }
-
-  const controlCategoryEditMatch = path.match(/^\/control\/categories\/([^/]+)$/);
-  if (controlCategoryEditMatch) {
-    return { name: "controlCategoryEditor", categoryId: controlCategoryEditMatch[1] };
-  }
-
-  if (path === "/control/about") {
-    return { name: "control", section: "about" };
+    const categoryEditMatch = path.match(/^\/control\/(?:libraries\/)?categories\/([^/]+)$/);
+    if (categoryEditMatch) {
+      return { name: "controlCategoryEditor", categoryId: categoryEditMatch[1] === "new" ? null : categoryEditMatch[1] };
+    }
   }
 
   if (path === "/profile") {

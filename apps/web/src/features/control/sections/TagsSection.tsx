@@ -5,6 +5,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 interface ManageTag {
   id: string;
@@ -128,11 +129,7 @@ export function TagsSection() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Digital Library</p>
-          <h1>Tags</h1>
-        </div>
+      <ControlSectionHead section="tags" description="Free-form labels scanned from your files, across every library.">
         <div className="row-actions">
           <button className="primary-button" onClick={() => { setError(""); setNotice(""); setCreateOpen(true); }}>
             <Plus size={18} aria-hidden="true" />
@@ -143,7 +140,7 @@ export function TagsSection() {
             {pruning ? "Removing…" : `Remove unused${unusedCount > 0 ? ` (${unusedCount})` : ""}`}
           </button>
         </div>
-      </div>
+      </ControlSectionHead>
 
       <p className="muted" style={{ marginTop: -6, marginBottom: 16, fontSize: "0.88rem", lineHeight: 1.45 }}>
         Tags are the descriptive layer for your library and can also be created from scanned genres. Rename to fix typos (renaming onto an existing tag merges them) or delete to remove a tag from all books. Renaming a tag that is also a category keyword won't re-sort books — use "Re-match all books" on the Categories tab afterward if needed.

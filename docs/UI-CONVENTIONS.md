@@ -182,6 +182,28 @@ Error message copy: say what failed and keep the server message when it's useful
 
 ---
 
+## Control panel structure
+
+The control panel's shape lives in one file: `features/control/nav.ts`. It defines
+six nav groups, each holding a row of tabs. Adding an admin page means adding one
+tab entry there — nothing else keeps a parallel list.
+
+- **Six groups is the budget.** A seventh almost always means the new page belongs
+  as a tab inside an existing group. A long left nav is what this structure exists
+  to prevent.
+- **Every tab is a route.** Canonical paths live in `CONTROL_PATHS` in `router.ts`;
+  link through `controlHref(section)`, never a string literal. In-page `useState`
+  tab rows are not allowed in the control panel — a setting with no URL can't be
+  bookmarked, linked from a guide, or reached by search.
+- **Pages open with `ControlSectionHead`.** It reads the eyebrow (group) and `<h1>`
+  (tab) from `nav.ts`, so a page can't disagree with the nav about where it lives.
+  Pass `description` for the one-line summary and `children` for header actions.
+- **New settings get search keywords.** Add the terms someone would actually type
+  to `TAB_KEYWORDS` in `features/control/search-index.ts`, and a `SETTING_ENTRIES`
+  row for anything notable buried inside a page.
+
+---
+
 ## Microcopy rules
 
 - Sentence case everywhere ("Create invite link", not "Create Invite Link").

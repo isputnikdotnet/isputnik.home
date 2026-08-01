@@ -417,6 +417,52 @@
   text-transform: uppercase;
 }
 
+/* Opens the control-panel search palette. Sits above the nav groups because it
+   is the fastest route to anything in here — Ctrl/⌘+K does the same. */
+.control-search-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--home-muted);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.control-search-trigger:hover,
+.control-search-trigger:focus-visible {
+  border-color: color-mix(in srgb, var(--mint) 45%, var(--border));
+  color: var(--text);
+}
+
+.control-search-trigger span {
+  flex: 1 1 auto;
+}
+
+.control-search-trigger kbd {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--home-muted);
+  font-family: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+}
+
+/* Leaves the control panel. Pinned under the groups so "out" never reads as
+   just another section. */
+.control-nav-exit {
+  color: var(--home-muted);
+}
+
 /* Control- and user-area nav links inherit the base .home-nav-link size
    (46px row, 14px icon gap) so they match the main-page nav exactly. */
 
@@ -711,6 +757,22 @@ a.home-overview-card:focus-visible {
 
   .home-control-group > p {
     display: none;
+  }
+
+  /* The nav is a horizontal scroller here, so the search box shrinks to a chip
+     and the Ctrl+K hint (no keyboard to speak of) goes away. */
+  .control-search-trigger {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 120px;
+  }
+
+  .control-search-trigger kbd {
+    display: none;
+  }
+
+  .control-nav-exit {
+    flex: 0 0 auto;
   }
 
   .home-control-group .home-nav-link {

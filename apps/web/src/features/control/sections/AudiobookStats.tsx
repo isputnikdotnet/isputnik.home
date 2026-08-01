@@ -1,8 +1,4 @@
-import { useState, useEffect } from "react";
-import { BookOpen, Clock3, HardDrive, Library, Mic2, RefreshCw, UserRound } from "lucide-react";
-import { api } from "../../../api";
-import { Button } from "../../../shared/Button";
-import { MessageBox } from "../../../shared/MessageBox";
+import { BookOpen, Clock3, HardDrive, Library, Mic2, UserRound } from "lucide-react";
 import { formatBytes } from "../../../shared/utils";
 import type { PersonStatusStats, SystemStatus } from "../types";
 import { StatusMetric, formatHours } from "./StatusMetric";
@@ -38,35 +34,11 @@ function PeopleTable({ people }: { people: PersonStatusStats[] }) {
   );
 }
 
-export function AudiobookStatsSection() {
-  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [error, setError] = useState("");
-
-  const loadStatus = async () => {
-    const payload = await api<{ status: SystemStatus }>("/api/status");
-    setSystemStatus(payload.status);
-  };
-
-  useEffect(() => {
-    loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to load stats"));
-  }, []);
-
+// One panel of Overview › Statistics. StatisticsSection owns the fetch, the
+// heading and the media-type switch; this just draws the audiobook slice.
+export function AudiobookStats({ status: systemStatus }: { status: SystemStatus }) {
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Digital Library</p>
-          <h1>Audiobook stats</h1>
-        </div>
-        <Button variant="secondary" compact onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh stats"))}>
-          <RefreshCw size={15} aria-hidden="true" />
-          Refresh
-        </Button>
-      </div>
-
-      {error && <MessageBox tone="error" title="Stats error">{error}</MessageBox>}
-
-      {systemStatus && (
         <div className="status-stack">
           <section className="status-block">
             <div className="status-block-head">
@@ -185,7 +157,6 @@ export function AudiobookStatsSection() {
             )}
           </section>
         </div>
-      )}
     </>
   );
 }

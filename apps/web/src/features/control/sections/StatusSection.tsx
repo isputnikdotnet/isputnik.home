@@ -6,6 +6,7 @@ import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { formatManagedDate, formatBytes, formatUptime } from "../../../shared/utils";
 import type { DbInfo, SystemStatus } from "../types";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 function StatusMetric({ icon: Icon, label, value, note }: { icon: LucideIcon; label: string; value: string; note?: string }) {
   return (
@@ -39,16 +40,12 @@ export function StatusSection() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">System</p>
-          <h1>Status</h1>
-        </div>
+      <ControlSectionHead section="status" description="How the server and its database are doing right now.">
         <Button variant="secondary" compact onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh status"))}>
           <RefreshCw size={15} aria-hidden="true" />
           Refresh
         </Button>
-      </div>
+      </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Status error">{error}</MessageBox>}
 

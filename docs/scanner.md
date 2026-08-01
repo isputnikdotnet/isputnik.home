@@ -74,7 +74,7 @@ module's Fastify plugin at boot:
   `shared/job-progress.ts`. The ETA uses the rate over a recent (~30 s)
   window, not the whole-run average, so racing through already-cataloged
   items doesn't poison the estimate. The admin Tasks page (Control panel →
-  Libraries → Tasks) renders counts, percentage, and time remaining.
+  Overview → Tasks) renders counts, percentage, and time remaining.
 - **Retries:** transient failures re-queue (`status='pending'`, future `run_at`)
   until `max_attempts` (default 3). Backoff differs by type — ebooks retry after
   a flat **5 s**, audiobooks after **1–5 min** (`min(attempts+1,5) × 60 s`).

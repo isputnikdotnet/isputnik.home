@@ -6,6 +6,7 @@ import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Button } from "../../../shared/Button";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedSession } from "../types";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 function sessionDeviceLabel(session: ManagedSession) {
   const device = session.deviceName?.trim() || "Unknown device";
@@ -59,18 +60,12 @@ export function SessionsSection() {
 
   return (
     <>
-      <div className="section-head admin-section-head">
-        <div className="admin-title-wrap">
-          <span className="admin-page-icon sessions" aria-hidden="true">
-            <Monitor size={30} />
-          </span>
-          <div className="admin-heading-copy">
-            <p className="eyebrow">User administration</p>
-            <h1>Active sessions</h1>
-            <p className="section-description">Review signed-in devices and revoke access.</p>
-          </div>
-        </div>
-      </div>
+      <ControlSectionHead
+        section="sessions"
+        icon={<Monitor size={30} />}
+        iconClassName="sessions"
+        description="Signed-in devices across every account, and how to revoke them."
+      />
 
       {error && <MessageBox tone="error" title="Session management error">{error}</MessageBox>}
 

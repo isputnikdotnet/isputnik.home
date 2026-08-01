@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Mail } from "lucide-react";
 import { api } from "../../../api";
 import { Button } from "../../../shared/Button";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 interface MailDto {
   host: string;
@@ -102,58 +104,66 @@ export function MailSection() {
   };
 
   return (
-    <section className="config-block">
-      <h2>Email (SMTP)</h2>
-      <p className="muted">
-        Outgoing mail for two-factor codes, security alerts, and “Send to e-reader”. Point this at your mail
-        provider or relay (e.g. a Gmail app password, Fastmail, or your own SMTP server). Most providers need an
-        app password rather than your account password. The password is stored on the server and never shown again.
-      </p>
+    <>
+      <ControlSectionHead
+        section="email"
+        icon={<Mail size={30} />}
+        iconClassName="blue"
+        description="Outgoing mail for two-factor codes, security alerts, and “Send to e-reader”."
+      />
 
-      {loadError && <MessageBox tone="error" title="Email settings">{loadError}</MessageBox>}
+      <section className="config-block">
+        <p className="muted">
+          Point this at your mail provider or relay (e.g. a Gmail app password, Fastmail, or your own SMTP server).
+          Most providers need an app password rather than your account password. The password is stored on the
+          server and never shown again.
+        </p>
 
-      {loading ? (
-        <p className="muted">Loading…</p>
-      ) : (
-        <form className="mail-form" onSubmit={save}>
-          <Field label="SMTP host" value={host} onChange={setHost} placeholder="smtp.example.com" autoComplete="off" required={false} />
-          <Field label="Port" value={port} onChange={setPort} type="number" placeholder="587" autoComplete="off" required={false} />
+        {loadError && <MessageBox tone="error" title="Email settings">{loadError}</MessageBox>}
 
-          <label className="mail-secure">
-            <input type="checkbox" checked={secure} onChange={(event) => setSecure(event.target.checked)} />
-            <span>Use implicit TLS (port 465). Leave off for STARTTLS on 587.</span>
-          </label>
+        {loading ? (
+          <p className="muted">Loading…</p>
+        ) : (
+          <form className="mail-form" onSubmit={save}>
+            <Field label="SMTP host" value={host} onChange={setHost} placeholder="smtp.example.com" autoComplete="off" required={false} />
+            <Field label="Port" value={port} onChange={setPort} type="number" placeholder="587" autoComplete="off" required={false} />
 
-          <Field label="Username" value={username} onChange={setUsername} placeholder="login@example.com" autoComplete="off" required={false} />
-          <Field
-            label="Password"
-            value={password}
-            onChange={setPassword}
-            type="password"
-            placeholder={hasPassword ? "•••••••• (unchanged)" : "SMTP password"}
-            autoComplete="new-password"
-            required={false}
-          />
+            <label className="mail-secure">
+              <input type="checkbox" checked={secure} onChange={(event) => setSecure(event.target.checked)} />
+              <span>Use implicit TLS (port 465). Leave off for STARTTLS on 587.</span>
+            </label>
 
-          <Field label="From address" value={fromAddress} onChange={setFromAddress} type="email" placeholder="library@example.com" autoComplete="off" required={false} />
-          <Field label="From name" value={fromName} onChange={setFromName} placeholder="iSputnik Library" autoComplete="off" required={false} />
+            <Field label="Username" value={username} onChange={setUsername} placeholder="login@example.com" autoComplete="off" required={false} />
+            <Field
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              type="password"
+              placeholder={hasPassword ? "•••••••• (unchanged)" : "SMTP password"}
+              autoComplete="new-password"
+              required={false}
+            />
 
-          {saveError && <MessageBox tone="error" title="Unable to save">{saveError}</MessageBox>}
-          {saved && <MessageBox tone="success" title="Saved">Email settings updated.</MessageBox>}
-          {testError && <MessageBox tone="error" title="Test failed">{testError}</MessageBox>}
-          {tested && <MessageBox tone="success" title="Test sent">A test email was sent to your account address. Check your inbox.</MessageBox>}
+            <Field label="From address" value={fromAddress} onChange={setFromAddress} type="email" placeholder="library@example.com" autoComplete="off" required={false} />
+            <Field label="From name" value={fromName} onChange={setFromName} placeholder="iSputnik Library" autoComplete="off" required={false} />
 
-          <div className="mail-actions">
-            <Button variant="primary" type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
-            <Button variant="secondary" type="button" onClick={sendTest} disabled={testing || saving}>
-              {testing ? "Sending…" : "Send test email"}
-            </Button>
-          </div>
-          <p className="muted">The test uses the last saved settings, so save before testing.</p>
-        </form>
-      )}
-    </section>
+            {saveError && <MessageBox tone="error" title="Unable to save">{saveError}</MessageBox>}
+            {saved && <MessageBox tone="success" title="Saved">Email settings updated.</MessageBox>}
+            {testError && <MessageBox tone="error" title="Test failed">{testError}</MessageBox>}
+            {tested && <MessageBox tone="success" title="Test sent">A test email was sent to your account address. Check your inbox.</MessageBox>}
+
+            <div className="mail-actions">
+              <Button variant="primary" type="submit" disabled={saving}>
+                {saving ? "Saving…" : "Save"}
+              </Button>
+              <Button variant="secondary" type="button" onClick={sendTest} disabled={testing || saving}>
+                {testing ? "Sending…" : "Send test email"}
+              </Button>
+            </div>
+            <p className="muted">The test uses the last saved settings, so save before testing.</p>
+          </form>
+        )}
+      </section>
+    </>
   );
 }

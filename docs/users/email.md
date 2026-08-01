@@ -3,7 +3,7 @@
 The server can send mail, but it doesn't have to. Nothing breaks without it —
 three features simply stay unavailable.
 
-Everything here lives in **Control panel → Config → Email**, and it's admin-only.
+Everything here lives in **Control panel → Settings → Email**, and it's admin-only.
 
 ## What email is used for
 
