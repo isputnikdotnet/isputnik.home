@@ -82,7 +82,7 @@ export type SendResult =
 // can point the user at the exact fix (configure SMTP, set an address, etc.).
 export async function sendBookToEreader(bookId: string, user: User): Promise<SendResult> {
   if (!isMailConfigured()) {
-    return { ok: false, status: 400, error: "Email delivery isn't set up yet. Ask an admin to configure it in Control panel → Email." };
+    return { ok: false, status: 400, error: "Email delivery isn't set up yet. Ask an admin to configure it in Control panel → Settings → Email." };
   }
 
   const to = (user.ereader_email ?? "").trim();

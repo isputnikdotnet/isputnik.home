@@ -573,7 +573,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
 
                     {!data.mailConfigured && (
                       <MessageBox tone="warning" title="Email is not set up">
-                        These alerts are sent over SMTP. Configure it under Control panel → Configuration → Email,
+                        These alerts are sent over SMTP. Configure it under Control panel → Settings → Email,
                         or this setting has no effect.
                       </MessageBox>
                     )}

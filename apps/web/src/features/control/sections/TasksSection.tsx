@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback } from "react";
 import { XCircle } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -230,9 +230,11 @@ export function TasksSection() {
                   const d = duration(startedAt, ended);
                   const errorText = task.error ?? null;
 
+                  // The fragment is the array element, so the key belongs on it —
+                  // on the inner <tr> React never sees it.
                   return (
-                    <>
-                      <tr key={task.id}>
+                    <Fragment key={task.id}>
+                      <tr>
                         <td>{taskLabel(task)}</td>
                         <td className="datagrid-muted">{task.libraryName ?? <span className="muted">—</span>}</td>
                         <td>
@@ -267,20 +269,20 @@ export function TasksSection() {
                         </td>
                       </tr>
                       {expandedError === task.id && errorText && (
-                        <tr key={`${task.id}-error`}>
+                        <tr>
                           <td colSpan={6}>
                             <pre className="job-error-detail">{errorText}</pre>
                           </td>
                         </tr>
                       )}
                       {expandedError === task.id && !errorText && task.bookErrors.length > 0 && (
-                        <tr key={`${task.id}-book-errors`}>
+                        <tr>
                           <td colSpan={6}>
                             <pre className="job-error-detail">{task.bookErrors.join("\n")}</pre>
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>
