@@ -345,7 +345,8 @@ cataloged and get their faces the same night.
 ## Duplicate photos
 
 `gallery/duplicates.ts` + `duplicate-routes.ts`, surfaced at Control panel → Libraries →
-**Duplicate photos**. Tier 1 only today: **byte-identical** files.
+**Duplicate photos**. Two tiers: **byte-identical** files, and **near-identical** ones
+(same picture, different file).
 
 **Why it doesn't hash during the catalog scan.** `ingestGalleryAsset` skips any file
 whose size + mtime are unchanged, which is what keeps rescans cheap; hashing there would
@@ -383,6 +384,28 @@ face rows, deduplicated one per person, which is safe *only* because tier 1 copi
 byte-identical — and then routes the losers through `trashBook`. There is no hard-delete
 path.
 
+**Tier 2 — near-identical** (`rebuildNearDuplicateGroups`) runs over the dHash the
+catalog scan already stores in `gallery_details.phash`, so it costs no disk access at
+all. The 64-bit hash is split into **4 × 16-bit bands** and only items sharing a band
+bucket are compared: by pigeonhole, two hashes differing by at most `BAND_COUNT - 1`
+bits must leave one band untouched, so band-4 is *exact* at
+`NEAR_IDENTICAL_DISTANCE = 3` and misses nothing. **Raising the threshold requires more
+bands** — a test asserts the constant so the pairing can't be broken silently. This is
+deliberately not `similarity.ts`'s `NEAR_DUPLICATE_DISTANCE` (10/64), which folds a whole
+burst into one representative for Memories and is far too loose to propose deleting
+anything. Fingerprints are parsed once into two 32-bit halves with a SWAR popcount;
+similarity.ts's BigInt bit-walk is fine for Memories' few hundred items and far too slow
+for banding's comparison counts.
+
+Three things tier 2 does differently. It runs **after** tier 1 and lets an identical set
+take part through its **keeper only**, so a byte-identical copy doesn't reappear inside
+the near set beside it. Its `distance` column is the real bit distance from the keeper,
+not 0. And it **never moves face rows** (`absorbDuplicateMetadata({ moveFaces: false })`)
+— a resized copy's normalised boxes describe different pixels, so carrying them over
+would land a box in the wrong place. `resolveDuplicateGroup` re-validates per tier:
+identical digests for tier 1, a fingerprint still inside the near window for tier 2.
+Bulk "delete all extras" is restricted to tier 1.
+
 **Scheduled job.** `find_duplicate_photos`, ships **enabled**, weekly at **02:15** —
 between the video conversions (01:45) and the face scan (05:00) so the CPU/disk-heavy
 gallery jobs don't collide. It only ever reports; deletion is always a human action.
@@ -394,12 +417,10 @@ column that doesn't exist yet on an existing database), and the three
 
 ## Not yet (future phases)
 
-- **Near-identical duplicates** (tier 2) — group over the existing `phash` with 4×16-bit
-  bands at a Hamming threshold of **3** (the pigeonhole bound for 4 bands; a looser
-  window needs more bands). Do *not* reuse `NEAR_DUPLICATE_DISTANCE = 10` from
-  `similarity.ts` — that's the burst window for Memories, a deliberately different job.
-  Face rows must **not** be repointed for this tier: a resized copy's boxes don't
-  transfer.
+- **Best-of-burst picker** — the one thing duplicate detection deliberately does *not*
+  cover. A burst of twelve near-misses isn't a duplicate set, so it must never appear in
+  a delete list; it wants its own "pick the best, hide the rest" surface, and
+  `similarity.ts`'s 10/64 window is the right signal for it.
 - **Semantic / content search** (ML — the heavy part of Immich). Shares the analysis pass
   and model-loading infrastructure with face recognition, but *not* the similarity
   signal: CLIP-style embeddings are invariant to the pixel layout that duplicate

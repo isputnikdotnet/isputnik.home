@@ -133,10 +133,17 @@ A folder imported twice, or a phone backup copied in beside the originals, leave
 the same picture in the library several times. This page finds those and lets you
 keep one.
 
-Only files that are **byte-for-byte identical** are grouped, so a set is never a
-guess — two similar shots of the same scene are left alone. Finding them is cheap
-because identical files must be the same size: photos whose size matches nothing
-else are skipped without ever being opened.
+Results come in two groups, and they deserve different amounts of trust.
+
+**Identical files** are byte-for-byte the same, so a set is never a guess. Finding
+them is cheap because identical files must be the same size: photos whose size
+matches nothing else are skipped without ever being opened.
+
+**Near-identical** means the same picture in a different file — a resized copy, one
+re-saved by a messaging app, an export at another quality. These are matched on
+what the picture *looks* like, deliberately narrowly, so two similar shots of the
+same moment are left alone. Read them before removing anything; only the identical
+sets can be cleared in bulk.
 
 Pick a scope and choose **Scan now**. The picker shows how many files each library
 would need to read, or says *up to date* when there's nothing new. Scoping to one
@@ -154,12 +161,16 @@ through later scans.
 Then either:
 
 - **Delete N copies** — the extras go to the Recycle Bin. Before they do, their
-  tags, albums, collections and tagged people are merged onto the copy you keep,
-  so nothing you filed by hand is lost.
+  tags, albums and collections are merged onto the copy you keep, so nothing you
+  filed by hand is lost. Tagged people move too for identical files, where the
+  faces line up exactly; for near-identical ones they don't, because a face marked
+  on a resized copy sits in the wrong place on the original.
 - **Not duplicates** — the set disappears and those photos are never grouped again.
   Nothing is deleted.
 
-**Delete all extras** does the first of those for every identical set at once.
+**Delete all extras** does the first of those for every **identical** set at once.
+Near-identical sets are never swept in bulk — they're a judgement call, one at a
+time.
 
 Two things worth knowing. Nothing is deleted without you asking — a scan only ever
 reports. And if a photo has been edited on disk since the last library scan, it's
