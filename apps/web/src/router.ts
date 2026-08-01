@@ -19,6 +19,7 @@ export type Route =
   | { name: "gallery" }
   | { name: "galleryMemories" }
   | { name: "galleryAsset"; id: string }
+  | { name: "galleryFolder"; folder: string; libraryId: string | null }
   | { name: "familyTree"; focusId?: string }
   | { name: "familyPeople" }
   | { name: "familyFamilies" }
@@ -96,6 +97,19 @@ export function getRoute(): Route {
   const galleryAssetMatch = path.match(/^\/gallery\/assets\/([^/]+)$/);
   if (galleryAssetMatch) {
     return { name: "galleryAsset", id: galleryAssetMatch[1] };
+  }
+
+  // A folder deep link, so one can be opened in its own tab. The folder is a path
+  // relative to its library and keeps its slashes, hence `(.*)` rather than a single
+  // segment; the empty tail is the library root. `library` scopes the view, because
+  // the same relative folder can exist in more than one gallery library.
+  const galleryFolderMatch = path.match(/^\/gallery\/folders\/?(.*)$/);
+  if (galleryFolderMatch) {
+    return {
+      name: "galleryFolder",
+      folder: decodeURIComponent(galleryFolderMatch[1]),
+      libraryId: new URLSearchParams(window.location.search).get("library")
+    };
   }
 
   // Family tree: the chart (optionally focused on one person — a real path so

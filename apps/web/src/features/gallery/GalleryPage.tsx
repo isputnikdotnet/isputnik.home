@@ -164,19 +164,26 @@ export function GalleryPage({
   user,
   logout,
   initialAssetId,
-  initialView
+  initialView,
+  initialFolder,
+  initialLibraryId
 }: {
   user: PublicUser;
   logout: () => Promise<void>;
   initialAssetId?: string;
   initialView?: GalleryView;
+  /** Deep link (/gallery/folders/…): open the Folders view straight into this folder. */
+  initialFolder?: string;
+  initialLibraryId?: string | null;
 }) {
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
 
-  const [view, setView] = useState<GalleryView>(initialView ?? "timeline");
-  const [scopeId, setScopeId] = useState<string>("all");
+  const [view, setView] = useState<GalleryView>(
+    initialView ?? (initialFolder != null ? "folder" : "timeline")
+  );
+  const [scopeId, setScopeId] = useState<string>(initialLibraryId || "all");
   const [sort, setSort] = useState<TimelineSort>("taken");
 
   // Search box drives the timeline `q`; a debounce keeps typing from spamming the API.
@@ -248,6 +255,11 @@ export function GalleryPage({
   // Folder to open on the next switch into the Folders view (set by the lightbox's
   // Folder link); the view-change effect consumes it instead of loading the root.
   const pendingFolderRef = useRef<string | null>(null);
+  // A /gallery/folders/… deep link can't use the ref above: the view effect already
+  // holds "folder" on mount, and StrictMode invokes it twice — the first pass would
+  // consume the ref and the second would fall through to the library root. State
+  // survives both passes, and is dropped as soon as the folder view is navigated.
+  const [deepLinkFolder, setDeepLinkFolder] = useState<string | null>(initialFolder ?? null);
 
   // Map state. `mapCount` (geotagged assets in scope, from the facets) gates whether
   // the Map tab is offered at all; `mapPoints` are the markers for the active scope/kind.
@@ -362,6 +374,9 @@ export function GalleryPage({
   }, [scopeParams, sort, query, filters]);
 
   const loadFolder = useCallback(async (nextParent: string) => {
+    // The deep link has served its purpose once a folder is being loaded; from here
+    // browsing (and any scope change) starts from the root like a normal visit.
+    setDeepLinkFolder((current) => (current === null ? current : null));
     setLoading(true);
     setError("");
     try {
@@ -927,7 +942,7 @@ export function GalleryPage({
   useEffect(() => {
     if (view === "timeline") void loadTimeline(0);
     else if (view === "folder") {
-      const target = pendingFolderRef.current ?? "";
+      const target = pendingFolderRef.current ?? deepLinkFolder ?? "";
       pendingFolderRef.current = null;
       void loadFolder(target);
     }

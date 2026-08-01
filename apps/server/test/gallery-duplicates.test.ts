@@ -22,6 +22,7 @@ import {
   setDuplicateKeeper,
   ignoreDuplicateGroup,
   resolveDuplicateGroup,
+  resolveDuplicateSelection,
   resolveAllExactGroups,
   duplicateScanStatus,
   duplicateLibraryOptions,
@@ -513,6 +514,142 @@ describe("resolving a group", () => {
 
   it("returns null for a group that no longer exists", () => {
     expect(resolveDuplicateGroup("nope", "u1")).toBeNull();
+  });
+});
+
+// Deleting goes through trashBook, which moves the real file into the Recycle Bin —
+// so unlike the grouping tests, these need assets that exist on disk.
+describe("resolving a selection", () => {
+  let sourceRoot = "";
+
+  beforeEach(() => {
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), "dup-select-"));
+    sourceRoot = path.join(base, "library");
+    const thumbRoot = path.join(base, "thumbs");
+    fs.mkdirSync(sourceRoot);
+    fs.mkdirSync(thumbRoot);
+    db.prepare("INSERT OR REPLACE INTO storage_roots (id, name, path, created_by) VALUES ('sr1', 'test', ?, 'u1')").run(base);
+    db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .run(thumbnailPathSettingKey, thumbRoot);
+    db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'GAL'").run(sourceRoot);
+  });
+
+  // A real file catalogued with its digest already set, so grouping needs no scan.
+  function copy(id: string, hash = "same"): string {
+    const relativePath = `${id}.jpg`;
+    fs.writeFileSync(path.join(sourceRoot, relativePath), `PICTURE-${hash}`);
+    return asset(id, relativePath, { hash, size: 1000 });
+  }
+
+  const liveIds = () =>
+    (db.prepare("SELECT id FROM library_items ORDER BY id").all() as { id: string }[]).map((r) => r.id);
+
+  it("deletes only the copies named, keeping the rest", () => {
+    copy("a"); copy("b"); copy("c");
+    rebuildExactDuplicateGroups();
+    const groupId = listDuplicateGroups()[0].id;
+
+    const result = resolveDuplicateSelection(groupId, ["c"], "u1");
+
+    expect(result?.deletedItemIds).toEqual(["c"]);
+    expect(result?.keptItemIds.sort()).toEqual(["a", "b"]);
+    expect(liveIds()).toEqual(["a", "b"]);
+  });
+
+  it("keeps the set alive when two copies still remain", () => {
+    copy("a"); copy("b"); copy("c");
+    rebuildExactDuplicateGroups();
+    const groupId = listDuplicateGroups()[0].id;
+
+    resolveDuplicateSelection(groupId, ["c"], "u1");
+
+    expect(listDuplicateGroups().map((g) => g.members.length)).toEqual([2]);
+  });
+
+  it("removes every copy when the whole set is selected", () => {
+    copy("a"); copy("b");
+    rebuildExactDuplicateGroups();
+    const groupId = listDuplicateGroups()[0].id;
+
+    const result = resolveDuplicateSelection(groupId, ["a", "b"], "u1");
+
+    expect(result?.deletedItemIds.sort()).toEqual(["a", "b"]);
+    expect(result?.keptItemIds).toEqual([]);
+    expect(liveIds()).toEqual([]);
+    expect(listDuplicateGroups()).toEqual([]);
+  });
+
+  it("moves a deleted copy's tags onto a survivor", () => {
+    copy("a"); copy("b"); copy("c");
+    db.prepare("INSERT INTO tags (id, key, display_name) VALUES ('t1', 'beach', 'Beach')").run();
+    db.prepare("INSERT INTO taggables (tag_id, entity_type, entity_id) VALUES ('t1', 'library_item', 'c')").run();
+    rebuildExactDuplicateGroups();
+    const groupId = listDuplicateGroups()[0].id;
+    setDuplicateKeeper(groupId, "a");
+
+    resolveDuplicateSelection(groupId, ["c"], "u1");
+
+    const tagged = (db.prepare(
+      "SELECT entity_id FROM taggables WHERE tag_id = 't1' ORDER BY entity_id"
+    ).all() as { entity_id: string }[]).map((r) => r.entity_id);
+    expect(tagged).toEqual(["a"]);
+  });
+
+  it("promotes a survivor when the keeper itself was the copy deleted", () => {
+    // The FK is ON DELETE SET NULL, so without promotion the surviving set would have
+    // no keeper — every copy would default to "delete" on the next pass.
+    copy("a"); copy("b"); copy("c");
+    rebuildExactDuplicateGroups();
+    const groupId = listDuplicateGroups()[0].id;
+    setDuplicateKeeper(groupId, "a");
+
+    resolveDuplicateSelection(groupId, ["a"], "u1");
+
+    const group = listDuplicateGroups()[0];
+    expect(group.keeperItemId).not.toBeNull();
+    expect(["b", "c"]).toContain(group.keeperItemId);
+  });
+
+  it("refuses ids that aren't live members of the set", () => {
+    copy("a"); copy("b"); copy("outsider", "different");
+    rebuildExactDuplicateGroups();
+    const groupId = listDuplicateGroups()[0].id;
+
+    expect(resolveDuplicateSelection(groupId, ["b", "outsider"], "u1")).toBeNull();
+    expect(liveIds()).toEqual(["a", "b", "outsider"]);
+  });
+
+  it("refuses when a survivor no longer matches the digest the set was built on", () => {
+    copy("a"); copy("b");
+    rebuildExactDuplicateGroups();
+    const groupId = listDuplicateGroups()[0].id;
+
+    db.prepare("UPDATE gallery_details SET content_hash = 'changed' WHERE item_id = 'b'").run();
+
+    expect(resolveDuplicateSelection(groupId, ["b"], "u1")).toBeNull();
+    expect(liveIds()).toEqual(["a", "b"]);
+  });
+
+  it("still clears the set when everything is selected, even after a file changed", () => {
+    // Nothing survives, so there is no "duplicate of" relationship left to verify.
+    copy("a"); copy("b");
+    rebuildExactDuplicateGroups();
+    const groupId = listDuplicateGroups()[0].id;
+
+    db.prepare("UPDATE gallery_details SET content_hash = 'changed' WHERE item_id = 'b'").run();
+
+    expect(resolveDuplicateSelection(groupId, ["a", "b"], "u1")?.deletedItemIds.sort()).toEqual(["a", "b"]);
+    expect(liveIds()).toEqual([]);
+  });
+
+  it("rejects an empty selection and an unknown group", () => {
+    copy("a"); copy("b");
+    rebuildExactDuplicateGroups();
+    const groupId = listDuplicateGroups()[0].id;
+
+    expect(resolveDuplicateSelection(groupId, [], "u1")).toBeNull();
+    expect(resolveDuplicateSelection("nope", ["a"], "u1")).toBeNull();
+    expect(liveIds()).toEqual(["a", "b"]);
   });
 });
 

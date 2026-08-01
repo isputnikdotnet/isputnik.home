@@ -37,6 +37,9 @@ export function resetDb(): void {
     "family_tree_photos", "family_tree_event_photos", "family_tree_children", "family_tree_unions", "family_tree_persons",
     "family_tree_events", "family_tree_citations", "family_tree_sources",
     "library_scan_rule_paths", "library_scan_rules",
+    // Deleting goes through trashBook, so any suite that removes an item leaves rows
+    // here; without this they accumulate across tests and land in the next one's counts.
+    "trashed_items",
     "library_items", "people", "series", "libraries", "user_groups", "users",
     "activity_logs", "app_settings"
   ];

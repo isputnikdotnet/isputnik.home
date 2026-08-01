@@ -309,6 +309,17 @@ export function App() {
     return <GalleryPage user={session.user} logout={logout} initialAssetId={route.id} />;
   }
 
+  if (route.name === "galleryFolder") {
+    return (
+      <GalleryPage
+        user={session.user}
+        logout={logout}
+        initialFolder={route.folder}
+        initialLibraryId={route.libraryId}
+      />
+    );
+  }
+
   // Family tree — everyone signed in can view; edit affordances appear only for
   // admins inside the pages (the server enforces regardless).
   if (route.name === "familyTree") {
