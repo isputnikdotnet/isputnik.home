@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.9.0",
+          label: "Every settings page has an address",
+          changes: [
+            "Your Profile's four tabs — Account, Security, Appearance and Devices — each have their own address now. Bookmark the one you keep coming back to, send someone a link straight to it, and use the back button to return to the tab you were on instead of being thrown off the page.",
+            "The old Theme link now opens Profile's Appearance tab directly rather than dropping you on the page's first tab."
+          ]
+        },
+        {
           version: "2.8.3",
           label: "One more line that wouldn't fit",
           changes: [
