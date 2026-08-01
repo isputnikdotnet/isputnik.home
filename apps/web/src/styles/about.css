@@ -541,9 +541,11 @@
   letter-spacing: 0.06em;
 }
 
-/* ── Section tabs rendered as buttons (Profile, About) ────────────
-   The control panel's own tabs are links styled by .control-tabs; these are the
-   two in-page tab rows left that switch with local state. */
+/* ── Tall section tabs (Profile, About) ───────────────────────────
+   Profile's are links, one address per panel, like the control panel's. About's
+   are still buttons — its two panels are one page's worth of reading, not
+   separate destinations. Both wear the same chrome, so the selectors below carry
+   the `a`/`.text-button` qualifier only where they must beat `.control-tabs a`. */
 
 .security-tab-panels {
   max-width: 1040px;
@@ -559,7 +561,11 @@
 }
 
 .config-tab.text-button,
-.profile-tab.text-button {
+.control-tabs a.profile-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-width: 0;
   min-height: 74px;
   margin-bottom: -1px;
@@ -574,15 +580,15 @@
 
 .config-tab.text-button:hover,
 .config-tab.text-button:focus-visible,
-.profile-tab.text-button:hover,
-.profile-tab.text-button:focus-visible {
+.control-tabs a.profile-tab:hover,
+.control-tabs a.profile-tab:focus-visible {
   color: var(--ink);
   background: color-mix(in srgb, var(--surface-raised) 58%, transparent);
   outline: 0;
 }
 
 .config-tab.text-button.active,
-.profile-tab.text-button.active {
+.control-tabs a.profile-tab.active {
   color: var(--control-primary-button, var(--mint));
   border-color: var(--line);
   border-bottom-color: var(--control-primary-button, var(--mint));
@@ -1084,7 +1090,7 @@
   }
 
   .config-tab.text-button,
-  .profile-tab.text-button {
+  .control-tabs a.profile-tab {
     min-height: 62px;
     padding: 0 14px;
     white-space: normal;

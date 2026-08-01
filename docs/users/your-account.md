@@ -10,7 +10,9 @@ which is your account settings, and the list of things you've saved.
 
 ## Profile — your account settings
 
-**Profile** opens a page with four tabs.
+**Profile** opens a page with four tabs. Each has its own address, so you can
+bookmark the one you use and the back button returns you to it rather than
+leaving the page.
 
 ### Account
 

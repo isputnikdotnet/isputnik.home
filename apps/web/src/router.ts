@@ -127,6 +127,27 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/about": "about"
 };
 
+// Profile's four panels, same rule as the control panel: each is a real address,
+// so a device or a two-factor setup can be linked to and returned to.
+export type ProfileTab = "account" | "security" | "appearance" | "devices";
+
+export const PROFILE_PATHS: Record<ProfileTab, string> = {
+  account: "/profile",
+  security: "/profile/security",
+  appearance: "/profile/appearance",
+  devices: "/profile/devices"
+};
+
+export function profileHref(tab: ProfileTab): string {
+  return PROFILE_PATHS[tab];
+}
+
+const PROFILE_TAB_BY_PATH = new Map<string, ProfileTab>([
+  // Theme had its own page before it moved under Profile.
+  ["/theme", "appearance" as ProfileTab],
+  ...Object.entries(PROFILE_PATHS).map(([tab, path]) => [path, tab as ProfileTab] as const)
+]);
+
 // Aliases first, canonical paths second: a later entry wins, so a stale alias can
 // never shadow the page that actually owns the address.
 const CONTROL_SECTION_BY_PATH = new Map<string, ControlSection>([
@@ -178,7 +199,7 @@ export type Route =
   | { name: "about" }
   | { name: "help" }
   | { name: "guide"; slug: string }
-  | { name: "profile" }
+  | { name: "profile"; tab: ProfileTab }
   | { name: "invite"; token: string }
   | { name: "share"; token: string }
   | { name: "sharedWithMe" };
@@ -423,13 +444,11 @@ export function getRoute(): Route {
     }
   }
 
-  if (path === "/profile") {
-    return { name: "profile" };
-  }
-
-  // Theme moved under the Profile page; keep the old path working as an alias.
-  if (path === "/theme") {
-    return { name: "profile" };
+  if (path === "/theme" || path === "/profile" || path.startsWith("/profile/")) {
+    const tab = PROFILE_TAB_BY_PATH.get(path);
+    if (tab) {
+      return { name: "profile", tab };
+    }
   }
 
   if (path === "/about") {

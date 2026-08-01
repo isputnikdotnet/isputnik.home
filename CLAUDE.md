@@ -66,6 +66,7 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   `features/control/nav.ts`; canonical URLs in `CONTROL_PATHS` (`router.ts`), linked
   via `controlHref()`. Every tab is a real route — no `useState` tab rows in there —
   and pages open with `ControlSectionHead`, which takes eyebrow + title from `nav.ts`.
-  New settings get search terms in `features/control/search-index.ts`.
+  New settings get search terms in `features/control/search-index.ts`. Profile's
+  tabs follow the same rule (`PROFILE_PATHS` / `profileHref()`).
 
 After UI changes run `npm run typecheck` and `npm run check:ui`.
