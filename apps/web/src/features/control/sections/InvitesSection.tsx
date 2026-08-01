@@ -7,6 +7,7 @@ import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedInvite } from "../types";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 const INVITE_ROLE_LABEL: Record<ManagedInvite["role"], string> = {
   admin: "Admin",
@@ -92,24 +93,19 @@ export function InvitesSection() {
 
   return (
     <>
-      <div className="section-head admin-section-head">
-        <div className="admin-title-wrap">
-          <span className="admin-page-icon invites" aria-hidden="true">
-            <UserPlus size={30} />
-          </span>
-          <div className="admin-heading-copy">
-            <p className="eyebrow">User administration</p>
-            <h1>Invite links</h1>
-            <p className="section-description">Create and retire sign-up links for new accounts.</p>
-          </div>
-        </div>
+      <ControlSectionHead
+        section="invites"
+        icon={<UserPlus size={30} />}
+        iconClassName="invites"
+        description="Create and retire sign-up links for new accounts."
+      >
         <div className="row-actions">
           <Button variant="primary" onClick={openCreate} title="New invite">
             <UserPlus size={18} />
             <span>New invite</span>
           </Button>
         </div>
-      </div>
+      </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Invite links error">{error}</MessageBox>}
 

@@ -1,7 +1,7 @@
 # Storage
 
 Before you can add a library, the server needs to know two things. Both live in
-**Control panel → Storage**.
+**Control panel → Library → Storage**.
 
 ![Storage before anything is configured](images/10-storage-empty.png)
 

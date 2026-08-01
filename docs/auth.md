@@ -185,7 +185,7 @@ Planned:
 Optional second factor, in one of two **mutually exclusive** methods the user picks at enrollment (`users.mfa_method`):
 
 - **`totp`** — a time-based one-time password from Google Authenticator, Authy, Apple Passwords, and similar apps.
-- **`email`** — a 6-digit code mailed to the address the account signs in with, over the server's own SMTP settings (Control panel → Email). Offered only when `isMailConfigured()`.
+- **`email`** — a 6-digit code mailed to the address the account signs in with, over the server's own SMTP settings (Control panel → Settings → Email). Offered only when `isMailConfigured()`.
 
 Neither needs an external service. Backup codes rescue either. User-facing guide: [`users/two-factor-authentication.md`](users/two-factor-authentication.md).
 

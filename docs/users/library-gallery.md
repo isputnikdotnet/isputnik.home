@@ -64,9 +64,9 @@ Re-scan after copying files in. Deleting a photo moves it to the **Recycle Bin**
 first, so it can be restored until the bin is emptied.
 
 If the same picture has been imported more than once, **Duplicate photos** in the
-control panel finds the copies and keeps one — merging its tags, albums and tagged
-people onto the copy that survives. See [the control panel
-guide](control-panel.md).
+control panel finds the copies and lets you choose which ones stay — merging the
+tags, albums and tagged people of the ones you remove onto a copy that survives.
+See [the control panel guide](control-panel.md).
 
 Your originals are never modified — rotating a photo in the app changes the
 generated preview, not the file on disk.

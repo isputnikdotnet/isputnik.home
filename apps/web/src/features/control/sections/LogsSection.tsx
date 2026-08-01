@@ -6,6 +6,7 @@ import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { FacetFilterButton, FacetFilterChips, type FacetDef } from "../../../shared/FacetFilter";
 import { formatManagedDate } from "../../../shared/utils";
 import type { LogEvent } from "../types";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 type LogFilterKey = "event" | "user" | "ip";
 
@@ -133,18 +134,12 @@ export function LogsSection() {
 
   return (
     <>
-      <div className="section-head admin-section-head">
-        <div className="admin-title-wrap">
-          <span className="admin-page-icon logs" aria-hidden="true">
-            <FileText size={30} />
-          </span>
-          <div className="admin-heading-copy">
-            <p className="eyebrow">Management</p>
-            <h1>Logs</h1>
-            <p className="section-description">Review activity history and clean up old records.</p>
-          </div>
-        </div>
-      </div>
+      <ControlSectionHead
+        section="logs"
+        icon={<FileText size={30} />}
+        iconClassName="logs"
+        description="Review activity history and clean up old records."
+      />
 
       {error && <MessageBox tone="error" title="Logs error">{error}</MessageBox>}
       {logCleanupStatus && <MessageBox tone="success" title="Logs deleted">{logCleanupStatus}</MessageBox>}

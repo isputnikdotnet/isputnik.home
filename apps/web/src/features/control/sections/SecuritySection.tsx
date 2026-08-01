@@ -5,7 +5,6 @@ import {
   CircleOff,
   Globe,
   Info,
-  ListChecks,
   LockKeyhole,
   MailWarning,
   Plus,
@@ -13,10 +12,11 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
-  UserRound,
-  type LucideIcon
+  UserRound
 } from "lucide-react";
 import { api } from "../../../api";
+import type { ControlSection } from "../../../router";
+import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -69,17 +69,29 @@ interface SecurityData {
 type SecurityTab = "overview" | "policies" | "trusted" | "blocked";
 type PolicyScope = "thresholds" | "alerts";
 
-const SECURITY_TABS: { key: SecurityTab; label: string; icon: LucideIcon }[] = [
-  { key: "overview", label: "Overview", icon: ShieldCheck },
-  { key: "policies", label: "Policies", icon: ListChecks },
-  { key: "trusted", label: "Trusted networks", icon: Globe },
-  { key: "blocked", label: "Blocked IPs", icon: Ban }
-];
+type SecuritySectionKey = Extract<ControlSection, "security" | "securityPolicies" | "securityTrusted" | "securityBlocked">;
 
-export function SecuritySection() {
+// The four panels used to be in-page state with no URL of their own, so a
+// trusted network or a lockout threshold could not be linked to. They are
+// Security's tab row now, driven by the route.
+const TAB_FOR_SECTION: Record<SecuritySectionKey, SecurityTab> = {
+  security: "overview",
+  securityPolicies: "policies",
+  securityTrusted: "trusted",
+  securityBlocked: "blocked"
+};
+
+const HEAD_DESCRIPTION: Record<SecurityTab, string> = {
+  overview: "How sign-in protection is currently set up.",
+  policies: "Lockout, IP auto-blocking, password rules and sign-in alerts.",
+  trusted: "Networks that skip the IP auto-block, such as your own LAN.",
+  blocked: "Addresses that cannot reach the sign-in screen."
+};
+
+export function SecuritySection({ section }: { section: SecuritySectionKey }) {
   const [data, setData] = useState<SecurityData | null>(null);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<SecurityTab>("overview");
+  const activeTab = TAB_FOR_SECTION[section];
 
   const [policyForm, setPolicyForm] = useState<SecurityPolicy | null>(null);
   // Both policy cards write the same blob, so each tracks its own busy/result flags.
@@ -238,51 +250,21 @@ export function SecuritySection() {
 
   return (
     <>
-      <div className="section-head">
-        <div className="user-title-wrap">
-          <span className="user-page-icon" aria-hidden="true">
-            <ShieldCheck size={30} />
-          </span>
-          <div className="user-heading-copy">
-            <p className="eyebrow">Application</p>
-            <h1>Security</h1>
-            <p className="section-description">Brute-force protection, trusted networks, and blocked IPs.</p>
-          </div>
-        </div>
-      </div>
+      <ControlSectionHead
+        section={section}
+        icon={<ShieldCheck size={30} />}
+        iconClassName="blue"
+        description={HEAD_DESCRIPTION[activeTab]}
+      />
 
       {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}
 
       {data && (
         <>
-          <div className="control-tabs security-tabs" role="tablist" aria-label="Security sections">
-            {SECURITY_TABS.map((tab) => {
-              const selected = activeTab === tab.key;
-              const Icon = tab.icon;
-              return (
-                <Button
-                  key={tab.key}
-                  variant="text"
-                  className={`security-tab${selected ? " active" : ""}`}
-                  role="tab"
-                  aria-selected={selected}
-                  aria-controls={`security-panel-${tab.key}`}
-                  id={`security-tab-${tab.key}`}
-                  onClick={() => setActiveTab(tab.key)}
-                >
-                  <Icon className="security-tab-icon" size={18} aria-hidden="true" />
-                  <span>{tab.label}</span>
-                </Button>
-              );
-            })}
-          </div>
-
           <div className="security-tab-panels">
             <div
               className="security-tab-panel"
-              role="tabpanel"
               id="security-panel-overview"
-              aria-labelledby="security-tab-overview"
               hidden={activeTab !== "overview"}
             >
               <section className="security-overview-dashboard" aria-label="Security overview">
@@ -451,9 +433,7 @@ export function SecuritySection() {
 
             <div
               className="security-tab-panel"
-              role="tabpanel"
               id="security-panel-policies"
-              aria-labelledby="security-tab-policies"
               hidden={activeTab !== "policies"}
             >
               <section className="security-block security-policy-card" aria-labelledby="policy-heading">
@@ -683,9 +663,7 @@ export function SecuritySection() {
 
             <div
               className="security-tab-panel"
-              role="tabpanel"
               id="security-panel-trusted"
-              aria-labelledby="security-tab-trusted"
               hidden={activeTab !== "trusted"}
             >
               <section className="security-block security-network-view" aria-labelledby="trusted-heading">
@@ -780,9 +758,7 @@ export function SecuritySection() {
 
             <div
               className="security-tab-panel"
-              role="tabpanel"
               id="security-panel-blocked"
-              aria-labelledby="security-tab-blocked"
               hidden={activeTab !== "blocked"}
             >
               <section className="security-block security-network-view" aria-labelledby="blocked-heading">

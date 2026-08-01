@@ -25,10 +25,13 @@ import type { LucideIcon } from "lucide-react";
 import packageInfo from "../../../../package.json";
 import type { PublicUser } from "../api";
 import { isStandalone } from "../pwa/platform";
-import { followRoute } from "../router";
+import { controlHref, followRoute } from "../router";
 import { REPO_ISSUES_URL } from "../shared/links";
 
 const APP_VERSION = packageInfo.version;
+
+// The control panel's landing page — Overview › System.
+const CONTROL_HOME = controlHref("status");
 
 type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "family" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
 
@@ -201,7 +204,7 @@ function MobileNav({
               <span>Shared</span>
             </a>
             {user.role === "admin" && (
-              <a className="mobile-media-option" href="/control/status" onClick={(event) => { followRoute(event, "/control/status"); close(); }}>
+              <a className="mobile-media-option" href={CONTROL_HOME} onClick={(event) => { followRoute(event, CONTROL_HOME); close(); }}>
                 <Settings size={26} aria-hidden="true" />
                 <span>Settings</span>
               </a>
@@ -276,7 +279,7 @@ export function DashboardShell({
   // exposes every user-area destination. The control panel keeps its top nav.
   const mobileTabBar = isUserArea;
   const mainClasses = `home-main app-dashboard-main scene-page ${isControlPanel ? "control-scene" : "sputnik-scene"}`;
-  const settingsHref = user.role === "admin" && !hasSectionNav ? "/control/status" : "/profile";
+  const settingsHref = user.role === "admin" && !hasSectionNav ? CONTROL_HOME : "/profile";
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const currentPath = window.location.pathname;

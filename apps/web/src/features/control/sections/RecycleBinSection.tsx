@@ -5,6 +5,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { formatBytes } from "../../../shared/utils";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 interface TrashedItem {
   id: string;
@@ -103,24 +104,14 @@ export function RecycleBinSection() {
 
   return (
     <>
-      <div className="section-head admin-section-head">
-        <div className="admin-title-wrap">
-          <span className="admin-page-icon" aria-hidden="true">
-            <Trash2 size={30} />
-          </span>
-          <div className="admin-heading-copy">
-            <p className="eyebrow">Digital Library</p>
-            <h1>Recycle Bin</h1>
-            <p className="section-description">{retentionBlurb}</p>
-          </div>
-        </div>
+      <ControlSectionHead section="recycleBin" icon={<Trash2 size={30} />} description={retentionBlurb}>
         {items.length > 0 && (
           <Button variant="danger" compact onClick={() => { setActionError(""); setEmptyOpen(true); }}>
             <Trash2 size={16} />
             <span>Empty Recycle Bin</span>
           </Button>
         )}
-      </div>
+      </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Unable to load the Recycle Bin">{error}</MessageBox>}
       {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}

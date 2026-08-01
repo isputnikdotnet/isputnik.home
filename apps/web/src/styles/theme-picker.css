@@ -103,12 +103,6 @@
   max-width: 720px;
 }
 
-/* Tab chrome (grid, icons, active state) is shared with Security in about.css. */
-.config-tabs,
-.config-tab-panels {
-  max-width: 720px;
-}
-
 .config-block h2 {
   margin: 0 0 4px;
   font-size: 1.05rem;

@@ -19,7 +19,7 @@ import {
   ScanFace
 } from "lucide-react";
 import { api } from "../../../api";
-import { followRoute } from "../../../router";
+import { controlHref, followRoute } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
@@ -38,6 +38,7 @@ import { LibraryWizard } from "../libraries/LibraryWizard";
 import { LibraryMembersModal } from "./LibraryMembersModal";
 import { ScanRulesModal } from "./ScanRulesModal";
 import { GalleryFaceSettingsModal } from "../../gallery/GalleryFaceSettingsModal";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 type ManagedLibraryType = "audiobook" | "ebook" | "gallery";
 
@@ -382,17 +383,12 @@ export function LibrariesSection() {
 
   return (
     <>
-      <div className="section-head library-section-head">
-        <div className="library-title-wrap">
-          <span className="library-page-icon" aria-hidden="true">
-            <LibraryBig size={30} />
-          </span>
-          <div className="library-heading-copy">
-            <p className="eyebrow">Digital Library</p>
-            <h1>Libraries</h1>
-            <p className="section-description">Manage your digital libraries and their content.</p>
-          </div>
-        </div>
+      <ControlSectionHead
+        section="libraries"
+        className="library-section-head"
+        icon={<LibraryBig size={30} />}
+        description="Every library on this server, what it scans, and who can see it."
+      >
         <div className="row-actions">
           <Button
             variant="primary"
@@ -404,7 +400,7 @@ export function LibrariesSection() {
             <span>Add library</span>
           </Button>
         </div>
-      </div>
+      </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Library error">{error}</MessageBox>}
       {!setupReady && (
@@ -414,8 +410,8 @@ export function LibrariesSection() {
           action={
             <a
               className="primary-button compact-button"
-              href="/control/storage"
-              onClick={(event) => followRoute(event, "/control/storage")}
+              href={controlHref("storage")}
+              onClick={(event) => followRoute(event, controlHref("storage"))}
             >
               <HardDrive size={16} aria-hidden="true" />
               Set up storage

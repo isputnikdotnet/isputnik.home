@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Check, List, Pencil, Plus, RefreshCw, Search, Tags as TagsIcon, Trash2, Upload, X } from "lucide-react";
 import { api } from "../../../api";
-import { navigate } from "../../../router";
+import { controlHref, navigate } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
+import { ControlSectionHead } from "../ControlSectionHead";
 import { CategoryIcon, CATEGORY_ICON_KEYS } from "../../audiobooks/categoryIcons";
 import type { TagSummary } from "../../audiobooks/types";
 
@@ -114,20 +115,16 @@ export function CategoriesSection() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Digital Library</p>
-          <h1>Categories</h1>
-        </div>
+      <ControlSectionHead section="categories" description="Shelves books land on automatically, based on their tags.">
         <div className="category-head-actions">
-          <button className="primary-button" onClick={() => navigate("/control/categories/new")}>
+          <button className="primary-button" onClick={() => navigate(`${controlHref("categories")}/new`)}>
             <Plus size={16} /> Add category
           </button>
           <button className="secondary-button" onClick={rematch} disabled={rematching} title="Recompute every book's category from its tags using the current mappings">
             <RefreshCw size={15} /> {rematching ? "Re-matching..." : "Re-match all"}
           </button>
         </div>
-      </div>
+      </ControlSectionHead>
 
       <details className="category-help-panel category-help-disclosure">
         <summary className="category-help-summary">
@@ -212,7 +209,7 @@ export function CategoriesSection() {
                       >
                         <Check size={14} /> Save order
                       </button>
-                      <button className="secondary-button compact-button" onClick={() => navigate(`/control/categories/${category.id}`)}>
+                      <button className="secondary-button compact-button" onClick={() => navigate(`${controlHref("categories")}/${category.id}`)}>
                         <Pencil size={14} /> Edit
                       </button>
                     </div>
@@ -409,7 +406,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
       }
 
       if (isNew && id) {
-        navigate(`/control/categories/${id}`);
+        navigate(`${controlHref("categories")}/${id}`);
         return;
       }
       setImageFile(null);
@@ -434,7 +431,7 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
     setError("");
     try {
       await api<{ movedBooks: number }>(`/api/library/manage/categories/${category.id}`, { method: "DELETE" });
-      navigate("/control/categories");
+      navigate(controlHref("categories"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to delete category");
     } finally {
@@ -514,14 +511,14 @@ export function CategoryEditorPage({ categoryId }: { categoryId: string | null }
   return (
     <div className="category-editor-page">
       <div className="category-editor-page-head">
-        <button className="text-button category-editor-back" onClick={() => navigate("/control/categories")}>
+        <button className="text-button category-editor-back" onClick={() => navigate(controlHref("categories"))}>
           <ArrowLeft size={15} />
           Categories
         </button>
         <div className="category-editor-title-row">
           <h1>{isNew ? "Add category" : "Edit category"}</h1>
           <div className="category-head-actions">
-            <button className="secondary-button" type="button" onClick={() => navigate("/control/categories")} disabled={saving || deleting}>
+            <button className="secondary-button" type="button" onClick={() => navigate(controlHref("categories"))} disabled={saving || deleting}>
               Cancel
             </button>
             <button className="primary-button" type="button" onClick={saveCategory} disabled={saving || deleting || !name.trim()}>

@@ -4,7 +4,7 @@ A **library** points the app at one folder and says what kind of media is in it.
 You can have as many as you like — one per drive, one per person, one per
 collection — and they can be shared with everyone or kept to yourself.
 
-Libraries live in **Control panel → Libraries**. If **Add library** is greyed
+Libraries live in **Control panel → Library → Libraries**. If **Add library** is greyed
 out, [storage](storage.md) isn't set up yet.
 
 ## The wizard

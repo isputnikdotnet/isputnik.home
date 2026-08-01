@@ -6,6 +6,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import type { LibrarySettings, StorageRoot } from "../types";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 export function StorageSection() {
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
@@ -103,18 +104,12 @@ export function StorageSection() {
 
   return (
     <>
-      <div className="section-head admin-section-head">
-        <div className="admin-title-wrap">
-          <span className="admin-page-icon storage" aria-hidden="true">
-            <HardDrive size={30} />
-          </span>
-          <div className="admin-heading-copy">
-            <p className="eyebrow">Application</p>
-            <h1>Storage</h1>
-            <p className="section-description">Configure thumbnail storage and approved library containers.</p>
-          </div>
-        </div>
-      </div>
+      <ControlSectionHead
+        section="storage"
+        icon={<HardDrive size={30} />}
+        iconClassName="storage"
+        description="Where thumbnails live, and which folders libraries may be created in."
+      />
 
       {error && <MessageBox tone="error" title="Storage error">{error}</MessageBox>}
 

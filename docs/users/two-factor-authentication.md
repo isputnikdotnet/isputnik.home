@@ -33,7 +33,7 @@ library**. It also depends on the server being able to send email; if email brea
 your backup codes are the way in.
 
 > The email option only appears if an administrator has set up email on the server
-> (Control panel → **Config** → **Email** — see [Setting up email](email.md)). Codes
+> (Control panel → **Settings** → **Email** — see [Setting up email](email.md)). Codes
 > go to the same address you sign in with.
 
 ## Turning it on
@@ -92,6 +92,6 @@ If you've lost your second factor **and** your backup codes, ask an
 **administrator** to reset two-factor on your account. Afterwards you can sign in
 with just your password and set 2FA up again.
 
-> **For administrators:** Control panel → **Users** → the person's row → the shield
+> **For administrators:** Control panel → **Members** → **Users** → the person's row → the shield
 > icon (**Reset two-factor**). This clears their method and backup codes. It does
 > not change their password or touch their content.

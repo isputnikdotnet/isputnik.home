@@ -332,11 +332,11 @@ across models) and needs a one-time rescan.
 
 **Progress + ETA.** The scan worker throttle-writes `{processed, total, startedAt,
 etaSeconds}` into the job's payload via `shared/job-progress.ts` (recent-window rate).
-Live progress is rendered on the admin **Tasks** page (Control panel → Libraries →
+Live progress is rendered on the admin **Tasks** page (Control panel → Overview →
 Tasks) — a progress ring with counts, percentage, and time remaining; the Face
 recognition window just points there.
 
-**Scheduled job.** The `scan_new_faces` maintenance job (Control panel → Libraries →
+**Scheduled job.** The `scan_new_faces` maintenance job (Control panel → Maintenance →
 Scheduled jobs) enqueues non-forced scans across every face-enabled library — picking up
 new and stale-model photos. Ships **enabled**, daily at **05:00** — deliberately after
 the nightly library scans (randomized 01:00–04:59), so the day's new photos are already
@@ -344,7 +344,7 @@ cataloged and get their faces the same night.
 
 ## Duplicate photos
 
-`gallery/duplicates.ts` + `duplicate-routes.ts`, surfaced at Control panel → Libraries →
+`gallery/duplicates.ts` + `duplicate-routes.ts`, surfaced at Control panel → Maintenance →
 **Duplicate photos**. Two tiers: **byte-identical** files, and **near-identical** ones
 (same picture, different file).
 

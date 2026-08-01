@@ -1017,30 +1017,6 @@ a.icon-button svg {
   align-items: flex-start;
 }
 
-.library-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-}
-
-.library-page-icon {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 8px;
-  color: var(--control-primary-button, var(--mint));
-  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 10%, transparent);
-}
-
-.library-heading-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
 .section-description {
   margin: 0;
   color: var(--muted);
@@ -1113,11 +1089,7 @@ a.icon-button svg {
   white-space: nowrap;
 }
 
-/* ── Unified Users page ─────────────────────────────────────────── */
-
-.user-section-head {
-  align-items: flex-start;
-}
+/* ── Profile page header ────────────────────────────────────────── */
 
 .user-title-wrap {
   display: flex;
@@ -1245,6 +1217,8 @@ a.icon-button svg {
   background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 10%, transparent);
 }
 
+/* Blue accent for the pages that used to carry the .user-page-icon styling. */
+.admin-page-icon.blue,
 .admin-page-icon.groups {
   color: var(--blue);
   background: color-mix(in srgb, var(--blue) 14%, transparent);
@@ -3507,3 +3481,98 @@ a.icon-button svg {
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
 }
 
+
+/* ── Control-panel search palette ───────────────────────────────────────────
+   Ctrl/⌘+K from anywhere in the control panel. Renders inside shared/Modal's
+   card surface, so only the box and the result rows are styled here. */
+
+.control-search-modal {
+  width: min(560px, 92vw);
+  max-height: min(70vh, 640px);
+  display: flex;
+  flex-direction: column;
+}
+
+.control-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+.control-search-box:focus-within {
+  border-color: color-mix(in srgb, var(--mint) 55%, var(--border));
+}
+
+.control-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.98rem;
+}
+
+.control-search-input:focus {
+  outline: none;
+}
+
+.control-search-results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 12px;
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
+.control-search-hint,
+.control-search-empty {
+  margin: 0 0 4px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.control-search-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.control-search-result.is-active {
+  background: var(--active);
+}
+
+.control-search-result-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.control-search-result-copy strong {
+  font-size: 0.94rem;
+  font-weight: 620;
+}
+
+.control-search-result-copy small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}

@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Check, Copy, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Check, Copy, Plus, Trash2 } from "lucide-react";
 import { api } from "../../../api";
+import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";
 import { Field } from "../../../shared/Field";
 import { Modal } from "../../../shared/Modal";
@@ -127,11 +128,17 @@ export function OpdsAccessSection() {
   };
 
   return (
-    <section className="opds-access" aria-labelledby="opds-access-heading">
-      <h2 id="opds-access-heading">Reader access (OPDS)</h2>
+    <section className="opds-access">
+      <ControlSectionHead
+        section="readerAccess"
+        icon={<BookOpen size={30} />}
+        iconClassName="blue"
+        description="Open your ebooks in KOReader, Moon+ Reader or Thorium over OPDS."
+      />
+
       <p className="opds-intro">
-        Read your ebooks in apps like KOReader, Moon+ Reader or Thorium. Create a token for a device, then
-        paste its catalog link into the reader. Each token is read-only and can be removed at any time.
+        Create a token for a device, then paste its catalog link into the reader. Each token is read-only and can be
+        removed at any time.
       </p>
 
       {error && <MessageBox tone="error" title="Reader access">{error}</MessageBox>}

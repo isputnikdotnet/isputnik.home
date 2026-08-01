@@ -1,19 +1,11 @@
+import { useCallback, useState } from "react";
+import { ChevronLeft, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute } from "../../router";
+import { controlHref, followRoute } from "../../router";
 import type { ControlSection } from "../../router";
-import {
-  Activity,
-  HardDrive,
-  Home,
-  LibraryBig,
-  ScrollText,
-  Settings,
-  ShieldCheck,
-  Tags,
-  Trash2,
-  UsersRound
-} from "lucide-react";
+import { CONTROL_GROUPS, groupForSection, type ControlGroupDef } from "./nav";
+import { ControlSearch, useControlSearchShortcut } from "./ControlSearch";
 import { UsersSection } from "./sections/UsersSection";
 import { InvitesSection } from "./sections/InvitesSection";
 import { SessionsSection } from "./sections/SessionsSection";
@@ -22,9 +14,7 @@ import { StatusSection } from "./sections/StatusSection";
 import { AboutSection } from "./sections/AboutSection";
 import { StorageSection } from "./sections/StorageSection";
 import { LibrariesSection } from "./sections/LibrariesSection";
-import { AudiobookStatsSection } from "./sections/AudiobookStatsSection";
-import { EbookStatsSection } from "./sections/EbookStatsSection";
-import { GalleryStatsSection } from "./sections/GalleryStatsSection";
+import { StatisticsSection } from "./sections/StatisticsSection";
 import { BackupSection } from "./sections/BackupSection";
 import { CategoriesSection, CategoryEditorPage } from "./sections/CategoriesSection";
 import { TagsSection } from "./sections/TagsSection";
@@ -33,7 +23,9 @@ import { TasksSection } from "./sections/TasksSection";
 import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
 import { MissingPhotosSection } from "./sections/MissingPhotosSection";
 import { DuplicatePhotosSection } from "./sections/DuplicatePhotosSection";
-import { ConfigSection } from "./sections/ConfigSection";
+import { AppearanceSection } from "./sections/AppearanceSection";
+import { MailSection } from "./sections/MailSection";
+import { OpdsAccessSection } from "./sections/OpdsAccessSection";
 import { SecuritySection } from "./sections/SecuritySection";
 import { RecycleBinSection } from "./sections/RecycleBinSection";
 
@@ -48,185 +40,139 @@ export function ControlPanelPage({
   user: PublicUser;
   logout: () => Promise<void>;
 }) {
+  const [searchOpen, setSearchOpen] = useState(false);
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+  useControlSearchShortcut(openSearch);
+
+  const group = groupForSection(section);
+  // The category editor is a sub-page of Categories, not a tab of its own, so it
+  // keeps the nav highlight but drops the tab row.
+  const editingCategory = section === "categories" && categoryId !== undefined;
+
   return (
-    <DashboardShell active="control" user={user} logout={logout} sideNav={<ControlPanelNav section={section} />}>
+    <DashboardShell
+      active="control"
+      user={user}
+      logout={logout}
+      sideNav={<ControlPanelNav section={section} onSearch={openSearch} />}
+    >
       <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
-          {(section === "users" || section === "groups" || section === "invites" || section === "sessions") && <AccountsSection section={section} currentUser={user} />}
-          {section === "logs"      && <LogsSection />}
-          {(section === "status" || section === "statusStats" || section === "statusEbookStats" || section === "statusGalleryStats") && <StatusControl section={section} />}
-          {(section === "config" || section === "backup") && <ConfigControl section={section} />}
-          {section === "security"  && <SecuritySection />}
-          {section === "about"     && <AboutSection />}
-          {section === "storage"   && <StorageSection />}
-          {(section === "libraries" || section === "tasks" || section === "scheduledJobs" || section === "missingPhotos" || section === "duplicatePhotos") && <LibrariesControl section={section} />}
-          {section === "recycleBin" && <RecycleBinSection />}
-          {section === "categories" && categoryId !== undefined && <CategoryEditorPage categoryId={categoryId} />}
-          {section === "categories" && categoryId === undefined && <TaxonomySection section="categories" />}
-          {section === "tags"      && <TaxonomySection section="tags" />}
+          {!editingCategory && group.tabs.length > 1 && <ControlTabs group={group} section={section} />}
+          <ControlSectionBody section={section} categoryId={categoryId} currentUser={user} />
         </section>
       </div>
+
+      {searchOpen && <ControlSearch onClose={() => setSearchOpen(false)} />}
     </DashboardShell>
   );
 }
 
-function ControlPanelNav({ section }: { section: ControlSection }) {
+function ControlSectionBody({
+  section,
+  categoryId,
+  currentUser
+}: {
+  section: ControlSection;
+  categoryId?: string | null;
+  currentUser: PublicUser;
+}) {
+  switch (section) {
+    case "status":          return <StatusSection />;
+    case "stats":           return <StatisticsSection />;
+    case "tasks":           return <TasksSection />;
+    case "logs":            return <LogsSection />;
+
+    case "libraries":       return <LibrariesSection />;
+    case "storage":         return <StorageSection />;
+    case "categories":      return categoryId !== undefined ? <CategoryEditorPage categoryId={categoryId} /> : <CategoriesSection />;
+    case "tags":            return <TagsSection />;
+
+    case "users":           return <UsersSection currentUser={currentUser} />;
+    case "groups":          return <GroupsSection />;
+    case "invites":         return <InvitesSection />;
+    case "sessions":        return <SessionsSection />;
+
+    case "security":
+    case "securityPolicies":
+    case "securityTrusted":
+    case "securityBlocked": return <SecuritySection section={section} />;
+
+    case "backup":          return <BackupSection />;
+    case "scheduledJobs":   return <ScheduledJobsSection />;
+    case "recycleBin":      return <RecycleBinSection />;
+    case "missingPhotos":   return <MissingPhotosSection />;
+    case "duplicatePhotos": return <DuplicatePhotosSection />;
+
+    case "appearance":      return <AppearanceSection />;
+    case "email":           return <MailSection />;
+    case "readerAccess":    return <OpdsAccessSection />;
+    case "about":           return <AboutSection />;
+  }
+}
+
+function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSearch: () => void }) {
+  const activeGroup = groupForSection(section);
+
   return (
-    <nav className="home-control-nav" aria-label="Management">
-      <ControlNavLink icon={Home} label="Home" href="/" active={false} />
+    <nav className="home-control-nav" aria-label="Control panel">
+      <button type="button" className="control-search-trigger" onClick={onSearch}>
+        <Search size={18} aria-hidden="true" />
+        <span>Search…</span>
+        <kbd aria-hidden="true">Ctrl K</kbd>
+      </button>
 
       <div className="home-control-group">
-        <p>Application</p>
-        <ControlNavLink icon={Activity} label="Status" href="/control/status" active={["status", "statusStats", "statusEbookStats", "statusGalleryStats"].includes(section)} />
-        <ControlNavLink icon={Settings} label="Config" href="/control/config" active={section === "config" || section === "backup"} />
-        <ControlNavLink icon={ShieldCheck} label="Security" href="/control/security" active={section === "security"} />
-        <ControlNavLink icon={Tags} label="Labels" href="/control/categories" active={section === "categories" || section === "tags"} />
-        <ControlNavLink icon={ScrollText} label="Logs" href="/control/logs" active={section === "logs"} />
+        {CONTROL_GROUPS.map((group) => {
+          const Icon = group.icon;
+          const active = group.key === activeGroup.key;
+          // Each group links to its first tab, which is its landing page.
+          const href = controlHref(group.tabs[0].section);
+          return (
+            <a
+              key={group.key}
+              className={`home-nav-link${active ? " is-active" : ""}`}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              onClick={(event) => followRoute(event, href)}
+            >
+              <Icon size={21} aria-hidden="true" />
+              <span>{group.label}</span>
+            </a>
+          );
+        })}
       </div>
 
-      <div className="home-control-group">
-        <p>Digital Library</p>
-        <ControlNavLink icon={HardDrive} label="Storage" href="/control/storage" active={section === "storage"} />
-        <ControlNavLink icon={LibraryBig} label="Libraries" href="/control/libraries" active={section === "libraries" || section === "tasks" || section === "scheduledJobs"} />
-        <ControlNavLink icon={Trash2} label="Recycle Bin" href="/control/recycle-bin" active={section === "recycleBin"} />
-      </div>
-
-      <div className="home-control-group">
-        <p>User administration</p>
-        <ControlNavLink icon={UsersRound} label="Accounts" href="/control/accounts" active={["users", "groups", "invites", "sessions"].includes(section)} />
-      </div>
+      <a className="home-nav-link control-nav-exit" href="/" onClick={(event) => followRoute(event, "/")}>
+        <ChevronLeft size={21} aria-hidden="true" />
+        <span>Back to library</span>
+      </a>
     </nav>
   );
 }
 
-function ControlNavLink({
-  icon: Icon,
-  label,
-  href,
-  active
-}: {
-  icon: typeof Activity;
-  label: string;
-  href: string;
-  active: boolean;
-}) {
+// The in-page tab row for the active group. Each tab is a real link, so every
+// destination in the control panel is bookmarkable and the search palette can
+// jump straight to it.
+function ControlTabs({ group, section }: { group: ControlGroupDef; section: ControlSection }) {
   return (
-    <a
-      className={`home-nav-link${active ? " is-active" : ""}`}
-      href={href}
-      onClick={(event) => followRoute(event, href)}
-    >
-      <Icon size={21} aria-hidden="true" />
-      <span>{label}</span>
-    </a>
-  );
-}
-
-interface ControlTab {
-  label: string;
-  href: string;
-  active: boolean;
-  soon?: boolean;
-}
-
-// Shared in-page tab bar for the grouped control sections (Status, Labels,
-// Accounts, Maintenance). Each tab is a real link so it stays deep-linkable.
-function ControlTabs({ tabs }: { tabs: ControlTab[] }) {
-  return (
-    <div className="control-tabs" role="tablist">
-      {tabs.map((tab) => (
-        <a
-          key={tab.href}
-          role="tab"
-          aria-selected={tab.active}
-          className={`${tab.soon ? "control-tab-soon" : ""}${tab.active ? " active" : ""}`.trim()}
-          href={tab.href}
-          onClick={(event) => followRoute(event, tab.href)}
-        >
-          {tab.label}
-          {tab.soon && <span className="control-soon-badge">Soon</span>}
-        </a>
-      ))}
+    <div className="control-tabs" role="tablist" aria-label={`${group.label} sections`}>
+      {group.tabs.map((tab) => {
+        const href = controlHref(tab.section);
+        const active = tab.section === section;
+        return (
+          <a
+            key={tab.section}
+            role="tab"
+            aria-selected={active}
+            className={active ? "active" : undefined}
+            href={href}
+            onClick={(event) => followRoute(event, href)}
+          >
+            {tab.label}
+          </a>
+        );
+      })}
     </div>
   );
 }
-
-function StatusControl({ section }: { section: "status" | "statusStats" | "statusEbookStats" | "statusGalleryStats" }) {
-  return (
-    <>
-      <ControlTabs tabs={[
-        { label: "System", href: "/control/status", active: section === "status" },
-        { label: "Audiobook stats", href: "/control/status/audiobook-stats", active: section === "statusStats" },
-        { label: "Ebook stats", href: "/control/status/ebook-stats", active: section === "statusEbookStats" },
-        { label: "Gallery stats", href: "/control/status/gallery-stats", active: section === "statusGalleryStats" }
-      ]} />
-      {section === "status"             && <StatusSection />}
-      {section === "statusStats"        && <AudiobookStatsSection />}
-      {section === "statusEbookStats"   && <EbookStatsSection />}
-      {section === "statusGalleryStats" && <GalleryStatsSection />}
-    </>
-  );
-}
-
-function TaxonomySection({ section }: { section: "categories" | "tags" }) {
-  return (
-    <>
-      <ControlTabs tabs={[
-        { label: "Categories", href: "/control/categories", active: section === "categories" },
-        { label: "Tags", href: "/control/categories/tags", active: section === "tags" }
-      ]} />
-      {section === "categories" && <CategoriesSection />}
-      {section === "tags"       && <TagsSection />}
-    </>
-  );
-}
-
-function AccountsSection({ section, currentUser }: { section: "users" | "groups" | "invites" | "sessions"; currentUser: PublicUser }) {
-  return (
-    <>
-      <ControlTabs tabs={[
-        { label: "Users", href: "/control/accounts", active: section === "users" },
-        { label: "Groups", href: "/control/accounts/groups", active: section === "groups" },
-        { label: "Invite links", href: "/control/accounts/invites", active: section === "invites" },
-        { label: "Sessions", href: "/control/accounts/sessions", active: section === "sessions" }
-      ]} />
-      {section === "users"    && <UsersSection currentUser={currentUser} />}
-      {section === "groups"   && <GroupsSection />}
-      {section === "invites"  && <InvitesSection />}
-      {section === "sessions" && <SessionsSection />}
-    </>
-  );
-}
-
-function ConfigControl({ section }: { section: "config" | "backup" }) {
-  return (
-    <>
-      <ControlTabs tabs={[
-        { label: "Config", href: "/control/config", active: section === "config" },
-        { label: "Backup", href: "/control/config/backup", active: section === "backup" }
-      ]} />
-      {section === "config" && <ConfigSection />}
-      {section === "backup" && <BackupSection />}
-    </>
-  );
-}
-
-function LibrariesControl({ section }: { section: "libraries" | "tasks" | "scheduledJobs" | "missingPhotos" | "duplicatePhotos" }) {
-  return (
-    <>
-      <ControlTabs tabs={[
-        { label: "Libraries", href: "/control/libraries", active: section === "libraries" },
-        { label: "Tasks", href: "/control/libraries/tasks", active: section === "tasks" },
-        { label: "Scheduled jobs", href: "/control/libraries/scheduled-jobs", active: section === "scheduledJobs" },
-        { label: "Missing photos", href: "/control/libraries/missing-photos", active: section === "missingPhotos" },
-        { label: "Duplicate photos", href: "/control/libraries/duplicate-photos", active: section === "duplicatePhotos" }
-      ]} />
-      {section === "libraries"       && <LibrariesSection />}
-      {section === "tasks"           && <TasksSection />}
-      {section === "scheduledJobs"   && <ScheduledJobsSection />}
-      {section === "missingPhotos"   && <MissingPhotosSection />}
-      {section === "duplicatePhotos" && <DuplicatePhotosSection />}
-    </>
-  );
-}
-

@@ -54,7 +54,7 @@ where files live. That's next: **[Storage](storage.md)**.
 
 ## Adding other people
 
-You don't have to hand out your own account. In **Control panel → Accounts** you
+You don't have to hand out your own account. In **Control panel → Members** you
 can invite family members, each with their own sign-in:
 
 - **Member** — can browse and read/listen/watch everything shared with them.

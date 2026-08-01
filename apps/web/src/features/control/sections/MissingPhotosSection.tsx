@@ -4,6 +4,7 @@ import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 interface MissingPhoto {
   id: string;
@@ -115,28 +116,24 @@ export function MissingPhotosSection() {
 
   return (
     <>
-      <div className="section-head admin-section-head">
-        <div className="admin-title-wrap">
-          <span className="admin-page-icon" aria-hidden="true">
-            <ImageOff size={30} />
-          </span>
-          <div className="admin-heading-copy">
-            <p className="eyebrow">Digital Library</p>
-            <h1>Missing photos</h1>
-            <p className="section-description">
-              Photos whose files have vanished from disk. They're hidden from the gallery but kept here — with their
-              metadata and last-known thumbnail — in case the file comes back. Unmatched after the grace window, they're
-              permanently removed by the weekly cleanup. If a drive was just offline, rescan the library and they revive.
-            </p>
-          </div>
-        </div>
+      <ControlSectionHead
+        section="missingPhotos"
+        icon={<ImageOff size={30} />}
+        description={
+          <>
+            Photos whose files have vanished from disk. They're hidden from the gallery but kept here — with their
+            metadata and last-known thumbnail — in case the file comes back. Unmatched after the grace window, they're
+            permanently removed by the weekly cleanup. If a drive was just offline, rescan the library and they revive.
+          </>
+        }
+      >
         {eligibleCount > 0 && (
           <Button variant="danger" compact disabled={busy} onClick={() => { setActionError(""); setPurgeAllOpen(true); }}>
             <Trash2 size={16} />
             <span>Purge {eligibleCount} eligible now</span>
           </Button>
         )}
-      </div>
+      </ControlSectionHead>
 
       <div className="missing-retention-row">
         <label htmlFor="missing-retention">Auto-purge missing photos after</label>

@@ -1,42 +1,15 @@
-import { useState, useEffect } from "react";
-import { Clock3, HardDrive, Image, Images, Library, RefreshCw, Video } from "lucide-react";
-import { api } from "../../../api";
-import { Button } from "../../../shared/Button";
-import { MessageBox } from "../../../shared/MessageBox";
+import { Clock3, HardDrive, Image, Images, Library, Video } from "lucide-react";
 import { formatBytes } from "../../../shared/utils";
 import type { SystemStatus } from "../types";
 import { StatusMetric, formatHours, formatClock } from "./StatusMetric";
 
-export function GalleryStatsSection() {
-  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [error, setError] = useState("");
-
-  const loadStatus = async () => {
-    const payload = await api<{ status: SystemStatus }>("/api/status");
-    setSystemStatus(payload.status);
-  };
-
-  useEffect(() => {
-    loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to load stats"));
-  }, []);
-
-  const stats = systemStatus?.galleryStats;
+// One panel of Overview › Statistics. StatisticsSection owns the fetch, the
+// heading and the media-type switch; this just draws the gallery slice.
+export function GalleryStats({ status }: { status: SystemStatus }) {
+  const stats = status.galleryStats;
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Digital Library</p>
-          <h1>Gallery stats</h1>
-        </div>
-        <Button variant="secondary" compact onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh stats"))}>
-          <RefreshCw size={15} aria-hidden="true" />
-          Refresh
-        </Button>
-      </div>
-
-      {error && <MessageBox tone="error" title="Stats error">{error}</MessageBox>}
-
       {stats && (
         <div className="status-stack">
           <section className="status-block">

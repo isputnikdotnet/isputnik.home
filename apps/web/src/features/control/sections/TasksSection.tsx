@@ -5,6 +5,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { ProgressRing } from "../../../shared/ProgressRing";
 import { formatManagedDate, formatEta } from "../../../shared/utils";
 import type { Job } from "../types";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 const PAGE_SIZE = 25;
 
@@ -100,15 +101,11 @@ export function TasksSection() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Maintenance</p>
-          <h1>Tasks</h1>
-        </div>
+      <ControlSectionHead section="tasks" description="Scans and other background work, running and recently finished.">
         <button className="secondary-button" onClick={() => loadTasks().catch(() => undefined)}>
           Refresh
         </button>
-      </div>
+      </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Tasks error">{error}</MessageBox>}
 

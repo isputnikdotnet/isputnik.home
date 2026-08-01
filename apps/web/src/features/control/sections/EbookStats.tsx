@@ -1,8 +1,4 @@
-import { useState, useEffect } from "react";
-import { BookOpen, FileText, HardDrive, Library, RefreshCw, UserRound } from "lucide-react";
-import { api } from "../../../api";
-import { Button } from "../../../shared/Button";
-import { MessageBox } from "../../../shared/MessageBox";
+import { BookOpen, FileText, HardDrive, Library, UserRound } from "lucide-react";
 import { formatBytes } from "../../../shared/utils";
 import type { EbookPersonStatusStats, SystemStatus } from "../types";
 import { StatusMetric } from "./StatusMetric";
@@ -36,36 +32,13 @@ function AuthorsTable({ people }: { people: EbookPersonStatusStats[] }) {
   );
 }
 
-export function EbookStatsSection() {
-  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [error, setError] = useState("");
-
-  const loadStatus = async () => {
-    const payload = await api<{ status: SystemStatus }>("/api/status");
-    setSystemStatus(payload.status);
-  };
-
-  useEffect(() => {
-    loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to load stats"));
-  }, []);
-
-  const stats = systemStatus?.ebookStats;
+// One panel of Overview › Statistics. StatisticsSection owns the fetch, the
+// heading and the media-type switch; this just draws the ebook slice.
+export function EbookStats({ status }: { status: SystemStatus }) {
+  const stats = status.ebookStats;
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Digital Library</p>
-          <h1>Ebook stats</h1>
-        </div>
-        <Button variant="secondary" compact onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh stats"))}>
-          <RefreshCw size={15} aria-hidden="true" />
-          Refresh
-        </Button>
-      </div>
-
-      {error && <MessageBox tone="error" title="Stats error">{error}</MessageBox>}
-
       {stats && (
         <div className="status-stack">
           <section className="status-block">

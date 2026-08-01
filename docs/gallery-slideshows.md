@@ -52,7 +52,7 @@ are always kept; the nightly scan backfills the catalog.
 ## The rendered movie
 
 "Render movie" encodes an MP4 (H.264/AAC, 1080p) in the background via the shared
-`jobs` queue — it appears on Control panel → Tasks as **"Slideshow movie"** with live
+`jobs` queue — it appears on Control panel → Overview → Tasks as **"Slideshow movie"** with live
 progress, and can be cancelled there (cancel kills the ffmpeg process and returns
 the slideshow to its previous state).
 

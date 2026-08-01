@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { AboutDetails, type AboutInfo } from "../../../shared/AboutDetails";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 export function AboutSection() {
   const [about, setAbout] = useState<AboutInfo | null>(null);
@@ -15,12 +16,7 @@ export function AboutSection() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">Application</p>
-          <h1>About</h1>
-        </div>
-      </div>
+      <ControlSectionHead section="about" description="Version, credits and what changed in each release." />
 
       {error && <MessageBox tone="error" title="About error">{error}</MessageBox>}
       {about && <AboutDetails about={about} />}

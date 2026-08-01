@@ -12,6 +12,7 @@ import { DuplicateViewer } from "./DuplicateViewer";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { AudiobookHeaderSort } from "../../audiobooks/AudiobooksPage";
 import type { SortKey } from "../../audiobooks/BookFilter";
+import { ControlSectionHead } from "../ControlSectionHead";
 
 interface DuplicateMember {
   itemId: string;
@@ -519,17 +520,12 @@ export function DuplicatePhotosSection() {
 
   return (
     <>
-      <div className="section-head admin-section-head dup-section-head">
-        <div className="admin-title-wrap">
-          <span className="admin-page-icon" aria-hidden="true">
-            <Copy size={30} />
-          </span>
-          <div className="admin-heading-copy">
-            <p className="eyebrow">Digital Library</p>
-            <h1>Duplicate photos</h1>
-            <p className="section-description">Find and manage duplicate photos to free up space.</p>
-          </div>
-        </div>
+      <ControlSectionHead
+        section="duplicatePhotos"
+        className="dup-section-head"
+        icon={<Copy size={30} />}
+        description="Find and manage duplicate photos to free up space."
+      >
         {payload.groups.length > 0 && (
           <label className="search-field dup-search">
             <Search size={17} aria-hidden="true" />
@@ -542,7 +538,7 @@ export function DuplicatePhotosSection() {
             />
           </label>
         )}
-      </div>
+      </ControlSectionHead>
 
       {/* The counts beside each library in the picker are how many files a scan of it
           would have to read, so they aren't repeated here. */}
