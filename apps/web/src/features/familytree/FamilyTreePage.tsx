@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileUp, Search, UserRound, UserRoundPlus, UsersRound } from "lucide-react";
+import { FileUp, Search, Settings, UserRoundPlus, UsersRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { followRoute, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { AddRelativeModal } from "./AddRelativeModal";
@@ -10,7 +10,7 @@ import { defaultFocusId } from "./chart-layout";
 import { FamilyTreeChart } from "./FamilyTreeChart";
 import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
 import { GedcomImportModal } from "./GedcomImportModal";
-import { PersonAvatar } from "./PersonAvatar";
+import { FamilyPersonMark, PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
 import { lifeYears, type FamilyPerson, type FamilyTree } from "./types";
 
@@ -78,6 +78,7 @@ export function FamilyTreePage({
     setSearchOpen(false);
     navigate(`/family/tree/${person.id}`);
   };
+  const canAdd = tree?.access.canAdd ?? false;
 
   return (
     <DashboardShell active="family" user={user} logout={logout}>
@@ -119,6 +120,35 @@ export function FamilyTreePage({
                 </div>
               )}
             </div>
+            {tree && tree.persons.length === 0 && (
+              <>
+                <a
+                  className="secondary-button compact-button ft-tree-header-link"
+                  href="/family/people"
+                  onClick={(event) => followRoute(event, "/family/people")}
+                >
+                  <UsersRound size={16} aria-hidden="true" />
+                  <span>All people</span>
+                </a>
+                {isAdmin && (
+                  <Button
+                    variant="icon"
+                    className="ft-tree-header-icon"
+                    aria-label="Family tree settings"
+                    title="Family tree settings"
+                    onClick={() => setSettingsOpen(true)}
+                  >
+                    <Settings size={17} aria-hidden="true" />
+                  </Button>
+                )}
+                {canAdd && (
+                  <Button variant="primary" compact className="ft-tree-header-link" onClick={() => setAddOpen(true)}>
+                    <UserRoundPlus size={16} aria-hidden="true" />
+                    <span>Add person</span>
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         </header>
 
@@ -126,27 +156,41 @@ export function FamilyTreePage({
 
         {tree && tree.persons.length === 0 && !error && (
           <div className="ft-tree-empty">
-            <UserRound size={40} aria-hidden="true" />
-            <h2>No family members yet</h2>
-            <p>
-              {tree.access.canAdd
-                ? "Start the tree by adding the first person — then add partners, children, and photos."
-                : "The family tree hasn't been started yet."}
-            </p>
-            {tree.access.canAdd && (
-              <div className="ft-tree-empty-actions">
-                <Button variant="primary" onClick={() => setAddOpen(true)}>
-                  <UserRoundPlus size={16} aria-hidden="true" />
-                  Add person
-                </Button>
-                {isAdmin && (
-                  <Button variant="secondary" onClick={() => setImportOpen(true)}>
-                    <FileUp size={16} aria-hidden="true" />
-                    Import GEDCOM
+            <div className="ft-tree-empty-branches" aria-hidden="true">
+              <span className="ft-tree-empty-line is-left" />
+              <span className="ft-tree-empty-line is-right" />
+              <span className="ft-tree-empty-line is-down-left" />
+              <span className="ft-tree-empty-line is-down-right" />
+              <span className="ft-tree-empty-node is-top-left" />
+              <span className="ft-tree-empty-node is-top-right" />
+              <span className="ft-tree-empty-node is-bottom-left" />
+              <span className="ft-tree-empty-node is-bottom-right" />
+            </div>
+            <div className="ft-tree-empty-content">
+              <span className="ft-tree-empty-mark" aria-hidden="true">
+                <FamilyPersonMark />
+              </span>
+              <h2>No family members yet</h2>
+              <p>
+                {tree.access.canAdd
+                  ? "Start the tree by adding the first person, then add partners, children, and photos."
+                  : "The family tree hasn't been started yet."}
+              </p>
+              {tree.access.canAdd && (
+                <div className="ft-tree-empty-actions">
+                  <Button variant="primary" onClick={() => setAddOpen(true)}>
+                    <UserRoundPlus size={16} aria-hidden="true" />
+                    Add person
                   </Button>
-                )}
-              </div>
-            )}
+                  {isAdmin && (
+                    <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                      <FileUp size={16} aria-hidden="true" />
+                      Import GEDCOM
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
