@@ -1,3 +1,36 @@
+/* Widest breakpoint first, so the narrower blocks below still win where they
+   overlap.
+
+   The control panel's sidebar takes 208px before the content area starts, so a
+   window that is still "desktop" by every other measure can leave the
+   four-across metric grid too narrow for a label like "Total libraries" or a
+   value like "6.88 GB" to sit on one line. Drop to two across while the cards
+   are still comfortable rather than letting them wrap mid-word; the ≤740px
+   rules take it to two-then-one from there.
+
+   Measured: four across starts wrapping just under 1140px with a value that
+   short. The threshold sits above that on purpose — a bigger library reads
+   "688.12 GB", and the point is to stop before the wrap, not at it. */
+/* `.status-grid-four` also carries `.status-grid`, and responsive.css loads
+   last, so this catches both grids. Keep every selector here at a single class:
+   a `:not()` would out-specify the ≤740px and ≤430px rules below and strand the
+   grid at two columns on a phone. */
+@media (max-width: 1240px) {
+  .status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* The four-across grid holds shorter values than the three-across one (counts
+   and sizes, no filenames or timestamps), so it still fits four the rest of the
+   way down to 1160px. Restore it over the rule above rather than raising that
+   one's specificity. */
+@media (min-width: 1161px) and (max-width: 1240px) {
+  .status-grid-four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 740px) {
   .app-shell {
     display: flex;
