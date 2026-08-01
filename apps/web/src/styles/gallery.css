@@ -1127,21 +1127,10 @@
 
 /* Folder-browser modal: a library select in the header, breadcrumb, selectable tiles,
    and a sticky action row. */
-/* Match the app's other dropdowns (.field select) — without this the browser
-   renders its raw OS control, which reads as a different widget entirely. */
 .slideshow-browse-scope select {
   max-width: 200px;
   min-height: 40px;
   padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  color: var(--ink);
-  background: var(--field);
-}
-
-.slideshow-browse-scope select:focus {
-  border-color: var(--mint);
-  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
 }
 .slideshow-browse-crumbs { margin: 0; flex-wrap: wrap; }
 .slideshow-browse-crumb { display: inline-flex; align-items: center; gap: 4px; }
@@ -1737,13 +1726,19 @@
   gap: 6px;
 }
 
-.gallery-person-rename input,
-.gallery-merge-panel select {
+.gallery-person-rename input {
   padding: 5px 8px;
   border-radius: 6px;
   border: 1px solid var(--line);
   background: var(--input-bg, var(--surface));
   color: var(--ink);
   font: inherit;
+  font-size: 0.88rem;
+}
+
+/* Sits inline in a dense panel, so it overrides only the size — chrome is base.css. */
+.gallery-merge-panel select {
+  min-height: 0;
+  padding: 5px 8px;
   font-size: 0.88rem;
 }

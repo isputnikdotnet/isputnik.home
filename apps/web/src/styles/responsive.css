@@ -56,6 +56,24 @@
     align-items: start;
   }
 
+  /* Search drops under the title rather than sharing its line — side by side it
+     leaves the heading about 64px and "Duplicate photos" renders one letter per
+     line. `flex` is reset because the head is a column here, so the desktop basis
+     would size its height instead of its width. */
+  .dup-section-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dup-search {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .dup-toolbar-controls {
+    flex-shrink: 1;
+  }
+
   .backup-hero {
     grid-template-columns: 1fr;
     gap: 16px;

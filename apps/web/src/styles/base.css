@@ -21,6 +21,26 @@ button {
   color: inherit;
 }
 
+/* Every dropdown in the app looks the same, defined once here. A select with no
+   style of its own falls back to the raw OS control, which reads as a different
+   widget entirely — so before this rule each new dropdown had to re-copy the
+   chrome below, and the ones that forgot looked foreign. Only the chrome lives
+   here: width and any deliberately compact sizing stay with the surrounding
+   component, which outranks this on specificity. */
+select {
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--field);
+}
+
+select:focus {
+  border-color: var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
 p,
 h1,
 h2,

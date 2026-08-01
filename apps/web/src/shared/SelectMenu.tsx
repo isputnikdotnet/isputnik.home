@@ -25,6 +25,7 @@ export function SelectMenu<T extends string>({
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value) ?? options[0];
+  const hasIcons = options.some((option) => option.icon);
 
   useEffect(() => {
     if (!open) return;
@@ -71,7 +72,7 @@ export function SelectMenu<T extends string>({
               <Button
                 key={option.value}
                 variant="text"
-                className={`select-menu-option${active ? " active" : ""}`}
+                className={`select-menu-option${hasIcons ? "" : " no-icon"}${active ? " active" : ""}`}
                 role="option"
                 aria-selected={active}
                 onClick={() => {
@@ -82,7 +83,12 @@ export function SelectMenu<T extends string>({
                 <span className="select-menu-check" aria-hidden="true">
                   {active && <Check size={16} />}
                 </span>
-                {option.icon && <span className="select-menu-option-icon" aria-hidden="true">{option.icon}</span>}
+                {/* The row is a fixed grid, so the icon cell has to exist for every
+                    option once any option has one — otherwise the label slides into
+                    the icon column and gets clipped to its width. */}
+                {hasIcons && (
+                  <span className="select-menu-option-icon" aria-hidden="true">{option.icon}</span>
+                )}
                 <span>{option.label}</span>
               </Button>
             );
