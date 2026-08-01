@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.8.1",
+          label: "Follow-ups to the new control panel",
+          changes: [
+            "Messages around the app still sent you to the old menu — “Configuration → Email” for the sign-in alert warning, “Libraries → Tasks” for scan progress, and a few others. They now name the places things actually live.",
+            "On a narrow window the media-type picker on the Statistics page was squeezed until its label was cut off. Header buttons now drop to their own line instead of being crushed.",
+            "Fixed a long-standing glitch on the Tasks page that could make rows behave oddly when opening an error for a finished task."
+          ]
+        },
+        {
           version: "2.8.0",
           label: "A control panel you can search",
           changes: [
