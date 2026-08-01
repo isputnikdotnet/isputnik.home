@@ -39,9 +39,49 @@
   object-fit: cover;
 }
 
+.ft-avatar .ft-person-mark {
+  width: 68%;
+  height: 68%;
+}
+
 .ft-avatar-initial {
   font-weight: 700;
   color: color-mix(in srgb, var(--ft-avatar-accent) 68%, var(--ink));
+}
+
+.ft-person-mark {
+  display: block;
+  overflow: visible;
+  color: currentColor;
+}
+
+.ft-person-mark-branch,
+.ft-person-mark-body {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ft-person-mark-branch {
+  stroke-width: 2.8;
+  opacity: 0.42;
+}
+
+.ft-person-mark-body {
+  stroke-width: 4;
+}
+
+.ft-person-mark-head {
+  fill: color-mix(in srgb, currentColor 24%, var(--surface-raised, var(--surface)));
+  stroke: currentColor;
+  stroke-width: 3;
+}
+
+.ft-person-mark-node {
+  fill: color-mix(in srgb, currentColor 20%, var(--field));
+  stroke: currentColor;
+  stroke-width: 2.5;
 }
 
 /* ── People grid ── */
@@ -1333,6 +1373,24 @@
   flex: 1 1 520px;
 }
 
+.ft-tree-header-link.compact-button,
+.ft-tree-header-icon.icon-button {
+  min-height: 42px;
+  height: 42px;
+}
+
+.ft-tree-header-link.compact-button {
+  padding-inline: 14px;
+}
+
+.ft-tree-header-icon.icon-button {
+  width: 42px;
+  min-width: 42px;
+  padding: 0;
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--surface-raised, var(--surface)) 72%, var(--field));
+}
+
 .ft-tree-search {
   position: relative;
   flex: 0 1 320px;
@@ -1365,29 +1423,202 @@
 }
 
 .ft-tree-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  text-align: center;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  min-height: clamp(440px, calc(100vh - 158px), 720px);
+  overflow: hidden;
+  padding: clamp(38px, 8vw, 76px) 20px;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--surface) 88%, transparent);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--line) 34%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--line) 34%, transparent) 1px, transparent 1px),
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--mint) 14%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 52%, transparent), transparent 54%);
+  background-size: 46px 46px, 46px 46px, 100% 100%, 100% 100%;
+  box-shadow: 0 18px 44px color-mix(in srgb, var(--shadow) 46%, transparent);
+}
+
+.ft-tree-empty::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--canvas) 72%, transparent), transparent 34%, transparent 66%, color-mix(in srgb, var(--canvas) 66%, transparent)),
+    linear-gradient(180deg, color-mix(in srgb, var(--canvas) 28%, transparent), transparent 38%, color-mix(in srgb, var(--canvas) 34%, transparent));
+  pointer-events: none;
+}
+
+.ft-tree-empty-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  width: min(100%, 440px);
   color: var(--muted);
-  padding: 60px 20px;
+  text-align: center;
+}
+
+.ft-tree-empty-content::before {
+  position: absolute;
+  z-index: -1;
+  inset: -28px -42px -30px;
+  content: "";
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--canvas) 86%, transparent), transparent 72%);
+  pointer-events: none;
+}
+
+.ft-tree-empty-mark {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 14px;
+  border: 1px solid color-mix(in srgb, var(--mint) 38%, var(--line));
+  border-radius: 22px;
+  color: color-mix(in srgb, var(--gold) 82%, var(--mint));
+  background:
+    radial-gradient(circle at 35% 24%, color-mix(in srgb, #fff 18%, transparent), transparent 34%),
+    color-mix(in srgb, var(--mint) 12%, var(--surface-raised, var(--surface)));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--surface-raised, var(--surface)) 82%, transparent),
+    0 14px 28px color-mix(in srgb, var(--shadow) 44%, transparent);
+}
+
+.ft-tree-empty-mark .ft-person-mark {
+  width: 68px;
+  height: 68px;
 }
 
 .ft-tree-empty h2 {
   margin: 0;
   color: var(--ink);
+  font-size: clamp(1.24rem, 2vw, 1.55rem);
+  line-height: 1.12;
 }
 
 .ft-tree-empty p {
-  margin: 0;
+  margin: 10px 0 0;
   max-width: 46ch;
+  line-height: 1.5;
 }
 
 .ft-tree-empty-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
-  margin-top: 6px;
+  margin-top: 18px;
+}
+
+.ft-tree-empty-branches {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: min(660px, calc(100% - 42px));
+  height: min(390px, calc(100% - 42px));
+  transform: translate(-50%, -50%);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.ft-tree-empty-line {
+  position: absolute;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--muted) 48%, transparent), transparent);
+  transform-origin: center;
+}
+
+.ft-tree-empty-line.is-left {
+  left: 21%;
+  top: 31%;
+  width: 27%;
+  transform: rotate(18deg);
+}
+
+.ft-tree-empty-line.is-right {
+  right: 21%;
+  top: 31%;
+  width: 27%;
+  transform: rotate(-18deg);
+}
+
+.ft-tree-empty-line.is-down-left {
+  left: 23%;
+  bottom: 29%;
+  width: 27%;
+  transform: rotate(-18deg);
+}
+
+.ft-tree-empty-line.is-down-right {
+  right: 23%;
+  bottom: 29%;
+  width: 27%;
+  transform: rotate(18deg);
+}
+
+.ft-tree-empty-node {
+  position: absolute;
+  display: block;
+  width: 64px;
+  height: 78px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface-raised, var(--surface)) 74%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow) 34%, transparent);
+}
+
+.ft-tree-empty-node::before,
+.ft-tree-empty-node::after {
+  position: absolute;
+  left: 50%;
+  content: "";
+  transform: translateX(-50%);
+}
+
+.ft-tree-empty-node::before {
+  top: 13px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--empty-node-accent, var(--mint)) 24%, var(--field));
+}
+
+.ft-tree-empty-node::after {
+  bottom: 12px;
+  width: 42px;
+  height: 20px;
+  border-radius: 20px 20px 8px 8px;
+  background: color-mix(in srgb, var(--empty-node-accent, var(--mint)) 32%, var(--field));
+}
+
+.ft-tree-empty-node.is-top-left {
+  --empty-node-accent: var(--blue);
+  left: 9%;
+  top: 6%;
+}
+
+.ft-tree-empty-node.is-top-right {
+  --empty-node-accent: var(--rose);
+  right: 9%;
+  top: 6%;
+}
+
+.ft-tree-empty-node.is-bottom-left {
+  --empty-node-accent: var(--mint);
+  left: 13%;
+  bottom: 2%;
+}
+
+.ft-tree-empty-node.is-bottom-right {
+  --empty-node-accent: var(--gold);
+  right: 13%;
+  bottom: 2%;
 }
 
 /* A definite height is required, not just flex: 1 — an SVG with height:100% in
