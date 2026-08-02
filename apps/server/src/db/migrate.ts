@@ -72,6 +72,18 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
       // fresh file too, so this is the one place that covers both.
       db.exec("CREATE INDEX IF NOT EXISTS idx_gallery_content_hash ON gallery_details(content_hash) WHERE content_hash IS NOT NULL");
     }
+  },
+  {
+    // The Recycle Bin shows each item's cover, which means the thumbnail has to
+    // survive the trip to the bin instead of being deleted with the catalogue row.
+    // Stays NULL for anything trashed before this — those rows fall back to a
+    // media-type icon, and there is no thumbnail left to backfill from.
+    version: 26,
+    up: (db) => {
+      if (!hasColumn(db, "trashed_items", "cover_key")) {
+        db.exec("ALTER TABLE trashed_items ADD COLUMN cover_key TEXT");
+      }
+    }
   }
 ];
 

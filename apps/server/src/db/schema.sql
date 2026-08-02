@@ -910,6 +910,10 @@ CREATE TABLE IF NOT EXISTS trashed_items (
   trash_path   TEXT NOT NULL,
   file_count   INTEGER NOT NULL DEFAULT 0,
   size_bytes   INTEGER NOT NULL DEFAULT 0,
+  -- The item's cover/preview thumbnail, kept alive while it sits in the bin so the
+  -- Recycle Bin can show what a row actually is. Deleted with the item's files on
+  -- purge, and on restore (the re-catalogued item generates its own).
+  cover_key    TEXT,
   trashed_by   TEXT REFERENCES users(id),
   trashed_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

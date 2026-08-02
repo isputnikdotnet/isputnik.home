@@ -48,8 +48,14 @@ function serializeTrashedItem(row: TrashedItem & { trashed_by_name: string | nul
     libraryType: row.library_type,
     libraryName: row.library_name,
     title: row.title,
+    // Where it lived inside its library, so a bin tile can say which folder an
+    // item came out of — two "IMG_1234.jpg" rows are otherwise indistinguishable.
+    path: row.origin_path,
     fileCount: row.file_count,
     sizeBytes: row.size_bytes,
+    // The thumbnail held for the bin's preview; null for rows trashed before 2.11
+    // and for items that never had a cover.
+    coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
     trashedAt: row.trashed_at,
     trashedByName: row.trashed_by_name,
     purgesAt

@@ -430,7 +430,7 @@ describe('schema baseline (2.0.0)', () => {
     migrate(scratch);
     // Baseline 23 plus the migrations released since — the adds are all guarded,
     // so replaying them over a schema.sql-built file is a no-op that just stamps.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(25);
+    expect(scratch.pragma('user_version', { simple: true })).toBe(26);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -464,7 +464,7 @@ describe('schema baseline (2.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 22'); // the last 1.x schema — already complete
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(25);
+    expect(current.pragma('user_version', { simple: true })).toBe(26);
     current.close();
 
     // Older databases still needed steps that no longer exist: stop, don't stamp.
@@ -495,7 +495,7 @@ describe('schema baseline (2.0.0)', () => {
     existing.pragma('user_version = 24');
 
     expect(() => migrate(existing)).not.toThrow();
-    expect(existing.pragma('user_version', { simple: true })).toBe(25);
+    expect(existing.pragma('user_version', { simple: true })).toBe(26);
 
     const columns = (existing.pragma('table_info(gallery_details)') as { name: string }[]).map((c) => c.name);
     expect(columns).toEqual(expect.arrayContaining(['content_hash', 'content_hash_at']));
@@ -506,6 +506,29 @@ describe('schema baseline (2.0.0)', () => {
     expect(objects).toEqual([
       'gallery_duplicate_groups', 'gallery_duplicate_ignores', 'gallery_duplicate_members', 'idx_gallery_content_hash'
     ]);
+    existing.close();
+  });
+
+  // Migration 26 adds the cover the Recycle Bin keeps for its preview. Existing
+  // rows stay NULL — there is no thumbnail left to backfill from — and the page
+  // falls back to a media-type icon for them.
+  it('upgrades an existing pre-26 database, whose trashed_items has no cover_key', () => {
+    const existing = new Database(':memory:');
+    migrate(existing);
+    existing.exec('ALTER TABLE trashed_items DROP COLUMN cover_key');
+    existing.pragma('user_version = 25');
+
+    existing.prepare(`
+      INSERT INTO trashed_items (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path)
+      VALUES ('t1', 'lib', 'audiobook', 'Lib', '/src', 'Old item', 'old', '.trash/tok')
+    `).run();
+
+    expect(() => migrate(existing)).not.toThrow();
+    expect(existing.pragma('user_version', { simple: true })).toBe(26);
+
+    const columns = (existing.pragma('table_info(trashed_items)') as { name: string }[]).map((c) => c.name);
+    expect(columns).toContain('cover_key');
+    expect(existing.prepare("SELECT cover_key FROM trashed_items WHERE id = 't1'").get()).toEqual({ cover_key: null });
     existing.close();
   });
 });
