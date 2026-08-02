@@ -158,6 +158,15 @@ function matchesSearch(group: DuplicateGroup, needle: string): boolean {
     || member.libraryName.toLowerCase().includes(needle));
 }
 
+// A set belongs to the chosen library when ANY of its copies lives there. Sets are
+// built across every library on purpose (the same album imported into two places is
+// exactly what this page is for), so narrowing to one library means "sets this
+// library is involved in" — the set still shows its copies wherever they live.
+function inScope(group: DuplicateGroup, libraryId: string): boolean {
+  if (!libraryId) return true;
+  return group.members.some((member) => member.libraryId === libraryId);
+}
+
 function sortGroups(groups: DuplicateGroup[], sort: DupSort): DuplicateGroup[] {
   // The server already hands them back newest-first, so "recent" is the order as given.
   if (sort === "recent") return groups;
@@ -261,10 +270,15 @@ export function DuplicatePhotosSection() {
   const scanLabel = payload.scanning ? "Scanning…" : starting ? "Starting…" : "Scan now";
 
   const needle = search.trim().toLowerCase();
-  const filtering = needle !== "";
-  const visibleExact = sortGroups(exact.filter((group) => matchesSearch(group, needle)), sort);
-  const visibleNear = sortGroups(near.filter((group) => matchesSearch(group, needle)), sort);
-  const hiddenBySearch = payload.groups.length - (visibleExact.length + visibleNear.length);
+  const shown = (group: DuplicateGroup) => inScope(group, scopeId) && matchesSearch(group, needle);
+  const filtering = needle !== "" || scopeId !== "";
+  const visibleExact = sortGroups(exact.filter(shown), sort);
+  const visibleNear = sortGroups(near.filter(shown), sort);
+  const hidden = payload.groups.length - (visibleExact.length + visibleNear.length);
+  const scopeName = payload.libraries.find((library) => library.id === scopeId)?.name ?? "";
+  // What "Delete all extras" would act on, versus what's on screen — the button is
+  // deliberately global, so the gap has to be sayable.
+  const scopedExact = exact.filter((group) => inScope(group, scopeId));
 
   // One pager spans both tiers: paging each separately would mean two sets of
   // controls. Identical sets come first, so a page can straddle the boundary and
@@ -283,7 +297,7 @@ export function DuplicatePhotosSection() {
 
   // Any change to what's listed or how it's ordered puts you back at the top —
   // staying on page 7 of a freshly filtered list shows an arbitrary slice.
-  useEffect(() => { setPage(1); }, [needle, sort, perPage]);
+  useEffect(() => { setPage(1); }, [needle, scopeId, sort, perPage]);
 
   const startScan = async () => {
     setStarting(true);
@@ -363,7 +377,10 @@ export function DuplicatePhotosSection() {
     setDeletingAll(true);
     setActionError("");
     try {
-      await api("/api/library/gallery/duplicates/resolve-all", { method: "POST", body: "{}" });
+      await api("/api/library/gallery/duplicates/resolve-all", {
+        method: "POST",
+        body: JSON.stringify({ libraryId: scopeId || null })
+      });
       setDeleteAllOpen(false);
       await load();
     } catch (err) {
@@ -575,14 +592,15 @@ export function DuplicatePhotosSection() {
 
       {payload.groups.length > 0 && (
         <div className="dup-toolbar">
-          {/* Scope comes first: it's the thing everything else operates on. The three
+          {/* Scope comes first: it's the thing everything else operates on — it both
+              filters the sets below and narrows what the next scan reads. The three
               actions that follow are icon-only — this page already shows a lot of
               small decisions, and their labels were the loudest thing on it. */}
           <LibraryMenu
             value={scopeId}
             options={scopeOptions}
             icon={<Images size={19} aria-hidden="true" />}
-            label="Which photo library to scan"
+            label="Which photo library to show and scan"
             disabled={busy || payload.scanning}
             onChange={setScopeId}
           />
@@ -613,14 +631,14 @@ export function DuplicatePhotosSection() {
                 ? <span className="icon-spin" aria-hidden="true"><RefreshCw size={18} /></span>
                 : <RefreshCw size={18} aria-hidden="true" />}
             </Button>
-            {exact.length > 0 && (
+            {scopedExact.length > 0 && (
               <Button
                 variant="icon"
                 danger
                 disabled={busy}
                 onClick={() => { setActionError(""); setDeleteAllOpen(true); }}
                 aria-label="Delete all extras"
-                title="Delete all extras"
+                title={scopeName ? `Delete all extras in sets involving “${scopeName}”` : "Delete all extras"}
               >
                 <Trash2 size={18} aria-hidden="true" />
               </Button>
@@ -629,14 +647,21 @@ export function DuplicatePhotosSection() {
         </div>
       )}
 
-      {filtering && hiddenBySearch > 0 && (
+      {filtering && hidden > 0 && (
         <p className="dup-filter-note datagrid-muted">
-          Showing {visibleExact.length + visibleNear.length} of {payload.groups.length} sets · {hiddenBySearch} hidden by your search.
+          Showing {visibleExact.length + visibleNear.length} of {payload.groups.length} sets · {hidden} hidden
+          by {scopeName && needle ? `“${scopeName}” and your search` : scopeName ? `“${scopeName}”` : "your search"}.
         </p>
       )}
 
       {loaded && payload.groups.length > 0 && visibleExact.length === 0 && visibleNear.length === 0 && (
-        <p className="management-empty">No duplicate sets match “{search.trim()}”.</p>
+        <p className="management-empty">
+          {scopeName && needle
+            ? `No duplicate sets in “${scopeName}” match “${search.trim()}”.`
+            : scopeName
+              ? `No duplicate sets involve “${scopeName}”.`
+              : `No duplicate sets match “${search.trim()}”.`}
+        </p>
       )}
 
       {pageExact.length > 0 && (
@@ -811,8 +836,12 @@ export function DuplicatePhotosSection() {
 
       {deleteAllOpen && (
         <ConfirmDialog
-          title={`Delete the extra copies in ${exact.length} set${exact.length === 1 ? "" : "s"}?`}
-          confirmLabel={`Delete ${copies(exact.reduce((sum, group) => sum + group.members.length - 1, 0))}`}
+          title={
+            scopeName
+              ? `Delete the extra copies in ${scopedExact.length} set${scopedExact.length === 1 ? "" : "s"} involving “${scopeName}”?`
+              : `Delete the extra copies in ${scopedExact.length} set${scopedExact.length === 1 ? "" : "s"}?`
+          }
+          confirmLabel={`Delete ${copies(scopedExact.reduce((sum, group) => sum + group.members.length - 1, 0))}`}
           busyLabel="Deleting…"
           danger
           busy={deletingAll}
@@ -826,14 +855,25 @@ export function DuplicatePhotosSection() {
             yourself. Their tags, albums and tagged people are merged onto it first.
           </p>
           <p>
-            This frees about {formatBytes(exact.reduce((sum, group) => sum + group.reclaimableBytes, 0))}. Everything
+            This frees about {formatBytes(scopedExact.reduce((sum, group) => sum + group.reclaimableBytes, 0))}. Everything
             removed goes to the Recycle Bin and can be restored until it's emptied. Near-identical sets are never
             touched by this button.
           </p>
-          {filtering && (
+          {/* Two different gaps to own up to: the library picks which SETS are swept
+              but not where the deleted copies live, and the search narrows the view
+              without narrowing the sweep. */}
+          {scopeName && (
             <p>
-              Your search is only narrowing what's on screen — this covers all {exact.length} identical
-              set{exact.length === 1 ? "" : "s"}, including the ones it's hiding.
+              Only sets “{scopeName}” takes part in are swept
+              {exact.length > scopedExact.length ? `, leaving the other ${exact.length - scopedExact.length} alone` : ""}.
+              A set can span libraries, so where the surviving copy is the better one, the copies removed may sit in
+              another library.
+            </p>
+          )}
+          {needle && (
+            <p>
+              Your search is only narrowing what's on screen — this covers all {scopedExact.length} identical
+              set{scopedExact.length === 1 ? "" : "s"} {scopeName ? "in that scope" : ""}, including the ones it's hiding.
             </p>
           )}
         </ConfirmDialog>

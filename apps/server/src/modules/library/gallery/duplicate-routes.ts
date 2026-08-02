@@ -74,10 +74,21 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
     reply.send({ queued, ...duplicatePayload() });
   });
 
-  // Sweep every byte-identical set at once. Deliberately not offered for the
-  // near-identical tier.
-  app.post("/api/library/gallery/duplicates/resolve-all", { preHandler: app.requireAdmin }, async (request) => {
-    return resolveAllExactGroups(request.user!.id);
+  // Sweep byte-identical sets at once. Deliberately not offered for the
+  // near-identical tier. `libraryId` limits it to the sets that library takes part
+  // in — the same scope the admin page's picker applies to the list — so the button
+  // sweeps what's on screen rather than always reaching every library.
+  const resolveAllSchema = z.object({ libraryId: z.string().min(1).max(64).nullish() });
+  app.post("/api/library/gallery/duplicates/resolve-all", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(resolveAllSchema, request.body ?? {});
+    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+
+    const libraryId = parsed.data.libraryId ?? null;
+    if (libraryId) {
+      const library = db.prepare("SELECT id FROM libraries WHERE id = ? AND type = 'gallery'").get(libraryId);
+      if (!library) { reply.code(404).send({ error: "No such photo library." }); return; }
+    }
+    reply.send(resolveAllExactGroups(request.user!.id, libraryId));
   });
 
   const keeperSchema = z.object({ itemId: z.string().min(1).max(64) });

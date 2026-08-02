@@ -1256,9 +1256,23 @@ export interface BulkResolution {
 
 // "Delete all extra copies", restricted to byte-identical groups. Near-identical
 // groups are never swept in bulk — they're a judgement call, one set at a time.
-export function resolveAllExactGroups(userId: string): BulkResolution {
-  const ids = (db.prepare("SELECT id FROM gallery_duplicate_groups WHERE kind = 'exact' ORDER BY id")
-    .all() as { id: string }[]).map((r) => r.id);
+//
+// `libraryId` picks the SETS to sweep: those with at least one copy in that
+// library, matching what the admin page lists under the same scope. It does not
+// restrict which copies get deleted — a set spanning two libraries still ends up
+// with exactly one copy, and that survivor is chosen on merit, so the copies that
+// go can live elsewhere. Scoping the deletions instead would leave the set still
+// duplicated, which is not what the button says.
+export function resolveAllExactGroups(userId: string, libraryId?: string | null): BulkResolution {
+  const scope = libraryId
+    ? `AND EXISTS (
+         SELECT 1 FROM gallery_duplicate_members dm
+         JOIN library_items li ON li.id = dm.item_id
+         WHERE dm.group_id = g.id AND li.library_id = ?
+       )`
+    : "";
+  const ids = (db.prepare(`SELECT g.id FROM gallery_duplicate_groups g WHERE g.kind = 'exact' ${scope} ORDER BY g.id`)
+    .all(...(libraryId ? [libraryId] : [])) as { id: string }[]).map((r) => r.id);
 
   const totals: BulkResolution = { groups: 0, deleted: 0, failed: 0, skipped: 0 };
   for (const id of ids) {
