@@ -232,12 +232,17 @@ sets can be cleared in bulk.
 Pick a library from the first control in the bar and choose **Scan now**. A library
 with files still to read says how many; one with nothing new says nothing at all.
 
-That picker does two things. It narrows the list below to the sets that library is
-involved in, and it limits what the next scan reads. What it never does is change
-how sets are *built* — those are always assembled across every library, because the
-same photo landing in two libraries is the commonest case of all. So a set shown
-under one library can still contain copies living elsewhere, and each copy says
-which library it's in.
+That picker decides who is compared with whom. Choose a library and the page
+compares *its* photos with each other: only sets with two or more copies inside it
+are listed, and each set shows only the copies living there. Copies of the same
+photo in other libraries drop out of the comparison and are never deleted from
+here — the set says how many there are, so you know they exist. It also limits
+what the next scan reads.
+
+**All libraries** is the wider question: sets are assembled across every library,
+so the same album imported into two places shows up as one set with its copies
+side by side, each saying which library it's in. Two libraries holding one copy
+each only appear there.
 
 #### Working through the list
 
@@ -291,19 +296,20 @@ You can keep more than one. Marking two of three to keep deletes only the third,
 and the set stays on the page while two copies of the picture remain.
 
 You can also mark *every* copy, which is not de-duplicating any more — it removes
-the picture from the gallery altogether. That asks in its own words rather than the
+the picture from the library altogether. That asks in its own words rather than the
 usual reassurance, because there is no kept copy: the tags, albums and tagged people
-have nowhere to move to and go with it. The files still land in the Recycle Bin, so
-it's undoable until you empty it.
+have nowhere to move to and go with it, unless the photo also exists in a library
+you aren't looking at, in which case they move onto one of those copies and the
+dialog says so. The files still land in the Recycle Bin, so it's undoable until you
+empty it.
 
 **Delete all extras** works on every **identical** set at once, keeping one copy in
-each. It follows the library picker — pick a library and it sweeps only the sets
-that library takes part in, which is what the list is showing you. Because a set
-can span libraries and the surviving copy is chosen on merit, a copy removed that
-way may be the one sitting in a *different* library; the confirmation says so. It
-still ignores your marks and your search, and the confirmation says how many sets
-it covers. Near-identical sets are never swept in bulk; they're a judgement call,
-one at a time.
+each. It follows the library picker exactly as the list does: pick a library and it
+thins that library down to one copy per set, leaving copies in other libraries
+untouched — so a photo can still be duplicated *across* libraries afterwards, and
+the confirmation says how many sets that applies to. It ignores your marks and your
+search, and says how many sets it covers. Near-identical sets are never swept in
+bulk; they're a judgement call, one at a time.
 
 Two things worth knowing. Nothing is deleted without you asking — a scan only ever
 reports. And if a photo has been edited on disk since the last library scan, it's
