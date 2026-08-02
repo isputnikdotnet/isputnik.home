@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.11.1",
+          label: "One library at a time on Duplicate photos",
+          changes: [
+            "Choosing a library on Maintenance → Duplicate photos now compares that library's photos with each other. Each set shows only the copies living there, and a photo whose only other copy sits in a different library no longer appears at all — it isn't duplicated in the library you're looking at. Before, a chosen library still listed sets whose copies were somewhere else entirely.",
+            "Where a set does have copies in other libraries, the page says how many and leaves them alone. Nothing outside the library you picked is ever deleted from that view, and the confirmations say so before you press anything.",
+            "“Delete all extras” follows the same rule: it thins the chosen library down to one copy per set and never reaches into another library. Pick “All libraries” to compare across them, which is where the same album imported into two places belongs."
+          ]
+        },
+        {
           version: "2.11.0",
           label: "A control panel that answers back",
           changes: [
