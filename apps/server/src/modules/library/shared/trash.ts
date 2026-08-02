@@ -41,6 +41,8 @@ export interface TrashedItem {
   trash_path: string;
   file_count: number;
   size_bytes: number;
+  /** Thumbnail kept alive for the bin's preview; null for pre-2.11 rows. */
+  cover_key: string | null;
   trashed_by: string | null;
   trashed_at: string;
 }
@@ -202,7 +204,10 @@ function pruneEmptyTrashDir(root: string, trashPath: string): void {
 
 // Cover thumbnails (kept outside the source dir). Removed on trash — they regenerate when
 // a restored item is re-catalogued. Best-effort; a missing thumbnail store never blocks.
-function deleteBookCovers(libraryId: string, bookId: string, coverStorageKey: string | null): void {
+// `keep` spares one thumbnail from the sweep — the Recycle Bin holds on to a
+// single small cover so a binned row can show what it is. It's removed later, when
+// the item is purged or restored.
+function deleteBookCovers(libraryId: string, bookId: string, coverStorageKey: string | null, keep?: string | null): void {
   const keys = new Set([
     thumbnailStorageKey(libraryId, bookId, `${bookId}-cover.webp`),
     thumbnailStorageKey(libraryId, bookId, `${bookId}-cover-large.webp`),
@@ -210,9 +215,29 @@ function deleteBookCovers(libraryId: string, bookId: string, coverStorageKey: st
     thumbnailStorageKey(libraryId, bookId, `${bookId}-web.mp4`)
   ]);
   if (coverStorageKey) keys.add(coverStorageKey);
+  if (keep) keys.delete(keep);
   for (const key of keys) {
     try { fs.rmSync(thumbnailAbsolutePath(key), { force: true }); } catch { /* ignore */ }
   }
+}
+
+function removeBinCover(coverKey: string | null | undefined): void {
+  if (!coverKey) return;
+  try { fs.rmSync(thumbnailAbsolutePath(coverKey), { force: true }); } catch { /* ignore */ }
+}
+
+// The small cover to keep for the bin's preview: whatever the item's metadata
+// points at, else the conventional generated one. Returns null when neither is on
+// disk (an audiobook with no art), and the row falls back to a media-type icon.
+function coverToKeep(libraryId: string, bookId: string, coverStorageKey: string | null): string | null {
+  const candidates = [coverStorageKey, thumbnailStorageKey(libraryId, bookId, `${bookId}-cover.webp`)];
+  for (const key of candidates) {
+    if (!key) continue;
+    try {
+      if (fs.existsSync(thumbnailAbsolutePath(key))) return key;
+    } catch { /* unreadable store — treat as no cover */ }
+  }
+  return null;
 }
 
 // DB teardown — identical to the old hard delete. FK cascades clear audio_files/metadata/
@@ -257,17 +282,21 @@ export function trashBook(bookId: string, userId: string): TrashResult {
 
   moveEntryIntoTrash(root, token, row);
 
+  // Kept out of the cover sweep below and recorded on the bin row, so the Recycle
+  // Bin can show the item rather than just its name.
+  const coverKey = coverToKeep(row.library_id, row.id, row.cover_storage_key);
+
   try {
     db.transaction(() => {
-      deleteBookCovers(row.library_id, row.id, row.cover_storage_key);
+      deleteBookCovers(row.library_id, row.id, row.cover_storage_key, coverKey);
       deleteBookRecord(row.id, row.library_type);
       db.prepare(`
         INSERT INTO trashed_items
-          (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path, file_count, size_bytes, trashed_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path, file_count, size_bytes, cover_key, trashed_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         nanoid(16), row.library_id, row.library_type, row.library_name, row.source_path,
-        row.title, row.folder_path, trashPath, row.file_count, row.size_bytes, userId
+        row.title, row.folder_path, trashPath, row.file_count, row.size_bytes, coverKey, userId
       );
     })();
   } catch (err) {
@@ -328,6 +357,9 @@ export async function restoreTrashedItem(id: string): Promise<TrashResult> {
     void processEbookScanQueue();
   }
 
+  // The restored item is re-catalogued from disk under a fresh id and generates its
+  // own cover, so the one the bin was holding would just be orphaned in the store.
+  removeBinCover(item.cover_key);
   db.prepare("DELETE FROM trashed_items WHERE id = ?").run(id);
   return { id, title: item.title, libraryName: item.library_name, fileCount: item.file_count };
 }
@@ -336,6 +368,9 @@ export async function restoreTrashedItem(id: string): Promise<TrashResult> {
 // it can only ever touch <source>/.trash/<token>. fs.rmSync(force) is a no-op when the path
 // is already gone (e.g. the source drive is offline), so this never throws on a missing path.
 function removeTrashFiles(item: TrashedItem): void {
+  // The preview thumbnail the bin was holding for this row (see coverToKeep).
+  // Every purge path funnels through here, so this is the one place it's dropped.
+  removeBinCover(item.cover_key);
   const root = path.resolve(item.source_path);
   const abs = path.resolve(root, item.trash_path);
   if (pathIsInside(abs, root) && abs !== root) {
