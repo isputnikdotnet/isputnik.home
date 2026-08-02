@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.11.0",
+          label: "A control panel that answers back",
+          changes: [
+            "Refresh used to look broken: the answer comes back in milliseconds, the numbers are usually the same, and nothing on screen moved — so you couldn't tell whether it had done anything. It now spins for a moment and says “Updated” when it's finished. Every page in the control panel that shows live data has one, seventeen tabs in all, and each reloads everything on that page rather than part of it.",
+            "Scheduled jobs is one row per job instead of a stack of cards: what it is, how often it runs, when it last ran and when it runs next, on or off, and Run now. Jobs are grouped by what they're about — audiobooks, ebooks, gallery, then the system chores — and there's no Save button any more, since changes save as you make them.",
+            "Run now used to finish instantly and tell you nothing, because most of these jobs don't do the work themselves — they queue it. It now keeps running until the work is genuinely finished, with a message that says what was queued and a link straight to Tasks to watch it. Jobs that do their work on the spot just report the result.",
+            "The Recycle Bin shows what you deleted. Items are tiles led by the cover they had — a photo, a book jacket — with the folder they came out of, their library, size, who deleted them and when, and the date they disappear. There's a library filter, sorting, and paging. Items binned before this update show an icon for their media type instead; their thumbnails were already gone.",
+            "Logs got the same treatment as the Duplicate photos page: search beside the title that filters as you type, and one toolbar holding the filter, rows per page, refresh and cleanup. “Delete older than N days” moved into the confirmation, where you actually use it."
+          ]
+        },
+        {
           version: "2.10.0",
           label: "Fixing the date and place a camera got wrong",
           changes: [
