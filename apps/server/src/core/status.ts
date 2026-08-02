@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.10.0",
+          label: "Fixing the date and place a camera got wrong",
+          changes: [
+            "Select photos in the gallery and you can now set when and where they were taken. “Set date taken” either stamps one date and time on everything selected — right for a batch of scans from the same occasion — or shifts each photo from its own date by the same amount, which keeps the order and spacing the camera recorded. That second one is the fix for a camera left on the wrong timezone or a clock that was hours out.",
+            "“Set location” drops one pin on the whole selection, and those photos join the Map view. Rather than hunting across a world map, type a place, address or postcode and pick from the results — the map jumps there with the pin already placed. Coordinates work too. The same search now sits in the single-photo editor in the viewer.",
+            "Whatever you set this way is kept as yours, so the next library scan won't overwrite it.",
+            "The selection toolbar is now a row of icons rather than text buttons, so it stays on one line at any window size — in the gallery, audiobooks and ebooks alike. Hover an icon to see what it does.",
+            "On Maintenance → Duplicate photos, choosing a library now filters the sets on screen to the ones that library takes part in. It used to only limit which files the next scan read, which made the picker look broken. “Delete all extras” follows the same choice instead of always reaching every library."
+          ]
+        },
+        {
           version: "2.9.0",
           label: "Every settings page has an address",
           changes: [
