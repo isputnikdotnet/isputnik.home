@@ -918,9 +918,10 @@ describe("end-to-end scan over real files", () => {
     expect(db.prepare("SELECT COUNT(*) AS n FROM library_items").get()).toEqual({ n: 2 });
   });
 
-  // The admin page's library picker filters the list; the sweep follows it, so what
-  // the button clears is what's on screen rather than every library at once.
-  it("scoped to a library, sweeps only the sets that library takes part in", async () => {
+  // The admin page's library picker compares one library's photos with each other;
+  // the sweep follows it, so what the button clears is what's on screen rather than
+  // every library at once.
+  it("scoped to a library, sweeps only the sets inside it", async () => {
     fs.mkdirSync(path.join(sourceRoot, "second"));
     db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'GAL2'").run(path.join(sourceRoot, "second"));
 
@@ -944,10 +945,10 @@ describe("end-to-end scan over real files", () => {
     expect(listDuplicateGroups()).toEqual([]);
   });
 
-  // A set spanning two libraries is swept from either side — the survivor is chosen on
-  // merit, so the copy removed can be the one in the OTHER library. That's the point:
-  // scoping picks which sets to act on, not which copies may go.
-  it("sweeps a cross-library set from either library's scope", async () => {
+  // One copy each side is not a duplicate WITHIN either library, so neither scope
+  // touches it — the same photo living in two libraries is a decision to take with
+  // every library in view, not a tidy-up of one.
+  it("leaves a set with a single copy in the scoped library alone", async () => {
     fs.mkdirSync(path.join(sourceRoot, "second"));
     db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'GAL2'").run(path.join(sourceRoot, "second"));
     fs.writeFileSync(path.join(sourceRoot, "here.jpg"), "SHARED-PICTURE");
@@ -958,10 +959,43 @@ describe("end-to-end scan over real files", () => {
     await runDuplicateScan();
     expect(listDuplicateGroups()).toHaveLength(1);
 
-    expect(resolveAllExactGroups("u1", "GAL2")).toEqual({ groups: 1, deleted: 1, failed: 0, skipped: 0 });
-    expect(listDuplicateGroups()).toEqual([]);
-    // Exactly one copy survives, wherever it lives.
+    expect(resolveAllExactGroups("u1", "GAL2")).toEqual({ groups: 0, deleted: 0, failed: 0, skipped: 0 });
+    expect(resolveAllExactGroups("u1", "GAL")).toEqual({ groups: 0, deleted: 0, failed: 0, skipped: 0 });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM library_items WHERE deleted_at IS NULL").get()).toEqual({ n: 2 });
+
+    // With every library in view it's a duplicate again, and the sweep takes it.
+    expect(resolveAllExactGroups("u1")).toEqual({ groups: 1, deleted: 1, failed: 0, skipped: 0 });
     expect(db.prepare("SELECT COUNT(*) AS n FROM library_items WHERE deleted_at IS NULL").get()).toEqual({ n: 1 });
+  });
+
+  // A set spanning both libraries: the scoped sweep thins the chosen library down to
+  // one copy and never reaches the copy living elsewhere, even when that one would
+  // have won the set outright.
+  it("scoped, deletes only the copies inside that library", async () => {
+    fs.mkdirSync(path.join(sourceRoot, "second"));
+    db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'GAL2'").run(path.join(sourceRoot, "second"));
+    fs.writeFileSync(path.join(sourceRoot, "keeper.jpg"), "SHARED-PICTURE");
+    fs.writeFileSync(path.join(sourceRoot, "second", "one.jpg"), "SHARED-PICTURE");
+    fs.writeFileSync(path.join(sourceRoot, "second", "two.jpg"), "SHARED-PICTURE");
+    asset("keeper", "keeper.jpg", { size: 14, hash: null });
+    asset("one", "one.jpg", { size: 14, hash: null, library: "GAL2" });
+    asset("two", "two.jpg", { size: 14, hash: null, library: "GAL2" });
+
+    await runDuplicateScan();
+    const group = listDuplicateGroups()[0];
+    expect(group.members).toHaveLength(3);
+    // Make the untouchable copy the set's keeper: the scoped sweep must still keep one
+    // of GAL2's own rather than deleting both because the survivor lives elsewhere.
+    expect(setDuplicateKeeper(group.id, "keeper")).toBe(true);
+
+    expect(resolveAllExactGroups("u1", "GAL2")).toEqual({ groups: 1, deleted: 1, failed: 0, skipped: 0 });
+
+    const left = (db.prepare("SELECT id FROM library_items WHERE deleted_at IS NULL ORDER BY id").all() as { id: string }[])
+      .map((r) => r.id);
+    expect(left).toContain("keeper");
+    expect(left).toHaveLength(2);
+    // Still a duplicate across the two libraries, so the set stays on the page.
+    expect(listDuplicateGroups()).toHaveLength(1);
   });
 
   it("sweeping a library with no sets of its own does nothing", async () => {

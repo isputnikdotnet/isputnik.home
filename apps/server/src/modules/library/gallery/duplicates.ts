@@ -1158,10 +1158,17 @@ export interface SelectionResolution {
 // being deleted as a duplicate of a photo it no longer matches. Deleting every copy is
 // a deliberate "remove this picture entirely", so there is nothing to be a duplicate OF
 // and nothing to re-check against.
+//
+// `absorbIntoId` names which survivor should take the deleted copies' tags, albums and
+// people when more than one is left. It is a preference, not a promise: an id that is
+// not among the survivors falls back to the set's own keeper. The scoped sweep uses it
+// so the copy left standing INSIDE the chosen library is the one that inherits, rather
+// than a copy in some other library that happens to be the set's keeper.
 export function resolveDuplicateSelection(
   groupId: string,
   deleteItemIds: string[],
-  userId: string
+  userId: string,
+  absorbIntoId?: string | null
 ): SelectionResolution | null {
   const group = db.prepare(
     "SELECT id, kind, keeper_item_id FROM gallery_duplicate_groups WHERE id = ?"
@@ -1187,10 +1194,12 @@ export function resolveDuplicateSelection(
   let doomed = targets;
   let absorbInto: string | null = null;
   if (kept.length > 0) {
-    // The set's own keeper absorbs when it is one of the survivors; otherwise the
-    // first surviving copy does, so the deleted copies' tags and albums land
-    // somewhere rather than being dropped.
-    const keeper = kept.find((m) => m.item_id === group.keeper_item_id) ?? kept[0];
+    // The caller's preferred survivor absorbs when it is one; failing that the set's
+    // own keeper; failing that the first surviving copy, so the deleted copies' tags
+    // and albums land somewhere rather than being dropped.
+    const keeper = (absorbIntoId ? kept.find((m) => m.item_id === absorbIntoId) : undefined)
+      ?? kept.find((m) => m.item_id === group.keeper_item_id)
+      ?? kept[0];
     absorbInto = keeper.item_id;
     doomed = group.kind === "exact"
       ? targets.filter((m) => m.content_hash != null && m.content_hash === keeper.content_hash)
@@ -1254,29 +1263,65 @@ export interface BulkResolution {
   skipped: number;
 }
 
+// The copies of one set that live in a given library — exactly what the admin page
+// shows for that set once a library is chosen.
+function membersInLibrary(groupId: string, libraryId: string): string[] {
+  return (db.prepare(`
+    SELECT m.item_id FROM gallery_duplicate_members m
+    JOIN library_items li ON li.id = m.item_id AND li.deleted_at IS NULL AND li.status = 'ready'
+    WHERE m.group_id = ? AND li.library_id = ?
+    ORDER BY m.item_id
+  `).all(groupId, libraryId) as { item_id: string }[]).map((r) => r.item_id);
+}
+
+// Thin one set down to a single copy INSIDE one library, leaving its copies in every
+// other library untouched. The survivor is the set's own keeper when that copy lives
+// here, and otherwise the best of the copies that do — scored the same way a scan
+// scores a whole set, so the reasoning doesn't change with the scope.
+function sweepGroupWithinLibrary(
+  groupId: string,
+  libraryId: string,
+  userId: string
+): { deletedItemIds: string[]; failed: { itemId: string; error: string }[] } | null {
+  const ids = membersInLibrary(groupId, libraryId);
+  if (ids.length < 2) return null;
+
+  const group = db.prepare("SELECT keeper_item_id FROM gallery_duplicate_groups WHERE id = ?")
+    .get(groupId) as { keeper_item_id: string | null } | undefined;
+  const details = loadDetails(ids);
+  const rows = ids.map((id) => details.get(id)).filter((row): row is DetailRow => Boolean(row));
+  const keeperId = group?.keeper_item_id && ids.includes(group.keeper_item_id)
+    ? group.keeper_item_id
+    : pickKeeper(rows)?.keeperId;
+  if (!keeperId) return null;
+
+  return resolveDuplicateSelection(groupId, ids.filter((id) => id !== keeperId), userId, keeperId);
+}
+
 // "Delete all extra copies", restricted to byte-identical groups. Near-identical
 // groups are never swept in bulk — they're a judgement call, one set at a time.
 //
-// `libraryId` picks the SETS to sweep: those with at least one copy in that
-// library, matching what the admin page lists under the same scope. It does not
-// restrict which copies get deleted — a set spanning two libraries still ends up
-// with exactly one copy, and that survivor is chosen on merit, so the copies that
-// go can live elsewhere. Scoping the deletions instead would leave the set still
-// duplicated, which is not what the button says.
+// `libraryId` scopes the sweep to that library in full: only sets with two or more
+// copies THERE are touched, and only copies there are removed. It mirrors what the
+// admin page shows under the same scope — pick a library and the page compares its
+// photos against each other — so the button clears exactly what is on screen and
+// never reaches into a library you aren't looking at.
 export function resolveAllExactGroups(userId: string, libraryId?: string | null): BulkResolution {
   const scope = libraryId
-    ? `AND EXISTS (
-         SELECT 1 FROM gallery_duplicate_members dm
-         JOIN library_items li ON li.id = dm.item_id
+    ? `AND (
+         SELECT COUNT(*) FROM gallery_duplicate_members dm
+         JOIN library_items li ON li.id = dm.item_id AND li.deleted_at IS NULL AND li.status = 'ready'
          WHERE dm.group_id = g.id AND li.library_id = ?
-       )`
+       ) > 1`
     : "";
   const ids = (db.prepare(`SELECT g.id FROM gallery_duplicate_groups g WHERE g.kind = 'exact' ${scope} ORDER BY g.id`)
     .all(...(libraryId ? [libraryId] : [])) as { id: string }[]).map((r) => r.id);
 
   const totals: BulkResolution = { groups: 0, deleted: 0, failed: 0, skipped: 0 };
   for (const id of ids) {
-    const result = resolveDuplicateGroup(id, userId);
+    const result = libraryId
+      ? sweepGroupWithinLibrary(id, libraryId, userId)
+      : resolveDuplicateGroup(id, userId);
     // null = the group failed re-validation (a copy changed or vanished since the
     // scan). Leave it in place so the admin sees it on the next load.
     if (!result) { totals.skipped += 1; continue; }

@@ -75,9 +75,10 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
   });
 
   // Sweep byte-identical sets at once. Deliberately not offered for the
-  // near-identical tier. `libraryId` limits it to the sets that library takes part
-  // in — the same scope the admin page's picker applies to the list — so the button
-  // sweeps what's on screen rather than always reaching every library.
+  // near-identical tier. `libraryId` confines it to that library exactly as the admin
+  // page's picker does: only sets with two or more copies there are swept, and only
+  // copies there are removed, so the button clears what's on screen and never reaches
+  // into a library the admin isn't looking at.
   const resolveAllSchema = z.object({ libraryId: z.string().min(1).max(64).nullish() });
   app.post("/api/library/gallery/duplicates/resolve-all", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(resolveAllSchema, request.body ?? {});

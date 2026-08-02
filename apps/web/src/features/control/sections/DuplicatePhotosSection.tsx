@@ -42,6 +42,13 @@ interface DuplicateGroup {
   members: DuplicateMember[];
 }
 
+// A set as this page shows it: identical to the server's when every library is in
+// view, cut down to one library's copies when the picker names one.
+interface ScopedGroup extends DuplicateGroup {
+  /** Copies of the same photo sitting outside the chosen library — never touched here. */
+  elsewhereCount: number;
+}
+
 interface DuplicateLibraryOption {
   id: string;
   name: string;
@@ -158,16 +165,41 @@ function matchesSearch(group: DuplicateGroup, needle: string): boolean {
     || member.libraryName.toLowerCase().includes(needle));
 }
 
-// A set belongs to the chosen library when ANY of its copies lives there. Sets are
-// built across every library on purpose (the same album imported into two places is
-// exactly what this page is for), so narrowing to one library means "sets this
-// library is involved in" — the set still shows its copies wherever they live.
-function inScope(group: DuplicateGroup, libraryId: string): boolean {
-  if (!libraryId) return true;
-  return group.members.some((member) => member.libraryId === libraryId);
+// Sets are BUILT across every library (a photo landing in two libraries is the
+// commonest duplicate of all), but choosing a library here means "compare that
+// library's photos with each other" — so the set is cut down to the copies living
+// there and copies elsewhere drop out of the comparison entirely. A set left with
+// fewer than two copies inside the library isn't a duplicate there at all and
+// disappears from the list.
+//
+// `elsewhereCount` is what was cut: the page never deletes those, but it has to say
+// they exist, or "delete every copy" would read as removing the picture outright
+// when another library still holds it.
+function scopeToLibrary(group: DuplicateGroup, libraryId: string): ScopedGroup | null {
+  if (!libraryId) return { ...group, elsewhereCount: 0 };
+  const mine = group.members.filter((member) => member.libraryId === libraryId);
+  if (mine.length < 2) return null;
+
+  // The scan's keeper may be one of the copies that just dropped out; then the best
+  // in-library copy takes its place — the server picks the same one when the sweep
+  // runs, and every deletion names its copies explicitly regardless.
+  const keeper = mine.find((member) => member.isKeeper) ?? mine[0];
+  const inherited = keeper.isKeeper;
+  const members = mine
+    .map((member) => ({ ...member, isKeeper: member.itemId === keeper.itemId }))
+    .sort((a, b) => Number(b.isKeeper) - Number(a.isKeeper) || a.path.localeCompare(b.path));
+  return {
+    ...group,
+    keeperItemId: keeper.itemId,
+    keeperSource: inherited ? group.keeperSource : "auto",
+    keeperReason: inherited ? group.keeperReason : null,
+    members,
+    reclaimableBytes: members.filter((member) => !member.isKeeper).reduce((sum, member) => sum + (member.size ?? 0), 0),
+    elsewhereCount: group.members.length - mine.length
+  };
 }
 
-function sortGroups(groups: DuplicateGroup[], sort: DupSort): DuplicateGroup[] {
+function sortGroups(groups: ScopedGroup[], sort: DupSort): ScopedGroup[] {
   // The server already hands them back newest-first, so "recent" is the order as given.
   if (sort === "recent") return groups;
   const list = [...groups];
@@ -190,8 +222,8 @@ export function DuplicatePhotosSection() {
   const [actionError, setActionError] = useState("");
   const [starting, setStarting] = useState(false);
   const [busyGroupId, setBusyGroupId] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<DuplicateGroup | null>(null);
-  const [ignoreTarget, setIgnoreTarget] = useState<DuplicateGroup | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ScopedGroup | null>(null);
+  const [ignoreTarget, setIgnoreTarget] = useState<ScopedGroup | null>(null);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   // The tile shows only a filename now; everything else about a copy lives here.
   const [infoTarget, setInfoTarget] = useState<{ member: DuplicateMember; mark: "keep" | "trash" } | null>(null);
@@ -251,12 +283,21 @@ export function DuplicatePhotosSection() {
     };
   }, [payload.scanning]);
 
-  // exact/near are the WHOLE sets — "Delete all extras" and the counts in its dialog
-  // work on every set, not just what the search happens to be showing. Only the two
-  // visible* lists are filtered, and they feed rendering alone.
-  const exact = payload.groups.filter((group) => group.kind === "exact");
-  const near = payload.groups.filter((group) => group.kind === "near");
-  const extraCopies = payload.groups.reduce((sum, group) => sum + group.members.length - 1, 0);
+  // Every set as the chosen library sees it — sets it holds no duplicate of are gone,
+  // and the ones left show only its own copies. With no library chosen this is the
+  // payload unchanged. Everything below counts, sorts and deletes against THIS list,
+  // so the page and its buttons can't disagree about what a set is.
+  const scoped = payload.groups
+    .map((group) => scopeToLibrary(group, scopeId))
+    .filter((group): group is ScopedGroup => group !== null);
+
+  // exact/near are the whole scoped sets — "Delete all extras" and the counts in its
+  // dialog work on every one of them, not just what the search happens to be showing.
+  // Only the two visible* lists are filtered further, and they feed rendering alone.
+  const exact = scoped.filter((group) => group.kind === "exact");
+  const near = scoped.filter((group) => group.kind === "near");
+  const extraCopies = scoped.reduce((sum, group) => sum + group.members.length - 1, 0);
+  const reclaimableBytes = scoped.reduce((sum, group) => sum + group.reclaimableBytes, 0);
   const busy = starting || deletingAll || busyGroupId !== "";
 
   // A count appears only where a scan would actually have work to do.
@@ -270,15 +311,15 @@ export function DuplicatePhotosSection() {
   const scanLabel = payload.scanning ? "Scanning…" : starting ? "Starting…" : "Scan now";
 
   const needle = search.trim().toLowerCase();
-  const shown = (group: DuplicateGroup) => inScope(group, scopeId) && matchesSearch(group, needle);
+  const shown = (group: ScopedGroup) => matchesSearch(group, needle);
   const filtering = needle !== "" || scopeId !== "";
   const visibleExact = sortGroups(exact.filter(shown), sort);
   const visibleNear = sortGroups(near.filter(shown), sort);
   const hidden = payload.groups.length - (visibleExact.length + visibleNear.length);
   const scopeName = payload.libraries.find((library) => library.id === scopeId)?.name ?? "";
-  // What "Delete all extras" would act on, versus what's on screen — the button is
-  // deliberately global, so the gap has to be sayable.
-  const scopedExact = exact.filter((group) => inScope(group, scopeId));
+  // Sets with copies in another library too. "Delete all extras" leaves those alone,
+  // which is worth saying before it runs.
+  const spanning = exact.filter((group) => group.elsewhereCount > 0).length;
 
   // One pager spans both tiers: paging each separately would mean two sets of
   // controls. Identical sets come first, so a page can straddle the boundary and
@@ -398,7 +439,7 @@ export function DuplicatePhotosSection() {
     });
   };
 
-  const renderGroup = (group: DuplicateGroup) => {
+  const renderGroup = (group: ScopedGroup) => {
     const marked = trashedIds(group);
     const keepCount = group.members.length - marked.length;
     const clearingSet = marked.length === group.members.length;
@@ -415,9 +456,14 @@ export function DuplicatePhotosSection() {
       <div className="dup-group" key={group.id}>
         <div className="dup-group-head">
           <div className="dup-group-summary">
-            <strong>{group.members.length} copies of the same photo</strong>
+            <strong>
+              {group.members.length} copies of the same photo{scopeName ? ` in ${scopeName}` : ""}
+            </strong>
             <span className="datagrid-muted">
               {" · "}{formatBytes(group.reclaimableBytes)} to reclaim
+              {group.elsewhereCount > 0
+                ? ` · ${group.elsewhereCount} more in ${group.elsewhereCount === 1 ? "another library" : "other libraries"}, left alone`
+                : ""}
               {" · "}
               {marked.length === 0
                 ? "nothing selected — click a copy to mark it"
@@ -491,11 +537,14 @@ export function DuplicatePhotosSection() {
                 <span className="dup-copy-name">{fileName(member)}</span>
                 {/* Copies of one photo routinely sit in different libraries or in
                     different folders of the same one; the filename alone doesn't say
-                    which is which. */}
-                <span className="dup-copy-where">
-                  <Images size={11} aria-hidden="true" />
-                  <span>{member.libraryName}</span>
-                </span>
+                    which is which. Under a chosen library every copy is in it by
+                    definition, and the heading says so, so the chip goes. */}
+                {!scopeName && (
+                  <span className="dup-copy-where">
+                    <Images size={11} aria-hidden="true" />
+                    <span>{member.libraryName}</span>
+                  </span>
+                )}
                 <span className="dup-copy-where" title={folderOf(member) || "Library root"}>
                   <Folder size={11} aria-hidden="true" />
                   <span>{folderName(member)}</span>
@@ -557,12 +606,14 @@ export function DuplicatePhotosSection() {
         )}
       </ControlSectionHead>
 
-      {/* The counts beside each library in the picker are how many files a scan of it
-          would have to read, so they aren't repeated here. */}
+      {/* Totals for what's actually being compared: with a library chosen that's its
+          own duplicates, not the install's. The counts beside each library in the
+          picker are how many files a scan of it would have to read, so they aren't
+          repeated here. */}
       <p className="dup-status datagrid-muted">
         Last scan: {formatWhen(payload.lastScanAt)}
-        {payload.groups.length > 0
-          ? ` · ${payload.groups.length} duplicate set${payload.groups.length === 1 ? "" : "s"}, ${copies(extraCopies)} using ${formatBytes(payload.reclaimableBytes)}`
+        {scoped.length > 0
+          ? ` · ${scoped.length} duplicate set${scoped.length === 1 ? "" : "s"}${scopeName ? ` in ${scopeName}` : ""}, ${copies(extraCopies)} using ${formatBytes(reclaimableBytes)}`
           : ""}
       </p>
 
@@ -592,15 +643,16 @@ export function DuplicatePhotosSection() {
 
       {payload.groups.length > 0 && (
         <div className="dup-toolbar">
-          {/* Scope comes first: it's the thing everything else operates on — it both
-              filters the sets below and narrows what the next scan reads. The three
-              actions that follow are icon-only — this page already shows a lot of
-              small decisions, and their labels were the loudest thing on it. */}
+          {/* Scope comes first: it's the thing everything else operates on — it picks
+              whose photos are compared with each other, and narrows what the next scan
+              reads. The three actions that follow are icon-only — this page already
+              shows a lot of small decisions, and their labels were the loudest thing
+              on it. */}
           <LibraryMenu
             value={scopeId}
             options={scopeOptions}
             icon={<Images size={19} aria-hidden="true" />}
-            label="Which photo library to show and scan"
+            label="Which photo library to compare and scan"
             disabled={busy || payload.scanning}
             onChange={setScopeId}
           />
@@ -631,14 +683,14 @@ export function DuplicatePhotosSection() {
                 ? <span className="icon-spin" aria-hidden="true"><RefreshCw size={18} /></span>
                 : <RefreshCw size={18} aria-hidden="true" />}
             </Button>
-            {scopedExact.length > 0 && (
+            {exact.length > 0 && (
               <Button
                 variant="icon"
                 danger
                 disabled={busy}
                 onClick={() => { setActionError(""); setDeleteAllOpen(true); }}
                 aria-label="Delete all extras"
-                title={scopeName ? `Delete all extras in sets involving “${scopeName}”` : "Delete all extras"}
+                title={scopeName ? `Delete all extras in “${scopeName}”` : "Delete all extras"}
               >
                 <Trash2 size={18} aria-hidden="true" />
               </Button>
@@ -650,16 +702,20 @@ export function DuplicatePhotosSection() {
       {filtering && hidden > 0 && (
         <p className="dup-filter-note datagrid-muted">
           Showing {visibleExact.length + visibleNear.length} of {payload.groups.length} sets · {hidden} hidden
-          by {scopeName && needle ? `“${scopeName}” and your search` : scopeName ? `“${scopeName}”` : "your search"}.
+          by {scopeName && needle
+            ? `“${scopeName}” and your search`
+            : scopeName
+              ? `“${scopeName}” — their copies are in other libraries`
+              : "your search"}.
         </p>
       )}
 
       {loaded && payload.groups.length > 0 && visibleExact.length === 0 && visibleNear.length === 0 && (
         <p className="management-empty">
           {scopeName && needle
-            ? `No duplicate sets in “${scopeName}” match “${search.trim()}”.`
+            ? `No duplicate sets inside “${scopeName}” match “${search.trim()}”.`
             : scopeName
-              ? `No duplicate sets involve “${scopeName}”.`
+              ? `No photo in “${scopeName}” is duplicated inside that library. Any copies it shares with another library are compared under “All libraries”.`
               : `No duplicate sets match “${search.trim()}”.`}
         </p>
       )}
@@ -696,13 +752,14 @@ export function DuplicatePhotosSection() {
       )}
 
       {viewGroupId && (() => {
-        // Read the set back out of the payload each render, so marks toggled inside
-        // the viewer show immediately and a reload can't leave it on a stale copy.
-        const group = payload.groups.find((candidate) => candidate.id === viewGroupId);
+        // Read the set back out of the scoped list each render, so marks toggled inside
+        // the viewer show immediately, a reload can't leave it on a stale copy, and it
+        // holds the same copies the tiles do rather than the whole install's.
+        const group = scoped.find((candidate) => candidate.id === viewGroupId);
         if (!group) return null;
         return (
           <DuplicateViewer
-            title={`${group.members.length} copies of the same photo`}
+            title={`${group.members.length} copies of the same photo${scopeName ? ` in ${scopeName}` : ""}`}
             members={group.members}
             busy={busy}
             markOf={(member) => markOf(group, member as DuplicateMember)}
@@ -759,14 +816,18 @@ export function DuplicatePhotosSection() {
       {deleteTarget && (() => {
         const doomed = trashedIds(deleteTarget);
         const survivors = deleteTarget.members.filter((member) => markOf(deleteTarget, member) === "keep");
-        // Nothing survives: this isn't de-duplicating any more, it's removing the
-        // picture from the library. Say that plainly rather than reusing the
-        // reassuring "the kept copy is not affected" wording.
+        // Nothing survives here: this isn't de-duplicating any more, it's removing the
+        // picture from this library. Say that plainly rather than reusing the
+        // reassuring "the kept copy is not affected" wording — unless copies in other
+        // libraries carry it on, which changes the answer entirely.
         const clearingSet = survivors.length === 0;
+        const elsewhere = deleteTarget.elsewhereCount;
         return (
           <ConfirmDialog
             title={clearingSet
-              ? `Delete every copy of this photo?`
+              ? scopeName
+                ? `Delete every copy of this photo in “${scopeName}”?`
+                : `Delete every copy of this photo?`
               : `Delete ${copies(doomed.length)} of this photo?`}
             confirmLabel={clearingSet ? `Delete all ${copies(doomed.length)}` : "Delete copies"}
             busyLabel="Deleting…"
@@ -780,11 +841,16 @@ export function DuplicatePhotosSection() {
             {clearingSet ? (
               <>
                 <p>
-                  You've marked <strong>all {deleteTarget.members.length}</strong> copies for deletion, so no copy of
-                  this picture is left behind — it disappears from the gallery entirely.
+                  You've marked <strong>all {deleteTarget.members.length}</strong> copies
+                  {scopeName ? <> in <strong>{scopeName}</strong></> : null} for deletion
+                  {elsewhere > 0
+                    ? `, so nothing is left of it there — but ${elsewhere} cop${elsewhere === 1 ? "y" : "ies"} in other libraries stay where they are.`
+                    : ", so no copy of this picture is left behind — it disappears from the gallery entirely."}
                 </p>
                 <p>
-                  There is nothing to move its tags, albums, collections and tagged people onto, so those go with it.
+                  {elsewhere > 0
+                    ? "Its tags, albums, collections and tagged people move onto one of those remaining copies."
+                    : "There is nothing to move its tags, albums, collections and tagged people onto, so those go with it."}
                 </p>
                 <p>
                   All {deleteTarget.members.length} files go to the Recycle Bin and can be restored until it's emptied.
@@ -811,7 +877,10 @@ export function DuplicatePhotosSection() {
                 )}
                 <p>
                   The selected copies go to the Recycle Bin, where they can be restored until it's emptied. The kept
-                  {survivors.length === 1 ? " photo is" : " photos are"} not affected.
+                  {survivors.length === 1 ? " photo is" : " photos are"} not affected
+                  {elsewhere > 0
+                    ? `, and neither ${elsewhere === 1 ? "is the copy" : `are the ${elsewhere} copies`} of this photo in other libraries`
+                    : ""}.
                 </p>
               </>
             )}
@@ -828,9 +897,22 @@ export function DuplicatePhotosSection() {
           error={actionError}
           onConfirm={confirmIgnore}
           onCancel={() => setIgnoreTarget(null)}
+          rich
         >
-          This set disappears from the list and future scans won't group these photos together again. Nothing is deleted
-          and no photo is changed.
+          <p>
+            This set disappears from the list and future scans won't group these photos together again. Nothing is
+            deleted and no photo is changed.
+          </p>
+          {/* Dismissal is recorded for the whole set, not just the copies on screen —
+              it has to be, or the next scan would rebuild the set through the copies
+              you can't see from here. */}
+          {ignoreTarget.elsewhereCount > 0 && (
+            <p>
+              This photo also has {ignoreTarget.elsewhereCount} cop{ignoreTarget.elsewhereCount === 1 ? "y" : "ies"} in
+              other libraries. They're covered too: none of these copies will be grouped with each other again,
+              whichever library you're looking at.
+            </p>
+          )}
         </ConfirmDialog>
       )}
 
@@ -838,10 +920,10 @@ export function DuplicatePhotosSection() {
         <ConfirmDialog
           title={
             scopeName
-              ? `Delete the extra copies in ${scopedExact.length} set${scopedExact.length === 1 ? "" : "s"} involving “${scopeName}”?`
-              : `Delete the extra copies in ${scopedExact.length} set${scopedExact.length === 1 ? "" : "s"}?`
+              ? `Delete the extra copies in ${exact.length} set${exact.length === 1 ? "" : "s"} in “${scopeName}”?`
+              : `Delete the extra copies in ${exact.length} set${exact.length === 1 ? "" : "s"}?`
           }
-          confirmLabel={`Delete ${copies(scopedExact.reduce((sum, group) => sum + group.members.length - 1, 0))}`}
+          confirmLabel={`Delete ${copies(exact.reduce((sum, group) => sum + group.members.length - 1, 0))}`}
           busyLabel="Deleting…"
           danger
           busy={deletingAll}
@@ -851,29 +933,28 @@ export function DuplicatePhotosSection() {
           rich
         >
           <p>
-            One copy is kept from every set of identical files — the one marked “Keeping”, including any you chose
-            yourself. Their tags, albums and tagged people are merged onto it first.
+            One copy is kept from every set of identical files{scopeName ? ` in “${scopeName}”` : ""} — the one marked
+            “Keeping”, including any you chose yourself. Their tags, albums and tagged people are merged onto it first.
           </p>
           <p>
-            This frees about {formatBytes(scopedExact.reduce((sum, group) => sum + group.reclaimableBytes, 0))}. Everything
+            This frees about {formatBytes(exact.reduce((sum, group) => sum + group.reclaimableBytes, 0))}. Everything
             removed goes to the Recycle Bin and can be restored until it's emptied. Near-identical sets are never
             touched by this button.
           </p>
-          {/* Two different gaps to own up to: the library picks which SETS are swept
-              but not where the deleted copies live, and the search narrows the view
-              without narrowing the sweep. */}
-          {scopeName && (
+          {/* The sweep stays inside the chosen library, so the copies a set has
+              elsewhere survive it — which means a photo can still be duplicated
+              across libraries afterwards. Better said than discovered. */}
+          {scopeName && spanning > 0 && (
             <p>
-              Only sets “{scopeName}” takes part in are swept
-              {exact.length > scopedExact.length ? `, leaving the other ${exact.length - scopedExact.length} alone` : ""}.
-              A set can span libraries, so where the surviving copy is the better one, the copies removed may sit in
-              another library.
+              {spanning} of these sets also {spanning === 1 ? "has copies" : "have copies"} in other libraries. Those
+              are left exactly where they are — this only thins out “{scopeName}”. To compare across libraries, switch
+              the picker to “All libraries”.
             </p>
           )}
           {needle && (
             <p>
-              Your search is only narrowing what's on screen — this covers all {scopedExact.length} identical
-              set{scopedExact.length === 1 ? "" : "s"} {scopeName ? "in that scope" : ""}, including the ones it's hiding.
+              Your search is only narrowing what's on screen — this covers all {exact.length} identical
+              set{exact.length === 1 ? "" : "s"} {scopeName ? `in “${scopeName}”` : ""}, including the ones it's hiding.
             </p>
           )}
         </ConfirmDialog>
