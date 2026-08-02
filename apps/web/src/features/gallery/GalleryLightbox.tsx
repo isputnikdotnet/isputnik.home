@@ -7,6 +7,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatBytes } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
+import { GalleryPlaceSearch } from "./GalleryPlaceSearch";
 import { ShareModal } from "../share/ShareModal";
 import type { GalleryAsset, GalleryPerson, GalleryPersonTag, SlideshowTransition } from "./types";
 
@@ -130,6 +131,10 @@ export function GalleryLightbox({
   const [editValue, setEditValue] = useState("");
   // The point picked on the location editor's map (separate from the text fields).
   const [editGps, setEditGps] = useState<{ lat: number; lng: number } | null>(null);
+  // A place-search result: its name (shown beside the coordinates until the pin is
+  // moved by hand) and the nonce-keyed instruction that recentres the map on it.
+  const [editGpsLabel, setEditGpsLabel] = useState("");
+  const [editGpsFocus, setEditGpsFocus] = useState<{ lat: number; lng: number; zoom?: number; nonce: number } | null>(null);
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState("");
   const [collectionOpen, setCollectionOpen] = useState(false);
@@ -352,7 +357,9 @@ export function GalleryLightbox({
   const startEdit = (field: EditableField) => {
     setEditError("");
     setEditingField(field);
-    if (field === "gps") { setEditGps(asset.gps); return; }
+    // Reopening the editor starts from the asset's own point, with no leftover
+    // search result naming or recentring it.
+    if (field === "gps") { setEditGps(asset.gps); setEditGpsLabel(""); setEditGpsFocus(null); return; }
     setEditValue(
       field === "description" ? (asset.description ?? "")
         : field === "takenAt" ? toLocalInput(asset.takenAt)
@@ -738,13 +745,25 @@ export function GalleryLightbox({
                 <dd>
                   {editingField === "gps" ? (
                     <div className="gallery-info-form">
+                      <GalleryPlaceSearch
+                        disabled={editBusy}
+                        onPick={(point, label, zoom) => {
+                          setEditGps(point);
+                          setEditGpsLabel(label);
+                          setEditGpsFocus({ ...point, zoom, nonce: Date.now() });
+                        }}
+                      />
                       <Suspense fallback={<div className="gallery-mini-map gallery-mini-map--loading" />}>
-                        <GalleryLocationPicker value={editGps} onChange={setEditGps} />
+                        <GalleryLocationPicker
+                          value={editGps}
+                          focus={editGpsFocus}
+                          onChange={(next) => { setEditGps(next); setEditGpsLabel(""); }}
+                        />
                       </Suspense>
                       <span className="gallery-info-hint">
                         {editGps
-                          ? `${editGps.lat.toFixed(5)}, ${editGps.lng.toFixed(5)}`
-                          : "Click the map to mark where this was taken."}
+                          ? `${editGpsLabel ? `${editGpsLabel} — ` : ""}${editGps.lat.toFixed(5)}, ${editGps.lng.toFixed(5)}`
+                          : "Search above, or click the map to mark where this was taken."}
                       </span>
                       <div className="gallery-info-form-actions">
                         <button type="button" className="primary-button compact-button" onClick={() => { if (editGps) void saveLocation(editGps); }} disabled={editBusy || !editGps}>

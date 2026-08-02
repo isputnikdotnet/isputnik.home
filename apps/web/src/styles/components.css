@@ -793,7 +793,7 @@ a.icon-button svg {
   transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
 
-.icon-button:hover {
+.icon-button:hover:not(:disabled) {
   border-color: var(--icon-control-border-hover);
   background: var(--icon-control-bg-hover);
 }
@@ -804,13 +804,34 @@ a.icon-button svg {
   outline-offset: 2px;
 }
 
+/* Icon buttons are used as toolbar actions that gate on a selection (e.g. the
+   gallery bulk bar), so they need the same disabled treatment as the others. */
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .icon-button.danger {
   color: var(--rose);
 }
 
-.icon-button.danger:hover {
+.icon-button.danger:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--rose) 32%, transparent);
   background: color-mix(in srgb, var(--rose) 12%, transparent);
+}
+
+/* Gold-accented icon button — the icon-only stand-in for a gold primary button,
+   so a toolbar of icons still has one action that reads as its main one (e.g.
+   bulk "Edit metadata"). Same idea as the rose `danger` tint above. */
+.icon-button.accent-gold {
+  color: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 40%, transparent);
+  background: color-mix(in srgb, var(--gold) 14%, var(--icon-control-bg));
+}
+
+.icon-button.accent-gold:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  background: color-mix(in srgb, var(--gold) 22%, var(--icon-control-bg));
 }
 
 /* ── Row actions (button group inside a table cell) ─────────────── */

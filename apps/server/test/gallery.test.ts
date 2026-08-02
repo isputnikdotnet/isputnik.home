@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
 import { ingestGalleryAsset, reconcileGalleryItems } from "../src/modules/library/gallery/scanner.js";
-import { updateGalleryAsset } from "../src/modules/library/gallery/edit.js";
+import { setGalleryPlaceAndTime, updateGalleryAsset } from "../src/modules/library/gallery/edit.js";
 import {
   queryGalleryTimeline,
   queryGalleryFolders,
@@ -184,6 +184,83 @@ describe("gallery manual edits", () => {
     updateGalleryAsset(id, { title: "a.jpg", description: null, takenAt: null, tags: [], gps: null });
     expect(queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0 }).assets.find((a) => a.id === id)!.gps)
       .toBeNull();
+  });
+});
+
+describe("gallery bulk date & location", () => {
+  const rows = () => queryGalleryTimeline("u1", ["GAL"], { q: "", kinds: [], limit: 50, offset: 0 }).assets;
+
+  it("stamps one date and location onto the whole selection", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    const b = await ingestGalleryAsset("GAL", asset("b.jpg", Date.parse("2024-03-03T00:00:00Z")), false);
+
+    const result = setGalleryPlaceAndTime([a, b], {
+      takenAt: "2019-07-04T18:30:00.000Z",
+      gps: { lat: 53.9, lng: 27.56 }
+    });
+    expect(result).toEqual({ updated: 2, noDate: 0 });
+
+    for (const id of [a, b]) {
+      const row = rows().find((r) => r.id === id)!;
+      expect(row.takenAt).toBe("2019-07-04T18:30:00.000Z");
+      expect(row.gps).toEqual({ lat: 53.9, lng: 27.56 });
+    }
+
+    // Marked manual, so a rescan (new mtime, no EXIF) leaves both alone.
+    await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-09-09T00:00:00Z")), false);
+    const after = rows().find((r) => r.id === a)!;
+    expect(after.takenAt).toBe("2019-07-04T18:30:00.000Z");
+    expect(after.gps).toEqual({ lat: 53.9, lng: 27.56 });
+  });
+
+  it("leaves the field that wasn't sent untouched, and skips unknown ids", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    setGalleryPlaceAndTime([id], { gps: { lat: 10, lng: 20 } });
+    const dateBefore = rows().find((r) => r.id === id)!.takenAt;
+
+    // Date-only edit: the location stays put.
+    expect(setGalleryPlaceAndTime([id, "no-such-item"], { takenAt: "2020-01-01T00:00:00.000Z" }))
+      .toEqual({ updated: 1, noDate: 0 });
+    const row = rows().find((r) => r.id === id)!;
+    expect(row.takenAt).toBe("2020-01-01T00:00:00.000Z");
+    expect(row.takenAt).not.toBe(dateBefore);
+    expect(row.gps).toEqual({ lat: 10, lng: 20 });
+  });
+
+  it("does nothing when neither field is sent", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    expect(setGalleryPlaceAndTime([id], {})).toEqual({ updated: 0, noDate: 0 });
+  });
+
+  it("shifts each item by an offset, keeping the spacing between them", async () => {
+    const base = Date.parse("2024-02-02T10:00:00Z");
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", base), false);
+    const b = await ingestGalleryAsset("GAL", asset("b.jpg", base + 90 * 60_000), false); // +90 min
+
+    // A camera an hour behind: push both forward, gap unchanged.
+    expect(setGalleryPlaceAndTime([a, b], { shiftMinutes: 60 })).toEqual({ updated: 2, noDate: 0 });
+    const after = rows();
+    const at = (id: string) => Date.parse(after.find((r) => r.id === id)!.takenAt!);
+    expect(at(a)).toBe(base + 60 * 60_000);
+    expect(at(b) - at(a)).toBe(90 * 60_000);
+
+    // Negative offsets move back; the manual mark survives a rescan.
+    expect(setGalleryPlaceAndTime([a], { shiftMinutes: -60 })).toEqual({ updated: 1, noDate: 0 });
+    await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-09-09T00:00:00Z")), false);
+    expect(Date.parse(rows().find((r) => r.id === a)!.takenAt!)).toBe(base);
+  });
+
+  it("reports items with no date instead of shifting them", async () => {
+    const id = await ingestGalleryAsset("GAL", asset("a.jpg", Date.parse("2024-02-02T00:00:00Z")), false);
+    db.prepare("UPDATE gallery_details SET taken_at = NULL WHERE item_id = ?").run(id);
+
+    expect(setGalleryPlaceAndTime([id], { shiftMinutes: 30 })).toEqual({ updated: 0, noDate: 1 });
+    expect(rows().find((r) => r.id === id)!.takenAt).toBeNull();
+
+    // A location sent alongside still lands, even though the shift couldn't.
+    expect(setGalleryPlaceAndTime([id], { shiftMinutes: 30, gps: { lat: 1, lng: 2 } }))
+      .toEqual({ updated: 1, noDate: 1 });
+    expect(rows().find((r) => r.id === id)!.gps).toEqual({ lat: 1, lng: 2 });
   });
 });
 

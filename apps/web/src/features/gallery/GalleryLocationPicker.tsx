@@ -9,14 +9,20 @@ import "leaflet/dist/leaflet.css";
 // interaction that needs zooming.
 export function GalleryLocationPicker({
   value,
-  onChange
+  onChange,
+  focus
 }: {
   value: { lat: number; lng: number } | null;
   onChange: (next: { lat: number; lng: number }) => void;
+  /** Recentre + drop the pin from outside the map (a place-search result). The
+   *  nonce is what triggers it, so picking the same place twice still moves the
+   *  view back, and a click on the map never re-fires this. */
+  focus?: { lat: number; lng: number; zoom?: number; nonce: number } | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const placeRef = useRef<((latlng: L.LatLng) => void) | null>(null);
   // The map handlers live for the map's lifetime; always call the latest callback.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -42,6 +48,12 @@ export function GalleryLocationPicker({
       });
     };
     if (value) addMarker(L.latLng(value.lat, value.lng));
+    // Shared by map clicks and the search box, which reaches it through the ref
+    // below (the map is built once, so `focus` can't close over this directly).
+    placeRef.current = (latlng: L.LatLng) => {
+      if (markerRef.current) markerRef.current.setLatLng(latlng);
+      else addMarker(latlng);
+    };
     map.on("click", (event: L.LeafletMouseEvent) => {
       if (markerRef.current) markerRef.current.setLatLng(event.latlng);
       else addMarker(event.latlng);
@@ -61,6 +73,16 @@ export function GalleryLocationPicker({
     // Created once per mount; `value` only seeds the initial view/pin.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A search result: move the view there and put the pin on it. Keyed on the
+  // nonce alone so re-renders (busy flags, hint text) don't yank the map back.
+  useEffect(() => {
+    if (!focus || !mapRef.current) return;
+    const latlng = L.latLng(focus.lat, focus.lng);
+    mapRef.current.setView(latlng, focus.zoom ?? 13);
+    placeRef.current?.(latlng);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.nonce]);
 
   return <div className="gallery-mini-map gallery-location-picker" ref={containerRef} aria-label="Pick a location on the map" />;
 }

@@ -11,6 +11,8 @@ import React from "react";
 //
 // `danger` modifier tints icon/text/secondary variants rose for destructive
 // actions that don't warrant a filled danger button (e.g. row delete icons).
+// `className="accent-gold"` tints an icon button gold — the icon-only stand-in
+// for a primary action inside a toolbar of icons (e.g. bulk "Edit metadata").
 type Variant = "primary" | "secondary" | "danger" | "text" | "icon";
 
 const variantClass: Record<Variant, string> = {

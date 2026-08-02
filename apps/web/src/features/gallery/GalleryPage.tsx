@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, LibraryBig, ListMusic, MapPin, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, LibraryBig, ListMusic, MapPin, MapPinned, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
@@ -17,6 +17,8 @@ import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeG
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { AddToSlideshowModal } from "./AddToSlideshowModal";
+import { GalleryDateModal } from "./GalleryDateModal";
+import { GalleryLocationModal } from "./GalleryLocationModal";
 import { SlideshowPhotoBrowser } from "./SlideshowPhotoBrowser";
 import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
@@ -322,6 +324,8 @@ export function GalleryPage({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkCollectionOpen, setBulkCollectionOpen] = useState(false);
+  const [bulkDateOpen, setBulkDateOpen] = useState(false);
+  const [bulkLocationOpen, setBulkLocationOpen] = useState(false);
   // Share is opened over an explicit id set — the bulk bar passes the current
   // selection, a day/year header passes just that group. null = closed.
   const [shareIds, setShareIds] = useState<string[] | null>(null);
@@ -1149,6 +1153,9 @@ export function GalleryPage({
             ? { label: "Back to gallery", onClick: () => setView("timeline") }
             : null;
   const canDeleteAny = libraries.some((library) => library.canDelete);
+  // Stamping a date/location is a metadata write; the server re-checks per item's
+  // library and skips the ones the user can't write.
+  const canWriteAny = libraries.some((library) => library.canWrite);
   // Sharing hands out file access, so the bar's Share needs the curate
   // capability somewhere; the server filters the selection per library anyway.
   const canShareAny = libraries.some((library) => library.canCurate);
@@ -1563,72 +1570,103 @@ export function GalleryPage({
             )}
 
             {selectionMode && (
-              <div className="audiobook-bulk-bar">
+              <div className="audiobook-bulk-bar is-compact">
                 <span className="audiobook-bulk-count">{selectedIds.size} selected</span>
-                <div className="row-actions">
-                  <button
-                    type="button"
-                    className="secondary-button compact-button"
+                <div className="row-actions audiobook-bulk-actions">
+                  <Button
+                    variant="icon"
                     onClick={() => setSelectedIds(new Set(displayedAssets.map((asset) => asset.id)))}
                     disabled={displayedAssets.length === 0}
+                    aria-label="Select all loaded"
+                    title="Select all loaded"
                   >
-                    Select all loaded
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button compact-button"
+                    <CheckCheck size={18} aria-hidden="true" />
+                  </Button>
+                  <Button
+                    variant="icon"
                     onClick={() => void bulkFavorite()}
                     disabled={selectedIds.size === 0 || bulkBusy}
+                    aria-label={bulkBusy ? "Adding to Favorites…" : "Favorite"}
+                    title={bulkBusy ? "Adding…" : "Favorite"}
                   >
-                    <Heart size={15} aria-hidden="true" /> {bulkBusy ? "Adding…" : "Favorite"}
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button compact-button"
+                    <Heart size={18} aria-hidden="true" />
+                  </Button>
+                  <Button
+                    variant="icon"
                     onClick={() => { setBulkError(""); setBulkAlbumOpen(true); }}
                     disabled={selectedIds.size === 0 || bulkBusy}
+                    aria-label="Add to album"
+                    title="Add to album"
                   >
-                    <ImagePlus size={15} aria-hidden="true" /> Add to album
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button compact-button"
+                    <ImagePlus size={18} aria-hidden="true" />
+                  </Button>
+                  <Button
+                    variant="icon"
                     onClick={() => { setBulkError(""); setBulkSlideshowOpen(true); }}
                     disabled={selectedIds.size === 0 || bulkBusy}
+                    aria-label="Add to slideshow"
+                    title="Add to slideshow"
                   >
-                    <Film size={15} aria-hidden="true" /> Add to slideshow
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button compact-button"
+                    <Film size={18} aria-hidden="true" />
+                  </Button>
+                  <Button
+                    variant="icon"
                     onClick={() => { setBulkError(""); setBulkCollectionOpen(true); }}
                     disabled={selectedIds.size === 0 || bulkBusy}
+                    aria-label="Add to collection"
+                    title="Add to collection"
                   >
-                    <ListMusic size={15} aria-hidden="true" /> Add to collection
-                  </button>
+                    <ListMusic size={18} aria-hidden="true" />
+                  </Button>
                   {canShareAny && (
-                    <button
-                      type="button"
-                      className="secondary-button compact-button"
+                    <Button
+                      variant="icon"
                       onClick={() => { setBulkError(""); setShareIds([...selectedIds]); }}
                       disabled={selectedIds.size === 0 || bulkBusy}
+                      aria-label="Share"
+                      title="Share"
                     >
-                      <Share2 size={15} aria-hidden="true" /> Share
-                    </button>
+                      <Share2 size={18} aria-hidden="true" />
+                    </Button>
+                  )}
+                  {canWriteAny && (
+                    <Button
+                      variant="icon"
+                      onClick={() => { setBulkError(""); setBulkDateOpen(true); }}
+                      disabled={selectedIds.size === 0 || bulkBusy}
+                      aria-label="Set date taken"
+                      title="Set date taken"
+                    >
+                      <CalendarClock size={18} aria-hidden="true" />
+                    </Button>
+                  )}
+                  {canWriteAny && (
+                    <Button
+                      variant="icon"
+                      onClick={() => { setBulkError(""); setBulkLocationOpen(true); }}
+                      disabled={selectedIds.size === 0 || bulkBusy}
+                      aria-label="Set location"
+                      title="Set location"
+                    >
+                      <MapPinned size={18} aria-hidden="true" />
+                    </Button>
                   )}
                   {canDeleteAny && (
-                    <button
-                      type="button"
-                      className="danger-button compact-button"
+                    <Button
+                      variant="icon"
+                      danger
                       onClick={() => { setBulkError(""); setBulkDeleteOpen(true); }}
                       disabled={selectedIds.size === 0 || bulkBusy}
+                      aria-label="Delete"
+                      title="Delete"
                     >
-                      <Trash2 size={15} aria-hidden="true" /> Delete
-                    </button>
+                      <Trash2 size={18} aria-hidden="true" />
+                    </Button>
                   )}
-                  <button type="button" className="icon-button" onClick={exitSelection} aria-label="Cancel selection">
+                  <span className="audiobook-bulk-divider" aria-hidden="true" />
+                  <Button variant="icon" onClick={exitSelection} aria-label="Cancel selection" title="Cancel selection">
                     <X size={18} aria-hidden="true" />
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -2482,6 +2520,37 @@ export function GalleryPage({
             setBulkSlideshowOpen(false);
             exitSelection();
             setNotice(`Added ${added} photo${added === 1 ? "" : "s"} to "${slideshowName}".`);
+          }}
+        />
+      )}
+
+      {bulkDateOpen && (
+        <GalleryDateModal
+          itemIds={[...selectedIds]}
+          onClose={() => setBulkDateOpen(false)}
+          onApplied={(updated, forbidden, noDate) => {
+            setBulkDateOpen(false);
+            exitSelection();
+            const parts = [`Dated ${updated} item${updated === 1 ? "" : "s"}`];
+            if (noDate > 0) parts.push(`${noDate} had no date to shift`);
+            if (forbidden > 0) parts.push(`${forbidden} skipped (no permission)`);
+            setNotice(`${parts.join(" · ")}.`);
+            refreshView();
+          }}
+        />
+      )}
+
+      {bulkLocationOpen && (
+        <GalleryLocationModal
+          itemIds={[...selectedIds]}
+          onClose={() => setBulkLocationOpen(false)}
+          onApplied={(updated, forbidden) => {
+            setBulkLocationOpen(false);
+            exitSelection();
+            const parts = [`Placed ${updated} item${updated === 1 ? "" : "s"} on the map`];
+            if (forbidden > 0) parts.push(`${forbidden} skipped (no permission)`);
+            setNotice(`${parts.join(" · ")}.`);
+            refreshView();
           }}
         />
       )}
