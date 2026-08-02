@@ -918,6 +918,61 @@ describe("end-to-end scan over real files", () => {
     expect(db.prepare("SELECT COUNT(*) AS n FROM library_items").get()).toEqual({ n: 2 });
   });
 
+  // The admin page's library picker filters the list; the sweep follows it, so what
+  // the button clears is what's on screen rather than every library at once.
+  it("scoped to a library, sweeps only the sets that library takes part in", async () => {
+    fs.mkdirSync(path.join(sourceRoot, "second"));
+    db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'GAL2'").run(path.join(sourceRoot, "second"));
+
+    // One set inside GAL2 only, one inside GAL only.
+    fs.writeFileSync(path.join(sourceRoot, "second", "x1.jpg"), "SET-IN-GAL2");
+    fs.writeFileSync(path.join(sourceRoot, "second", "x2.jpg"), "SET-IN-GAL2");
+    asset("x1", "x1.jpg", { size: 11, hash: null, library: "GAL2" });
+    asset("x2", "x2.jpg", { size: 11, hash: null, library: "GAL2" });
+    file("y1", "y1.jpg", "SET-IN-GAL-ONE");
+    file("y2", "y2.jpg", "SET-IN-GAL-ONE");
+
+    await runDuplicateScan();
+    expect(listDuplicateGroups()).toHaveLength(2);
+
+    // GAL2's set goes; GAL's is left standing.
+    expect(resolveAllExactGroups("u1", "GAL2")).toEqual({ groups: 1, deleted: 1, failed: 0, skipped: 0 });
+    expect(listDuplicateGroups().flatMap((g) => g.members.map((m) => m.itemId)).sort()).toEqual(["y1", "y2"]);
+
+    // And the unscoped sweep still takes everything that's left.
+    expect(resolveAllExactGroups("u1")).toEqual({ groups: 1, deleted: 1, failed: 0, skipped: 0 });
+    expect(listDuplicateGroups()).toEqual([]);
+  });
+
+  // A set spanning two libraries is swept from either side — the survivor is chosen on
+  // merit, so the copy removed can be the one in the OTHER library. That's the point:
+  // scoping picks which sets to act on, not which copies may go.
+  it("sweeps a cross-library set from either library's scope", async () => {
+    fs.mkdirSync(path.join(sourceRoot, "second"));
+    db.prepare("UPDATE libraries SET source_path = ? WHERE id = 'GAL2'").run(path.join(sourceRoot, "second"));
+    fs.writeFileSync(path.join(sourceRoot, "here.jpg"), "SHARED-PICTURE");
+    fs.writeFileSync(path.join(sourceRoot, "second", "there.jpg"), "SHARED-PICTURE");
+    asset("here", "here.jpg", { size: 14, hash: null });
+    asset("there", "there.jpg", { size: 14, hash: null, library: "GAL2" });
+
+    await runDuplicateScan();
+    expect(listDuplicateGroups()).toHaveLength(1);
+
+    expect(resolveAllExactGroups("u1", "GAL2")).toEqual({ groups: 1, deleted: 1, failed: 0, skipped: 0 });
+    expect(listDuplicateGroups()).toEqual([]);
+    // Exactly one copy survives, wherever it lives.
+    expect(db.prepare("SELECT COUNT(*) AS n FROM library_items WHERE deleted_at IS NULL").get()).toEqual({ n: 1 });
+  });
+
+  it("sweeping a library with no sets of its own does nothing", async () => {
+    file("a1", "a1.jpg", "ONLY-IN-GAL");
+    file("a2", "a2.jpg", "ONLY-IN-GAL");
+    await runDuplicateScan();
+
+    expect(resolveAllExactGroups("u1", "GAL2")).toEqual({ groups: 0, deleted: 0, failed: 0, skipped: 0 });
+    expect(listDuplicateGroups()).toHaveLength(1);
+  });
+
   it("reports scan status for the admin page", async () => {
     file("a", "a.jpg", "PICTURE-ONE");
     file("b", "b.jpg", "PICTURE-ONE");

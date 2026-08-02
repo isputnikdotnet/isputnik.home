@@ -199,9 +199,13 @@ sets can be cleared in bulk.
 
 Pick a library from the first control in the bar and choose **Scan now**. A library
 with files still to read says how many; one with nothing new says nothing at all.
-Scoping to one library only limits what gets read — sets are still built across
-every library, which matters because the same photo landing in two libraries is the
-commonest case of all.
+
+That picker does two things. It narrows the list below to the sets that library is
+involved in, and it limits what the next scan reads. What it never does is change
+how sets are *built* — those are always assembled across every library, because the
+same photo landing in two libraries is the commonest case of all. So a set shown
+under one library can still contain copies living elsewhere, and each copy says
+which library it's in.
 
 #### Working through the list
 
@@ -261,9 +265,13 @@ have nowhere to move to and go with it. The files still land in the Recycle Bin,
 it's undoable until you empty it.
 
 **Delete all extras** works on every **identical** set at once, keeping one copy in
-each. It ignores your marks and ignores the search — the confirmation says how many
-sets it covers. Near-identical sets are never swept in bulk; they're a judgement
-call, one at a time.
+each. It follows the library picker — pick a library and it sweeps only the sets
+that library takes part in, which is what the list is showing you. Because a set
+can span libraries and the surviving copy is chosen on merit, a copy removed that
+way may be the one sitting in a *different* library; the confirmation says so. It
+still ignores your marks and your search, and the confirmation says how many sets
+it covers. Near-identical sets are never swept in bulk; they're a judgement call,
+one at a time.
 
 Two things worth knowing. Nothing is deleted without you asking — a scan only ever
 reports. And if a photo has been edited on disk since the last library scan, it's
