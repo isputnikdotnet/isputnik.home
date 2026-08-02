@@ -28,10 +28,15 @@ const KEEP_JOB_LOGS = 100;
 // a big backlog drains over successive weeks instead of hogging the box in one night.
 const MAX_TRANSCODE_PER_RUN = 20;
 
+// What the job is about, so the admin page can group and colour-code a long list
+// at a glance instead of making you read every label.
+export type ScheduledJobCategory = "audiobooks" | "ebooks" | "gallery" | "system";
+
 interface ScheduledJobDef {
   key: string;
   label: string;
   description: string;
+  category: ScheduledJobCategory;
   // Runs the task and returns a human-readable summary. Throws on failure.
   run: () => string;
   // Built-in defaults, applied when the admin hasn't configured this job yet.
@@ -66,6 +71,7 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "scan_audiobook_libraries",
     label: "Scan audiobook libraries",
     description: "Look for new, changed, or removed audiobook files in every audiobook library and update the catalog.",
+    category: "audiobooks",
     defaultEnabled: true,
     defaultFrequency: "daily",
     defaultTime: "02:00",
@@ -76,6 +82,7 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "scan_ebook_libraries",
     label: "Scan ebook libraries",
     description: "Look for new, changed, or removed book files in every ebook library and update the catalog.",
+    category: "ebooks",
     defaultEnabled: true,
     defaultFrequency: "daily",
     defaultTime: "02:30",
@@ -86,6 +93,7 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "scan_gallery_libraries",
     label: "Scan photo & video libraries",
     description: "Look for new, changed, or removed photos and videos in every gallery library and update the catalog.",
+    category: "gallery",
     defaultEnabled: true,
     defaultFrequency: "daily",
     defaultTime: "03:00",
@@ -96,6 +104,7 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "purge_missing_gallery",
     label: "Purge missing photos",
     description: "Permanently remove photos that have been missing from disk beyond the grace window (default 30 days) — their catalog record, cached thumbnail, and detected faces. Photos still on disk are never touched; the window guards against a temporarily-offline drive.",
+    category: "gallery",
     defaultEnabled: true,
     defaultFrequency: "weekly",
     defaultTime: "01:15",
@@ -111,6 +120,7 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "cleanup_job_logs",
     label: "Clean task history",
     description: `Delete completed and failed tasks beyond the most recent ${KEEP_JOB_LOGS}. Running and queued tasks are never removed.`,
+    category: "system",
     defaultEnabled: true,
     defaultFrequency: "weekly",
     defaultTime: "00:30",
@@ -129,6 +139,7 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "empty_recycle_bin",
     label: "Empty recycle bin",
     description: "Permanently delete every item currently in the recycle bin, regardless of its retention window.",
+    category: "system",
     defaultEnabled: true,
     defaultFrequency: "weekly",
     defaultTime: "00:45",
@@ -141,6 +152,7 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "convert_unplayable_videos",
     label: "Convert unplayable videos",
     description: "Make a browser-playable H.264 copy of gallery videos whose codec no browser can decode (legacy MPEG-4/AMR camcorder clips, etc.), so they play inline instead of only downloading. The original file is never changed. CPU-heavy, so it converts a batch at a time — a large backlog drains over several weeks.",
+    category: "gallery",
     defaultEnabled: true,
     defaultFrequency: "weekly",
     defaultTime: "01:45",
@@ -158,6 +170,7 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "scan_new_faces",
     label: "Scan new photos for faces",
     description: "Detect and group faces in photos not yet scanned with the current recognition model, across every library with face recognition enabled. Already-processed photos are skipped, and a run pauses after 3 hours — the rest continues the next night.",
+    category: "gallery",
     defaultEnabled: true,
     defaultFrequency: "daily",
     // After the nightly library scans (randomized 01:00–04:59), so tonight's new
@@ -180,6 +193,7 @@ const DEFINITIONS: ScheduledJobDef[] = [
     key: "find_duplicate_photos",
     label: "Find duplicate photos",
     description: "Look for photos catalogued more than once — a folder imported twice, or a backup copied in beside the originals. Only files whose size matches another photo's are read, so most of the library is skipped entirely. This never deletes anything: it lists what it finds on the Duplicate photos page for you to review.",
+    category: "gallery",
     defaultEnabled: true,
     // Between the video conversions (01:45) and the face scan (05:00), so the three
     // CPU/disk-heavy gallery jobs don't collide.
@@ -375,10 +389,17 @@ export interface ScheduledJobView extends ScheduledJobState {
   key: string;
   label: string;
   description: string;
+  category: ScheduledJobCategory;
 }
 
 function view(def: ScheduledJobDef): ScheduledJobView {
-  return { key: def.key, label: def.label, description: def.description, ...getState(def.key) };
+  return {
+    key: def.key,
+    label: def.label,
+    description: def.description,
+    category: def.category,
+    ...getState(def.key)
+  };
 }
 
 // A random minute inside the quiet-hours window 01:00–04:59. Chosen once, when a
@@ -405,8 +426,15 @@ export function seedScheduledJobDefaults(): void {
   }
 }
 
+// Grouped by what the job is about, then by name — the admin page lists them in
+// this order, so the three library scans sit together instead of being scattered
+// among the housekeeping jobs. Media types come before the system chores.
+const CATEGORY_ORDER: ScheduledJobCategory[] = ["audiobooks", "ebooks", "gallery", "system"];
+
 export function listScheduledJobs(): ScheduledJobView[] {
-  return DEFINITIONS.map(view);
+  return DEFINITIONS.map(view).sort((a, b) =>
+    CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category)
+    || a.label.localeCompare(b.label));
 }
 
 // Enable/disable a job and set its schedule. Fields left out of `schedule` keep
@@ -618,6 +646,18 @@ function taskView(row: TaskRow) {
   };
 }
 
+// Most scheduled jobs only ENQUEUE the real work — a library scan, a face-scan
+// batch — and return the moment the queue rows exist, so "the job returned" is not
+// "the job is done". This reports which task rows an action created, which is what
+// lets the admin page follow a manual run to completion and link to those tasks.
+// Jobs that do their work inline (emptying the recycle bin) create none.
+export function withNewTaskIds<T>(action: () => T): { result: T; taskIds: string[] } {
+  const idsNow = () => new Set((db.prepare("SELECT id FROM jobs").all() as { id: string }[]).map((row) => row.id));
+  const before = idsNow();
+  const result = action();
+  return { result, taskIds: [...idsNow()].filter((id) => !before.has(id)) };
+}
+
 export function listTasks(page = 1, pageSize = 25) {
   // Everything in flight (however old) is always returned; only the finished
   // history is paged. The paging metadata therefore describes the history grid.
@@ -726,16 +766,28 @@ export async function maintenancePlugin(app: FastifyInstance) {
 
   app.post("/api/scheduled-jobs/:key/run", { preHandler: app.requireAdmin }, async (request, reply) => {
     const key = (request.params as { key: string }).key;
-    const job = runScheduledJob(key, request.user!.id, "manual");
+    const { result: job, taskIds } = withNewTaskIds(() => runScheduledJob(key, request.user!.id, "manual"));
     if (!job) {
       reply.code(404).send({ error: "Unknown scheduled job" });
       return;
     }
     if (job.lastStatus === "error") {
-      reply.code(500).send({ error: job.lastMessage ?? "Job failed", job });
+      reply.code(500).send({ error: job.lastMessage ?? "Job failed", job, taskIds });
       return;
     }
-    reply.send({ job });
+    reply.send({ job, taskIds });
+  });
+
+  // Just the statuses of named tasks — what the Scheduled jobs page polls while a
+  // manual run's work drains, rather than pulling the whole paged task list.
+  app.get("/api/jobs/status", { preHandler: app.requireAdmin }, async (request) => {
+    const raw = ((request.query as { ids?: string }).ids ?? "").split(",").map((id) => id.trim()).filter(Boolean);
+    const ids = raw.slice(0, 100);
+    if (ids.length === 0) return { tasks: [] };
+    const rows = db.prepare(
+      `SELECT id, status FROM jobs WHERE id IN (${ids.map(() => "?").join(",")})`
+    ).all(...ids) as { id: string; status: string }[];
+    return { tasks: rows };
   });
 
   seedScheduledJobDefaults();

@@ -1,10 +1,17 @@
-import { useEffect, useState } from "react";
-import { RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BookOpen, FileQuestion, Folder, Headphones, Image as ImageIcon, LibraryBig, RotateCcw, Trash2 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
-import { formatBytes } from "../../../shared/utils";
+import { LibraryMenu } from "../../../shared/LibraryMenu";
+import { Pager } from "../../../shared/Pager";
+import { RefreshButton } from "../../../shared/RefreshButton";
+import { SelectMenu } from "../../../shared/SelectMenu";
+import { formatBytes, formatManagedDate } from "../../../shared/utils";
+import { AudiobookHeaderSort } from "../../audiobooks/AudiobooksPage";
+import type { SortKey } from "../../audiobooks/BookFilter";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 interface TrashedItem {
@@ -13,23 +20,77 @@ interface TrashedItem {
   libraryType: string;
   libraryName: string;
   title: string;
+  path: string;
   fileCount: number;
   sizeBytes: number;
+  coverUrl: string | null;
   trashedAt: string;
   trashedByName: string | null;
   purgesAt: string | null;
 }
 
-// SQLite CURRENT_TIMESTAMP is "YYYY-MM-DD HH:MM:SS" in UTC.
-function formatWhen(value: string): string {
-  const date = new Date(`${value.replace(" ", "T")}Z`);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+const TYPE_ICON: Record<string, LucideIcon> = {
+  audiobook: Headphones,
+  ebook: BookOpen,
+  gallery: ImageIcon
+};
+
+// The cover the bin kept when the item was deleted, in the same 4:3 frame the
+// duplicate-photos tiles use. Items binned before covers were preserved — and
+// anything that never had one — fall back to the icon for their media type, which
+// still says at a glance what the row is.
+function TrashThumb({ item }: { item: TrashedItem }) {
+  const Icon = TYPE_ICON[item.libraryType] ?? FileQuestion;
+  return (
+    <span className="trash-thumb" aria-hidden="true">
+      {item.coverUrl
+        ? <img src={item.coverUrl} alt="" loading="lazy" />
+        : <Icon size={18} />}
+    </span>
+  );
 }
 
 function formatDay(iso: string | null): string {
   if (!iso) return "Never";
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString();
+}
+
+// The folder the item came out of, relative to its library. Empty for something
+// that sat at the library root, and for a one-segment path (which IS the item).
+function folderOf(item: TrashedItem): string {
+  const cut = item.path.lastIndexOf("/");
+  return cut === -1 ? "" : item.path.slice(0, cut);
+}
+
+type TrashSort = "recent" | "oldest" | "largest" | "name" | "soonest";
+
+const SORT_OPTIONS = [
+  { value: "recent", label: "Recently deleted" },
+  { value: "oldest", label: "Deleted longest ago" },
+  { value: "largest", label: "Largest first" },
+  { value: "name", label: "Name A–Z" },
+  { value: "soonest", label: "Removed soonest" }
+];
+
+const PER_PAGE_OPTIONS = [
+  { value: "12", label: "12 per page" },
+  { value: "24", label: "24 per page" },
+  { value: "48", label: "48 per page" },
+  { value: "all", label: "Show all" }
+];
+
+function sortItems(items: TrashedItem[], sort: TrashSort): TrashedItem[] {
+  const list = [...items];
+  // The server already hands them back newest-first, so "recent" is as given.
+  if (sort === "recent") return list;
+  if (sort === "oldest") return list.reverse();
+  if (sort === "largest") return list.sort((a, b) => b.sizeBytes - a.sizeBytes);
+  if (sort === "name") return list.sort((a, b) => a.title.localeCompare(b.title));
+  // Items with no purge date (auto-removal off) never come up, so they sort last.
+  return list.sort((a, b) =>
+    (a.purgesAt ? Date.parse(a.purgesAt) : Number.POSITIVE_INFINITY)
+    - (b.purgesAt ? Date.parse(b.purgesAt) : Number.POSITIVE_INFINITY));
 }
 
 export function RecycleBinSection() {
@@ -43,6 +104,42 @@ export function RecycleBinSection() {
   const [emptyOpen, setEmptyOpen] = useState(false);
   const [emptying, setEmptying] = useState(false);
   const [actionError, setActionError] = useState("");
+  // Newest deletion first — the order the server hands them back, and the one you
+  // want when you've just deleted something by mistake.
+  const [sort, setSort] = useState<TrashSort>("recent");
+  const [scopeId, setScopeId] = useState(""); // "" = every library
+  const [perPage, setPerPage] = useState("24");
+  const [page, setPage] = useState(1);
+
+  // Only libraries actually represented in the bin — an empty scope would be a
+  // dead menu entry.
+  const libraryOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const item of items) if (!seen.has(item.libraryId)) seen.set(item.libraryId, item.libraryName);
+    return [
+      { value: "", label: `All libraries (${items.length})` },
+      ...[...seen].map(([id, name]) => ({
+        value: id,
+        label: `${name} (${items.filter((item) => item.libraryId === id).length})`
+      }))
+    ];
+  }, [items]);
+
+  const visible = useMemo(
+    () => sortItems(scopeId ? items.filter((item) => item.libraryId === scopeId) : items, sort),
+    [items, scopeId, sort]
+  );
+
+  const pageSize = perPage === "all" ? Math.max(visible.length, 1) : Number(perPage);
+  const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
+  // Clamped rather than corrected in state, so a shrinking list (a restore, a
+  // purge) can't strand the view on a page that no longer exists.
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = visible.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const firstShown = visible.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+
+  // Any change to what's listed or how it's ordered goes back to the top.
+  useEffect(() => { setPage(1); }, [scopeId, sort, perPage]);
 
   const load = async () => {
     const payload = await api<{ items: TrashedItem[]; retentionDays: number }>("/api/library/trash");
@@ -104,72 +201,139 @@ export function RecycleBinSection() {
 
   return (
     <>
-      <ControlSectionHead section="recycleBin" icon={<Trash2 size={30} />} description={retentionBlurb}>
-        {items.length > 0 && (
-          <Button variant="danger" compact onClick={() => { setActionError(""); setEmptyOpen(true); }}>
-            <Trash2 size={16} />
-            <span>Empty Recycle Bin</span>
-          </Button>
-        )}
+      <ControlSectionHead
+        section="recycleBin"
+        className="control-head-compact"
+        icon={<Trash2 size={30} />}
+        description={retentionBlurb}
+      >
+        {/* Refresh sits last, at the right edge of the header — the same spot it
+            holds on Scheduled jobs, so it's in one place across the panel. */}
+        <div className="row-actions control-head-actions">
+          {items.length > 0 && (
+            <Button variant="danger" compact onClick={() => { setActionError(""); setEmptyOpen(true); }}>
+              <Trash2 size={16} />
+              <span>Empty Recycle Bin</span>
+            </Button>
+          )}
+          <RefreshButton
+            onRefresh={async () => {
+              setError("");
+              try {
+                await load();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Unable to refresh the Recycle Bin");
+                throw err;
+              }
+            }}
+          />
+        </div>
       </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Unable to load the Recycle Bin">{error}</MessageBox>}
       {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}
 
-      {loaded && items.length === 0 && !error ? (
-        <p className="management-empty">The Recycle Bin is empty.</p>
-      ) : items.length > 0 ? (
-        <div className="datagrid-wrap">
-          <table className="datagrid">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Library</th>
-                <th className="col-num">Size</th>
-                <th>Deleted</th>
-                <th>Auto-removes</th>
-                <th className="col-actions"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <strong>{item.title}</strong>
-                    <span className="datagrid-muted"> · {item.fileCount} file{item.fileCount === 1 ? "" : "s"}</span>
-                  </td>
-                  <td className="datagrid-muted">{item.libraryName} <span className="count-badge">{item.libraryType}</span></td>
-                  <td className="col-num datagrid-muted">{formatBytes(item.sizeBytes)}</td>
-                  <td className="datagrid-muted">
-                    {formatWhen(item.trashedAt)}{item.trashedByName ? ` · ${item.trashedByName}` : ""}
-                  </td>
-                  <td className="datagrid-muted">{formatDay(item.purgesAt)}</td>
-                  <td className="col-actions">
-                    <Button
-                      variant="text"
-                      compact
-                      disabled={restoringId === item.id || purging || emptying}
-                      onClick={() => restore(item)}
-                    >
-                      <RotateCcw size={15} />
-                      {restoringId === item.id ? "Restoring…" : "Restore"}
-                    </Button>
-                    <Button
-                      variant="text"
-                      danger
-                      compact
-                      disabled={restoringId === item.id || purging || emptying}
-                      onClick={() => { setActionError(""); setPurgeTarget(item); }}
-                    >
-                      Delete
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {items.length > 0 && (
+        /* Scope on the left, view controls on the right — the Duplicate photos
+           toolbar, which sits over a grid of the same kind of tiles. */
+        <div className="trash-toolbar">
+          <LibraryMenu
+            value={scopeId}
+            options={libraryOptions}
+            icon={<LibraryBig size={19} aria-hidden="true" />}
+            label="Which library's deleted items to show"
+            onChange={setScopeId}
+          />
+          <div className="trash-toolbar-controls">
+            <SelectMenu
+              value={perPage}
+              options={PER_PAGE_OPTIONS}
+              label="Items per page"
+              className="trash-per-page"
+              onChange={setPerPage}
+            />
+            <AudiobookHeaderSort
+              value={sort as unknown as SortKey}
+              onChange={(next) => setSort(next as unknown as TrashSort)}
+              options={SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
+              ariaLabel="Sort deleted items"
+              compact
+            />
+          </div>
         </div>
-      ) : null}
+      )}
+
+      {loaded && items.length === 0 && !error && (
+        <p className="management-empty">The Recycle Bin is empty.</p>
+      )}
+
+      {items.length > 0 && visible.length === 0 && (
+        <p className="management-empty">Nothing deleted from that library.</p>
+      )}
+
+      {pageItems.length > 0 && (
+        <>
+          <div className="trash-grid">
+            {pageItems.map((item) => {
+              const folder = folderOf(item);
+              const busyItem = restoringId === item.id || purging || emptying;
+              return (
+                <article className="trash-tile" key={item.id}>
+                  <TrashThumb item={item} />
+                  <strong className="trash-tile-name" title={item.title}>{item.title}</strong>
+                  {folder && (
+                    <span className="trash-tile-line" title={item.path}>
+                      <Folder size={12} aria-hidden="true" />
+                      <span>{folder}</span>
+                    </span>
+                  )}
+                  <span className="trash-tile-line">
+                    <span>{item.libraryName}</span>
+                    <span className="count-badge">{item.libraryType}</span>
+                  </span>
+                  <span className="trash-tile-line">
+                    {formatBytes(item.sizeBytes)} · {item.fileCount} file{item.fileCount === 1 ? "" : "s"}
+                  </span>
+                  <span className="trash-tile-line">
+                    Deleted {formatManagedDate(item.trashedAt)}{item.trashedByName ? ` · ${item.trashedByName}` : ""}
+                  </span>
+                  <span className="trash-tile-line">Removes {formatDay(item.purgesAt)}</span>
+                  <div className="trash-tile-actions">
+                    <Button
+                      variant="icon"
+                      disabled={busyItem}
+                      onClick={() => restore(item)}
+                      aria-label={`Restore ${item.title}`}
+                      title={restoringId === item.id ? "Restoring…" : "Restore"}
+                    >
+                      {restoringId === item.id
+                        ? <span className="icon-spin" aria-hidden="true"><RotateCcw size={16} /></span>
+                        : <RotateCcw size={16} aria-hidden="true" />}
+                    </Button>
+                    <Button
+                      variant="icon"
+                      danger
+                      disabled={busyItem}
+                      onClick={() => { setActionError(""); setPurgeTarget(item); }}
+                      aria-label={`Delete ${item.title} permanently`}
+                      title="Delete permanently"
+                    >
+                      <Trash2 size={16} aria-hidden="true" />
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="trash-pager-row">
+            <span className="datagrid-muted">
+              Showing {firstShown}–{Math.min(currentPage * pageSize, visible.length)} of {visible.length} item{visible.length === 1 ? "" : "s"}
+            </span>
+            <Pager page={currentPage} totalPages={totalPages} onChange={setPage} label="Recycle Bin pages" />
+          </div>
+        </>
+      )}
 
       {purgeTarget && (
         <ConfirmDialog

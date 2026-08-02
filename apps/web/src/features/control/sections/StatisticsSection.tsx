@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { BarChart3, BookOpen, Headphones, Image, RefreshCw } from "lucide-react";
+import { BarChart3, BookOpen, Headphones, Image } from "lucide-react";
 import { api } from "../../../api";
-import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { controlHref } from "../../../router";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -59,14 +59,17 @@ export function StatisticsSection() {
       >
         <div className="row-actions">
           <SelectMenu label="Media type" value={type} options={STATS_TYPES} onChange={chooseType} />
-          <Button
-            variant="secondary"
-            compact
-            onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh stats"))}
-          >
-            <RefreshCw size={15} aria-hidden="true" />
-            Refresh
-          </Button>
+          <RefreshButton
+            onRefresh={async () => {
+              setError("");
+              try {
+                await loadStatus();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Unable to refresh stats");
+                throw err;
+              }
+            }}
+          />
         </div>
       </ControlSectionHead>
 

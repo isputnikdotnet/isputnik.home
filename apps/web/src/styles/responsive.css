@@ -275,7 +275,7 @@
     grid-column: 2;
   }
 
-  .log-retention {
+  .log-toolbar-controls {
     margin-left: 0;
   }
 
@@ -512,27 +512,22 @@
     grid-template-columns: 1fr;
   }
 
-  .log-controls,
-  .log-retention,
-  .log-retention label,
-  .log-pager {
+  /* The toolbar keeps its row on a phone — the controls are icon-sized and fit —
+     but the filter and the controls each take a full line rather than squeezing. */
+  .log-toolbar {
     align-items: stretch;
-    flex-direction: column;
+  }
+
+  .log-toolbar-controls {
+    justify-content: space-between;
   }
 
   .log-search {
-    grid-template-columns: minmax(0, 1fr) auto;
+    flex-basis: 100%;
   }
 
-  .log-page-size {
-    align-self: flex-start;
-  }
-
-  .log-retention input {
-    flex: 1;
-  }
-
-  .log-pager div {
-    justify-content: space-between;
+  .log-pager-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

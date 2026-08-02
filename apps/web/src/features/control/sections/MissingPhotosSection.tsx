@@ -4,6 +4,7 @@ import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 interface MissingPhoto {
@@ -118,6 +119,7 @@ export function MissingPhotosSection() {
     <>
       <ControlSectionHead
         section="missingPhotos"
+        className="control-head-compact"
         icon={<ImageOff size={30} />}
         description={
           <>
@@ -127,12 +129,26 @@ export function MissingPhotosSection() {
           </>
         }
       >
-        {eligibleCount > 0 && (
-          <Button variant="danger" compact disabled={busy} onClick={() => { setActionError(""); setPurgeAllOpen(true); }}>
-            <Trash2 size={16} />
-            <span>Purge {eligibleCount} eligible now</span>
-          </Button>
-        )}
+        {/* Refresh last, at the right edge — same position as on Scheduled jobs. */}
+        <div className="row-actions control-head-actions">
+          {eligibleCount > 0 && (
+            <Button variant="danger" compact disabled={busy} onClick={() => { setActionError(""); setPurgeAllOpen(true); }}>
+              <Trash2 size={16} />
+              <span>Purge {eligibleCount} eligible now</span>
+            </Button>
+          )}
+          <RefreshButton
+            onRefresh={async () => {
+              setError("");
+              try {
+                await load();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Unable to refresh missing photos");
+                throw err;
+              }
+            }}
+          />
+        </div>
       </ControlSectionHead>
 
       <div className="missing-retention-row">

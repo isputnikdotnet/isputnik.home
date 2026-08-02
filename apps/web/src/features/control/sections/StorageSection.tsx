@@ -5,6 +5,7 @@ import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import type { LibrarySettings, StorageRoot } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 
@@ -109,7 +110,19 @@ export function StorageSection() {
         icon={<HardDrive size={30} />}
         iconClassName="storage"
         description="Where thumbnails live, and which folders libraries may be created in."
-      />
+      >
+        <RefreshButton
+          onRefresh={async () => {
+            setError("");
+            try {
+              await loadStorage();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Unable to refresh storage settings");
+              throw err;
+            }
+          }}
+        />
+      </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Storage error">{error}</MessageBox>}
 

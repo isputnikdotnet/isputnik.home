@@ -4,6 +4,7 @@ import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Button } from "../../../shared/Button";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedSession } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -65,7 +66,19 @@ export function SessionsSection() {
         icon={<Monitor size={30} />}
         iconClassName="sessions"
         description="Signed-in devices across every account, and how to revoke them."
-      />
+      >
+        <RefreshButton
+          onRefresh={async () => {
+            setError("");
+            try {
+              await loadSessions();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Unable to refresh sessions");
+              throw err;
+            }
+          }}
+        />
+      </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Session management error">{error}</MessageBox>}
 

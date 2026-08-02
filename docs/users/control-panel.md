@@ -162,17 +162,49 @@ database out from under a running server is how databases get corrupted.
 
 ### Scheduled jobs
 
-The recurring work, each with its own on/off switch and frequency: scanning each
-library type for new files, scanning new photos for faces, looking for duplicate
-photos, purging missing photos, cleaning task history, emptying the recycle bin, and
-converting unplayable videos. Sensible defaults ship enabled; the face scan runs
-after the nightly library scans so the day's new photos are already cataloged.
+The recurring work, one row each: scanning each library type for new files, scanning
+new photos for faces, looking for duplicate photos, purging missing photos, cleaning
+task history, emptying the recycle bin, and converting unplayable videos. Sensible
+defaults ship enabled; the face scan runs after the nightly library scans so the
+day's new photos are already cataloged.
+
+Rows are grouped by what the job is about — audiobooks, ebooks, gallery, then the
+system chores — and each carries a matching tag, so the library scans sit together
+instead of being scattered through the list. Hover a job's **i** for the full
+description of what it does.
+
+Each row carries how often it runs and at what time, when it last ran and when it
+runs next, an on/off switch, and **Run now**. There's no Save button: a change to
+the cadence, the day, the time or the switch is saved as you make it, and the "next
+run" beside it updates to match.
+
+**Run now** starts a job immediately, whatever its schedule says — and keeps
+reporting until the work is genuinely finished. That matters because most of these
+jobs don't do the work themselves; they queue it. A photo library scan hands off to
+the scanner and returns in milliseconds, while the scan itself may run for an hour.
+So the button stays spinning, and the message above the table says what was queued
+with a link straight to **Overview → Tasks**, where you can watch the progress bars.
+When the last queued task finishes, the message says so. Jobs that do their work on
+the spot — emptying the recycle bin, purging missing photos — simply report their
+result and are done. Only one job can be started by hand at a time; several of them
+skip themselves anyway when another heavy task is already running.
 
 ### Recycle Bin
 
 Deleting from the app moves things here rather than erasing them. They keep their
 files for the retention period (the page states it), then go for good — and you can
 restore or empty by hand before then.
+
+Items show as tiles, each led by the cover it had when you deleted it, so you can
+recognise a photo or a book without reading filenames. Underneath: the name, the
+folder it came out of, its library, its size, when it was deleted and by whom, and
+the date it disappears on. Anything with no cover — audiobooks without art, or
+anything binned before covers were kept — shows an icon for its media type instead.
+
+The bar above filters to one library and sorts the tiles (most recently deleted
+first by default, or by size, name, or what's about to be removed), and sets how
+many appear per page. The two buttons on each tile restore that item or delete it
+for good.
 
 ### Missing photos
 

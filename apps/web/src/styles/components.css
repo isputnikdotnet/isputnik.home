@@ -272,13 +272,6 @@ a.icon-button svg {
   min-height: 42px;
 }
 
-.pager-button {
-  min-height: 38px;
-}
-
-.pager-button:disabled {
-  cursor: not-allowed;
-}
 
 /* ── Toggle switch ──────────────────────────────────────────────── */
 
@@ -1225,6 +1218,37 @@ a.icon-button svg {
 
 .admin-section-head {
   align-items: flex-start;
+}
+
+/* Header actions level with the page title rather than pinned to the top of the
+   block — with an icon, an eyebrow and a description above and below it, top
+   alignment leaves them floating beside the eyebrow. */
+.admin-section-head.control-head-compact {
+  align-items: center;
+}
+
+/* The head is `flex-wrap: wrap`, and a wrapping flex line BREAKS before it
+   shrinks: a one-line description is wider than the row, so the actions dropped
+   to their own line no matter how they were aligned. A small flex-basis lets the
+   title block share the row and wrap its own text instead. */
+.admin-section-head.control-head-compact .admin-title-wrap {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+/* Smaller than a page's primary action: these are upkeep controls sitting beside
+   a title, not the thing you came to the page to press. */
+.control-head-actions .primary-button,
+.control-head-actions .secondary-button,
+.control-head-actions .danger-button {
+  min-height: 34px;
+  padding: 0 12px;
+  gap: 6px;
+  font-size: 0.82rem;
+}
+
+.control-head-actions .refresh-button {
+  min-width: 104px;
 }
 
 .admin-title-wrap {
@@ -3107,6 +3131,38 @@ a.icon-button svg {
   letter-spacing: 0.05em;
   text-align: left;
   white-space: nowrap;
+}
+
+/* A sortable heading: the whole label is the control, and the chevron shows on the
+   column currently doing the sorting. Inherits the th's uppercase/letter-spaced
+   type so a sortable column reads no louder than a fixed one. */
+.datagrid-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.datagrid-sort:hover {
+  color: var(--ink);
+}
+
+.datagrid-sort:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.datagrid th.col-num .datagrid-sort {
+  /* Right-aligned column: the chevron belongs on the outside edge. */
+  flex-direction: row-reverse;
 }
 
 .datagrid th.col-num,

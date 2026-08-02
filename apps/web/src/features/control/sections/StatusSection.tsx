@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { Activity, Clock3, Database, HardDrive, RefreshCw, ScrollText, Ticket, UsersRound } from "lucide-react";
+import { Activity, Clock3, Database, HardDrive, ScrollText, Ticket, UsersRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../../../api";
-import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatManagedDate, formatManagedDateParts, formatBytes, formatUptime } from "../../../shared/utils";
 import type { DbInfo, SystemStatus } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -43,10 +43,17 @@ export function StatusSection() {
   return (
     <>
       <ControlSectionHead section="status" description="How the server and its database are doing right now.">
-        <Button variant="secondary" compact onClick={() => loadStatus().catch((err) => setError(err instanceof Error ? err.message : "Unable to refresh status"))}>
-          <RefreshCw size={15} aria-hidden="true" />
-          Refresh
-        </Button>
+        <RefreshButton
+          onRefresh={async () => {
+            setError("");
+            try {
+              await loadStatus();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Unable to refresh status");
+              throw err;
+            }
+          }}
+        />
       </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Status error">{error}</MessageBox>}

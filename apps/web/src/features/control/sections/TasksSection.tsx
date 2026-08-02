@@ -2,7 +2,9 @@ import { Fragment, useState, useEffect, useCallback } from "react";
 import { XCircle } from "lucide-react";
 import { api } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
+import { Pager } from "../../../shared/Pager";
 import { ProgressRing } from "../../../shared/ProgressRing";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatManagedDate, formatEta } from "../../../shared/utils";
 import type { Job } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -102,9 +104,17 @@ export function TasksSection() {
   return (
     <>
       <ControlSectionHead section="tasks" description="Scans and other background work, running and recently finished.">
-        <button className="secondary-button" onClick={() => loadTasks().catch(() => undefined)}>
-          Refresh
-        </button>
+        <RefreshButton
+          onRefresh={async () => {
+            setError("");
+            try {
+              await loadTasks();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Unable to refresh tasks");
+              throw err;
+            }
+          }}
+        />
       </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Tasks error">{error}</MessageBox>}
@@ -289,17 +299,11 @@ export function TasksSection() {
             </table>
           </div>
           {totalPages > 1 && (
-            <div className="log-pager">
-              <span>{(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, total)} of {total}</span>
-              <div>
-                <button className="secondary-button pager-button" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
-                </button>
-                <span>Page {page} of {totalPages}</span>
-                <button className="secondary-button pager-button" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>
-                  Next
-                </button>
-              </div>
+            <div className="log-pager-row">
+              <span className="datagrid-muted">
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+              </span>
+              <Pager page={page} totalPages={totalPages} onChange={setPage} label="Task pages" />
             </div>
           )}
         </>

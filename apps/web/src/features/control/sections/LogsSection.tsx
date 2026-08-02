@@ -1,9 +1,13 @@
-import { useState, useEffect, useCallback, type FormEvent } from "react";
-import { FileText } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { FileText, Search, Trash2 } from "lucide-react";
 import { api } from "../../../api";
+import { Button } from "../../../shared/Button";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { FacetFilterButton, FacetFilterChips, type FacetDef } from "../../../shared/FacetFilter";
+import { Pager } from "../../../shared/Pager";
+import { RefreshButton } from "../../../shared/RefreshButton";
+import { SelectMenu } from "../../../shared/SelectMenu";
 import { formatManagedDate } from "../../../shared/utils";
 import type { LogEvent } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -17,6 +21,18 @@ const LOG_FACET_ORDER: FacetDef<LogFilterKey>[] = [
   { key: "user", title: "User", searchable: true },
   { key: "ip", title: "IP address", searchable: true }
 ];
+
+const PAGE_SIZE_OPTIONS = [
+  { value: "10", label: "10 rows" },
+  { value: "25", label: "25 rows" },
+  { value: "50", label: "50 rows" },
+  { value: "100", label: "100 rows" }
+];
+
+// Typing straight into the results, without a Search button to press. Each query
+// is a server round-trip, so it waits for a pause in typing rather than firing per
+// keystroke.
+const SEARCH_DEBOUNCE_MS = 350;
 
 function LogEventCell({ event }: { event: string }) {
   const [category, ...rest] = event.split(".");
@@ -90,17 +106,16 @@ export function LogsSection() {
     return () => window.removeEventListener("keydown", close);
   }, [pendingCleanup, deleting]);
 
-  const submitLogSearch = (event: FormEvent) => {
-    event.preventDefault();
+  useEffect(() => {
     const query = logSearchInput.trim();
-    setLogCleanupStatus("");
-    if (query === logSearch && logPage === 1) {
-      loadLogs().catch((err) => setError(err instanceof Error ? err.message : "Unable to search logs"));
-      return;
-    }
-    setLogPage(1);
-    setLogSearch(query);
-  };
+    if (query === logSearch) return;
+    const timer = window.setTimeout(() => {
+      setLogCleanupStatus("");
+      setLogPage(1);
+      setLogSearch(query);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [logSearchInput, logSearch]);
 
   const changeFilters = (next: Record<LogFilterKey, string[]>) => {
     setLogCleanupStatus("");
@@ -139,22 +154,27 @@ export function LogsSection() {
         icon={<FileText size={30} />}
         iconClassName="logs"
         description="Review activity history and clean up old records."
-      />
-
-      {error && <MessageBox tone="error" title="Logs error">{error}</MessageBox>}
-      {logCleanupStatus && <MessageBox tone="success" title="Logs deleted">{logCleanupStatus}</MessageBox>}
-
-      <div className="log-controls">
-        <form className="log-search" onSubmit={submitLogSearch}>
+      >
+        {/* Search rides in the header beside the title, like the Duplicate photos
+            page — it's what you reach for first, and it keeps the toolbar below
+            for the controls that change the whole view. */}
+        <label className="search-field log-search">
+          <Search size={17} aria-hidden="true" />
+          <span className="sr-only">Search logs by detail, event, user or IP</span>
           <input
             type="search"
             value={logSearchInput}
             onChange={(event) => setLogSearchInput(event.target.value)}
-            placeholder="Search logs"
-            aria-label="Search logs"
+            placeholder="Search logs..."
           />
-          <button className="secondary-button compact-button">Search</button>
-        </form>
+        </label>
+      </ControlSectionHead>
+
+      {error && <MessageBox tone="error" title="Logs error">{error}</MessageBox>}
+      {logCleanupStatus && <MessageBox tone="success" title="Logs deleted">{logCleanupStatus}</MessageBox>}
+
+      {/* Filter on the left, view controls and the destructive action on the right. */}
+      <div className="log-toolbar">
         <FacetFilterButton
           order={LOG_FACET_ORDER}
           facets={facets}
@@ -162,36 +182,35 @@ export function LogsSection() {
           onChange={changeFilters}
           empty={EMPTY_LOG_FILTERS}
         />
-        <label className="log-page-size">
-          <span>Rows</span>
-          <select
-            value={logPageSize}
-            onChange={(event) => {
-              setLogPage(1);
-              setLogPageSize(Number(event.target.value));
+
+        <div className="log-toolbar-controls">
+          <SelectMenu
+            value={String(logPageSize)}
+            options={PAGE_SIZE_OPTIONS}
+            label="Rows per page"
+            className="log-page-size"
+            onChange={(value) => { setLogPage(1); setLogPageSize(Number(value)); }}
+          />
+          <RefreshButton
+            onRefresh={async () => {
+              setError("");
+              try {
+                await loadLogs();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Unable to refresh logs");
+                throw err;
+              }
             }}
+          />
+          <Button
+            variant="icon"
+            danger
+            onClick={() => { setLogCleanupStatus(""); setPendingCleanup(true); }}
+            aria-label="Delete old logs"
+            title="Delete old logs"
           >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-        </label>
-        <div className="log-retention">
-          <label>
-            <span>Delete older than</span>
-            <input
-              type="number"
-              min={1}
-              max={3650}
-              value={retentionDays}
-              onChange={(event) => setRetentionDays(Math.max(1, Math.min(3650, Number(event.target.value) || 365)))}
-            />
-            <span>days</span>
-          </label>
-          <button className="danger-button compact-button" onClick={() => setPendingCleanup(true)}>
-            Delete old logs
-          </button>
+            <Trash2 size={18} aria-hidden="true" />
+          </Button>
         </div>
       </div>
 
@@ -223,17 +242,13 @@ export function LogsSection() {
               </tbody>
             </table>
           </div>
-          <div className="log-pager">
-            <span>{(logPage - 1) * logPageSize + 1}-{Math.min(logPage * logPageSize, logTotal)} of {logTotal}</span>
-            <div>
-              <button className="secondary-button pager-button" disabled={logPage === 1} onClick={() => setLogPage((page) => page - 1)}>
-                Previous
-              </button>
-              <span>Page {logPage} of {logTotalPages}</span>
-              <button className="secondary-button pager-button" disabled={logPage === logTotalPages} onClick={() => setLogPage((page) => page + 1)}>
-                Next
-              </button>
-            </div>
+          {/* Count on the left, page controls on the right — the same row the
+              Duplicate photos list ends with. */}
+          <div className="log-pager-row">
+            <span className="datagrid-muted">
+              Showing {(logPage - 1) * logPageSize + 1}–{Math.min(logPage * logPageSize, logTotal)} of {logTotal}
+            </span>
+            <Pager page={logPage} totalPages={logTotalPages} onChange={setLogPage} label="Log pages" />
           </div>
         </>
       ) : (
@@ -243,14 +258,34 @@ export function LogsSection() {
       {pendingCleanup && (
         <ConfirmDialog
           title="Delete old logs?"
-          confirmLabel="Delete logs"
-          busyLabel="Deleting..."
+          confirmLabel={`Delete logs older than ${retentionDays} days`}
+          busyLabel="Deleting…"
           danger
           busy={deleting}
           onConfirm={deleteOldLogs}
           onCancel={() => setPendingCleanup(false)}
+          rich
         >
-          All log entries older than {retentionDays} days will be permanently deleted.
+          {/* The age lives here rather than in the toolbar: it's only ever read at
+              the moment you delete, and a stray number box beside the results
+              looked like a filter. */}
+          <p>
+            Log entries older than this are permanently deleted. Nothing else is touched, and the entries
+            currently on screen stay unless they fall outside the window.
+          </p>
+          <label className="log-retention-field">
+            <span>Delete entries older than</span>
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              value={retentionDays}
+              disabled={deleting}
+              autoFocus
+              onChange={(event) => setRetentionDays(Math.max(1, Math.min(3650, Number(event.target.value) || 365)))}
+            />
+            <span>days</span>
+          </label>
         </ConfirmDialog>
       )}
     </>
