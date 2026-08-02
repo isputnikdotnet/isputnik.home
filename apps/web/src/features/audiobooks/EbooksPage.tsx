@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookMarked, BookOpen, Check, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, LibraryBig, ListMusic, Loader2, RotateCcw, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { BookMarked, BookOpen, Check, CheckCheck, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, LibraryBig, ListMusic, Loader2, Pencil, RotateCcw, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
@@ -838,61 +838,68 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
             </div>
 
             {!isMobile && selectionMode && (
-              <div className="audiobook-bulk-bar">
+              <div className="audiobook-bulk-bar is-compact">
                 <span className="audiobook-bulk-count">{selectedIds.size} selected</span>
-                <div className="row-actions">
-                  <button
-                    type="button"
-                    className="secondary-button compact-button"
+                <div className="row-actions audiobook-bulk-actions">
+                  <Button
+                    variant="icon"
                     onClick={() => setSelectedIds(new Set(cat.books.map((book) => book.id)))}
                     disabled={cat.books.length === 0}
+                    aria-label="Select all loaded"
+                    title="Select all loaded"
                   >
-                    Select all loaded
-                  </button>
+                    <CheckCheck size={18} aria-hidden="true" />
+                  </Button>
                   {canEditScope && (
-                    <button
-                      type="button"
-                      className="primary-button compact-button"
+                    <Button
+                      variant="icon"
+                      className="accent-gold"
                       onClick={() => setBulkOpen(true)}
                       disabled={selectedIds.size === 0}
+                      aria-label="Edit metadata"
+                      title="Edit metadata"
                     >
-                      Edit metadata
-                    </button>
+                      <Pencil size={18} aria-hidden="true" />
+                    </Button>
                   )}
                   {canEditScope && (
-                    <button
-                      type="button"
-                      className="primary-button compact-button"
+                    <Button
+                      variant="icon"
                       onClick={() => setEditionsModalOpen(true)}
                       disabled={selectedIds.size < 2}
+                      aria-label="Group as editions"
                       title="Group the selected ebooks as editions of one title"
                     >
-                      <Layers size={15} aria-hidden="true" /> Group as editions
-                    </button>
+                      <Layers size={18} aria-hidden="true" />
+                    </Button>
                   )}
                   {canAddToSeries && (
-                    <button
-                      type="button"
-                      className="primary-button compact-button accent-mint"
+                    <Button
+                      variant="icon"
                       onClick={() => setSeriesModalOpen(true)}
                       disabled={selectedIds.size === 0}
+                      aria-label="Add to series"
+                      title="Add to series"
                     >
-                      <Library size={15} aria-hidden="true" /> Add to series
-                    </button>
+                      <Library size={18} aria-hidden="true" />
+                    </Button>
                   )}
                   {canDeleteScope && (
-                    <button
-                      type="button"
-                      className="danger-button compact-button"
+                    <Button
+                      variant="icon"
+                      danger
                       onClick={() => { setDeleteError(""); setBulkDeleteOpen(true); }}
                       disabled={selectedIds.size === 0}
+                      aria-label="Delete"
+                      title="Delete"
                     >
-                      <Trash2 size={15} aria-hidden="true" /> Delete
-                    </button>
+                      <Trash2 size={18} aria-hidden="true" />
+                    </Button>
                   )}
-                  <button type="button" className="icon-button" onClick={exitSelection} aria-label="Cancel selection">
-                    <X size={16} aria-hidden="true" />
-                  </button>
+                  <span className="audiobook-bulk-divider" aria-hidden="true" />
+                  <Button variant="icon" onClick={exitSelection} aria-label="Cancel selection" title="Cancel selection">
+                    <X size={18} aria-hidden="true" />
+                  </Button>
                 </div>
               </div>
             )}

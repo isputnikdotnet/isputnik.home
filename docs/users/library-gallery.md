@@ -40,6 +40,37 @@ the arrow keys, see details in the info panel, rotate, favourite, share, or add
 to an album or slideshow. Videos play inline; a format the browser can't decode
 is offered as a download, and the server can transcode a web-playable copy.
 
+## Working with several at once
+
+The **Select** button in the header turns the grid into a picker — click photos
+to tick them, or use a date header's checkbox to take a whole day. A toolbar of
+icons appears with what you can do to the selection: favourite it, add it to an
+album, slideshow or collection, set the date taken, set the location, share it,
+or move it to the Recycle Bin. Hover an icon to see what it does.
+
+Date and location are two separate buttons, each with its own window — fix
+whichever is wrong and leave the other alone. Both are for what the camera got
+wrong or never knew, and what you set is kept as yours, so a later scan won't
+overwrite it.
+
+**Set date taken** works two ways. *Set one date* applies that exact date and
+time to everything selected, so those photos sit together in the timeline —
+right for a batch of scans that share one occasion. *Shift by an offset* moves
+each photo from its own date by the same amount, in either direction, which
+keeps the order and spacing the camera recorded — the fix for a camera left on
+the wrong timezone or a clock that was hours out. Photos with no date at all
+can't be shifted, and the message afterwards says how many that was.
+
+**Set location** drops one pin for the whole selection, and they join the Map
+view. Rather than hunting across a world map, type a place, address or postcode
+into the search box and pick from the results — the map jumps there with the pin
+already placed. Coordinates work too: paste `53.90064, 27.55910` and it goes
+straight there. Clicking or dragging on the map still works for fine-tuning.
+
+The search asks OpenStreetMap's public lookup service, so it needs the server to
+have internet access — the same place the map's tiles come from. Without it,
+dropping the pin by hand still works.
+
 ## Uploading
 
 If the library allows uploads, the upload button takes files straight in. They

@@ -548,6 +548,55 @@
   font-weight: 600;
 }
 
+/* Icon-only variant of that bar (audiobooks, ebooks, gallery). A catalog is
+   browsed at every window width, so the bulk verbs stay one short row of
+   labelled icons rather than a wrapping wall of text buttons — every action
+   carries a title + aria-label to keep the verb reachable. */
+.audiobook-bulk-bar.is-compact {
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.audiobook-bulk-actions {
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.audiobook-bulk-actions .icon-button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 7px;
+}
+
+/* Sets the destructive/exit end of the row apart from the additive actions. */
+.audiobook-bulk-divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 2px 3px;
+  background: var(--line);
+}
+
+@media (max-width: 740px) {
+  .audiobook-bulk-bar.is-compact {
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .audiobook-bulk-actions {
+    gap: 2px;
+  }
+
+  .audiobook-bulk-actions .icon-button {
+    min-width: 34px;
+    min-height: 34px;
+    padding: 6px;
+  }
+
+  .audiobook-bulk-divider {
+    margin: 2px 1px;
+  }
+}
+
 .audiobook-catalog-cover {
   position: relative;
   display: grid;

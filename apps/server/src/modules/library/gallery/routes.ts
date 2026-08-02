@@ -32,7 +32,8 @@ import {
   queryGalleryMemories,
   EMPTY_GALLERY_FILTERS
 } from "./catalog.js";
-import { updateGalleryAsset } from "./edit.js";
+import { setGalleryPlaceAndTime, updateGalleryAsset } from "./edit.js";
+import { searchPlaces } from "./geocode.js";
 import { suggestGalleryMemories } from "./memories.js";
 import { rotateGalleryAsset } from "./rotate.js";
 
@@ -560,6 +561,91 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     });
 
     reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
+  });
+
+  // Place lookup behind the location picker's search box. Rate-limited well below
+  // the global ceiling: every hit is an outbound request to a free community
+  // service, and their policy is one request a second.
+  app.get(
+    "/api/library/gallery/geocode",
+    { preHandler: app.authenticate, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const q = ((request.query as { q?: string }).q ?? "").trim();
+      if (q.length < 2 || q.length > 200) {
+        reply.code(400).send({ error: "Type at least two characters to search for a place." });
+        return;
+      }
+      try {
+        reply.send({ results: await searchPlaces(q) });
+      } catch (err) {
+        reply.code(502).send({ error: err instanceof Error ? err.message : "The place lookup failed." });
+      }
+    }
+  );
+
+  // Bulk "set date taken / location" from the multi-select bar — one request for
+  // the whole selection, mirroring bulk-save/bulk-delete. Permission is checked
+  // per item's library; items the user can't write are counted, not fatal. Each
+  // field is optional but at least one must be sent (an empty edit is a mistake,
+  // not a no-op worth 200 writes).
+  // `takenAt` sets one instant on everything; `shiftMinutes` moves each item's own
+  // date instead (bounded to ±10 years, enough for any timezone/clock slip).
+  const bulkPlaceTimeSchema = z
+    .object({
+      ids: z.array(z.string().trim().min(1).max(64)).min(1).max(200),
+      takenAt: z.string().datetime().optional(),
+      shiftMinutes: z.number().int().min(-5_256_000).max(5_256_000).refine((v) => v !== 0).optional(),
+      gps: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional()
+    })
+    .refine((body) => body.takenAt === undefined || body.shiftMinutes === undefined, {
+      message: "Set a date or shift by an offset, not both."
+    })
+    .refine((body) => body.takenAt !== undefined || body.shiftMinutes !== undefined || body.gps !== undefined, {
+      message: "Send a date, an offset, a location, or a combination."
+    });
+
+  app.post("/api/library/gallery/assets/bulk-place-time", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(bulkPlaceTimeSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid details", details: parsed.error });
+      return;
+    }
+
+    const user = request.user!;
+    const allowed: string[] = [];
+    let forbidden = 0;
+    for (const id of parsed.data.ids) {
+      const lib = getLibraryForBook(id);
+      if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
+        forbidden += 1;
+        continue;
+      }
+      allowed.push(id);
+    }
+
+    const { updated, noDate } = setGalleryPlaceAndTime(allowed, {
+      takenAt: parsed.data.takenAt,
+      shiftMinutes: parsed.data.shiftMinutes,
+      gps: parsed.data.gps
+    });
+
+    if (updated > 0) {
+      const fields = [
+        parsed.data.takenAt ? "date taken" : null,
+        parsed.data.shiftMinutes ? `date taken (shifted ${parsed.data.shiftMinutes} min)` : null,
+        parsed.data.gps ? "location" : null
+      ].filter(Boolean).join(" and ");
+      logActivity({
+        event: "library.gallery.edited",
+        actorUserId: user.id,
+        targetType: "library_item",
+        targetId: allowed[0],
+        detail: `Set the ${fields} on ${updated} gallery item${updated === 1 ? "" : "s"}.`,
+        ipAddress: request.ip
+      });
+    }
+
+    reply.send({ updated, forbidden, noDate });
   });
 
   // Rotate a photo 90° clockwise/counter-clockwise. Stores the angle and bakes it

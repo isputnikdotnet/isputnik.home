@@ -827,6 +827,182 @@
   font-size: 0.82rem;
 }
 
+/* The multi-select bar's two bulk-edit dialogs — "Set date taken" and "Set
+   location". Both are one-field cards; the map picker is the widest thing either
+   holds, so the card is sized to fit it comfortably. */
+.gallery-bulk-edit-modal {
+  width: min(560px, 92vw);
+}
+
+.gallery-bulk-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.gallery-bulk-edit-field .gallery-mini-map {
+  height: 220px;
+  margin-bottom: 0;
+}
+
+.gallery-bulk-edit-hint {
+  font-size: 0.8rem;
+}
+
+/* Set-one-date vs shift-by-an-offset, and the offset's amount/unit/direction row. */
+.gallery-bulk-edit-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.gallery-bulk-edit-modes label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.gallery-bulk-edit-modes input {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.gallery-bulk-edit-shift {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.gallery-bulk-edit-shift input[type="number"] {
+  width: 90px;
+}
+
+.gallery-bulk-edit-shift select {
+  width: auto;
+}
+
+/* Place search above the map picker: a query row, then the hit list. Shared by
+   the bulk "Set location" dialog and the lightbox Info panel — the panel is a
+   narrow dark sidebar, so the row wraps and the colours are overridden below. */
+.gallery-place-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.gallery-place-search label {
+  flex: 1 1 170px;
+  min-width: 0;
+}
+
+.gallery-place-search input {
+  width: 100%;
+}
+
+.gallery-place-search-error,
+.gallery-place-search-empty {
+  font-size: 0.8rem;
+}
+
+.gallery-place-search-error {
+  color: var(--rose);
+}
+
+.gallery-place-search-empty {
+  color: var(--muted);
+}
+
+.gallery-place-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 168px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.gallery-place-results li + li {
+  border-top: 1px solid var(--line);
+}
+
+.gallery-place-results button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gallery-place-results button:hover {
+  background: var(--hover);
+}
+
+.gallery-place-results svg {
+  flex-shrink: 0;
+  color: var(--mint);
+}
+
+/* Inside the lightbox the panel is always dark whatever the theme is, so the
+   themed colours above would be unreadable there — restate them against the
+   panel's own palette (same values as .gallery-info-form / -hint / -error). */
+.gallery-lightbox-info .gallery-place-search input {
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.gallery-lightbox-info .gallery-place-search .secondary-button {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.gallery-lightbox-info .gallery-place-search-error {
+  color: #ff9c9c;
+}
+
+.gallery-lightbox-info .gallery-place-search-empty {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.gallery-lightbox-info .gallery-place-results {
+  max-height: 140px;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.gallery-lightbox-info .gallery-place-results li + li {
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+
+.gallery-lightbox-info .gallery-place-results button {
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+.gallery-lightbox-info .gallery-place-results button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.gallery-lightbox-info .gallery-place-results svg {
+  color: #8eb4bf;
+}
+
 /* Inline field editing in the Info panel: a pencil beside the field label, and a
    small form replacing the value while that field is open. */
 /* Link-styled button for Info-panel values that navigate (e.g. the folder). */
