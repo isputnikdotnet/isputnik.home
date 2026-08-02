@@ -6,7 +6,8 @@ import {
   runScheduledJob,
   processDueScheduledJobs,
   seedScheduledJobDefaults,
-  listTasks
+  listTasks,
+  withNewTaskIds
 } from "../src/modules/maintenance/index.js";
 import { makeUser, makeLibrary } from "./helpers/seed.js";
 
@@ -63,6 +64,38 @@ describe("scheduled jobs registry", () => {
   it("returns null for an unknown key", () => {
     expect(configureScheduledJob("nope", true, { frequency: "daily" }, null)).toBeNull();
     expect(runScheduledJob("nope", null)).toBeNull();
+  });
+
+  // The admin page lists them in this order, so the library scans sit together
+  // rather than being scattered among the housekeeping jobs.
+  it("lists jobs grouped by category, then by name", () => {
+    const jobs = listScheduledJobs();
+    expect(jobs.map((j) => j.category)).toEqual([
+      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "gallery", "system", "system"
+    ]);
+    expect(jobs.filter((j) => j.category === "gallery").map((j) => j.label)).toEqual([
+      "Convert unplayable videos",
+      "Find duplicate photos",
+      "Purge missing photos",
+      "Scan new photos for faces",
+      "Scan photo & video libraries"
+    ]);
+  });
+
+  // The page groups and colour-codes the list by this, so every job needs one.
+  it("gives every job a category", () => {
+    const byKey = Object.fromEntries(listScheduledJobs().map((j) => [j.key, j.category]));
+    expect(byKey).toEqual({
+      cleanup_job_logs: "system",
+      convert_unplayable_videos: "gallery",
+      empty_recycle_bin: "system",
+      find_duplicate_photos: "gallery",
+      purge_missing_gallery: "gallery",
+      scan_audiobook_libraries: "audiobooks",
+      scan_ebook_libraries: "ebooks",
+      scan_gallery_libraries: "gallery",
+      scan_new_faces: "gallery"
+    });
   });
 
   it("seeding writes default rows the worker can see, without overriding admin choices", () => {
@@ -244,6 +277,42 @@ describe("empty recycle bin", () => {
     expect(result?.lastStatus).toBe("success");
     expect(result?.lastMessage).toContain("purged 3 items");
     expect((db.prepare("SELECT COUNT(*) AS n FROM trashed_items").get() as { n: number }).n).toBe(0);
+  });
+});
+
+// What the admin page's "Run now" follows: most jobs only queue the real work, so
+// the run has to report the tasks it created for the page to know when it's done.
+describe("tasks created by a manual run", () => {
+  it("names the queue entries a scan job created", () => {
+    makeUser("admin", "admin");
+    makeLibrary("ab1", { createdBy: "admin", type: "audiobook" });
+    makeLibrary("ab2", { createdBy: "admin", type: "audiobook" });
+
+    const { result, taskIds } = withNewTaskIds(() => runScheduledJob("scan_audiobook_libraries", null));
+    expect(result?.lastStatus).toBe("success");
+
+    const queued = (db.prepare("SELECT id FROM jobs").all() as { id: string }[]).map((row) => row.id);
+    expect(taskIds.sort()).toEqual(queued.sort());
+    expect(taskIds).toHaveLength(2);
+  });
+
+  it("reports none for a job that does its work inline", () => {
+    db.prepare(
+      "INSERT INTO trashed_items (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path) VALUES ('t1', 'lib', 'audiobook', 'Lib', '/nope/src', 'Item', '/nope/src/item', '.trash/tok')"
+    ).run();
+    const { result, taskIds } = withNewTaskIds(() => runScheduledJob("empty_recycle_bin", null));
+    expect(result?.lastStatus).toBe("success");
+    expect(taskIds).toEqual([]);
+  });
+
+  it("ignores task rows that already existed", () => {
+    insertJob("older", "completed", 60);
+    makeUser("admin", "admin");
+    makeLibrary("ab1", { createdBy: "admin", type: "audiobook" });
+
+    const { taskIds } = withNewTaskIds(() => runScheduledJob("scan_audiobook_libraries", null));
+    expect(taskIds).toHaveLength(1);
+    expect(taskIds).not.toContain("older");
   });
 });
 

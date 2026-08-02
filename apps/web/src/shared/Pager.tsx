@@ -2,10 +2,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "./Button";
 
 // Numbered pagination: first and last page are always reachable, with a window
-// around the current one and an ellipsis for the pages that are skipped.
-//
-// The Logs section still has its own Previous/Next pager; this is where the two
-// should converge.
+// around the current one and an ellipsis for the pages that are skipped. Used by
+// every paged list in the control panel and the duplicate-photos review.
 
 function pageWindow(page: number, total: number): (number | "gap")[] {
   if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);

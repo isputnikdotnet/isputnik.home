@@ -24,6 +24,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import type { AudiobookLibrary, PublicRole, LibraryMode, ScanSource, MetadataSourceInfo, LibraryTypeDefaults } from "../../audiobooks/types";
@@ -390,6 +391,17 @@ export function LibrariesSection() {
         description="Every library on this server, what it scans, and who can see it."
       >
         <div className="row-actions">
+          <RefreshButton
+            onRefresh={async () => {
+              setError("");
+              try {
+                await loadLibraries();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Unable to refresh libraries");
+                throw err;
+              }
+            }}
+          />
           <Button
             variant="primary"
             disabled={!setupReady}

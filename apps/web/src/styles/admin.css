@@ -103,6 +103,14 @@
   }
 }
 
+/* shared/RefreshButton cycles Refresh → Refreshing… → Updated in place. The label
+   is what tells you the click landed, so the button holds a width that fits the
+   longest of the three: without it the header's controls shuffle sideways twice
+   per refresh, which reads as a glitch rather than as feedback. */
+.refresh-button {
+  min-width: 118px;
+}
+
 .setting-status {
   max-width: 220px;
   padding: 5px 8px;
@@ -163,63 +171,65 @@
 
 /* ── Logs ───────────────────────────────────────────────────────── */
 
-.log-controls {
+/* Search sits in the section header beside the title (see .dup-search, which this
+   matches); the toolbar below carries the filter and the view controls. */
+.log-search {
+  flex: 0 1 320px;
+  width: auto;
+  min-width: 0;
+  min-height: 40px;
+}
+
+/* Filter on the left, view controls and the destructive action on the right. */
+.log-toolbar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-bottom: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
 }
 
-.log-search {
-  display: grid;
-  grid-template-columns: minmax(180px, 285px) auto;
+.log-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* One height for everything in the row, matching the filter trigger. */
+.log-toolbar-controls .icon-button {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.log-toolbar-controls .refresh-button {
+  min-height: 40px;
+}
+
+.log-toolbar-controls .log-page-size .select-menu-trigger {
+  min-height: 40px;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+/* How old is "old" is asked at the moment of deleting, inside the confirmation. */
+.log-retention-field {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  margin-top: 12px;
+  color: var(--muted);
 }
 
-.log-search input,
-.log-retention input {
-  min-height: 42px;
+.log-retention-field input {
+  width: 84px;
+  min-height: 40px;
+  padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 7px;
   color: var(--ink);
   background: var(--field);
-}
-
-.log-search input {
-  padding: 8px 12px;
-}
-
-.log-page-size {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-}
-
-/* Matches the search input it sits beside, which is shorter than a form field. */
-.log-page-size select {
-  min-height: 42px;
-  padding: 6px 9px;
-}
-
-.log-retention {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-
-.log-retention label {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-}
-
-.log-retention input {
-  width: 74px;
-  padding: 6px 8px;
   text-align: center;
 }
 
@@ -275,20 +285,15 @@
   text-transform: capitalize;
 }
 
-.log-pager {
+/* Count on the left, page controls on the right — same split as .dup-pager-row. */
+.log-pager-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 14px;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.log-pager div {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  font-size: 0.84rem;
 }
 
 /* ── Health & status ────────────────────────────────────────────── */
@@ -701,6 +706,181 @@
 .missing-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 /* The relative path wraps rather than stretching the table on deep folders. */
 .missing-path { word-break: break-all; }
+
+/* ── Recycle Bin ────────────────────────────────────────────────── */
+
+/* Scope on the left, view controls on the right — the Duplicate photos toolbar. */
+.trash-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.trash-toolbar .audiobook-library-tab {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 0.88rem;
+}
+
+.trash-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.trash-toolbar-controls .trash-per-page .select-menu-trigger {
+  min-height: 40px;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+/* `compact` swaps the sort trigger for an icon but leaves the wrapper at its
+   browse-page width, so collapse it here — the same fix .dup-toolbar-controls makes. */
+.trash-toolbar-controls .audiobook-sort-control.compact {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: none;
+  gap: 0;
+  width: 40px;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.trash-toolbar-controls .audiobook-sort-control.compact:hover { background: var(--hover); }
+
+.trash-toolbar-controls .audiobook-sort-trigger {
+  width: 40px;
+  height: 40px;
+  min-width: 0;
+  justify-content: center;
+  padding: 0;
+}
+
+/* A grid of tiles rather than table rows: the cover is what you recognise a deleted
+   item by, so it leads and everything else reads underneath it. Fixed-width columns
+   like .dup-copies — with `1fr`, a bin holding two items would stretch each
+   thumbnail across half the page. */
+.trash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 208px);
+  gap: 10px;
+  /* Stretched, not top-aligned like .dup-copies: every tile here ends in an action
+     row, and those have to line up across a row rather than stepping up and down
+     with the length of each name. */
+  align-items: stretch;
+}
+
+.trash-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 55%, transparent);
+  font-size: 0.74rem;
+}
+
+/* The kept cover, at tile size — the same 4:3 frame the duplicate-photos tiles use. */
+.trash-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  margin-bottom: 5px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  color: var(--muted);
+}
+
+.trash-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Two lines at most, so one long name can't make its tile twice the height of its
+   neighbours. The full name is in the tooltip. */
+.trash-tile-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.trash-tile-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* Folder and library are single-line facts; clip rather than wrap them. */
+.trash-tile-line > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-tile-line svg,
+.trash-tile-line .count-badge {
+  flex-shrink: 0;
+}
+
+/* margin-top:auto pins the row to the bottom of a stretched tile, so Restore and
+   Delete sit at the same height whatever the name above did. */
+.trash-tile-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 7px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+.trash-tile-actions .icon-button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
+}
+
+/* Count on the left, page controls on the right — as .dup-pager-row. */
+.trash-pager-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  font-size: 0.84rem;
+}
+
+@media (max-width: 740px) {
+  .trash-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+
+.trash-table .col-actions {
+  white-space: nowrap;
+}
+
+.trash-table .col-actions .icon-button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
+}
 
 /* ── Duplicate photos ───────────────────────────────────────────── */
 
@@ -1208,66 +1388,71 @@
   line-height: 1.55;
 }
 
-.scheduled-jobs {
-  display: grid;
-  gap: 12px;
-  max-width: 860px;
+/* One row per job: what it is, when it runs, how it last went, on/off, run now.
+   It was a stack of cards, which made comparing nine jobs' schedules a scroll —
+   a table lines the times and dates up under each other. */
+.scheduled-jobs-wrap {
+  max-width: 1080px;
 }
 
-.scheduled-job-card {
-  display: grid;
-  gap: 10px;
-  padding: 14px 18px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--shadow) 22%, transparent);
+.scheduled-jobs-table td {
+  vertical-align: middle;
 }
 
-.scheduled-job-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+.scheduled-row-off td {
+  /* An off job stays legible — it's still configurable — but recedes. */
+  opacity: 0.72;
 }
 
-.scheduled-job-copy h2 {
-  margin: 0;
-  font-size: 0.98rem;
-}
-
-.scheduled-job-copy p {
-  margin: 2px 0 0;
-  max-width: 640px;
-  font-size: 0.83rem;
-  line-height: 1.45;
-}
-
-.scheduled-job-toggle {
-  flex-shrink: 0;
-}
-
-/* Schedule sentence + actions on one row: "Runs [every week] on [Sunday] at [00:30]" */
-.scheduled-job-foot {
+.scheduled-job-name {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  padding-top: 10px;
-  border-top: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  gap: 6px;
+  font-weight: 600;
 }
 
-.scheduled-job-when {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 0.86rem;
+/* The full description is long (a paragraph each); it lives in the tooltip so the
+   row stays one line, and in an sr-only span so it isn't mouse-only. */
+.scheduled-job-info {
+  display: inline-flex;
   color: var(--muted);
+  cursor: help;
 }
 
-.scheduled-job-when input[type="time"] {
-  padding: 5px 8px;
+.scheduled-job-chip {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--line) 55%, transparent);
+}
+
+.scheduled-job-chip.audiobooks { background: color-mix(in srgb, var(--gold) 22%, transparent); }
+.scheduled-job-chip.ebooks     { background: color-mix(in srgb, var(--blue) 24%, transparent); }
+.scheduled-job-chip.gallery    { background: color-mix(in srgb, var(--mint) 24%, transparent); }
+.scheduled-job-chip.system     { background: color-mix(in srgb, var(--muted) 20%, transparent); }
+
+/* Frequency (+ weekday/day-of-month) and time stack, so a weekly job doesn't
+   stretch the column wider than a daily one. */
+.scheduled-job-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 150px;
+  max-width: 190px;
+}
+
+.scheduled-job-schedule select {
+  min-height: 0;
+  padding: 6px 8px;
+  font-size: 0.86rem;
+}
+
+.scheduled-job-schedule input[type="time"] {
+  padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 7px;
   color: var(--ink);
@@ -1275,51 +1460,55 @@
   font-size: 0.86rem;
 }
 
-/* Reads inline in a sentence ("Runs weekly on Monday"), so it overrides only the
-   size — chrome is base.css. */
-.scheduled-job-when select {
-  min-height: 0;
-  padding: 5px 8px;
-  font-size: 0.86rem;
-}
-
-.scheduled-job-when input[type="time"]:focus {
+.scheduled-job-schedule input[type="time"]:focus {
   border-color: var(--mint);
   outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
 }
 
-.scheduled-job-when select:disabled,
-.scheduled-job-when input[type="time"]:disabled {
+.scheduled-job-schedule select:disabled,
+.scheduled-job-schedule input[type="time"]:disabled {
   opacity: 0.55;
 }
 
-.scheduled-job-status {
+/* Last run over next run — the same two facts the old card carried in a footer. */
+.scheduled-job-runs {
   display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 18px;
-  min-width: 0;
-  font-size: 0.82rem;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.84rem;
+  white-space: nowrap;
 }
 
-.scheduled-job-last,
-.scheduled-job-next {
+.scheduled-job-run-line {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.scheduled-job-last.success { color: var(--success, #2f9e44); }
-.scheduled-job-last.error   { color: var(--danger, #e03131); }
+.scheduled-job-run-line.success { color: var(--success, #2f9e44); }
+.scheduled-job-run-line.error   { color: var(--rose); }
 
-.scheduled-job-last small {
-  color: var(--muted);
+.scheduled-col-enabled,
+.scheduled-col-actions {
+  width: 1%;
+  text-align: center;
+  white-space: nowrap;
 }
 
-.scheduled-job-actions {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
+.scheduled-col-actions .icon-button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 7px;
+}
+
+@media (max-width: 900px) {
+  .scheduled-job-schedule {
+    min-width: 128px;
+  }
+
+  .scheduled-job-runs {
+    font-size: 0.8rem;
+  }
 }
 
 /* ── Scan rules modal ───────────────────────────────────────────── */

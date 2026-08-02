@@ -5,6 +5,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedInvite } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -100,6 +101,17 @@ export function InvitesSection() {
         description="Create and retire sign-up links for new accounts."
       >
         <div className="row-actions">
+          <RefreshButton
+            onRefresh={async () => {
+              setError("");
+              try {
+                await loadInvites();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Unable to refresh invite links");
+                throw err;
+              }
+            }}
+          />
           <Button variant="primary" onClick={openCreate} title="New invite">
             <UserPlus size={18} />
             <span>New invite</span>

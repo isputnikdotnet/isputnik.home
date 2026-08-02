@@ -6,6 +6,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedUser } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
@@ -222,6 +223,17 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
         description="Accounts, roles, and password resets."
       >
         <div className="row-actions">
+          <RefreshButton
+            onRefresh={async () => {
+              setError("");
+              try {
+                await loadUsers();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Unable to refresh users");
+                throw err;
+              }
+            }}
+          />
           <Button variant="primary" onClick={openCreate} title="New user">
             <Plus size={18} />
             <span>New user</span>

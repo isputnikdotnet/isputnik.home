@@ -6,6 +6,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import type { ManagedGroup, GroupMember, ManagedUser } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 
@@ -147,6 +148,17 @@ export function GroupsSection() {
         description="Shared access groups and the libraries they can reach."
       >
         <div className="row-actions">
+          <RefreshButton
+            onRefresh={async () => {
+              setError("");
+              try {
+                await load();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Unable to refresh groups");
+                throw err;
+              }
+            }}
+          />
           <Button variant="primary" onClick={openCreate} title="New group">
             <Plus size={18} />
             <span>New group</span>

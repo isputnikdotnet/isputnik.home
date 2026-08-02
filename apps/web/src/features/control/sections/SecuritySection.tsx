@@ -21,6 +21,7 @@ import { Button } from "../../../shared/Button";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
+import { RefreshButton } from "../../../shared/RefreshButton";
 import { repoFileUrl } from "../../../shared/links";
 import { formatManagedDate } from "../../../shared/utils";
 
@@ -116,16 +117,23 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockError, setBlockError] = useState("");
 
+  // Throws on failure — the Refresh button needs to know, so it can skip its
+  // "Updated" tick. Half-typed policy edits survive a reload (`prev ?? fresh`).
+  const fetchSecurity = useCallback(async () => {
+    const fresh = await api<SecurityData>("/api/security");
+    setData(fresh);
+    setPolicyForm((prev) => prev ?? { ...fresh.policy });
+    setPwForm((prev) => prev ?? { ...fresh.passwordPolicy });
+  }, []);
+
+  // The fire-and-forget wrapper the page's own reloads use.
   const load = useCallback(async () => {
     try {
-      const fresh = await api<SecurityData>("/api/security");
-      setData(fresh);
-      setPolicyForm((prev) => prev ?? { ...fresh.policy });
-      setPwForm((prev) => prev ?? { ...fresh.passwordPolicy });
+      await fetchSecurity();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load security settings");
     }
-  }, []);
+  }, [fetchSecurity]);
 
   useEffect(() => {
     load();
@@ -255,7 +263,19 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
         icon={<ShieldCheck size={30} />}
         iconClassName="blue"
         description={HEAD_DESCRIPTION[activeTab]}
-      />
+      >
+        <RefreshButton
+          onRefresh={async () => {
+            setError("");
+            try {
+              await fetchSecurity();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Unable to refresh security settings");
+              throw err;
+            }
+          }}
+        />
+      </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}
 
