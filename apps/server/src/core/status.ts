@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.12.0",
+          label: "Everything you've shared, on one page",
+          changes: [
+            "Profile has a new Shared links tab listing every guest link you've made — for a book, a photo, an album, or a batch of photos — with what each one opens, when you shared it, and when it stops working. Links that have already run out are listed underneath, greyed, because finding out that a link expired is usually why you came looking. Revoking one cuts it off straight away; people you shared with by their account are not affected.",
+            "The links themselves aren't shown, and can't be. Only a fingerprint of each link is kept, never the link, so it can be shown to you exactly once — the moment you create it. If you've lost one, revoke it and make another. The gain is that a stolen copy of the database still opens nothing.",
+            "Fixed the Share box listing links belonging to a different book. It matched books by title, so two things named the same shared each other's links — and the revoke button could remove the wrong one.",
+            "iSputnik.home is now properly open source, under the GNU AGPL. About links to the code it is running, which that licence asks for — anyone using this server is entitled to the source behind it."
+          ]
+        },
+        {
           version: "2.11.9",
           label: "Adding photos to a relative is tidier",
           changes: [
