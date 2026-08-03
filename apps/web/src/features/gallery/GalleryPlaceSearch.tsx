@@ -67,7 +67,7 @@ export function GalleryPlaceSearch({
           handled by hand, and must not fall through to that form's submit. */}
       <div className="gallery-place-search">
         <label>
-          <span className="sr-only">Search for a place, address, or postcode</span>
+          <span className="sr-only">Search for a place, address, postcode, or Plus Code</span>
           <input
             type="search"
             value={search}
@@ -77,7 +77,7 @@ export function GalleryPlaceSearch({
               event.preventDefault();
               void runSearch();
             }}
-            placeholder="Place, address, postcode, or 53.9, 27.56"
+            placeholder="Place, address, Plus Code, or 53.9, 27.56"
             disabled={disabled}
             autoFocus={autoFocus}
           />

@@ -7,6 +7,7 @@
 // usage policy requires. Fixed host, GET only, query in a URLSearchParams — the
 // URL is never assembled from caller input.
 import { REMOTE_FETCH_USER_AGENT } from "../shared/remote-image.js";
+import { decodePlusCode, parsePlusCode, recoverPlusCode } from "./pluscode.js";
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const REQUEST_TIMEOUT_MS = 8_000;
@@ -36,6 +37,35 @@ interface NominatimRow {
   display_name?: string;
 }
 
+// A Plus Code copied out of Google Maps ("8MW8+4JV, Norman Manley Blvd, Negril,
+// Jamaica"). Nominatim returns nothing at all for one, so the code is resolved
+// here instead — by arithmetic for a full code, and against the address written
+// beside it for a short one, which is the form Google actually hands out.
+async function resolvePlusCode(query: string): Promise<GeocodeHit[]> {
+  const parsed = parsePlusCode(query);
+  if (!parsed) return [];
+
+  if (parsed.full) {
+    const point = decodePlusCode(parsed.code);
+    if (!point) return [];
+    return [{ label: parsed.rest ? `${parsed.code}, ${parsed.rest}` : parsed.code, ...point }];
+  }
+
+  if (!parsed.rest) {
+    throw new Error(
+      `A short Plus Code needs the town or country after it, the way Google writes it — try “${parsed.code}, Negril, Jamaica”.`
+    );
+  }
+
+  // The rest of the address anchors the code. Straight back through searchPlaces
+  // so the anchor lookup is cached and rate-managed like any other search.
+  const anchors = await searchPlaces(parsed.rest);
+  if (anchors.length === 0) return [];
+  const point = recoverPlusCode(parsed.code, anchors[0]);
+  if (!point) return [];
+  return [{ label: `${parsed.code}, ${anchors[0].label}`, ...point }];
+}
+
 export async function searchPlaces(query: string): Promise<GeocodeHit[]> {
   const key = query.trim().toLowerCase();
   if (!key) return [];
@@ -43,6 +73,12 @@ export async function searchPlaces(query: string): Promise<GeocodeHit[]> {
   if (cached) {
     remember(key, cached); // refresh recency
     return cached;
+  }
+
+  const plusCode = await resolvePlusCode(query);
+  if (plusCode.length > 0) {
+    remember(key, plusCode);
+    return plusCode;
   }
 
   const params = new URLSearchParams({
