@@ -57,20 +57,31 @@ progress, and can be cancelled there (cancel kills the ffmpeg process and return
 the slideshow to its previous state).
 
 - **Title card**: every movie opens with a ~3s black card carrying the slideshow's
-  name and photo count (drawtext with the bundled DejaVu Sans font —
-  `apps/server/src/assets/fonts`, full Cyrillic coverage), cross-fading into the
-  first photo with the slideshow's own transition.
+  name and photo count, cross-fading into the first photo with the slideshow's own
+  transition.
 
-  **Where the build allows it.** `ffmpeg-static` ships a different binary per
-  platform and they don't carry the same filters: the Windows build (gyan 6.1.1)
-  has `drawtext`, the Linux one (John Van Sickle 7.0.2 — the one in the Docker
-  image) does not, despite linking libfreetype. Its absence used to fail the whole
-  render at graph-parse time ("Filter not found"), so every movie export on a Linux
-  host was impossible while development on Windows never saw it. The renderer now
-  probes `ffmpeg -filters` once per process (`ffmpegFilters` / `capabilitiesFrom`)
-  and drops the card — and, were `xfade` ever missing too, the transitions — rather
-  than the movie. An unprobeable ffmpeg is assumed capable. To get title cards on
-  Linux the image would have to carry a build that has `drawtext`.
+  **It is drawn before ffmpeg runs**, by `slideshow-title-card.ts`: the text becomes
+  glyph outlines from the bundled DejaVu Sans (`apps/server/src/assets/fonts`, full
+  Cyrillic coverage) via opentype.js, those become an SVG of `<path>`s, and sharp
+  rasterises a 1920×1080 PNG that enters the filtergraph as an ordinary still —
+  normalised exactly like a photo.
+
+  It used to be ffmpeg's `drawtext`, and that cost every Linux user their whole
+  movie: `ffmpeg-static` ships a different binary per platform, and the Linux one
+  (John Van Sickle 7.0.2) has no `drawtext` despite linking libfreetype, while the
+  Windows build used in development (gyan 6.1.1) does. ffmpeg parses the whole graph
+  before encoding, so the card failed the render outright with "Filter not found".
+  Drawing it here removes the dependency instead of working around it — no optional
+  filter, no system fonts, no fontconfig, the same card on every platform — and a
+  title too wide for the frame now shrinks to fit instead of running off both edges.
+
+  Note glyphs are laid out character by character with kerning rather than through
+  opentype's own text shaping: its shaper throws on DejaVu Sans's `ccmp` table
+  ("substitutionType : 62 lookupType: 6 … is not yet supported").
+
+  What ffmpeg still has to provide is probed once per process (`ffmpegFilters` /
+  `capabilitiesFrom`): without `xfade` the slides are concatenated with hard cuts
+  rather than the render failing. An unprobeable ffmpeg is assumed capable.
 - **Ken Burns exports as a crossfade** (ffmpeg's zoompan renders ~25× real-time —
   impractical); it remains a live-player effect.
 - **Videos are included** (capped at 20s per clip, audio dropped — the soundtrack
