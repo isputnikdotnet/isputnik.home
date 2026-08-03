@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.11.2",
+          label: "The address Google gave you now works",
+          changes: [
+            "“Copy address” in Google Maps gives you something like “8MW8+4JV, Norman Manley Blvd, Negril, Jamaica” for anywhere without a street number — and pasting that into the gallery's location search found nothing at all, because the place lookup doesn't understand the code at the front. It does now: paste the address as copied and the pin lands on the code itself, not on the middle of the town. The long form that starts with the region, “77C38MW8+4JV”, works on its own and doesn't even need internet.",
+            "A code pasted with nothing after it now says what it's missing — a short Plus Code only means something next to a place name, so keep whatever followed it.",
+            "On Maintenance → Duplicate photos, each copy now shows its file size on the tile, under the folder. In a near-identical set that's the quickest read on which copy is the original and which is the re-saved one; it used to mean opening the details of each copy in turn."
+          ]
+        },
+        {
           version: "2.11.1",
           label: "One library at a time on Duplicate photos",
           changes: [
