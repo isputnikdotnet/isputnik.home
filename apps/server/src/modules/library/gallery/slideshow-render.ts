@@ -156,7 +156,10 @@ export function buildFfmpegArgs(
   const titleDwell = TITLE_CARD_SECONDS + pad;
   const inputDur = (seg: Segment) => seg.dwell + pad;
 
-  const args: string[] = [];
+  // Errors only, banner suppressed: whatever ffmpeg writes here is captured and
+  // reported verbatim when a render fails, and the per-input stream dumps it
+  // prints by default would bury the one line that says what went wrong.
+  const args: string[] = ["-hide_banner", "-v", "error"];
   if (titleCard) {
     args.push("-f", "lavfi", "-t", titleDwell.toFixed(3), "-i", `color=c=black:s=${WIDTH}x${HEIGHT}:r=${FPS}`);
   }
@@ -236,25 +239,70 @@ export function buildFfmpegArgs(
   return { args, total };
 }
 
+// How much of ffmpeg's error output to keep. The tail, not the head: the line that
+// explains a failure is the last thing written.
+const STDERR_TAIL_CHARS = 12_000;
+
+// Turn a dead ffmpeg into one sentence a person can act on. Exported for tests —
+// this string is what the editor shows and what lands in the job's error.
+export function describeFfmpegFailure(stderr: string, code: number | null, signal: string | null): string {
+  // 137 is the exit code Docker reports for a SIGKILL, which on Unraid (or any
+  // container with a memory ceiling) almost always means the OOM killer: a long
+  // slideshow holds every input open at once. Naming it saves an hour of hunting
+  // through ffmpeg output that was never written.
+  if (signal === "SIGKILL" || code === 137) {
+    return "ffmpeg was killed part-way through — usually the container hitting its memory limit. Try a shorter slideshow, or give the container more memory.";
+  }
+  const lines = stderr.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const last = lines[lines.length - 1] ?? "";
+  if (!last) {
+    return `ffmpeg exited with ${signal ? `signal ${signal}` : `code ${code ?? "unknown"}`} without saying why.`;
+  }
+  return last.length > 240 ? `${last.slice(0, 240)}…` : last;
+}
+
+export interface RenderOutcome {
+  ok: boolean;
+  /** Why it failed, in ffmpeg's own words. Empty on success and on cancellation. */
+  detail: string;
+}
+
 // Run ffmpeg, parsing -progress output for elapsed seconds so the caller can report a
-// live percentage. Resolves false on any non-zero exit / spawn failure. `isCancelled`
-// is polled once a second; when it flips true (the job was cancelled from the Tasks
-// page) the ffmpeg child is killed so a cancelled render doesn't burn CPU for minutes.
+// live percentage. `isCancelled` is polled once a second; when it flips true (the job
+// was cancelled from the Tasks page) the ffmpeg child is killed so a cancelled render
+// doesn't burn CPU for minutes.
+//
+// stderr is always drained, and its tail kept. Both halves matter: a pipe nobody
+// reads fills at around 64 KB and the child then blocks forever — a render that
+// hangs rather than fails — and without the text there is nothing to report but
+// "it didn't work", which is what this used to say while pointing at server logs
+// that never had a word of ffmpeg in them.
 function runRender(
   args: string[],
   totalSeconds: number,
   onProgress: (elapsedSec: number, totalSec: number) => void,
   isCancelled: () => boolean = () => false
-): Promise<boolean> {
+): Promise<RenderOutcome> {
   return new Promise((resolve) => {
     let child: ReturnType<typeof spawn>;
-    try { child = spawn(FFMPEG_BIN, args, { windowsHide: true }); } catch { resolve(false); return; }
+    try {
+      child = spawn(FFMPEG_BIN, args, { windowsHide: true });
+    } catch (err) {
+      resolve({ ok: false, detail: `ffmpeg could not be started (${err instanceof Error ? err.message : "unknown error"}).` });
+      return;
+    }
     const totalRounded = Math.max(1, Math.round(totalSeconds));
     let settled = false;
-    const finish = (ok: boolean) => { if (settled) return; settled = true; clearInterval(poll); resolve(ok); };
+    const finish = (ok: boolean, detail: string) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(poll);
+      resolve({ ok, detail });
+    };
     const poll = setInterval(() => {
-      if (isCancelled()) { try { child.kill(); } catch { /* already gone */ } finish(false); }
+      if (isCancelled()) { try { child.kill(); } catch { /* already gone */ } finish(false, ""); }
     }, 1000);
+
     let buffer = "";
     child.stdout?.on("data", (chunk: Buffer) => {
       buffer += chunk.toString();
@@ -266,8 +314,27 @@ function runRender(
         if (match) onProgress(Math.min(totalRounded, Math.round(Number(match[1]) / 1_000_000)), totalRounded);
       }
     });
-    child.on("error", () => finish(false));
-    child.on("close", (code) => finish(code === 0));
+
+    let errText = "";
+    child.stderr?.on("data", (chunk: Buffer) => {
+      errText += chunk.toString();
+      if (errText.length > STDERR_TAIL_CHARS) errText = errText.slice(-STDERR_TAIL_CHARS);
+    });
+
+    // A spawn failure (a missing or unrunnable binary) surfaces here, not as an
+    // exit code — and it is the one failure whose cause is entirely in this message.
+    child.on("error", (err) => finish(false, `ffmpeg could not be started (${err.message}).`));
+    child.on("close", (code, signal) => {
+      if (code === 0) { finish(true, ""); return; }
+      if (isCancelled()) { finish(false, ""); return; }
+      // The full tail goes to the server log; the caller gets the one-line version.
+      console.error(
+        `slideshow render: ffmpeg exited ${signal ? `on ${signal}` : `with code ${code}`}\n`
+        + `command: ${FFMPEG_BIN} ${args.map((a) => (a.includes(" ") ? JSON.stringify(a) : a)).join(" ")}\n`
+        + (errText.trim() || "(ffmpeg wrote nothing to stderr)")
+      );
+      finish(false, describeFfmpegFailure(errText, code, signal));
+    });
   });
 }
 
@@ -334,11 +401,17 @@ export async function renderSlideshow(
     const { args, total } = buildFfmpegArgs(
       segs, slideshow.transition, musicPath, tmpPath, slideshow.transition_seconds, undefined, titleCard
     );
-    const ok = await runRender(args, total, onProgress, isCancelled);
+    const { ok, detail } = await runRender(args, total, onProgress, isCancelled);
     if (!ok) {
       fs.rmSync(tmpPath, { force: true });
       if (isCancelled()) throw new Error("Render cancelled.");
-      throw new Error("The movie couldn't be encoded. Check the server logs for ffmpeg output.");
+      // ffmpeg's own words, so the failure is readable without shell access to the
+      // server. The full output is in the log either way.
+      throw new Error(
+        detail
+          ? `The movie couldn't be encoded. ffmpeg said: ${detail}`
+          : "The movie couldn't be encoded. Check the server logs for ffmpeg output."
+      );
     }
     // Swap the finished temp file into place. If the rename fails — on Windows it throws
     // EPERM when the destination movie is still open (e.g. a <video> is streaming the
