@@ -67,9 +67,17 @@ into the search box and pick from the results — the map jumps there with the p
 already placed. Coordinates work too: paste `53.90064, 27.55910` and it goes
 straight there. Clicking or dragging on the map still works for fine-tuning.
 
+Plus Codes work as well, which is what "Copy address" in Google Maps usually
+gives you for a spot with no street number: paste
+`8MW8+4JV, Norman Manley Blvd, Negril, Jamaica` and the pin lands on the code,
+not on the town. Those short codes only mean something next to a place name, so
+keep whatever followed the code when you paste. A long code that starts with the
+region — `77C38MW8+4JV` — stands on its own and needs no lookup at all.
+
 The search asks OpenStreetMap's public lookup service, so it needs the server to
-have internet access — the same place the map's tiles come from. Without it,
-dropping the pin by hand still works.
+have internet access — the same place the map's tiles come from. Plus Codes are
+worked out on the server itself, though a short one still needs that lookup for
+the place beside it. Without any internet, dropping the pin by hand still works.
 
 ## Uploading
 
