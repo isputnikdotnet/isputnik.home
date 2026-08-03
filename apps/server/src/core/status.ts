@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.11.9",
+          label: "Adding photos to a relative is tidier",
+          changes: [
+            "The Add photos window on a person's page printed its folder trail — and any message it had for you — on top of the folder tiles underneath. The family tree's version of that window carries one band more than the layout allowed for, and the band holding those two was squeezed to nothing. Every band now takes the room it needs, and only the photos scroll.",
+            "A relative who is linked to a face in the gallery still opens on their face matches, but if the scan hasn't matched anything to them yet the window opens on the gallery folders rather than an empty list.",
+            "Photos on the life timeline are a little larger, so a face is recognisable without opening the photo."
+          ]
+        },
+        {
           version: "2.11.8",
           label: "Long slideshows render a piece at a time",
           changes: [
