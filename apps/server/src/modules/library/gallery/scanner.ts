@@ -10,6 +10,7 @@ import { db, logActivity } from "../../../db.js";
 import { normaliseRelativePath, relativePathWithinRoot } from "../shared/storage-roots.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
+import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { dateFromFileName } from "./filename-date.js";
 import {
@@ -382,8 +383,7 @@ export async function processGalleryScanQueue() {
   if (queueRunning) return;
   queueRunning = true;
   try {
-    db.prepare("UPDATE jobs SET status = 'pending', locked_at = NULL, locked_by = NULL, error = NULL WHERE type = ? AND status = 'running'")
-      .run(scanJobType);
+    requeueInterruptedJobs(scanJobType);
 
     for (;;) {
       // One library job at a time server-wide: while another scan or face job is

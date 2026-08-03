@@ -220,6 +220,18 @@ describe("render filtergraph", () => {
     expect(args.slice(0, 3)).toEqual(["-hide_banner", "-v", "error"]);
   });
 
+  // This runs on somebody's NAS beside everything else that box does. Given every
+  // core, a render reads as "the server fell over", because everything else on it did.
+  it("holds itself to a share of the machine", () => {
+    const { args } = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/o.mp4");
+    const filterThreads = Number(args[args.indexOf("-filter_complex_threads") + 1]);
+    const encoderThreads = Number(args[args.indexOf("-threads") + 1]);
+    expect(filterThreads).toBeGreaterThanOrEqual(1);
+    expect(filterThreads).toBeLessThanOrEqual(2);
+    expect(encoderThreads).toBeGreaterThanOrEqual(1);
+    expect(encoderThreads).toBeLessThanOrEqual(4);
+  });
+
   it("muxes a music input with an out-fade when a track is given", () => {
     const { args } = buildFfmpegArgs(segs([4, 4]), "crossfade", "/bed.flac", "/o.mp4");
     const joined = args.join(" ");

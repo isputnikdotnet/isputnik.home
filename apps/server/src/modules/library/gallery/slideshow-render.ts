@@ -16,6 +16,7 @@
 //   slideshow exports with a crossfade. The animated zoom stays a live-preview effect.
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
@@ -24,6 +25,7 @@ import { db } from "../../../db.js";
 import { validateLibrarySource } from "../shared/library-source.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
+import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import {
   getSlideshow,
@@ -40,6 +42,30 @@ import { getRenderLibraryId } from "./slideshow-settings.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 
 const FFMPEG_BIN: string = (ffmpegStatic as unknown as string | null) || "ffmpeg";
+
+// ── Leaving the machine usable ───────────────────────────────────────────────
+//
+// This runs on someone's NAS, beside everything else that box does. Left alone,
+// ffmpeg takes every core and as many frame buffers as the filtergraph implies,
+// which on an Unraid host reads as "the server fell over" — because everything
+// else on it did.
+//
+// Half the cores, capped: the render is background work nobody is watching, and
+// giving it the whole machine buys minutes at the cost of every other service.
+// Filter threads are held lower still — each one holds decoded 1080p frames in
+// flight, and a slideshow's graph has one chain per photo.
+const cores = Math.max(1, os.cpus().length);
+const ENCODER_THREADS = Math.max(1, Math.min(4, Math.floor(cores / 2)));
+const FILTER_THREADS = Math.max(1, Math.min(2, Math.floor(cores / 2)));
+
+// Nice the child to the bottom of the run queue (best-effort: unsupported on some
+// platforms, and lowering our own priority never needs privileges where it is).
+// The render still gets every idle cycle; it just stops competing with the web
+// server, the scanners, and whatever else the box is for.
+function deprioritise(pid: number | undefined): void {
+  if (pid === undefined) return;
+  try { os.setPriority(pid, 19); } catch { /* not supported here — the thread caps still apply */ }
+}
 
 export const RENDER_JOB_TYPE = "gallery-slideshow-render";
 
@@ -153,7 +179,7 @@ export function buildFfmpegArgs(
   // Errors only, banner suppressed: whatever ffmpeg writes here is captured and
   // reported verbatim when a render fails, and the per-input stream dumps it
   // prints by default would bury the one line that says what went wrong.
-  const args: string[] = ["-hide_banner", "-v", "error"];
+  const args: string[] = ["-hide_banner", "-v", "error", "-filter_complex_threads", String(FILTER_THREADS)];
   if (titleCard) {
     args.push("-loop", "1", "-t", titleDwell.toFixed(3), "-i", titleCard.imageFile);
   }
@@ -226,6 +252,7 @@ export function buildFfmpegArgs(
   }
   args.push(
     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "22", "-preset", "veryfast",
+    "-threads", String(ENCODER_THREADS),
     "-r", String(FPS), "-movflags", "+faststart",
     "-progress", "pipe:1", "-nostats", "-y", outPath
   );
@@ -341,6 +368,7 @@ function runRender(
       resolve({ ok: false, detail: `ffmpeg could not be started (${err instanceof Error ? err.message : "unknown error"}).` });
       return;
     }
+    deprioritise(child.pid);
     const totalRounded = Math.max(1, Math.round(totalSeconds));
     let settled = false;
     const finish = (ok: boolean, detail: string) => {
@@ -672,8 +700,21 @@ export async function processSlideshowRenderQueue(): Promise<void> {
   if (queueRunning) return;
   queueRunning = true;
   try {
-    // A render interrupted by a restart: re-queue it (idempotent — it re-renders).
-    db.prepare("UPDATE jobs SET status = 'pending', locked_at = NULL, locked_by = NULL WHERE type = ? AND status = 'running'").run(RENDER_JOB_TYPE);
+    // A render interrupted by a restart: re-queue it (idempotent — it re-renders) —
+    // but only while it has attempts left. A render heavy enough to exhaust the
+    // container's memory kills the whole server, and an unbounded re-queue then
+    // starts it again on every restart, forever. Whatever this gives up on is told
+    // to its slideshow, so the editor shows why rather than sitting on "Rendering…".
+    const recovery = requeueInterruptedJobs(RENDER_JOB_TYPE);
+    for (const job of recovery.abandoned) {
+      try {
+        const { slideshowId } = JSON.parse(job.payload) as RenderPayload;
+        setSlideshowRenderState(slideshowId, {
+          status: "failed",
+          error: "The render was interrupted every time it ran — the server may not have enough memory for a slideshow this long. Try fewer photos."
+        });
+      } catch { /* unreadable payload: reconcileOrphanedRenders below still unsticks it */ }
+    }
     // Then unstick any slideshow whose render job is no longer active (post-cancel or
     // post-crash) — after the re-queue above, a resumable render's job is 'pending' and
     // so is excluded here.

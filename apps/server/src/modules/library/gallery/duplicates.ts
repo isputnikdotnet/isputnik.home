@@ -24,6 +24,7 @@ import { db, logActivity } from "../../../db.js";
 import { validateLibrarySource } from "../shared/library-source.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
+import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { trashBook } from "../shared/trash.js";
 import { recomputeFaceCount } from "./people.js";
@@ -1364,9 +1365,9 @@ export async function processDuplicateScanQueue(): Promise<void> {
   if (queueRunning) return;
   queueRunning = true;
   try {
-    // A scan interrupted by a restart: re-queue it (it recomputes from scratch).
-    db.prepare("UPDATE jobs SET status = 'pending', locked_at = NULL, locked_by = NULL WHERE type = ? AND status = 'running'")
-      .run(DUPLICATE_SCAN_JOB_TYPE);
+    // A scan interrupted by a restart: re-queue it (it recomputes from scratch) —
+    // bounded by its attempts, so a scan that keeps killing the process stops.
+    requeueInterruptedJobs(DUPLICATE_SCAN_JOB_TYPE);
 
     for (;;) {
       // Yield to catalog/face scans — this is background housekeeping.
