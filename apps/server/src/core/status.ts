@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.11.6",
+          label: "A background job can no longer take the server down with it",
+          changes: [
+            "Important fix for anyone who saw the server pinned at full CPU and memory after 2.11.4. If a background job was heavy enough to exhaust the machine's memory, it took the whole server with it — and on restart the server picked up exactly the same job and did it again, forever. The attempt limit never applied, because a job that kills the process never gets as far as failing. Now a job is only picked back up while it has attempts left; after that it stops and says the machine may not have had enough memory. This covers movie rendering, video conversion, and every library and face scan.",
+            "Rendering a movie and converting a video now take at most half the machine's cores, and run at the lowest priority. They still use whatever is idle — they just stop competing with everything else the server is for.",
+            "A slideshow whose render was abandoned this way now says so in the editor instead of sitting on “Rendering movie…” for good."
+          ]
+        },
+        {
           version: "2.11.5",
           label: "The title card is back, on every machine",
           changes: [
