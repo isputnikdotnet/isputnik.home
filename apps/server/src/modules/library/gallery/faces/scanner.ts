@@ -13,6 +13,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../../../db.js";
 import { validateLibrarySource, LibrarySourceError } from "../../shared/library-source.js";
 import { libraryJobRunning } from "../../shared/scan-lock.js";
+import { requeueInterruptedJobs } from "../../shared/job-recovery.js";
 import { jobProgressWriter } from "../../shared/job-progress.js";
 import { decodeUpright, detectFacesFromRaw, FACE_EMBEDDING_MODEL, type DecodedImage } from "./arcface.js";
 import { embeddingToBlob } from "./embedding.js";
@@ -245,8 +246,7 @@ export async function processFaceScanQueue(): Promise<void> {
   // (or left unassigned faces behind). A no-op nightly pass never pays for it.
   let clusterDirty = false;
   try {
-    db.prepare("UPDATE jobs SET status = 'pending', locked_at = NULL, locked_by = NULL, error = NULL WHERE type = ? AND status = 'running'")
-      .run(faceJobType);
+    requeueInterruptedJobs(faceJobType);
 
     for (;;) {
       // One library job at a time server-wide: while another scan or face job is

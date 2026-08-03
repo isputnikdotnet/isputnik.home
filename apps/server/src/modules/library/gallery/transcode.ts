@@ -6,12 +6,14 @@
 // `jobs` table (one at a time — CPU-heavy) enqueued by the weekly maintenance job.
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import ffmpegStatic from "ffmpeg-static";
 import { db } from "../../../db.js";
 import { validateLibrarySource } from "../shared/library-source.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
+import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 
@@ -22,6 +24,10 @@ export const TRANSCODE_JOB_TYPE = "TRANSCODE_GALLERY_VIDEO";
 // A file whose transcode keeps failing (truly corrupt / unsupported) is retried this
 // many times, then left alone so it doesn't sit in every weekly batch forever.
 export const MAX_TRANSCODE_ATTEMPTS = 3;
+
+// Half the cores, capped — see the same reasoning in slideshow-render.ts. Nobody is
+// waiting on this; everything else on the machine is.
+const ENCODER_THREADS = Math.max(1, Math.min(4, Math.floor(Math.max(1, os.cpus().length) / 2)));
 
 // Cap the long edge so an old HD clip doesn't take an age to encode or balloon on disk;
 // the untouched original stays for a full-resolution download.
@@ -98,6 +104,9 @@ function runTranscode(srcPath: string, outPath: string, durationSec: number, onP
     "-v", "error", "-i", srcPath,
     "-vf", `scale='min(${MAX_WIDTH},iw)':-2`,
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+    // Background housekeeping on somebody's NAS: half the cores at most, and the
+    // process is niced below everything else the box is actually for.
+    "-threads", String(ENCODER_THREADS),
     "-c:a", "aac", "-b:a", "128k",
     "-movflags", "+faststart",
     "-progress", "pipe:1", "-nostats", "-y", outPath
@@ -111,6 +120,7 @@ function runTranscode(srcPath: string, outPath: string, durationSec: number, onP
       resolve(false);
       return;
     }
+    try { if (child.pid !== undefined) os.setPriority(child.pid, 19); } catch { /* unsupported here */ }
     const total = Math.max(1, Math.round(durationSec));
     let buffer = "";
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -159,8 +169,10 @@ export async function processTranscodeQueue(): Promise<void> {
   if (queueRunning) return;
   queueRunning = true;
   try {
-    // A conversion interrupted by a restart: re-queue it (idempotent — it re-encodes).
-    db.prepare("UPDATE jobs SET status = 'pending', locked_at = NULL, locked_by = NULL WHERE type = ? AND status = 'running'").run(TRANSCODE_JOB_TYPE);
+    // A conversion interrupted by a restart: re-queue it (idempotent — it re-encodes),
+    // while it has attempts left. A file heavy enough to kill the process would
+    // otherwise be retried on every restart for the rest of time.
+    requeueInterruptedJobs(TRANSCODE_JOB_TYPE);
 
     for (;;) {
       // Yield to catalog/face scans — this is the lowest-priority background task.

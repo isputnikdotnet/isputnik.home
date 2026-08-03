@@ -17,6 +17,7 @@ import {
 import { matchPattern, type PatternResult } from "../shared/scan-rule-pattern.js";
 import { listScanRules, resolveOwner } from "../shared/scan-rules.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
+import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { applyScannedSeries } from "../shared/series.js";
 
@@ -609,8 +610,7 @@ export async function processEbookScanQueue() {
   if (queueRunning) return;
   queueRunning = true;
   try {
-    db.prepare("UPDATE jobs SET status = 'pending', locked_at = NULL, locked_by = NULL, error = NULL WHERE type = ? AND status = 'running'")
-      .run(scanJobType);
+    requeueInterruptedJobs(scanJobType);
 
     for (;;) {
       // One library job at a time server-wide: while another scan or face job is
