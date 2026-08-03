@@ -239,6 +239,62 @@ export function buildFfmpegArgs(
   return { args, total };
 }
 
+// ── What this ffmpeg build can actually do ───────────────────────────────────
+//
+// ffmpeg-static ships a DIFFERENT build per platform, and they don't have the same
+// filters. The Windows build (gyan 6.1.1) has drawtext; the Linux one (John Van
+// Sickle 7.0.2) does not, despite linking libfreetype — so the title card's
+// drawtext made every render on a Linux host fail at "Filter not found" while
+// working perfectly in development. A missing optional filter must cost a feature,
+// never the movie.
+
+const FILTER_LINE = /^\s*[TSC.]{3}\s+(\S+)\s+\S+->\S+/;
+
+// Parse `ffmpeg -filters` output. Its lines look like:
+//   " TS. drawtext          V->V       Draw text on top of video frames."
+export function parseFilterList(listing: string): Set<string> {
+  const names = new Set<string>();
+  for (const line of listing.split(/\r?\n/)) {
+    const match = FILTER_LINE.exec(line);
+    if (match) names.add(match[1]);
+  }
+  return names;
+}
+
+export interface RenderCapabilities {
+  /** Render the opening title card (needs drawtext). */
+  titleCard: boolean;
+  /** Use xfade transitions; without it slides are concatenated. */
+  xfade: boolean;
+}
+
+// An EMPTY set means the probe itself failed (no binary, unreadable output). Then
+// nothing is disabled: an unprobeable ffmpeg is assumed capable, exactly as before
+// this check existed, and a real failure still reports ffmpeg's own words.
+export function capabilitiesFrom(filters: Set<string>): RenderCapabilities {
+  if (filters.size === 0) return { titleCard: true, xfade: true };
+  return { titleCard: filters.has("drawtext"), xfade: filters.has("xfade") };
+}
+
+let filterProbe: Promise<Set<string>> | null = null;
+
+// Ask the binary once per process — the answer can't change while it runs.
+export function ffmpegFilters(): Promise<Set<string>> {
+  if (!filterProbe) {
+    filterProbe = new Promise<Set<string>>((resolve) => {
+      let child: ReturnType<typeof spawn>;
+      try { child = spawn(FFMPEG_BIN, ["-hide_banner", "-filters"], { windowsHide: true }); }
+      catch { resolve(new Set()); return; }
+      let text = "";
+      child.stdout?.on("data", (chunk: Buffer) => { text += chunk.toString(); });
+      child.stderr?.on("data", () => { /* drained; the listing goes to stdout */ });
+      child.on("error", () => resolve(new Set()));
+      child.on("close", () => resolve(parseFilterList(text)));
+    });
+  }
+  return filterProbe;
+}
+
 // How much of ffmpeg's error output to keep. The tail, not the head: the line that
 // explains a failure is the last thing written.
 const STDERR_TAIL_CHARS = 12_000;
@@ -378,12 +434,22 @@ export async function renderSlideshow(
   } catch { /* best-effort */ }
   const tmpPath = `${finalPath}.tmp-${nanoid(6)}.mp4`;
 
+  // What this ffmpeg can do. Both answers only ever take something away from the
+  // movie; neither can stop one being made.
+  const capabilities = capabilitiesFrom(await ffmpegFilters());
+  if (!capabilities.titleCard) {
+    console.warn("slideshow render: this ffmpeg build has no drawtext filter — rendering without the opening title card.");
+  }
+  if (!capabilities.xfade) {
+    console.warn("slideshow render: this ffmpeg build has no xfade filter — rendering with hard cuts between slides.");
+  }
+
   // Opening title card: the slideshow's name + a photo-count subline, fed to drawtext
   // as temp text FILES (no filter escaping). Missing font (should not happen — it ships
   // with the server) degrades to a card-less render rather than failing the movie.
   const titleTextFiles: string[] = [];
   let titleCard: TitleCard | null = null;
-  const fontFile = bundledFontPath();
+  const fontFile = capabilities.titleCard ? bundledFontPath() : null;
   if (fontFile) {
     try {
       const textFile = `${finalPath}.title-${nanoid(6)}.txt`;
@@ -393,13 +459,15 @@ export async function renderSlideshow(
       titleTextFiles.push(textFile, subTextFile);
       titleCard = { textFile, subTextFile, fontFile };
     } catch { titleCard = null; }
-  } else {
+  } else if (capabilities.titleCard) {
     console.warn("slideshow render: bundled title-card font missing — rendering without a title card.");
   }
 
   try {
     const { args, total } = buildFfmpegArgs(
-      segs, slideshow.transition, musicPath, tmpPath, slideshow.transition_seconds, undefined, titleCard
+      segs,
+      capabilities.xfade ? slideshow.transition : "none",
+      musicPath, tmpPath, slideshow.transition_seconds, undefined, titleCard
     );
     const { ok, detail } = await runRender(args, total, onProgress, isCancelled);
     if (!ok) {

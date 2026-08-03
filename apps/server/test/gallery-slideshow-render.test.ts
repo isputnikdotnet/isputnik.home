@@ -29,6 +29,8 @@ import {
   deleteSlideshowRender,
   escapeFilterPath,
   describeFfmpegFailure,
+  parseFilterList,
+  capabilitiesFrom,
   TITLE_CARD_SECONDS,
   RANDOM_XFADES,
   RENDER_JOB_TYPE,
@@ -127,6 +129,51 @@ describe("render filtergraph", () => {
     const none = buildFfmpegArgs(segs([4, 4, 4]), "none", null, "/o.mp4");
     expect(none.total).toBe(12); // no overlap
     expect(none.args.join(" ")).toContain("concat=n=3");
+  });
+
+  // ffmpeg-static ships a different build per platform and they do NOT have the
+  // same filters: the Linux build has no drawtext, so the title card's drawtext
+  // failed every render on a Linux host ("Filter not found") while development on
+  // Windows never saw it. A missing optional filter costs a feature, not the movie.
+  describe("what the installed ffmpeg can do", () => {
+    const LISTING = [
+      "Filters:",
+      "  T.. = Timeline support",
+      "  .S. = Slice threading",
+      "  ..C = Command support",
+      " ... acopy             A->A       Copy the input audio unchanged to the output.",
+      " TSC afade             A->A       Fade in/out input audio.",
+      " ..C drawbox           V->V       Draw a colored box on the input video.",
+      " TSC drawtext          V->V       Draw text on top of video frames.",
+      " ... xfade             VV->V      Cross fade one video with another video.",
+      " ... color             |->V       Provide an uniformly colored input."
+    ].join("\n");
+
+    it("reads the filter names out of an ffmpeg -filters listing", () => {
+      const filters = parseFilterList(LISTING);
+      expect(filters.has("drawtext")).toBe(true);
+      expect(filters.has("xfade")).toBe(true);
+      expect(filters.has("afade")).toBe(true);
+      // Header and legend lines are not filters.
+      expect(filters.has("Filters:")).toBe(false);
+      expect(filters.has("=")).toBe(false);
+    });
+
+    it("drops the title card when the build has no drawtext", () => {
+      const noDrawtext = parseFilterList(LISTING.split("\n").filter((l) => !l.includes("drawtext")).join("\n"));
+      expect(capabilitiesFrom(noDrawtext)).toEqual({ titleCard: false, xfade: true });
+    });
+
+    it("falls back to hard cuts when the build has no xfade", () => {
+      const noXfade = parseFilterList(LISTING.split("\n").filter((l) => !l.includes("xfade")).join("\n"));
+      expect(capabilitiesFrom(noXfade)).toEqual({ titleCard: true, xfade: false });
+    });
+
+    // A probe that couldn't run tells us nothing, and "nothing" must not disable
+    // features — a genuine failure still reports ffmpeg's own words.
+    it("assumes a full build when the probe returns nothing", () => {
+      expect(capabilitiesFrom(new Set())).toEqual({ titleCard: true, xfade: true });
+    });
   });
 
   // What a failed render tells the person who asked for it. Before this, every
