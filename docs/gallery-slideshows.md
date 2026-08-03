@@ -60,6 +60,17 @@ the slideshow to its previous state).
   name and photo count (drawtext with the bundled DejaVu Sans font —
   `apps/server/src/assets/fonts`, full Cyrillic coverage), cross-fading into the
   first photo with the slideshow's own transition.
+
+  **Where the build allows it.** `ffmpeg-static` ships a different binary per
+  platform and they don't carry the same filters: the Windows build (gyan 6.1.1)
+  has `drawtext`, the Linux one (John Van Sickle 7.0.2 — the one in the Docker
+  image) does not, despite linking libfreetype. Its absence used to fail the whole
+  render at graph-parse time ("Filter not found"), so every movie export on a Linux
+  host was impossible while development on Windows never saw it. The renderer now
+  probes `ffmpeg -filters` once per process (`ffmpegFilters` / `capabilitiesFrom`)
+  and drops the card — and, were `xfade` ever missing too, the transitions — rather
+  than the movie. An unprobeable ffmpeg is assumed capable. To get title cards on
+  Linux the image would have to carry a build that has `drawtext`.
 - **Ken Burns exports as a crossfade** (ffmpeg's zoompan renders ~25× real-time —
   impractical); it remains a live-player effect.
 - **Videos are included** (capped at 20s per clip, audio dropped — the soundtrack
