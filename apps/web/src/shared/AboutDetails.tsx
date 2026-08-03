@@ -1,7 +1,13 @@
 import { useState } from "react";
-import { Info, Heart } from "lucide-react";
+import { Info, Heart, Scale } from "lucide-react";
 import { Button } from "./Button";
 import { AboutCredits } from "./AboutCredits";
+
+// The AGPL asks that everyone using the app over a network be told where to get
+// its source, so this sits on the shared About panel — reachable from /about by
+// any signed-in user, not just admins in the control panel.
+const SOURCE_URL = "https://github.com/isputnikdotnet/isputnik.home";
+const LICENSE_URL = "https://www.gnu.org/licenses/agpl-3.0.html";
 
 export interface AboutInfo {
   name: string;
@@ -78,6 +84,16 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
               <span className="about-stack-value">{value}</span>
             </div>
           ))}
+        </div>
+
+        <div className="about-license">
+          <Scale className="about-license-icon" size={18} aria-hidden="true" />
+          <p className="about-license-text">
+            Free software under the{" "}
+            <a className="about-license-link" href={LICENSE_URL} target="_blank" rel="noreferrer">GNU AGPL v3</a>
+            {" — "}you are entitled to the source code for the version you are running.{" "}
+            <a className="about-license-link" href={SOURCE_URL} target="_blank" rel="noreferrer">Get the source</a>
+          </p>
         </div>
 
         <section className="version-updates" aria-label="Version updates">

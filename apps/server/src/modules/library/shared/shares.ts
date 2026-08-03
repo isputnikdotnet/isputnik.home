@@ -1050,6 +1050,81 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     };
   });
 
+  // Every guest link the caller owns, of every kind, in one list — the three
+  // endpoints above are each scoped to one kind because they back a share modal
+  // for that kind. This one backs Profile → Shared links, where the point is to
+  // see everything that is currently handing out access. Expired links are kept
+  // in the result (nothing prunes them) and marked, because "this expired last
+  // week" is part of the answer. The token is not here and cannot be: only
+  // sha256(token) is ever stored, so a link's URL is unrecoverable after it is
+  // first shown.
+  app.get("/api/shares/mine", { preHandler: app.authenticate }, async (request) => {
+    const user = request.user!;
+    const rows = db.prepare(`
+      SELECT
+        share_links.id,
+        share_links.module,
+        share_links.resource_id,
+        share_links.label,
+        share_links.created_at,
+        share_links.expires_at,
+        item_metadata.title      AS item_title,
+        library_items.folder_path AS item_folder,
+        gallery_albums.name      AS album_name,
+        (SELECT COUNT(*) FROM share_link_items
+          WHERE share_link_items.share_link_id = share_links.id) AS set_count,
+        (SELECT COUNT(*) FROM gallery_album_items
+           JOIN library_items AS album_item
+             ON album_item.id = gallery_album_items.item_id AND album_item.deleted_at IS NULL
+          WHERE gallery_album_items.album_id = share_links.resource_id) AS album_count
+      FROM share_links
+      -- Guarded joins: a 'gallery_set' link's resource_id self-references the link
+      -- id, so an unguarded join to library_items would match nothing useful.
+      LEFT JOIN library_items
+        ON library_items.id = share_links.resource_id
+       AND share_links.module NOT IN ('gallery_set', 'gallery_album')
+      LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+      LEFT JOIN gallery_albums
+        ON gallery_albums.id = share_links.resource_id
+       AND share_links.module = 'gallery_album'
+      WHERE share_links.created_by = ? AND share_links.revoked_at IS NULL
+      ORDER BY datetime(share_links.created_at) DESC
+    `).all(user.id) as {
+      id: string; module: string; resource_id: string; label: string | null;
+      created_at: string; expires_at: string;
+      item_title: string | null; item_folder: string | null;
+      album_name: string | null; set_count: number; album_count: number;
+    }[];
+    const now = Date.now();
+
+    return {
+      shares: rows.map((row) => {
+        const isAlbum = row.module === "gallery_album";
+        const isSet = row.module === "gallery_set";
+        const kind = isAlbum ? "album" : isSet ? "set" : "item";
+        // A set is a bag of photos with no resource of its own to name; an item
+        // whose row has since been deleted leaves the joins null.
+        const title = isAlbum
+          ? row.album_name ?? "Deleted album"
+          : isSet
+            ? "Selected photos"
+            : row.item_title ?? (row.item_folder ? path.basename(row.item_folder) : "Deleted item");
+        return {
+          id: row.id,
+          kind,
+          module: row.module,
+          resourceId: isSet ? null : row.resource_id,
+          title,
+          label: row.label,
+          itemCount: isAlbum ? row.album_count : isSet ? row.set_count : 1,
+          createdAt: row.created_at,
+          expiresAt: row.expires_at,
+          status: new Date(row.expires_at).getTime() <= now ? "expired" : "active"
+        };
+      })
+    };
+  });
+
   app.delete("/api/shares/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = request.user!;

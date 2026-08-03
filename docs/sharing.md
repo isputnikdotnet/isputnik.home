@@ -158,7 +158,8 @@ Events: `share.created`, `share.revoked`, `share.accessed` (and optionally `shar
 | Method | Route | Auth | Purpose |
 |---|---|---|---|
 | `POST` | `/api/shares` | owner/admin | Create a share link for a resource (`{ module, resourceId, expiresInDays?, label? }`); returns the URL once. |
-| `GET` | `/api/shares` | owner/admin | List the caller's active shares (status: active / expired / revoked). |
+| `GET` | `/api/shares` | owner/admin | List the caller's active shares (status: active / expired / revoked). Scoped to library items — the client narrows to one item by `bookId`. |
+| `GET` | `/api/shares/mine` | signed-in | Every unrevoked link the caller owns, of **every** kind (item, `gallery_set`, `gallery_album`) in one list, each tagged `kind` and named from whichever table it points at. Backs Profile → Shared links. Expired rows are included and marked. |
 | `DELETE` | `/api/shares/:id` | owner/admin | Revoke (`revoked_at = now`). |
 | `GET` | `/api/share/:token` | public | Resolve token → item metadata + file list for the guest player. Logs `share.accessed`. |
 | `GET` | `/api/share/:token/cover` | public | Cover image for the guest page (guests can't use the auth-gated cover route). |
