@@ -278,6 +278,8 @@ export interface SlideshowRenderItem {
   source_path: string;
   dwell_seconds: number | null;
   duration_seconds: number | null;
+  /** The user's own rotation, applied when the render scales the photo down. */
+  rotation: number | null;
 }
 
 export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRow): SlideshowRenderItem[] {
@@ -286,7 +288,8 @@ export function getSlideshowRenderItems(libIds: string[], slideshow: SlideshowRo
   return db.prepare(`
     SELECT library_items.id AS id, gallery_details.kind AS kind, gallery_details.relative_path AS relative_path,
            libraries.source_path AS source_path, gallery_slideshow_items.dwell_seconds AS dwell_seconds,
-           gallery_details.duration_seconds AS duration_seconds
+           gallery_details.duration_seconds AS duration_seconds,
+           gallery_details.rotation AS rotation
     FROM gallery_slideshow_items
     JOIN library_items ON library_items.id = gallery_slideshow_items.item_id AND library_items.deleted_at IS NULL
     JOIN gallery_details ON gallery_details.item_id = library_items.id
