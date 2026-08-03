@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.11.5",
+          label: "The title card is back, on every machine",
+          changes: [
+            "Slideshow movies open on their title card again. The last update had to leave it out on a self-hosted server, because the video tool inside the container can't draw text — and refusing the card was the only way to stop it refusing the whole movie.",
+            "The card is now drawn before the video tool is involved: the slideshow's name is turned into lettering here, as a picture, and handed over like any other photo. Nothing about it depends on which machine you run on any more, so the movie looks the same everywhere. Names in Russian render properly, as they always did.",
+            "A name too long for the frame now shrinks to fit instead of running off both edges."
+          ]
+        },
+        {
           version: "2.11.4",
           label: "Slideshow movies render again",
           changes: [
