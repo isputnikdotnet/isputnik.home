@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import type { GalleryAsset, GalleryFolder, GalleryLibrary } from "./types";
+import { faceFocusStyle } from "./types";
 
 // Browse the galleries by folder and add photos/videos straight into an open slideshow —
 // no leaving the editor, no re-picking the slideshow. Reuses the folder-listing endpoint
@@ -163,7 +164,7 @@ export function SlideshowPhotoBrowser({
                     aria-pressed={isSelected}
                     title={isAdded ? "Already in this slideshow" : asset.title}
                   >
-                    {asset.coverUrl ? <img src={asset.coverUrl} alt="" loading="lazy" /> : (
+                    {asset.coverUrl ? <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} /> : (
                       <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
                     )}
                     {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>}

@@ -25,6 +25,7 @@ import { ShareSetModal } from "../share/ShareSetModal";
 import { ShareAlbumModal } from "./ShareAlbumModal";
 import { Modal } from "../../shared/Modal";
 import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
+import { faceFocusStyle } from "./types";
 
 const PAGE_SIZE = 80;
 // The People grid can hold thousands of clusters; render them a page at a time so a
@@ -113,7 +114,7 @@ function AssetTile({
       aria-label={selectionMode ? `Select ${asset.title}` : `Open ${asset.title}`}
     >
       {asset.coverUrl ? (
-        <img src={asset.coverUrl} alt="" loading="lazy" />
+        <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} />
       ) : (
         <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
       )}

@@ -5,6 +5,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
 import type { GalleryAsset, GallerySlideshowDetail, SlideshowTransition } from "./types";
+import { faceFocusStyle } from "./types";
 
 // The presentation transitions offered in the editor, in display order. The live
 // preview (GalleryLightbox) honours these; the future MP4 render will too.
@@ -321,7 +322,7 @@ export function GallerySlideshowEditor({
               aria-label={`Open ${asset.title}`}
             >
               {asset.coverUrl ? (
-                <img src={asset.coverUrl} alt="" loading="lazy" />
+                <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} />
               ) : (
                 <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
               )}

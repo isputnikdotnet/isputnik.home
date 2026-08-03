@@ -7,6 +7,7 @@ import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { FamilyPersonProfile, FamilyPhoto } from "./types";
+import { faceFocusStyle } from "../gallery/types";
 
 const PHOTO_PAGE = 60;
 
@@ -85,7 +86,7 @@ export function FamilyPersonPhotosPage({
                 onClick={() => setLightboxIndex(index)}
                 title={photo.title}
               >
-                {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" />}
+                {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" style={faceFocusStyle(photo)} />}
                 {photo.kind === "video" && (
                   <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
                 )}

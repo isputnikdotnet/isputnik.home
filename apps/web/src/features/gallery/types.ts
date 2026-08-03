@@ -31,8 +31,24 @@ export interface GalleryAsset {
   playbackUrl: string;
   tags: string[];
   saved: boolean;
+  // Centre of the faces in this photo, in percent, for aiming a cropped tile
+  // (see faceFocusStyle). null when nothing was detected — crop from the centre.
+  faceFocus: { x: number; y: number } | null;
   // Present only on the single-asset detail (lightbox), not on list/timeline rows.
   people?: GalleryPersonTag[];
+}
+
+/**
+ * Aim a `object-fit: cover` thumbnail at the faces instead of the middle of the
+ * photo. A square tile showing a standing person otherwise crops to their torso.
+ *
+ * `object-position: x% y%` lines the image's x%/y% point up with the same point
+ * of the tile, so passing the face centre straight through keeps it in frame —
+ * and is a no-op (50% 50%) for a photo whose faces are already centred, or on
+ * the axis that isn't being cropped.
+ */
+export function faceFocusStyle(asset: { faceFocus?: { x: number; y: number } | null }) {
+  return asset.faceFocus ? { objectPosition: `${asset.faceFocus.x}% ${asset.faceFocus.y}%` } : undefined;
 }
 
 // "On this day" memories: past-year assets matching today's month/day, grouped by
