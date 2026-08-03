@@ -457,11 +457,9 @@
   letter-spacing: 0.02em;
 }
 
-/* Leaves the control panel. Pinned under the groups so "out" never reads as
-   just another section. */
-.control-nav-exit {
-  color: var(--home-muted);
-}
+/* Leaves the control panel, from the top of the nav where Home sits everywhere
+   else in the app. It reads as a destination now rather than an escape hatch, so
+   it takes the same weight as the group links below it. */
 
 /* Control- and user-area nav links inherit the base .home-nav-link size
    (46px row, 14px icon gap) so they match the main-page nav exactly. */
