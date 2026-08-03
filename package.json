@@ -3,6 +3,7 @@
   "private": true,
   "version": "2.11.9",
   "description": "Private self-hosted family media library.",
+  "license": "AGPL-3.0-only",
   "workspaces": [
     "apps/server",
     "apps/web"

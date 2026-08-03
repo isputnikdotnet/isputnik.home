@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/isputnikdotnet/isputnik.home/tree/main/docs/users
+    about: Setup and usage guides — start with "first run" before reporting a setup problem.
+  - name: Report a security vulnerability
+    url: https://github.com/isputnikdotnet/isputnik.home/security
+    about: Please report security problems privately, never as a public issue.

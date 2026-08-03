@@ -1,0 +1,65 @@
+name: Feature request
+description: Suggest an idea or an improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome. This is a personal project with a specific direction,
+        so not everything will be built — but describing the underlying need
+        clearly makes it far more likely that something lands, even if it takes
+        a different shape than you pictured.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: >
+        Describe the situation, not the feature. What are you trying to
+        accomplish, and where does the app get in the way today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to happen?
+      description: Your idea for solving it, if you have one.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app?
+      options:
+        - Audiobooks
+        - Ebooks / reader
+        - Gallery (photos & videos)
+        - Family tree
+        - Library scanning
+        - Uploads
+        - Users, sharing & permissions
+        - Control panel
+        - Backups & storage
+        - Mobile / PWA / offline
+        - Deployment & Docker
+        - A new module entirely
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: prior-art
+    attributes:
+      label: Prior art
+      description: >
+        If another self-hosted app already does this well — Audiobookshelf,
+        Immich, Paperless-ngx, anything else — say which, and what specifically
+        works about their version.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues, including closed ones
+          required: true

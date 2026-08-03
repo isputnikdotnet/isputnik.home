@@ -97,3 +97,18 @@ Development is ongoing, with active work focused on improving the user experienc
 * Document management
 * Notes and personal knowledge features
 * External library integrations
+
+## Contributing
+
+Bug reports and documentation fixes are welcome; please open an issue before
+starting anything large. See [CONTRIBUTING.md](CONTRIBUTING.md), and report
+security problems privately as described in [SECURITY.md](SECURITY.md) rather
+than as a public issue.
+
+## License
+
+Licensed under the [GNU Affero General Public License v3.0](LICENSE).
+
+In short: you are free to use, modify, and redistribute this software, but any
+modified version you distribute — **or run as a network service that other
+people use** — must also be made available under the same license.

@@ -2,6 +2,7 @@
   "name": "@isputnik/web",
   "private": true,
   "version": "2.11.9",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
