@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.11.4",
+          label: "Slideshow movies render again",
+          changes: [
+            "Exporting a slideshow as a movie failed every time on a self-hosted server, with \"Filter not found\" — and worked in development, which is why it went unnoticed. The video tool ships a different build for each operating system, and the one inside the container is missing the piece that draws the opening title card. It refuses the whole movie over it, before encoding a single frame.",
+            "The renderer now asks the installed video tool what it can do and makes the movie it can make. On a build without that piece the movie renders without its opening title card rather than not at all; everything else — transitions, music, the photos themselves — is unchanged. Getting the title card back on Linux is next."
+          ]
+        },
+        {
           version: "2.11.3",
           label: "A failed movie now says what went wrong",
           changes: [
