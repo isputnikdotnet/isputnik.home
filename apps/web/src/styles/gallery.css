@@ -1303,6 +1303,23 @@
 
 /* Folder-browser modal: a library select in the header, breadcrumb, selectable tiles,
    and a sticky action row. */
+
+/* How many bands this modal has varies by call site — the family-tree picker
+   adds a tab row on top of the header, head and body. .metadata-modal's fixed
+   three-row grid can't follow that: the extra row shifts the breadcrumb head onto
+   the minmax(0, 1fr) track, where the (auto-sized) tile grid leaves it no room, so
+   it collapses to nothing and prints on top of the folders. Flex instead — every
+   band sizes to its content and the scroll pane takes what's left. */
+.metadata-modal.slideshow-browse-modal {
+  display: flex;
+  flex-direction: column;
+}
+.slideshow-browse-modal > * { flex: none; }
+.slideshow-browse-modal > .modal-tab-content {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .slideshow-browse-scope select {
   max-width: 200px;
   min-height: 40px;
