@@ -28,6 +28,7 @@ import {
   reconcileOrphanedRenders,
   deleteSlideshowRender,
   escapeFilterPath,
+  describeFfmpegFailure,
   TITLE_CARD_SECONDS,
   RANDOM_XFADES,
   RENDER_JOB_TYPE,
@@ -128,10 +129,47 @@ describe("render filtergraph", () => {
     expect(none.args.join(" ")).toContain("concat=n=3");
   });
 
+  // What a failed render tells the person who asked for it. Before this, every
+  // failure read "check the server logs for ffmpeg output" — and nothing ever read
+  // ffmpeg's stderr, so those logs held no ffmpeg output to check.
+  describe("reporting a failed encode", () => {
+    it("repeats ffmpeg's last line, which is where it says what broke", () => {
+      const stderr = [
+        "[image2 @ 0x5586] Could not open file : /photos/gone.jpg",
+        "Error opening input file /photos/gone.jpg.",
+        "Error opening input files: No such file or directory"
+      ].join("\n");
+      expect(describeFfmpegFailure(stderr, 1, null)).toBe("Error opening input files: No such file or directory");
+    });
+
+    // The failure a container hits before it can write anything: killed outright.
+    it("names the memory ceiling when the encoder was killed", () => {
+      expect(describeFfmpegFailure("", null, "SIGKILL")).toMatch(/memory limit/);
+      expect(describeFfmpegFailure("", 137, null)).toMatch(/memory limit/);
+    });
+
+    it("still says something when ffmpeg died silently", () => {
+      expect(describeFfmpegFailure("   \n  \n", 1, null)).toMatch(/exited with code 1 without saying why/);
+    });
+
+    it("truncates a runaway line rather than pasting a screenful into the dialog", () => {
+      const detail = describeFfmpegFailure("x".repeat(1000), 1, null);
+      expect(detail).toHaveLength(241); // 240 + the ellipsis
+      expect(detail.endsWith("…")).toBe(true);
+    });
+  });
+
   it("'kenburns' renders as a crossfade (zoompan is too slow to render)", () => {
     const filter = buildFfmpegArgs(segs([4, 4]), "kenburns", null, "/o.mp4").args.join(" ");
     expect(filter).toContain("xfade=transition=fade");
     expect(filter).not.toContain("zoompan");
+  });
+
+  // Errors only: everything ffmpeg writes is captured and reported, and its default
+  // per-input chatter would bury the line that matters.
+  it("asks ffmpeg for errors alone, with no banner", () => {
+    const { args } = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/o.mp4");
+    expect(args.slice(0, 3)).toEqual(["-hide_banner", "-v", "error"]);
   });
 
   it("muxes a music input with an out-fade when a track is given", () => {

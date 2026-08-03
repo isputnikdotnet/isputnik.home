@@ -104,7 +104,13 @@ function runTranscode(srcPath: string, outPath: string, durationSec: number, onP
   ];
   return new Promise((resolve) => {
     let child: ReturnType<typeof spawn>;
-    try { child = spawn(FFMPEG_BIN, args, { windowsHide: true }); } catch { resolve(false); return; }
+    try {
+      child = spawn(FFMPEG_BIN, args, { windowsHide: true });
+    } catch (err) {
+      console.error(`video conversion: ffmpeg could not be started — ${err instanceof Error ? err.message : "unknown error"}`);
+      resolve(false);
+      return;
+    }
     const total = Math.max(1, Math.round(durationSec));
     let buffer = "";
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -117,8 +123,27 @@ function runTranscode(srcPath: string, outPath: string, durationSec: number, onP
         if (match) onProgress(Math.min(total, Math.round(Number(match[1]) / 1_000_000)), total);
       }
     });
-    child.on("error", () => resolve(false));
-    child.on("close", (code) => resolve(code === 0));
+    // Drained and kept for the same two reasons as the slideshow renderer: an
+    // unread pipe eventually blocks the child, and a conversion that fails with no
+    // output recorded is a conversion nobody can diagnose.
+    let errText = "";
+    child.stderr?.on("data", (chunk: Buffer) => {
+      errText += chunk.toString();
+      if (errText.length > 8_000) errText = errText.slice(-8_000);
+    });
+    child.on("error", (err) => {
+      console.error(`video conversion: ffmpeg could not be started — ${err.message}`);
+      resolve(false);
+    });
+    child.on("close", (code, signal) => {
+      if (code !== 0) {
+        console.error(
+          `video conversion: ffmpeg exited ${signal ? `on ${signal}` : `with code ${code}`} for ${srcPath}\n`
+          + (errText.trim() || "(ffmpeg wrote nothing to stderr)")
+        );
+      }
+      resolve(code === 0);
+    });
   });
 }
 
