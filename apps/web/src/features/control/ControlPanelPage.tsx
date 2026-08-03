@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ChevronLeft, Search } from "lucide-react";
+import { Home, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { controlHref, followRoute } from "../../router";
@@ -116,11 +116,12 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
 
   return (
     <nav className="home-control-nav" aria-label="Control panel">
-      <button type="button" className="control-search-trigger" onClick={onSearch}>
-        <Search size={18} aria-hidden="true" />
-        <span>Search…</span>
-        <kbd aria-hidden="true">Ctrl K</kbd>
-      </button>
+      {/* The way back out, first — the same position Home holds in the main nav,
+          so leaving the control panel is where the hand already expects it. */}
+      <a className="home-nav-link control-nav-exit" href="/" onClick={(event) => followRoute(event, "/")}>
+        <Home size={21} aria-hidden="true" />
+        <span>Home</span>
+      </a>
 
       <div className="home-control-group">
         {CONTROL_GROUPS.map((group) => {
@@ -143,10 +144,13 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
         })}
       </div>
 
-      <a className="home-nav-link control-nav-exit" href="/" onClick={(event) => followRoute(event, "/")}>
-        <ChevronLeft size={21} aria-hidden="true" />
-        <span>Back to library</span>
-      </a>
+      {/* Under the groups: search is a way into them, so it sits after the list
+          it searches rather than above it. */}
+      <button type="button" className="control-search-trigger" onClick={onSearch}>
+        <Search size={18} aria-hidden="true" />
+        <span>Search…</span>
+        <kbd aria-hidden="true">Ctrl K</kbd>
+      </button>
     </nav>
   );
 }
