@@ -11,6 +11,27 @@ import { canUserAccessBook } from "../shared/library-access.js";
 import { parseRangeHeader } from "../shared/document-stream.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 
+/**
+ * Content-Disposition naming the asset's own file. Without it the browser names
+ * a save after the URL's last segment — the route ends in /file, so every photo
+ * lands as "file", then "file (1)", "file (2)".
+ *
+ * `webCopy` means the transcoded H.264 stand-in is being served, which is a
+ * different container from the original, so the name says .mp4.
+ */
+export function assetDisposition(relativePath: string, opts: { attachment: boolean; webCopy?: boolean }): string {
+  // Split on "/" rather than path.basename: relative_path is always stored
+  // "/"-delimited, and on Windows basename would also cut at a backslash — which
+  // is a legal character in a Linux filename, so the name would differ between a
+  // dev machine and the container.
+  const original = relativePath.split("/").pop() ?? relativePath;
+  const name = opts.webCopy ? `${original.replace(/\.[^.]+$/, "")}.mp4` : original;
+  // A quote or backslash would close the quoted string early; non-ASCII rides
+  // along in the RFC 5987 filename* form, which every current browser prefers.
+  const ascii = name.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
+  return `${opts.attachment ? "attachment" : "inline"}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+}
+
 export async function galleryStreamPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/assets/:id/file", { preHandler: app.authenticate }, (request, reply) => {
     const { id } = request.params as { id: string };
@@ -81,6 +102,11 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
       });
     }
 
+    // "inline" on the non-download path so the photo still displays in the page,
+    // while "Save image as…" and the video element's own menu still offer the real
+    // name instead of "file".
+    const disposition = assetDisposition(row.relative_path, { attachment: wantsDownload, webCopy: Boolean(wantWeb) });
+
     reply.hijack();
     if (range) {
       reply.raw.writeHead(206, {
@@ -88,6 +114,7 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
         "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`,
         "Content-Length": range.size,
         "Accept-Ranges": "bytes",
+        "Content-Disposition": disposition,
         "Cache-Control": "private, no-cache"
       });
       fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(reply.raw);
@@ -96,6 +123,7 @@ export async function galleryStreamPlugin(app: FastifyInstance) {
         "Content-Type": mimeType,
         "Content-Length": totalSize,
         "Accept-Ranges": "bytes",
+        "Content-Disposition": disposition,
         "Cache-Control": "private, no-cache"
       });
       fs.createReadStream(filePath).pipe(reply.raw);
