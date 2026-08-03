@@ -10,7 +10,7 @@ which is your account settings, and the list of things you've saved.
 
 ## Profile — your account settings
 
-**Profile** opens a page with four tabs. Each has its own address, so you can
+**Profile** opens a page with five tabs. Each has its own address, so you can
 bookmark the one you use and the back button returns you to it rather than
 leaving the page.
 
@@ -34,6 +34,26 @@ inbox is the only place that news can still reach you.
 
 Turning two-factor on or off, changing your password, and changing your email all
 send you a note. If one arrives that you didn't cause, change your password.
+
+### Shared links
+
+Every guest link you have made, in one list — for a book, a photo, an album, or a
+selection of photos. Each row shows what it points at, when you shared it, and
+when it expires; expired ones are listed separately and greyed, because knowing a
+link *stopped* working is often the thing you came to check.
+
+**Revoke** cuts a link off immediately. Nothing is deleted, and anyone you shared
+with by account keeps their access — that is a different kind of sharing, managed
+per item on the **People** tab of the Share box.
+
+The link addresses themselves are not here, and cannot be. Only a fingerprint of
+each link is stored, never the link itself, so it can be shown to you exactly
+once — when you create it. If you have lost a link, revoke it and make a new one.
+The upside is that someone who steals a copy of the database still cannot open
+anything you have shared.
+
+Only your own links appear, and this is the only place to see them all; an
+administrator cannot list yours from here either.
 
 ### Appearance
 

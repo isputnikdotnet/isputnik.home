@@ -8,6 +8,7 @@ type Tab = "link" | "people";
 
 interface LinkShare {
   id: string;
+  bookId: string;
   bookTitle: string;
   label: string | null;
   createdAt: string;
@@ -81,7 +82,10 @@ export function ShareModal({
     void loadUserShares();
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const myLinks = links.filter((l) => l.bookTitle === bookTitle);
+  // Match on id, not title: /api/shares returns every link the user owns, and two
+  // items can share a title (same book in two libraries, a box set and its parts),
+  // which used to cross-list them — and let you revoke the wrong one.
+  const myLinks = links.filter((l) => l.bookId === bookId);
 
   const createLink = async () => {
     setCreating(true);

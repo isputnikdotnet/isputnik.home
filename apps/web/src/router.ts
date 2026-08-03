@@ -127,13 +127,14 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/about": "about"
 };
 
-// Profile's four panels, same rule as the control panel: each is a real address,
-// so a device or a two-factor setup can be linked to and returned to.
-export type ProfileTab = "account" | "security" | "appearance" | "devices";
+// Profile's panels, same rule as the control panel: each is a real address, so a
+// device, a two-factor setup, or a share audit can be linked to and returned to.
+export type ProfileTab = "account" | "security" | "shares" | "appearance" | "devices";
 
 export const PROFILE_PATHS: Record<ProfileTab, string> = {
   account: "/profile",
   security: "/profile/security",
+  shares: "/profile/shares",
   appearance: "/profile/appearance",
   devices: "/profile/devices"
 };

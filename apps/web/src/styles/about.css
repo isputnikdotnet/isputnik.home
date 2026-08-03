@@ -72,7 +72,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
-  margin-bottom: 38px;
+  margin-bottom: 18px;
 }
 
 .about-stack-item {
@@ -95,6 +95,39 @@
 .about-stack-value {
   font-size: 0.88rem;
   color: var(--ink);
+}
+
+.about-license {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.about-license-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.about-license-text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.about-license-link {
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.about-license-link:hover {
+  text-decoration: underline;
 }
 
 /* ── Version timeline ───────────────────────────────────────────── */
@@ -430,6 +463,116 @@
   font-size: 0.9rem;
 }
 
+/* ── Shared links ───────────────────────────────────────────────── */
+
+.shared-links-section {
+  display: grid;
+  gap: 12px;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.shared-links-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.shared-links-intro,
+.shared-links-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.shared-links-note {
+  font-size: 0.84rem;
+}
+
+.shared-links-group {
+  margin: 10px 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.shared-link-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shared-link-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.shared-link-row.is-expired {
+  opacity: 0.62;
+}
+
+.shared-link-icon {
+  display: flex;
+  flex: none;
+  color: var(--muted);
+}
+
+.shared-link-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Let a long title truncate instead of pushing the expiry and Revoke off. */
+  min-width: 0;
+  flex: 1;
+}
+
+.shared-link-title {
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shared-link-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shared-link-expiry {
+  flex: none;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+@media (max-width: 740px) {
+  .shared-link-row {
+    flex-wrap: wrap;
+  }
+
+  .shared-link-main {
+    /* Title + meta take the first line; expiry and Revoke share the second. */
+    flex-basis: calc(100% - 30px);
+  }
+
+  .shared-link-expiry {
+    margin-left: auto;
+  }
+}
+
 /* ── Send to e-reader ───────────────────────────────────────────── */
 
 .ereader-section {
@@ -557,7 +700,10 @@
   margin: 4px 0 32px;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* One column per tab, whatever the count — a hardcoded number silently wraps
+     the row into two the next time a tab is added. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 
 .config-tab.text-button,
@@ -576,6 +722,14 @@
   color: var(--muted);
   font-weight: 760;
   white-space: nowrap;
+}
+
+/* Profile fits five tabs into the row the control panel gives four, so its own
+   run slightly tighter — enough that "Appearance" still clears its padding. */
+.control-tabs a.profile-tab {
+  min-height: 66px;
+  padding: 0 10px;
+  font-size: 0.92rem;
 }
 
 .config-tab.text-button:hover,
@@ -1085,6 +1239,9 @@
 
 @media (max-width: 720px) {
   .profile-tabs.control-tabs {
+    /* Back to rows here: one column per tab is fine on a desktop row, but on a
+       phone it would squeeze five tabs into 375px. */
+    grid-auto-flow: row;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-bottom: 24px;
   }

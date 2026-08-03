@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Palette, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react";
+import { Link2, Palette, ShieldCheck, Smartphone, UserRound, type LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
 import { followRoute, profileHref, type ProfileTab } from "../router";
@@ -12,10 +12,12 @@ import { InstallCard } from "../pwa/InstallCard";
 import { ChangeEmailSection } from "../features/profile/ChangeEmailSection";
 import { ChangePasswordSection } from "../features/profile/ChangePasswordSection";
 import { MfaSection } from "../features/profile/MfaSection";
+import { SharedLinksSection } from "../features/profile/SharedLinksSection";
 
 const PROFILE_TABS: { key: ProfileTab; label: string; icon: LucideIcon }[] = [
   { key: "account", label: "Account", icon: UserRound },
   { key: "security", label: "Security", icon: ShieldCheck },
+  { key: "shares", label: "Shared links", icon: Link2 },
   { key: "appearance", label: "Appearance", icon: Palette },
   { key: "devices", label: "Devices", icon: Smartphone }
 ];
@@ -110,7 +112,7 @@ export function ProfilePage({
             <div className="user-heading-copy">
               <p className="eyebrow">Profile</p>
               <h1>Your account</h1>
-              <p className="section-description">Your details, sign-in security, appearance, and devices.</p>
+              <p className="section-description">Your details, sign-in security, what you've shared, appearance, and devices.</p>
             </div>
           </div>
         </div>
@@ -177,6 +179,16 @@ export function ProfilePage({
             <ChangePasswordSection />
 
             <MfaSection />
+          </div>
+
+          <div
+            className="profile-tab-panel"
+            role="tabpanel"
+            id="profile-panel-shares"
+            aria-labelledby="profile-tab-shares"
+            hidden={activeTab !== "shares"}
+          >
+            <SharedLinksSection />
           </div>
 
           <div
