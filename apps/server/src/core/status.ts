@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.11.7",
+          label: "Rendering a movie no longer needs a workstation",
+          changes: [
+            "Rendering a slideshow used to load every photo at its full camera resolution and keep them all open at once — even though the movie is 1080p and each one was being shrunk anyway. On a 63-photo slideshow from a modern camera that meant around 17 GB of memory and a server with nothing left for anything else.",
+            "Each photo is now shrunk to the movie's own size first, one at a time, before the encoder ever opens it. The same 63 photos measured 3.9 GB and 5 minutes before this change, and 1.7 GB and one minute after — and it no longer matters how large the originals are.",
+            "Rotated photos finally appear upright in the movie. The encoder only ever saw raw pixels, so a photo you'd turned in the gallery came out on its side; the shrunken copies carry both the camera's orientation and your own rotation."
+          ]
+        },
+        {
           version: "2.11.6",
           label: "A background job can no longer take the server down with it",
           changes: [
