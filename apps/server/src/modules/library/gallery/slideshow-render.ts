@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
 import sharp from "sharp";
 import ffmpegStatic from "ffmpeg-static";
+import ffprobeStatic from "ffprobe-static";
 import { db } from "../../../db.js";
 import { validateLibrarySource } from "../shared/library-source.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
@@ -43,6 +44,7 @@ import { getRenderLibraryId } from "./slideshow-settings.js";
 import { scanSingleGalleryFile } from "./scanner.js";
 
 const FFMPEG_BIN: string = (ffmpegStatic as unknown as string | null) || "ffmpeg";
+const FFPROBE_BIN: string = ffprobeStatic?.path || "ffprobe";
 
 // ── Leaving the machine usable ───────────────────────────────────────────────
 //
@@ -136,19 +138,24 @@ export const RANDOM_XFADES = ["fade", "dissolve", "slideleft", "slideright", "wi
 // ffmpeg with drawtext, which is an optional filter the Linux build doesn't have, so
 // the card cost every Linux user their whole movie. A picture costs nobody anything.
 
-export interface TitleCard {
-  /** A 1920x1080 PNG, already drawn. */
-  imageFile: string;
-}
-
 // How long the title card holds the screen before the first photo starts appearing.
-// Like a slide, its ffmpeg input is padded by the transition (see buildFfmpegArgs).
+// The card is an ordinary still segment (see titleCardSegment), so it is padded and
+// cross-faded exactly like a photo — no special case anywhere in the graph.
 export const TITLE_CARD_SECONDS = 3;
 
-// (Filtergraph path escaping and the bundled-font lookup used to live here, for
-// drawtext's benefit. Nothing in the graph names a file we own any more — the card
-// is an input, not a filter argument — so both went with it; the font is now the
-// title-card renderer's business alone.)
+export function titleCardSegment(imageFile: string): Segment {
+  return { file: imageFile, dwell: TITLE_CARD_SECONDS, isVideo: false };
+}
+
+export interface BuildOptions {
+  // The inputs are BATCH VIDEOS whose lengths already contain the transition
+  // overlap (each was rendered with its own padding), so padding them again would
+  // ask for footage that isn't there. See renderInBatches.
+  prePadded?: boolean;
+  // Batch intermediates are encoded finer than the finished movie, because they get
+  // encoded a second time when the batches are joined.
+  crf?: number;
+}
 
 export function buildFfmpegArgs(
   segs: Segment[],
@@ -158,33 +165,33 @@ export function buildFfmpegArgs(
   transitionSec = DEFAULT_TRANSITION_SEC,
   // Injectable for tests; the default picks uniformly per slide boundary.
   pickTransition: (boundaryIndex: number) => string = () => RANDOM_XFADES[Math.floor(Math.random() * RANDOM_XFADES.length)],
-  titleCard: TitleCard | null = null
+  options: BuildOptions = {}
 ): { args: string[]; total: number } {
   const TRANSITION_SEC = clampTransitionSec(transitionSec);
   // Ken Burns is too expensive to render; fall back to a crossfade (see file header).
   const useXfade = transition !== "none";
   const xfadeName = transition === "slide" ? "slideleft" : transition === "dipblack" ? "fadeblack" : "fade";
-  // With a title card, node 0 is the card and every photo/video input shifts by one.
-  const base = titleCard ? 1 : 0;
   // xfade OVERLAPS neighbours by TRANSITION_SEC, so an input that runs exactly its
   // on-screen time would leave the screen that much sooner — a 4s slide with a 2s
   // transition would advance every 2s and never sit still. Padding every input by the
   // transition makes the photo-to-photo cadence equal the user's "seconds per photo",
   // matching the live player (where the transition animates over a full-length slide).
-  // With 'none' the inputs are concatenated back to back, and a lone node never
-  // transitions at all, so neither needs padding.
-  const pad = useXfade && segs.length + base > 1 ? TRANSITION_SEC : 0;
-  const titleDwell = TITLE_CARD_SECONDS + pad;
+  // With 'none' the inputs are concatenated back to back, a lone node never transitions
+  // at all, and a batch video already carries its own tail — none of those need padding.
+  const pad = useXfade && segs.length > 1 && !options.prePadded ? TRANSITION_SEC : 0;
   const inputDur = (seg: Segment) => seg.dwell + pad;
 
   // Errors only, banner suppressed: whatever ffmpeg writes here is captured and
   // reported verbatim when a render fails, and the per-input stream dumps it
   // prints by default would bury the one line that says what went wrong.
   const args: string[] = ["-hide_banner", "-v", "error", "-filter_complex_threads", String(FILTER_THREADS)];
-  if (titleCard) {
-    args.push("-loop", "1", "-t", titleDwell.toFixed(3), "-i", titleCard.imageFile);
-  }
   for (const seg of segs) {
+    // ONE DECODER THREAD PER INPUT. ffmpeg gives each input a decoder threaded across
+    // every core by default, and each of those threads holds frames — with an input
+    // per slide that is where a render's memory actually goes. Measured on a six-way
+    // join: 1621 MB as-is, 541 MB with this, for 16% more time. It is the single
+    // biggest lever in this file.
+    args.push("-threads", "1");
     // A photo is a still looped for its input length; a video is read for that many
     // seconds of its own footage (its audio is ignored — only [i:v] is referenced below).
     if (seg.isVideo) args.push("-t", inputDur(seg).toFixed(3), "-i", seg.file);
@@ -193,24 +200,15 @@ export function buildFfmpegArgs(
   if (musicPath) args.push("-stream_loop", "-1", "-i", musicPath);
 
   // Normalize every input to the same canvas (letterboxed), fixed fps + pixel format —
-  // photos and video frames alike, so they transition cleanly.
+  // photos, video frames and the title card alike, so they transition cleanly.
   const per = segs.map((_, i) =>
-    `[${i + base}:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,` +
-    `pad=${WIDTH}:${HEIGHT}:-1:-1:color=black,setsar=1,fps=${FPS},format=yuv420p[v${i + base}]`
+    `[${i}:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,` +
+    `pad=${WIDTH}:${HEIGHT}:-1:-1:color=black,setsar=1,fps=${FPS},format=yuv420p[v${i}]`
   );
-  if (titleCard) {
-    // Normalised exactly like a photo: the PNG is already the right size, so scale
-    // and pad are no-ops here — but keeping one shape for every node is what stops
-    // the card being a special case anywhere else in the graph.
-    per.unshift(
-      `[0:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,`
-      + `pad=${WIDTH}:${HEIGHT}:-1:-1:color=black,setsar=1,fps=${FPS},format=yuv420p[v0]`
-    );
-  }
 
-  // Every node's INPUT length in presentation order: the card (when present), then the
-  // slides — each already padded for the overlap, so the offsets below line up.
-  const dwells = titleCard ? [titleDwell, ...segs.map(inputDur)] : segs.map(inputDur);
+  // Every node's INPUT length in presentation order — each already padded for the
+  // overlap, so the offsets below line up.
+  const dwells = segs.map(inputDur);
   const nodes = dwells.length;
 
   let filter: string;
@@ -245,14 +243,14 @@ export function buildFfmpegArgs(
   if (musicPath) {
     const fadeStart = Math.max(0, total - 2).toFixed(2);
     args.push(
-      "-map", `${segs.length + base}:a`,
+      "-map", `${segs.length}:a`,
       "-af", `afade=t=out:st=${fadeStart}:d=2`,
       "-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "44100",
       "-shortest"
     );
   }
   args.push(
-    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "22", "-preset", "veryfast",
+    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", String(options.crf ?? 22), "-preset", "veryfast",
     "-threads", String(ENCODER_THREADS),
     "-r", String(FPS), "-movflags", "+faststart",
     "-progress", "pipe:1", "-nostats", "-y", outPath
@@ -326,6 +324,115 @@ export async function prescaleSegments(
   // caller still sees every segment (and its cleanup, every file written).
   for (let i = out.length; i < segments.length; i += 1) out.push(segments[i]);
   return { segments: out, written };
+}
+
+// ── Rendering a long slideshow in batches ────────────────────────────────────
+//
+// Even from render-sized photos, a single pass keeps EVERY slide's decoder and
+// filter chain alive at once: ~1.9 GB for 63 slides, and it grows with the length
+// of the slideshow. So a long one is rendered in batches — a dozen slides at a
+// time, each to its own intermediate — and the batches are then joined. Peak memory
+// becomes a property of the batch size, not of the slideshow.
+//
+// The timing works out to exactly the same movie, which is the only reason this is
+// safe. A batch rendered with the usual padding runs sum(dwell) + T: it ends with a
+// T-long tail of its last slide, which is precisely what the NEXT batch needs to
+// cross-fade over. Joining the batches with the same overlap therefore gives
+// sum(all dwells) + T — the single-pass total — and n-1 transitions all told
+// ((slides - batches) inside them, plus (batches - 1) at the seams).
+export const BATCH_SIZE = 12;
+
+// Intermediates are encoded finer than the finished movie: they are about to be
+// encoded a second time, and generation loss is the one cost batching could add.
+const BATCH_CRF = 18;
+
+export function chunkSegments(segs: Segment[], size = BATCH_SIZE): Segment[][] {
+  if (size < 2) return [segs];
+  const chunks: Segment[][] = [];
+  for (let i = 0; i < segs.length; i += size) chunks.push(segs.slice(i, i + size));
+  // A trailing chunk of one would be a batch with nothing to cross-fade — fold it
+  // back into its predecessor rather than rendering a single-slide movie.
+  if (chunks.length > 1 && chunks[chunks.length - 1].length === 1) {
+    const last = chunks.pop()!;
+    chunks[chunks.length - 1].push(...last);
+  }
+  return chunks;
+}
+
+// A batch video's length as ffmpeg actually wrote it. The join's cross-fade offsets
+// are absolute times, so a file a few frames shorter than predicted would ask xfade
+// for footage past the end; measuring beats trusting the arithmetic.
+export async function probeDurationSeconds(file: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(FFPROBE_BIN, [
+        "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", file
+      ], { windowsHide: true });
+    } catch { resolve(null); return; }
+    let text = "";
+    child.stdout?.on("data", (chunk: Buffer) => { text += chunk.toString(); });
+    child.stderr?.on("data", () => { /* drained */ });
+    child.on("error", () => resolve(null));
+    child.on("close", () => {
+      const seconds = Number.parseFloat(text.trim());
+      resolve(Number.isFinite(seconds) && seconds > 0 ? seconds : null);
+    });
+  });
+}
+
+interface BatchRenderPlan {
+  nodes: Segment[];
+  transition: SlideshowRow["transition"];
+  transitionSec: number;
+  musicPath: string | null;
+  outPath: string;
+  tempPathFor: (index: number) => string;
+  onProgress: (elapsedSec: number, totalSec: number) => void;
+  isCancelled: () => boolean;
+  onTempFile: (file: string) => void;
+  encodeFailed: (detail: string) => Error;
+}
+
+// Render the slides a batch at a time, then join the batches. See the note above
+// BATCH_SIZE for why the result is the same movie a single pass would produce.
+async function renderInBatches(plan: BatchRenderPlan): Promise<void> {
+  const batches = chunkSegments(plan.nodes);
+  // Progress spans both passes: the batches encode every second of the movie once,
+  // and the join encodes it again, so the work is roughly twice its length.
+  const halfway = plan.nodes.reduce((sum, node) => sum + node.dwell, 0);
+  let encoded = 0;
+  const report = (done: number) => plan.onProgress(Math.min(encoded + done, halfway * 2), halfway * 2);
+
+  const joinSegments: Segment[] = [];
+  for (const [index, batch] of batches.entries()) {
+    if (plan.isCancelled()) throw new Error("Render cancelled.");
+    const file = plan.tempPathFor(index);
+    plan.onTempFile(file);
+    const { args, total } = buildFfmpegArgs(
+      batch, plan.transition, null, file, plan.transitionSec, undefined, { crf: BATCH_CRF }
+    );
+    const { ok, detail } = await runRender(args, total, (done) => report(done), plan.isCancelled);
+    if (!ok) {
+      if (plan.isCancelled()) throw new Error("Render cancelled.");
+      throw plan.encodeFailed(detail);
+    }
+    encoded += total;
+    // Measured, not predicted: the join's offsets are absolute times into these files.
+    joinSegments.push({ file, dwell: (await probeDurationSeconds(file)) ?? total, isVideo: true });
+  }
+
+  if (plan.isCancelled()) throw new Error("Render cancelled.");
+  const { args, total } = buildFfmpegArgs(
+    joinSegments, plan.transition, plan.musicPath, plan.outPath, plan.transitionSec,
+    undefined, { prePadded: true }
+  );
+  const { ok, detail } = await runRender(args, total, (done) => report(done), plan.isCancelled);
+  if (!ok) {
+    fs.rmSync(plan.outPath, { force: true });
+    if (plan.isCancelled()) throw new Error("Render cancelled.");
+    throw plan.encodeFailed(detail);
+  }
 }
 
 // ── What this ffmpeg build can actually do ───────────────────────────────────
@@ -518,7 +625,7 @@ export async function renderSlideshow(
   try {
     const dir = path.dirname(finalPath);
     for (const entry of fs.readdirSync(dir)) {
-      if (["tmp-", "title-", "slide-"].some((kind) => entry.startsWith(`${path.basename(finalPath)}.${kind}`))) {
+      if (["tmp-", "title-", "slide-", "batch-"].some((kind) => entry.startsWith(`${path.basename(finalPath)}.${kind}`))) {
         fs.rmSync(path.join(dir, entry), { force: true });
       }
     }
@@ -536,11 +643,11 @@ export async function renderSlideshow(
   // PNG here (no ffmpeg filter involved) and fed in as the first still. A card that
   // can't be drawn costs the card, not the movie.
   const titleFiles: string[] = [];
-  let titleCard: TitleCard | null = null;
+  let titleCard: Segment | null = null;
   const cardFile = `${finalPath}.title-${nanoid(6)}.png`;
   if (await renderTitleCardPng(slideshow.name, `${segs.length} photo${segs.length === 1 ? "" : "s"}`, cardFile)) {
     titleFiles.push(cardFile);
-    titleCard = { imageFile: cardFile };
+    titleCard = titleCardSegment(cardFile);
   }
 
   // Scale the photos to the movie's own size before ffmpeg opens any of them: a
@@ -561,23 +668,35 @@ export async function renderSlideshow(
     throw new Error("Render cancelled.");
   }
 
+  const transition = capabilities.xfade ? slideshow.transition : "none";
+  // The card is a node like any other — the first one.
+  const nodes = titleCard ? [titleCard, ...renderSegs] : renderSegs;
+
+  const encodeFailed = (detail: string): Error => new Error(
+    // ffmpeg's own words, so the failure is readable without shell access to the
+    // server. The full output is in the log either way.
+    detail
+      ? `The movie couldn't be encoded. ffmpeg said: ${detail}`
+      : "The movie couldn't be encoded. Check the server logs for ffmpeg output."
+  );
+
   try {
-    const { args, total } = buildFfmpegArgs(
-      renderSegs,
-      capabilities.xfade ? slideshow.transition : "none",
-      musicPath, tmpPath, slideshow.transition_seconds, undefined, titleCard
-    );
-    const { ok, detail } = await runRender(args, total, onProgress, isCancelled);
-    if (!ok) {
-      fs.rmSync(tmpPath, { force: true });
-      if (isCancelled()) throw new Error("Render cancelled.");
-      // ffmpeg's own words, so the failure is readable without shell access to the
-      // server. The full output is in the log either way.
-      throw new Error(
-        detail
-          ? `The movie couldn't be encoded. ffmpeg said: ${detail}`
-          : "The movie couldn't be encoded. Check the server logs for ffmpeg output."
+    if (nodes.length > BATCH_SIZE) {
+      await renderInBatches({
+        nodes, transition, transitionSec: slideshow.transition_seconds, musicPath,
+        outPath: tmpPath, tempPathFor: (index) => `${finalPath}.batch-${scaleRun}-${index}.mp4`,
+        onProgress, isCancelled, onTempFile: (file) => titleFiles.push(file), encodeFailed
+      });
+    } else {
+      const { args, total } = buildFfmpegArgs(
+        nodes, transition, musicPath, tmpPath, slideshow.transition_seconds
       );
+      const { ok, detail } = await runRender(args, total, onProgress, isCancelled);
+      if (!ok) {
+        fs.rmSync(tmpPath, { force: true });
+        if (isCancelled()) throw new Error("Render cancelled.");
+        throw encodeFailed(detail);
+      }
     }
     // Swap the finished temp file into place. If the rename fails — on Windows it throws
     // EPERM when the destination movie is still open (e.g. a <video> is streaming the
@@ -716,7 +835,7 @@ export function deleteSlideshowRender(slideshow: SlideshowRow): void {
     // encodes, `<name>.mp4.title-*.png` title cards and `<name>.mp4.slide-*.jpg`
     // render-sized photos (normally removed in the render's finally; a crash can
     // strand them).
-    const prefixes = ["tmp-", "title-", "slide-"].map((kind) => `${path.basename(finalPath)}.${kind}`);
+    const prefixes = ["tmp-", "title-", "slide-", "batch-"].map((kind) => `${path.basename(finalPath)}.${kind}`);
     if (fs.existsSync(dir)) {
       for (const entry of fs.readdirSync(dir)) {
         if (prefixes.some((prefix) => entry.startsWith(prefix))) fs.rmSync(path.join(dir, entry), { force: true });
