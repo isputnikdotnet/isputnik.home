@@ -20,16 +20,26 @@ import {
   resolveDuplicateSelection,
   resolveAllExactGroups
 } from "./duplicates.js";
+import {
+  listDuplicateFolderGroups,
+  setDuplicateFolderKeeper,
+  ignoreDuplicateFolderGroup,
+  resolveDuplicateFolderGroup
+} from "./duplicate-folders.js";
 
 // The ONE shape the page's state is built from. Both the list and the scan route
 // return exactly this, because the client assigns the response straight onto its
 // state — an endpoint returning a partial object (e.g. status without `groups`)
 // leaves the page rendering against undefined and takes the whole app down.
+//
+// `folderGroups` are a rollup of the identical-file sets, so their bytes are already
+// inside `reclaimableBytes` — never add the two together.
 function duplicatePayload() {
   const groups = listDuplicateGroups();
   return {
     ...duplicateScanStatus(),
     groups,
+    folderGroups: listDuplicateFolderGroups(),
     reclaimableBytes: groups.reduce((sum, g) => sum + g.reclaimableBytes, 0)
   };
 }
@@ -135,6 +145,65 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
       return;
     }
     reply.send(result);
+  });
+
+  // ── Duplicate folders ─────────────────────────────────────────────────────
+  //
+  // A folder is named by (library, path) rather than an id: it has no row of its own,
+  // it only exists as a prefix of the paths below it.
+  const folderRefSchema = z.object({
+    libraryId: z.string().min(1).max(64),
+    // A folder path is bounded for the same reason the browse route bounds it: it goes
+    // into a LIKE pattern, and real relative paths are short.
+    folderPath: z.string().max(1024)
+  });
+
+  app.post("/api/library/gallery/duplicates/folders/:id/keeper", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(folderRefSchema, request.body);
+    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+    const { id } = request.params as { id: string };
+    if (!setDuplicateFolderKeeper(id, parsed.data)) {
+      reply.code(404).send({ error: "That folder isn't part of this set." });
+      return;
+    }
+    reply.send({ keeper: parsed.data });
+  });
+
+  // Remove whole folders, keeping the rest. The client never sends every member — a
+  // set with nothing left to keep isn't de-duplicating — and the server refuses the
+  // keeper itself regardless.
+  const folderResolveSchema = z.object({
+    deleteFolders: z.array(folderRefSchema).min(1).max(50)
+  });
+  app.post("/api/library/gallery/duplicates/folders/:id/resolve", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(folderResolveSchema, request.body);
+    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+    const { id } = request.params as { id: string };
+    const result = resolveDuplicateFolderGroup(id, parsed.data.deleteFolders, request.user!.id);
+    if (!result) {
+      reply.code(409).send({
+        error: "These folders no longer hold exactly the same photos. Run a new scan and review the set again."
+      });
+      return;
+    }
+    reply.send(result);
+  });
+
+  app.post("/api/library/gallery/duplicates/folders/:id/ignore", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (!ignoreDuplicateFolderGroup(id)) {
+      reply.code(404).send({ error: "No such duplicate folder set." });
+      return;
+    }
+    logActivity({
+      event: "library.gallery.duplicate_folders_dismissed",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: null,
+      detail: "Marked a set of folders as different; those folders won't be grouped again.",
+      ipAddress: request.ip
+    });
+    reply.send({ ignored: true });
   });
 
   app.post("/api/library/gallery/duplicates/:id/ignore", { preHandler: app.requireAdmin }, async (request, reply) => {
