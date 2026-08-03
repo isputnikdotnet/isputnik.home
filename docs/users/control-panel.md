@@ -263,9 +263,11 @@ whichever copy carries work you can't get back — tags, albums, tagged people �
 hand-edited details, then originals over things that look like copies
 (`IMG_1234 (1).jpg`, files under *Downloads* or *WhatsApp*).
 
-Each copy shows the library and folder it lives in, so two copies sharing a filename
-can still be told apart. The **i** button opens the rest — full path, dimensions,
-file size, date taken, camera, and how many tags and links it carries — with a link
+Each copy shows the folder it lives in and its file size — with every library in
+view, the library it belongs to as well — so two copies sharing a filename can still
+be told apart. Size is on the tile because in a near-identical set it's the quickest
+read on which copy is the original. The **i** button opens the rest — full path,
+dimensions, date taken, camera, and how many tags and links it carries — with a link
 that opens its folder in the gallery in a new tab.
 
 Marks last for as long as you're on the page. They aren't saved: reload, or run

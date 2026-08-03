@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Copy, ExternalLink, Folder, FolderOpen, ImageOff, Images, Info, Maximize2, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, ExternalLink, Folder, FolderOpen, HardDrive, ImageOff, Images, Info, Maximize2, RefreshCw, Search, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -548,6 +548,13 @@ export function DuplicatePhotosSection() {
                 <span className="dup-copy-where" title={folderOf(member) || "Library root"}>
                   <Folder size={11} aria-hidden="true" />
                   <span>{folderName(member)}</span>
+                </span>
+                {/* Byte size on the tile, not just behind the info button: in a
+                    near-identical set it's the quickest read on which copy is the
+                    original and which is the re-saved one. */}
+                <span className="dup-copy-where">
+                  <HardDrive size={11} aria-hidden="true" />
+                  <span>{member.size != null ? formatBytes(member.size) : "Unknown size"}</span>
                 </span>
               </Button>
 
