@@ -902,11 +902,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
+  width: 80px;
+  height: 80px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 72%, transparent);
 }
 
@@ -1201,11 +1201,6 @@
   display: grid;
   align-content: start;
   gap: 14px;
-}
-
-/* Why an admin can't see the Upload tab; sits just under the picker's tabs. */
-.ft-upload-off-hint {
-  margin: 10px 18px 0;
 }
 
 .ft-face-more {

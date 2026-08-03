@@ -108,6 +108,10 @@ export function FamilyPhotoPicker({
       );
       setFaceAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setFaceTotal(payload.total);
+      // Linked, but the scan matched nothing: opening on an empty Face tab looks
+      // broken, so hand the first load over to Browse. Only the mount load
+      // (offset 0) can do this, so it never yanks a tab the viewer chose.
+      if (offset === 0 && payload.total === 0) setTab("browse");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load this person's photos");
     } finally {
@@ -277,14 +281,6 @@ export function FamilyPhotoPicker({
           </button>
         )}
       </div>
-      {/* Only an admin can fix a missing destination, so only an admin is told
-          why the Upload tab isn't there. */}
-      {!canUploadHere && uploadSettings?.isAdmin && (
-        <p className="ft-modal-hint ft-upload-off-hint">
-          Uploading new files is off until a photo library is chosen in Family tree → Settings → Photo library.
-        </p>
-      )}
-
       {activeTab === "upload" && uploadLibrary && uploadTarget ? (
         <div className="modal-tab-content ft-upload-panel">
           {error && <MessageBox tone="error" title="Upload problem">{error}</MessageBox>}
