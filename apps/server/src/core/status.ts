@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.11.8",
+          label: "Long slideshows render a piece at a time",
+          changes: [
+            "Rendering a movie no longer holds every slide open at once. Past a dozen photos the movie is made in pieces and joined at the end, so a long slideshow costs no more memory than a short one — and the finished film is identical, down to the millisecond, with the same cross-fade between every pair of photos.",
+            "The video tool was also giving each photo its own set of decoding threads, which was where most of a render's memory went. One thread each now.",
+            "Together with the previous update, a 63-photo render went from around 17 GB on a self-hosted server to under 600 MB. It takes about a third longer than the old all-at-once approach, and runs quietly in the background while the rest of the server carries on."
+          ]
+        },
+        {
           version: "2.11.7",
           label: "Rendering a movie no longer needs a workstation",
           changes: [
