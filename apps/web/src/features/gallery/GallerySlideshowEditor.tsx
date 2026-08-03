@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Film, FolderOpen, GripVertical, Heart, Image as ImageIcon, Music, Play, RefreshCw, Trash2, X } from "lucide-react";
 import { MusicPicker } from "./MusicPicker";
 import { MessageBox } from "../../shared/MessageBox";
+import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
 import type { GalleryAsset, GallerySlideshowDetail, SlideshowTransition } from "./types";
 
@@ -53,6 +54,9 @@ export function GallerySlideshowEditor({
   onDeleteMovie: () => void;
 }) {
   const [musicOpen, setMusicOpen] = useState(false);
+  // Rendering is the heaviest thing this app asks of the machine it runs on, and it
+  // is usually somebody's NAS. Nothing starts until this is answered.
+  const [renderConfirm, setRenderConfirm] = useState(false);
   // Local working order of item ids. Authoritative while dragging; otherwise it
   // re-syncs from the server-ordered `assets` after every add/remove/reorder.
   const [order, setOrder] = useState<string[]>(() => assets.map((a) => a.id));
@@ -71,6 +75,11 @@ export function GallerySlideshowEditor({
     () => order.map((id) => byId.get(id)).filter((a): a is GalleryAsset => Boolean(a)),
     [order, byId]
   );
+
+  // Roughly how long the finished movie runs: the title card, then a slide apiece.
+  // Per-slide overrides and video clips make this approximate, which is why it's
+  // only ever shown as "about".
+  const movieMinutes = Math.max(1, Math.round((3 + ordered.length * slideshow.slideSeconds) / 60));
 
   // Per-slide seconds: local for a smooth slider, committed on release so a drag
   // isn't a burst of PATCHes.
@@ -203,6 +212,34 @@ export function GallerySlideshowEditor({
         />
       )}
 
+      {/* Rendering re-encodes every photo into video: minutes of work and hundreds of
+          megabytes of memory on a machine that is usually also serving the family's
+          films. Worth one question and some real numbers before it starts. */}
+      {renderConfirm && (
+        <ConfirmDialog
+          title={slideshow.renderStatus === "ready" ? "Re-render this movie?" : "Render this movie?"}
+          confirmLabel={slideshow.renderStatus === "ready" ? "Re-render movie" : "Render movie"}
+          confirmIcon={<Film size={15} aria-hidden="true" />}
+          onConfirm={() => { setRenderConfirm(false); onRender(); }}
+          onCancel={() => setRenderConfirm(false)}
+          rich
+        >
+          <p>
+            {ordered.length} {ordered.length === 1 ? "photo" : "photos"} becomes about {movieMinutes} minute
+            {movieMinutes === 1 ? "" : "s"} of video. Every one is re-encoded frame by frame, which is the
+            heaviest thing this server does.
+          </p>
+          <p>
+            Expect several minutes, and longer on a small machine. It runs at low priority in the background —
+            you can leave this page — but the rest of the server may feel slower while it works.
+          </p>
+          <p>
+            Nothing is changed until it finishes, and you can stop it at any time from the control panel’s
+            Tasks page.
+          </p>
+        </ConfirmDialog>
+      )}
+
       {/* Movie: render an MP4, then watch/download it. Non-editors see only a ready
           movie; editors get the Render/Re-render controls and progress. */}
       {ordered.length > 0 && (slideshow.renderStatus !== "draft" || canEdit) && (
@@ -216,7 +253,7 @@ export function GallerySlideshowEditor({
                     <Download size={15} aria-hidden="true" /> Download
                   </a>
                   {canEdit && (
-                    <button type="button" className="secondary-button compact-button" onClick={onRender}>
+                    <button type="button" className="secondary-button compact-button" onClick={() => setRenderConfirm(true)}>
                       <RefreshCw size={15} aria-hidden="true" /> Re-render
                     </button>
                   )}
@@ -241,7 +278,11 @@ export function GallerySlideshowEditor({
               <div className="slideshow-progress-track">
                 <div className="slideshow-progress-fill" style={{ width: `${slideshow.renderPercent ?? (slideshow.renderStatus === "queued" ? 3 : 6)}%` }} />
               </div>
-              <span className="muted gallery-face-hint">Rendering runs in the background and can take a few minutes — you can leave this page and come back.</span>
+              <span className="muted gallery-face-hint">
+                Rendering runs in the background and can take a few minutes — you can leave this page and come back.
+                The server is working hard while this runs, so everything else on it may feel slower; you can stop it
+                from the control panel’s Tasks page.
+              </span>
             </div>
           ) : canEdit ? (
             <div className="slideshow-movie-cta">
@@ -249,7 +290,7 @@ export function GallerySlideshowEditor({
                 <MessageBox tone="error" title="Render failed">{slideshow.renderError || "The movie couldn’t be encoded."}</MessageBox>
               )}
               <div className="slideshow-movie-cta-row">
-                <button type="button" className="primary-button compact-button" onClick={onRender}>
+                <button type="button" className="primary-button compact-button" onClick={() => setRenderConfirm(true)}>
                   <Film size={15} aria-hidden="true" /> {slideshow.renderStatus === "failed" ? "Try again" : "Render movie"}
                 </button>
                 <span className="muted gallery-face-hint">
