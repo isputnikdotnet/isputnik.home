@@ -56,6 +56,29 @@ are always kept; the nightly scan backfills the catalog.
 progress, and can be cancelled there (cancel kills the ffmpeg process and returns
 the slideshow to its previous state).
 
+- **Long slideshows render in batches** (`chunkSegments`, `renderInBatches`). Even from
+  render-sized photos a single pass keeps every slide's decoder and filter chain alive
+  at once — ~1.9 GB for 63 slides, growing with the slideshow. Past `BATCH_SIZE` (12)
+  nodes the slides are rendered a dozen at a time to intermediates (crf 18, finer than
+  the finished movie because they are encoded again) and then joined, so peak memory is
+  a property of the batch size rather than of the slideshow: **1952 MB → 587 MB** on 63
+  slides, for ~30% more wall time.
+
+  The arithmetic comes out at exactly the same movie, which is the only reason this is
+  safe. A batch rendered with the usual padding runs `sum(dwell) + T`: it ends with a
+  T-long tail of its last slide, which is precisely what the next batch cross-fades
+  over. Joining with the same overlap gives `sum(all dwells) + T` — the single-pass
+  total — and `n-1` transitions all told. The join passes `prePadded` so those inputs
+  aren't padded a second time (there is no footage past the end of a file), and each
+  batch's length is **probed** rather than predicted, because the join's offsets are
+  absolute times into those files. Verified end to end: both paths produce 320.00s.
+
+- **One decoder thread per input** — the single biggest memory lever here. ffmpeg
+  threads each input's decoder across every core by default and each thread holds
+  frames, which with an input per slide dominates everything else. Measured on the
+  six-way join: 1621 MB as-is against 541 MB with `-threads 1` per input, for 16% more
+  time.
+
 - **Photos are scaled to the canvas BEFORE ffmpeg sees them** (`prescaleSegments`,
   sharp, one photo at a time). Every slide is its own ffmpeg input and every input
   holds decoded frames at the SOURCE's resolution for the whole render, so a render's

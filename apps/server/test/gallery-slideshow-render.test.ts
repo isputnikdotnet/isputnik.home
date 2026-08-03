@@ -30,11 +30,12 @@ import {
   describeFfmpegFailure,
   parseFilterList,
   capabilitiesFrom,
+  chunkSegments,
+  titleCardSegment,
   TITLE_CARD_SECONDS,
   RANDOM_XFADES,
   RENDER_JOB_TYPE,
-  type Segment,
-  type TitleCard
+  type Segment
 } from "../src/modules/library/gallery/slideshow-render.js";
 import { thumbnailPathSettingKey, thumbnailStorageKey, thumbnailAbsolutePath } from "../src/modules/library/shared/thumbnail.js";
 import { getRenderLibraryId, setRenderLibraryId } from "../src/modules/library/gallery/slideshow-settings.js";
@@ -225,11 +226,26 @@ describe("render filtergraph", () => {
   it("holds itself to a share of the machine", () => {
     const { args } = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/o.mp4");
     const filterThreads = Number(args[args.indexOf("-filter_complex_threads") + 1]);
-    const encoderThreads = Number(args[args.indexOf("-threads") + 1]);
+    // The LAST -threads is the encoder's; the earlier ones belong to the inputs.
+    const encoderThreads = Number(args[args.lastIndexOf("-threads") + 1]);
     expect(filterThreads).toBeGreaterThanOrEqual(1);
     expect(filterThreads).toBeLessThanOrEqual(2);
     expect(encoderThreads).toBeGreaterThanOrEqual(1);
     expect(encoderThreads).toBeLessThanOrEqual(4);
+  });
+
+  // Where a render's memory actually goes: ffmpeg threads each input's DECODER across
+  // every core by default, and every one of those threads holds frames. With an input
+  // per slide that dominates everything else — measured on a six-way join, 1621 MB
+  // as-is against 541 MB with one thread apiece.
+  it("gives every input a single decoder thread", () => {
+    const stills = buildFfmpegArgs(segs([4, 4, 4]), "crossfade", null, "/o.mp4").args.join(" ");
+    expect((stills.match(/-threads 1 -loop 1 -t/g) ?? [])).toHaveLength(3); // one per slide
+
+    const withVideo = buildFfmpegArgs(
+      [{ file: "/clip.mp4", dwell: 6, isVideo: true }, ...segs([4])], "crossfade", null, "/o.mp4"
+    ).args.join(" ");
+    expect(withVideo).toContain("-threads 1 -t 8.000 -i /clip.mp4");
   });
 
   it("muxes a music input with an out-fade when a track is given", () => {
@@ -275,18 +291,18 @@ describe("render filtergraph", () => {
 
 describe("opening title card", () => {
   // Already a picture by the time ffmpeg sees it — see gallery-slideshow-title-card
-  // for how it's drawn, and why it isn't drawtext any more.
-  const card: TitleCard = { imageFile: "/tmp/card.png" };
+  // for how it's drawn, and why it isn't drawtext any more. It goes into the graph as
+  // an ordinary still segment, which is why nothing below is a special case.
+  const card = titleCardSegment("/tmp/card.png");
 
-  it("prepends the card as a still and shifts the chain", () => {
-    const { args, total } = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/o.mp4", 2, undefined, card);
+  it("is a still like any other, first in the chain", () => {
+    const { args, total } = buildFfmpegArgs([card, ...segs([4, 4])], "crossfade", null, "/o.mp4", 2);
     const joined = args.join(" ");
     // Card input = 3s on screen + the 2s transition it hands off through.
     expect(joined).toContain("-loop 1 -t 5.000 -i /tmp/card.png");
     expect(joined).not.toContain("drawtext");
     expect(joined).not.toContain("lavfi");
     const filter = args[args.indexOf("-filter_complex") + 1];
-    // Normalised exactly like a photo — one shape for every node in the graph.
     expect(filter).toContain("[0:v]scale=1920:1080:force_original_aspect_ratio=decrease");
     // Card holds 3s, then a photo every 4s: transitions at 3 and 7.
     expect(filter).toContain("xfade=transition=fade:duration=2:offset=3.000");
@@ -295,7 +311,7 @@ describe("opening title card", () => {
   });
 
   it("shifts the music input index past the card", () => {
-    const { args } = buildFfmpegArgs(segs([4, 4]), "crossfade", "/bed.flac", "/o.mp4", 2, undefined, card);
+    const { args } = buildFfmpegArgs([card, ...segs([4, 4])], "crossfade", "/bed.flac", "/o.mp4", 2);
     expect(args.join(" ")).toContain("-map 3:a"); // 2 slides + card → music is input 3
   });
 
@@ -308,10 +324,69 @@ describe("opening title card", () => {
   });
 
   it("the card still holds its full time behind a long transition", () => {
-    const { args } = buildFfmpegArgs(segs([6]), "crossfade", null, "/o.mp4", 5, undefined, card);
+    const { args } = buildFfmpegArgs([card, ...segs([6])], "crossfade", null, "/o.mp4", 5);
     expect(args.join(" ")).toContain(`-loop 1 -t ${(TITLE_CARD_SECONDS + 5).toFixed(3)} -i /tmp/card.png`);
     // First photo starts appearing only after the card's full 3 seconds.
     expect(args[args.indexOf("-filter_complex") + 1]).toContain("offset=3.000");
+  });
+});
+
+// A long slideshow is rendered a dozen slides at a time and the batches joined, so
+// peak memory is a property of the batch size rather than of the slideshow. That is
+// only safe because the arithmetic comes out at exactly the same movie.
+describe("batched rendering", () => {
+  it("splits into batches and never leaves one slide stranded alone", () => {
+    expect(chunkSegments(segs(new Array(24).fill(4)), 12).map((b) => b.length)).toEqual([12, 12]);
+    expect(chunkSegments(segs(new Array(25).fill(4)), 12).map((b) => b.length)).toEqual([12, 13]);
+    expect(chunkSegments(segs(new Array(26).fill(4)), 12).map((b) => b.length)).toEqual([12, 12, 2]);
+    expect(chunkSegments(segs([4, 4]), 12).map((b) => b.length)).toEqual([2]);
+  });
+
+  // The heart of it: a batch rendered with the usual padding ends with a T-long tail
+  // of its last slide, which is exactly what the next batch cross-fades over. Joining
+  // them must therefore reproduce the single-pass length and transition count.
+  it("adds up to the same movie a single pass would make", () => {
+    const dwells = new Array(30).fill(5);
+    const T = 2;
+    const single = buildFfmpegArgs(segs(dwells), "crossfade", null, "/o.mp4", T);
+
+    const batches = chunkSegments(segs(dwells), 12);
+    const rendered = batches.map((batch) => buildFfmpegArgs(batch, "crossfade", null, "/b.mp4", T));
+    // Each batch runs its own dwells plus one transition tail.
+    for (const [i, batch] of batches.entries()) {
+      expect(rendered[i].total).toBe(batch.reduce((n, s) => n + s.dwell, 0) + T);
+    }
+
+    const join = buildFfmpegArgs(
+      rendered.map((r) => ({ file: "/b.mp4", dwell: r.total, isVideo: true })),
+      "crossfade", null, "/o.mp4", T, undefined, { prePadded: true }
+    );
+    expect(join.total).toBe(single.total);
+
+    // And the same number of cross-fades: inside the batches, plus one per seam.
+    const cuts = (args: string[]) =>
+      (args[args.indexOf("-filter_complex") + 1].match(/xfade=/g) ?? []).length;
+    const batchCuts = rendered.reduce((n, r) => n + cuts(r.args), 0);
+    expect(batchCuts + cuts(join.args)).toBe(cuts(single.args));
+  });
+
+  // Batch videos already carry the overlap in their own length; padding them again
+  // would ask xfade for footage past the end of the file.
+  it("doesn't pad batch videos a second time", () => {
+    const joined = buildFfmpegArgs(
+      [{ file: "/b0.mp4", dwell: 62, isVideo: true }, { file: "/b1.mp4", dwell: 62, isVideo: true }],
+      "crossfade", null, "/o.mp4", 2, undefined, { prePadded: true }
+    );
+    expect(joined.args.join(" ")).toContain("-t 62.000 -i /b0.mp4");
+    expect(joined.args[joined.args.indexOf("-filter_complex") + 1]).toContain("offset=60.000");
+    expect(joined.total).toBe(62 + 62 - 2);
+  });
+
+  it("encodes the intermediates finer than the finished movie", () => {
+    const batch = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/b.mp4", 2, undefined, { crf: 18 });
+    const final = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/o.mp4", 2);
+    expect(batch.args[batch.args.indexOf("-crf") + 1]).toBe("18");
+    expect(final.args[final.args.indexOf("-crf") + 1]).toBe("22");
   });
 });
 
