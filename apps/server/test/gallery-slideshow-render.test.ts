@@ -27,7 +27,6 @@ import {
   movieRelativePathFor,
   reconcileOrphanedRenders,
   deleteSlideshowRender,
-  escapeFilterPath,
   describeFfmpegFailure,
   parseFilterList,
   capabilitiesFrom,
@@ -132,9 +131,10 @@ describe("render filtergraph", () => {
   });
 
   // ffmpeg-static ships a different build per platform and they do NOT have the
-  // same filters: the Linux build has no drawtext, so the title card's drawtext
-  // failed every render on a Linux host ("Filter not found") while development on
-  // Windows never saw it. A missing optional filter costs a feature, not the movie.
+  // same filters — the Linux one has no drawtext, which used to fail every render
+  // on a Linux host ("Filter not found"). The title card no longer needs any filter
+  // (it arrives as a picture), and what's left is probed so a missing filter costs
+  // a feature rather than the movie.
   describe("what the installed ffmpeg can do", () => {
     const LISTING = [
       "Filters:",
@@ -159,20 +159,21 @@ describe("render filtergraph", () => {
       expect(filters.has("=")).toBe(false);
     });
 
-    it("drops the title card when the build has no drawtext", () => {
-      const noDrawtext = parseFilterList(LISTING.split("\n").filter((l) => !l.includes("drawtext")).join("\n"));
-      expect(capabilitiesFrom(noDrawtext)).toEqual({ titleCard: false, xfade: true });
-    });
-
     it("falls back to hard cuts when the build has no xfade", () => {
       const noXfade = parseFilterList(LISTING.split("\n").filter((l) => !l.includes("xfade")).join("\n"));
-      expect(capabilitiesFrom(noXfade)).toEqual({ titleCard: true, xfade: false });
+      expect(capabilitiesFrom(noXfade)).toEqual({ xfade: false });
+    });
+
+    // The card is drawn before ffmpeg runs, so a build without drawtext keeps it.
+    it("keeps the title card on a build with no drawtext", () => {
+      const noDrawtext = parseFilterList(LISTING.split("\n").filter((l) => !l.includes("drawtext")).join("\n"));
+      expect(capabilitiesFrom(noDrawtext)).toEqual({ xfade: true });
     });
 
     // A probe that couldn't run tells us nothing, and "nothing" must not disable
     // features — a genuine failure still reports ffmpeg's own words.
     it("assumes a full build when the probe returns nothing", () => {
-      expect(capabilitiesFrom(new Set())).toEqual({ titleCard: true, xfade: true });
+      expect(capabilitiesFrom(new Set())).toEqual({ xfade: true });
     });
   });
 
@@ -261,18 +262,20 @@ describe("render filtergraph", () => {
 });
 
 describe("opening title card", () => {
-  const card: TitleCard = { textFile: "/tmp/title.txt", subTextFile: "/tmp/sub.txt", fontFile: "D:\\fonts\\DejaVuSans.ttf" };
+  // Already a picture by the time ffmpeg sees it — see gallery-slideshow-title-card
+  // for how it's drawn, and why it isn't drawtext any more.
+  const card: TitleCard = { imageFile: "/tmp/card.png" };
 
-  it("prepends a black lavfi card with two drawtext lines and shifts the chain", () => {
+  it("prepends the card as a still and shifts the chain", () => {
     const { args, total } = buildFfmpegArgs(segs([4, 4]), "crossfade", null, "/o.mp4", 2, undefined, card);
     const joined = args.join(" ");
     // Card input = 3s on screen + the 2s transition it hands off through.
-    expect(joined).toContain("-f lavfi -t 5.000 -i color=c=black:s=1920x1080:r=30");
+    expect(joined).toContain("-loop 1 -t 5.000 -i /tmp/card.png");
+    expect(joined).not.toContain("drawtext");
+    expect(joined).not.toContain("lavfi");
     const filter = args[args.indexOf("-filter_complex") + 1];
-    expect(filter.match(/drawtext=/g)).toHaveLength(2);
-    expect(filter).toContain("textfile='/tmp/title.txt'");
-    expect(filter).toContain("textfile='/tmp/sub.txt'");
-    expect(filter).toContain("fontfile='D\\:/fonts/DejaVuSans.ttf'");
+    // Normalised exactly like a photo — one shape for every node in the graph.
+    expect(filter).toContain("[0:v]scale=1920:1080:force_original_aspect_ratio=decrease");
     // Card holds 3s, then a photo every 4s: transitions at 3 and 7.
     expect(filter).toContain("xfade=transition=fade:duration=2:offset=3.000");
     expect(filter).toContain("xfade=transition=fade:duration=2:offset=7.000");
@@ -294,14 +297,9 @@ describe("opening title card", () => {
 
   it("the card still holds its full time behind a long transition", () => {
     const { args } = buildFfmpegArgs(segs([6]), "crossfade", null, "/o.mp4", 5, undefined, card);
-    expect(args.join(" ")).toContain(`-t ${(TITLE_CARD_SECONDS + 5).toFixed(3)} -i color=c=black`);
+    expect(args.join(" ")).toContain(`-loop 1 -t ${(TITLE_CARD_SECONDS + 5).toFixed(3)} -i /tmp/card.png`);
     // First photo starts appearing only after the card's full 3 seconds.
     expect(args[args.indexOf("-filter_complex") + 1]).toContain("offset=3.000");
-  });
-
-  it("escapes Windows paths for the filtergraph", () => {
-    expect(escapeFilterPath("D:\\x y\\f.ttf")).toBe("D\\:/x y/f.ttf");
-    expect(escapeFilterPath("/plain/path.txt")).toBe("/plain/path.txt");
   });
 });
 

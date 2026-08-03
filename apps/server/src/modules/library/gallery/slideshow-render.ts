@@ -34,6 +34,7 @@ import {
   type SlideshowRenderItem
 } from "./slideshows.js";
 import { getMusicTrack, musicFileAbsolutePath } from "./music.js";
+import { renderTitleCardPng } from "./slideshow-title-card.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
 import { getRenderLibraryId } from "./slideshow-settings.js";
 import { scanSingleGalleryFile } from "./scanner.js";
@@ -100,34 +101,27 @@ function totalDuration(dwells: number[], useXfade: boolean, transitionSec: numbe
 export const RANDOM_XFADES = ["fade", "dissolve", "slideleft", "slideright", "wipeleft", "wiperight", "circleopen", "smoothup"] as const;
 
 // ── Opening title card ───────────────────────────────────────────────────────
-// Every render opens on a ~3s black card carrying the slideshow's name (drawtext on a
-// lavfi color source), cross-fading into the first photo with the slideshow's own
-// transition. Text comes from temp FILES (textfile=) — that sidesteps drawtext's text
-// escaping entirely; only the two paths we control need escaping below.
+// Every render opens on a ~3s black card carrying the slideshow's name, cross-fading
+// into the first photo with the slideshow's own transition.
+//
+// The card arrives as a finished PNG (slideshow-title-card.ts) and enters the graph
+// as an ordinary still — the same input shape as a photo. It used to be built inside
+// ffmpeg with drawtext, which is an optional filter the Linux build doesn't have, so
+// the card cost every Linux user their whole movie. A picture costs nobody anything.
 
 export interface TitleCard {
-  textFile: string;           // UTF-8 file holding the title line (the slideshow name)
-  subTextFile: string | null; // optional smaller second line ("42 photos")
-  fontFile: string;           // bundled TTF (static ffmpeg has no system font lookup)
+  /** A 1920x1080 PNG, already drawn. */
+  imageFile: string;
 }
 
 // How long the title card holds the screen before the first photo starts appearing.
 // Like a slide, its ffmpeg input is padded by the transition (see buildFfmpegArgs).
 export const TITLE_CARD_SECONDS = 3;
 
-// A path inside a filtergraph value: forward slashes, escaped drive colon, quotes
-// stripped (our own store/asset paths never legitimately contain one).
-export function escapeFilterPath(value: string): string {
-  return value.replace(/\\/g, "/").replace(/'/g, "").replace(/:/g, "\\:");
-}
-
-// The bundled title-card font, resolved relative to this module so it works from
-// src/ under tsx (dev) and dist/ in production (copy-assets.mjs ships src/assets).
-export function bundledFontPath(): string | null {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const fontPath = path.resolve(here, "../../../assets/fonts/DejaVuSans.ttf");
-  return fs.existsSync(fontPath) ? fontPath : null;
-}
+// (Filtergraph path escaping and the bundled-font lookup used to live here, for
+// drawtext's benefit. Nothing in the graph names a file we own any more — the card
+// is an input, not a filter argument — so both went with it; the font is now the
+// title-card renderer's business alone.)
 
 export function buildFfmpegArgs(
   segs: Segment[],
@@ -161,7 +155,7 @@ export function buildFfmpegArgs(
   // prints by default would bury the one line that says what went wrong.
   const args: string[] = ["-hide_banner", "-v", "error"];
   if (titleCard) {
-    args.push("-f", "lavfi", "-t", titleDwell.toFixed(3), "-i", `color=c=black:s=${WIDTH}x${HEIGHT}:r=${FPS}`);
+    args.push("-loop", "1", "-t", titleDwell.toFixed(3), "-i", titleCard.imageFile);
   }
   for (const seg of segs) {
     // A photo is a still looped for its input length; a video is read for that many
@@ -178,14 +172,13 @@ export function buildFfmpegArgs(
     `pad=${WIDTH}:${HEIGHT}:-1:-1:color=black,setsar=1,fps=${FPS},format=yuv420p[v${i + base}]`
   );
   if (titleCard) {
-    const font = escapeFilterPath(titleCard.fontFile);
-    let card = `[0:v]drawtext=fontfile='${font}':textfile='${escapeFilterPath(titleCard.textFile)}':` +
-      `fontcolor=white:fontsize=88:x=(w-text_w)/2:y=${titleCard.subTextFile ? "(h-text_h)/2-36" : "(h-text_h)/2"}`;
-    if (titleCard.subTextFile) {
-      card += `,drawtext=fontfile='${font}':textfile='${escapeFilterPath(titleCard.subTextFile)}':` +
-        `fontcolor=white@0.72:fontsize=40:x=(w-text_w)/2:y=(h)/2+48`;
-    }
-    per.unshift(`${card},setsar=1,fps=${FPS},format=yuv420p[v0]`);
+    // Normalised exactly like a photo: the PNG is already the right size, so scale
+    // and pad are no-ops here — but keeping one shape for every node is what stops
+    // the card being a special case anywhere else in the graph.
+    per.unshift(
+      `[0:v]scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=decrease,`
+      + `pad=${WIDTH}:${HEIGHT}:-1:-1:color=black,setsar=1,fps=${FPS},format=yuv420p[v0]`
+    );
   }
 
   // Every node's INPUT length in presentation order: the card (when present), then the
@@ -262,8 +255,6 @@ export function parseFilterList(listing: string): Set<string> {
 }
 
 export interface RenderCapabilities {
-  /** Render the opening title card (needs drawtext). */
-  titleCard: boolean;
   /** Use xfade transitions; without it slides are concatenated. */
   xfade: boolean;
 }
@@ -271,9 +262,12 @@ export interface RenderCapabilities {
 // An EMPTY set means the probe itself failed (no binary, unreadable output). Then
 // nothing is disabled: an unprobeable ffmpeg is assumed capable, exactly as before
 // this check existed, and a real failure still reports ffmpeg's own words.
+//
+// The title card is no longer asked about — it is drawn before ffmpeg runs and
+// arrives as a picture, so no filter can take it away.
 export function capabilitiesFrom(filters: Set<string>): RenderCapabilities {
-  if (filters.size === 0) return { titleCard: true, xfade: true };
-  return { titleCard: filters.has("drawtext"), xfade: filters.has("xfade") };
+  if (filters.size === 0) return { xfade: true };
+  return { xfade: filters.has("xfade") };
 }
 
 let filterProbe: Promise<Set<string>> | null = null;
@@ -434,33 +428,22 @@ export async function renderSlideshow(
   } catch { /* best-effort */ }
   const tmpPath = `${finalPath}.tmp-${nanoid(6)}.mp4`;
 
-  // What this ffmpeg can do. Both answers only ever take something away from the
-  // movie; neither can stop one being made.
+  // What this ffmpeg can do. It can only ever take something away from the movie,
+  // never stop one being made.
   const capabilities = capabilitiesFrom(await ffmpegFilters());
-  if (!capabilities.titleCard) {
-    console.warn("slideshow render: this ffmpeg build has no drawtext filter — rendering without the opening title card.");
-  }
   if (!capabilities.xfade) {
     console.warn("slideshow render: this ffmpeg build has no xfade filter — rendering with hard cuts between slides.");
   }
 
-  // Opening title card: the slideshow's name + a photo-count subline, fed to drawtext
-  // as temp text FILES (no filter escaping). Missing font (should not happen — it ships
-  // with the server) degrades to a card-less render rather than failing the movie.
-  const titleTextFiles: string[] = [];
+  // Opening title card: the slideshow's name and a photo-count subline, drawn to a
+  // PNG here (no ffmpeg filter involved) and fed in as the first still. A card that
+  // can't be drawn costs the card, not the movie.
+  const titleFiles: string[] = [];
   let titleCard: TitleCard | null = null;
-  const fontFile = capabilities.titleCard ? bundledFontPath() : null;
-  if (fontFile) {
-    try {
-      const textFile = `${finalPath}.title-${nanoid(6)}.txt`;
-      const subTextFile = `${finalPath}.title-${nanoid(6)}.txt`;
-      fs.writeFileSync(textFile, slideshow.name, "utf8");
-      fs.writeFileSync(subTextFile, `${segs.length} photo${segs.length === 1 ? "" : "s"}`, "utf8");
-      titleTextFiles.push(textFile, subTextFile);
-      titleCard = { textFile, subTextFile, fontFile };
-    } catch { titleCard = null; }
-  } else if (capabilities.titleCard) {
-    console.warn("slideshow render: bundled title-card font missing — rendering without a title card.");
+  const cardFile = `${finalPath}.title-${nanoid(6)}.png`;
+  if (await renderTitleCardPng(slideshow.name, `${segs.length} photo${segs.length === 1 ? "" : "s"}`, cardFile)) {
+    titleFiles.push(cardFile);
+    titleCard = { imageFile: cardFile };
   }
 
   try {
@@ -492,7 +475,7 @@ export async function renderSlideshow(
     }
     return { storageKey, bytes: fs.statSync(finalPath).size };
   } finally {
-    for (const file of titleTextFiles) fs.rmSync(file, { force: true });
+    for (const file of titleFiles) fs.rmSync(file, { force: true });
   }
 }
 
@@ -615,7 +598,7 @@ export function deleteSlideshowRender(slideshow: SlideshowRow): void {
     const dir = path.dirname(finalPath);
     fs.rmSync(finalPath, { force: true });
     // Sweep sibling temp files from interrupted/failed renders: `<name>.mp4.tmp-*.mp4`
-    // encodes and `<name>.mp4.title-*.txt` title-card text (normally removed in the
+    // encodes and `<name>.mp4.title-*.png` title cards (normally removed in the
     // render's finally; a crash can strand them).
     const prefixes = [`${path.basename(finalPath)}.tmp-`, `${path.basename(finalPath)}.title-`];
     if (fs.existsSync(dir)) {
