@@ -221,6 +221,9 @@ export function GalleryPage({
   const [parent, setParent] = useState("");
   const [folders, setFolders] = useState<GalleryFolder[]>([]);
   const [folderAssets, setFolderAssets] = useState<GalleryAsset[]>([]);
+  // Photos/videos sitting DIRECTLY in the open folder (subfolders excluded) — the
+  // grid below only holds a page of them, so the count comes from the server.
+  const [folderTotal, setFolderTotal] = useState(0);
 
   // Albums state: the card list, and the open album (detail + paged items).
   const [albums, setAlbums] = useState<GalleryAlbum[]>([]);
@@ -378,19 +381,22 @@ export function GalleryPage({
     }
   }, [scopeParams, sort, query, filters]);
 
-  const loadFolder = useCallback(async (nextParent: string) => {
+  // `offset` > 0 is the "Load more" path: keep what is on screen and append the
+  // next page (the folder list itself is identical, so it is simply re-set).
+  const loadFolder = useCallback(async (nextParent: string, offset = 0) => {
     // The deep link has served its purpose once a folder is being loaded; from here
     // browsing (and any scope change) starts from the root like a normal visit.
     setDeepLinkFolder((current) => (current === null ? current : null));
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ ...scopeParams(), parent: nextParent, limit: "200" } as Record<string, string>);
-      const payload = await api<{ parent: string; folders: GalleryFolder[]; assets: GalleryAsset[] }>(
+      const params = new URLSearchParams({ ...scopeParams(), parent: nextParent, limit: "200", offset: String(offset) } as Record<string, string>);
+      const payload = await api<{ parent: string; folders: GalleryFolder[]; assets: GalleryAsset[]; total: number }>(
         `/api/library/gallery/folders?${params}`
       );
       setFolders(payload.folders);
-      setFolderAssets(payload.assets);
+      setFolderAssets((current) => (offset > 0 ? [...current, ...payload.assets] : payload.assets));
+      setFolderTotal(payload.total);
       setParent(payload.parent);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load folder");
@@ -1276,6 +1282,19 @@ export function GalleryPage({
   };
 
   const breadcrumbParts = parent ? parent.split("/") : [];
+  // Folder counts: what sits directly here, and — when there are subfolders — the
+  // whole subtree, so the number matches what the folder's tile advertised.
+  const folderSubtreeTotal = folderTotal + folders.reduce((sum, folder) => sum + folder.assetCount, 0);
+  const folderCountLabel = `${formatCount(folderTotal)} ${folderTotal === 1 ? "item" : "items"}`;
+  const folderSubtitle = loading && folders.length === 0 && folderTotal === 0
+    ? "Browsing by folder"
+    : folders.length === 0
+      ? folderCountLabel
+      // Loose files at this level are worth calling out separately; with none (the
+      // usual shape of a library root) the subtree count alone reads better.
+      : folderTotal === 0
+        ? `${formatCount(folderSubtreeTotal)} ${folderSubtreeTotal === 1 ? "item" : "items"} in ${formatCount(folders.length)} ${folders.length === 1 ? "folder" : "folders"}`
+        : `${folderCountLabel} here · ${formatCount(folderSubtreeTotal)} with subfolders`;
   const memoriesTotal = memories?.groups.reduce((sum, group) => sum + group.count, 0) ?? 0;
   const subtitle = view === "map"
     ? `${formatCount(mapPoints.length)} on the map`
@@ -1289,7 +1308,7 @@ export function GalleryPage({
             ? (selectedSlideshow ? `${formatCount(slideshowTotal)} ${slideshowTotal === 1 ? "photo" : "photos"}` : `${formatCount(slideshows.length)} ${slideshows.length === 1 ? "slideshow" : "slideshows"}`)
           : view === "timeline"
             ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
-            : "Browsing by folder";
+            : folderSubtitle;
 
   return (
     <DashboardShell active="gallery" user={user} logout={logout}>
@@ -2411,7 +2430,7 @@ export function GalleryPage({
 
                 {folders.length > 0 && (
                   <>
-                    <p className="gallery-section-label">Folders</p>
+                    <p className="gallery-section-label">Folders ({formatCount(folders.length)})</p>
                     <div className="gallery-folder-grid">
                       {folders.map((folder) => (
                         <button key={folder.path} type="button" className="gallery-folder-tile" onClick={() => void loadFolder(folder.path)}>
@@ -2428,7 +2447,7 @@ export function GalleryPage({
 
                 {folderAssets.length > 0 && (
                   <>
-                    <p className="gallery-section-label">Photos &amp; videos</p>
+                    <p className="gallery-section-label">Photos &amp; videos ({formatCount(folderTotal)})</p>
                     <div className="gallery-grid">
                       {folderAssets.map((asset, index) => (
                         <AssetTile
@@ -2441,6 +2460,13 @@ export function GalleryPage({
                         />
                       ))}
                     </div>
+                    {folderAssets.length < folderTotal && (
+                      <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
+                        <button type="button" className="secondary-button" onClick={() => void loadFolder(parent, folderAssets.length)} disabled={loading}>
+                          {loading ? "Loading…" : "Load more"}
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
 

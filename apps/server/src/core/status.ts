@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.12.2",
+          label: "Folders say how much is in them",
+          changes: [
+            "Browsing the gallery by folder now tells you how many photos and videos are in the folder you have open, at the top of the page and above the pictures themselves. Before, the only counts were on the folder tiles, so once you were inside a folder the number you had just read was gone.",
+            "A folder with folders inside it counts both ways — what is loose in this folder, and everything below it — because that second number is the one its tile showed you on the way in.",
+            "A folder holding more than 200 photos only ever showed the first 200, with nothing to say there were more. There is now a Load more button under the pictures, the same one the main photo list has."
+          ]
+        },
+        {
           version: "2.12.1",
           label: "Photo thumbnails look at faces",
           changes: [
