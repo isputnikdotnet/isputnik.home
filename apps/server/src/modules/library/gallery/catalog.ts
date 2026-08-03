@@ -38,6 +38,20 @@ interface AssetRow {
   web_video_key: string | null;
   updated_at: string | null;
   saved: number | null;
+  face_focus_x: number | null;
+  face_focus_y: number | null;
+}
+
+// Faces are detected on the EXIF-oriented photo (arcface.ts rotates before
+// detecting), so a box already matches the thumbnail — except for a manual
+// rotation, which the thumbnail applies afterwards. Turn the point with it.
+// sharp rotates clockwise.
+function turnFocus(x: number, y: number, rotation: number): { x: number; y: number } {
+  const turn = ((rotation % 360) + 360) % 360;
+  if (turn === 90) return { x: 1 - y, y: x };
+  if (turn === 180) return { x: 1 - x, y: 1 - y };
+  if (turn === 270) return { x: y, y: 1 - x };
+  return { x, y };
 }
 
 export const ASSET_COLUMNS = `
@@ -65,7 +79,16 @@ export const ASSET_COLUMNS = `
   gallery_details.playable,
   gallery_details.web_video_key,
   gallery_details.updated_at,
-  (item_saves.id IS NOT NULL) AS saved`;
+  (item_saves.id IS NOT NULL) AS saved,
+  -- Where the faces are, as the centre of the box enclosing all of them, so a
+  -- square tile can aim its crop at heads instead of the middle of the photo.
+  -- Whole-photo tags carry no box; rejected faces aren't this photo's subject.
+  (SELECT (MIN(f.box_x) + MAX(f.box_x + f.box_w)) / 2 FROM gallery_faces f
+    WHERE f.item_id = library_items.id AND f.box_x IS NOT NULL
+      AND f.assignment <> 'rejected') AS face_focus_x,
+  (SELECT (MIN(f.box_y) + MAX(f.box_y + f.box_h)) / 2 FROM gallery_faces f
+    WHERE f.item_id = library_items.id AND f.box_y IS NOT NULL
+      AND f.assignment <> 'rejected') AS face_focus_y`;
 
 export const ASSET_JOINS = `
   FROM library_items
@@ -121,8 +144,18 @@ export function mapAsset(row: AssetRow) {
     fileUrl: `/api/library/gallery/assets/${row.id}/file`,
     playbackUrl: `/api/library/gallery/assets/${row.id}/file${row.web_video_key ? "?web=1" : ""}`,
     tags: (tagsFor.all(row.id) as { name: string }[]).map((t) => t.name),
-    saved: Boolean(row.saved)
+    saved: Boolean(row.saved),
+    // null when this photo has no detected face — the tile then crops from the
+    // centre as before. Percentages, ready for CSS object-position.
+    faceFocus: focusOf(row, rotation)
   };
+}
+
+function focusOf(row: AssetRow, rotation: number): { x: number; y: number } | null {
+  if (row.face_focus_x == null || row.face_focus_y == null) return null;
+  const turned = turnFocus(row.face_focus_x, row.face_focus_y, rotation);
+  const clamp = (n: number) => Math.round(Math.min(1, Math.max(0, n)) * 1000) / 10;
+  return { x: clamp(turned.x), y: clamp(turned.y) };
 }
 
 // One display string per camera, shared by the facet list and the filter WHERE so

@@ -5,6 +5,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { FileUpload } from "../../shared/FileUpload";
 import { Modal } from "../../shared/Modal";
 import type { GalleryAsset, GalleryFolder, GalleryLibrary } from "../gallery/types";
+import { faceFocusStyle } from "../gallery/types";
 
 // Where family-tree uploads land, and whether this viewer may put files there.
 export interface FamilyUploadSettings {
@@ -217,7 +218,7 @@ export function FamilyPhotoPicker({
             aria-pressed={isSelected}
             title={isAdded ? "Already added" : asset.title}
           >
-            {asset.coverUrl ? <img src={asset.coverUrl} alt="" loading="lazy" /> : (
+            {asset.coverUrl ? <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} /> : (
               <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
             )}
             {asset.kind === "video" && <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>}

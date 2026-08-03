@@ -8,6 +8,7 @@ import { FeedTile } from "../library/FeedTile";
 import type { FeedItem } from "../library/feed";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { GalleryAsset } from "../gallery/types";
+import { faceFocusStyle } from "../gallery/types";
 import { PersonAvatar } from "../familytree/PersonAvatar";
 import { lifeYears, type FamilyPerson } from "../familytree/types";
 
@@ -130,7 +131,7 @@ export function TagDetailPage({
                       onClick={() => setLightboxIndex(index)}
                       title={photo.title}
                     >
-                      {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" />}
+                      {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" style={faceFocusStyle(photo)} />}
                       {photo.kind === "video" && (
                         <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
                       )}

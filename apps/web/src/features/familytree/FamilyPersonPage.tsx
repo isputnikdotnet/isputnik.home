@@ -13,6 +13,7 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { GalleryAsset } from "../gallery/types";
+import { faceFocusStyle } from "../gallery/types";
 import { AddChildModal } from "./AddChildModal";
 import { AddParentModal } from "./AddParentModal";
 import { AddSiblingModal } from "./AddSiblingModal";
@@ -888,7 +889,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                           onClick={() => setLightbox({ assets: all, index: photoIndex })}
                                           title={photo.title}
                                         >
-                                          {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" />}
+                                          {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" style={faceFocusStyle(photo)} />}
                                           {photo.kind === "video" && <Play size={11} className="ft-timeline-photo-play" aria-hidden="true" />}
                                         </button>
                                       ))}
@@ -966,7 +967,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                                 onClick={() => setLightbox({ assets: photos, index })}
                                 title={photo.title}
                               >
-                                {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" />}
+                                {photo.coverUrl && <img src={photo.coverUrl} alt={photo.title} loading="lazy" style={faceFocusStyle(photo)} />}
                                 {photo.kind === "video" && (
                                   <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
                                 )}
