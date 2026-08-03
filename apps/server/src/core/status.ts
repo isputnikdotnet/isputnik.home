@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.11.3",
+          label: "A failed movie now says what went wrong",
+          changes: [
+            "When rendering a slideshow to a movie failed, the message told you to check the server logs for ffmpeg's output — and there was never any there to check. The encoder's error output is now captured: the dialog repeats the line where ffmpeg says what broke, and the full output, the exit code and the command that produced it go to the server log. Being killed for memory — the usual end of a very long slideshow in a container with a tight limit — is named as that, since it leaves no output of its own.",
+            "The same silence covered video conversion, which now records why a file it couldn't convert failed.",
+            "A render with a great many photos could also hang instead of finishing, because nothing was reading what the encoder wrote. It's read now, so it can't fill up and stall."
+          ]
+        },
+        {
           version: "2.11.2",
           label: "The address Google gave you now works",
           changes: [
