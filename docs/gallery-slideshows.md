@@ -56,6 +56,19 @@ are always kept; the nightly scan backfills the catalog.
 progress, and can be cancelled there (cancel kills the ffmpeg process and returns
 the slideshow to its previous state).
 
+- **Photos are scaled to the canvas BEFORE ffmpeg sees them** (`prescaleSegments`,
+  sharp, one photo at a time). Every slide is its own ffmpeg input and every input
+  holds decoded frames at the SOURCE's resolution for the whole render, so a render's
+  memory is source-megapixels × slide-count — while the movie is 1080p regardless.
+  Measured over 63 slides: ~1.9 GB from 1080p sources, ~3.9 GB from 12 MP phone
+  photos, and ~17 GB from a modern camera's, which is a self-hosted server falling
+  over rather than rendering a movie. Feeding render-sized copies instead took the
+  12 MP case from 3910 MB / 313s to 1659 MB / 58s, and the result no longer depends
+  on how big the originals were. The scaled copies also carry EXIF **and** the user's
+  own rotation, so movies finally show photos the way the gallery does. Videos are
+  left alone — a video decodes frame by frame, so its cost doesn't grow with the
+  length of the slideshow.
+
 - **Title card**: every movie opens with a ~3s black card carrying the slideshow's
   name and photo count, cross-fading into the first photo with the slideshow's own
   transition.
