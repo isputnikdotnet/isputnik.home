@@ -253,6 +253,25 @@ SQLite with WAL mode, `synchronous = NORMAL`, and `foreign_keys = ON`. All file 
 
 ---
 
+## Release process
+
+A release is four things, in this order:
+
+1. Bump `version` in all three `package.json` files (root, `apps/server`, `apps/web`).
+   The root one is what the running server reports.
+2. Add the entry to `versionUpdates` at the top of `apps/server/src/core/status.ts` —
+   that array is the changelog the About page shows. There is no `CHANGELOG.md`.
+3. Commit it on its own, subject `release: <version> - <label>`.
+4. Push main, then push an annotated `v<version>` tag.
+
+The `release:` prefix is load-bearing, not decoration: `.github/workflows/docker.yml`
+builds every push to main as a dry run (packaging is the one thing tests can't catch)
+and publishes on tags. Since a release pushes the commit and then the tag seconds
+apart, the workflow skips the dry run for a commit whose subject starts with
+`release:` — otherwise the same tree is built twice, back to back.
+
+---
+
 ## Related Documents
 
 | Document | Contents |

@@ -15,6 +15,15 @@ on:
 
 jobs:
   build-and-push:
+    # …except for the release commit itself. A release pushes to main and then
+    # pushes the tag, seconds apart: two events, one tree, two full image builds,
+    # the first of which is a dry run of exactly what the second is about to
+    # publish. Only the tag's build runs for those. Every other commit on main
+    # still gets its dry run, which is the whole point of building on main.
+    # Release commits are always subject-prefixed "release: " (docs/architecture.md
+    # → Release process); a release committed under any other subject simply builds
+    # twice again, as it did before.
+    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'release:')
     runs-on: ubuntu-latest
     permissions:
       contents: read
