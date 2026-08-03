@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.12.1",
+          label: "Photo thumbnails look at faces",
+          changes: [
+            "A square thumbnail of someone standing used to show the middle of them — a torso, no face. Thumbnails now aim at the people in the photo, so you can tell who is in a picture without opening it. Group photos aim at everyone rather than one person.",
+            "Nothing is re-made and no space is used: the small copies were never cropped, the crop happens as the page draws them, and it just needed pointing in the right direction. Photos where no face has been found are unchanged, as are photos where the faces are already in the middle.",
+            "This uses what the face scan has already found, so a photo the scan hasn't reached yet keeps its old thumbnail until it has.",
+            "Downloading a photo now saves it under its own name. Every download used to arrive called \"file\", then \"file (1)\", \"file (2)\", because the download never told your browser what the picture was called. Saving a photo with right-click gets the proper name too.",
+            "In the control panel, the way back out is now \"Home\" at the top of the menu, where Home sits everywhere else, instead of \"Back to library\" tucked at the bottom. The search box moved below the list of sections."
+          ]
+        },
+        {
           version: "2.12.0",
           label: "Everything you've shared, on one page",
           changes: [
