@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.13.1",
+          label: "Duplicate folders says when it found nothing",
+          changes: [
+            "The new Duplicate folders section only appeared when it had something to show, so on a library with no duplicated folders it looked as though the feature wasn't there at all. It now stands after every scan and says plainly that no folder holds exactly the same photos as another — which is the answer you came for, and a different thing from the check not having run."
+          ]
+        },
+        {
           version: "2.13.0",
           label: "Duplicate folders, not just duplicate photos",
           changes: [
