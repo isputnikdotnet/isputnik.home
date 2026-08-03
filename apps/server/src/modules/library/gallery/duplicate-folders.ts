@@ -1,0 +1,733 @@
+// Duplicate FOLDERS — a whole folder whose contents match another folder's, file for
+// file, whatever the two are called.
+//
+// This is a rollup of the byte-identical tier, not a new kind of detection. Two copies
+// of a 400-photo holiday folder already produce 400 item-level sets; what was missing
+// was the ability to see that as ONE thing and act on it once. So everything here is
+// derived from the digests duplicates.ts has already computed — no file is opened, and
+// a folder is only ever compared when every file below it is hashed.
+//
+// That last condition is free rather than restrictive: a file is only hashed when its
+// byte size collides with another file's, and if two folders really are identical then
+// every file in one has a same-size twin in the other. A folder holding anything
+// unhashed therefore cannot be a duplicate of anything, and is skipped without a
+// second thought.
+//
+// A folder's fingerprint is every file below it as "<path below this folder>\0<digest>",
+// sorted, hashed. The folder's own name is not part of it — different names, same
+// contents is the case worth catching. Subfolder names ARE part of it, because a tree
+// that arranges the same photos differently is not the same tree.
+//
+// Nothing here deletes on its own. resolveDuplicateFolderGroup is the single removal
+// path, it re-derives every fingerprint before touching anything, it merges each
+// removed photo's tags/albums/people onto its counterpart in the kept folder, and the
+// files go to the Recycle Bin.
+import crypto from "node:crypto";
+import { nanoid } from "nanoid";
+import { db, logActivity } from "../../../db.js";
+import { trashBook } from "../shared/trash.js";
+import { absorbDuplicateMetadata, COPY_MARKERS, DERIVED_FOLDERS } from "./duplicates.js";
+
+// A folder holding a single photo is a duplicate photo, not a duplicate folder — the
+// item tier says that better, and one-file folders would flood this list.
+const MIN_FOLDER_FILES = 2;
+
+// SQLite's variable limit is ~32k; keep any generated IN (…) well under it.
+const ID_CHUNK = 400;
+
+/** A folder's identity: it has no row of its own, only a library and a path. */
+export interface FolderRef {
+  libraryId: string;
+  /** Relative to the library root. "" is the root itself. */
+  folderPath: string;
+}
+
+const refKey = (ref: FolderRef): string => `${ref.libraryId}\u0000${ref.folderPath}`;
+const parseKey = (key: string): FolderRef => {
+  const cut = key.indexOf("\u0000");
+  return { libraryId: key.slice(0, cut), folderPath: key.slice(cut + 1) };
+};
+
+// Every ancestor of a file's directory, nearest first, ending with the library root.
+// "a/b/c.jpg" → ["a/b", "a", ""].
+function ancestorsOf(filePath: string): string[] {
+  const out: string[] = [];
+  let cut = filePath.lastIndexOf("/");
+  while (cut > 0) {
+    out.push(filePath.slice(0, cut));
+    cut = filePath.lastIndexOf("/", cut - 1);
+  }
+  out.push("");
+  return out;
+}
+
+const parentOf = (folderPath: string): string | null => {
+  if (folderPath === "") return null;
+  const cut = folderPath.lastIndexOf("/");
+  return cut === -1 ? "" : folderPath.slice(0, cut);
+};
+
+const folderName = (folderPath: string): string =>
+  folderPath === "" ? "Library root" : folderPath.slice(folderPath.lastIndexOf("/") + 1);
+
+// The path of `filePath` relative to the folder `base`. base "" gives the path back.
+const below = (base: string, filePath: string): string =>
+  base === "" ? filePath : filePath.slice(base.length + 1);
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Fingerprinting
+// ────────────────────────────────────────────────────────────────────────────
+
+interface FileRow {
+  item_id: string;
+  library_id: string;
+  folder_path: string;
+  content_hash: string | null;
+  size: number | null;
+  discovered_at: string;
+}
+
+// Every live gallery file, hashed or not. The unhashed ones matter as much as the
+// rest: one of them is what disqualifies a folder from being compared at all.
+function liveGalleryFiles(): FileRow[] {
+  return db.prepare(`
+    SELECT li.id AS item_id, li.library_id, li.folder_path, li.discovered_at,
+           gd.content_hash, gd.size
+    FROM library_items li
+    JOIN gallery_details gd ON gd.item_id = li.id
+    JOIN libraries lib ON lib.id = li.library_id AND lib.type = 'gallery'
+    WHERE li.deleted_at IS NULL AND li.status = 'ready'
+    ORDER BY li.library_id, li.folder_path
+  `).all() as FileRow[];
+}
+
+interface FolderStats {
+  files: number;
+  hashed: number;
+  bytes: number;
+  /** Earliest discovery among the files below — the folder's "added" date. */
+  firstSeen: string;
+}
+
+export interface FolderFingerprint extends FolderRef {
+  digest: string;
+  itemCount: number;
+  bytes: number;
+  firstSeen: string;
+  itemIds: string[];
+}
+
+// Fingerprint every folder that CAN be fingerprinted, in two passes over the file list:
+// cheap counters first to find the folders whose whole subtree is hashed, then the
+// digest strings for those alone. The gate is what keeps this affordable — in a library
+// of unique photos almost nothing survives it, and the second pass does almost no work.
+export function fingerprintFolders(rows: FileRow[] = liveGalleryFiles()): FolderFingerprint[] {
+  const stats = new Map<string, FolderStats>();
+  for (const row of rows) {
+    for (const folder of ancestorsOf(row.folder_path)) {
+      const key = refKey({ libraryId: row.library_id, folderPath: folder });
+      const current = stats.get(key);
+      if (current) {
+        current.files += 1;
+        if (row.content_hash) current.hashed += 1;
+        current.bytes += row.size ?? 0;
+        if (row.discovered_at < current.firstSeen) current.firstSeen = row.discovered_at;
+      } else {
+        stats.set(key, {
+          files: 1,
+          hashed: row.content_hash ? 1 : 0,
+          bytes: row.size ?? 0,
+          firstSeen: row.discovered_at
+        });
+      }
+    }
+  }
+
+  const eligible = new Set<string>();
+  for (const [key, stat] of stats) {
+    if (stat.files >= MIN_FOLDER_FILES && stat.files === stat.hashed) eligible.add(key);
+  }
+  if (eligible.size === 0) return [];
+
+  // Second pass: "<path below the folder>\0<digest>" for each file, per eligible
+  // ancestor. Sorted before hashing so the order files come back in can't matter.
+  const lines = new Map<string, string[]>();
+  const members = new Map<string, string[]>();
+  for (const row of rows) {
+    if (!row.content_hash) continue;
+    for (const folder of ancestorsOf(row.folder_path)) {
+      const key = refKey({ libraryId: row.library_id, folderPath: folder });
+      if (!eligible.has(key)) continue;
+      const line = `${below(folder, row.folder_path)}\u0000${row.content_hash}`;
+      const bucket = lines.get(key);
+      if (bucket) bucket.push(line); else lines.set(key, [line]);
+      const ids = members.get(key);
+      if (ids) ids.push(row.item_id); else members.set(key, [row.item_id]);
+    }
+  }
+
+  const out: FolderFingerprint[] = [];
+  for (const [key, list] of lines) {
+    const stat = stats.get(key)!;
+    const hash = crypto.createHash("sha256");
+    for (const line of [...list].sort()) hash.update(line, "utf8").update("\n");
+    out.push({
+      ...parseKey(key),
+      digest: hash.digest("hex"),
+      itemCount: stat.files,
+      bytes: stat.bytes,
+      firstSeen: stat.firstSeen,
+      itemIds: (members.get(key) ?? []).sort()
+    });
+  }
+  return out;
+}
+
+// One folder's fingerprint, recomputed from the database as it stands right now. Used
+// to re-validate a group at deletion time — the scan that built it may be days old.
+export function fingerprintOf(ref: FolderRef): FolderFingerprint | null {
+  const prefix = ref.folderPath === "" ? "" : `${ref.folderPath}/`;
+  const rows = db.prepare(`
+    SELECT li.id AS item_id, li.library_id, li.folder_path, li.discovered_at,
+           gd.content_hash, gd.size
+    FROM library_items li
+    JOIN gallery_details gd ON gd.item_id = li.id
+    JOIN libraries lib ON lib.id = li.library_id AND lib.type = 'gallery'
+    WHERE li.deleted_at IS NULL AND li.status = 'ready'
+      AND li.library_id = ?
+      AND (? = '' OR li.folder_path LIKE ? ESCAPE '\\')
+  `).all(
+    ref.libraryId,
+    ref.folderPath,
+    `${prefix.replace(/[\\%_]/g, "\\$&")}%`
+  ) as FileRow[];
+  if (rows.length === 0) return null;
+  return fingerprintFolders(rows).find((print) => print.folderPath === ref.folderPath) ?? null;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Keeper scoring
+// ────────────────────────────────────────────────────────────────────────────
+
+interface ScoredFolder extends FolderFingerprint {
+  linkCount: number;
+  depth: number;
+  copyMarker: boolean;
+  derivedFolder: boolean;
+}
+
+// Tags, albums, collections, saves, shares and tagged people on the photos below a
+// folder — the work a person put in, which is the only thing here that can't be
+// recovered from the files.
+function linkCountFor(itemIds: string[]): number {
+  let total = 0;
+  for (let i = 0; i < itemIds.length; i += ID_CHUNK) {
+    const chunk = itemIds.slice(i, i + ID_CHUNK);
+    const list = chunk.map(() => "?").join(",");
+    const row = db.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM taggables WHERE entity_type = 'library_item' AND entity_id IN (${list}))
+        + (SELECT COUNT(*) FROM gallery_album_items WHERE item_id IN (${list}))
+        + (SELECT COUNT(*) FROM gallery_slideshow_items WHERE item_id IN (${list}))
+        + (SELECT COUNT(*) FROM collection_items WHERE entity_type = 'library_item' AND entity_id IN (${list}))
+        + (SELECT COUNT(*) FROM item_saves WHERE item_id IN (${list}))
+        + (SELECT COUNT(*) FROM shares WHERE module = 'gallery' AND revoked_at IS NULL AND resource_id IN (${list}))
+        + (SELECT COUNT(*) FROM family_tree_photos WHERE item_id IN (${list}))
+        + (SELECT COUNT(*) FROM family_tree_event_photos WHERE item_id IN (${list}))
+        + (SELECT COUNT(*) FROM gallery_faces WHERE assignment != 'rejected' AND person_id IS NOT NULL AND item_id IN (${list}))
+        AS n
+    `).get(...Array.from({ length: 9 }, () => chunk).flat()) as { n: number };
+    total += row.n;
+  }
+  return total;
+}
+
+// Folder names that announce a copy. Kept separate from the item tier's COPY_MARKERS,
+// which read a FILE name: "Backup" says nothing much about one photo and a great deal
+// about a folder full of them.
+const COPY_FOLDER_NAMES = /^(backups?|copies|duplicates?)$|[-_ ]copy$|^copy of /i;
+
+function scoreFolder(print: FolderFingerprint): ScoredFolder {
+  const segments = print.folderPath === "" ? [] : print.folderPath.split("/");
+  const name = segments[segments.length - 1] ?? "";
+  return {
+    ...print,
+    linkCount: linkCountFor(print.itemIds),
+    depth: segments.length,
+    // Any segment, not just the folder's own name: everything under "Backups/" is a
+    // copy of something, however it is named itself.
+    copyMarker: COPY_MARKERS.some((re) => re.test(name))
+      || segments.some((segment) => COPY_FOLDER_NAMES.test(segment)),
+    // Likewise for received/derived folders: "Downloads/Holiday" is a copy of
+    // "Holiday" however deep the folder itself sits.
+    derivedFolder: segments.some((segment) => DERIVED_FOLDERS.test(segment))
+  };
+}
+
+// Ordered, not weighted — the same contract as the item tier: compare criterion by
+// criterion, first difference wins, and the winning criterion IS the reason shown.
+const FOLDER_CRITERIA: { label: string; value: (row: ScoredFolder) => number }[] = [
+  { label: "its photos carry tags, albums or people", value: (r) => r.linkCount },
+  { label: "not named like a copy", value: (r) => (r.copyMarker ? 0 : 1) },
+  { label: "not in a downloads or app folder", value: (r) => (r.derivedFolder ? 0 : 1) },
+  { label: "closer to the top of the library", value: (r) => -r.depth },
+  {
+    label: "added first",
+    value: (r) => {
+      const t = new Date(r.firstSeen).getTime();
+      return Number.isFinite(t) ? -t : 0;
+    }
+  }
+];
+
+export interface FolderKeeperChoice {
+  keeper: FolderRef;
+  reason: string | null;
+}
+
+export function pickFolderKeeper(prints: FolderFingerprint[]): FolderKeeperChoice | null {
+  if (prints.length === 0) return null;
+  const scored = prints.map(scoreFolder).sort((a, b) => {
+    for (const criterion of FOLDER_CRITERIA) {
+      const diff = criterion.value(b) - criterion.value(a);
+      if (diff !== 0) return diff;
+    }
+    return refKey(a) < refKey(b) ? -1 : refKey(a) > refKey(b) ? 1 : 0;
+  });
+  const winner = scored[0];
+  const runnerUp = scored[1];
+  const keeper: FolderRef = { libraryId: winner.libraryId, folderPath: winner.folderPath };
+  if (!runnerUp) return { keeper, reason: null };
+
+  const reasons = FOLDER_CRITERIA
+    .filter((criterion) => criterion.value(winner) > criterion.value(runnerUp))
+    .map((criterion) => criterion.label)
+    .slice(0, 2);
+  return {
+    keeper,
+    reason: reasons.length > 0 ? reasons.join(", ") : "nothing to choose between them — kept the one added first"
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Grouping
+// ────────────────────────────────────────────────────────────────────────────
+
+function ignoredFolderPairs(): Set<string> {
+  const rows = db.prepare(
+    "SELECT library_a, path_a, library_b, path_b FROM gallery_duplicate_folder_ignores"
+  ).all() as { library_a: string; path_a: string; library_b: string; path_b: string }[];
+  return new Set(rows.map((r) =>
+    `${refKey({ libraryId: r.library_a, folderPath: r.path_a })}|${refKey({ libraryId: r.library_b, folderPath: r.path_b })}`));
+}
+
+const folderPairKey = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
+
+// Components over the pairs that are NOT dismissed — identical to the item tier's
+// rule, and for the same reason: dismissing A/B in {A,B,C} leaves all three linked
+// through C, which is right, because they really do hold the same files.
+function folderComponents(keys: string[], ignored: Set<string>): string[][] {
+  const parent = new Map<string, string>(keys.map((key) => [key, key]));
+  const find = (key: string): string => {
+    let root = key;
+    while (parent.get(root) !== root) root = parent.get(root)!;
+    while (parent.get(key) !== root) { const next = parent.get(key)!; parent.set(key, root); key = next; }
+    return root;
+  };
+  for (let i = 0; i < keys.length; i += 1) {
+    for (let j = i + 1; j < keys.length; j += 1) {
+      if (ignored.has(folderPairKey(keys[i], keys[j]))) continue;
+      const [ra, rb] = [find(keys[i]), find(keys[j])];
+      if (ra !== rb) parent.set(ra, rb);
+    }
+  }
+  const groups = new Map<string, string[]>();
+  for (const key of keys) {
+    const root = find(key);
+    const bucket = groups.get(root);
+    if (bucket) bucket.push(key); else groups.set(root, [key]);
+  }
+  return [...groups.values()].filter((group) => group.length > 1);
+}
+
+export interface FolderGroupTotals {
+  groups: number;
+  extraFolders: number;
+  reclaimableBytes: number;
+}
+
+const folderSignature = (keys: string[]): string => [...keys].sort().join(",");
+
+// Hand-picked keepers from the last rebuild, keyed on the member set they were chosen
+// for: a different set is a different question, and the choice doesn't carry.
+function manualFolderKeepers(): Map<string, FolderRef> {
+  const out = new Map<string, FolderRef>();
+  const groups = db.prepare(`
+    SELECT id, keeper_library_id, keeper_folder_path FROM gallery_duplicate_folder_groups
+    WHERE keeper_source = 'manual' AND keeper_library_id IS NOT NULL AND keeper_folder_path IS NOT NULL
+  `).all() as { id: string; keeper_library_id: string; keeper_folder_path: string }[];
+  const memberStmt = db.prepare(
+    "SELECT library_id, folder_path FROM gallery_duplicate_folder_members WHERE group_id = ?"
+  );
+  for (const group of groups) {
+    const keys = (memberStmt.all(group.id) as { library_id: string; folder_path: string }[])
+      .map((row) => refKey({ libraryId: row.library_id, folderPath: row.folder_path }));
+    out.set(folderSignature(keys), {
+      libraryId: group.keeper_library_id,
+      folderPath: group.keeper_folder_path
+    });
+  }
+  return out;
+}
+
+// Rebuild every folder group from the digests currently in the database. Pure DB work,
+// no disk access, so it is cheap to re-run and trivially testable.
+export function rebuildDuplicateFolderGroups(): FolderGroupTotals {
+  const prints = fingerprintFolders();
+  const byKey = new Map(prints.map((print) => [refKey(print), print]));
+
+  const byDigest = new Map<string, string[]>();
+  for (const print of prints) {
+    const bucket = byDigest.get(print.digest);
+    if (bucket) bucket.push(refKey(print)); else byDigest.set(print.digest, [refKey(print)]);
+  }
+
+  const ignored = ignoredFolderPairs();
+  const components = [...byDigest.values()]
+    .filter((keys) => keys.length > 1)
+    .flatMap((keys) => folderComponents(keys, ignored));
+
+  // A duplicated folder duplicates everything inside it, so /Backup/Trip and
+  // /Photos/Trip pair up exactly as their parents do. Only the topmost pairing is
+  // worth showing: drop any set whose members ALL sit inside folders that are
+  // themselves part of a set. Resolving the parent takes the children with it.
+  const covered = new Set(components.flat());
+  const topmost = components.filter((keys) => !keys.every((key) => {
+    const ref = parseKey(key);
+    const parent = parentOf(ref.folderPath);
+    return parent !== null && covered.has(refKey({ libraryId: ref.libraryId, folderPath: parent }));
+  }));
+
+  const manual = manualFolderKeepers();
+  let groups = 0;
+  let extraFolders = 0;
+  let reclaimableBytes = 0;
+
+  db.transaction(() => {
+    db.prepare("DELETE FROM gallery_duplicate_folder_groups").run();
+    const insertGroup = db.prepare(`
+      INSERT INTO gallery_duplicate_folder_groups
+        (id, digest, item_count, copy_bytes, keeper_library_id, keeper_folder_path, keeper_source, keeper_reason)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertMember = db.prepare(
+      "INSERT INTO gallery_duplicate_folder_members (group_id, library_id, folder_path) VALUES (?, ?, ?)"
+    );
+
+    for (const keys of topmost) {
+      const members = keys.map((key) => byKey.get(key)).filter((print): print is FolderFingerprint => Boolean(print));
+      if (members.length < 2) continue;
+
+      const auto = pickFolderKeeper(members);
+      if (!auto) continue;
+      const hand = manual.get(folderSignature(keys));
+      const handIsMember = hand ? keys.includes(refKey(hand)) : false;
+      const keeper = handIsMember ? hand! : auto.keeper;
+      const source = handIsMember ? "manual" : "auto";
+
+      const groupId = nanoid(16);
+      insertGroup.run(
+        groupId, members[0].digest, members[0].itemCount, members[0].bytes,
+        keeper.libraryId, keeper.folderPath, source, source === "manual" ? null : auto.reason
+      );
+      for (const member of members) insertMember.run(groupId, member.libraryId, member.folderPath);
+
+      groups += 1;
+      extraFolders += members.length - 1;
+      reclaimableBytes += members
+        .filter((member) => refKey(member) !== refKey(keeper))
+        .reduce((sum, member) => sum + member.bytes, 0);
+    }
+  })();
+
+  return { groups, extraFolders, reclaimableBytes };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Reading groups
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface DuplicateFolderMember extends FolderRef {
+  libraryName: string;
+  /** Just the folder's own name — what tells two members apart at a glance. */
+  name: string;
+  itemCount: number;
+  bytes: number;
+  linkCount: number;
+  /** A few thumbnails, so a folder can be recognised without opening it. */
+  coverUrls: string[];
+  isKeeper: boolean;
+}
+
+export interface DuplicateFolderGroup {
+  id: string;
+  itemCount: number;
+  copyBytes: number;
+  reclaimableBytes: number;
+  keeperSource: "auto" | "manual";
+  keeperReason: string | null;
+  members: DuplicateFolderMember[];
+}
+
+// Items directly below a folder, for the counts and covers a member card shows.
+function folderItemIds(ref: FolderRef): string[] {
+  const prefix = ref.folderPath === "" ? "" : `${ref.folderPath.replace(/[\\%_]/g, "\\$&")}/`;
+  return (db.prepare(`
+    SELECT li.id FROM library_items li
+    WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready'
+      AND (? = '' OR li.folder_path LIKE ? ESCAPE '\\')
+    ORDER BY li.folder_path
+  `).all(ref.libraryId, ref.folderPath, `${prefix}%`) as { id: string }[]).map((row) => row.id);
+}
+
+const COVER_LIMIT = 4;
+
+function folderCovers(itemIds: string[]): string[] {
+  if (itemIds.length === 0) return [];
+  const chunk = itemIds.slice(0, 40);
+  const rows = db.prepare(`
+    SELECT im.cover_storage_key AS cover FROM item_metadata im
+    WHERE im.item_id IN (${chunk.map(() => "?").join(",")}) AND im.cover_storage_key IS NOT NULL
+    LIMIT ?
+  `).all(...chunk, COVER_LIMIT) as { cover: string }[];
+  return rows.map((row) => `/api/library/covers/${row.cover}`);
+}
+
+export function listDuplicateFolderGroups(): DuplicateFolderGroup[] {
+  const groups = db.prepare(`
+    SELECT id, item_count, copy_bytes, keeper_library_id, keeper_folder_path, keeper_source, keeper_reason
+    FROM gallery_duplicate_folder_groups ORDER BY copy_bytes DESC, id
+  `).all() as {
+    id: string; item_count: number; copy_bytes: number;
+    keeper_library_id: string | null; keeper_folder_path: string | null;
+    keeper_source: "auto" | "manual"; keeper_reason: string | null;
+  }[];
+  if (groups.length === 0) return [];
+
+  const memberRows = db.prepare(`
+    SELECT m.group_id, m.library_id, m.folder_path, lib.name AS library_name
+    FROM gallery_duplicate_folder_members m
+    JOIN libraries lib ON lib.id = m.library_id
+  `).all() as { group_id: string; library_id: string; folder_path: string; library_name: string }[];
+
+  const byGroup = new Map<string, typeof memberRows>();
+  for (const row of memberRows) {
+    const bucket = byGroup.get(row.group_id);
+    if (bucket) bucket.push(row); else byGroup.set(row.group_id, [row]);
+  }
+
+  return groups.map((group) => {
+    const rows = byGroup.get(group.id) ?? [];
+    const members = rows.map((row) => {
+      const ref = { libraryId: row.library_id, folderPath: row.folder_path };
+      const itemIds = folderItemIds(ref);
+      const bytes = itemIds.length === 0 ? 0 : sumBytes(itemIds);
+      return {
+        ...ref,
+        libraryName: row.library_name,
+        name: folderName(row.folder_path),
+        itemCount: itemIds.length,
+        bytes,
+        linkCount: linkCountFor(itemIds),
+        coverUrls: folderCovers(itemIds),
+        isKeeper: row.library_id === group.keeper_library_id && row.folder_path === group.keeper_folder_path
+      };
+    }).sort((a, b) => Number(b.isKeeper) - Number(a.isKeeper)
+      || a.libraryName.localeCompare(b.libraryName)
+      || a.folderPath.localeCompare(b.folderPath));
+
+    return {
+      id: group.id,
+      itemCount: group.item_count,
+      copyBytes: group.copy_bytes,
+      reclaimableBytes: members.filter((member) => !member.isKeeper).reduce((sum, member) => sum + member.bytes, 0),
+      keeperSource: group.keeper_source,
+      keeperReason: group.keeper_reason,
+      members
+    };
+  }).filter((group) => group.members.length > 1);
+}
+
+function sumBytes(itemIds: string[]): number {
+  let total = 0;
+  for (let i = 0; i < itemIds.length; i += ID_CHUNK) {
+    const chunk = itemIds.slice(i, i + ID_CHUNK);
+    const row = db.prepare(
+      `SELECT COALESCE(SUM(size), 0) AS n FROM gallery_details WHERE item_id IN (${chunk.map(() => "?").join(",")})`
+    ).get(...chunk) as { n: number };
+    total += row.n;
+  }
+  return total;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Admin actions
+// ────────────────────────────────────────────────────────────────────────────
+
+export function setDuplicateFolderKeeper(groupId: string, ref: FolderRef): boolean {
+  const member = db.prepare(
+    "SELECT 1 FROM gallery_duplicate_folder_members WHERE group_id = ? AND library_id = ? AND folder_path = ?"
+  ).get(groupId, ref.libraryId, ref.folderPath);
+  if (!member) return false;
+  db.prepare(`
+    UPDATE gallery_duplicate_folder_groups
+    SET keeper_library_id = ?, keeper_folder_path = ?, keeper_source = 'manual', keeper_reason = NULL
+    WHERE id = ?
+  `).run(ref.libraryId, ref.folderPath, groupId);
+  return true;
+}
+
+// "Not the same folder" — record every pair so no future scan can reassemble the set,
+// then drop it.
+export function ignoreDuplicateFolderGroup(groupId: string): boolean {
+  const rows = db.prepare(
+    "SELECT library_id, folder_path FROM gallery_duplicate_folder_members WHERE group_id = ?"
+  ).all(groupId) as { library_id: string; folder_path: string }[];
+  if (rows.length === 0) return false;
+  const keys = rows.map((row) => refKey({ libraryId: row.library_id, folderPath: row.folder_path })).sort();
+  db.transaction(() => {
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO gallery_duplicate_folder_ignores (library_a, path_a, library_b, path_b)
+      VALUES (?, ?, ?, ?)
+    `);
+    for (let i = 0; i < keys.length; i += 1) {
+      for (let j = i + 1; j < keys.length; j += 1) {
+        const a = parseKey(keys[i]);
+        const b = parseKey(keys[j]);
+        insert.run(a.libraryId, a.folderPath, b.libraryId, b.folderPath);
+      }
+    }
+    db.prepare("DELETE FROM gallery_duplicate_folder_groups WHERE id = ?").run(groupId);
+  })();
+  return true;
+}
+
+export interface FolderResolution {
+  keptFolder: FolderRef;
+  deletedFolders: FolderRef[];
+  deletedItemIds: string[];
+  failed: { itemId: string; error: string }[];
+}
+
+// Remove whole folders, keeping one.
+//
+// Re-derives every fingerprint involved before touching anything: a scan result can be
+// days old, and a folder that has gained, lost or changed a single file is no longer
+// provably the same folder. A mismatch aborts the whole thing rather than deleting the
+// part that still matches — "these folders are the same" is the claim the admin acted
+// on, and it is no longer true.
+//
+// Each removed photo hands its tags, albums, collections and tagged people to the file
+// at the SAME relative path inside the kept folder. That mapping is exact because the
+// fingerprint covers paths as well as contents, and the counterpart is byte-identical,
+// so faces transfer too.
+export function resolveDuplicateFolderGroup(
+  groupId: string,
+  deleteFolders: FolderRef[],
+  userId: string
+): FolderResolution | null {
+  const group = db.prepare(
+    "SELECT id, keeper_library_id, keeper_folder_path FROM gallery_duplicate_folder_groups WHERE id = ?"
+  ).get(groupId) as { id: string; keeper_library_id: string | null; keeper_folder_path: string | null } | undefined;
+  if (!group?.keeper_library_id || group.keeper_folder_path === null) return null;
+
+  const memberRows = db.prepare(
+    "SELECT library_id, folder_path FROM gallery_duplicate_folder_members WHERE group_id = ?"
+  ).all(groupId) as { library_id: string; folder_path: string }[];
+  const memberKeys = new Set(memberRows.map((row) =>
+    refKey({ libraryId: row.library_id, folderPath: row.folder_path })));
+
+  const keeper: FolderRef = { libraryId: group.keeper_library_id, folderPath: group.keeper_folder_path };
+  // Never act on a folder the caller invented, and never delete the folder being kept.
+  const doomed = deleteFolders.filter((ref) =>
+    memberKeys.has(refKey(ref)) && refKey(ref) !== refKey(keeper));
+  if (doomed.length === 0 || doomed.length !== deleteFolders.length) return null;
+
+  const keeperPrint = fingerprintOf(keeper);
+  if (!keeperPrint) return null;
+  for (const ref of doomed) {
+    const print = fingerprintOf(ref);
+    if (!print || print.digest !== keeperPrint.digest) return null;
+  }
+
+  // path-below-the-folder → the keeper's file at that path.
+  const keeperByPath = new Map(
+    (db.prepare(`
+      SELECT li.id, li.folder_path FROM library_items li
+      WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready'
+        AND (? = '' OR li.folder_path LIKE ? ESCAPE '\\')
+    `).all(
+      keeper.libraryId,
+      keeper.folderPath,
+      `${keeper.folderPath === "" ? "" : `${keeper.folderPath.replace(/[\\%_]/g, "\\$&")}/`}%`
+    ) as { id: string; folder_path: string }[])
+      .map((row) => [below(keeper.folderPath, row.folder_path), row.id])
+  );
+
+  const deletedItemIds: string[] = [];
+  const failed: { itemId: string; error: string }[] = [];
+  const deletedFolders: FolderRef[] = [];
+
+  for (const ref of doomed) {
+    const rows = db.prepare(`
+      SELECT li.id, li.folder_path FROM library_items li
+      WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready'
+        AND (? = '' OR li.folder_path LIKE ? ESCAPE '\\')
+    `).all(
+      ref.libraryId,
+      ref.folderPath,
+      `${ref.folderPath === "" ? "" : `${ref.folderPath.replace(/[\\%_]/g, "\\$&")}/`}%`
+    ) as { id: string; folder_path: string }[];
+
+    for (const row of rows) {
+      const counterpart = keeperByPath.get(below(ref.folderPath, row.folder_path));
+      if (!counterpart) {
+        // The fingerprints matched, so this cannot happen — but a missing counterpart
+        // would mean deleting a photo with nothing to inherit it, so refuse.
+        failed.push({ itemId: row.id, error: "No matching photo in the folder being kept." });
+        continue;
+      }
+      absorbDuplicateMetadata(counterpart, [row.id]);
+      try {
+        trashBook(row.id, userId);
+        deletedItemIds.push(row.id);
+      } catch (err) {
+        failed.push({ itemId: row.id, error: err instanceof Error ? err.message : "Could not move the photo to the Recycle Bin." });
+      }
+    }
+    deletedFolders.push(ref);
+  }
+
+  // The set is only meaningful while two folders remain; a partial removal leaves the
+  // rest for the next scan to re-derive.
+  const remaining = memberRows.length - deletedFolders.length;
+  if (remaining < 2) db.prepare("DELETE FROM gallery_duplicate_folder_groups WHERE id = ?").run(groupId);
+  else {
+    const list = doomed.map(() => "(library_id = ? AND folder_path = ?)").join(" OR ");
+    db.prepare(`DELETE FROM gallery_duplicate_folder_members WHERE group_id = ? AND (${list})`)
+      .run(groupId, ...doomed.flatMap((ref) => [ref.libraryId, ref.folderPath]));
+  }
+
+  if (deletedItemIds.length > 0) {
+    logActivity({
+      event: "library.gallery.duplicate_folders_removed",
+      actorUserId: userId,
+      targetType: "library",
+      targetId: keeper.libraryId,
+      detail: `Moved ${deletedItemIds.length} photo${deletedItemIds.length === 1 ? "" : "s"} from ${deletedFolders.length} duplicate folder${deletedFolders.length === 1 ? "" : "s"} to the Recycle Bin, keeping "${keeper.folderPath || "the library root"}".`,
+      ipAddress: null
+    });
+  }
+
+  return { keptFolder: keeper, deletedFolders, deletedItemIds, failed };
+}

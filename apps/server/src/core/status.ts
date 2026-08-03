@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.13.0",
+          label: "Duplicate folders, not just duplicate photos",
+          changes: [
+            "Duplicate photos in the control panel now finds whole folders that hold the same pictures as another folder, whatever the two are called. A holiday folder copied into a backup used to arrive as four hundred separate decisions; it arrives as one.",
+            "Folders are matched on what is inside them — every photo, and where it sits in the folder — never on the name. Two folders holding the same pictures arranged differently aren't a pair, and neither are two that agree on all but one photo.",
+            "Pick the folder to keep by clicking it; the suggestion favours the one whose photos you've tagged or filed into albums, and passes over anything named or filed like a copy. Deleting the others moves their photos to the Recycle Bin, handing each photo's tags, albums and tagged people to its twin in the folder you kept.",
+            "The folders are checked again the moment you confirm. If so much as one photo in them has changed since the scan, nothing is deleted and you're asked to scan again.",
+            "This costs nothing extra to find: it reuses the fingerprints the duplicate-photo scan already takes, and reads no files of its own."
+          ]
+        },
+        {
           version: "2.12.2",
           label: "Folders say how much is in them",
           changes: [

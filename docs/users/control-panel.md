@@ -217,7 +217,12 @@ A folder imported twice, or a phone backup copied in beside the originals, leave
 the same picture in the library several times. This page finds those and lets you
 decide, copy by copy, which ones stay.
 
-Results come in two groups, and they deserve different amounts of trust.
+Results come in three groups, and they deserve different amounts of trust.
+
+**Duplicate folders** come first: a whole folder holding exactly the same photos as
+another one, however differently the two are named. They're listed first because
+clearing one settles every identical-file set inside it at once — two copies of a
+400-photo holiday folder are 400 decisions otherwise.
 
 **Identical files** are byte-for-byte the same, so a set is never a guess. Finding
 them is cheap because identical files must be the same size: photos whose size
@@ -243,6 +248,34 @@ what the next scan reads.
 so the same album imported into two places shows up as one set with its copies
 side by side, each saying which library it's in. Two libraries holding one copy
 each only appear there.
+
+#### Duplicate folders
+
+A folder is matched on what it holds, not what it's called: every file below it,
+by content and by the path it sits at. *Italy 2019* and *Backup/holiday-2019* pair
+up; two folders holding the same pictures arranged differently do not, and neither
+do two that agree on all but one photo. Nothing has to be read from disk for this —
+it reuses the fingerprints the identical-file scan already took.
+
+Only the topmost pairing is shown. If two whole libraries match, you get one set for
+the libraries, not one for every folder inside them.
+
+Each folder is a tile showing a few of its own pictures, where it lives, how many
+photos it holds and how much space they take. Exactly one folder in a set is kept —
+click a tile to make it that one. The suggestion favours the folder whose photos
+carry tags, albums or tagged people, then passes over anything named or filed like
+a copy (*Backup*, *Downloads*, *WhatsApp*, *… copy*), then prefers the folder nearer
+the top of the library, then the one added first.
+
+**Delete** moves every photo in the other folders to the Recycle Bin. Each one hands
+its tags, albums, collections and tagged people to the photo at the same place inside
+the kept folder first — an exact match, since the two files are identical. The
+folders are checked again the moment you confirm: if anything in them has changed
+since the scan, nothing is deleted and you're asked to scan again. The empty folders
+themselves are left on disk for you to remove.
+
+**Not the same** drops the set and stops future scans pairing those folders. The
+photos inside them are still compared with each other individually.
 
 #### Working through the list
 

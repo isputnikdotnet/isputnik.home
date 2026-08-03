@@ -28,6 +28,10 @@ import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { trashBook } from "../shared/trash.js";
 import { recomputeFaceCount } from "./people.js";
+// Mutual import: duplicate-folders.ts builds on this module's digests and keeper
+// heuristics, and a scan rebuilds its groups as a third pass. Both sides only ever
+// reach across inside functions, never while the module is being evaluated.
+import { rebuildDuplicateFolderGroups, type FolderGroupTotals } from "./duplicate-folders.js";
 
 export const DUPLICATE_SCAN_JOB_TYPE = "SCAN_GALLERY_DUPLICATES";
 
@@ -309,10 +313,10 @@ function loadDetails(itemIds: string[]): Map<string, DetailRow> {
 
 // Filename shapes a file manager or download produces for a second copy. Deliberately
 // narrow: a trailing "-1"/"_1" is NOT included, because IMG_1234.jpg would match it.
-const COPY_MARKERS = [/ \(\d+\)$/, /\bcopy\b/i, /^copy of /i, /[-_ ]duplicate$/i];
+export const COPY_MARKERS = [/ \(\d+\)$/, /\bcopy\b/i, /^copy of /i, /[-_ ]duplicate$/i];
 
 // Folders that hold received or derived copies rather than originals.
-const DERIVED_FOLDERS = /^(downloads?|whatsapp|telegram|viber|messenger|screenshots?|thumbnails?|cache|te?mp)\b|whatsapp|telegram/i;
+export const DERIVED_FOLDERS = /^(downloads?|whatsapp|telegram|viber|messenger|screenshots?|thumbnails?|cache|te?mp)\b|whatsapp|telegram/i;
 
 interface Scored extends DetailRow {
   linkCount: number;
@@ -523,6 +527,8 @@ export interface DuplicateScanSummary {
   groups: number;
   extraCopies: number;
   reclaimableBytes: number;
+  /** Whole-folder duplicates found in the same pass — a rollup, not extra bytes. */
+  folders?: FolderGroupTotals;
 }
 
 const memberSignature = (ids: string[]): string => [...ids].sort().join(",");
@@ -692,9 +698,14 @@ export function rebuildNearDuplicateGroups(): GroupTotals {
 }
 
 // Both tiers, in the order they depend on, plus the "last scanned" stamp.
-export function rebuildDuplicateGroups(): GroupTotals {
+//
+// Folder groups come last and are reported separately: they are a rollup of the exact
+// tier, so their bytes are the SAME bytes already counted there. Adding them to the
+// headline totals would promise twice the space a cleanup can actually free.
+export function rebuildDuplicateGroups(): GroupTotals & { folders: FolderGroupTotals } {
   const exact = rebuildExactDuplicateGroups();
   const near = rebuildNearDuplicateGroups();
+  const folders = rebuildDuplicateFolderGroups();
   db.prepare(`
     INSERT INTO app_settings (key, value, updated_at)
     VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -703,7 +714,8 @@ export function rebuildDuplicateGroups(): GroupTotals {
   return {
     groups: exact.groups + near.groups,
     extraCopies: exact.extraCopies + near.extraCopies,
-    reclaimableBytes: exact.reclaimableBytes + near.reclaimableBytes
+    reclaimableBytes: exact.reclaimableBytes + near.reclaimableBytes,
+    folders
   };
 }
 

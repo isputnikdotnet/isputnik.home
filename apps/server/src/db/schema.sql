@@ -484,6 +484,49 @@ CREATE TABLE IF NOT EXISTS gallery_duplicate_members (
 );
 CREATE INDEX IF NOT EXISTS idx_gallery_dup_members_item ON gallery_duplicate_members(item_id);
 
+-- Duplicate FOLDERS (duplicate-folders.ts). A folder whose whole subtree matches
+-- another's, file for file, by content digest — the names may differ entirely.
+-- Built on top of the byte-identical tier's digests, so it costs no disk access,
+-- and rebuilt from scratch by every scan exactly like the item-level groups.
+--
+-- `digest` is the folder's content fingerprint: every file below it as
+-- "<path below this folder>\0<content_hash>", sorted, hashed. The folder's own
+-- name is deliberately NOT part of it — two folders with different names and the
+-- same contents are the whole point.
+CREATE TABLE IF NOT EXISTS gallery_duplicate_folder_groups (
+  id                 TEXT PRIMARY KEY,
+  digest             TEXT NOT NULL,
+  -- Files in each member folder's subtree, and the bytes ONE copy occupies.
+  item_count         INTEGER NOT NULL,
+  copy_bytes         INTEGER NOT NULL,
+  -- The folder to keep, as (library, path). Not a foreign key: a folder isn't a
+  -- row anywhere, it only exists as a prefix of library_items.folder_path.
+  keeper_library_id  TEXT REFERENCES libraries(id) ON DELETE CASCADE,
+  keeper_folder_path TEXT,
+  keeper_source      TEXT NOT NULL DEFAULT 'auto' CHECK (keeper_source IN ('auto', 'manual')),
+  keeper_reason      TEXT,
+  created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS gallery_duplicate_folder_members (
+  group_id    TEXT NOT NULL REFERENCES gallery_duplicate_folder_groups(id) ON DELETE CASCADE,
+  library_id  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  folder_path TEXT NOT NULL,
+  PRIMARY KEY (group_id, library_id, folder_path)
+);
+
+-- "These two folders are not duplicates", as a pair, for the same reason the
+-- item-level dismissals are pairs: the decision has to survive a rebuild that
+-- regroups the set. The lexically smaller (library, path) is always side A.
+CREATE TABLE IF NOT EXISTS gallery_duplicate_folder_ignores (
+  library_a  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  path_a     TEXT NOT NULL,
+  library_b  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  path_b     TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (library_a, path_a, library_b, path_b)
+);
+
 -- "These two are not duplicates." Stored as an EDGE rather than against a group id
 -- so the decision survives a rebuild: when a third copy appears and regrouping
 -- changes the member set, the dismissed pair still refuses to link. `item_a` is
