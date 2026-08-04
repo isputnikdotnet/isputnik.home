@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.17.0",
+          label: "One filter box, and a bulk delete that obeys it",
+          changes: [
+            "The bulk delete ignored everything except the library picker. Filter to one folder, or to identical files, press it, and it still swept every identical set in the install — the page said one thing and the button did another. It now covers exactly the sets your filters leave on screen, across every page of them, and the confirmation says how many that is out of how many were found.",
+            "Library, which-duplicates, search and folders were four controls in three places, with nothing to say how they combined. They are one Filters box now, on both duplicate pages, with a count on the button so a narrowed page says so even when the box is shut.",
+            "Near-identical sets are still never swept in bulk, whatever the filters say, and the button names that in its own label."
+          ]
+        },
+        {
           version: "2.16.2",
           label: "The bulk delete button says what it covers",
           changes: [

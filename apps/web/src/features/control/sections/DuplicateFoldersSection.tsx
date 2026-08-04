@@ -11,13 +11,12 @@
 // Both read the same scan as Duplicate photos; neither runs one. The scan lives on
 // that page, so there is one place that starts work and one place that reports it.
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, FolderHeart, FolderOpen, HardDrive, ImageOff, Images, Info, Search, Trash2 } from "lucide-react";
+import { ArrowRight, FolderHeart, FolderOpen, HardDrive, ImageOff, Images, Info, SlidersHorizontal, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
-import { LibraryMenu } from "../../../shared/LibraryMenu";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { controlHref } from "../../../router";
 import {
@@ -27,7 +26,9 @@ import {
   type DuplicatePayload,
   EMPTY_PAYLOAD,
   ExperimentalNotice,
-  FolderFilterModal,
+  DuplicateFiltersModal,
+  type DuplicateFilterState,
+  activeFilterCount,
   PreferredFoldersModal,
   type PreferenceDraft,
   folderCovers,
@@ -73,8 +74,8 @@ export function DuplicateFoldersSection() {
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [busyId, setBusyId] = useState("");
-  const [scopeId, setScopeId] = useState("");
-  const [search, setSearch] = useState("");
+  // Everything that narrows the page, in one box — see DuplicateFiltersModal.
+  const [filters, setFilters] = useState<DuplicateFilterState>({ scopeId: "", search: "", folders: [], tier: "all" });
 
   // A folder set keeps exactly ONE folder — keeping two identical folders isn't
   // de-duplicating, and the stakes are a whole folder.
@@ -84,7 +85,7 @@ export function DuplicateFoldersSection() {
   const [containedDeleteTarget, setContainedDeleteTarget] = useState<ContainedFolder | null>(null);
   const [containedIgnoreTarget, setContainedIgnoreTarget] = useState<ContainedFolder | null>(null);
 
-  const [folderFilter, setFolderFilter] = useState<string[]>([]);
+
   const [filterOpen, setFilterOpen] = useState(false);
   const [preferOpen, setPreferOpen] = useState(false);
   const [preferDraft, setPreferDraft] = useState<PreferenceDraft>({});
@@ -115,11 +116,15 @@ export function DuplicateFoldersSection() {
     };
   }, [payload.scanning]);
 
+  const { scopeId, search } = filters;
+  const folderFilter = filters.folders;
+
   const busy = preferBusy || busyId !== "";
   const scopeName = payload.libraries.find((library) => library.id === scopeId)?.name ?? "";
   const needle = search.trim().toLowerCase();
 
   const folderOptions = folderOptionsFrom(payload);
+  const activeFilters = activeFilterCount(filters, false);
   const chosenFolders = folderOptions.filter((option) => folderFilter.includes(option.key));
   const inChosenFolders = (libraryId: string, path: string) =>
     chosenFolders.length === 0 || chosenFolders.some((folder) => folderCovers(folder, libraryId, path));
@@ -150,10 +155,6 @@ export function DuplicateFoldersSection() {
   const reclaimable = groups.reduce((sum, group) => sum + group.reclaimableBytes, 0)
     + contained.reduce((sum, row) => sum + row.bytes, 0);
 
-  const scopeOptions = [
-    { value: "", label: "All libraries" },
-    ...payload.libraries.map((library) => ({ value: library.id, label: library.name }))
-  ];
 
   const keeperOf = (group: DuplicateFolderGroup): DuplicateFolderMember => {
     const picked = keeperPick[group.id];
@@ -324,18 +325,6 @@ export function DuplicateFoldersSection() {
         icon={<FolderOpen size={30} />}
         description="Whole folders that duplicate another folder, handled in one go."
       >
-        {anythingFound && (
-          <label className="search-field dup-search">
-            <Search size={17} aria-hidden="true" />
-            <span className="sr-only">Search duplicate folders by path or library</span>
-            <input
-              type="search"
-              value={search}
-              placeholder="Search folders"
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-        )}
       </ControlSectionHead>
 
       <p className="dup-status datagrid-muted">
@@ -359,25 +348,19 @@ export function DuplicateFoldersSection() {
 
       {anythingFound && (
         <div className="dup-toolbar">
-          <LibraryMenu
-            value={scopeId}
-            options={scopeOptions}
-            icon={<Images size={19} aria-hidden="true" />}
-            label="Which photo library to compare"
+          {/* One box for every way of narrowing the page — the same one Duplicate
+              photos uses, minus the tier, since everything here is folder-shaped. */}
+          <Button
+            variant="secondary"
+            compact
+            className={activeFilters > 0 ? "is-active" : ""}
             disabled={busy}
-            onChange={setScopeId}
-          />
+            onClick={() => { setActionError(""); setFilterOpen(true); }}
+          >
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            <span>{activeFilters > 0 ? `Filters (${activeFilters})` : "Filters"}</span>
+          </Button>
           <div className="dup-toolbar-controls">
-            <Button
-              variant="icon"
-              className={folderFilter.length > 0 ? "is-active" : ""}
-              disabled={busy || folderOptions.length === 0}
-              onClick={() => { setActionError(""); setFilterOpen(true); }}
-              aria-label={folderFilter.length > 0 ? `Working on ${folderFilter.length} folders` : "Choose folders to work on"}
-              title={folderFilter.length > 0 ? `Working on ${folderFilter.length} folder${folderFilter.length === 1 ? "" : "s"}` : "Choose folders to work on"}
-            >
-              <FolderOpen size={18} aria-hidden="true" />
-            </Button>
             <Button
               variant="icon"
               className={payload.folderPreferences.length > 0 ? "is-active" : ""}
@@ -638,10 +621,12 @@ export function DuplicateFoldersSection() {
       )}
 
       {filterOpen && (
-        <FolderFilterModal
+        <DuplicateFiltersModal
+          state={filters}
           options={folderOptions}
-          selected={folderFilter}
-          onChange={setFolderFilter}
+          libraries={payload.libraries}
+          withTier={false}
+          onChange={setFilters}
           onClose={() => setFilterOpen(false)}
         />
       )}

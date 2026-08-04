@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Copy, ExternalLink, Folder, FolderHeart, FolderOpen, HardDrive, ImageOff, Images, Info, Maximize2, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, ExternalLink, Folder, FolderHeart, FolderOpen, HardDrive, ImageOff, Images, Info, Maximize2, RefreshCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
-import { LibraryMenu } from "../../../shared/LibraryMenu";
 import { Pager } from "../../../shared/Pager";
 import { DuplicateViewer } from "./DuplicateViewer";
 import { SelectMenu } from "../../../shared/SelectMenu";
@@ -23,7 +22,9 @@ import {
   type DuplicatePayload,
   EMPTY_PAYLOAD,
   ExperimentalNotice,
-  FolderFilterModal,
+  DuplicateFiltersModal,
+  type DuplicateFilterState,
+  activeFilterCount,
   PreferredFoldersModal,
   type PreferenceDraft,
   folderCovers,
@@ -201,7 +202,7 @@ export function DuplicatePhotosSection() {
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   // Work-on-these-folders filter. Client-side and unsaved: it narrows what the page
   // shows, exactly as the search box does, and never changes what a scan finds.
-  const [folderFilter, setFolderFilter] = useState<string[]>([]);
+
   const [filterOpen, setFilterOpen] = useState(false);
   // "Keep the copy in here." Saved on the server, because it changes which copy every
   // set proposes to keep — a decision, not a view.
@@ -219,10 +220,11 @@ export function DuplicatePhotosSection() {
   const [marks, setMarks] = useState<Record<string, Record<string, "keep" | "trash">>>({});
   const [deletingAll, setDeletingAll] = useState(false);
   // "" = every gallery library.
-  const [scopeId, setScopeId] = useState("");
-  const [search, setSearch] = useState("");
+  // Everything that narrows the page, in one place — see DuplicateFiltersModal.
+  const [filters, setFilters] = useState<DuplicateFilterState>({ scopeId: "", search: "", folders: [], tier: "all" });
+
   const [sort, setSort] = useState<DupSort>("size");
-  const [tier, setTier] = useState<DupTier>("all");
+
   const [perPage, setPerPage] = useState<DupPerPage>("10");
   const [page, setPage] = useState(1);
   const pollRef = useRef<number | null>(null);
@@ -281,7 +283,12 @@ export function DuplicatePhotosSection() {
   ];
   const scanLabel = payload.scanning ? "Scanning…" : starting ? "Starting…" : "Scan now";
 
+  const { scopeId, search, tier } = filters;
+  const folderFilter = filters.folders;
+
   const folderOptions = folderOptionsFrom(payload);
+  const activeFilters = activeFilterCount(filters, true);
+  const exactTotal = payload.groups.filter((group) => group.kind === "exact").length;
   const chosenFolders = folderOptions.filter((option) => folderFilter.includes(option.key));
   // A set is in scope when any copy of it sits in one of the chosen folders, or below
   // one — picking a folder means "and everything in it".
@@ -310,6 +317,11 @@ export function DuplicatePhotosSection() {
   const ordered = tier === "exact" ? visibleExact
     : tier === "near" ? visibleNear
     : [...visibleExact, ...visibleNear];
+  // What the bulk delete covers: identical sets that survived every filter. The
+  // near tier is excluded here as well as on the server, so the count in the
+  // dialog is the number of sets that will actually be touched.
+  const sweepable = ordered.filter((group) => group.kind === "exact");
+
   const pageSize = perPage === "all" ? Math.max(ordered.length, 1) : Number(perPage);
   const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize));
   // Clamped rather than corrected in state, so a shrinking list (a delete, a new
@@ -403,9 +415,15 @@ export function DuplicatePhotosSection() {
     setDeletingAll(true);
     setActionError("");
     try {
+      // Exactly the identical sets on screen — across every page, not just this
+      // one. A button that ignored the filters above it would be the one thing on
+      // the page doing something other than what it looks like.
       await api("/api/library/gallery/duplicates/resolve-all", {
         method: "POST",
-        body: JSON.stringify({ libraryId: scopeId || null })
+        body: JSON.stringify({
+          libraryId: scopeId || null,
+          groupIds: sweepable.map((group) => group.id)
+        })
       });
       setDeleteAllOpen(false);
       await load();
@@ -605,18 +623,6 @@ export function DuplicatePhotosSection() {
         icon={<Copy size={30} />}
         description="Find and manage duplicate photos to free up space."
       >
-        {payload.groups.length > 0 && (
-          <label className="search-field dup-search">
-            <Search size={17} aria-hidden="true" />
-            <span className="sr-only">Search duplicate photos by filename, path or library</span>
-            <input
-              type="search"
-              value={search}
-              placeholder="Search photos or filenames"
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-        )}
       </ControlSectionHead>
 
       {/* Totals for what's actually being compared: with a library chosen that's its
@@ -668,34 +674,22 @@ export function DuplicatePhotosSection() {
 
       {payload.groups.length > 0 && (
         <div className="dup-toolbar">
-          {/* Scope comes first: it's the thing everything else operates on — it picks
-              whose photos are compared with each other, and narrows what the next scan
-              reads. The three actions that follow are icon-only — this page already
-              shows a lot of small decisions, and their labels were the loudest thing
-              on it. */}
-          <LibraryMenu
-            value={scopeId}
-            options={scopeOptions}
-            icon={<Images size={19} aria-hidden="true" />}
-            label="Which photo library to compare and scan"
-            disabled={busy || payload.scanning}
-            onChange={setScopeId}
-          />
+          {/* One box for every way of narrowing the page — library, kind, folders,
+              search. They were four controls in three places and nothing said how
+              they combined; now the badge says how many are on, and the bulk delete
+              below acts on exactly what they leave. */}
+          <Button
+            variant="secondary"
+            compact
+            className={activeFilters > 0 ? "is-active" : ""}
+            disabled={busy}
+            onClick={() => { setActionError(""); setFilterOpen(true); }}
+          >
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            <span>{activeFilters > 0 ? `Filters (${activeFilters})` : "Filters"}</span>
+          </Button>
 
           <div className="dup-toolbar-controls">
-            {/* Which folders to work on, and which folder wins when copies are in
-                several — one narrows the page, the other changes what every set
-                proposes to keep, so they stay separate controls. */}
-            <Button
-              variant="icon"
-              className={folderFilter.length > 0 ? "is-active" : ""}
-              disabled={busy || folderOptions.length === 0}
-              onClick={() => { setActionError(""); setFilterOpen(true); }}
-              aria-label={folderFilter.length > 0 ? `Working on ${folderFilter.length} folders` : "Choose folders to work on"}
-              title={folderFilter.length > 0 ? `Working on ${folderFilter.length} folder${folderFilter.length === 1 ? "" : "s"}` : "Choose folders to work on"}
-            >
-              <FolderOpen size={18} aria-hidden="true" />
-            </Button>
             <Button
               variant="icon"
               className={payload.folderPreferences.length > 0 ? "is-active" : ""}
@@ -713,13 +707,7 @@ export function DuplicatePhotosSection() {
             >
               <FolderHeart size={18} aria-hidden="true" />
             </Button>
-            <SelectMenu
-              value={tier}
-              options={TIER_OPTIONS}
-              label="Which duplicates to show"
-              className="dup-tier-filter"
-              onChange={setTier}
-            />
+
             <SelectMenu
               value={perPage}
               options={PER_PAGE_OPTIONS}
@@ -749,7 +737,7 @@ export function DuplicatePhotosSection() {
                 always been identical-only (the server's query excludes the near tier
                 outright), but a lone trash icon over a list holding both reads as
                 though it might take the lot. */}
-            {exact.length > 0 && (
+            {sweepable.length > 0 && (
               <Button
                 variant="icon"
                 danger
@@ -989,10 +977,12 @@ export function DuplicatePhotosSection() {
       )}
 
       {filterOpen && (
-        <FolderFilterModal
+        <DuplicateFiltersModal
+          state={filters}
           options={folderOptions}
-          selected={folderFilter}
-          onChange={setFolderFilter}
+          libraries={payload.libraries}
+          withTier
+          onChange={setFilters}
           onClose={() => setFilterOpen(false)}
         />
       )}
@@ -1011,12 +1001,10 @@ export function DuplicatePhotosSection() {
 
       {deleteAllOpen && (
         <ConfirmDialog
-          title={
-            scopeName
-              ? `Delete the extra copies in ${exact.length} set${exact.length === 1 ? "" : "s"} in “${scopeName}”?`
-              : `Delete the extra copies in ${exact.length} set${exact.length === 1 ? "" : "s"}?`
-          }
-          confirmLabel={`Delete ${copies(exact.reduce((sum, group) => sum + group.members.length - 1, 0))}`}
+          title={activeFilters > 0
+            ? `Delete the extra copies in the ${sweepable.length} set${sweepable.length === 1 ? "" : "s"} you've filtered to?`
+            : `Delete the extra copies in ${sweepable.length} set${sweepable.length === 1 ? "" : "s"}?`}
+          confirmLabel={`Delete ${copies(sweepable.reduce((sum, group) => sum + group.members.length - 1, 0))}`}
           busyLabel="Deleting…"
           danger
           busy={deletingAll}
@@ -1030,24 +1018,27 @@ export function DuplicatePhotosSection() {
             “Keeping”, including any you chose yourself. Their tags, albums and tagged people are merged onto it first.
           </p>
           <p>
-            This frees about {formatBytes(exact.reduce((sum, group) => sum + group.reclaimableBytes, 0))}. Everything
+            This frees about {formatBytes(sweepable.reduce((sum, group) => sum + group.reclaimableBytes, 0))}. Everything
             removed goes to the Recycle Bin and can be restored until it's emptied. Near-identical sets are never
             touched by this button.
           </p>
+          {/* The sweep follows the filters exactly, so say what that leaves out —
+              the count above is the whole story, but only if you know it's a
+              filtered one. */}
+          {activeFilters > 0 && (
+            <p>
+              This covers only what your filters leave on screen: {sweepable.length} of the {exactTotal} identical
+              set{exactTotal === 1 ? "" : "s"} found. Clear the filters first if you meant all of them.
+            </p>
+          )}
           {/* The sweep stays inside the chosen library, so the copies a set has
               elsewhere survive it — which means a photo can still be duplicated
               across libraries afterwards. Better said than discovered. */}
           {scopeName && spanning > 0 && (
             <p>
               {spanning} of these sets also {spanning === 1 ? "has copies" : "have copies"} in other libraries. Those
-              are left exactly where they are — this only thins out “{scopeName}”. To compare across libraries, switch
-              the picker to “All libraries”.
-            </p>
-          )}
-          {needle && (
-            <p>
-              Your search is only narrowing what's on screen — this covers all {exact.length} identical
-              set{exact.length === 1 ? "" : "s"} {scopeName ? `in “${scopeName}”` : ""}, including the ones it's hiding.
+              are left exactly where they are — this only thins out “{scopeName}”. To compare across libraries, clear
+              the library filter.
             </p>
           )}
         </ConfirmDialog>
