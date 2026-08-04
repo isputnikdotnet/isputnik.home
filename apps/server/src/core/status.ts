@@ -506,7 +506,7 @@ export async function statusPlugin(app: FastifyInstance) {
           label: "Backups were being written where an update would lose them",
           changes: [
             "In Docker the server was writing backups to a folder inside the container image rather than the one you mapped for its data. They didn't appear on the host, and every container update — including this one — threw them away. Fixed: backups now go to /config/backups, which is the backups folder inside your mapped Config & Data share.",
-            "Anything still sitting in the old place is moved across the first time this version starts, so a backup you already had is not lost. Nothing is overwritten.",
+            "Backups already stranded in the old place cannot be saved by this update: updating replaces the container, and that is the moment they are discarded. If you have not updated yet and want to keep them, copy them out first with `docker cp isputnik:/app/data/backups/. /mnt/user/appdata/isputnik/backups/`. The server does move any it still finds on startup, which covers installs that are not containers.",
             "The Backup page has said where it writes all along; it now explains that in Docker that path is inside the container and points at the folder you mapped."
           ]
         },
