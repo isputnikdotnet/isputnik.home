@@ -678,12 +678,17 @@ export function rebuildContainedFolders(): ContainedFolderTotals {
 
 export interface ContainedFolder {
   id: string;
-  folder: FolderRef & { libraryName: string; name: string };
-  target: FolderRef & { libraryName: string; name: string };
+  /** The folder that can go — the same card shape an equal-contents member gets. */
+  folder: FolderDetail;
+  /** The folder that keeps its photos. */
+  target: FolderDetail;
   itemCount: number;
   bytes: number;
   /** Photos the target holds on top of the ones it covers. */
   extraCount: number;
+  /** The target is an ancestor of the folder — the copied-into-itself shape, where
+   *  the kept folder's own counts include the photos about to go. */
+  encloses: boolean;
   coverUrls: string[];
   linkCount: number;
 }
@@ -718,28 +723,69 @@ export function listContainedFolders(): ContainedFolder[] {
   }[];
 
   return rows.map((row) => {
-    const itemIds = folderItemIds({ libraryId: row.library_id, folderPath: row.folder_path });
+    const folder = folderDetail({ libraryId: row.library_id, folderPath: row.folder_path }, row.library_name);
+    const target = folderDetail(
+      { libraryId: row.target_library_id, folderPath: row.target_folder_path },
+      row.target_library_name
+    );
+    const encloses = isInside(target, folder.folderPath, folder.libraryId);
     return {
       id: row.id,
-      folder: {
-        libraryId: row.library_id,
-        folderPath: row.folder_path,
-        libraryName: row.library_name,
-        name: folderName(row.folder_path)
-      },
-      target: {
-        libraryId: row.target_library_id,
-        folderPath: row.target_folder_path,
-        libraryName: row.target_library_name,
-        name: folderName(row.target_folder_path)
-      },
-      itemCount: row.item_count,
-      bytes: row.bytes,
-      extraCount: row.extra_count,
-      coverUrls: folderCovers(itemIds),
-      linkCount: linkCountFor(itemIds)
+      folder,
+      target,
+      // Every number is re-derived from the library as it stands, never read back from
+      // the columns the scan wrote. Photos leave — deleted here, deleted from the
+      // gallery, emptied out of the Recycle Bin — and a card mixing a stale count with
+      // a live one states two different facts about one folder.
+      itemCount: folder.itemCount,
+      bytes: folder.bytes,
+      // What the keeper holds beyond the copies it covers. When it ENCLOSES the doomed
+      // folder its own count includes those photos twice over: once inside, once as the
+      // counterparts outside.
+      extraCount: Math.max(target.itemCount - folder.itemCount * (encloses ? 2 : 1), 0),
+      encloses,
+      coverUrls: folder.coverUrls,
+      linkCount: folder.linkCount
     };
-  });
+  }).filter((row) =>
+    // A folder holding fewer than two photos is not a duplicate folder — that is the
+    // gate it had to pass to get here. Emptied since the scan, it can only mislead:
+    // the offer is impossible to carry out and every action on it fails.
+    row.folder.itemCount >= MIN_FOLDER_FILES && row.target.itemCount > 0);
+}
+
+// Drop every cached row that named a folder whose photos have just gone to the Recycle
+// Bin. Both lists are caches over one scan, and a removal invalidates more of them than
+// the row it was started from:
+//
+//   * a row offering the emptied folder is now impossible to carry out;
+//   * a row pointing AT it promises copies that are in the Recycle Bin — the dangerous
+//     one, since acting on it would bin the last copies of those photos;
+//   * an equal-contents set holding it no longer holds identical folders.
+//
+// All three still refuse safely at confirm time, because every removal re-derives the
+// fingerprints first. This is about not OFFERING work that is certain to fail — the
+// state that put a dead folder on the page with a live-looking button.
+function forgetFolder(ref: FolderRef): void {
+  const prefix = ref.folderPath === "" ? "" : `${ref.folderPath.replace(/[\\%_]/g, "\\$&")}/`;
+  // The folder itself or anything below it. A library root ("") covers everything.
+  const covers = (column: string) => `(? = '' OR ${column} = ? OR ${column} LIKE ? ESCAPE '\\')`;
+  const args = [ref.folderPath, ref.folderPath, `${prefix}%`];
+
+  db.prepare(`
+    DELETE FROM gallery_duplicate_contained_folders
+    WHERE (library_id = ? AND ${covers("folder_path")})
+       OR (target_library_id = ? AND ${covers("target_folder_path")})
+  `).run(ref.libraryId, ...args, ref.libraryId, ...args);
+
+  // Whole groups, not single members: the members cascade, and a set is only a set
+  // while every folder in it holds the same photos.
+  db.prepare(`
+    DELETE FROM gallery_duplicate_folder_groups WHERE id IN (
+      SELECT group_id FROM gallery_duplicate_folder_members
+      WHERE library_id = ? AND ${covers("folder_path")}
+    )
+  `).run(ref.libraryId, ...args);
 }
 
 export function ignoreContainedFolder(id: string): boolean {
@@ -765,6 +811,21 @@ export interface ContainedResolution {
   failed: { itemId: string; error: string }[];
 }
 
+/** Why a removal was refused. Three different things go wrong here and they call for
+ *  three different answers — reporting "the copies are gone" for a folder that is
+ *  simply already empty sends someone looking for a problem that isn't there. */
+export type ContainedRefusal =
+  /** No such row: already resolved, or dismissed in another tab. */
+  | "missing"
+  /** The folder holds no photos any more, so there is nothing left to remove. */
+  | "empty"
+  /** Coverage no longer holds — at least one photo here has no copy over there. */
+  | "uncovered";
+
+export type ContainedOutcome =
+  | { ok: true; resolution: ContainedResolution }
+  | { ok: false; refused: ContainedRefusal };
+
 // Remove a folder whose every photo lives elsewhere too.
 //
 // Containment is re-derived from the database first, exactly as the equal-contents
@@ -773,19 +834,29 @@ export interface ContainedResolution {
 // the covering folder — preferring the file at the same relative path, and otherwise
 // any copy with the same digest, which is equally valid because the bytes are identical
 // (so tagged faces still land where they belong).
-export function resolveContainedFolder(id: string, userId: string): ContainedResolution | null {
+export function resolveContainedFolder(id: string, userId: string): ContainedOutcome {
   const row = db.prepare(
     "SELECT library_id, folder_path, target_library_id, target_folder_path FROM gallery_duplicate_contained_folders WHERE id = ?"
   ).get(id) as { library_id: string; folder_path: string; target_library_id: string; target_folder_path: string } | undefined;
-  if (!row) return null;
+  if (!row) return { ok: false, refused: "missing" };
 
   const folder: FolderRef = { libraryId: row.library_id, folderPath: row.folder_path };
   const target: FolderRef = { libraryId: row.target_library_id, folderPath: row.target_folder_path };
   const print = fingerprintOf(folder);
-  if (!print) return null;
+  // No fingerprint means the folder can't be compared at all — almost always because
+  // its photos have already gone (deleted here, deleted from the gallery, or emptied
+  // out of the Recycle Bin) and the row outlived them. Say that, and drop the row: it
+  // describes a folder that no longer exists as far as the library is concerned.
+  if (!print) {
+    if (folderItemIds(folder).length === 0) {
+      db.prepare("DELETE FROM gallery_duplicate_contained_folders WHERE id = ?").run(id);
+      return { ok: false, refused: "empty" };
+    }
+    return { ok: false, refused: "uncovered" };
+  }
 
   const stillCovered = containersOf(print).some((candidate) => refKey(candidate) === refKey(target));
-  if (!stillCovered) return null;
+  if (!stillCovered) return { ok: false, refused: "uncovered" };
 
   // Counterparts in the covering folder, by digest, with the same-relative-path copy
   // preferred so the obvious pairing wins when there is one.
@@ -841,6 +912,10 @@ export function resolveContainedFolder(id: string, userId: string): ContainedRes
   }
 
   db.prepare("DELETE FROM gallery_duplicate_contained_folders WHERE id = ?").run(id);
+  // Cache invalidation follows the ACTION, not its tally — exactly as the row above is
+  // dropped whether or not every photo made it to the bin. What these rows describe has
+  // changed either way, and the next rebuild re-derives whatever is still true.
+  forgetFolder(folder);
 
   if (deletedItemIds.length > 0) {
     logActivity({
@@ -853,16 +928,19 @@ export function resolveContainedFolder(id: string, userId: string): ContainedRes
     });
   }
 
-  return { removed: folder, keptIn: target, deletedItemIds, failed };
+  return { ok: true, resolution: { removed: folder, keptIn: target, deletedItemIds, failed } };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
 //  Reading groups
 // ────────────────────────────────────────────────────────────────────────────
 
-export interface DuplicateFolderMember extends FolderRef {
+/** Everything a folder card shows about one folder. Both folder answers render the
+ *  same card, so both sides of a stored-elsewhere row carry this too — the two pages
+ *  differ in what you may DO with a folder, not in what is known about it. */
+export interface FolderDetail extends FolderRef {
   libraryName: string;
-  /** Just the folder's own name — what tells two members apart at a glance. */
+  /** Just the folder's own name — what tells two folders apart at a glance. */
   name: string;
   itemCount: number;
   bytes: number;
@@ -871,6 +949,9 @@ export interface DuplicateFolderMember extends FolderRef {
   coverUrls: string[];
   /** When its oldest photo was catalogued — how a person dates a folder. */
   addedAt: string | null;
+}
+
+export interface DuplicateFolderMember extends FolderDetail {
   isKeeper: boolean;
 }
 
@@ -908,6 +989,23 @@ function folderAddedAt(itemIds: string[]): string | null {
     if (row.at && (!oldest || row.at < oldest)) oldest = row.at;
   }
   return oldest;
+}
+
+// One folder, as a card sees it. Four queries a folder — affordable because both
+// lists are short by construction, and the alternative is a page that shows a folder
+// without saying when it arrived or how big it is.
+function folderDetail(ref: FolderRef, libraryName: string): FolderDetail {
+  const itemIds = folderItemIds(ref);
+  return {
+    ...ref,
+    libraryName,
+    name: folderName(ref.folderPath),
+    itemCount: itemIds.length,
+    bytes: itemIds.length === 0 ? 0 : sumBytes(itemIds),
+    linkCount: linkCountFor(itemIds),
+    coverUrls: folderCovers(itemIds),
+    addedAt: folderAddedAt(itemIds)
+  };
 }
 
 const COVER_LIMIT = 4;
@@ -948,22 +1046,14 @@ export function listDuplicateFolderGroups(): DuplicateFolderGroup[] {
 
   return groups.map((group) => {
     const rows = byGroup.get(group.id) ?? [];
-    const members = rows.map((row) => {
-      const ref = { libraryId: row.library_id, folderPath: row.folder_path };
-      const itemIds = folderItemIds(ref);
-      const bytes = itemIds.length === 0 ? 0 : sumBytes(itemIds);
-      return {
-        ...ref,
-        libraryName: row.library_name,
-        name: folderName(row.folder_path),
-        itemCount: itemIds.length,
-        bytes,
-        linkCount: linkCountFor(itemIds),
-        coverUrls: folderCovers(itemIds),
-        addedAt: folderAddedAt(itemIds),
-        isKeeper: row.library_id === group.keeper_library_id && row.folder_path === group.keeper_folder_path
-      };
-    }).sort((a, b) => Number(b.isKeeper) - Number(a.isKeeper)
+    const members = rows.map((row) => ({
+      ...folderDetail({ libraryId: row.library_id, folderPath: row.folder_path }, row.library_name),
+      isKeeper: row.library_id === group.keeper_library_id && row.folder_path === group.keeper_folder_path
+    // A member emptied since the scan holds nothing to keep or delete. Dropping it
+    // here is what leaves a one-folder set to be filtered out below, rather than
+    // offering a set whose second folder has no photos in it.
+    })).filter((member) => member.itemCount > 0)
+      .sort((a, b) => Number(b.isKeeper) - Number(a.isKeeper)
       || a.libraryName.localeCompare(b.libraryName)
       || a.folderPath.localeCompare(b.folderPath));
 
@@ -1138,6 +1228,11 @@ export function resolveDuplicateFolderGroup(
     db.prepare(`DELETE FROM gallery_duplicate_folder_members WHERE group_id = ? AND (${list})`)
       .run(groupId, ...doomed.flatMap((ref) => [ref.libraryId, ref.folderPath]));
   }
+
+  // These folders are empty now, so every other row that named them is stale — most of
+  // all a stored-elsewhere row pointing at one, which would offer to bin the last copy
+  // of a photo. Runs after the group is trimmed, so it only removes what this set left.
+  for (const ref of deletedFolders) forgetFolder(ref);
 
   if (deletedItemIds.length > 0) {
     logActivity({

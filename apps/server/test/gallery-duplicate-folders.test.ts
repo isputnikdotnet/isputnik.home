@@ -300,7 +300,13 @@ describe("contained folders", () => {
 
     expect(rebuildContainedFolders().folders).toBe(1);
     expect(contained()).toEqual(["2017-12-10/2017-12-10 ⊂ 2017-12-10"]);
-    expect(listContainedFolders()[0].extraCount).toBe(0);
+    const row = listContainedFolders()[0];
+    expect(row.extraCount).toBe(0);
+    // The card says the kept folder ENCLOSES the one going, because its own count (4)
+    // includes the two about to leave and would otherwise look wrong afterwards.
+    expect(row.encloses).toBe(true);
+    expect(row.target.itemCount).toBe(4);
+    expect(row.folder.itemCount).toBe(2);
   });
 
   it("finds a folder whose photos are a subset of a bigger one", () => {
@@ -312,7 +318,11 @@ describe("contained folders", () => {
     rebuildContainedFolders();
     // Trip ⊂ Archive/trip, which holds one photo more.
     expect(contained()).toEqual(["Trip ⊂ Archive/trip"]);
-    expect(listContainedFolders()[0].extraCount).toBe(1);
+    const row = listContainedFolders()[0];
+    expect(row.extraCount).toBe(1);
+    // Two folders side by side: nothing to explain away, so no enclosure note.
+    expect(row.encloses).toBe(false);
+    expect(row.target.itemCount).toBe(3);
   });
 
   it("says nothing about a folder holding one photo that exists nowhere else", () => {
@@ -420,7 +430,9 @@ describe("contained folders", () => {
     db.prepare("INSERT INTO tags (id, key, display_name) VALUES ('t1', 'trips', 'Trips')").run();
     db.prepare("INSERT INTO taggables (tag_id, entity_type, entity_id) VALUES ('t1', 'library_item', 'c1')").run();
 
-    const result = resolveContainedFolder(listContainedFolders()[0].id, "u1");
+    const outcome = resolveContainedFolder(listContainedFolders()[0].id, "u1");
+    expect(outcome.ok).toBe(true);
+    const result = outcome.ok ? outcome.resolution : null;
     expect(result?.removed.folderPath).toBe("Trip/Trip");
     expect(result?.keptIn.folderPath).toBe("Trip");
     // c1's tag went to p1 — the copy at the same relative path.
@@ -439,7 +451,70 @@ describe("contained folders", () => {
     const row = listContainedFolders()[0];
 
     db.prepare("UPDATE gallery_details SET content_hash = 'changed' WHERE item_id = 'p2'").run();
-    expect(resolveContainedFolder(row.id, "u1")).toBeNull();
+    expect(resolveContainedFolder(row.id, "u1")).toEqual({ ok: false, refused: "uncovered" });
+  });
+
+  // ── Rows that outlived their folders ──────────────────────────────────────
+  //
+  // Both lists are caches over one scan, and photos keep leaving after it: deleted
+  // here, deleted from the gallery, emptied out of the Recycle Bin. A row naming a
+  // folder that is empty now can only mislead — it advertises photos and bytes that
+  // aren't there, and every action on it fails.
+
+  it("drops a row whose folder has been emptied since the scan", () => {
+    asset("p1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("p2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("c1", "Trip/Trip/one.jpg", { hash: "pic-1" });
+    asset("c2", "Trip/Trip/two.jpg", { hash: "pic-2" });
+    rebuildContainedFolders();
+    expect(contained()).toEqual(["Trip/Trip ⊂ Trip"]);
+
+    // The photos in the doomed folder go to the Recycle Bin by some other route.
+    db.prepare("UPDATE library_items SET deleted_at = '2026-01-01T00:00:00.000Z' WHERE id IN ('c1','c2')").run();
+    expect(contained()).toEqual([]);
+  });
+
+  it("says the folder is empty rather than blaming the copies", () => {
+    asset("p1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("p2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("c1", "Trip/Trip/one.jpg", { hash: "pic-1" });
+    asset("c2", "Trip/Trip/two.jpg", { hash: "pic-2" });
+    rebuildContainedFolders();
+    const id = listContainedFolders()[0].id;
+
+    db.prepare("DELETE FROM library_items WHERE id IN ('c1','c2')").run();
+    // "Some photos no longer have a copy" would send someone looking for lost photos.
+    expect(resolveContainedFolder(id, "u1")).toEqual({ ok: false, refused: "empty" });
+    // …and the row it could never act on is gone.
+    expect(db.prepare("SELECT COUNT(*) AS n FROM gallery_duplicate_contained_folders").get()).toEqual({ n: 0 });
+  });
+
+  it("forgets a row pointing AT a folder whose photos have just gone", () => {
+    // Keepsafe and Mirror are an equal-contents pair. Album holds the same two photos
+    // in a layout of its own, so it matches neither and is reported as covered by one
+    // of them. Clearing the pair empties whichever folder Album was pointed at.
+    asset("k1", "Keepsafe/one.jpg", { hash: "pic-1" });
+    asset("k2", "Keepsafe/two.jpg", { hash: "pic-2" });
+    asset("m1", "Mirror/one.jpg", { hash: "pic-1" });
+    asset("m2", "Mirror/two.jpg", { hash: "pic-2" });
+    asset("a1", "Album/a/one.jpg", { hash: "pic-1" });
+    asset("a2", "Album/b/two.jpg", { hash: "pic-2" });
+
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+    const row = listContainedFolders().find((entry) => entry.folder.folderPath === "Album");
+    expect(row).toBeDefined();
+    const covering = row!.target.folderPath;
+
+    // Empty the folder Album was told its photos were safe in.
+    const group = listDuplicateFolderGroups()[0];
+    const keeper = covering === "Keepsafe" ? "Mirror" : "Keepsafe";
+    setDuplicateFolderKeeper(group.id, { libraryId: "GAL", folderPath: keeper });
+    const done = resolveDuplicateFolderGroup(group.id, [{ libraryId: "GAL", folderPath: covering }], "u1");
+    expect(done?.deletedFolders).toEqual([{ libraryId: "GAL", folderPath: covering }]);
+
+    // The stale row is gone rather than left offering a deletion built on binned copies.
+    expect(listContainedFolders().map((entry) => entry.folder.folderPath)).not.toContain("Album");
   });
 });
 

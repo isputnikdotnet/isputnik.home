@@ -12,7 +12,8 @@ export type ControlSection =
   // Security
   | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // Maintenance
-  | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos" | "duplicatePhotos" | "duplicateFolders"
+  | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
+  | "duplicatePhotos" | "duplicateFolders" | "duplicateContainedFolders"
   // Settings
   | "appearance" | "email" | "readerAccess" | "about";
 
@@ -46,8 +47,12 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   scheduledJobs: "/control/maintenance/scheduled-jobs",
   recycleBin: "/control/maintenance/recycle-bin",
   missingPhotos: "/control/maintenance/missing-photos",
-  duplicatePhotos: "/control/maintenance/duplicate-photos",
-  duplicateFolders: "/control/maintenance/duplicate-folders",
+
+  // Three views of one scan, so three addresses under one destination rather than
+  // three peers. /control/utilities/duplicates lands on Photos — see CONTROL_ALIASES.
+  duplicatePhotos: "/control/utilities/duplicates/photos",
+  duplicateFolders: "/control/utilities/duplicates/folders",
+  duplicateContainedFolders: "/control/utilities/duplicates/stored-elsewhere",
 
   appearance: "/control/settings",
   email: "/control/settings/email",
@@ -120,9 +125,17 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/trash": "recycleBin",
   "/control/libraries/missing-photos": "missingPhotos",
   "/control/missing-photos": "missingPhotos",
+  // Duplicates moved out of Maintenance and became one destination with three
+  // views. Every address it has ever had still lands on the right one of them —
+  // the last of these is what the Utilities tab itself links to.
   "/control/libraries/duplicate-photos": "duplicatePhotos",
   "/control/duplicate-photos": "duplicatePhotos",
+  "/control/maintenance/duplicate-photos": "duplicatePhotos",
   "/control/duplicate-folders": "duplicateFolders",
+  "/control/maintenance/duplicate-folders": "duplicateFolders",
+  "/control/maintenance/folders-elsewhere": "duplicateContainedFolders",
+  "/control/utilities": "duplicatePhotos",
+  "/control/utilities/duplicates": "duplicatePhotos",
 
   // Config split into the Settings tabs; its old landing page was Appearance.
   "/control/config": "appearance",

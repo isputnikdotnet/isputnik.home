@@ -502,6 +502,24 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.19.0",
+          label: "Duplicates moves to Utilities, as one destination with three tabs",
+          changes: [
+            "The control panel has a seventh group, Utilities: tools that work on a library rather than settings that configure one. Duplicates is its first and only occupant.",
+            "The three duplicate pages have left Maintenance, where they sat as three peers among backups and scheduled jobs, and become three tabs of one destination — Photos, Folders, Stored elsewhere. They were always three views of a single scan, and the nav was the last place still pretending otherwise. Every address they have ever had still lands on the right tab.",
+            "That is the panel's first second row of tabs, and it is meant to stay rare: a tab gets its own row only where one destination genuinely has several views of the same thing.",
+            "\"Folders already stored elsewhere\" has left the bottom of the duplicate folders page and become its own tab beside it. It was a second list under however many cards the first one had, which is a poor place for a decision of its own; each tab now links to the other with its count.",
+            "Those folders are shown as the same card the duplicate-folder sets use: a strip of the pictures themselves, then the folder being kept and the folder that goes side by side — green and red — each with its path, when it was added, its size, and the tags and links it carries. \"Delete this\" and \"Keep this\" sit on the cards, as they do next door.",
+            "Which folder is kept is deliberately NOT a choice on that tab, and the page says why: coverage runs one way, so swapping the two would delete the photos that exist only in the folder being kept.",
+            "Where the kept folder is the one holding the other inside it, the card says so and says how many photos it is left with — its own count includes what is about to go, which otherwise looks like the number dropped for no reason.",
+            "The tab has the sorting, paging, search, filters and rebuild the other folder page has.",
+            "Both folder lists could go on offering a folder whose photos had already gone — deleted here, deleted from the gallery, or emptied out of the Recycle Bin. The card advertised photos and megabytes that weren't there, and every button on it failed. Every number on both pages is now read from the library as it stands rather than from what the scan recorded, and a folder left holding nothing drops off the list on sight.",
+            "Deleting a folder now also clears the other results that named it — above all an offer to remove some further folder \"because its photos are safe in here\", which after the deletion would have been an offer to bin the last copies.",
+            "A refused deletion says which of the three things went wrong instead of always blaming the copies. A folder that is simply empty now says so, and no longer sends you looking for photos that were never lost.",
+            "An error from a confirmation dialog is shown in the dialog only, not there and on the page behind it at once."
+          ]
+        },
+        {
           version: "2.18.0",
           label: "Duplicate folders, rebuilt as cards",
           changes: [
