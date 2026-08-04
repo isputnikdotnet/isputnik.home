@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.19.1",
+          label: "\"Library root\" said two different things, and neither clearly",
+          changes: [
+            "A duplicate copy that sits in no folder at all — directly in the library's own folder — said it was in the \"Library root\". That is the name of a place, so it sent people looking for one; open a library that files everything into dated folders and its top folder holds no photos whatsoever, which makes the label look like a lie. Such a copy now reads \"Top level\", and the details panel names the library it is the top level of.",
+            "The same words meant something else again in the folder list inside the filter box, where the row with no folder name is not the loose photos at the top but the WHOLE library — every folder in that list covers what is below it, and that one is above all of them. It now reads \"Everywhere in <library>\", which is what marking it Keep here or Clear out has always done.",
+            "Folder cards on the Folders and Stored elsewhere tabs still say \"Library root\", because there the subject really is a folder and that folder really is the library's top one."
+          ]
+        },
+        {
           version: "2.19.0",
           label: "Duplicates moves to Utilities, as one destination with three tabs",
           changes: [

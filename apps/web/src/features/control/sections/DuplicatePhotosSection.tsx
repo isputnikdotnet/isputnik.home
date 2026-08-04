@@ -30,7 +30,9 @@ import {
   folderKey,
   folderOf,
   folderOptionsFrom,
-  normalisePayload
+  normalisePayload,
+  TOP_LEVEL,
+  TOP_LEVEL_HINT
 } from "./duplicate-shared";
 
 // A set as this page shows it: identical to the server's when every library is in
@@ -81,9 +83,14 @@ function fileName(member: DuplicateMember): string {
 
 // Just the folder the copy sits in, without its ancestors — that's what tells two
 // copies apart at a glance. The full path stays in the tooltip and the details.
+//
+// A copy in no folder at all used to read "Library root", which named a place and
+// so sent people looking for one — into whichever library's top folder they happened
+// to open, which in a library that files everything into subfolders holds no photos
+// at all. This is the ABSENCE of a folder, so say that instead.
 function folderName(member: DuplicateMember): string {
   const folder = folderOf(member);
-  return folder ? folder.split("/").pop() || folder : "Library root";
+  return folder ? folder.split("/").pop() || folder : TOP_LEVEL;
 }
 
 // Deep link into the gallery's Folders view, scoped to the library this copy lives
@@ -581,7 +588,7 @@ export function DuplicatePhotosSection() {
                     <span>{member.libraryName}</span>
                   </span>
                 )}
-                <span className="dup-copy-where" title={folderOf(member) || "Library root"}>
+                <span className="dup-copy-where" title={folderOf(member) || TOP_LEVEL_HINT}>
                   <Folder size={11} aria-hidden="true" />
                   <span>{folderName(member)}</span>
                 </span>
@@ -846,10 +853,12 @@ export function DuplicatePhotosSection() {
                 target="_blank"
                 rel="noreferrer"
                 className="dup-info-folder"
-                title="Open this folder in the gallery, in a new tab"
+                title={folderOf(infoTarget.member)
+                  ? "Open this folder in the gallery, in a new tab"
+                  : `${TOP_LEVEL_HINT}. Opens ${infoTarget.member.libraryName} in the gallery, in a new tab`}
               >
                 <FolderOpen size={14} aria-hidden="true" />
-                <span>{folderOf(infoTarget.member) || "Library root"}</span>
+                <span>{folderOf(infoTarget.member) || `${TOP_LEVEL} of ${infoTarget.member.libraryName}`}</span>
                 <ExternalLink size={13} aria-hidden="true" />
               </a>
             </dd>

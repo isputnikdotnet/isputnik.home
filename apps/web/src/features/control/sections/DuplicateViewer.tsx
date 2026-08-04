@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Columns2, ExternalLink, Folder, ImageOff, Im
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { formatBytes } from "../../../shared/utils";
+import { TOP_LEVEL, TOP_LEVEL_HINT } from "./duplicate-shared";
 
 // Full-size look at the copies in one duplicate set, so the decision can be made on
 // the pictures rather than on filenames and byte counts. Two modes: one copy at a
@@ -38,9 +39,10 @@ function folderOf(member: ViewerMember): string {
 }
 
 // Just the folder itself, not its ancestors; the full path is on the tooltip.
+// A copy in no folder reads "Top level", not "Library root" — see TOP_LEVEL.
 function folderName(member: ViewerMember): string {
   const folder = folderOf(member);
-  return folder ? folder.split("/").pop() || folder : "Library root";
+  return folder ? folder.split("/").pop() || folder : TOP_LEVEL;
 }
 
 function Pane({
@@ -78,7 +80,7 @@ function Pane({
           <Images size={12} aria-hidden="true" />
           <span>{member.libraryName}</span>
         </span>
-        <span className="dup-view-where" title={folderOf(member) || "Library root"}>
+        <span className="dup-view-where" title={folderOf(member) || TOP_LEVEL_HINT}>
           <Folder size={12} aria-hidden="true" />
           <span>{folderName(member)}</span>
         </span>

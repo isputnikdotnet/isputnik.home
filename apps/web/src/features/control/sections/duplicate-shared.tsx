@@ -157,6 +157,17 @@ export const folderKey = (member: { libraryId: string; folderPath: string }): st
 export const folderPathLabel = (member: { folderPath: string }): string =>
   member.folderPath || "Library root";
 
+// A photo can sit in no folder at all — directly in the library's own folder. That
+// used to read "Library root", which is the name of a PLACE, so people went looking
+// for it; open a library that files everything into dated subfolders and its top
+// folder holds no photos whatsoever, and the label looks like a lie. It is the
+// absence of a folder, and these say so.
+//
+// Not to be confused with folderPathLabel's "Library root" above, which is used
+// where a FOLDER is the subject and the library's top folder really is the answer.
+export const TOP_LEVEL = "Top level";
+export const TOP_LEVEL_HINT = "Top level — directly in the library's own folder, not in any subfolder";
+
 // The folder holding a copy, relative to its library. "" is the library root.
 export function folderOf(member: DuplicateMember): string {
   const cut = member.path.lastIndexOf("/");
@@ -762,7 +773,7 @@ export function DuplicateFiltersModal({
                     <input
                       type="checkbox"
                       id={`work-${option.key}`}
-                      aria-label={`Work on ${option.folderPath || "the library root"}`}
+                      aria-label={`Work on ${option.folderPath || `every folder in ${option.libraryName}`}`}
                       checked={state.folders.includes(option.key)}
                       onChange={(event) => set({
                         folders: event.target.checked
@@ -770,13 +781,19 @@ export function DuplicateFiltersModal({
                           : state.folders.filter((key) => key !== option.key)
                       })}
                     />
+                    {/* An empty path here is NOT "the photos loose at the top" — every
+                        folder covers what is below it, and this one is below the whole
+                        library. Naming it after a folder invited people to go and look
+                        at that folder, which is the wrong mental model entirely: keep
+                        or clear on this row is an instruction about the library. */}
                     <label className="dup-folder-choice-body" htmlFor={`work-${option.key}`}>
-                      <strong>{option.folderPath || "Library root"}</strong>
+                      <strong>{option.folderPath || `Everywhere in ${option.libraryName}`}</strong>
                       <span className="datagrid-muted">
-                        {option.libraryName} · {option.setCount} set{option.setCount === 1 ? "" : "s"}
+                        {option.folderPath ? `${option.libraryName} · ` : ""}
+                        {option.setCount} set{option.setCount === 1 ? "" : "s"}
                       </span>
                     </label>
-                    <span className="dup-mode-group" role="radiogroup" aria-label={`When copies are in several places, ${option.folderPath || "the library root"}`}>
+                    <span className="dup-mode-group" role="radiogroup" aria-label={`When copies are in several places, ${option.folderPath || `everywhere in ${option.libraryName}`}`}>
                       {MODES.map((mode) => (
                         <label className={`dup-mode${(preferences[option.key] ?? "") === mode.value ? " is-on" : ""}`} key={mode.label} title={mode.hint}>
                           <input
