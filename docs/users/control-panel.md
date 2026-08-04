@@ -431,6 +431,12 @@ Two controls in the bar work in folders rather than in sets, and both list only 
 something duplicated was actually found in. They are the same on **Stored elsewhere**,
 and a saved instruction applies to both tabs.
 
+One row in that list is **Everywhere in *library*** rather than a folder name. It is
+the whole library, not the photos sitting loose at its top — every folder covers what
+is below it, and that one is above all of them. Marking it *Keep here* is how you say
+"prefer this library", and you can still mark a folder inside it *Clear out*, because
+the most specific instruction wins.
+
 - **Choose folders to work on** narrows the page to sets with a copy in the folders you
   pick, exactly as the search box narrows it. It changes nothing and is forgotten when
   you leave.
