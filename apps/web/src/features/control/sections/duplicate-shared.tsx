@@ -363,3 +363,153 @@ export function PreferredFoldersModal({
     </Modal>
   );
 }
+
+// ── One box for every way of narrowing the page ─────────────────────────────
+//
+// Library, tier, folders and the search term were four controls in three places, and
+// nothing said how they combined. They are one dialog now, in the order you'd reason
+// in — which library, which kind, which folders, then the free-text sieve — with a
+// count on the button so the page says it is narrowed even when the box is shut.
+//
+// This matters beyond tidiness: the bulk delete acts on exactly what these leave on
+// screen, so "what am I filtered to?" and "what will that button do?" have to be the
+// same question with one visible answer.
+export interface DuplicateFilterState {
+  scopeId: string;
+  search: string;
+  folders: string[];
+  tier: DuplicateTier;
+}
+
+export type DuplicateTier = "all" | "exact" | "near";
+
+const TIER_CHOICES: { value: DuplicateTier; label: string; hint: string }[] = [
+  { value: "all", label: "All duplicates", hint: "Identical files and near-identical alike" },
+  { value: "exact", label: "Identical files only", hint: "Byte-for-byte matches — nothing to compare" },
+  { value: "near", label: "Near-identical only", hint: "Same picture, different file — worth a look first" }
+];
+
+/** How many of the four are doing something, for the button's badge. */
+export function activeFilterCount(state: DuplicateFilterState, withTier: boolean): number {
+  return (state.scopeId ? 1 : 0)
+    + (state.search.trim() ? 1 : 0)
+    + (state.folders.length > 0 ? 1 : 0)
+    + (withTier && state.tier !== "all" ? 1 : 0);
+}
+
+export function DuplicateFiltersModal({
+  state,
+  options,
+  libraries,
+  withTier,
+  onChange,
+  onClose
+}: {
+  state: DuplicateFilterState;
+  options: FolderOption[];
+  libraries: DuplicateLibraryOption[];
+  /** The photo page has two tiers to choose between; the folders page has none. */
+  withTier: boolean;
+  onChange: (next: DuplicateFilterState) => void;
+  onClose: () => void;
+}) {
+  const set = (patch: Partial<DuplicateFilterState>) => onChange({ ...state, ...patch });
+  const active = activeFilterCount(state, withTier);
+
+  return (
+    <Modal title="Narrow what's shown" onClose={onClose}>
+      <div className="dup-filter-form">
+        <label className="dup-filter-field">
+          <span className="dup-filter-label">Library</span>
+          <select value={state.scopeId} onChange={(event) => set({ scopeId: event.target.value })}>
+            <option value="">All libraries</option>
+            {libraries.map((library) => (
+              <option key={library.id} value={library.id}>{library.name}</option>
+            ))}
+          </select>
+          <span className="dup-filter-hint">
+            Choosing one compares its photos with each other; copies in other libraries drop out.
+          </span>
+        </label>
+
+        {withTier && (
+          <div className="dup-filter-field">
+            <span className="dup-filter-label">Which duplicates</span>
+            <div className="dup-tier-choices" role="radiogroup" aria-label="Which duplicates to show">
+              {TIER_CHOICES.map((choice) => (
+                <label className={`dup-tier-choice${state.tier === choice.value ? " is-on" : ""}`} key={choice.value}>
+                  <input
+                    type="radio"
+                    name="dup-tier"
+                    checked={state.tier === choice.value}
+                    onChange={() => set({ tier: choice.value })}
+                  />
+                  <span>
+                    <strong>{choice.label}</strong>
+                    <span className="datagrid-muted">{choice.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <label className="dup-filter-field">
+          <span className="dup-filter-label">Search</span>
+          <input
+            type="search"
+            value={state.search}
+            placeholder="Filename, folder or library"
+            onChange={(event) => set({ search: event.target.value })}
+          />
+          <span className="dup-filter-hint">Keeps a whole set when any copy in it matches.</span>
+        </label>
+
+        <div className="dup-filter-field">
+          <span className="dup-filter-label">
+            Folders {state.folders.length > 0 ? `(${state.folders.length} chosen)` : ""}
+          </span>
+          <span className="dup-filter-hint">
+            Only folders something duplicated was found in. A folder covers everything below it.
+          </span>
+          {options.length > 0 ? (
+            <div className="dup-folder-picker">
+              {options.map((option) => (
+                <label className="dup-folder-choice" key={option.key}>
+                  <input
+                    type="checkbox"
+                    checked={state.folders.includes(option.key)}
+                    onChange={(event) => set({
+                      folders: event.target.checked
+                        ? [...state.folders, option.key]
+                        : state.folders.filter((key) => key !== option.key)
+                    })}
+                  />
+                  <span className="dup-folder-choice-body">
+                    <strong>{option.folderPath || "Library root"}</strong>
+                    <span className="datagrid-muted">
+                      {option.libraryName} · {option.setCount} set{option.setCount === 1 ? "" : "s"}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="datagrid-muted dup-filter-hint">Nothing found yet, so there are no folders to choose.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="modal-actions">
+        <Button
+          variant="text"
+          disabled={active === 0}
+          onClick={() => onChange({ scopeId: "", search: "", folders: [], tier: "all" })}
+        >
+          Clear all
+        </Button>
+        <Button variant="secondary" onClick={onClose}>Done</Button>
+      </div>
+    </Modal>
+  );
+}

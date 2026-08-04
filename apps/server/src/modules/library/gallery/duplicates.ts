@@ -1417,7 +1417,16 @@ function sweepGroupWithinLibrary(
 // admin page shows under the same scope — pick a library and the page compares its
 // photos against each other — so the button clears exactly what is on screen and
 // never reaches into a library you aren't looking at.
-export function resolveAllExactGroups(userId: string, libraryId?: string | null): BulkResolution {
+// `groupIds` limits the sweep to the sets the caller names — what the page has on
+// screen after its search, folder filter and tier. Without it the sweep covers every
+// identical set, which is what "delete all extras" used to mean unconditionally; the
+// admin page always passes the visible list now, so the button clears exactly what a
+// person can see. Ids that aren't identical sets are dropped rather than trusted.
+export function resolveAllExactGroups(
+  userId: string,
+  libraryId?: string | null,
+  groupIds?: string[] | null
+): BulkResolution {
   const scope = libraryId
     ? `AND (
          SELECT COUNT(*) FROM gallery_duplicate_members dm
@@ -1425,8 +1434,11 @@ export function resolveAllExactGroups(userId: string, libraryId?: string | null)
          WHERE dm.group_id = g.id AND li.library_id = ?
        ) > 1`
     : "";
+  const wanted = groupIds && groupIds.length > 0 ? new Set(groupIds) : null;
   const ids = (db.prepare(`SELECT g.id FROM gallery_duplicate_groups g WHERE g.kind = 'exact' ${scope} ORDER BY g.id`)
-    .all(...(libraryId ? [libraryId] : [])) as { id: string }[]).map((r) => r.id);
+    .all(...(libraryId ? [libraryId] : [])) as { id: string }[])
+    .map((r) => r.id)
+    .filter((id) => !wanted || wanted.has(id));
 
   const totals: BulkResolution = { groups: 0, deleted: 0, failed: 0, skipped: 0 };
   for (const id of ids) {

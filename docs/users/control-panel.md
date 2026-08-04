@@ -276,16 +276,21 @@ each only appear there.
 
 #### Working through the list
 
-Search matches a filename, folder or library name, and keeps a whole set if any
-copy in it matches. Sort by size to reclaim, number of copies, identical-first,
-filename or newest, and choose how many sets to show per page.
+**Filters** opens one box holding every way of narrowing the page, and the button
+says how many are on:
 
-**Which duplicates to show** narrows the list to one tier. *Identical files only* is
-the one to reach for when you want to clear space without inspecting anything: those
-sets are byte-for-byte matches, so there is nothing to compare, and it lines the page
-up exactly with **Delete all extras** — which has always refused to touch
-near-identical sets. *Near-identical only* is the opposite view, for when you do want
-to look at each one.
+- **Library** — compares that library's photos with each other; copies elsewhere
+  drop out of the comparison.
+- **Which duplicates** — identical files only, near-identical only, or both.
+  *Identical files only* is the one to reach for when you want to clear space
+  without inspecting anything: those sets are byte-for-byte matches.
+- **Search** — a filename, folder or library name; keeps a whole set when any copy
+  in it matches.
+- **Folders** — only folders something duplicated was found in. A folder covers
+  everything below it.
+
+These matter more than they look, because **the bulk delete acts on exactly what
+they leave on screen** — see below.
 
 Sets whose copies share *both* a filename and a byte size collapse to the copy
 being kept, behind a chevron — three thumbnails of the same picture with the same
@@ -342,13 +347,16 @@ you aren't looking at, in which case they move onto one of those copies and the
 dialog says so. The files still land in the Recycle Bin, so it's undoable until you
 empty it.
 
-**Delete extras in identical sets** works on every **identical** set at once, keeping one copy in
-each. It follows the library picker exactly as the list does: pick a library and it
-thins that library down to one copy per set, leaving copies in other libraries
-untouched — so a photo can still be duplicated *across* libraries afterwards, and
-the confirmation says how many sets that applies to. It ignores your marks and your
-search, and says how many sets it covers. Near-identical sets are never swept in
-bulk; they're a judgement call, one at a time.
+**Delete extras in identical sets** keeps one copy in each set and bins the rest,
+and it covers **exactly the sets your filters have left on screen** — every page of
+them, not just the one you're looking at. Filter to one folder and it clears that
+folder; clear the filters and it clears everything. The confirmation says how many
+sets that is, and out of how many were found, so a filtered sweep can't be mistaken
+for a total one.
+
+Near-identical sets are never included, whatever the filters say — they're a
+judgement call, one at a time. Your per-set Keep/Delete marks are ignored by this
+button; it keeps each set's own keeper, including any you chose by hand.
 
 Two things worth knowing. Nothing is deleted without you asking — a scan only ever
 reports. And if a photo has been edited on disk since the last library scan, it's

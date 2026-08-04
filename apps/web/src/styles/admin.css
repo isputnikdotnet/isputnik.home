@@ -1328,6 +1328,43 @@
 /* Keyboard focus has to be visible: the radio itself is off-screen. */
 .dup-mode:focus-within { outline: 2px solid var(--accent, #c8a24a); outline-offset: -2px; }
 
+/* ── The filters box ────────────────────────────────────────────────
+   Four ways of narrowing the page, stacked in the order you'd reason in. */
+.dup-filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dup-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.dup-filter-label { font-size: 0.82rem; font-weight: 600; }
+.dup-filter-hint { color: var(--muted); font-size: 0.74rem; line-height: 1.35; }
+.dup-filter-field select,
+.dup-filter-field input[type="search"] { width: 100%; }
+
+/* Stacked rather than segmented: each choice carries a line of explanation, and the
+   difference between the two tiers is the thing worth reading before deleting. */
+.dup-tier-choices { display: flex; flex-direction: column; gap: 4px; }
+.dup-tier-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+}
+.dup-tier-choice:hover { border-color: var(--accent, #c8a24a); }
+.dup-tier-choice.is-on { border-color: var(--accent, #c8a24a); box-shadow: inset 0 0 0 1px var(--accent, #c8a24a); }
+.dup-tier-choice input { margin-top: 3px; flex: 0 0 auto; }
+.dup-tier-choice > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dup-tier-choice strong { font-size: 0.82rem; }
+.dup-tier-choice .datagrid-muted { font-size: 0.74rem; }
+
 /* A toolbar control holding a filter or a saved preference, so it reads as "on"
    rather than as one more icon. */
 .dup-toolbar-controls .is-active {

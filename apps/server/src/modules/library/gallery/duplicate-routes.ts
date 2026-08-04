@@ -97,7 +97,13 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
   // page's picker does: only sets with two or more copies there are swept, and only
   // copies there are removed, so the button clears what's on screen and never reaches
   // into a library the admin isn't looking at.
-  const resolveAllSchema = z.object({ libraryId: z.string().min(1).max(64).nullish() });
+  // `groupIds` narrows the sweep to the sets the page is showing. The page always
+  // sends them, so the button clears what a person can actually see rather than
+  // everything a scan found; omitting them keeps the old whole-install behaviour.
+  const resolveAllSchema = z.object({
+    libraryId: z.string().min(1).max(64).nullish(),
+    groupIds: z.array(z.string().min(1).max(64)).max(5000).nullish()
+  });
   app.post("/api/library/gallery/duplicates/resolve-all", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(resolveAllSchema, request.body ?? {});
     if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
@@ -107,7 +113,7 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
       const library = db.prepare("SELECT id FROM libraries WHERE id = ? AND type = 'gallery'").get(libraryId);
       if (!library) { reply.code(404).send({ error: "No such photo library." }); return; }
     }
-    reply.send(resolveAllExactGroups(request.user!.id, libraryId));
+    reply.send(resolveAllExactGroups(request.user!.id, libraryId, parsed.data.groupIds ?? null));
   });
 
   const keeperSchema = z.object({ itemId: z.string().min(1).max(64) });
