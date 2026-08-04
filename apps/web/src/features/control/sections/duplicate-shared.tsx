@@ -6,6 +6,7 @@
 // are different cuts of one scan, so splitting it would mean two requests describing
 // the same state — and a page that could disagree with its neighbour about what the
 // last scan found.
+import { useState } from "react";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { Modal } from "../../../shared/Modal";
@@ -214,74 +215,6 @@ export function ExperimentalNotice() {
   );
 }
 
-function FolderChoiceList({
-  options,
-  selected,
-  disabled,
-  showCounts,
-  onToggle
-}: {
-  options: FolderOption[];
-  selected: string[];
-  disabled?: boolean;
-  showCounts?: boolean;
-  onToggle: (key: string, checked: boolean) => void;
-}) {
-  return (
-    <div className="dup-folder-picker">
-      {options.map((option) => (
-        <label className="dup-folder-choice" key={option.key}>
-          <input
-            type="checkbox"
-            checked={selected.includes(option.key)}
-            disabled={disabled}
-            onChange={(event) => onToggle(option.key, event.target.checked)}
-          />
-          <span className="dup-folder-choice-body">
-            <strong>{option.folderPath || "Library root"}</strong>
-            <span className="datagrid-muted">
-              {option.libraryName}
-              {showCounts ? ` · ${option.setCount} set${option.setCount === 1 ? "" : "s"}` : ""}
-            </span>
-          </span>
-        </label>
-      ))}
-    </div>
-  );
-}
-
-/** "Which folders to work on" — narrows the page, saves nothing, deletes nothing. */
-export function FolderFilterModal({
-  options,
-  selected,
-  onChange,
-  onClose
-}: {
-  options: FolderOption[];
-  selected: string[];
-  onChange: (next: string[]) => void;
-  onClose: () => void;
-}) {
-  return (
-    <Modal title="Which folders to work on" onClose={onClose}>
-      <p className="datagrid-muted dup-picker-note">
-        Only folders something duplicated was actually found in are listed. Choosing some narrows the page to sets
-        with a copy in them — a folder covers everything below it. Nothing is deleted or changed by this.
-      </p>
-      <FolderChoiceList
-        options={options}
-        selected={selected}
-        showCounts
-        onToggle={(key, checked) => onChange(checked ? [...selected, key] : selected.filter((k) => k !== key))}
-      />
-      <div className="modal-actions">
-        <Button variant="text" disabled={selected.length === 0} onClick={() => onChange([])}>Clear</Button>
-        <Button variant="secondary" onClick={onClose}>Close</Button>
-      </div>
-    </Modal>
-  );
-}
-
 /** How a folder is marked in the picker while it's being edited. */
 export type PreferenceDraft = Record<string, FolderPreferenceMode>;
 
@@ -413,91 +346,115 @@ export function DuplicateFiltersModal({
   onChange: (next: DuplicateFilterState) => void;
   onClose: () => void;
 }) {
+  // Two tabs rather than one long scroll: the folder list runs to as many rows as you
+  // have folders, and stacking it under the other three pushed them out of sight. The
+  // split is by kind of question — what to compare, then which folders — and each tab
+  // carries a count so a filter set on the other one can't be forgotten about.
+  const [tab, setTab] = useState<"what" | "folders">("what");
   const set = (patch: Partial<DuplicateFilterState>) => onChange({ ...state, ...patch });
   const active = activeFilterCount(state, withTier);
+  const whatCount = active - (state.folders.length > 0 ? 1 : 0);
 
   return (
     <Modal title="Narrow what's shown" onClose={onClose}>
-      <div className="dup-filter-form">
-        <label className="dup-filter-field">
-          <span className="dup-filter-label">Library</span>
-          <select value={state.scopeId} onChange={(event) => set({ scopeId: event.target.value })}>
-            <option value="">All libraries</option>
-            {libraries.map((library) => (
-              <option key={library.id} value={library.id}>{library.name}</option>
-            ))}
-          </select>
-          <span className="dup-filter-hint">
-            Choosing one compares its photos with each other; copies in other libraries drop out.
-          </span>
-        </label>
+      <div className="modal-tabs">
+        <button
+          type="button"
+          className={`modal-tab${tab === "what" ? " active" : ""}`}
+          onClick={() => setTab("what")}
+        >
+          What to show{whatCount > 0 ? ` (${whatCount})` : ""}
+        </button>
+        <button
+          type="button"
+          className={`modal-tab${tab === "folders" ? " active" : ""}`}
+          onClick={() => setTab("folders")}
+        >
+          Folders{state.folders.length > 0 ? ` (${state.folders.length})` : ""}
+        </button>
+      </div>
 
-        {withTier && (
+      <div className="modal-tab-content dup-filter-form">
+        {tab === "what" ? (
+          <>
+            <label className="dup-filter-field">
+              <span className="dup-filter-label">Library</span>
+              <select value={state.scopeId} onChange={(event) => set({ scopeId: event.target.value })}>
+                <option value="">All libraries</option>
+                {libraries.map((library) => (
+                  <option key={library.id} value={library.id}>{library.name}</option>
+                ))}
+              </select>
+              <span className="dup-filter-hint">
+                Choosing one compares its photos with each other; copies in other libraries drop out.
+              </span>
+            </label>
+
+            {withTier && (
+              <div className="dup-filter-field">
+                <span className="dup-filter-label">Which duplicates</span>
+                <div className="dup-tier-choices" role="radiogroup" aria-label="Which duplicates to show">
+                  {TIER_CHOICES.map((choice) => (
+                    <label className={`dup-tier-choice${state.tier === choice.value ? " is-on" : ""}`} key={choice.value}>
+                      <input
+                        type="radio"
+                        name="dup-tier"
+                        checked={state.tier === choice.value}
+                        onChange={() => set({ tier: choice.value })}
+                      />
+                      <span>
+                        <strong>{choice.label}</strong>
+                        <span className="datagrid-muted">{choice.hint}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <label className="dup-filter-field">
+              <span className="dup-filter-label">Search</span>
+              <input
+                type="search"
+                value={state.search}
+                placeholder="Filename, folder or library"
+                onChange={(event) => set({ search: event.target.value })}
+              />
+              <span className="dup-filter-hint">Keeps a whole set when any copy in it matches.</span>
+            </label>
+          </>
+        ) : (
           <div className="dup-filter-field">
-            <span className="dup-filter-label">Which duplicates</span>
-            <div className="dup-tier-choices" role="radiogroup" aria-label="Which duplicates to show">
-              {TIER_CHOICES.map((choice) => (
-                <label className={`dup-tier-choice${state.tier === choice.value ? " is-on" : ""}`} key={choice.value}>
-                  <input
-                    type="radio"
-                    name="dup-tier"
-                    checked={state.tier === choice.value}
-                    onChange={() => set({ tier: choice.value })}
-                  />
-                  <span>
-                    <strong>{choice.label}</strong>
-                    <span className="datagrid-muted">{choice.hint}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
+            <span className="dup-filter-hint">
+              Only folders something duplicated was found in. A folder covers everything below it.
+            </span>
+            {options.length > 0 ? (
+              <div className="dup-folder-picker dup-folder-picker-tall">
+                {options.map((option) => (
+                  <label className="dup-folder-choice" key={option.key}>
+                    <input
+                      type="checkbox"
+                      checked={state.folders.includes(option.key)}
+                      onChange={(event) => set({
+                        folders: event.target.checked
+                          ? [...state.folders, option.key]
+                          : state.folders.filter((key) => key !== option.key)
+                      })}
+                    />
+                    <span className="dup-folder-choice-body">
+                      <strong>{option.folderPath || "Library root"}</strong>
+                      <span className="datagrid-muted">
+                        {option.libraryName} · {option.setCount} set{option.setCount === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="management-empty">Nothing found yet, so there are no folders to choose.</p>
+            )}
           </div>
         )}
-
-        <label className="dup-filter-field">
-          <span className="dup-filter-label">Search</span>
-          <input
-            type="search"
-            value={state.search}
-            placeholder="Filename, folder or library"
-            onChange={(event) => set({ search: event.target.value })}
-          />
-          <span className="dup-filter-hint">Keeps a whole set when any copy in it matches.</span>
-        </label>
-
-        <div className="dup-filter-field">
-          <span className="dup-filter-label">
-            Folders {state.folders.length > 0 ? `(${state.folders.length} chosen)` : ""}
-          </span>
-          <span className="dup-filter-hint">
-            Only folders something duplicated was found in. A folder covers everything below it.
-          </span>
-          {options.length > 0 ? (
-            <div className="dup-folder-picker">
-              {options.map((option) => (
-                <label className="dup-folder-choice" key={option.key}>
-                  <input
-                    type="checkbox"
-                    checked={state.folders.includes(option.key)}
-                    onChange={(event) => set({
-                      folders: event.target.checked
-                        ? [...state.folders, option.key]
-                        : state.folders.filter((key) => key !== option.key)
-                    })}
-                  />
-                  <span className="dup-folder-choice-body">
-                    <strong>{option.folderPath || "Library root"}</strong>
-                    <span className="datagrid-muted">
-                      {option.libraryName} · {option.setCount} set{option.setCount === 1 ? "" : "s"}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          ) : (
-            <p className="datagrid-muted dup-filter-hint">Nothing found yet, so there are no folders to choose.</p>
-          )}
-        </div>
       </div>
 
       <div className="modal-actions">
