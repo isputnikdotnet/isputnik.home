@@ -502,6 +502,20 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.17.2",
+          label: "The filter box is two tabs, not one long scroll",
+          changes: [
+            "Putting every filter in one box made it too tall: the folder list runs to as many rows as you have folders, and it pushed the library, kind and search fields out of sight. It is two tabs now — What to show, and Folders — each with a count, so a filter set on the tab you're not looking at can't be forgotten. The folder list gets the height it needs on its own tab."
+          ]
+        },
+        {
+          version: "2.17.1",
+          label: "Fixed the blank Duplicate photos page",
+          changes: [
+            "2.17.0 could leave the Duplicate photos page blank: rearranging its filters left one value being read a few lines before it existed. It compiled and built cleanly and then failed the moment the page drew itself. Fixed, and the same check run over the folders page, which was unaffected."
+          ]
+        },
+        {
           version: "2.17.0",
           label: "One filter box, and a bulk delete that obeys it",
           changes: [

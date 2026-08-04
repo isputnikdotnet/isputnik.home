@@ -276,8 +276,9 @@ each only appear there.
 
 #### Working through the list
 
-**Filters** opens one box holding every way of narrowing the page, and the button
-says how many are on:
+**Filters** opens one box holding every way of narrowing the page, in two tabs —
+*What to show* and *Folders* — each carrying a count, and the button itself says how
+many are on:
 
 - **Library** — compares that library's photos with each other; copies elsewhere
   drop out of the comparison.

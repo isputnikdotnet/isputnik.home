@@ -1342,6 +1342,9 @@
   min-width: 0;
 }
 .dup-filter-label { font-size: 0.82rem; font-weight: 600; }
+/* On its own tab the folder list is the only thing there, so it can have the height
+   the dialog allows rather than the slice it got when four fields shared one column. */
+.dup-folder-picker-tall { max-height: min(58vh, 460px); }
 .dup-filter-hint { color: var(--muted); font-size: 0.74rem; line-height: 1.35; }
 .dup-filter-field select,
 .dup-filter-field input[type="search"] { width: 100%; }
