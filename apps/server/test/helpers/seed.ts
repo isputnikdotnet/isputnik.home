@@ -34,6 +34,7 @@ export function resetDb(): void {
     "gallery_album_items", "gallery_albums",
     "gallery_duplicate_members", "gallery_duplicate_groups", "gallery_duplicate_ignores",
     "gallery_duplicate_folder_members", "gallery_duplicate_folder_groups", "gallery_duplicate_folder_ignores",
+    "gallery_duplicate_contained_folders", "gallery_duplicate_contained_ignores",
     "taggables", "tags", "collection_items", "collections", "work_items", "works",
     "family_tree_photos", "family_tree_event_photos", "family_tree_children", "family_tree_unions", "family_tree_persons",
     "family_tree_events", "family_tree_citations", "family_tree_sources",

@@ -515,6 +515,42 @@ CREATE TABLE IF NOT EXISTS gallery_duplicate_folder_members (
   PRIMARY KEY (group_id, library_id, folder_path)
 );
 
+-- Folders whose contents are wholly CONTAINED in another folder — every photo below
+-- them also sits somewhere else, so the folder can go and nothing is lost. Distinct
+-- from the equal-contents table above and deliberately one-directional: the row names
+-- the folder that can be removed and the folder that covers it.
+--
+-- The commonest shape by far is a folder copied into itself (sync clients do this),
+-- which the equal-contents test can never see: a parent's fingerprint includes its
+-- child's files, so it always holds strictly more.
+CREATE TABLE IF NOT EXISTS gallery_duplicate_contained_folders (
+  id                 TEXT PRIMARY KEY,
+  -- The folder that could be removed.
+  library_id         TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  folder_path        TEXT NOT NULL,
+  -- The folder that holds a copy of everything in it.
+  target_library_id  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  target_folder_path TEXT NOT NULL,
+  item_count         INTEGER NOT NULL,
+  bytes              INTEGER NOT NULL,
+  /* Photos the target holds beyond what the contained folder has — 0 means the two
+     hold the same pictures, arranged differently. */
+  extra_count        INTEGER NOT NULL DEFAULT 0,
+  created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  UNIQUE (library_id, folder_path)
+);
+
+-- "Leave this one alone." Ordered, unlike the equal-contents dismissals: dismissing
+-- "A is already inside B" says nothing about whether B is inside A.
+CREATE TABLE IF NOT EXISTS gallery_duplicate_contained_ignores (
+  library_id         TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  folder_path        TEXT NOT NULL,
+  target_library_id  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  target_folder_path TEXT NOT NULL,
+  created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (library_id, folder_path, target_library_id, target_folder_path)
+);
+
 -- "These two folders are not duplicates", as a pair, for the same reason the
 -- item-level dismissals are pairs: the decision has to survive a rebuild that
 -- regroups the set. The lexically smaller (library, path) is always side A.

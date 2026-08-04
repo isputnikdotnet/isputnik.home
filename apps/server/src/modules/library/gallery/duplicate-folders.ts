@@ -26,7 +26,10 @@ import crypto from "node:crypto";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { trashBook } from "../shared/trash.js";
-import { absorbDuplicateMetadata, COPY_MARKERS, DERIVED_FOLDERS } from "./duplicates.js";
+import {
+  absorbDuplicateMetadata, COPY_MARKERS, DERIVED_FOLDERS,
+  preferredFolders, isPreferredPath, type PreferredFolder
+} from "./duplicates.js";
 
 // A folder holding a single photo is a duplicate photo, not a duplicate folder — the
 // item tier says that better, and one-file folders would flood this list.
@@ -214,6 +217,7 @@ interface ScoredFolder extends FolderFingerprint {
   depth: number;
   copyMarker: boolean;
   derivedFolder: boolean;
+  preferred: boolean;
 }
 
 // Tags, albums, collections, saves, shares and tagged people on the photos below a
@@ -247,11 +251,12 @@ function linkCountFor(itemIds: string[]): number {
 // about a folder full of them.
 const COPY_FOLDER_NAMES = /^(backups?|copies|duplicates?)$|[-_ ]copy$|^copy of /i;
 
-function scoreFolder(print: FolderFingerprint): ScoredFolder {
+function scoreFolder(print: FolderFingerprint, preferred: PreferredFolder[]): ScoredFolder {
   const segments = print.folderPath === "" ? [] : print.folderPath.split("/");
   const name = segments[segments.length - 1] ?? "";
   return {
     ...print,
+    preferred: isPreferredPath(preferred, print.libraryId, print.folderPath),
     linkCount: linkCountFor(print.itemIds),
     depth: segments.length,
     // Any segment, not just the folder's own name: everything under "Backups/" is a
@@ -267,6 +272,7 @@ function scoreFolder(print: FolderFingerprint): ScoredFolder {
 // Ordered, not weighted — the same contract as the item tier: compare criterion by
 // criterion, first difference wins, and the winning criterion IS the reason shown.
 const FOLDER_CRITERIA: { label: string; value: (row: ScoredFolder) => number }[] = [
+  { label: "a folder you chose to keep", value: (r) => (r.preferred ? 1 : 0) },
   { label: "its photos carry tags, albums or people", value: (r) => r.linkCount },
   { label: "not named like a copy", value: (r) => (r.copyMarker ? 0 : 1) },
   { label: "not in a downloads or app folder", value: (r) => (r.derivedFolder ? 0 : 1) },
@@ -287,7 +293,8 @@ export interface FolderKeeperChoice {
 
 export function pickFolderKeeper(prints: FolderFingerprint[]): FolderKeeperChoice | null {
   if (prints.length === 0) return null;
-  const scored = prints.map(scoreFolder).sort((a, b) => {
+  const preferred = preferredFolders();
+  const scored = prints.map((print) => scoreFolder(print, preferred)).sort((a, b) => {
     for (const criterion of FOLDER_CRITERIA) {
       const diff = criterion.value(b) - criterion.value(a);
       if (diff !== 0) return diff;
@@ -451,6 +458,376 @@ export function rebuildDuplicateFolderGroups(): FolderGroupTotals {
   })();
 
   return { groups, extraFolders, reclaimableBytes };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Contained folders — everything in here is also somewhere else
+// ────────────────────────────────────────────────────────────────────────────
+//
+// The equal-contents test above cannot see a folder copied INTO ITSELF, which is the
+// commonest mess of all (sync clients and photo managers produce it constantly): a
+// parent's fingerprint counts its child's files too, so it always holds strictly more
+// and the two can never match. What matters there isn't equality but coverage — every
+// photo in the inner folder already sits in the outer one, so the inner folder can go.
+//
+// So this asks a different question: is every file below A also below B, by content?
+// Multiplicity is respected (a folder holding one picture twice needs two copies in
+// the target), and when B encloses A the comparison runs against B WITHOUT A's own
+// subtree — otherwise every folder would trivially "contain" its children.
+//
+// Only A must be fully hashed. B needs no such gate: an unhashed file is one whose
+// byte size is unique, which cannot be a twin of anything, so no counterpart is missed
+// by ignoring them.
+
+/** How many of each digest a folder holds. */
+type DigestCounts = Map<string, number>;
+
+const isInside = (folder: FolderRef, filePath: string, libraryId: string): boolean =>
+  libraryId === folder.libraryId
+  && (folder.folderPath === "" || filePath.startsWith(`${folder.folderPath}/`));
+
+function digestCountsOf(print: FolderFingerprint): DigestCounts {
+  const counts: DigestCounts = new Map();
+  const rows = db.prepare(`
+    SELECT gd.content_hash AS hash FROM gallery_details gd
+    WHERE gd.item_id IN (${print.itemIds.map(() => "?").join(",")}) AND gd.content_hash IS NOT NULL
+  `).all(...print.itemIds) as { hash: string }[];
+  for (const row of rows) counts.set(row.hash, (counts.get(row.hash) ?? 0) + 1);
+  return counts;
+}
+
+interface ContainmentTarget extends FolderRef {
+  /** Files below the target, ignoring anything inside the contained folder. */
+  fileCount: number;
+}
+
+// Every folder holding a copy of everything in `print`, cheapest-first: the search
+// starts from the files that could possibly be counterparts (same digest) rather than
+// from the folder list, so it costs nothing on a library with no overlap at all.
+function containersOf(print: FolderFingerprint): ContainmentTarget[] {
+  const needed = digestCountsOf(print);
+  if (needed.size === 0) return [];
+  const digests = [...needed.keys()];
+
+  const matches: { libraryId: string; filePath: string; hash: string }[] = [];
+  for (let i = 0; i < digests.length; i += ID_CHUNK) {
+    const chunk = digests.slice(i, i + ID_CHUNK);
+    const rows = db.prepare(`
+      SELECT li.library_id, li.folder_path, gd.content_hash AS hash
+      FROM gallery_details gd
+      JOIN library_items li ON li.id = gd.item_id AND li.deleted_at IS NULL AND li.status = 'ready'
+      JOIN libraries lib ON lib.id = li.library_id AND lib.type = 'gallery'
+      WHERE gd.content_hash IN (${chunk.map(() => "?").join(",")})
+    `).all(...chunk) as { library_id: string; folder_path: string; hash: string }[];
+    for (const row of rows) {
+      // A file inside the folder itself is not a copy OF it.
+      if (isInside(print, row.folder_path, row.library_id)) continue;
+      matches.push({ libraryId: row.library_id, filePath: row.folder_path, hash: row.hash });
+    }
+  }
+  if (matches.length === 0) return [];
+
+  // Tally each candidate file against every folder that holds it.
+  const held = new Map<string, DigestCounts>();
+  for (const match of matches) {
+    for (const folder of ancestorsOf(match.filePath)) {
+      const key = refKey({ libraryId: match.libraryId, folderPath: folder });
+      let counts = held.get(key);
+      if (!counts) { counts = new Map(); held.set(key, counts); }
+      counts.set(match.hash, (counts.get(match.hash) ?? 0) + 1);
+    }
+  }
+
+  const out: ContainmentTarget[] = [];
+  for (const [key, counts] of held) {
+    const ref = parseKey(key);
+    if (refKey(ref) === refKey(print)) continue;
+    let covers = true;
+    for (const [hash, count] of needed) {
+      if ((counts.get(hash) ?? 0) < count) { covers = false; break; }
+    }
+    if (!covers) continue;
+    // Files below the target, minus anything inside the folder being covered — the
+    // number that decides which container is the tightest fit.
+    const prefix = ref.folderPath === "" ? "" : `${ref.folderPath.replace(/[\\%_]/g, "\\$&")}/`;
+    const total = db.prepare(`
+      SELECT COUNT(*) AS n FROM library_items li
+      WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready'
+        AND (? = '' OR li.folder_path LIKE ? ESCAPE '\\')
+    `).get(ref.libraryId, ref.folderPath, `${prefix}%`) as { n: number };
+    const inside = ref.libraryId === print.libraryId
+      && (ref.folderPath === "" || print.folderPath.startsWith(`${ref.folderPath}/`))
+      ? print.itemCount
+      : 0;
+    out.push({ ...ref, fileCount: total.n - inside });
+  }
+  // A folder the admin chose to keep is the natural home for these photos, whatever
+  // its size. Otherwise tightest fit first: the folder that adds least beyond what it
+  // covers is the one a person would name as "the same photos, and a few more".
+  // On a tie, the DEEPEST container wins. Every ancestor of a covering folder covers
+  // the same photos, so without this the answer is always "…and they're also in the
+  // library root", which is true and useless — the smallest folder that holds them is
+  // the one worth naming.
+  const preferred = preferredFolders();
+  const rank = (ref: FolderRef) => (isPreferredPath(preferred, ref.libraryId, ref.folderPath) ? 0 : 1);
+  const depth = (ref: FolderRef) => (ref.folderPath === "" ? 0 : ref.folderPath.split("/").length);
+  return out.sort((a, b) =>
+    rank(a) - rank(b)
+    || a.fileCount - b.fileCount
+    || depth(b) - depth(a)
+    || (refKey(a) < refKey(b) ? -1 : 1));
+}
+
+export interface ContainedFolderTotals {
+  folders: number;
+  reclaimableBytes: number;
+}
+
+// Dismissals are read by FOLDER, not by folder-and-target. "Leave this one alone" is
+// a statement about the folder: matching on the pair would bring it straight back
+// under whichever folder covers it next, which is the same suggestion again wearing a
+// different label. The target is still recorded, so the row says what was dismissed.
+function containedIgnores(): Set<string> {
+  const rows = db.prepare(
+    "SELECT library_id, folder_path FROM gallery_duplicate_contained_ignores"
+  ).all() as { library_id: string; folder_path: string }[];
+  return new Set(rows.map((r) => refKey({ libraryId: r.library_id, folderPath: r.folder_path })));
+}
+
+// Rebuild the contained-folder rows. Runs AFTER rebuildDuplicateFolderGroups: a folder
+// that already has an equal-contents partner is offered there, with a keeper choice,
+// and listing it twice would be two answers to one question.
+export function rebuildContainedFolders(): ContainedFolderTotals {
+  const prints = fingerprintFolders();
+  const exactMembers = db.prepare(
+    "SELECT library_id, folder_path FROM gallery_duplicate_folder_members"
+  ).all() as { library_id: string; folder_path: string }[];
+  const ignored = containedIgnores();
+
+  const preferred = preferredFolders();
+  const found = new Map<string, { print: FolderFingerprint; target: ContainmentTarget }>();
+  for (const print of prints) {
+    if (ignored.has(refKey(print))) continue;
+    // Never propose removing a folder the admin said to keep photos in.
+    if (isPreferredPath(preferred, print.libraryId, print.folderPath)) continue;
+    // A folder with an equal-contents partner ANYWHERE BELOW IT is already answered by
+    // that set, which offers a keeper choice as well. Listing its parent here too
+    // would be a second, weaker answer to the question already on the page.
+    const answeredExactly = exactMembers.some((member) =>
+      member.library_id === print.libraryId
+      && (member.folder_path === print.folderPath || member.folder_path.startsWith(`${print.folderPath === "" ? "" : `${print.folderPath}/`}`)));
+    if (answeredExactly) continue;
+    const target = containersOf(print)[0];
+    if (target) found.set(refKey(print), { print, target });
+  }
+
+  // Two folders holding the same pictures in a different LAYOUT cover each other —
+  // and would each be offered for removal, which taken together deletes every copy.
+  // Keep one: the same keeper scoring the equal-contents sets use, so the answer
+  // doesn't depend on which folder happened to be examined first.
+  const dropped = new Set<string>();
+  for (const [key, { print, target }] of found) {
+    if (dropped.has(key)) continue;
+    const mirror = found.get(refKey(target));
+    if (!mirror || refKey(mirror.target) !== key) continue;
+    const winner = pickFolderKeeper([print, mirror.print]);
+    if (winner) dropped.add(refKey(winner.keeper));
+  }
+  for (const key of dropped) found.delete(key);
+
+  // Topmost only, as with the equal-contents sets: if a folder's parent is covered
+  // too, removing the parent takes this one with it.
+  const covered = new Set(found.keys());
+  const rows = [...found.values()].filter(({ print }) => {
+    const parent = parentOf(print.folderPath);
+    return parent === null || !covered.has(refKey({ libraryId: print.libraryId, folderPath: parent }));
+  });
+
+  let reclaimableBytes = 0;
+  db.transaction(() => {
+    db.prepare("DELETE FROM gallery_duplicate_contained_folders").run();
+    const insert = db.prepare(`
+      INSERT INTO gallery_duplicate_contained_folders
+        (id, library_id, folder_path, target_library_id, target_folder_path, item_count, bytes, extra_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const { print, target } of rows) {
+      insert.run(
+        nanoid(16), print.libraryId, print.folderPath, target.libraryId, target.folderPath,
+        print.itemCount, print.bytes, Math.max(target.fileCount - print.itemCount, 0)
+      );
+      reclaimableBytes += print.bytes;
+    }
+  })();
+
+  return { folders: rows.length, reclaimableBytes };
+}
+
+export interface ContainedFolder {
+  id: string;
+  folder: FolderRef & { libraryName: string; name: string };
+  target: FolderRef & { libraryName: string; name: string };
+  itemCount: number;
+  bytes: number;
+  /** Photos the target holds on top of the ones it covers. */
+  extraCount: number;
+  coverUrls: string[];
+  linkCount: number;
+}
+
+export function listContainedFolders(): ContainedFolder[] {
+  const rows = db.prepare(`
+    SELECT c.id, c.library_id, c.folder_path, c.target_library_id, c.target_folder_path,
+           c.item_count, c.bytes, c.extra_count,
+           lib.name AS library_name, tlib.name AS target_library_name
+    FROM gallery_duplicate_contained_folders c
+    JOIN libraries lib ON lib.id = c.library_id
+    JOIN libraries tlib ON tlib.id = c.target_library_id
+    ORDER BY c.bytes DESC, c.id
+  `).all() as {
+    id: string; library_id: string; folder_path: string;
+    target_library_id: string; target_folder_path: string;
+    item_count: number; bytes: number; extra_count: number;
+    library_name: string; target_library_name: string;
+  }[];
+
+  return rows.map((row) => {
+    const itemIds = folderItemIds({ libraryId: row.library_id, folderPath: row.folder_path });
+    return {
+      id: row.id,
+      folder: {
+        libraryId: row.library_id,
+        folderPath: row.folder_path,
+        libraryName: row.library_name,
+        name: folderName(row.folder_path)
+      },
+      target: {
+        libraryId: row.target_library_id,
+        folderPath: row.target_folder_path,
+        libraryName: row.target_library_name,
+        name: folderName(row.target_folder_path)
+      },
+      itemCount: row.item_count,
+      bytes: row.bytes,
+      extraCount: row.extra_count,
+      coverUrls: folderCovers(itemIds),
+      linkCount: linkCountFor(itemIds)
+    };
+  });
+}
+
+export function ignoreContainedFolder(id: string): boolean {
+  const row = db.prepare(
+    "SELECT library_id, folder_path, target_library_id, target_folder_path FROM gallery_duplicate_contained_folders WHERE id = ?"
+  ).get(id) as { library_id: string; folder_path: string; target_library_id: string; target_folder_path: string } | undefined;
+  if (!row) return false;
+  db.transaction(() => {
+    db.prepare(`
+      INSERT OR IGNORE INTO gallery_duplicate_contained_ignores
+        (library_id, folder_path, target_library_id, target_folder_path)
+      VALUES (?, ?, ?, ?)
+    `).run(row.library_id, row.folder_path, row.target_library_id, row.target_folder_path);
+    db.prepare("DELETE FROM gallery_duplicate_contained_folders WHERE id = ?").run(id);
+  })();
+  return true;
+}
+
+export interface ContainedResolution {
+  removed: FolderRef;
+  keptIn: FolderRef;
+  deletedItemIds: string[];
+  failed: { itemId: string; error: string }[];
+}
+
+// Remove a folder whose every photo lives elsewhere too.
+//
+// Containment is re-derived from the database first, exactly as the equal-contents
+// path re-derives fingerprints: if one photo here no longer has a counterpart, nothing
+// is deleted at all. Each photo hands its tags, albums and people to a counterpart in
+// the covering folder — preferring the file at the same relative path, and otherwise
+// any copy with the same digest, which is equally valid because the bytes are identical
+// (so tagged faces still land where they belong).
+export function resolveContainedFolder(id: string, userId: string): ContainedResolution | null {
+  const row = db.prepare(
+    "SELECT library_id, folder_path, target_library_id, target_folder_path FROM gallery_duplicate_contained_folders WHERE id = ?"
+  ).get(id) as { library_id: string; folder_path: string; target_library_id: string; target_folder_path: string } | undefined;
+  if (!row) return null;
+
+  const folder: FolderRef = { libraryId: row.library_id, folderPath: row.folder_path };
+  const target: FolderRef = { libraryId: row.target_library_id, folderPath: row.target_folder_path };
+  const print = fingerprintOf(folder);
+  if (!print) return null;
+
+  const stillCovered = containersOf(print).some((candidate) => refKey(candidate) === refKey(target));
+  if (!stillCovered) return null;
+
+  // Counterparts in the covering folder, by digest, with the same-relative-path copy
+  // preferred so the obvious pairing wins when there is one.
+  const prefix = target.folderPath === "" ? "" : `${target.folderPath.replace(/[\\%_]/g, "\\$&")}/`;
+  const targetFiles = db.prepare(`
+    SELECT li.id, li.folder_path, gd.content_hash AS hash
+    FROM library_items li
+    JOIN gallery_details gd ON gd.item_id = li.id
+    WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready'
+      AND (? = '' OR li.folder_path LIKE ? ESCAPE '\\')
+      AND gd.content_hash IS NOT NULL
+  `).all(target.libraryId, target.folderPath, `${prefix}%`) as
+    { id: string; folder_path: string; hash: string }[];
+
+  const byDigest = new Map<string, { id: string; folder_path: string }[]>();
+  for (const file of targetFiles) {
+    if (isInside(folder, file.folder_path, target.libraryId)) continue;
+    const bucket = byDigest.get(file.hash);
+    if (bucket) bucket.push(file); else byDigest.set(file.hash, [file]);
+  }
+
+  const doomed = db.prepare(`
+    SELECT li.id, li.folder_path, gd.content_hash AS hash
+    FROM library_items li
+    JOIN gallery_details gd ON gd.item_id = li.id
+    WHERE li.id IN (${print.itemIds.map(() => "?").join(",")})
+  `).all(...print.itemIds) as { id: string; folder_path: string; hash: string | null }[];
+
+  const deletedItemIds: string[] = [];
+  const failed: { itemId: string; error: string }[] = [];
+  // Each counterpart may only stand in for one photo, so a folder holding the same
+  // picture twice can't have both copies inherit from a single file.
+  const claimed = new Set<string>();
+
+  for (const item of doomed) {
+    const candidates = item.hash ? byDigest.get(item.hash) ?? [] : [];
+    const samePath = below(folder.folderPath, item.folder_path);
+    const counterpart = candidates.find((file) =>
+      !claimed.has(file.id) && below(target.folderPath, file.folder_path) === samePath)
+      ?? candidates.find((file) => !claimed.has(file.id));
+    if (!counterpart) {
+      failed.push({ itemId: item.id, error: "No copy of this photo in the folder being kept." });
+      continue;
+    }
+    claimed.add(counterpart.id);
+    absorbDuplicateMetadata(counterpart.id, [item.id]);
+    try {
+      trashBook(item.id, userId);
+      deletedItemIds.push(item.id);
+    } catch (err) {
+      failed.push({ itemId: item.id, error: err instanceof Error ? err.message : "Could not move the photo to the Recycle Bin." });
+    }
+  }
+
+  db.prepare("DELETE FROM gallery_duplicate_contained_folders WHERE id = ?").run(id);
+
+  if (deletedItemIds.length > 0) {
+    logActivity({
+      event: "library.gallery.contained_folder_removed",
+      actorUserId: userId,
+      targetType: "library",
+      targetId: folder.libraryId,
+      detail: `Moved ${deletedItemIds.length} photo${deletedItemIds.length === 1 ? "" : "s"} from "${folder.folderPath || "the library root"}" to the Recycle Bin — every one of them also sits in "${target.folderPath || "the library root"}".`,
+      ipAddress: null
+    });
+  }
+
+  return { removed: folder, keptIn: target, deletedItemIds, failed };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
