@@ -132,8 +132,14 @@ export function BackupSection() {
               never modified; thumbnail caches can be regenerated, and cover art can be included with
               backups below.
             </p>
+            {/* A path as the SERVER sees it. In Docker that's a path inside the
+                container, which is not where you'd look on the host — say so, or it
+                sends people hunting for a folder their machine doesn't have. */}
             {data && (
-              <span className="backup-path-pill">
+              <span
+                className="backup-path-pill"
+                title="Where the server writes backups. In Docker this is a path inside the container — it sits under the folder you mapped to /config."
+              >
                 <Folder size={15} />
                 <code>{data.backupPath}</code>
               </span>

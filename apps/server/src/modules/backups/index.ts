@@ -76,6 +76,48 @@ function ensureBackupDir() {
   fs.mkdirSync(config.backupPath, { recursive: true });
 }
 
+// Backups written before 2.15.1 landed in the app's own folder rather than the
+// mounted data volume: the Docker image named DB_PATH, THUMBNAIL_PATH and
+// METADATA_PATH but not BACKUP_PATH, so it fell back to <app>/data/backups. Inside a
+// container that path is invisible from the host and is thrown away the moment the
+// container is recreated — which is every update.
+//
+// So on startup, move anything stranded there into the configured folder. Runs once
+// in practice (the old folder is left empty), does nothing when the two paths are the
+// same (any non-container install), and never overwrites: a name already taken in the
+// destination is the newer file and wins.
+export function rescueStrandedBackups(): number {
+  const legacy = path.resolve(process.cwd(), "data", "backups");
+  const target = path.resolve(config.backupPath);
+  if (legacy === target || !fs.existsSync(legacy)) return 0;
+
+  let moved = 0;
+  try {
+    const names = fs.readdirSync(legacy).filter((name) => NAME_PATTERN.test(name));
+    if (names.length === 0) return 0;
+    fs.mkdirSync(target, { recursive: true });
+    for (const name of names) {
+      const to = path.join(target, name);
+      if (fs.existsSync(to)) continue;
+      try {
+        fs.renameSync(path.join(legacy, name), to);
+      } catch {
+        // Different filesystems can't be renamed across; copy and drop the original.
+        fs.copyFileSync(path.join(legacy, name), to);
+        fs.rmSync(path.join(legacy, name), { force: true });
+      }
+      moved += 1;
+    }
+  } catch {
+    return moved; // best-effort: a backup left behind is better than a failed boot
+  }
+
+  if (moved > 0) {
+    console.log(`Moved ${moved} backup${moved === 1 ? "" : "s"} into ${target} — earlier versions stored them where a container update would discard them.`);
+  }
+  return moved;
+}
+
 function timestampName(ext: "zip" | "sqlite", date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   const stamp = `${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}${p(date.getSeconds())}`;
@@ -216,6 +258,10 @@ const settingsSchema = z.object({
 });
 
 export async function backupsPlugin(app: FastifyInstance) {
+  // Before anything can list them: an install upgrading from an earlier version may
+  // have backups sitting where a container update would discard them.
+  rescueStrandedBackups();
+
   app.get("/api/backups", { preHandler: app.requireAdmin }, async () => {
     const backups = listBackupFiles();
     return {
