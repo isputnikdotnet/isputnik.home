@@ -49,7 +49,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   scheduledJobs: "cron schedule nightly automatic recurring timer",
   recycleBin: "trash deleted restore purge retention undelete",
   missingPhotos: "gallery missing gone offline broken files photos videos",
-  duplicatePhotos: "gallery duplicates copies identical phash near-identical free space duplicate folders same folder twice imported twice",
+  duplicatePhotos: "gallery duplicates copies identical phash near-identical free space imported twice",
+  duplicateFolders: "gallery duplicate folders same folder twice copied into itself already stored elsewhere contained folder keep photos in preferred folder",
 
   appearance: "theme default look colours colors dark light branding",
   email: "smtp mail relay server port tls starttls password sender from test",
