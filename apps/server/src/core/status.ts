@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.16.1",
+          label: "Show only the duplicates you can clear without looking",
+          changes: [
+            "A new control on Duplicate photos narrows the list to one kind: identical files only, near-identical only, or everything. Identical files are byte-for-byte matches, so there is nothing to compare — choosing them puts exactly the sets you can clear in bulk on screen, and nothing else.",
+            "That also lines the page up with Delete all extras, which has always refused to touch near-identical sets: with identical-only chosen, what the button does and what you can see are finally the same thing."
+          ]
+        },
+        {
           version: "2.16.0",
           label: "Tell it which folder to clear out",
           changes: [

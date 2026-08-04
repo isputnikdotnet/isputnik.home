@@ -280,6 +280,13 @@ Search matches a filename, folder or library name, and keeps a whole set if any
 copy in it matches. Sort by size to reclaim, number of copies, identical-first,
 filename or newest, and choose how many sets to show per page.
 
+**Which duplicates to show** narrows the list to one tier. *Identical files only* is
+the one to reach for when you want to clear space without inspecting anything: those
+sets are byte-for-byte matches, so there is nothing to compare, and it lines the page
+up exactly with **Delete all extras** — which has always refused to touch
+near-identical sets. *Near-identical only* is the opposite view, for when you do want
+to look at each one.
+
 Sets whose copies share *both* a filename and a byte size collapse to the copy
 being kept, behind a chevron — three thumbnails of the same picture with the same
 name tell you nothing. Open one to see the rest. Sets whose copies differ in either
