@@ -65,6 +65,18 @@ type DupSort = "size" | "copies" | "identical" | "name" | "recent";
 
 type DupPerPage = "10" | "25" | "50" | "all";
 
+// Which tier to show. Identical-only is the one that earns its place: those sets are
+// byte-for-byte matches, so they can be cleared without opening a single photo — and
+// with it chosen, "Delete all extras" covers exactly what is on screen, since that
+// button has always refused to touch near-identical sets anyway.
+type DupTier = "all" | "exact" | "near";
+
+const TIER_OPTIONS: { value: DupTier; label: string }[] = [
+  { value: "all", label: "All duplicates" },
+  { value: "exact", label: "Identical files only" },
+  { value: "near", label: "Near-identical only" }
+];
+
 const PER_PAGE_OPTIONS: { value: DupPerPage; label: string }[] = [
   { value: "10", label: "10 per page" },
   { value: "25", label: "25 per page" },
@@ -210,6 +222,7 @@ export function DuplicatePhotosSection() {
   const [scopeId, setScopeId] = useState("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<DupSort>("size");
+  const [tier, setTier] = useState<DupTier>("all");
   const [perPage, setPerPage] = useState<DupPerPage>("10");
   const [page, setPage] = useState(1);
   const pollRef = useRef<number | null>(null);
@@ -282,10 +295,10 @@ export function DuplicatePhotosSection() {
   const shown = (group: ScopedGroup) =>
     matchesSearch(group, needle)
     && group.members.some((member) => inChosenFolders(member.libraryId, member.path));
-  const filtering = needle !== "" || scopeId !== "" || chosenFolders.length > 0;
+  const filtering = needle !== "" || scopeId !== "" || chosenFolders.length > 0 || tier !== "all";
   const visibleExact = sortGroups(exact.filter(shown), sort);
   const visibleNear = sortGroups(near.filter(shown), sort);
-  const hidden = payload.groups.length - (visibleExact.length + visibleNear.length);
+
   const scopeName = payload.libraries.find((library) => library.id === scopeId)?.name ?? "";
   // Sets with copies in another library too. "Delete all extras" leaves those alone,
   // which is worth saying before it runs.
@@ -294,7 +307,9 @@ export function DuplicatePhotosSection() {
   // One pager spans both tiers: paging each separately would mean two sets of
   // controls. Identical sets come first, so a page can straddle the boundary and
   // show the tail of one tier above the head of the other — each keeps its heading.
-  const ordered = [...visibleExact, ...visibleNear];
+  const ordered = tier === "exact" ? visibleExact
+    : tier === "near" ? visibleNear
+    : [...visibleExact, ...visibleNear];
   const pageSize = perPage === "all" ? Math.max(ordered.length, 1) : Number(perPage);
   const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize));
   // Clamped rather than corrected in state, so a shrinking list (a delete, a new
@@ -308,7 +323,7 @@ export function DuplicatePhotosSection() {
 
   // Any change to what's listed or how it's ordered puts you back at the top —
   // staying on page 7 of a freshly filtered list shows an arbitrary slice.
-  useEffect(() => { setPage(1); }, [needle, scopeId, sort, perPage]);
+  useEffect(() => { setPage(1); }, [needle, scopeId, sort, perPage, tier, folderFilter]);
 
   const startScan = async () => {
     setStarting(true);
@@ -699,6 +714,13 @@ export function DuplicatePhotosSection() {
               <FolderHeart size={18} aria-hidden="true" />
             </Button>
             <SelectMenu
+              value={tier}
+              options={TIER_OPTIONS}
+              label="Which duplicates to show"
+              className="dup-tier-filter"
+              onChange={setTier}
+            />
+            <SelectMenu
               value={perPage}
               options={PER_PAGE_OPTIONS}
               label="Sets per page"
@@ -739,9 +761,9 @@ export function DuplicatePhotosSection() {
         </div>
       )}
 
-      {filtering && hidden > 0 && (
+      {filtering && payload.groups.length - ordered.length > 0 && (
         <p className="dup-filter-note datagrid-muted">
-          Showing {visibleExact.length + visibleNear.length} of {payload.groups.length} sets · {hidden} hidden
+          Showing {ordered.length} of {payload.groups.length} sets · {payload.groups.length - ordered.length} hidden
           by {scopeName && needle
             ? `“${scopeName}” and your search`
             : scopeName
@@ -750,7 +772,7 @@ export function DuplicatePhotosSection() {
         </p>
       )}
 
-      {loaded && payload.groups.length > 0 && visibleExact.length === 0 && visibleNear.length === 0 && (
+      {loaded && payload.groups.length > 0 && ordered.length === 0 && (
         <p className="management-empty">
           {scopeName && needle
             ? `No duplicate sets inside “${scopeName}” match “${search.trim()}”.`
