@@ -41,13 +41,6 @@ interface ScopedGroup extends DuplicateGroup {
   elsewhereCount: number;
 }
 
-// What choosing this scope would cost: files a scan has to open and read. Everything
-// already hashed by an earlier run is reused, so a re-scan of settled photos reads
-// nothing — and a picker full of "up to date" is noise, so say nothing at all then.
-function scopeCost(pending: number): string {
-  return pending === 0 ? "" : ` — ${pending} to check`;
-}
-
 function formatWhen(value: string | null): string {
   if (!value) return "Never";
   const date = new Date(value);
@@ -66,17 +59,6 @@ type DupSort = "size" | "copies" | "identical" | "name" | "recent";
 
 type DupPerPage = "10" | "25" | "50" | "all";
 
-// Which tier to show. Identical-only is the one that earns its place: those sets are
-// byte-for-byte matches, so they can be cleared without opening a single photo — and
-// with it chosen, "Delete all extras" covers exactly what is on screen, since that
-// button has always refused to touch near-identical sets anyway.
-type DupTier = "all" | "exact" | "near";
-
-const TIER_OPTIONS: { value: DupTier; label: string }[] = [
-  { value: "all", label: "All duplicates" },
-  { value: "exact", label: "Identical files only" },
-  { value: "near", label: "Near-identical only" }
-];
 
 const PER_PAGE_OPTIONS: { value: DupPerPage; label: string }[] = [
   { value: "10", label: "10 per page" },
@@ -255,6 +237,13 @@ export function DuplicatePhotosSection() {
     };
   }, [payload.scanning]);
 
+  // Read the filter state out under plain names. MUST come before anything that
+  // uses them: `scoped` below reads scopeId inside a .map callback, which the type
+  // checker can't see is called immediately — it type-checks and then dies at
+  // render with "cannot access before initialization".
+  const { scopeId, search, tier } = filters;
+  const folderFilter = filters.folders;
+
   // Every set as the chosen library sees it — sets it holds no duplicate of are gone,
   // and the ones left show only its own copies. With no library chosen this is the
   // payload unchanged. Everything below counts, sorts and deletes against THIS list,
@@ -273,18 +262,7 @@ export function DuplicatePhotosSection() {
   const reclaimableBytes = scoped.reduce((sum, group) => sum + group.reclaimableBytes, 0);
   const busy = starting || deletingAll || busyGroupId !== "";
 
-  // A count appears only where a scan would actually have work to do.
-  const scopeOptions = [
-    { value: "", label: `All libraries${scopeCost(payload.pendingCount)}` },
-    ...payload.libraries.map((library) => ({
-      value: library.id,
-      label: `${library.name}${scopeCost(library.pendingCount)}`
-    }))
-  ];
   const scanLabel = payload.scanning ? "Scanning…" : starting ? "Starting…" : "Scan now";
-
-  const { scopeId, search, tier } = filters;
-  const folderFilter = filters.folders;
 
   const folderOptions = folderOptionsFrom(payload);
   const activeFilters = activeFilterCount(filters, true);
@@ -622,8 +600,7 @@ export function DuplicatePhotosSection() {
         className="dup-section-head"
         icon={<Copy size={30} />}
         description="Find and manage duplicate photos to free up space."
-      >
-      </ControlSectionHead>
+      />
 
       {/* Totals for what's actually being compared: with a library chosen that's its
           own duplicates, not the install's. The counts beside each library in the
