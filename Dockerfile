@@ -119,10 +119,15 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=4000
 ENV STATIC_PATH=/app/web
-# All persistent data lives under /config — mount this as a volume
+# All persistent data lives under /config — mount this as a volume.
+# EVERY path the server writes to must be named here: anything left to its default
+# lands in the image's own filesystem, where it is invisible to the host and is
+# destroyed the moment the container is recreated. Backups were doing exactly that
+# until 2.15.1 — see rescueStrandedBackups() in modules/backups.
 ENV DB_PATH=/config/db/isputnik.sqlite
 ENV THUMBNAIL_PATH=/config/thumbnails
 ENV METADATA_PATH=/config/metadata
+ENV BACKUP_PATH=/config/backups
 # Set to "true" only when served over HTTPS
 ENV COOKIE_SECURE=false
 # Number of reverse proxies in front (usually 1). 0 = trust nothing / direct access.
@@ -130,6 +135,6 @@ ENV TRUST_PROXY_HOPS=0
 
 EXPOSE 4000
 
-RUN mkdir -p /config/db /config/thumbnails /config/metadata
+RUN mkdir -p /config/db /config/thumbnails /config/metadata /config/backups
 
 CMD ["node", "apps/server/dist/index.js"]

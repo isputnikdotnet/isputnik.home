@@ -152,6 +152,16 @@ Worth setting up on the day you install, not the day you need it.
 - You can **upload** a backup from your computer; it joins the list ready to
   restore.
 
+**Where they land.** The page shows the folder the server writes to. In Docker that's
+a path *inside the container* — `/config/backups` — which on the host is the `backups`
+folder inside whatever you mapped to `/config`. On Unraid with the stock template that
+means `/mnt/user/appdata/isputnik/backups`.
+
+> Before 2.15.1 the container wrote backups to `/app/data/backups` instead, which is
+> inside the image rather than your mapped folder: invisible from the host, and thrown
+> away whenever the container was recreated. Updating fixes it and moves any backups
+> still there into the right folder on the first start.
+
 **Restoring is a two-step operation.** Choosing Restore *stages* the backup; it
 takes effect when you **restart the server**. That's deliberate — swapping the
 database out from under a running server is how databases get corrupted.

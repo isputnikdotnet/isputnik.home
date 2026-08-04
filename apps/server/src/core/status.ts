@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.15.1",
+          label: "Backups were being written where an update would lose them",
+          changes: [
+            "In Docker the server was writing backups to a folder inside the container image rather than the one you mapped for its data. They didn't appear on the host, and every container update — including this one — threw them away. Fixed: backups now go to /config/backups, which is the backups folder inside your mapped Config & Data share.",
+            "Anything still sitting in the old place is moved across the first time this version starts, so a backup you already had is not lost. Nothing is overwritten.",
+            "The Backup page has said where it writes all along; it now explains that in Docker that path is inside the container and points at the folder you mapped."
+          ]
+        },
+        {
           version: "2.15.0",
           label: "Duplicate folders has its own tab",
           changes: [

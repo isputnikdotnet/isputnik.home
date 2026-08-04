@@ -46,7 +46,7 @@ Private self-hosted family media library for audiobooks, ebooks, photos, and oth
           Target="/config"
           Default="/mnt/user/appdata/isputnik"
           Mode="rw"
-          Description="Stores database, metadata, thumbnails, settings, and application data."
+          Description="Stores database, metadata, thumbnails, backups, settings, and application data. Backups appear here under backups/."
           Type="Path"
           Display="always"
           Required="true"
