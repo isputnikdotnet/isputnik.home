@@ -195,6 +195,12 @@ export function RecycleBinSection() {
     }
   };
 
+  // Totals for the two questions the bin answers: how much is in it, and how much
+  // space getting rid of it would free.
+  const visibleBytes = visible.reduce((sum, item) => sum + item.sizeBytes, 0);
+  const visibleFiles = visible.reduce((sum, item) => sum + item.fileCount, 0);
+  const totalBytes = items.reduce((sum, item) => sum + item.sizeBytes, 0);
+
   const retentionBlurb = retentionDays > 0
     ? `Deleted items keep their files here for ${retentionDays} day${retentionDays === 1 ? "" : "s"}, then they're permanently removed. Restore anything before then.`
     : "Deleted items keep their files here until you remove them. Restore anything you need.";
@@ -229,6 +235,19 @@ export function RecycleBinSection() {
           />
         </div>
       </ControlSectionHead>
+
+      {/* What's in the bin and what it's costing — the two numbers you come here for
+          when the question is "can I get some space back?". Counts what the library
+          picker is showing, so the line and the grid can't disagree; with a library
+          chosen it also says what the whole bin holds. */}
+      {items.length > 0 && (
+        <p className="trash-status datagrid-muted">
+          {visible.length} item{visible.length === 1 ? "" : "s"}
+          {" · "}{formatBytes(visibleBytes)}
+          {" · "}{visibleFiles} file{visibleFiles === 1 ? "" : "s"}
+          {scopeId ? ` · ${items.length} in the whole bin, ${formatBytes(totalBytes)}` : ""}
+        </p>
+      )}
 
       {error && <MessageBox tone="error" title="Unable to load the Recycle Bin">{error}</MessageBox>}
       {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}

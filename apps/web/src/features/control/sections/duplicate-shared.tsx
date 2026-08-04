@@ -82,9 +82,13 @@ export interface ContainedFolder {
   linkCount: number;
 }
 
-export interface PreferredFolder {
+export type FolderPreferenceMode = "keep" | "clear";
+
+/** A standing instruction attached to a folder: keep copies here, or let them go. */
+export interface FolderPreference {
   libraryId: string;
   folderPath: string;
+  mode: FolderPreferenceMode;
 }
 
 export interface DuplicateLibraryOption {
@@ -98,7 +102,7 @@ export interface DuplicatePayload {
   groups: DuplicateGroup[];
   folderGroups: DuplicateFolderGroup[];
   containedFolders: ContainedFolder[];
-  preferredFolders: PreferredFolder[];
+  folderPreferences: FolderPreference[];
   lastScanAt: string | null;
   candidateCount: number;
   scanning: boolean;
@@ -109,7 +113,7 @@ export interface DuplicatePayload {
 }
 
 export const EMPTY_PAYLOAD: DuplicatePayload = {
-  groups: [], folderGroups: [], containedFolders: [], preferredFolders: [],
+  groups: [], folderGroups: [], containedFolders: [], folderPreferences: [],
   lastScanAt: null, candidateCount: 0, pendingCount: 0, staleCount: 0,
   scanning: false, reclaimableBytes: 0, libraries: []
 };
@@ -121,7 +125,7 @@ export function normalisePayload(next: Partial<DuplicatePayload>): DuplicatePayl
     groups: next.groups ?? [],
     folderGroups: next.folderGroups ?? [],
     containedFolders: next.containedFolders ?? [],
-    preferredFolders: next.preferredFolders ?? [],
+    folderPreferences: next.folderPreferences ?? [],
     lastScanAt: next.lastScanAt ?? null,
     candidateCount: next.candidateCount ?? 0,
     scanning: next.scanning ?? false,
@@ -278,7 +282,16 @@ export function FolderFilterModal({
   );
 }
 
-/** "Where to keep photos" — a saved decision that re-picks every automatic keeper. */
+/** How a folder is marked in the picker while it's being edited. */
+export type PreferenceDraft = Record<string, FolderPreferenceMode>;
+
+const MODES: { value: FolderPreferenceMode | ""; label: string; hint: string }[] = [
+  { value: "keep", label: "Keep here", hint: "When copies are in several places, keep this one" },
+  { value: "", label: "No preference", hint: "Let the usual rules decide" },
+  { value: "clear", label: "Clear out", hint: "Keep the copies elsewhere and let this folder's go" }
+];
+
+/** "How to treat each folder" — a saved decision that re-picks every automatic keeper. */
 export function PreferredFoldersModal({
   options,
   draft,
@@ -289,29 +302,61 @@ export function PreferredFoldersModal({
   onClose
 }: {
   options: FolderOption[];
-  draft: string[];
+  draft: PreferenceDraft;
   busy: boolean;
   error: string;
-  onChange: (next: string[]) => void;
+  onChange: (next: PreferenceDraft) => void;
   onSave: () => void;
   onClose: () => void;
 }) {
+  const set = (key: string, mode: FolderPreferenceMode | "") => {
+    const next = { ...draft };
+    if (mode === "") delete next[key];
+    else next[key] = mode;
+    onChange(next);
+  };
+  const marked = Object.keys(draft).length;
+
   return (
-    <Modal title="Where to keep photos" onClose={onClose}>
+    <Modal title="How to treat each folder" onClose={onClose}>
       <p className="datagrid-muted dup-picker-note">
-        When copies of a photo sit in more than one place, keep the one in these folders. This decides which copy
-        every set proposes to keep, so it takes effect the moment you save — copies you've picked by hand are left as
-        they are, and nothing is deleted either way. A folder covers everything below it, and a folder you choose is
-        never offered for removal.
+        When the same photo sits in several places, this decides which copy survives — before any of the automatic
+        reasoning. <strong>Keep here</strong> means copies in that folder win. <strong>Clear out</strong> is the
+        opposite: the copies elsewhere are kept and this folder's go, which is how you retire a folder whose photos
+        are already filed properly somewhere else.
       </p>
-      <FolderChoiceList
-        options={options}
-        selected={draft}
-        disabled={busy}
-        onToggle={(key, checked) => onChange(checked ? [...draft, key] : draft.filter((k) => k !== key))}
-      />
+      <p className="datagrid-muted dup-picker-note">
+        Clearing out can't empty a folder on its own — a photo with no copy anywhere else isn't a duplicate, so it is
+        never touched, and a set with nothing but cleared-out copies still keeps one. A folder covers everything below
+        it, and the most specific instruction wins, so you can keep a whole library and clear out one folder inside it.
+      </p>
+      <div className="dup-folder-picker">
+        {options.map((option) => (
+          <div className="dup-folder-choice dup-folder-modes" key={option.key}>
+            <span className="dup-folder-choice-body">
+              <strong>{option.folderPath || "Library root"}</strong>
+              <span className="datagrid-muted">{option.libraryName}</span>
+            </span>
+            <span className="dup-mode-group" role="radiogroup" aria-label={`How to treat ${option.folderPath || "the library root"}`}>
+              {MODES.map((mode) => (
+                <label className={`dup-mode${(draft[option.key] ?? "") === mode.value ? " is-on" : ""}`} key={mode.label} title={mode.hint}>
+                  <input
+                    type="radio"
+                    name={`pref-${option.key}`}
+                    checked={(draft[option.key] ?? "") === mode.value}
+                    disabled={busy}
+                    onChange={() => set(option.key, mode.value)}
+                  />
+                  <span>{mode.label}</span>
+                </label>
+              ))}
+            </span>
+          </div>
+        ))}
+      </div>
       {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
       <div className="modal-actions">
+        <Button variant="text" disabled={busy || marked === 0} onClick={() => onChange({})}>Clear all</Button>
         <Button variant="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
         <Button variant="primary" disabled={busy} onClick={onSave}>{busy ? "Saving…" : "Save"}</Button>
       </div>

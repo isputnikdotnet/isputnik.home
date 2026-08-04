@@ -213,6 +213,11 @@ Deleting from the app moves things here rather than erasing them. They keep thei
 files for the retention period (the page states it), then go for good — and you can
 restore or empty by hand before then.
 
+Above the tiles is what the bin holds: how many items, how much space they take, and
+how many files that is. It follows the library picker, so it counts what you're
+looking at — with a library chosen it also says what the whole bin holds, since
+"what would emptying this free?" is usually the reason you came.
+
 Items show as tiles, each led by the cover it had when you deleted it, so you can
 recognise a photo or a book without reading filenames. Underneath: the name, the
 folder it came out of, its library, its size, when it was deleted and by whom, and
@@ -403,14 +408,29 @@ something duplicated was actually found in.
 - **Choose folders to work on** narrows the page to sets with a copy in the folders you
   pick, exactly as the search box narrows it. It changes nothing and is forgotten when
   you leave.
-- **Where to keep photos** is a decision, and it is saved. When copies of a photo sit in
-  more than one place, the one in a chosen folder is the copy kept — for photo sets and
-  folder sets alike, outranking every automatic guess, since nothing is lost either way
-  (the other copies' tags and people are merged onto it). A folder you've chosen is also
-  never offered for removal. Saving re-picks every automatic keeper immediately; copies
-  you picked by hand stay as they are.
+- **How to treat each folder** is a decision, and it is saved. Each folder can be
+  marked one of three ways:
 
-Both treat a folder as covering everything below it.
+  - **Keep here** — when copies of a photo sit in several places, the one in this
+    folder is the copy kept, ahead of every automatic guess. Such a folder is also
+    never offered for removal.
+  - **No preference** — the usual reasoning decides.
+  - **Clear out** — the opposite: the copies elsewhere are kept and this folder's go.
+    This is how you retire a folder whose photos are already filed properly somewhere
+    else, and it applies to whole folders too — a folder being cleared out is the one
+    offered for removal when everything in it turns out to exist elsewhere.
+
+  Both instructions outrank the automatic criteria, including hand-filed work,
+  because nothing is lost by obeying them: tags, albums and tagged people move onto
+  whichever copy survives.
+
+  **Clearing out can't empty a folder on its own.** A photo with no copy anywhere
+  else isn't a duplicate, so it is never in a set and never touched; and a set whose
+  every copy is in cleared-out folders still keeps one. Saving re-picks every
+  automatic keeper immediately; copies you picked by hand stay as they are.
+
+Both treat a folder as covering everything below it, and the most specific
+instruction wins — so you can keep a whole library and clear out one folder inside it.
 
 ---
 

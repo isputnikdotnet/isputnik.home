@@ -1022,6 +1022,8 @@
 
 .dup-filter-note { margin: 0 0 10px; font-size: 0.84rem; }
 .dup-status { margin: 0 0 10px; font-size: 0.84rem; }
+/* What the bin holds, above its toolbar — same line style as the duplicate pages. */
+.trash-status { margin: 0 0 10px; font-size: 0.84rem; }
 .dup-tier-heading { margin: 16px 0 4px; font-size: 0.95rem; }
 .dup-tier-note { margin: 0 0 8px; font-size: 0.8rem; }
 .dup-groups { display: flex; flex-direction: column; gap: 10px; }
@@ -1288,6 +1290,43 @@
 /* Long paths wrap instead of stretching the dialog. */
 .dup-folder-choice-body strong { font-size: 0.82rem; overflow-wrap: anywhere; }
 .dup-folder-choice-body span { font-size: 0.74rem; }
+
+/* Three states per folder — keep here / no preference / clear out. A segmented row
+   rather than a dropdown: all three readable at once is the point, since the two ends
+   are opposites and picking the wrong one is the mistake worth designing against. */
+.dup-folder-choice.dup-folder-modes {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: default;
+  flex-wrap: wrap;
+}
+.dup-mode-group {
+  display: inline-flex;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.dup-mode {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dup-mode + .dup-mode { border-left: 1px solid var(--line); }
+.dup-mode input { position: absolute; opacity: 0; width: 0; height: 0; }
+.dup-mode:hover { color: var(--ink); }
+.dup-mode.is-on { color: var(--canvas); background: var(--muted); }
+/* The two ends are opposite instructions, so they carry opposite colours — nobody
+   should be able to mistake "clear out" for "keep" at a glance. */
+.dup-mode-group .dup-mode:first-child.is-on { background: var(--mint); }
+.dup-mode-group .dup-mode:last-child.is-on { background: var(--rose); color: #fff; }
+/* Keyboard focus has to be visible: the radio itself is off-screen. */
+.dup-mode:focus-within { outline: 2px solid var(--accent, #c8a24a); outline-offset: -2px; }
 
 /* A toolbar control holding a filter or a saved preference, so it reads as "on"
    rather than as one more icon. */

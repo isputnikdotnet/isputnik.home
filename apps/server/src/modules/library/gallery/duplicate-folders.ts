@@ -28,7 +28,7 @@ import { db, logActivity } from "../../../db.js";
 import { trashBook } from "../shared/trash.js";
 import {
   absorbDuplicateMetadata, COPY_MARKERS, DERIVED_FOLDERS,
-  preferredFolders, isPreferredPath, type PreferredFolder
+  folderPreferences, preferenceFor, type FolderPreference, type FolderPreferenceMode
 } from "./duplicates.js";
 
 // A folder holding a single photo is a duplicate photo, not a duplicate folder — the
@@ -217,7 +217,7 @@ interface ScoredFolder extends FolderFingerprint {
   depth: number;
   copyMarker: boolean;
   derivedFolder: boolean;
-  preferred: boolean;
+  preference: FolderPreferenceMode | null;
 }
 
 // Tags, albums, collections, saves, shares and tagged people on the photos below a
@@ -251,12 +251,12 @@ function linkCountFor(itemIds: string[]): number {
 // about a folder full of them.
 const COPY_FOLDER_NAMES = /^(backups?|copies|duplicates?)$|[-_ ]copy$|^copy of /i;
 
-function scoreFolder(print: FolderFingerprint, preferred: PreferredFolder[]): ScoredFolder {
+function scoreFolder(print: FolderFingerprint, preferences: FolderPreference[]): ScoredFolder {
   const segments = print.folderPath === "" ? [] : print.folderPath.split("/");
   const name = segments[segments.length - 1] ?? "";
   return {
     ...print,
-    preferred: isPreferredPath(preferred, print.libraryId, print.folderPath),
+    preference: preferenceFor(preferences, print.libraryId, print.folderPath),
     linkCount: linkCountFor(print.itemIds),
     depth: segments.length,
     // Any segment, not just the folder's own name: everything under "Backups/" is a
@@ -272,7 +272,8 @@ function scoreFolder(print: FolderFingerprint, preferred: PreferredFolder[]): Sc
 // Ordered, not weighted — the same contract as the item tier: compare criterion by
 // criterion, first difference wins, and the winning criterion IS the reason shown.
 const FOLDER_CRITERIA: { label: string; value: (row: ScoredFolder) => number }[] = [
-  { label: "a folder you chose to keep", value: (r) => (r.preferred ? 1 : 0) },
+  { label: "a folder you chose to keep", value: (r) => (r.preference === "keep" ? 1 : 0) },
+  { label: "not a folder you're clearing out", value: (r) => (r.preference === "clear" ? 0 : 1) },
   { label: "its photos carry tags, albums or people", value: (r) => r.linkCount },
   { label: "not named like a copy", value: (r) => (r.copyMarker ? 0 : 1) },
   { label: "not in a downloads or app folder", value: (r) => (r.derivedFolder ? 0 : 1) },
@@ -293,8 +294,8 @@ export interface FolderKeeperChoice {
 
 export function pickFolderKeeper(prints: FolderFingerprint[]): FolderKeeperChoice | null {
   if (prints.length === 0) return null;
-  const preferred = preferredFolders();
-  const scored = prints.map((print) => scoreFolder(print, preferred)).sort((a, b) => {
+  const preferences = folderPreferences();
+  const scored = prints.map((print) => scoreFolder(print, preferences)).sort((a, b) => {
     for (const criterion of FOLDER_CRITERIA) {
       const diff = criterion.value(b) - criterion.value(a);
       if (diff !== 0) return diff;
@@ -568,8 +569,13 @@ function containersOf(print: FolderFingerprint): ContainmentTarget[] {
   // the same photos, so without this the answer is always "…and they're also in the
   // library root", which is true and useless — the smallest folder that holds them is
   // the one worth naming.
-  const preferred = preferredFolders();
-  const rank = (ref: FolderRef) => (isPreferredPath(preferred, ref.libraryId, ref.folderPath) ? 0 : 1);
+  // A folder chosen to keep is the natural home for these photos; one being cleared
+  // out is the last place to point at, since it is on its way out itself.
+  const preferences = folderPreferences();
+  const rank = (ref: FolderRef) => {
+    const mode = preferenceFor(preferences, ref.libraryId, ref.folderPath);
+    return mode === "keep" ? 0 : mode === "clear" ? 2 : 1;
+  };
   const depth = (ref: FolderRef) => (ref.folderPath === "" ? 0 : ref.folderPath.split("/").length);
   return out.sort((a, b) =>
     rank(a) - rank(b)
@@ -604,16 +610,19 @@ export function rebuildContainedFolders(): ContainedFolderTotals {
   ).all() as { library_id: string; folder_path: string }[];
   const ignored = containedIgnores();
 
-  const preferred = preferredFolders();
+  const preferences = folderPreferences();
   const found = new Map<string, { print: FolderFingerprint; target: ContainmentTarget }>();
   for (const print of prints) {
     if (ignored.has(refKey(print))) continue;
+    const mode = preferenceFor(preferences, print.libraryId, print.folderPath);
     // Never propose removing a folder the admin said to keep photos in.
-    if (isPreferredPath(preferred, print.libraryId, print.folderPath)) continue;
+    if (mode === "keep") continue;
     // A folder with an equal-contents partner ANYWHERE BELOW IT is already answered by
     // that set, which offers a keeper choice as well. Listing its parent here too
-    // would be a second, weaker answer to the question already on the page.
-    const answeredExactly = exactMembers.some((member) =>
+    // would be a second, weaker answer to the question already on the page — unless
+    // this is a folder being cleared out, where "all of it is safe elsewhere, remove
+    // it" is the whole point and the more direct answer of the two.
+    const answeredExactly = mode !== "clear" && exactMembers.some((member) =>
       member.library_id === print.libraryId
       && (member.folder_path === print.folderPath || member.folder_path.startsWith(`${print.folderPath === "" ? "" : `${print.folderPath}/`}`)));
     if (answeredExactly) continue;

@@ -318,36 +318,54 @@ function loadDetails(itemIds: string[]): Map<string, DetailRow> {
 
 // Filename shapes a file manager or download produces for a second copy. Deliberately
 // narrow: a trailing "-1"/"_1" is NOT included, because IMG_1234.jpg would match it.
-// ── Preferred folders ───────────────────────────────────────────────────────
+// ── Folder preferences ──────────────────────────────────────────────────────
 //
-// "When copies of a photo are in more than one place, keep the one in here." An
-// explicit instruction from the admin, so it outranks every heuristic below — and it
-// costs nothing, because whatever the losing copies carry is merged onto the keeper
-// before they go. A copy counts as preferred when it sits in the folder or anywhere
-// below it; several folders can be preferred at once, and a set with copies in two of
-// them falls through to the ordinary criteria.
+// Two standing instructions the admin can attach to a folder:
+//
+//   "keep"   when copies of a photo are in more than one place, keep the one here.
+//   "clear"  keep the copies elsewhere and let this folder's go — the way you retire
+//            a folder whose contents have already been filed properly somewhere else.
+//
+// Both outrank every heuristic below, because they are instructions rather than
+// guesses, and neither costs anything: whatever a losing copy carries is merged onto
+// the keeper before it goes.
+//
+// "clear" can never empty a folder on its own. A photo with no copy outside it is
+// nobody's duplicate, so it is never in a set at all; and a set every one of whose
+// copies is inside cleared folders has no preferred survivor, falls through to the
+// ordinary criteria, and still keeps one. Retiring a folder means "these photos are
+// safe elsewhere", not "delete these photos".
 export const PREFERRED_FOLDERS_KEY = "gallery.duplicate_preferred_folders";
 
-export interface PreferredFolder {
+export type FolderPreferenceMode = "keep" | "clear";
+
+export interface FolderPreference {
   libraryId: string;
   /** Relative to the library root. "" means the whole library. */
   folderPath: string;
+  mode: FolderPreferenceMode;
 }
 
-export function preferredFolders(): PreferredFolder[] {
+export function folderPreferences(): FolderPreference[] {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(PREFERRED_FOLDERS_KEY) as { value: string } | undefined;
   if (!row?.value) return [];
   try {
-    const parsed = JSON.parse(row.value) as PreferredFolder[];
-    return Array.isArray(parsed)
-      ? parsed.filter((entry) => typeof entry?.libraryId === "string" && typeof entry?.folderPath === "string")
-      : [];
+    const parsed = JSON.parse(row.value) as Partial<FolderPreference>[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry) => typeof entry?.libraryId === "string" && typeof entry?.folderPath === "string")
+      // Entries written before "clear" existed carry no mode and were all "keep".
+      .map((entry) => ({
+        libraryId: entry.libraryId as string,
+        folderPath: entry.folderPath as string,
+        mode: entry.mode === "clear" ? "clear" : "keep"
+      }));
   } catch {
     return [];
   }
 }
 
-export function setPreferredFolders(folders: PreferredFolder[]): void {
+export function setFolderPreferences(folders: FolderPreference[]): void {
   db.prepare(`
     INSERT INTO app_settings (key, value, updated_at)
     VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -355,15 +373,23 @@ export function setPreferredFolders(folders: PreferredFolder[]): void {
   `).run(PREFERRED_FOLDERS_KEY, JSON.stringify(folders));
 }
 
-export function isPreferredPath(
-  folders: PreferredFolder[],
+// The instruction that applies to a path, or null. The MOST SPECIFIC folder wins, so
+// "keep everything in Photos, except Photos/Unsorted which I'm clearing out" reads the
+// way it is written rather than depending on the order they were saved in.
+export function preferenceFor(
+  folders: FolderPreference[],
   libraryId: string,
   /** A file's path, or a folder's — both answer the same question. */
   path: string
-): boolean {
-  return folders.some((folder) =>
-    folder.libraryId === libraryId
-    && (folder.folderPath === "" || path === folder.folderPath || path.startsWith(`${folder.folderPath}/`)));
+): FolderPreferenceMode | null {
+  let best: FolderPreference | null = null;
+  for (const folder of folders) {
+    if (folder.libraryId !== libraryId) continue;
+    const covers = folder.folderPath === "" || path === folder.folderPath || path.startsWith(`${folder.folderPath}/`);
+    if (!covers) continue;
+    if (!best || folder.folderPath.length > best.folderPath.length) best = folder;
+  }
+  return best?.mode ?? null;
 }
 
 export const COPY_MARKERS = [/ \(\d+\)$/, /\bcopy\b/i, /^copy of /i, /[-_ ]duplicate$/i];
@@ -378,16 +404,16 @@ interface Scored extends DetailRow {
   pixels: number;
   copyMarker: boolean;
   derivedFolder: boolean;
-  preferred: boolean;
+  preference: FolderPreferenceMode | null;
 }
 
-function score(row: DetailRow, preferred: PreferredFolder[] = preferredFolders()): Scored {
+function score(row: DetailRow, preferences: FolderPreference[] = folderPreferences()): Scored {
   const segments = row.relative_path.split("/");
   const fileName = segments[segments.length - 1] ?? "";
   const baseName = fileName.replace(/\.[^.]+$/, "");
   return {
     ...row,
-    preferred: isPreferredPath(preferred, row.library_id, row.relative_path),
+    preference: preferenceFor(preferences, row.library_id, row.relative_path),
     linkCount:
       row.face_count + row.album_count + row.slideshow_count + row.collection_count
       + row.tag_count + row.save_count + row.share_count + row.ft_person_count + row.ft_event_count,
@@ -411,9 +437,12 @@ function score(row: DetailRow, preferred: PreferredFolder[] = preferredFolders()
 // sum creates. User work outranks everything, because it's the only thing that can't be
 // recovered from the file itself.
 const KEEPER_CRITERIA: { label: string; value: (row: Scored) => number }[] = [
-  // An explicit instruction beats every guess below it. Nothing is lost by obeying it:
-  // the losing copies' tags and people are merged onto the keeper either way.
-  { label: "in a folder you chose to keep", value: (r) => (r.preferred ? 1 : 0) },
+  // Explicit instructions beat every guess below them, in both directions. Nothing is
+  // lost by obeying them: the losing copies' tags and people are merged onto the
+  // keeper either way. "Clearing out" ranks above hand-filed work for the same reason
+  // — the work moves to the copy that survives.
+  { label: "in a folder you chose to keep", value: (r) => (r.preference === "keep" ? 1 : 0) },
+  { label: "not in a folder you're clearing out", value: (r) => (r.preference === "clear" ? 0 : 1) },
   { label: "has tags, albums or people", value: (r) => r.linkCount },
   { label: "has hand-edited details", value: (r) => r.manualCount },
   { label: "not a copy", value: (r) => (r.copyMarker ? 0 : 1) },
@@ -448,9 +477,9 @@ export interface KeeperChoice {
 // links either side) fall through to the stable "added first" tiebreak.
 export function pickKeeper(rows: DetailRow[]): KeeperChoice | null {
   if (rows.length === 0) return null;
-  // Read the preference once per set rather than once per copy.
-  const preferred = preferredFolders();
-  const scored = rows.map((row) => score(row, preferred)).sort(compareCandidates);
+  // Read the preferences once per set rather than once per copy.
+  const preferences = folderPreferences();
+  const scored = rows.map((row) => score(row, preferences)).sort(compareCandidates);
   const winner = scored[0];
   const runnerUp = scored[1];
   if (!runnerUp) return { keeperId: winner.item_id, reason: null };

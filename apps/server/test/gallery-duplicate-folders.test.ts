@@ -19,7 +19,7 @@ import {
   ignoreContainedFolder,
   resolveContainedFolder
 } from "../src/modules/library/gallery/duplicate-folders.js";
-import { setPreferredFolders } from "../src/modules/library/gallery/duplicates.js";
+import { setFolderPreferences } from "../src/modules/library/gallery/duplicates.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 interface AssetOpts {
@@ -449,7 +449,7 @@ describe("preferred folders", () => {
     rebuildDuplicateFolderGroups();
     expect(groupPaths()[0].keeper).toBe("Italy 2019");
 
-    setPreferredFolders([{ libraryId: "GAL", folderPath: "Backup" }]);
+    setFolderPreferences([{ libraryId: "GAL", folderPath: "Backup", mode: "keep" }]);
     rebuildDuplicateFolderGroups();
     const [group] = listDuplicateFolderGroups();
     expect(group.members.find((member) => member.isKeeper)?.folderPath).toBe("Backup/holiday");
@@ -462,8 +462,79 @@ describe("preferred folders", () => {
     asset("c1", "Trip/Trip/one.jpg", { hash: "pic-1" });
     asset("c2", "Trip/Trip/two.jpg", { hash: "pic-2" });
 
-    setPreferredFolders([{ libraryId: "GAL", folderPath: "Trip/Trip" }]);
+    setFolderPreferences([{ libraryId: "GAL", folderPath: "Trip/Trip", mode: "keep" }]);
     rebuildContainedFolders();
     expect(contained()).toEqual([]);
+  });
+});
+
+// ── Clearing a folder out ───────────────────────────────────────────────────
+//
+// The inverse instruction: "these photos are filed properly elsewhere, so let this
+// folder's copies go." It has to be safe against the obvious fear — that marking a
+// folder means losing the photos only IT has.
+
+describe("clearing a folder out", () => {
+  it("loses to every other folder in a set, even one named like a copy", () => {
+    trip("Consolidated", "a", { discoveredAt: "2024-01-01T00:00:00.000Z" });
+    trip("Backup/holiday", "b", { discoveredAt: "2023-01-01T00:00:00.000Z" });
+
+    setFolderPreferences([{ libraryId: "GAL", folderPath: "Consolidated", mode: "clear" }]);
+    rebuildDuplicateFolderGroups();
+    expect(groupPaths()[0].keeper).toBe("Backup/holiday");
+  });
+
+  it("offers the folder for removal once its photos are all elsewhere", () => {
+    trip("Old drop", "a");
+    trip("Trips/italy", "b");
+    asset("b3", "Trips/italy/three.jpg", { hash: "pic-three" });
+
+    setFolderPreferences([{ libraryId: "GAL", folderPath: "Old drop", mode: "clear" }]);
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+    expect(contained()).toEqual(["Old drop ⊂ Trips/italy"]);
+  });
+
+  it("still keeps a copy when every folder in the set is being cleared out", () => {
+    trip("A", "a");
+    trip("B", "b");
+
+    setFolderPreferences([
+      { libraryId: "GAL", folderPath: "A", mode: "clear" },
+      { libraryId: "GAL", folderPath: "B", mode: "clear" }
+    ]);
+    rebuildDuplicateFolderGroups();
+    const [group] = listDuplicateFolderGroups();
+    // No preferred survivor, so the ordinary criteria decide — one folder is still kept.
+    expect(group.members.filter((member) => member.isKeeper)).toHaveLength(1);
+  });
+
+  it("never points photos at a folder being cleared out", () => {
+    // Both Keepsafe and Old drop cover Inner, but one of them is on its way out.
+    // Each covering folder holds a different extra, so no two are equal-contents —
+    // that would be answered by the other tier instead.
+    asset("i1", "Inner/one.jpg", { hash: "pic-one" });
+    asset("i2", "Inner/two.jpg", { hash: "pic-two" });
+    trip("Old drop", "a");
+    asset("a3", "Old drop/extra-a.jpg", { hash: "pic-a" });
+    trip("Keepsafe", "k");
+    asset("k3", "Keepsafe/extra-k.jpg", { hash: "pic-k" });
+
+    setFolderPreferences([{ libraryId: "GAL", folderPath: "Old drop", mode: "clear" }]);
+    rebuildContainedFolders();
+    const row = listContainedFolders().find((entry) => entry.folder.folderPath === "Inner");
+    expect(row?.target.folderPath).toBe("Keepsafe");
+  });
+
+  it("reads the most specific instruction, so an exception inside a kept folder holds", () => {
+    trip("Photos/keepers", "a", { discoveredAt: "2024-01-01T00:00:00.000Z" });
+    trip("Photos/unsorted", "b", { discoveredAt: "2023-01-01T00:00:00.000Z" });
+
+    setFolderPreferences([
+      { libraryId: "GAL", folderPath: "Photos", mode: "keep" },
+      { libraryId: "GAL", folderPath: "Photos/unsorted", mode: "clear" }
+    ]);
+    rebuildDuplicateFolderGroups();
+    expect(groupPaths()[0].keeper).toBe("Photos/keepers");
   });
 });
