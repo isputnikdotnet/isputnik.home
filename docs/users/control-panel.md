@@ -342,7 +342,7 @@ you aren't looking at, in which case they move onto one of those copies and the
 dialog says so. The files still land in the Recycle Bin, so it's undoable until you
 empty it.
 
-**Delete all extras** works on every **identical** set at once, keeping one copy in
+**Delete extras in identical sets** works on every **identical** set at once, keeping one copy in
 each. It follows the library picker exactly as the list does: pick a library and it
 thins that library down to one copy per set, leaving copies in other libraries
 untouched — so a photo can still be duplicated *across* libraries afterwards, and

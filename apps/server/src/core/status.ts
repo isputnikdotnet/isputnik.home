@@ -502,6 +502,13 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.16.2",
+          label: "The bulk delete button says what it covers",
+          changes: [
+            "\"Delete all extras\" has only ever removed copies from identical sets — near-identical ones are excluded by the query itself, so nothing on the page can widen it. But a lone trash icon above a list holding both kinds reads as though it might take the lot. It now says \"Delete extras in identical sets (never near-identical)\"."
+          ]
+        },
+        {
           version: "2.16.1",
           label: "Show only the duplicates you can clear without looking",
           changes: [

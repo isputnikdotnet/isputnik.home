@@ -745,14 +745,20 @@ export function DuplicatePhotosSection() {
                 ? <span className="icon-spin" aria-hidden="true"><RefreshCw size={18} /></span>
                 : <RefreshCw size={18} aria-hidden="true" />}
             </Button>
+            {/* Says which sets it covers, not just "all extras": the button has
+                always been identical-only (the server's query excludes the near tier
+                outright), but a lone trash icon over a list holding both reads as
+                though it might take the lot. */}
             {exact.length > 0 && (
               <Button
                 variant="icon"
                 danger
                 disabled={busy}
                 onClick={() => { setActionError(""); setDeleteAllOpen(true); }}
-                aria-label="Delete all extras"
-                title={scopeName ? `Delete all extras in “${scopeName}”` : "Delete all extras"}
+                aria-label={`Delete the extra copies in every identical set${scopeName ? ` in ${scopeName}` : ""}`}
+                title={scopeName
+                  ? `Delete extras in identical sets — “${scopeName}” only`
+                  : "Delete extras in identical sets (never near-identical)"}
               >
                 <Trash2 size={18} aria-hidden="true" />
               </Button>
