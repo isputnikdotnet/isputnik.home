@@ -502,6 +502,19 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.18.0",
+          label: "Duplicate folders, rebuilt as cards",
+          changes: [
+            "Each duplicate folder set is now a card: numbered, with what the folders hold, a strip of the pictures themselves, and the folders side by side — green for the one being kept, red for the one that goes. Each carries its path, when it was added, its size, and a single button. Click a red folder's name to keep that one instead; \"Delete this\" now removes just that folder rather than every copy in the set.",
+            "The folder list gained sorting (newest, largest, most photos, name), paging, and a search box in the bar beside the filters.",
+            "Two sections could show the same pair of folders — once as an equal-contents set, once as \"already stored elsewhere\". The rule against that only applied when results were rebuilt, so a set found by an older version kept showing twice. It now applies whenever the page is read, so a stale result can't be displayed at all.",
+            "A new rebuild button on both duplicate pages recomputes every list from what the last scan already worked out, without reading a single file. That is the thing to press whenever a list looks wrong — a full scan re-reads the whole library and is rarely what's needed.",
+            "Keep and Clear now save the moment you click them, and moved into the filter box beside the folder they apply to. A separate Save step for one control in a box where everything else applies instantly read as a control that didn't work.",
+            "Duplicate photos can be narrowed to photos or videos only, and search has left the filter box on both pages.",
+            "When a copy is kept in a folder you asked to clear out — which happens when every copy is in one, since clearing can never empty a folder — the set now says so instead of looking like the setting was ignored."
+          ]
+        },
+        {
           version: "2.17.2",
           label: "The filter box is two tabs, not one long scroll",
           changes: [

@@ -11,12 +11,14 @@
 // Both read the same scan as Duplicate photos; neither runs one. The scan lives on
 // that page, so there is one place that starts work and one place that reports it.
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, FolderHeart, FolderOpen, HardDrive, ImageOff, Images, Info, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ArrowRight, ExternalLink, FolderOpen, HardDrive, ImageOff, Images, RefreshCw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
+import { Pager } from "../../../shared/Pager";
+import { SelectMenu } from "../../../shared/SelectMenu";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { controlHref } from "../../../router";
 import {
@@ -29,7 +31,6 @@ import {
   DuplicateFiltersModal,
   type DuplicateFilterState,
   activeFilterCount,
-  PreferredFoldersModal,
   type PreferenceDraft,
   folderCovers,
   folderKey,
@@ -37,6 +38,35 @@ import {
   folderPathLabel,
   normalisePayload
 } from "./duplicate-shared";
+
+type FolderSort = "newest" | "photos" | "size" | "name";
+
+const SORT_OPTIONS: { value: FolderSort; label: string }[] = [
+  { value: "newest", label: "Newest" },
+  { value: "size", label: "Largest" },
+  { value: "photos", label: "Most photos" },
+  { value: "name", label: "Name A–Z" }
+];
+
+const PER_PAGE_OPTIONS = [
+  { value: "10", label: "10 per page" },
+  { value: "25", label: "25 per page" },
+  { value: "50", label: "50 per page" },
+  { value: "all", label: "Show all" }
+];
+
+// A set is dated by the newest folder in it — the copy you most recently acquired is
+// what makes a pair feel recent, not the original it duplicates.
+const setDate = (group: DuplicateFolderGroup): string =>
+  group.members.reduce((latest, member) => (member.addedAt && member.addedAt > latest ? member.addedAt : latest), "");
+
+function sortSets(list: DuplicateFolderGroup[], sort: FolderSort): DuplicateFolderGroup[] {
+  const out = [...list];
+  if (sort === "photos") return out.sort((a, b) => b.itemCount - a.itemCount);
+  if (sort === "size") return out.sort((a, b) => b.copyBytes - a.copyBytes);
+  if (sort === "name") return out.sort((a, b) => (a.members[0]?.name ?? "").localeCompare(b.members[0]?.name ?? ""));
+  return out.sort((a, b) => setDate(b).localeCompare(setDate(a)));
+}
 
 function formatWhen(value: string | null): string {
   if (!value) return "Never";
@@ -75,22 +105,48 @@ export function DuplicateFoldersSection() {
   const [actionError, setActionError] = useState("");
   const [busyId, setBusyId] = useState("");
   // Everything that narrows the page, in one box — see DuplicateFiltersModal.
-  const [filters, setFilters] = useState<DuplicateFilterState>({ scopeId: "", search: "", folders: [], tier: "all" });
+  const [filters, setFilters] = useState<DuplicateFilterState>({ scopeId: "", search: "", folders: [], tier: "all", mediaKind: "all" });
 
   // A folder set keeps exactly ONE folder — keeping two identical folders isn't
   // de-duplicating, and the stakes are a whole folder.
   const [keeperPick, setKeeperPick] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<DuplicateFolderGroup | null>(null);
+  // Which of the set's folders the open confirm covers: one (a card's Delete this),
+  // or every non-keeper (the header button, or the keeper card's Keep this).
+  const [deleteFolders, setDeleteFolders] = useState<DuplicateFolderMember[] | null>(null);
   const [ignoreTarget, setIgnoreTarget] = useState<DuplicateFolderGroup | null>(null);
   const [containedDeleteTarget, setContainedDeleteTarget] = useState<ContainedFolder | null>(null);
   const [containedIgnoreTarget, setContainedIgnoreTarget] = useState<ContainedFolder | null>(null);
 
 
+  const [sort, setSort] = useState<FolderSort>("newest");
+  const [perPage, setPerPage] = useState("10");
+  const [page, setPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [preferOpen, setPreferOpen] = useState(false);
   const [preferDraft, setPreferDraft] = useState<PreferenceDraft>({});
   const [preferBusy, setPreferBusy] = useState(false);
+  const [rebuilding, setRebuilding] = useState(false);
   const pollRef = useRef<number | null>(null);
+  // The saved keep/clear instructions, as edited in the Folders tab of that box.
+  const savedPreferences = Object.fromEntries(payload.folderPreferences
+    .map((folder) => [folderKey(folder), folder.mode] as const));
+
+  // Recompute every list from the digests already stored — no file is read. The
+  // lists are caches, so this is the answer to anything that looks stale.
+  const rebuild = async () => {
+    setRebuilding(true);
+    setActionError("");
+    try {
+      setPayload(normalisePayload(await api<DuplicatePayload>("/api/library/gallery/duplicates/rebuild", {
+        method: "POST",
+        body: "{}"
+      })));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Unable to rebuild the results");
+    } finally {
+      setRebuilding(false);
+    }
+  };
 
   const load = async () => {
     setPayload(normalisePayload(await api<DuplicatePayload>("/api/library/gallery/duplicates")));
@@ -119,7 +175,7 @@ export function DuplicateFoldersSection() {
   const { scopeId, search } = filters;
   const folderFilter = filters.folders;
 
-  const busy = preferBusy || busyId !== "";
+  const busy = preferBusy || rebuilding || busyId !== "";
   const scopeName = payload.libraries.find((library) => library.id === scopeId)?.name ?? "";
   const needle = search.trim().toLowerCase();
 
@@ -150,6 +206,17 @@ export function DuplicateFoldersSection() {
     && (inChosenFolders(row.folder.libraryId, row.folder.folderPath)
       || inChosenFolders(row.target.libraryId, row.target.folderPath)));
 
+  // Anything that changes the list or its order returns to the first page.
+  useEffect(() => { setPage(1); }, [needle, scopeId, sort, perPage, folderFilter]);
+  const orderedGroups = sortSets(groups, sort);
+  const pageSize = perPage === "all" ? Math.max(orderedGroups.length, 1) : Number(perPage);
+  const totalPages = Math.max(1, Math.ceil(orderedGroups.length / pageSize));
+  // Clamped rather than corrected in state, so a shrinking list can't strand the view.
+  const currentPage = Math.min(page, totalPages);
+  const pageGroups = orderedGroups.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const firstShown = orderedGroups.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const lastShown = Math.min(currentPage * pageSize, orderedGroups.length);
+
   const filtering = needle !== "" || scopeId !== "" || chosenFolders.length > 0;
   const anythingFound = payload.folderGroups.length > 0 || payload.containedFolders.length > 0;
   const reclaimable = groups.reduce((sum, group) => sum + group.reclaimableBytes, 0)
@@ -169,7 +236,8 @@ export function DuplicateFoldersSection() {
     if (!deleteTarget) return;
     const group = deleteTarget;
     const keeper = keeperOf(group);
-    const doomed = group.members.filter((member) => folderKey(member) !== folderKey(keeper));
+    const doomed = (deleteFolders ?? group.members)
+      .filter((member) => folderKey(member) !== folderKey(keeper));
     if (doomed.length === 0) return;
     setBusyId(group.id);
     setActionError("");
@@ -192,6 +260,7 @@ export function DuplicateFoldersSection() {
         return next;
       });
       setDeleteTarget(null);
+      setDeleteFolders(null);
       await load();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Unable to remove the folders");
@@ -216,39 +285,53 @@ export function DuplicateFoldersSection() {
 
   // Saving re-picks every automatic keeper on the server, so the response is the whole
   // page again rather than an acknowledgement.
-  const savePreferred = async () => {
+  // Saved the instant a folder's mode is clicked. The server re-picks every
+  // automatic keeper as part of the same call and answers with the whole page, so
+  // the list behind the dialog is already right when it closes.
+  const savePreferences = async (next: PreferenceDraft) => {
+    setPreferDraft(next);
     setPreferBusy(true);
     setActionError("");
     try {
       const folders = folderOptions
-        .filter((option) => preferDraft[option.key])
-        .map((option) => ({ libraryId: option.libraryId, folderPath: option.folderPath, mode: preferDraft[option.key] }));
+        .filter((option) => next[option.key])
+        .map((option) => ({ libraryId: option.libraryId, folderPath: option.folderPath, mode: next[option.key] }));
       setPayload(normalisePayload(await api<DuplicatePayload>("/api/library/gallery/duplicates/preferred-folders", {
         method: "POST",
         body: JSON.stringify({ folders })
       })));
-      setPreferOpen(false);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to save the preferred folders");
+      setActionError(err instanceof Error ? err.message : "Unable to save the folder choices");
+      // Put the dialog back to what the server still holds, so it never shows a
+      // choice that isn't stored.
+      setPreferDraft(savedPreferences);
     } finally {
       setPreferBusy(false);
     }
   };
 
-  const renderGroup = (group: DuplicateFolderGroup) => {
+  // One set as a card: what the folders hold, a strip of the pictures themselves, then
+  // the folders side by side — the one being kept first, each of the others after it.
+  // Two is the common case but never assumed; a set can hold three copies of a folder.
+  const renderGroup = (group: DuplicateFolderGroup, index: number) => {
     const keeper = keeperOf(group);
     const doomed = group.members.filter((member) => folderKey(member) !== folderKey(keeper));
+    const ordered = [keeper, ...doomed];
+    const strip = keeper.coverUrls.slice(0, 4);
+    const rest = Math.max(group.itemCount - strip.length, 0);
+
     return (
-      <div className="dup-group" key={group.id}>
-        <div className="dup-group-head">
-          <div className="dup-group-summary">
-            <strong>
-              {group.members.length} folders holding the same {group.itemCount} photo{group.itemCount === 1 ? "" : "s"}
-            </strong>
-            <span className="datagrid-muted">
-              {" · "}{formatBytes(group.reclaimableBytes)} to reclaim
-              {group.keeperReason ? ` · keeping “${keeper.name}”: ${group.keeperReason}` : ` · keeping “${keeper.name}”`}
-            </span>
+      <div className="dup-set" key={group.id}>
+        <div className="dup-set-head">
+          <div>
+            <h3 className="dup-set-title">Set {index + 1}</h3>
+            <p className="dup-set-meta datagrid-muted">
+              <span><Images size={14} aria-hidden="true" /> {group.itemCount} photo{group.itemCount === 1 ? "" : "s"}</span>
+              <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(group.copyBytes)}</span>
+              {group.keeperReason && (
+                <span className="dup-set-reason">kept because: {group.keeperReason}</span>
+              )}
+            </p>
           </div>
           <div className="dup-group-actions">
             <Button variant="secondary" compact disabled={busy} onClick={() => { setActionError(""); setIgnoreTarget(group); }}>
@@ -258,7 +341,7 @@ export function DuplicateFoldersSection() {
               variant="danger"
               compact
               disabled={busy || doomed.length === 0}
-              onClick={() => { setActionError(""); setDeleteTarget(group); }}
+              onClick={() => { setActionError(""); setDeleteFolders(null); setDeleteTarget(group); }}
             >
               <Trash2 size={14} />
               <span>Delete {doomed.length} folder{doomed.length === 1 ? "" : "s"}</span>
@@ -266,57 +349,89 @@ export function DuplicateFoldersSection() {
           </div>
         </div>
 
-        <div className="dup-folders">
-          {group.members.map((member) => {
-            const keep = folderKey(member) === folderKey(keeper);
-            return (
-              <div className={`dup-folder${keep ? " is-keep" : " is-trash"}`} key={folderKey(member)}>
-                <Button
-                  variant="text"
-                  className="dup-folder-pick"
-                  aria-pressed={keep}
-                  disabled={busy}
-                  title={keep ? "This folder is the one being kept" : "Keep this folder instead"}
-                  onClick={() => setKeeperPick((current) => ({ ...current, [group.id]: folderKey(member) }))}
-                >
-                  {/* A few of the folder's own pictures: the fastest way to recognise
-                      which copy of a folder you are looking at. */}
-                  <span className="dup-folder-thumbs" aria-hidden="true">
-                    {member.coverUrls.length > 0
-                      ? member.coverUrls.map((url) => <img key={url} src={url} alt="" loading="lazy" />)
-                      : <ImageOff size={16} />}
-                  </span>
-                  <span className="dup-folder-name">{member.name}</span>
-                  <span className="dup-copy-where" title={member.folderPath || "Library root"}>
-                    <FolderOpen size={11} aria-hidden="true" />
-                    <span>{folderPathLabel(member)}</span>
-                  </span>
-                  {!scopeName && (
-                    <span className="dup-copy-where">
-                      <Images size={11} aria-hidden="true" />
-                      <span>{member.libraryName}</span>
+        <div className="dup-set-body">
+          <div className="dup-set-strip" aria-hidden="true">
+            {strip.length > 0
+              ? strip.map((url) => <img key={url} src={url} alt="" loading="lazy" />)
+              : <span className="dup-set-strip-empty"><ImageOff size={18} /></span>}
+            {rest > 0 && <span className="dup-set-more">+{rest} more</span>}
+          </div>
+
+          <div className="dup-set-folders">
+            {ordered.map((member, position) => {
+              const keep = folderKey(member) === folderKey(keeper);
+              return (
+                <div className="dup-set-folder-wrap" key={folderKey(member)}>
+                  {position > 0 && <ArrowRight className="dup-set-arrow" size={18} aria-hidden="true" />}
+                  <div className={`dup-set-folder${keep ? " is-keep" : " is-trash"}`}>
+                    <div className="dup-set-folder-top">
+                      <span className="dup-copy-badge dup-set-badge" aria-hidden="true">{keep ? "Keep" : "Delete"}</span>
+                      <a
+                        className="dup-set-open"
+                        href={`/gallery/folders/${member.folderPath.split("/").map(encodeURIComponent).join("/")}?library=${encodeURIComponent(member.libraryId)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open this folder in the gallery, in a new tab"
+                      >
+                        <ExternalLink size={14} aria-hidden="true" />
+                      </a>
+                    </div>
+                    {/* The name swaps the keeper on a non-keeper card — the mockup
+                        allows one action button per card, so the swap lives here. */}
+                    {keep ? (
+                      <span className="dup-set-name-row">
+                        <FolderOpen size={17} aria-hidden="true" />
+                        <strong className="dup-set-folder-name">{member.name}</strong>
+                      </span>
+                    ) : (
+                      <Button
+                        variant="text"
+                        className="dup-set-name-row dup-set-name-btn"
+                        disabled={busy}
+                        title="Keep this folder instead"
+                        onClick={() => setKeeperPick((current) => ({ ...current, [group.id]: folderKey(member) }))}
+                      >
+                        <FolderOpen size={17} aria-hidden="true" />
+                        <strong className="dup-set-folder-name">{member.name}</strong>
+                      </Button>
+                    )}
+                    <span className="dup-set-path" title={member.folderPath || "Library root"}>{folderPathLabel(member)}</span>
+                    <span className="dup-set-line">{formatWhen(member.addedAt)}</span>
+                    <span className="dup-set-line">
+                      {member.itemCount} photo{member.itemCount === 1 ? "" : "s"} · {formatBytes(member.bytes)}
+                      {member.linkCount > 0 ? ` · ${member.linkCount} tags/links` : ""}
+                      {!scopeName ? ` · ${member.libraryName}` : ""}
                     </span>
-                  )}
-                  <span className="dup-copy-where">
-                    <HardDrive size={11} aria-hidden="true" />
-                    <span>{member.itemCount} photos · {formatBytes(member.bytes)}</span>
-                  </span>
-                  {member.linkCount > 0 && (
-                    <span className="dup-copy-where">
-                      <Info size={11} aria-hidden="true" />
-                      <span>{member.linkCount} tag{member.linkCount === 1 ? "" : "s"}/links</span>
-                    </span>
-                  )}
-                </Button>
-                <span className="dup-copy-badge" aria-hidden="true">{keep ? "Keep" : "Delete"}</span>
-              </div>
-            );
-          })}
+                    {keep ? (
+                      <Button
+                        variant="secondary"
+                        compact
+                        disabled={busy || doomed.length === 0}
+                        className="dup-set-action dup-set-keep-action"
+                        title="Keep this folder and delete the others"
+                        onClick={() => { setActionError(""); setDeleteFolders(doomed); setDeleteTarget(group); }}
+                      >
+                        Keep this
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="danger"
+                        compact
+                        disabled={busy}
+                        className="dup-set-action"
+                        onClick={() => { setActionError(""); setDeleteFolders([member]); setDeleteTarget(group); }}
+                      >
+                        Delete this
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );            })}
+          </div>
         </div>
       </div>
     );
   };
-
   return (
     <>
       <ControlSectionHead
@@ -348,35 +463,54 @@ export function DuplicateFoldersSection() {
 
       {anythingFound && (
         <div className="dup-toolbar">
-          {/* One box for every way of narrowing the page — the same one Duplicate
-              photos uses, minus the tier, since everything here is folder-shaped. */}
+          {/* The filter box holds library and folders; search and ordering sit out
+              here because they are the two you reach for on every visit. */}
           <Button
             variant="secondary"
             compact
             className={activeFilters > 0 ? "is-active" : ""}
             disabled={busy}
-            onClick={() => { setActionError(""); setFilterOpen(true); }}
+            onClick={() => { setActionError(""); setPreferDraft(savedPreferences); setFilterOpen(true); }}
           >
             <SlidersHorizontal size={16} aria-hidden="true" />
             <span>{activeFilters > 0 ? `Filters (${activeFilters})` : "Filters"}</span>
           </Button>
+
+          <label className="search-field dup-folder-search">
+            <Search size={17} aria-hidden="true" />
+            <span className="sr-only">Search duplicate folders by path or library</span>
+            <input
+              type="search"
+              value={search}
+              placeholder="Search folders…"
+              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+            />
+          </label>
+
           <div className="dup-toolbar-controls">
+            <SelectMenu
+              value={sort}
+              options={SORT_OPTIONS}
+              label="Sort duplicate folder sets"
+              onChange={setSort}
+            />
+            <SelectMenu
+              value={perPage}
+              options={PER_PAGE_OPTIONS}
+              label="Sets per page"
+              className="dup-per-page"
+              onChange={setPerPage}
+            />
             <Button
               variant="icon"
-              className={payload.folderPreferences.length > 0 ? "is-active" : ""}
-              disabled={busy || folderOptions.length === 0}
-              onClick={() => {
-                setActionError("");
-                setPreferDraft(Object.fromEntries(payload.folderPreferences
-                  .map((folder) => [folderKey(folder), folder.mode] as const)));
-                setPreferOpen(true);
-              }}
-              aria-label="Choose how each folder is treated"
-              title={payload.folderPreferences.length > 0
-                ? `${payload.folderPreferences.filter((f) => f.mode === "keep").length} folders kept, ${payload.folderPreferences.filter((f) => f.mode === "clear").length} being cleared out`
-                : "Choose which folders to keep photos in, and which to clear out"}
+              disabled={busy}
+              onClick={() => void rebuild()}
+              aria-label={rebuilding ? "Rebuilding results…" : "Rebuild results from the last scan"}
+              title={rebuilding ? "Rebuilding…" : "Rebuild results from the last scan (reads no files)"}
             >
-              <FolderHeart size={18} aria-hidden="true" />
+              {rebuilding
+                ? <span className="icon-spin" aria-hidden="true"><RefreshCw size={18} /></span>
+                : <RefreshCw size={18} aria-hidden="true" />}
             </Button>
           </div>
         </div>
@@ -405,7 +539,15 @@ export function DuplicateFoldersSection() {
             The same pictures, file for file, whatever the two folders are called. Every photo in them is also a set
             on Duplicate photos — clearing a folder here settles all of them at once.
           </p>
-          <div className="dup-groups">{groups.map(renderGroup)}</div>
+          <div className="dup-sets">{pageGroups.map(renderGroup)}</div>
+          {orderedGroups.length > 0 && (
+            <div className="dup-pager-row">
+              <span className="datagrid-muted">
+                Showing {firstShown}–{lastShown} of {orderedGroups.length} set{orderedGroups.length === 1 ? "" : "s"}
+              </span>
+              <Pager page={currentPage} totalPages={totalPages} onChange={setPage} label="Duplicate folder pages" />
+            </div>
+          )}
         </>
       )}
 
@@ -502,7 +644,8 @@ export function DuplicateFoldersSection() {
 
       {deleteTarget && (() => {
         const keeper = keeperOf(deleteTarget);
-        const doomed = deleteTarget.members.filter((member) => folderKey(member) !== folderKey(keeper));
+        const doomed = (deleteFolders ?? deleteTarget.members)
+          .filter((member) => folderKey(member) !== folderKey(keeper));
         const photos = doomed.reduce((sum, member) => sum + member.itemCount, 0);
         return (
           <ConfirmDialog
@@ -513,7 +656,7 @@ export function DuplicateFoldersSection() {
             busy={busyId === deleteTarget.id}
             error={actionError}
             onConfirm={confirmDelete}
-            onCancel={() => setDeleteTarget(null)}
+            onCancel={() => { setDeleteTarget(null); setDeleteFolders(null); }}
             rich
           >
             <p>
@@ -626,22 +769,14 @@ export function DuplicateFoldersSection() {
           options={folderOptions}
           libraries={payload.libraries}
           withTier={false}
+          preferences={preferDraft}
+          preferencesBusy={preferBusy}
+          onPreferencesChange={(next) => void savePreferences(next)}
           onChange={setFilters}
           onClose={() => setFilterOpen(false)}
         />
       )}
 
-      {preferOpen && (
-        <PreferredFoldersModal
-          options={folderOptions}
-          draft={preferDraft}
-          busy={preferBusy}
-          error={actionError}
-          onChange={setPreferDraft}
-          onSave={() => void savePreferred()}
-          onClose={() => setPreferOpen(false)}
-        />
-      )}
     </>
   );
 }

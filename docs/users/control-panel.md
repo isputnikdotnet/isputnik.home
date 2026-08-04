@@ -276,7 +276,7 @@ each only appear there.
 
 #### Working through the list
 
-**Filters** opens one box holding every way of narrowing the page, in two tabs —
+**Filters** opens one box holding the ways of narrowing the page, in two tabs —
 *What to show* and *Folders* — each carrying a count, and the button itself says how
 many are on:
 
@@ -285,10 +285,11 @@ many are on:
 - **Which duplicates** — identical files only, near-identical only, or both.
   *Identical files only* is the one to reach for when you want to clear space
   without inspecting anything: those sets are byte-for-byte matches.
-- **Search** — a filename, folder or library name; keeps a whole set when any copy
-  in it matches.
-- **Folders** — only folders something duplicated was found in. A folder covers
-  everything below it.
+- **Media type** — photos only, videos only, or both. Videos never appear as
+  near-identical, since only photos are fingerprinted that way.
+- **Folders** — only folders something duplicated was actually found in, with their
+  own search and ordering. A folder covers everything below it. Each row also
+  carries its **Keep here / Clear out** instruction (see below), saved as you click.
 
 These matter more than they look, because **the bulk delete acts on exactly what
 they leave on screen** — see below.
@@ -359,6 +360,11 @@ Near-identical sets are never included, whatever the filters say — they're a
 judgement call, one at a time. Your per-set Keep/Delete marks are ignored by this
 button; it keeps each set's own keeper, including any you chose by hand.
 
+**Rebuild** (the circular arrow beside Scan) recomputes every list from what the
+last scan already worked out, without reading a single file. Press it whenever a
+list looks wrong — a set that shouldn't be there, a keeper that ignored a folder
+instruction. A full scan re-reads the library and is rarely what that needs.
+
 Two things worth knowing. Nothing is deleted without you asking — a scan only ever
 reports. And if a photo has been edited on disk since the last library scan, it's
 left out of the comparison and the page says so; re-scan that library from
@@ -381,9 +387,12 @@ it reuses the fingerprints the identical-file scan already took.
 Only the topmost pairing is shown. If two whole libraries match, you get one set for
 the libraries, not one for every folder inside them.
 
-Each folder is a tile showing a few of its own pictures, where it lives, how many
-photos it holds and how much space they take. Exactly one folder in a set is kept —
-click a tile to make it that one. The suggestion favours the folder whose photos
+Each set is a card: what the folders hold, a strip of the pictures themselves, then
+the folders side by side — green for the one being kept, red for the one that goes.
+Each shows its path, when it was added and its size, with a link out to that folder
+in the gallery. Click a red folder's **name** to keep that one instead; **Delete
+this** removes just that folder, while the header button clears every copy but the
+keeper. The list sorts by newest, largest, most photos or name, and pages. The suggestion favours the folder whose photos
 carry tags, albums or tagged people, then passes over anything named or filed like
 a copy (*Backup*, *Downloads*, *WhatsApp*, *… copy*), then prefers the folder nearer
 the top of the library, then the one added first.

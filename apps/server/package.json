@@ -1,7 +1,7 @@
 {
   "name": "@isputnik/server",
   "private": true,
-  "version": "2.17.2",
+  "version": "2.18.0",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {

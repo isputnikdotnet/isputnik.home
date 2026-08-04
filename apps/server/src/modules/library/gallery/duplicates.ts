@@ -255,6 +255,7 @@ export async function hashDuplicateCandidates(
 
 interface DetailRow {
   item_id: string;
+  kind: string;
   library_id: string;
   library_name: string;
   relative_path: string;
@@ -284,7 +285,7 @@ interface DetailRow {
 }
 
 const DETAIL_COLUMNS = `
-  gd.item_id, li.library_id, lib.name AS library_name, gd.relative_path, li.discovered_at,
+  gd.item_id, gd.kind, li.library_id, lib.name AS library_name, gd.relative_path, li.discovered_at,
   gd.size, gd.width, gd.height, gd.taken_at, gd.taken_at_source, gd.gps_source,
   gd.camera_make, gd.camera_model, gd.content_hash,
   im.title, im.source AS metadata_source, im.cover_storage_key, gd.preview_storage_key,
@@ -483,6 +484,17 @@ export function pickKeeper(rows: DetailRow[]): KeeperChoice | null {
   const winner = scored[0];
   const runnerUp = scored[1];
   if (!runnerUp) return { keeperId: winner.item_id, reason: null };
+
+  // Every copy is somewhere the admin asked to clear out. One is still kept — the
+  // instruction says which copy survives, never whether one does — but keeping a copy
+  // in a folder you told it to empty needs saying, or it reads as the setting being
+  // ignored. It is usually a folder marked at the wrong level: mark the inner one.
+  if (scored.every((row) => row.preference === "clear")) {
+    return {
+      keeperId: winner.item_id,
+      reason: "every copy is in a folder you're clearing out, so one was kept anyway"
+    };
+  }
 
   const reasons = KEEPER_CRITERIA
     .filter((c) => c.value(winner) > c.value(runnerUp))
@@ -883,6 +895,8 @@ export function duplicateScanStatus(): DuplicateScanStatus {
 
 export interface DuplicateMember {
   itemId: string;
+  /** Photo or video — every copy in a set shares it, so it names the set too. */
+  kind: "photo" | "video";
   libraryId: string;
   libraryName: string;
   path: string;
@@ -938,6 +952,7 @@ export function listDuplicateGroups(): DuplicateGroup[] {
         const camera = [row.camera_make, row.camera_model].filter(Boolean).join(" ") || null;
         return {
           itemId: row.item_id,
+          kind: row.kind === "video" ? "video" as const : "photo" as const,
           libraryId: row.library_id,
           libraryName: row.library_name,
           path: row.relative_path,

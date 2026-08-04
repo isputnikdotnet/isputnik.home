@@ -618,11 +618,15 @@ export function rebuildContainedFolders(): ContainedFolderTotals {
     // Never propose removing a folder the admin said to keep photos in.
     if (mode === "keep") continue;
     // A folder with an equal-contents partner ANYWHERE BELOW IT is already answered by
-    // that set, which offers a keeper choice as well. Listing its parent here too
-    // would be a second, weaker answer to the question already on the page — unless
-    // this is a folder being cleared out, where "all of it is safe elsewhere, remove
-    // it" is the whole point and the more direct answer of the two.
-    const answeredExactly = mode !== "clear" && exactMembers.some((member) =>
+    // that set, which offers a keeper choice as well. Listing it here too would be a
+    // second, weaker answer to a question already on the page — and the two rows read
+    // as the same pair twice, because that is what they are.
+    //
+    // This holds for a folder being cleared out as well. It used to be exempt, on the
+    // reasoning that "all of it is safe elsewhere" is the more direct answer — but the
+    // equal-contents set says the same thing AND honours the instruction in its keeper
+    // choice, so the exemption bought nothing and cost a duplicate row.
+    const answeredExactly = exactMembers.some((member) =>
       member.library_id === print.libraryId
       && (member.folder_path === print.folderPath || member.folder_path.startsWith(`${print.folderPath === "" ? "" : `${print.folderPath}/`}`)));
     if (answeredExactly) continue;
@@ -685,6 +689,12 @@ export interface ContainedFolder {
 }
 
 export function listContainedFolders(): ContainedFolder[] {
+  // The NOT EXISTS is the same rule rebuildContainedFolders applies when it writes
+  // these rows: a folder already answered by an equal-contents set is not reported
+  // here as well. It is repeated at READ time because these are two caches that are
+  // rebuilt together but persist independently — a row written before that rule
+  // existed (or by an older version) would otherwise show the same pair of folders
+  // twice, in two sections, until something happened to rebuild.
   const rows = db.prepare(`
     SELECT c.id, c.library_id, c.folder_path, c.target_library_id, c.target_folder_path,
            c.item_count, c.bytes, c.extra_count,
@@ -692,6 +702,13 @@ export function listContainedFolders(): ContainedFolder[] {
     FROM gallery_duplicate_contained_folders c
     JOIN libraries lib ON lib.id = c.library_id
     JOIN libraries tlib ON tlib.id = c.target_library_id
+    WHERE NOT EXISTS (
+      SELECT 1 FROM gallery_duplicate_folder_members m
+      WHERE m.library_id = c.library_id
+        AND (c.folder_path = ''
+             OR m.folder_path = c.folder_path
+             OR m.folder_path LIKE c.folder_path || '/%')
+    )
     ORDER BY c.bytes DESC, c.id
   `).all() as {
     id: string; library_id: string; folder_path: string;
@@ -852,6 +869,8 @@ export interface DuplicateFolderMember extends FolderRef {
   linkCount: number;
   /** A few thumbnails, so a folder can be recognised without opening it. */
   coverUrls: string[];
+  /** When its oldest photo was catalogued — how a person dates a folder. */
+  addedAt: string | null;
   isKeeper: boolean;
 }
 
@@ -874,6 +893,21 @@ function folderItemIds(ref: FolderRef): string[] {
       AND (? = '' OR li.folder_path LIKE ? ESCAPE '\\')
     ORDER BY li.folder_path
   `).all(ref.libraryId, ref.folderPath, `${prefix}%`) as { id: string }[]).map((row) => row.id);
+}
+
+// When a folder entered the library: the earliest of its photos. Shown on the card
+// because two copies of a folder are often told apart by when they arrived.
+function folderAddedAt(itemIds: string[]): string | null {
+  if (itemIds.length === 0) return null;
+  let oldest: string | null = null;
+  for (let i = 0; i < itemIds.length; i += ID_CHUNK) {
+    const chunk = itemIds.slice(i, i + ID_CHUNK);
+    const row = db.prepare(
+      `SELECT MIN(discovered_at) AS at FROM library_items WHERE id IN (${chunk.map(() => "?").join(",")})`
+    ).get(...chunk) as { at: string | null };
+    if (row.at && (!oldest || row.at < oldest)) oldest = row.at;
+  }
+  return oldest;
 }
 
 const COVER_LIMIT = 4;
@@ -926,6 +960,7 @@ export function listDuplicateFolderGroups(): DuplicateFolderGroup[] {
         bytes,
         linkCount: linkCountFor(itemIds),
         coverUrls: folderCovers(itemIds),
+        addedAt: folderAddedAt(itemIds),
         isKeeper: row.library_id === group.keeper_library_id && row.folder_path === group.keeper_folder_path
       };
     }).sort((a, b) => Number(b.isKeeper) - Number(a.isKeeper)
