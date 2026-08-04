@@ -19,8 +19,8 @@ import {
   resolveDuplicateGroup,
   resolveDuplicateSelection,
   resolveAllExactGroups,
-  preferredFolders,
-  setPreferredFolders,
+  folderPreferences,
+  setFolderPreferences,
   rebuildDuplicateGroups
 } from "./duplicates.js";
 import {
@@ -47,7 +47,7 @@ function duplicatePayload() {
     groups,
     folderGroups: listDuplicateFolderGroups(),
     containedFolders: listContainedFolders(),
-    preferredFolders: preferredFolders(),
+    folderPreferences: folderPreferences(),
     reclaimableBytes: groups.reduce((sum, g) => sum + g.reclaimableBytes, 0)
   };
 }
@@ -239,7 +239,8 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
   const preferredSchema = z.object({
     folders: z.array(z.object({
       libraryId: z.string().min(1).max(64),
-      folderPath: z.string().max(1024)
+      folderPath: z.string().max(1024),
+      mode: z.enum(["keep", "clear"])
     })).max(50)
   });
   app.post("/api/library/gallery/duplicates/preferred-folders", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -248,17 +249,19 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
 
     const known = new Set((db.prepare("SELECT id FROM libraries WHERE type = 'gallery'").all() as { id: string }[]).map((row) => row.id));
     const folders = parsed.data.folders.filter((folder) => known.has(folder.libraryId));
-    setPreferredFolders(folders);
+    setFolderPreferences(folders);
     rebuildDuplicateGroups();
 
+    const keeping = folders.filter((folder) => folder.mode === "keep").length;
+    const clearing = folders.length - keeping;
     logActivity({
       event: "library.gallery.duplicate_preferences",
       actorUserId: request.user!.id,
       targetType: "library",
       targetId: null,
       detail: folders.length > 0
-        ? `Set ${folders.length} preferred folder${folders.length === 1 ? "" : "s"} for keeping duplicate photos.`
-        : "Cleared the preferred folders for keeping duplicate photos.",
+        ? `Duplicate handling: keeping copies in ${keeping} folder${keeping === 1 ? "" : "s"}, clearing out ${clearing}.`
+        : "Cleared every folder preference for duplicate photos.",
       ipAddress: request.ip
     });
     reply.send(duplicatePayload());

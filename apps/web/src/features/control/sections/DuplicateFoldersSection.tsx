@@ -29,6 +29,7 @@ import {
   ExperimentalNotice,
   FolderFilterModal,
   PreferredFoldersModal,
+  type PreferenceDraft,
   folderCovers,
   folderKey,
   folderOptionsFrom,
@@ -86,7 +87,7 @@ export function DuplicateFoldersSection() {
   const [folderFilter, setFolderFilter] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [preferOpen, setPreferOpen] = useState(false);
-  const [preferDraft, setPreferDraft] = useState<string[]>([]);
+  const [preferDraft, setPreferDraft] = useState<PreferenceDraft>({});
   const [preferBusy, setPreferBusy] = useState(false);
   const pollRef = useRef<number | null>(null);
 
@@ -219,8 +220,8 @@ export function DuplicateFoldersSection() {
     setActionError("");
     try {
       const folders = folderOptions
-        .filter((option) => preferDraft.includes(option.key))
-        .map((option) => ({ libraryId: option.libraryId, folderPath: option.folderPath }));
+        .filter((option) => preferDraft[option.key])
+        .map((option) => ({ libraryId: option.libraryId, folderPath: option.folderPath, mode: preferDraft[option.key] }));
       setPayload(normalisePayload(await api<DuplicatePayload>("/api/library/gallery/duplicates/preferred-folders", {
         method: "POST",
         body: JSON.stringify({ folders })
@@ -379,20 +380,18 @@ export function DuplicateFoldersSection() {
             </Button>
             <Button
               variant="icon"
-              className={payload.preferredFolders.length > 0 ? "is-active" : ""}
+              className={payload.folderPreferences.length > 0 ? "is-active" : ""}
               disabled={busy || folderOptions.length === 0}
               onClick={() => {
                 setActionError("");
-                setPreferDraft(folderOptions
-                  .filter((option) => payload.preferredFolders.some((folder) =>
-                    folder.libraryId === option.libraryId && folder.folderPath === option.folderPath))
-                  .map((option) => option.key));
+                setPreferDraft(Object.fromEntries(payload.folderPreferences
+                  .map((folder) => [folderKey(folder), folder.mode] as const)));
                 setPreferOpen(true);
               }}
-              aria-label="Choose which folders to keep photos in"
-              title={payload.preferredFolders.length > 0
-                ? `Keeping photos in ${payload.preferredFolders.length} chosen folder${payload.preferredFolders.length === 1 ? "" : "s"}`
-                : "Choose which folders to keep photos in"}
+              aria-label="Choose how each folder is treated"
+              title={payload.folderPreferences.length > 0
+                ? `${payload.folderPreferences.filter((f) => f.mode === "keep").length} folders kept, ${payload.folderPreferences.filter((f) => f.mode === "clear").length} being cleared out`
+                : "Choose which folders to keep photos in, and which to clear out"}
             >
               <FolderHeart size={18} aria-hidden="true" />
             </Button>

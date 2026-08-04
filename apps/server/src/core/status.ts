@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.16.0",
+          label: "Tell it which folder to clear out",
+          changes: [
+            "The folder preference could only say \"keep the copies here\". It now says the opposite too: mark a folder Clear out and the copies elsewhere are kept while that folder's go — the way you retire a folder whose photos are already filed properly somewhere else. Every folder is one of three things now: Keep here, no preference, or Clear out.",
+            "Clearing out cannot empty a folder on its own. A photo with no copy anywhere else isn't a duplicate, so it is never touched, and a set whose every copy sits in cleared-out folders still keeps one. It changes which copy survives, never whether one does.",
+            "A folder being cleared out is also the one offered for removal when everything in it turns out to exist elsewhere, and is never proposed as the place to keep photos.",
+            "The most specific instruction wins, so you can keep a whole library and clear out a single folder inside it.",
+            "The Recycle Bin now says how many items it holds and how much space they take, following the library picker — with one chosen it also gives the total for the whole bin, since deciding whether to empty it is usually why you are there."
+          ]
+        },
+        {
           version: "2.15.1",
           label: "Backups were being written where an update would lose them",
           changes: [
