@@ -13,7 +13,7 @@ it points there rather than repeating it.
 | **Library** | Libraries, Storage, Categories, Tags |
 | **Members** | Users, Groups, Invite links, Sessions |
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
-| **Maintenance** | Backup, Scheduled jobs, Recycle Bin, Missing photos, Duplicate photos |
+| **Maintenance** | Backup, Scheduled jobs, Recycle Bin, Missing photos, Duplicate photos, Duplicate folders |
 | **Settings** | Appearance, Email, Reader access, About |
 
 Every tab has its own address, so any page here can be bookmarked or linked to.
@@ -222,17 +222,9 @@ decide, copy by copy, which ones stay.
 > actions. Everything removed goes to the Recycle Bin, so it can be undone until you
 > empty it — but check, test, and check again first.
 
-Results come in four groups, and they deserve different amounts of trust.
-
-**Duplicate folders** come first: a whole folder holding exactly the same photos as
-another one, however differently the two are named. They're listed first because
-clearing one settles every identical-file set inside it at once — two copies of a
-400-photo holiday folder are 400 decisions otherwise.
-
-**Folders already stored elsewhere** is the same idea one step looser: every photo in
-the folder also sits in some other folder, which may hold more besides. That covers
-the case an exact match can never see — a folder copied *into itself*, where the outer
-folder holds the inner one's photos as well and so can never match it.
+Results come in two groups here, and they deserve different amounts of trust. Whole
+folders live on their own tab — see **Duplicate folders** below — and are worth
+working through first: one decision there settles hundreds of the sets on this page.
 
 **Identical files** are byte-for-byte the same, so a set is never a guess. Finding
 them is cheap because identical files must be the same size: photos whose size
@@ -258,69 +250,6 @@ what the next scan reads.
 so the same album imported into two places shows up as one set with its copies
 side by side, each saying which library it's in. Two libraries holding one copy
 each only appear there.
-
-#### Duplicate folders
-
-A folder is matched on what it holds, not what it's called: every file below it,
-by content and by the path it sits at. *Italy 2019* and *Backup/holiday-2019* pair
-up; two folders holding the same pictures arranged differently do not, and neither
-do two that agree on all but one photo. Nothing has to be read from disk for this —
-it reuses the fingerprints the identical-file scan already took.
-
-Only the topmost pairing is shown. If two whole libraries match, you get one set for
-the libraries, not one for every folder inside them.
-
-Each folder is a tile showing a few of its own pictures, where it lives, how many
-photos it holds and how much space they take. Exactly one folder in a set is kept —
-click a tile to make it that one. The suggestion favours the folder whose photos
-carry tags, albums or tagged people, then passes over anything named or filed like
-a copy (*Backup*, *Downloads*, *WhatsApp*, *… copy*), then prefers the folder nearer
-the top of the library, then the one added first.
-
-**Delete** moves every photo in the other folders to the Recycle Bin. Each one hands
-its tags, albums, collections and tagged people to the photo at the same place inside
-the kept folder first — an exact match, since the two files are identical. The
-folders are checked again the moment you confirm: if anything in them has changed
-since the scan, nothing is deleted and you're asked to scan again. The empty folders
-themselves are left on disk for you to remove.
-
-**Not the same** drops the set and stops future scans pairing those folders. The
-photos inside them are still compared with each other individually.
-
-#### Folders already stored elsewhere
-
-Each row names one folder that can go and one that keeps its photos: *all 6 photos in
-X are also in Y*. It also says how many photos Y holds beyond them — 0 means the two
-hold the same pictures arranged differently.
-
-The commonest source is a folder copied inside itself, which sync clients and photo
-managers produce all the time. Only the topmost such folder is listed: removing it
-takes anything below it too. And when two folders cover *each other* — the same photos
-in a different layout — only one is offered, because acting on both would delete every
-copy between them.
-
-**Delete** moves that folder's photos to the Recycle Bin, handing each one's tags,
-albums and tagged people to its copy in the folder being kept first. Coverage is
-re-checked the moment you confirm: if even one photo no longer has a copy over there,
-nothing is deleted. **Leave it** drops the row for good — the folder stops being
-suggested however its photos are covered later.
-
-#### Choosing what to work on, and where to keep it
-
-Two controls in the bar work in folders rather than in sets, and both list only folders
-something duplicated was actually found in.
-
-- **Choose folders to work on** narrows the page to sets with a copy in the folders you
-  pick, exactly as the search box narrows it. It changes nothing and is forgotten when
-  you leave.
-- **Where to keep photos** is a decision, and it is saved. When copies of a photo sit in
-  more than one place, the one in a chosen folder is the copy kept — for photo sets and
-  folder sets alike, outranking every automatic guess, since nothing is lost either way
-  (the other copies' tags and people are merged onto it). A folder you've chosen is also
-  never offered for removal. Saving re-picks every automatic keeper immediately; copies
-  you picked by hand stay as they are.
-
-Both treat a folder as covering everything below it.
 
 #### Working through the list
 
@@ -395,6 +324,75 @@ Two things worth knowing. Nothing is deleted without you asking — a scan only 
 reports. And if a photo has been edited on disk since the last library scan, it's
 left out of the comparison and the page says so; re-scan that library from
 **Library → Libraries**, then scan for duplicates again.
+
+
+### Duplicate folders
+
+Whole folders that duplicate another folder, on their own tab because they are a
+different unit of work: clearing one settles hundreds of the photo sets next door.
+Both lists below come from the scan you start on **Duplicate photos** — this tab
+reports, it never scans.
+
+A folder is matched on what it holds, not what it's called: every file below it,
+by content and by the path it sits at. *Italy 2019* and *Backup/holiday-2019* pair
+up; two folders holding the same pictures arranged differently do not, and neither
+do two that agree on all but one photo. Nothing has to be read from disk for this —
+it reuses the fingerprints the identical-file scan already took.
+
+Only the topmost pairing is shown. If two whole libraries match, you get one set for
+the libraries, not one for every folder inside them.
+
+Each folder is a tile showing a few of its own pictures, where it lives, how many
+photos it holds and how much space they take. Exactly one folder in a set is kept —
+click a tile to make it that one. The suggestion favours the folder whose photos
+carry tags, albums or tagged people, then passes over anything named or filed like
+a copy (*Backup*, *Downloads*, *WhatsApp*, *… copy*), then prefers the folder nearer
+the top of the library, then the one added first.
+
+**Delete** moves every photo in the other folders to the Recycle Bin. Each one hands
+its tags, albums, collections and tagged people to the photo at the same place inside
+the kept folder first — an exact match, since the two files are identical. The
+folders are checked again the moment you confirm: if anything in them has changed
+since the scan, nothing is deleted and you're asked to scan again. The empty folders
+themselves are left on disk for you to remove.
+
+**Not the same** drops the set and stops future scans pairing those folders. The
+photos inside them are still compared with each other individually.
+
+#### Folders already stored elsewhere
+
+Each row names one folder that can go and one that keeps its photos: *all 6 photos in
+X are also in Y*. It also says how many photos Y holds beyond them — 0 means the two
+hold the same pictures arranged differently.
+
+The commonest source is a folder copied inside itself, which sync clients and photo
+managers produce all the time. Only the topmost such folder is listed: removing it
+takes anything below it too. And when two folders cover *each other* — the same photos
+in a different layout — only one is offered, because acting on both would delete every
+copy between them.
+
+**Delete** moves that folder's photos to the Recycle Bin, handing each one's tags,
+albums and tagged people to its copy in the folder being kept first. Coverage is
+re-checked the moment you confirm: if even one photo no longer has a copy over there,
+nothing is deleted. **Leave it** drops the row for good — the folder stops being
+suggested however its photos are covered later.
+
+#### Choosing what to work on, and where to keep it
+
+Two controls in the bar work in folders rather than in sets, and both list only folders
+something duplicated was actually found in.
+
+- **Choose folders to work on** narrows the page to sets with a copy in the folders you
+  pick, exactly as the search box narrows it. It changes nothing and is forgotten when
+  you leave.
+- **Where to keep photos** is a decision, and it is saved. When copies of a photo sit in
+  more than one place, the one in a chosen folder is the copy kept — for photo sets and
+  folder sets alike, outranking every automatic guess, since nothing is lost either way
+  (the other copies' tags and people are merged onto it). A folder you've chosen is also
+  never offered for removal. Saving re-picks every automatic keeper immediately; copies
+  you picked by hand stay as they are.
+
+Both treat a folder as covering everything below it.
 
 ---
 

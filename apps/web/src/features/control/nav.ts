@@ -85,7 +85,8 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
       { section: "scheduledJobs", label: "Scheduled jobs" },
       { section: "recycleBin", label: "Recycle Bin" },
       { section: "missingPhotos", label: "Missing photos" },
-      { section: "duplicatePhotos", label: "Duplicate photos" }
+      { section: "duplicatePhotos", label: "Duplicate photos" },
+      { section: "duplicateFolders", label: "Duplicate folders" }
     ]
   },
   {

@@ -23,6 +23,7 @@ import { TasksSection } from "./sections/TasksSection";
 import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
 import { MissingPhotosSection } from "./sections/MissingPhotosSection";
 import { DuplicatePhotosSection } from "./sections/DuplicatePhotosSection";
+import { DuplicateFoldersSection } from "./sections/DuplicateFoldersSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { MailSection } from "./sections/MailSection";
 import { OpdsAccessSection } from "./sections/OpdsAccessSection";
@@ -103,6 +104,7 @@ function ControlSectionBody({
     case "recycleBin":      return <RecycleBinSection />;
     case "missingPhotos":   return <MissingPhotosSection />;
     case "duplicatePhotos": return <DuplicatePhotosSection />;
+    case "duplicateFolders": return <DuplicateFoldersSection />;
 
     case "appearance":      return <AppearanceSection />;
     case "email":           return <MailSection />;

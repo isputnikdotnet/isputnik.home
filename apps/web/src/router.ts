@@ -12,7 +12,7 @@ export type ControlSection =
   // Security
   | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // Maintenance
-  | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos" | "duplicatePhotos"
+  | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos" | "duplicatePhotos" | "duplicateFolders"
   // Settings
   | "appearance" | "email" | "readerAccess" | "about";
 
@@ -47,6 +47,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   recycleBin: "/control/maintenance/recycle-bin",
   missingPhotos: "/control/maintenance/missing-photos",
   duplicatePhotos: "/control/maintenance/duplicate-photos",
+  duplicateFolders: "/control/maintenance/duplicate-folders",
 
   appearance: "/control/settings",
   email: "/control/settings/email",
@@ -121,6 +122,7 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/missing-photos": "missingPhotos",
   "/control/libraries/duplicate-photos": "duplicatePhotos",
   "/control/duplicate-photos": "duplicatePhotos",
+  "/control/duplicate-folders": "duplicateFolders",
 
   // Config split into the Settings tabs; its old landing page was Appearance.
   "/control/config": "appearance",

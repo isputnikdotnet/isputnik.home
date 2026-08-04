@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.15.0",
+          label: "Duplicate folders has its own tab",
+          changes: [
+            "Whole folders have moved out of Duplicate photos onto their own tab beside it, under Maintenance. They are a different size of decision — clearing one folder settles hundreds of the photo sets next door — and burying them above a long list of single photos made that easy to miss.",
+            "Both lists live there: folders holding exactly the same photos, and folders whose every photo also sits somewhere else. Scanning stays on Duplicate photos, so there is still one place that starts the work; the new tab reports what the last scan found and updates itself while a scan is running.",
+            "Each page links to the other, and Duplicate photos says how many whole folders are waiting — the thing worth doing first."
+          ]
+        },
+        {
           version: "2.14.0",
           label: "Folders already stored elsewhere",
           changes: [
