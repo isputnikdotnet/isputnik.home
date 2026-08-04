@@ -62,10 +62,13 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   Modal/ConfirmDialog so dismissal is blocked while an action runs.
 - New UI pattern needed? Extend the shared component (prop/variant) in
   `apps/web/src/shared/` first — never inline a one-off.
-- **Control panel**: its whole shape (6 nav groups × their tabs) is declared in
+- **Control panel**: its whole shape (7 nav groups × their tabs) is declared in
   `features/control/nav.ts`; canonical URLs in `CONTROL_PATHS` (`router.ts`), linked
   via `controlHref()`. Every tab is a real route — no `useState` tab rows in there —
   and pages open with `ControlSectionHead`, which takes eyebrow + title from `nav.ts`.
+  A tab may carry its own `tabs` for a second row, but only where one destination has
+  several views of the same thing (Utilities → Duplicates → Photos/Folders/Stored
+  elsewhere). Two rows is the ceiling.
   New settings get search terms in `features/control/search-index.ts`. Profile's
   tabs follow the same rule (`PROFILE_PATHS` / `profileHref()`).
 

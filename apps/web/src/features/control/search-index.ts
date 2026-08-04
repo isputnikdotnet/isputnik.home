@@ -1,4 +1,4 @@
-import { CONTROL_GROUPS, groupForSection, sectionHref, sectionTitle } from "./nav";
+import { LEAF_TABS, sectionEyebrow, sectionHref, sectionTitle } from "./nav";
 import type { ControlSection } from "../../router";
 
 // What the control-panel search can find. Two kinds of entry:
@@ -49,8 +49,11 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   scheduledJobs: "cron schedule nightly automatic recurring timer",
   recycleBin: "trash deleted restore purge retention undelete",
   missingPhotos: "gallery missing gone offline broken files photos videos",
-  duplicatePhotos: "gallery duplicates copies identical phash near-identical free space imported twice",
-  duplicateFolders: "gallery duplicate folders same folder twice copied into itself already stored elsewhere contained folder keep photos in preferred folder",
+  // Short labels now that they are views of Duplicates, so the words someone would
+  // actually type have to be here — "duplicate photos" is no longer in the title.
+  duplicatePhotos: "duplicate photos gallery duplicates copies identical phash near-identical free space imported twice scan",
+  duplicateFolders: "duplicate folders gallery same folder twice identical folder keep photos in preferred folder",
+  duplicateContainedFolders: "folders already stored elsewhere contained folder copied into itself nested redundant folder covered gallery",
 
   appearance: "theme default look colours colors dark light branding",
   email: "smtp mail relay server port tls starttls password sender from test",
@@ -81,20 +84,20 @@ const SETTING_ENTRIES: { title: string; section: ControlSection; keywords: strin
 ];
 
 function breadcrumbFor(section: ControlSection): string {
-  return `${groupForSection(section).label} › ${sectionTitle(section)}`;
+  return `${sectionEyebrow(section)} › ${sectionTitle(section)}`;
 }
 
 export const CONTROL_SEARCH_ENTRIES: ControlSearchEntry[] = [
-  ...CONTROL_GROUPS.flatMap((group) =>
-    group.tabs.map((tab) => ({
-      id: `tab:${tab.section}`,
-      title: tab.label,
-      breadcrumb: group.label,
-      href: sectionHref(tab.section),
-      section: tab.section,
-      keywords: `${group.label} ${TAB_KEYWORDS[tab.section] ?? ""}`
-    }))
-  ),
+  // LEAF_TABS, not group.tabs: a page one row down is still a page, and a parent tab
+  // is not one. Searching "stored elsewhere" has to reach it.
+  ...LEAF_TABS.map((tab) => ({
+    id: `tab:${tab.section}`,
+    title: tab.label,
+    breadcrumb: sectionEyebrow(tab.section),
+    href: sectionHref(tab.section),
+    section: tab.section,
+    keywords: `${sectionEyebrow(tab.section)} ${TAB_KEYWORDS[tab.section] ?? ""}`
+  })),
   ...SETTING_ENTRIES.map((entry, index) => ({
     id: `setting:${index}`,
     title: entry.title,

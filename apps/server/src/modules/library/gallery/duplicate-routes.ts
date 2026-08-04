@@ -30,7 +30,8 @@ import {
   resolveDuplicateFolderGroup,
   listContainedFolders,
   ignoreContainedFolder,
-  resolveContainedFolder
+  resolveContainedFolder,
+  type ContainedRefusal
 } from "./duplicate-folders.js";
 
 // The ONE shape the page's state is built from. Both the list and the scan route
@@ -225,16 +226,30 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
   //
   // One folder, not a set: the row already names which folder goes and which one
   // covers it, so there is no keeper to choose.
+  // Three ways this is refused and they mean different things to whoever is looking
+  // at the page. "The copies are gone" sends someone hunting for lost photos; on a
+  // folder that is simply already empty there is nothing to hunt for.
+  const REFUSALS: Record<ContainedRefusal, { code: number; error: string }> = {
+    missing: { code: 404, error: "This folder is no longer on the list — it has already been removed or dismissed." },
+    empty: {
+      code: 409,
+      error: "This folder holds no photos any more, so there is nothing to delete. It has been taken off the list."
+    },
+    uncovered: {
+      code: 409,
+      error: "Some photos in this folder no longer have a copy in the folder being kept. Run a new scan and review it again."
+    }
+  };
+
   app.post("/api/library/gallery/duplicates/folders/contained/:id/resolve", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const result = resolveContainedFolder(id, request.user!.id);
-    if (!result) {
-      reply.code(409).send({
-        error: "Some photos in this folder no longer have a copy in the folder being kept. Run a new scan and review it again."
-      });
+    const outcome = resolveContainedFolder(id, request.user!.id);
+    if (!outcome.ok) {
+      const refusal = REFUSALS[outcome.refused];
+      reply.code(refusal.code).send({ error: refusal.error });
       return;
     }
-    reply.send(result);
+    reply.send(outcome.resolution);
   });
 
   app.post("/api/library/gallery/duplicates/folders/contained/:id/ignore", { preHandler: app.requireAdmin }, async (request, reply) => {

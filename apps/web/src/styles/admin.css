@@ -1149,78 +1149,6 @@
 }
 .dup-copy.is-trash .dup-copy-where { opacity: 0.75; }
 
-/* ── Duplicate folders ──────────────────────────────────────────────
-   Same tile idiom as the copies above, one size up: a folder is recognised by the
-   pictures in it, so each tile leads with a 2×2 mosaic of its own thumbnails. Exactly
-   one folder in a set is kept, so the tiles behave as a radio group rather than as
-   independent keep/delete toggles. */
-.dup-folders {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 190px);
-  gap: 8px;
-  align-items: start;
-}
-.dup-folders .dup-folder {
-  position: relative;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  min-width: 0;
-}
-.dup-folders .dup-folder:hover { border-color: var(--accent, #c8a24a); }
-.dup-folders .dup-folder.is-keep {
-  border-color: var(--accent, #c8a24a);
-  box-shadow: inset 0 0 0 1px var(--accent, #c8a24a);
-}
-.dup-folders .dup-folder.is-trash .dup-folder-thumbs { opacity: 0.45; }
-.dup-folders .dup-folder.is-trash .dup-folder-name { color: var(--muted); }
-
-.dup-folders .dup-folder-pick {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  width: 100%;
-  padding: 0;
-  background: none;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  min-width: 0;
-  height: auto;
-}
-
-/* Fixed two-row grid so a folder with one usable thumbnail sits the same height as
-   one with four — otherwise the tiles in a row step out of line. */
-.dup-folder-thumbs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-auto-rows: 1fr;
-  gap: 2px;
-  aspect-ratio: 4 / 3;
-  border-radius: 5px;
-  overflow: hidden;
-  background: var(--line);
-  place-items: center;
-  color: var(--muted);
-}
-.dup-folder-thumbs img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-/* One picture fills the tile rather than sitting in a quarter of it. */
-.dup-folder-thumbs img:only-child { grid-column: span 2; grid-row: span 2; }
-
-.dup-folder-name {
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.3;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
 /* ── A duplicate-folder set, as a card ──────────────────────────────
    Numbered, with what the folders hold, then a strip of the pictures themselves and
    the folders side by side. The strip is the fastest way to recognise which holiday
@@ -1344,6 +1272,11 @@
 .dup-set-path,
 .dup-set-line { color: var(--muted); font-size: 0.74rem; overflow-wrap: anywhere; }
 
+/* Said only when the kept folder ENCLOSES the one going, where its own photo count
+   already includes what is about to leave — italic so it reads as a caveat about the
+   line above rather than another fact of the same kind. */
+.dup-set-note { font-style: italic; }
+
 /* Folder icon + name on one line. As a BUTTON (the swap-keeper affordance on a
    non-keeper card) it sheds the text-button chrome so both cards read identically —
    the hover underline is the only tell. */
@@ -1386,41 +1319,6 @@
 
 /* Search takes what the two menus leave, as on any list page. */
 .dup-folder-search { flex: 1 1 220px; min-width: 0; }
-
-/* ── Folders already stored elsewhere ───────────────────────────────
-   Not a set of equals: one folder goes, one stays, so the pair reads left to right
-   with an arrow rather than as a grid of interchangeable tiles. */
-.dup-contained-pair {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.dup-contained-pair .dup-folder {
-  position: relative;
-  width: 190px;
-  flex: 0 0 auto;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.dup-contained-arrow { flex: 0 0 auto; color: var(--muted); }
-.dup-contained-target {
-  position: relative;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
-  border: 1px solid var(--accent, #c8a24a);
-  border-radius: 7px;
-  font-size: 0.82rem;
-}
-/* In the flow rather than over a thumbnail — this side has no picture to sit on. */
-.dup-contained-badge { position: static; align-self: flex-start; }
 
 /* ── Folder pickers (work on / keep in) ─────────────────────────────
    Both modals list the same folders, so they share one list style. Scrolls at a

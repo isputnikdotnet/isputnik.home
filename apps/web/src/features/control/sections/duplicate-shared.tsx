@@ -6,11 +6,17 @@
 // are different cuts of one scan, so splitting it would mean two requests describing
 // the same state — and a page that could disagree with its neighbour about what the
 // last scan found.
-import { useState } from "react";
-import { ArrowDownAZ, ArrowDownWideNarrow } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  ArrowDownAZ, ArrowDownWideNarrow, ArrowRight, ExternalLink, FolderOpen, ImageOff,
+  RefreshCw, Search, SlidersHorizontal
+} from "lucide-react";
+import { api } from "../../../api";
+import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { Modal } from "../../../shared/Modal";
+import { SelectMenu } from "../../../shared/SelectMenu";
 
 export interface DuplicateMember {
   itemId: string;
@@ -42,8 +48,10 @@ export interface DuplicateGroup {
 }
 
 // A folder has no id of its own — it exists as (library, path), and that pair is what
-// every action names.
-export interface DuplicateFolderMember {
+// every action names. Everything a folder CARD shows is here, and both folder pages
+// render the same card: they differ in what you may do with a folder, not in what is
+// known about it.
+export interface DuplicateFolderDetail {
   libraryId: string;
   libraryName: string;
   folderPath: string;
@@ -53,6 +61,9 @@ export interface DuplicateFolderMember {
   linkCount: number;
   coverUrls: string[];
   addedAt: string | null;
+}
+
+export interface DuplicateFolderMember extends DuplicateFolderDetail {
   isKeeper: boolean;
 }
 
@@ -66,22 +77,22 @@ export interface DuplicateFolderGroup {
   members: DuplicateFolderMember[];
 }
 
-export interface ContainedFolderRef {
-  libraryId: string;
-  folderPath: string;
-  libraryName: string;
-  name: string;
-}
-
 /** One folder whose every photo also sits in `target` — most often a folder copied
  *  into itself, which no equal-contents test can ever see. */
 export interface ContainedFolder {
   id: string;
-  folder: ContainedFolderRef;
-  target: ContainedFolderRef;
+  /** The folder that can go. */
+  folder: DuplicateFolderDetail;
+  /** The folder that keeps its photos. Never swappable: coverage runs one way, and
+   *  offering the other direction would delete photos that exist only here. */
+  target: DuplicateFolderDetail;
   itemCount: number;
   bytes: number;
   extraCount: number;
+  /** The kept folder is an ancestor of the one that goes, so its own counts include
+   *  the photos about to leave. Worth saying on the card — otherwise its photo count
+   *  looks wrong the moment the delete lands. */
+  encloses: boolean;
   coverUrls: string[];
   linkCount: number;
 }
@@ -204,6 +215,331 @@ export function folderOptionsFrom(payload: DuplicatePayload): FolderOption[] {
 
   return [...options.values()].sort((a, b) =>
     a.libraryName.localeCompare(b.libraryName) || a.folderPath.localeCompare(b.folderPath));
+}
+
+// ── The shell the two folder pages share ────────────────────────────────────
+//
+// "Duplicate folders" and "Stored elsewhere" are two tabs over ONE scan: same
+// payload, same toolbar, same filter box, same rebuild button, same card. Only the
+// list in the middle differs — so everything around it lives here rather than being
+// kept in step by hand across two files.
+
+export type FolderSort = "newest" | "photos" | "size" | "name";
+
+export const FOLDER_SORT_OPTIONS: { value: FolderSort; label: string }[] = [
+  { value: "newest", label: "Newest" },
+  { value: "size", label: "Largest" },
+  { value: "photos", label: "Most photos" },
+  { value: "name", label: "Name A–Z" }
+];
+
+export const FOLDER_PER_PAGE_OPTIONS = [
+  { value: "10", label: "10 per page" },
+  { value: "25", label: "25 per page" },
+  { value: "50", label: "50 per page" },
+  { value: "all", label: "Show all" }
+];
+
+export function formatWhen(value: string | null): string {
+  if (!value) return "Never";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+/** One page of a list, clamped rather than corrected in state — a list that shrinks
+ *  under you (because you just deleted something) must not strand the view. */
+export function pageSlice<T>(list: T[], perPage: string, page: number) {
+  const pageSize = perPage === "all" ? Math.max(list.length, 1) : Number(perPage);
+  const totalPages = Math.max(1, Math.ceil(list.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  return {
+    totalPages,
+    currentPage,
+    items: list.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    firstShown: list.length === 0 ? 0 : (currentPage - 1) * pageSize + 1,
+    lastShown: Math.min(currentPage * pageSize, list.length)
+  };
+}
+
+export function useDuplicateFolderPage(loadErrorMessage: string) {
+  const [payload, setPayload] = useState<DuplicatePayload>(EMPTY_PAYLOAD);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const [rebuilding, setRebuilding] = useState(false);
+  // Everything that narrows the page, in one box — see DuplicateFiltersModal.
+  const [filters, setFilters] = useState<DuplicateFilterState>({
+    scopeId: "", search: "", folders: [], tier: "all", mediaKind: "all"
+  });
+  const [sort, setSort] = useState<FolderSort>("newest");
+  const [perPage, setPerPage] = useState("10");
+  const [page, setPage] = useState(1);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [preferDraft, setPreferDraft] = useState<PreferenceDraft>({});
+  const [preferBusy, setPreferBusy] = useState(false);
+  const pollRef = useRef<number | null>(null);
+
+  const load = async () => {
+    setPayload(normalisePayload(await api<DuplicatePayload>("/api/library/gallery/duplicates")));
+  };
+
+  useEffect(() => {
+    load()
+      .catch((err) => setError(err instanceof Error ? err.message : loadErrorMessage))
+      .finally(() => setLoaded(true));
+  }, []);
+
+  // A scan started on the Duplicate photos page rebuilds these too, so follow it here
+  // rather than showing a stale list until the tab is reopened.
+  useEffect(() => {
+    if (!payload.scanning) {
+      if (pollRef.current !== null) { window.clearInterval(pollRef.current); pollRef.current = null; }
+      return;
+    }
+    if (pollRef.current !== null) return;
+    pollRef.current = window.setInterval(() => { void load().catch(() => { /* keep polling */ }); }, 3000);
+    return () => {
+      if (pollRef.current !== null) { window.clearInterval(pollRef.current); pollRef.current = null; }
+    };
+  }, [payload.scanning]);
+
+  // Recompute every list from the digests already stored — no file is read. The lists
+  // are caches, so this is the answer to anything that looks stale.
+  const rebuild = async () => {
+    setRebuilding(true);
+    setActionError("");
+    try {
+      setPayload(normalisePayload(await api<DuplicatePayload>("/api/library/gallery/duplicates/rebuild", {
+        method: "POST",
+        body: "{}"
+      })));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Unable to rebuild the results");
+    } finally {
+      setRebuilding(false);
+    }
+  };
+
+  const post = async (path: string, onDone: () => void, whenFailed: string, id: string) => {
+    setBusyId(id);
+    setActionError("");
+    try {
+      await api(path, { method: "POST", body: "{}" });
+      onDone();
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : whenFailed);
+      // A refusal can still have changed the server: an offer it recognised as dead
+      // gets taken off the list as it declines. Re-read either way, so the page can't
+      // go on showing the card the message just said was gone.
+      await load().catch(() => { /* the error already on screen is the useful one */ });
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const folderOptions = folderOptionsFrom(payload);
+  // The saved keep/clear instructions, as edited in the Folders tab of the filter box.
+  const savedPreferences = Object.fromEntries(payload.folderPreferences
+    .map((folder) => [folderKey(folder), folder.mode] as const));
+
+  // The server re-picks every automatic keeper as part of the same call and answers
+  // with the whole page, so the list behind the dialog is already right when it shuts.
+  const savePreferences = async (next: PreferenceDraft) => {
+    setPreferDraft(next);
+    setPreferBusy(true);
+    setActionError("");
+    try {
+      const folders = folderOptions
+        .filter((option) => next[option.key])
+        .map((option) => ({ libraryId: option.libraryId, folderPath: option.folderPath, mode: next[option.key] }));
+      setPayload(normalisePayload(await api<DuplicatePayload>("/api/library/gallery/duplicates/preferred-folders", {
+        method: "POST",
+        body: JSON.stringify({ folders })
+      })));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Unable to save the folder choices");
+      // Put the dialog back to what the server still holds, so it never shows a
+      // choice that isn't stored.
+      setPreferDraft(savedPreferences);
+    } finally {
+      setPreferBusy(false);
+    }
+  };
+
+  // Anything that changes the list or its order returns to the first page.
+  const { scopeId, search } = filters;
+  const folderFilter = filters.folders;
+  useEffect(() => { setPage(1); }, [search, scopeId, sort, perPage, folderFilter]);
+
+  const chosenFolders = folderOptions.filter((option) => folderFilter.includes(option.key));
+
+  return {
+    payload, loaded, error, actionError, setActionError, busyId, setBusyId,
+    rebuilding, load, rebuild, post,
+    filters, setFilters, sort, setSort, perPage, setPerPage, page, setPage,
+    filterOpen, setFilterOpen, preferDraft, setPreferDraft, preferBusy, savePreferences,
+    savedPreferences, folderOptions, chosenFolders,
+    busy: preferBusy || rebuilding || busyId !== "",
+    scopeName: payload.libraries.find((library) => library.id === scopeId)?.name ?? "",
+    needle: search.trim().toLowerCase(),
+    filtering: search.trim() !== "" || scopeId !== "" || chosenFolders.length > 0,
+    /** No folders ticked means "all of them" — a filter nobody set narrows nothing. */
+    inChosenFolders: (libraryId: string, path: string) =>
+      chosenFolders.length === 0 || chosenFolders.some((folder) => folderCovers(folder, libraryId, path))
+  };
+}
+
+export type DuplicateFolderPage = ReturnType<typeof useDuplicateFolderPage>;
+
+/** Filters, search, order and rebuild — identical on both folder tabs. */
+export function DuplicateFolderToolbar({ page, searchHint }: { page: DuplicateFolderPage; searchHint: string }) {
+  const active = activeFilterCount(page.filters, false);
+  return (
+    <div className="dup-toolbar">
+      {/* The filter box holds library and folders; search and ordering sit out here
+          because they are the two you reach for on every visit. */}
+      <Button
+        variant="secondary"
+        compact
+        className={active > 0 ? "is-active" : ""}
+        disabled={page.busy}
+        onClick={() => {
+          page.setActionError("");
+          page.setPreferDraft(page.savedPreferences);
+          page.setFilterOpen(true);
+        }}
+      >
+        <SlidersHorizontal size={16} aria-hidden="true" />
+        <span>{active > 0 ? `Filters (${active})` : "Filters"}</span>
+      </Button>
+
+      <label className="search-field dup-folder-search">
+        <Search size={17} aria-hidden="true" />
+        <span className="sr-only">{searchHint}</span>
+        <input
+          type="search"
+          value={page.filters.search}
+          placeholder="Search folders…"
+          onChange={(event) => page.setFilters((current) => ({ ...current, search: event.target.value }))}
+        />
+      </label>
+
+      <div className="dup-toolbar-controls">
+        <SelectMenu
+          value={page.sort}
+          options={FOLDER_SORT_OPTIONS}
+          label="Sort folders"
+          onChange={page.setSort}
+        />
+        <SelectMenu
+          value={page.perPage}
+          options={FOLDER_PER_PAGE_OPTIONS}
+          label="Cards per page"
+          className="dup-per-page"
+          onChange={page.setPerPage}
+        />
+        <Button
+          variant="icon"
+          disabled={page.busy}
+          onClick={() => void page.rebuild()}
+          aria-label={page.rebuilding ? "Rebuilding results…" : "Rebuild results from the last scan"}
+          title={page.rebuilding ? "Rebuilding…" : "Rebuild results from the last scan (reads no files)"}
+        >
+          {page.rebuilding
+            ? <span className="icon-spin" aria-hidden="true"><RefreshCw size={18} /></span>
+            : <RefreshCw size={18} aria-hidden="true" />}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** The pictures themselves — the fastest way to recognise which holiday this is. */
+export function FolderStrip({ urls, total }: { urls: string[]; total: number }) {
+  const strip = urls.slice(0, 4);
+  const rest = Math.max(total - strip.length, 0);
+  return (
+    <div className="dup-set-strip" aria-hidden="true">
+      {strip.length > 0
+        ? strip.map((url) => <img key={url} src={url} alt="" loading="lazy" />)
+        : <span className="dup-set-strip-empty"><ImageOff size={18} /></span>}
+      {rest > 0 && <span className="dup-set-more">+{rest} more</span>}
+    </div>
+  );
+}
+
+/** One folder on a card: green for the one being kept, red for the one that goes,
+ *  with its path, when it arrived, its size, and exactly one action. */
+export function FolderTile({
+  folder, keep, showLibrary, position, busy, onKeepInstead, note, action
+}: {
+  folder: DuplicateFolderDetail;
+  keep: boolean;
+  /** Off when the page is scoped to one library — the name would be on every tile. */
+  showLibrary: boolean;
+  /** Anything but the first tile is preceded by the arrow that separates them. */
+  position: number;
+  busy: boolean;
+  /** Given when clicking the name promotes this folder to keeper. Left out where
+   *  the keeper isn't a choice — coverage runs one way and swapping it deletes
+   *  photos that exist nowhere else. */
+  onKeepInstead?: () => void;
+  /** A line of page-specific detail under the counts. */
+  note?: ReactNode;
+  action: ReactNode;
+}) {
+  const name = (
+    <>
+      <FolderOpen size={17} aria-hidden="true" />
+      <strong className="dup-set-folder-name">{folder.name}</strong>
+    </>
+  );
+
+  return (
+    <div className="dup-set-folder-wrap">
+      {position > 0 && <ArrowRight className="dup-set-arrow" size={18} aria-hidden="true" />}
+      <div className={`dup-set-folder${keep ? " is-keep" : " is-trash"}`}>
+        <div className="dup-set-folder-top">
+          <span className="dup-copy-badge dup-set-badge" aria-hidden="true">{keep ? "Keep" : "Delete"}</span>
+          <a
+            className="dup-set-open"
+            href={`/gallery/folders/${folder.folderPath.split("/").map(encodeURIComponent).join("/")}?library=${encodeURIComponent(folder.libraryId)}`}
+            target="_blank"
+            rel="noreferrer"
+            title="Open this folder in the gallery, in a new tab"
+          >
+            <ExternalLink size={14} aria-hidden="true" />
+          </a>
+        </div>
+        {/* The name swaps the keeper where that's allowed — the card has room for one
+            action button, so the swap lives on the name rather than beside it. */}
+        {onKeepInstead ? (
+          <Button
+            variant="text"
+            className="dup-set-name-row dup-set-name-btn"
+            disabled={busy}
+            title="Keep this folder instead"
+            onClick={onKeepInstead}
+          >
+            {name}
+          </Button>
+        ) : (
+          <span className="dup-set-name-row">{name}</span>
+        )}
+        <span className="dup-set-path" title={folder.folderPath || "Library root"}>{folderPathLabel(folder)}</span>
+        <span className="dup-set-line">{formatWhen(folder.addedAt)}</span>
+        <span className="dup-set-line">
+          {folder.itemCount} photo{folder.itemCount === 1 ? "" : "s"} · {formatBytes(folder.bytes)}
+          {folder.linkCount > 0 ? ` · ${folder.linkCount} tags/links` : ""}
+          {showLibrary ? ` · ${folder.libraryName}` : ""}
+        </span>
+        {note && <span className="dup-set-line dup-set-note">{note}</span>}
+        {action}
+      </div>
+    </div>
+  );
 }
 
 // The warning both pages open with. This is machinery that proposes deleting

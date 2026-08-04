@@ -4,7 +4,7 @@ import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { controlHref, followRoute } from "../../router";
 import type { ControlSection } from "../../router";
-import { CONTROL_GROUPS, groupForSection, type ControlGroupDef } from "./nav";
+import { CONTROL_GROUPS, groupForSection, parentTabForSection, type ControlTabDef } from "./nav";
 import { ControlSearch, useControlSearchShortcut } from "./ControlSearch";
 import { UsersSection } from "./sections/UsersSection";
 import { InvitesSection } from "./sections/InvitesSection";
@@ -24,6 +24,7 @@ import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
 import { MissingPhotosSection } from "./sections/MissingPhotosSection";
 import { DuplicatePhotosSection } from "./sections/DuplicatePhotosSection";
 import { DuplicateFoldersSection } from "./sections/DuplicateFoldersSection";
+import { DuplicateContainedFoldersSection } from "./sections/DuplicateContainedFoldersSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { MailSection } from "./sections/MailSection";
 import { OpdsAccessSection } from "./sections/OpdsAccessSection";
@@ -46,6 +47,7 @@ export function ControlPanelPage({
   useControlSearchShortcut(openSearch);
 
   const group = groupForSection(section);
+  const parentTab = parentTabForSection(section);
   // The category editor is a sub-page of Categories, not a tab of its own, so it
   // keeps the nav highlight but drops the tab row.
   const editingCategory = section === "categories" && categoryId !== undefined;
@@ -59,7 +61,20 @@ export function ControlPanelPage({
     >
       <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
-          {!editingCategory && group.tabs.length > 1 && <ControlTabs group={group} section={section} />}
+          {/* Up to two rows: the group's tabs, then the active tab's own views where
+              it has any. A one-tab row is no row at all — it would be a heading that
+              only ever points at the page you are already on. */}
+          {!editingCategory && group.tabs.length > 1 && (
+            <ControlTabs tabs={group.tabs} section={section} label={`${group.label} sections`} />
+          )}
+          {!editingCategory && parentTab?.tabs && (
+            <ControlTabs
+              tabs={parentTab.tabs}
+              section={section}
+              label={`${parentTab.label} views`}
+              className="control-subtabs"
+            />
+          )}
           <ControlSectionBody section={section} categoryId={categoryId} currentUser={user} />
         </section>
       </div>
@@ -105,6 +120,7 @@ function ControlSectionBody({
     case "missingPhotos":   return <MissingPhotosSection />;
     case "duplicatePhotos": return <DuplicatePhotosSection />;
     case "duplicateFolders": return <DuplicateFoldersSection />;
+    case "duplicateContainedFolders": return <DuplicateContainedFoldersSection />;
 
     case "appearance":      return <AppearanceSection />;
     case "email":           return <MailSection />;
@@ -160,10 +176,20 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
 // The in-page tab row for the active group. Each tab is a real link, so every
 // destination in the control panel is bookmarkable and the search palette can
 // jump straight to it.
-function ControlTabs({ group, section }: { group: ControlGroupDef; section: ControlSection }) {
+function ControlTabs({
+  tabs,
+  section,
+  label,
+  className
+}: {
+  tabs: ControlTabDef[];
+  section: ControlSection;
+  label: string;
+  className?: string;
+}) {
   return (
-    <div className="control-tabs" role="tablist" aria-label={`${group.label} sections`}>
-      {group.tabs.map((tab) => {
+    <div className={["control-tabs", className].filter(Boolean).join(" ")} role="tablist" aria-label={label}>
+      {tabs.map((tab) => {
         const href = controlHref(tab.section);
         const active = tab.section === section;
         return (
