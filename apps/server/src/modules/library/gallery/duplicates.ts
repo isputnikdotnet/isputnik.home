@@ -31,7 +31,12 @@ import { recomputeFaceCount } from "./people.js";
 // Mutual import: duplicate-folders.ts builds on this module's digests and keeper
 // heuristics, and a scan rebuilds its groups as a third pass. Both sides only ever
 // reach across inside functions, never while the module is being evaluated.
-import { rebuildDuplicateFolderGroups, type FolderGroupTotals } from "./duplicate-folders.js";
+import {
+  rebuildDuplicateFolderGroups,
+  rebuildContainedFolders,
+  type FolderGroupTotals,
+  type ContainedFolderTotals
+} from "./duplicate-folders.js";
 
 export const DUPLICATE_SCAN_JOB_TYPE = "SCAN_GALLERY_DUPLICATES";
 
@@ -313,6 +318,54 @@ function loadDetails(itemIds: string[]): Map<string, DetailRow> {
 
 // Filename shapes a file manager or download produces for a second copy. Deliberately
 // narrow: a trailing "-1"/"_1" is NOT included, because IMG_1234.jpg would match it.
+// ── Preferred folders ───────────────────────────────────────────────────────
+//
+// "When copies of a photo are in more than one place, keep the one in here." An
+// explicit instruction from the admin, so it outranks every heuristic below — and it
+// costs nothing, because whatever the losing copies carry is merged onto the keeper
+// before they go. A copy counts as preferred when it sits in the folder or anywhere
+// below it; several folders can be preferred at once, and a set with copies in two of
+// them falls through to the ordinary criteria.
+export const PREFERRED_FOLDERS_KEY = "gallery.duplicate_preferred_folders";
+
+export interface PreferredFolder {
+  libraryId: string;
+  /** Relative to the library root. "" means the whole library. */
+  folderPath: string;
+}
+
+export function preferredFolders(): PreferredFolder[] {
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(PREFERRED_FOLDERS_KEY) as { value: string } | undefined;
+  if (!row?.value) return [];
+  try {
+    const parsed = JSON.parse(row.value) as PreferredFolder[];
+    return Array.isArray(parsed)
+      ? parsed.filter((entry) => typeof entry?.libraryId === "string" && typeof entry?.folderPath === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setPreferredFolders(folders: PreferredFolder[]): void {
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(PREFERRED_FOLDERS_KEY, JSON.stringify(folders));
+}
+
+export function isPreferredPath(
+  folders: PreferredFolder[],
+  libraryId: string,
+  /** A file's path, or a folder's — both answer the same question. */
+  path: string
+): boolean {
+  return folders.some((folder) =>
+    folder.libraryId === libraryId
+    && (folder.folderPath === "" || path === folder.folderPath || path.startsWith(`${folder.folderPath}/`)));
+}
+
 export const COPY_MARKERS = [/ \(\d+\)$/, /\bcopy\b/i, /^copy of /i, /[-_ ]duplicate$/i];
 
 // Folders that hold received or derived copies rather than originals.
@@ -325,14 +378,16 @@ interface Scored extends DetailRow {
   pixels: number;
   copyMarker: boolean;
   derivedFolder: boolean;
+  preferred: boolean;
 }
 
-function score(row: DetailRow): Scored {
+function score(row: DetailRow, preferred: PreferredFolder[] = preferredFolders()): Scored {
   const segments = row.relative_path.split("/");
   const fileName = segments[segments.length - 1] ?? "";
   const baseName = fileName.replace(/\.[^.]+$/, "");
   return {
     ...row,
+    preferred: isPreferredPath(preferred, row.library_id, row.relative_path),
     linkCount:
       row.face_count + row.album_count + row.slideshow_count + row.collection_count
       + row.tag_count + row.save_count + row.share_count + row.ft_person_count + row.ft_event_count,
@@ -356,6 +411,9 @@ function score(row: DetailRow): Scored {
 // sum creates. User work outranks everything, because it's the only thing that can't be
 // recovered from the file itself.
 const KEEPER_CRITERIA: { label: string; value: (row: Scored) => number }[] = [
+  // An explicit instruction beats every guess below it. Nothing is lost by obeying it:
+  // the losing copies' tags and people are merged onto the keeper either way.
+  { label: "in a folder you chose to keep", value: (r) => (r.preferred ? 1 : 0) },
   { label: "has tags, albums or people", value: (r) => r.linkCount },
   { label: "has hand-edited details", value: (r) => r.manualCount },
   { label: "not a copy", value: (r) => (r.copyMarker ? 0 : 1) },
@@ -390,7 +448,9 @@ export interface KeeperChoice {
 // links either side) fall through to the stable "added first" tiebreak.
 export function pickKeeper(rows: DetailRow[]): KeeperChoice | null {
   if (rows.length === 0) return null;
-  const scored = rows.map(score).sort(compareCandidates);
+  // Read the preference once per set rather than once per copy.
+  const preferred = preferredFolders();
+  const scored = rows.map((row) => score(row, preferred)).sort(compareCandidates);
   const winner = scored[0];
   const runnerUp = scored[1];
   if (!runnerUp) return { keeperId: winner.item_id, reason: null };
@@ -529,6 +589,8 @@ export interface DuplicateScanSummary {
   reclaimableBytes: number;
   /** Whole-folder duplicates found in the same pass — a rollup, not extra bytes. */
   folders?: FolderGroupTotals;
+  /** Folders whose every photo also sits elsewhere. Also a rollup, not extra bytes. */
+  contained?: ContainedFolderTotals;
 }
 
 const memberSignature = (ids: string[]): string => [...ids].sort().join(",");
@@ -702,10 +764,16 @@ export function rebuildNearDuplicateGroups(): GroupTotals {
 // Folder groups come last and are reported separately: they are a rollup of the exact
 // tier, so their bytes are the SAME bytes already counted there. Adding them to the
 // headline totals would promise twice the space a cleanup can actually free.
-export function rebuildDuplicateGroups(): GroupTotals & { folders: FolderGroupTotals } {
+export function rebuildDuplicateGroups(): GroupTotals & {
+  folders: FolderGroupTotals;
+  contained: ContainedFolderTotals;
+} {
   const exact = rebuildExactDuplicateGroups();
   const near = rebuildNearDuplicateGroups();
   const folders = rebuildDuplicateFolderGroups();
+  // After the equal-contents pass, which it defers to: a folder with a partner there
+  // is already offered with a keeper choice, and shouldn't be offered twice.
+  const contained = rebuildContainedFolders();
   db.prepare(`
     INSERT INTO app_settings (key, value, updated_at)
     VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -715,7 +783,8 @@ export function rebuildDuplicateGroups(): GroupTotals & { folders: FolderGroupTo
     groups: exact.groups + near.groups,
     extraCopies: exact.extraCopies + near.extraCopies,
     reclaimableBytes: exact.reclaimableBytes + near.reclaimableBytes,
-    folders
+    folders,
+    contained
   };
 }
 

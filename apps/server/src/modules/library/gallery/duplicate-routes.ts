@@ -18,13 +18,19 @@ import {
   ignoreDuplicateGroup,
   resolveDuplicateGroup,
   resolveDuplicateSelection,
-  resolveAllExactGroups
+  resolveAllExactGroups,
+  preferredFolders,
+  setPreferredFolders,
+  rebuildDuplicateGroups
 } from "./duplicates.js";
 import {
   listDuplicateFolderGroups,
   setDuplicateFolderKeeper,
   ignoreDuplicateFolderGroup,
-  resolveDuplicateFolderGroup
+  resolveDuplicateFolderGroup,
+  listContainedFolders,
+  ignoreContainedFolder,
+  resolveContainedFolder
 } from "./duplicate-folders.js";
 
 // The ONE shape the page's state is built from. Both the list and the scan route
@@ -40,6 +46,8 @@ function duplicatePayload() {
     ...duplicateScanStatus(),
     groups,
     folderGroups: listDuplicateFolderGroups(),
+    containedFolders: listContainedFolders(),
+    preferredFolders: preferredFolders(),
     reclaimableBytes: groups.reduce((sum, g) => sum + g.reclaimableBytes, 0)
   };
 }
@@ -187,6 +195,73 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
       return;
     }
     reply.send(result);
+  });
+
+  // ── Contained folders ─────────────────────────────────────────────────────
+  //
+  // One folder, not a set: the row already names which folder goes and which one
+  // covers it, so there is no keeper to choose.
+  app.post("/api/library/gallery/duplicates/folders/contained/:id/resolve", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const result = resolveContainedFolder(id, request.user!.id);
+    if (!result) {
+      reply.code(409).send({
+        error: "Some photos in this folder no longer have a copy in the folder being kept. Run a new scan and review it again."
+      });
+      return;
+    }
+    reply.send(result);
+  });
+
+  app.post("/api/library/gallery/duplicates/folders/contained/:id/ignore", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (!ignoreContainedFolder(id)) {
+      reply.code(404).send({ error: "No such folder." });
+      return;
+    }
+    logActivity({
+      event: "library.gallery.contained_folder_dismissed",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: null,
+      detail: "Dismissed a folder whose photos all exist elsewhere; it won't be suggested again.",
+      ipAddress: request.ip
+    });
+    reply.send({ ignored: true });
+  });
+
+  // ── Preferred folders ─────────────────────────────────────────────────────
+  //
+  // "When copies are in more than one place, keep the one here." Saving re-picks every
+  // automatic keeper straight away — the choice is only meaningful if the page reflects
+  // it — which is pure database work and costs no disk access. Keepers set by hand are
+  // untouched, as they outrank the automatic choice by definition.
+  const preferredSchema = z.object({
+    folders: z.array(z.object({
+      libraryId: z.string().min(1).max(64),
+      folderPath: z.string().max(1024)
+    })).max(50)
+  });
+  app.post("/api/library/gallery/duplicates/preferred-folders", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(preferredSchema, request.body);
+    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+
+    const known = new Set((db.prepare("SELECT id FROM libraries WHERE type = 'gallery'").all() as { id: string }[]).map((row) => row.id));
+    const folders = parsed.data.folders.filter((folder) => known.has(folder.libraryId));
+    setPreferredFolders(folders);
+    rebuildDuplicateGroups();
+
+    logActivity({
+      event: "library.gallery.duplicate_preferences",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: null,
+      detail: folders.length > 0
+        ? `Set ${folders.length} preferred folder${folders.length === 1 ? "" : "s"} for keeping duplicate photos.`
+        : "Cleared the preferred folders for keeping duplicate photos.",
+      ipAddress: request.ip
+    });
+    reply.send(duplicatePayload());
   });
 
   app.post("/api/library/gallery/duplicates/folders/:id/ignore", { preHandler: app.requireAdmin }, async (request, reply) => {

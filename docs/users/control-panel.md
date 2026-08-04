@@ -217,12 +217,22 @@ A folder imported twice, or a phone backup copied in beside the originals, leave
 the same picture in the library several times. This page finds those and lets you
 decide, copy by copy, which ones stay.
 
-Results come in three groups, and they deserve different amounts of trust.
+> **Experimental.** Duplicate detection is new and still being proven. Look at what a
+> set contains before removing anything, and start with a few sets rather than the bulk
+> actions. Everything removed goes to the Recycle Bin, so it can be undone until you
+> empty it — but check, test, and check again first.
+
+Results come in four groups, and they deserve different amounts of trust.
 
 **Duplicate folders** come first: a whole folder holding exactly the same photos as
 another one, however differently the two are named. They're listed first because
 clearing one settles every identical-file set inside it at once — two copies of a
 400-photo holiday folder are 400 decisions otherwise.
+
+**Folders already stored elsewhere** is the same idea one step looser: every photo in
+the folder also sits in some other folder, which may hold more besides. That covers
+the case an exact match can never see — a folder copied *into itself*, where the outer
+folder holds the inner one's photos as well and so can never match it.
 
 **Identical files** are byte-for-byte the same, so a set is never a guess. Finding
 them is cheap because identical files must be the same size: photos whose size
@@ -276,6 +286,41 @@ themselves are left on disk for you to remove.
 
 **Not the same** drops the set and stops future scans pairing those folders. The
 photos inside them are still compared with each other individually.
+
+#### Folders already stored elsewhere
+
+Each row names one folder that can go and one that keeps its photos: *all 6 photos in
+X are also in Y*. It also says how many photos Y holds beyond them — 0 means the two
+hold the same pictures arranged differently.
+
+The commonest source is a folder copied inside itself, which sync clients and photo
+managers produce all the time. Only the topmost such folder is listed: removing it
+takes anything below it too. And when two folders cover *each other* — the same photos
+in a different layout — only one is offered, because acting on both would delete every
+copy between them.
+
+**Delete** moves that folder's photos to the Recycle Bin, handing each one's tags,
+albums and tagged people to its copy in the folder being kept first. Coverage is
+re-checked the moment you confirm: if even one photo no longer has a copy over there,
+nothing is deleted. **Leave it** drops the row for good — the folder stops being
+suggested however its photos are covered later.
+
+#### Choosing what to work on, and where to keep it
+
+Two controls in the bar work in folders rather than in sets, and both list only folders
+something duplicated was actually found in.
+
+- **Choose folders to work on** narrows the page to sets with a copy in the folders you
+  pick, exactly as the search box narrows it. It changes nothing and is forgotten when
+  you leave.
+- **Where to keep photos** is a decision, and it is saved. When copies of a photo sit in
+  more than one place, the one in a chosen folder is the copy kept — for photo sets and
+  folder sets alike, outranking every automatic guess, since nothing is lost either way
+  (the other copies' tags and people are merged onto it). A folder you've chosen is also
+  never offered for removal. Saving re-picks every automatic keeper immediately; copies
+  you picked by hand stay as they are.
+
+Both treat a folder as covering everything below it.
 
 #### Working through the list
 

@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.14.0",
+          label: "Folders already stored elsewhere",
+          changes: [
+            "Duplicate photos now finds folders whose every photo also sits in another folder — including a folder copied into itself, which no exact match can ever catch, because the outer folder holds the inner one's photos as well and so always holds more. Each row says what goes, what stays, and how many photos the kept folder has besides.",
+            "Two folders that cover each other — the same pictures in a different arrangement — are only ever offered one way round. Offering both would delete every copy between them.",
+            "A new folder filter narrows the page to the folders you want to work on, listing only folders something duplicated was actually found in.",
+            "You can now say where copies should be kept. Choose one or more folders and the copy in them is the one kept, for single photos and whole folders alike, ahead of every automatic guess — nothing is lost by it, because the other copies' tags and people are merged onto the survivor either way. A folder you've chosen is also never offered for removal.",
+            "The page now says plainly that duplicate detection is experimental. It proposes deleting photographs: check what a set holds before removing anything, start with a few rather than the bulk actions, and remember everything removed waits in the Recycle Bin until you empty it."
+          ]
+        },
+        {
           version: "2.13.1",
           label: "Duplicate folders says when it found nothing",
           changes: [

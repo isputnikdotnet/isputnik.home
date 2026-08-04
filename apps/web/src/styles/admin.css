@@ -1219,6 +1219,83 @@
   overflow-wrap: anywhere;
 }
 
+/* ── Folders already stored elsewhere ───────────────────────────────
+   Not a set of equals: one folder goes, one stays, so the pair reads left to right
+   with an arrow rather than as a grid of interchangeable tiles. */
+.dup-contained-pair {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dup-contained-pair .dup-folder {
+  position: relative;
+  width: 190px;
+  flex: 0 0 auto;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dup-contained-arrow { flex: 0 0 auto; color: var(--muted); }
+.dup-contained-target {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent, #c8a24a);
+  border-radius: 7px;
+  font-size: 0.82rem;
+}
+/* In the flow rather than over a thumbnail — this side has no picture to sit on. */
+.dup-contained-badge { position: static; align-self: flex-start; }
+
+/* ── Folder pickers (work on / keep in) ─────────────────────────────
+   Both modals list the same folders, so they share one list style. Scrolls at a
+   sensible height: a big library can duplicate across dozens of folders. */
+.dup-picker-note { margin: 0 0 12px; font-size: 0.82rem; }
+.dup-folder-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(50vh, 340px);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+}
+.dup-folder-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 6px 7px;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 0;
+}
+.dup-folder-choice:hover { background: var(--surface-2, rgba(127, 127, 127, 0.08)); }
+.dup-folder-choice input { margin-top: 3px; flex: 0 0 auto; }
+.dup-folder-choice-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+/* Long paths wrap instead of stretching the dialog. */
+.dup-folder-choice-body strong { font-size: 0.82rem; overflow-wrap: anywhere; }
+.dup-folder-choice-body span { font-size: 0.74rem; }
+
+/* A toolbar control holding a filter or a saved preference, so it reads as "on"
+   rather than as one more icon. */
+.dup-toolbar-controls .is-active {
+  border-color: var(--accent, #c8a24a);
+  color: var(--accent, #c8a24a);
+}
+
 /* Points down when collapsed ("open this"), flips up once open. */
 .dup-group-toggle svg { transition: transform 0.15s ease; }
 .dup-group-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }

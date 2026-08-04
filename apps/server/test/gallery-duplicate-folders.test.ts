@@ -13,8 +13,13 @@ import {
   setDuplicateFolderKeeper,
   ignoreDuplicateFolderGroup,
   resolveDuplicateFolderGroup,
-  pickFolderKeeper
+  pickFolderKeeper,
+  rebuildContainedFolders,
+  listContainedFolders,
+  ignoreContainedFolder,
+  resolveContainedFolder
 } from "../src/modules/library/gallery/duplicate-folders.js";
+import { setPreferredFolders } from "../src/modules/library/gallery/duplicates.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 interface AssetOpts {
@@ -265,5 +270,200 @@ describe("resolution", () => {
     expect(fingerprintOf({ libraryId: "GAL", folderPath: "Italy 2019" })?.digest)
       .toBe(fingerprintOf({ libraryId: "GAL", folderPath: "Backup/holiday" })?.digest);
     expect(resolveDuplicateFolderGroup(group.id, [{ libraryId: "GAL", folderPath: "Backup/holiday" }], "u1")).not.toBeNull();
+  });
+});
+
+// ── Contained folders ───────────────────────────────────────────────────────
+//
+// "Every photo in here also sits over there." The case the equal-contents test can
+// never see: a folder copied INTO itself, where the parent's fingerprint counts the
+// child's files and so always holds strictly more.
+
+const contained = () =>
+  listContainedFolders().map((row) => `${row.folder.folderPath} ⊂ ${row.target.folderPath}`);
+
+describe("contained folders", () => {
+  it("finds a folder copied into itself", () => {
+    // The exact shape of D:\…\2017-12-10 and its 2017-12-10 child.
+    asset("p1", "2017-12-10/DSC01818.JPG", { hash: "pic-1" });
+    asset("p2", "2017-12-10/DSC01819.JPG", { hash: "pic-2" });
+    asset("c1", "2017-12-10/2017-12-10/DSC01818.JPG", { hash: "pic-1" });
+    asset("c2", "2017-12-10/2017-12-10/DSC01819.JPG", { hash: "pic-2" });
+
+    // Not an equal-contents pair: the parent holds 4 files, the child 2.
+    rebuildDuplicateFolderGroups();
+    expect(listDuplicateFolderGroups()).toEqual([]);
+
+    expect(rebuildContainedFolders().folders).toBe(1);
+    expect(contained()).toEqual(["2017-12-10/2017-12-10 ⊂ 2017-12-10"]);
+    expect(listContainedFolders()[0].extraCount).toBe(0);
+  });
+
+  it("finds a folder whose photos are a subset of a bigger one", () => {
+    trip("Trip", "a");
+    trip("Archive/trip", "b");
+    asset("extra", "Archive/trip/three.jpg", { hash: "pic-three" });
+
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+    // Trip ⊂ Archive/trip, which holds one photo more.
+    expect(contained()).toEqual(["Trip ⊂ Archive/trip"]);
+    expect(listContainedFolders()[0].extraCount).toBe(1);
+  });
+
+  it("says nothing about a folder holding one photo that exists nowhere else", () => {
+    trip("Trip", "a");
+    asset("only", "Trip/unique.jpg", { hash: "pic-unique" });
+    trip("Archive/trip", "b");
+
+    rebuildContainedFolders();
+    // Trip can't go — "unique" would be lost. The other direction still holds, and
+    // saying so is the whole point: Archive/trip is the one that can go.
+    expect(contained().filter((row) => row.startsWith("Trip ⊂"))).toEqual([]);
+    expect(contained()).toEqual(["Archive ⊂ Trip"]);
+  });
+
+  it("respects how many copies a folder holds of the same picture", () => {
+    asset("a1", "Twice/one.jpg", { hash: "pic-one" });
+    asset("a2", "Twice/one-again.jpg", { hash: "pic-one" });
+    asset("b1", "Once/one.jpg", { hash: "pic-one" });
+    asset("b2", "Once/other.jpg", { hash: "pic-two" });
+
+    rebuildContainedFolders();
+    // "Once" holds pic-one only once, so it can't cover a folder needing two.
+    expect(contained()).toEqual([]);
+  });
+
+  it("reports the topmost folder, not every subfolder inside it", () => {
+    // Photos holds four pictures flat; Copy holds the same four with two of them in a
+    // subfolder — so no two folders are equal, and both Copy and Copy/inner are
+    // covered by Photos. Only Copy is worth a row: removing it takes inner with it.
+    for (const [id, name] of [["b1", "a"], ["b2", "b"], ["b3", "c"], ["b4", "d"]]) {
+      asset(id, `Photos/${name}.jpg`, { hash: `pic-${name}` });
+    }
+    asset("a1", "Copy/c.jpg", { hash: "pic-c" });
+    asset("a2", "Copy/d.jpg", { hash: "pic-d" });
+    asset("a3", "Copy/inner/a.jpg", { hash: "pic-a" });
+    asset("a4", "Copy/inner/b.jpg", { hash: "pic-b" });
+
+    rebuildDuplicateFolderGroups();
+    expect(listDuplicateFolderGroups()).toEqual([]);
+    rebuildContainedFolders();
+    // Copy and Photos hold the same four pictures, so each covers the other — offering
+    // both would delete every copy between them. One row only, and it's Copy that goes.
+    expect(contained()).toEqual(["Copy ⊂ Photos"]);
+  });
+
+  it("never offers both sides of a mutual cover — that would delete everything", () => {
+    // Same photos, different layout: each folder covers the other.
+    asset("a1", "Album/one.jpg", { hash: "pic-one" });
+    asset("a2", "Album/two.jpg", { hash: "pic-two" });
+    asset("b1", "Downloads/sub/one.jpg", { hash: "pic-one" });
+    asset("b2", "Downloads/sub/two.jpg", { hash: "pic-two" });
+
+    rebuildContainedFolders();
+    const rows = listContainedFolders();
+    expect(rows).toHaveLength(1);
+    // The downloads copy is the one that goes, never the album.
+    expect(rows[0].folder.folderPath).toBe("Downloads");
+  });
+
+  it("stays quiet when an equal-contents set already answers the question", () => {
+    // Copy/trip and Photos/trip hold exactly the same photos, so the equal-contents
+    // tier offers them with a keeper choice. Reporting their parents as "contained"
+    // as well would be a second, weaker answer to the same question.
+    asset("a1", "Copy/trip/one.jpg", { hash: "pic-one" });
+    asset("a2", "Copy/trip/two.jpg", { hash: "pic-two" });
+    asset("b1", "Photos/trip/one.jpg", { hash: "pic-one" });
+    asset("b2", "Photos/trip/two.jpg", { hash: "pic-two" });
+    asset("b3", "Photos/extra.jpg", { hash: "pic-three" });
+
+    rebuildDuplicateFolderGroups();
+    expect(listDuplicateFolderGroups()).toHaveLength(1);
+    rebuildContainedFolders();
+    expect(contained()).toEqual([]);
+  });
+
+  it("defers to the equal-contents tier when the folders match exactly", () => {
+    trip("Italy 2019", "a");
+    trip("Backup/holiday", "b");
+
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+    expect(listDuplicateFolderGroups()).toHaveLength(1);
+    expect(contained()).toEqual([]);
+  });
+
+  it("keeps a dismissed folder dismissed", () => {
+    asset("p1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("p2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("c1", "Trip/Trip/one.jpg", { hash: "pic-1" });
+    asset("c2", "Trip/Trip/two.jpg", { hash: "pic-2" });
+    rebuildContainedFolders();
+
+    expect(ignoreContainedFolder(listContainedFolders()[0].id)).toBe(true);
+    expect(contained()).toEqual([]);
+    rebuildContainedFolders();
+    expect(contained()).toEqual([]);
+  });
+
+  it("hands each photo's tags to its copy in the folder being kept", () => {
+    asset("p1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("p2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("c1", "Trip/Trip/one.jpg", { hash: "pic-1" });
+    asset("c2", "Trip/Trip/two.jpg", { hash: "pic-2" });
+    rebuildContainedFolders();
+    db.prepare("INSERT INTO tags (id, key, display_name) VALUES ('t1', 'trips', 'Trips')").run();
+    db.prepare("INSERT INTO taggables (tag_id, entity_type, entity_id) VALUES ('t1', 'library_item', 'c1')").run();
+
+    const result = resolveContainedFolder(listContainedFolders()[0].id, "u1");
+    expect(result?.removed.folderPath).toBe("Trip/Trip");
+    expect(result?.keptIn.folderPath).toBe("Trip");
+    // c1's tag went to p1 — the copy at the same relative path.
+    const tagged = db.prepare(
+      "SELECT entity_id FROM taggables WHERE tag_id = 't1' AND entity_type = 'library_item'"
+    ).all() as { entity_id: string }[];
+    expect(tagged.map((row) => row.entity_id)).toContain("p1");
+  });
+
+  it("refuses once a photo here no longer has a copy over there", () => {
+    asset("p1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("p2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("c1", "Trip/Trip/one.jpg", { hash: "pic-1" });
+    asset("c2", "Trip/Trip/two.jpg", { hash: "pic-2" });
+    rebuildContainedFolders();
+    const row = listContainedFolders()[0];
+
+    db.prepare("UPDATE gallery_details SET content_hash = 'changed' WHERE item_id = 'p2'").run();
+    expect(resolveContainedFolder(row.id, "u1")).toBeNull();
+  });
+});
+
+// ── Preferred folders ───────────────────────────────────────────────────────
+
+describe("preferred folders", () => {
+  it("keeps the folder the admin chose, over the one that would otherwise win", () => {
+    trip("Italy 2019", "a", { discoveredAt: "2023-01-01T00:00:00.000Z" });
+    trip("Backup/holiday", "b", { discoveredAt: "2024-01-01T00:00:00.000Z" });
+
+    rebuildDuplicateFolderGroups();
+    expect(groupPaths()[0].keeper).toBe("Italy 2019");
+
+    setPreferredFolders([{ libraryId: "GAL", folderPath: "Backup" }]);
+    rebuildDuplicateFolderGroups();
+    const [group] = listDuplicateFolderGroups();
+    expect(group.members.find((member) => member.isKeeper)?.folderPath).toBe("Backup/holiday");
+    expect(group.keeperReason).toContain("chose to keep");
+  });
+
+  it("never proposes removing a folder the admin chose to keep", () => {
+    asset("p1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("p2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("c1", "Trip/Trip/one.jpg", { hash: "pic-1" });
+    asset("c2", "Trip/Trip/two.jpg", { hash: "pic-2" });
+
+    setPreferredFolders([{ libraryId: "GAL", folderPath: "Trip/Trip" }]);
+    rebuildContainedFolders();
+    expect(contained()).toEqual([]);
   });
 });
