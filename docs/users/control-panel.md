@@ -159,8 +159,16 @@ means `/mnt/user/appdata/isputnik/backups`.
 
 > Before 2.15.1 the container wrote backups to `/app/data/backups` instead, which is
 > inside the image rather than your mapped folder: invisible from the host, and thrown
-> away whenever the container was recreated. Updating fixes it and moves any backups
-> still there into the right folder on the first start.
+> away whenever the container was recreated. Updating fixes it — but updating *is* a
+> recreation, so backups still sitting there go with it. To keep them, copy them out
+> **before** you update:
+>
+> ```
+> docker cp isputnik:/app/data/backups/. /mnt/user/appdata/isputnik/backups/
+> ```
+>
+> (Substitute your container name and mapped folder.) The server also moves any it
+> finds on startup, which covers installs that aren't containers.
 
 **Restoring is a two-step operation.** Choosing Restore *stages* the backup; it
 takes effect when you **restart the server**. That's deliberate — swapping the
