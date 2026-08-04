@@ -19,7 +19,11 @@ import {
   ignoreContainedFolder,
   resolveContainedFolder
 } from "../src/modules/library/gallery/duplicate-folders.js";
-import { setFolderPreferences } from "../src/modules/library/gallery/duplicates.js";
+import {
+  setFolderPreferences,
+  rebuildExactDuplicateGroups,
+  listDuplicateGroups
+} from "../src/modules/library/gallery/duplicates.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 interface AssetOpts {
@@ -536,5 +540,86 @@ describe("clearing a folder out", () => {
     ]);
     rebuildDuplicateFolderGroups();
     expect(groupPaths()[0].keeper).toBe("Photos/keepers");
+  });
+
+  it("says so when it keeps a copy inside a folder being cleared out", () => {
+    // Both copies inside the cleared folder: one is still kept (clearing never empties
+    // a folder), and the reason has to admit it or the setting reads as ignored.
+    asset("a1", "Duplicates/one.jpg", { hash: "pic-one" });
+    asset("a2", "Duplicates/anothercopy/one.jpg", { hash: "pic-one" });
+
+    setFolderPreferences([{ libraryId: "GAL", folderPath: "Duplicates", mode: "clear" }]);
+    rebuildExactDuplicateGroups();
+    const [group] = listDuplicateGroups();
+    expect(group.keeperReason).toContain("clearing out");
+  });
+
+  it("lets a more specific clear-out beat the folder it sits in", () => {
+    asset("a1", "Duplicates/one.jpg", { hash: "pic-one", discoveredAt: "2024-06-01T00:00:00.000Z" });
+    asset("a2", "Duplicates/anothercopy/one.jpg", { hash: "pic-one", discoveredAt: "2023-01-01T00:00:00.000Z" });
+
+    // The inner folder is the longest match for the inner copy, so it loses even
+    // though it was added first — which is what marking the inner folder is for.
+    setFolderPreferences([
+      { libraryId: "GAL", folderPath: "Duplicates", mode: "keep" },
+      { libraryId: "GAL", folderPath: "Duplicates/anothercopy", mode: "clear" }
+    ]);
+    rebuildExactDuplicateGroups();
+    const [group] = listDuplicateGroups();
+    expect(group.members.find((member) => member.isKeeper)?.path).toBe("Duplicates/one.jpg");
+  });
+});
+
+describe("no pair reported twice", () => {
+  it("defers to the equal-contents set even when the folder is being cleared out", () => {
+    // Two folders, same contents, one marked for clearing. The equal-contents set
+    // already offers exactly this removal — and honours the mark in its keeper choice —
+    // so a containment row for the same pair would be the same answer twice.
+    trip("Duplicates", "a");
+    trip("anothercopy", "b");
+    setFolderPreferences([{ libraryId: "GAL", folderPath: "Duplicates", mode: "clear" }]);
+
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+
+    expect(listDuplicateFolderGroups()).toHaveLength(1);
+    expect(listContainedFolders()).toEqual([]);
+    // And the mark decides which of the two goes.
+    expect(groupPaths()[0].keeper).toBe("anothercopy");
+  });
+});
+
+describe("stale results can't be displayed", () => {
+  it("hides a contained row for a pair the equal-contents tier already answers", () => {
+    // The shape a version upgrade leaves behind: both caches persist independently, so
+    // a row written before the deferral rule existed would show the same two folders
+    // twice — once per section — until something happened to rebuild.
+    trip("Duplicates", "a");
+    trip("anothercopy", "b");
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+    expect(listContainedFolders()).toEqual([]);
+
+    // Write the stale row straight into the table, as an older build would have.
+    db.prepare(`
+      INSERT INTO gallery_duplicate_contained_folders
+        (id, library_id, folder_path, target_library_id, target_folder_path, item_count, bytes, extra_count)
+      VALUES ('stale', 'GAL', 'Duplicates', 'GAL', 'anothercopy', 2, 2000, 0)
+    `).run();
+    expect(db.prepare("SELECT COUNT(*) AS n FROM gallery_duplicate_contained_folders").get()).toEqual({ n: 1 });
+
+    // Stored, but never shown — the read filters it as the rebuild would have.
+    expect(listContainedFolders()).toEqual([]);
+  });
+
+  it("still shows a contained row the equal-contents tier says nothing about", () => {
+    asset("p1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("p2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("c1", "Trip/Trip/one.jpg", { hash: "pic-1" });
+    asset("c2", "Trip/Trip/two.jpg", { hash: "pic-2" });
+
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+    expect(listContainedFolders().map((row) => row.folder.folderPath)).toEqual(["Trip/Trip"]);
   });
 });

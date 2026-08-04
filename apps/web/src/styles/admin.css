@@ -1221,6 +1221,172 @@
   overflow-wrap: anywhere;
 }
 
+/* ── A duplicate-folder set, as a card ──────────────────────────────
+   Numbered, with what the folders hold, then a strip of the pictures themselves and
+   the folders side by side. The strip is the fastest way to recognise which holiday
+   this is; the cards carry everything needed to choose between the copies. */
+.dup-sets { display: flex; flex-direction: column; gap: 12px; }
+
+.dup-set {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px 16px;
+}
+.dup-set-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.dup-set-title { margin: 0; font-size: 1rem; }
+.dup-set-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 3px 0 0;
+  font-size: 0.8rem;
+}
+.dup-set-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.dup-set-meta svg { opacity: 0.8; }
+.dup-set-reason { font-style: italic; }
+
+/* Strip left, folders right — they wrap under each other when the panel is narrow. */
+.dup-set-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.dup-set-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.dup-set-strip img {
+  width: 62px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 7px;
+  display: block;
+}
+.dup-set-strip-empty,
+.dup-set-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 7px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.1));
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.dup-set-folders {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  flex: 1 1 340px;
+  flex-wrap: wrap;
+}
+/* FIXED-size cards, like the copy tiles above them: a pair of folders reads as two
+   equal boxes whatever their paths run to, and never stretches across the panel. The
+   wraps still stretch vertically so both cards in a row share a height. */
+.dup-set-folder-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.dup-set-arrow { flex: 0 0 auto; color: var(--muted); align-self: center; }
+
+.dup-set-folder {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 250px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+/* The two outcomes read at a glance, and never look alike. Tinted over the raised
+   surface, firmly enough that the card is green or red rather than white with a
+   coloured edge. */
+.dup-set-folder.is-keep {
+  border-color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 16%, var(--surface-raised));
+}
+.dup-set-folder.is-trash {
+  border-color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 14%, var(--surface-raised));
+}
+/* The badges carry the same colours as the copy tiles on Duplicate photos: mint for
+   the copy that stays, rose for the one that goes. Needed here explicitly — the
+   mint rule above is scoped to .dup-copy tiles and never reached these. */
+.dup-set-folder.is-keep .dup-set-badge { background: var(--mint); color: var(--canvas); }
+.dup-set-folder.is-trash .dup-set-badge { background: var(--rose); color: #fff; }
+
+.dup-set-folder-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* In the flow rather than floating over a thumbnail, as on the copy tiles. */
+.dup-set-badge { position: static; }
+.dup-set-open { color: var(--muted); display: inline-flex; }
+.dup-set-open:hover { color: var(--ink); }
+
+.dup-set-folder-name { font-size: 0.9rem; overflow-wrap: anywhere; }
+.dup-set-path,
+.dup-set-line { color: var(--muted); font-size: 0.74rem; overflow-wrap: anywhere; }
+
+/* Folder icon + name on one line. As a BUTTON (the swap-keeper affordance on a
+   non-keeper card) it sheds the text-button chrome so both cards read identically —
+   the hover underline is the only tell. */
+.dup-set-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  text-align: left;
+}
+.dup-set-name-row svg { flex: 0 0 auto; color: var(--accent, #c8a24a); }
+.dup-set-name-btn {
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  height: auto;
+  width: 100%;
+  justify-content: flex-start;
+}
+.dup-set-name-btn:hover .dup-set-folder-name { text-decoration: underline; }
+
+/* Pinned to the bottom-right corner so the buttons line up across cards whatever the
+   text above them did — sized to their label, not the card's width. Mint styling
+   marks the keeper's action as the safe one. */
+.dup-set-action {
+  margin-top: auto;
+  align-self: flex-end;
+  width: auto;
+  min-height: 26px;
+  padding: 3px 10px;
+  font-size: 0.74rem;
+}
+.dup-set-keep-action { color: var(--mint); border-color: var(--mint); }
+.dup-set-keep-action:hover:not(:disabled) {
+  color: var(--mint);
+  border-color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 12%, transparent);
+}
+
+/* Search takes what the two menus leave, as on any list page. */
+.dup-folder-search { flex: 1 1 220px; min-width: 0; }
+
 /* ── Folders already stored elsewhere ───────────────────────────────
    Not a set of equals: one folder goes, one stays, so the pair reads left to right
    with an arrow rather than as a grid of interchangeable tiles. */
@@ -1279,6 +1445,16 @@
   cursor: pointer;
   min-width: 0;
 }
+/* A row carrying both jobs: the tick that narrows the page, and the saved keep/clear
+   instruction. The name takes the middle and the modes hold the right edge. */
+.dup-folder-row {
+  align-items: center;
+  cursor: default;
+  gap: 10px;
+}
+.dup-folder-row > input[type="checkbox"] { flex: 0 0 auto; margin-top: 0; }
+.dup-folder-row .dup-folder-choice-body { flex: 1 1 auto; cursor: pointer; }
+.dup-folder-row .dup-mode-group { flex: 0 0 auto; }
 .dup-folder-choice:hover { background: var(--surface-2, rgba(127, 127, 127, 0.08)); }
 .dup-folder-choice input { margin-top: 3px; flex: 0 0 auto; }
 .dup-folder-choice-body {
@@ -1345,9 +1521,34 @@
 /* On its own tab the folder list is the only thing there, so it can have the height
    the dialog allows rather than the slice it got when four fields shared one column. */
 .dup-folder-picker-tall { max-height: min(58vh, 460px); }
+
+/* Find-a-folder and its ordering, on one line above the list. The search takes the
+   row and the order is a single icon button — there are only two orders, and a
+   dropdown for two options cost the search box its width. */
+.dup-folder-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.dup-folder-tools input[type="search"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+.dup-folder-tools .dup-folder-sort { flex: 0 0 auto; }
+
+/* Wider than a card dialog and deliberately not tall: the folder list scrolls, so
+   height beyond a screenful buys nothing and costs the page underneath. */
+/* Both classes land on the same element, so this beats .confirm-modal's 420px
+   without depending on which stylesheet loads last. */
+.confirm-modal.dup-filters-modal { width: min(680px, 95vw); }
+.dup-filters-modal .dup-folder-picker-tall { max-height: min(38vh, 300px); }
 .dup-filter-hint { color: var(--muted); font-size: 0.74rem; line-height: 1.35; }
-.dup-filter-field select,
-.dup-filter-field input[type="search"] { width: 100%; }
+/* DIRECT children only. These were matching the search box and sort control in the
+   folder tools row below, which sit side by side — at 100% each they overlapped and
+   the search field disappeared underneath. */
+.dup-filter-field > select,
+.dup-filter-field > input[type="search"] { width: 100%; }
 
 /* Stacked rather than segmented: each choice carries a line of explanation, and the
    difference between the two tiers is the thing worth reading before deleting. */

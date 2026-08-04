@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Copy, ExternalLink, Folder, FolderHeart, FolderOpen, HardDrive, ImageOff, Images, Info, Maximize2, RefreshCw, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, ExternalLink, Folder, FolderOpen, HardDrive, ImageOff, Images, Info, Maximize2, RefreshCw, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -25,7 +25,6 @@ import {
   DuplicateFiltersModal,
   type DuplicateFilterState,
   activeFilterCount,
-  PreferredFoldersModal,
   type PreferenceDraft,
   folderCovers,
   folderKey,
@@ -188,7 +187,6 @@ export function DuplicatePhotosSection() {
   const [filterOpen, setFilterOpen] = useState(false);
   // "Keep the copy in here." Saved on the server, because it changes which copy every
   // set proposes to keep — a decision, not a view.
-  const [preferOpen, setPreferOpen] = useState(false);
   const [preferDraft, setPreferDraft] = useState<PreferenceDraft>({});
   const [preferBusy, setPreferBusy] = useState(false);
   // The tile shows only a filename now; everything else about a copy lives here.
@@ -201,9 +199,13 @@ export function DuplicatePhotosSection() {
   // groupId → itemId → keep/trash, holding only the copies clicked in this sitting.
   const [marks, setMarks] = useState<Record<string, Record<string, "keep" | "trash">>>({});
   const [deletingAll, setDeletingAll] = useState(false);
+  const [rebuilding, setRebuilding] = useState(false);
+  // The saved keep/clear instructions, as edited in the Folders tab of that box.
+  const savedPreferences = Object.fromEntries(payload.folderPreferences
+    .map((folder) => [folderKey(folder), folder.mode] as const));
   // "" = every gallery library.
   // Everything that narrows the page, in one place — see DuplicateFiltersModal.
-  const [filters, setFilters] = useState<DuplicateFilterState>({ scopeId: "", search: "", folders: [], tier: "all" });
+  const [filters, setFilters] = useState<DuplicateFilterState>({ scopeId: "", search: "", folders: [], tier: "all", mediaKind: "all" });
 
   const [sort, setSort] = useState<DupSort>("size");
 
@@ -241,7 +243,7 @@ export function DuplicatePhotosSection() {
   // uses them: `scoped` below reads scopeId inside a .map callback, which the type
   // checker can't see is called immediately — it type-checks and then dies at
   // render with "cannot access before initialization".
-  const { scopeId, search, tier } = filters;
+  const { scopeId, search, tier, mediaKind } = filters;
   const folderFilter = filters.folders;
 
   // Every set as the chosen library sees it — sets it holds no duplicate of are gone,
@@ -260,7 +262,7 @@ export function DuplicatePhotosSection() {
 
   const extraCopies = scoped.reduce((sum, group) => sum + group.members.length - 1, 0);
   const reclaimableBytes = scoped.reduce((sum, group) => sum + group.reclaimableBytes, 0);
-  const busy = starting || deletingAll || busyGroupId !== "";
+  const busy = starting || deletingAll || rebuilding || busyGroupId !== "";
 
   const scanLabel = payload.scanning ? "Scanning…" : starting ? "Starting…" : "Scan now";
 
@@ -279,8 +281,9 @@ export function DuplicatePhotosSection() {
   const needle = search.trim().toLowerCase();
   const shown = (group: ScopedGroup) =>
     matchesSearch(group, needle)
+    && (mediaKind === "all" || group.members[0]?.kind === mediaKind)
     && group.members.some((member) => inChosenFolders(member.libraryId, member.path));
-  const filtering = needle !== "" || scopeId !== "" || chosenFolders.length > 0 || tier !== "all";
+  const filtering = needle !== "" || scopeId !== "" || chosenFolders.length > 0 || tier !== "all" || mediaKind !== "all";
   const visibleExact = sortGroups(exact.filter(shown), sort);
   const visibleNear = sortGroups(near.filter(shown), sort);
 
@@ -313,7 +316,25 @@ export function DuplicatePhotosSection() {
 
   // Any change to what's listed or how it's ordered puts you back at the top —
   // staying on page 7 of a freshly filtered list shows an arbitrary slice.
-  useEffect(() => { setPage(1); }, [needle, scopeId, sort, perPage, tier, folderFilter]);
+  useEffect(() => { setPage(1); }, [needle, scopeId, sort, perPage, tier, mediaKind, folderFilter]);
+
+  // Recompute every list from the digests already stored — no file is read. A scan
+  // re-reads the library; this only re-derives what a scan concluded, which is the
+  // right answer when a list looks stale rather than incomplete.
+  const rebuild = async () => {
+    setRebuilding(true);
+    setActionError("");
+    try {
+      applyPayload(await api<DuplicatePayload>("/api/library/gallery/duplicates/rebuild", {
+        method: "POST",
+        body: "{}"
+      }));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Unable to rebuild the results");
+    } finally {
+      setRebuilding(false);
+    }
+  };
 
   const startScan = async () => {
     setStarting(true);
@@ -414,20 +435,26 @@ export function DuplicatePhotosSection() {
 
   // Saving re-picks every automatic keeper on the server, so the response is the whole
   // page again rather than an acknowledgement.
-  const savePreferred = async () => {
+  // Saved the instant a folder's mode is clicked. The server re-picks every
+  // automatic keeper as part of the same call and answers with the whole page, so
+  // the list behind the dialog is already right when it closes.
+  const savePreferences = async (next: PreferenceDraft) => {
+    setPreferDraft(next);
     setPreferBusy(true);
     setActionError("");
     try {
       const folders = folderOptions
-        .filter((option) => preferDraft[option.key])
-        .map((option) => ({ libraryId: option.libraryId, folderPath: option.folderPath, mode: preferDraft[option.key] }));
+        .filter((option) => next[option.key])
+        .map((option) => ({ libraryId: option.libraryId, folderPath: option.folderPath, mode: next[option.key] }));
       applyPayload(await api<DuplicatePayload>("/api/library/gallery/duplicates/preferred-folders", {
         method: "POST",
         body: JSON.stringify({ folders })
       }));
-      setPreferOpen(false);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to save the preferred folders");
+      setActionError(err instanceof Error ? err.message : "Unable to save the folder choices");
+      // Put the dialog back to what the server still holds, so it never shows a
+      // choice that isn't stored.
+      setPreferDraft(savedPreferences);
     } finally {
       setPreferBusy(false);
     }
@@ -472,6 +499,13 @@ export function DuplicatePhotosSection() {
                 : clearingSet
                   ? "every copy selected for deletion"
                   : `keeping ${keepCount}, deleting ${marked.length}`}
+              {/* Why THIS copy is the one kept. The scan works it out and has always
+                  stored it, but only the folder tiers ever showed it — so a set that
+                  ignored a folder instruction, or obeyed one in a way you didn't
+                  expect, looked identical to one that had no instruction at all. */}
+              {group.keeperReason && group.keeperSource === "auto" && (
+                <>{" · "}kept because: {group.keeperReason}</>
+              )}
             </span>
           </div>
           <div className="dup-group-actions">
@@ -660,30 +694,13 @@ export function DuplicatePhotosSection() {
             compact
             className={activeFilters > 0 ? "is-active" : ""}
             disabled={busy}
-            onClick={() => { setActionError(""); setFilterOpen(true); }}
+            onClick={() => { setActionError(""); setPreferDraft(savedPreferences); setFilterOpen(true); }}
           >
             <SlidersHorizontal size={16} aria-hidden="true" />
             <span>{activeFilters > 0 ? `Filters (${activeFilters})` : "Filters"}</span>
           </Button>
 
           <div className="dup-toolbar-controls">
-            <Button
-              variant="icon"
-              className={payload.folderPreferences.length > 0 ? "is-active" : ""}
-              disabled={busy || folderOptions.length === 0}
-              onClick={() => {
-                setActionError("");
-                setPreferDraft(Object.fromEntries(payload.folderPreferences
-                  .map((folder) => [folderKey(folder), folder.mode] as const)));
-                setPreferOpen(true);
-              }}
-              aria-label="Choose how each folder is treated"
-              title={payload.folderPreferences.length > 0
-                ? `${payload.folderPreferences.filter((f) => f.mode === "keep").length} folders kept, ${payload.folderPreferences.filter((f) => f.mode === "clear").length} being cleared out`
-                : "Choose which folders to keep photos in, and which to clear out"}
-            >
-              <FolderHeart size={18} aria-hidden="true" />
-            </Button>
 
             <SelectMenu
               value={perPage}
@@ -699,6 +716,17 @@ export function DuplicatePhotosSection() {
               ariaLabel="Sort duplicate sets"
               compact
             />
+            <Button
+              variant="icon"
+              disabled={busy || payload.scanning}
+              onClick={() => void rebuild()}
+              aria-label={rebuilding ? "Rebuilding results…" : "Rebuild results from the last scan"}
+              title={rebuilding ? "Rebuilding…" : "Rebuild results from the last scan (reads no files)"}
+            >
+              {rebuilding
+                ? <span className="icon-spin" aria-hidden="true"><RotateCw size={18} /></span>
+                : <RotateCw size={18} aria-hidden="true" />}
+            </Button>
             <Button
               variant="icon"
               disabled={busy || payload.scanning}
@@ -959,20 +987,11 @@ export function DuplicatePhotosSection() {
           options={folderOptions}
           libraries={payload.libraries}
           withTier
+          preferences={preferDraft}
+          preferencesBusy={preferBusy}
+          onPreferencesChange={(next) => void savePreferences(next)}
           onChange={setFilters}
           onClose={() => setFilterOpen(false)}
-        />
-      )}
-
-      {preferOpen && (
-        <PreferredFoldersModal
-          options={folderOptions}
-          draft={preferDraft}
-          busy={preferBusy}
-          error={actionError}
-          onChange={setPreferDraft}
-          onSave={() => void savePreferred()}
-          onClose={() => setPreferOpen(false)}
         />
       )}
 

@@ -57,6 +57,24 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
     return duplicatePayload();
   });
 
+  // Rebuild the results from the digests already stored, without reading a single
+  // file. Every list on these pages is a derived cache, so anything that looks stale
+  // — a set that shouldn't be there, a keeper that ignored a preference, two sections
+  // showing the same pair — is answered by recomputing rather than by a full rescan,
+  // which would re-read the library for no reason.
+  app.post("/api/library/gallery/duplicates/rebuild", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const totals = rebuildDuplicateGroups();
+    logActivity({
+      event: "library.gallery.duplicates_rebuilt",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: null,
+      detail: `Rebuilt duplicate results from the stored digests: ${totals.groups} photo sets, ${totals.folders.groups} folder sets, ${totals.contained.folders} folders stored elsewhere.`,
+      ipAddress: request.ip
+    });
+    reply.send(duplicatePayload());
+  });
+
   // Queue a scan and nudge the worker so it starts without waiting for the next poll.
   // `libraryId` narrows only which files are read from disk; the sets it produces are
   // always rebuilt across every library.

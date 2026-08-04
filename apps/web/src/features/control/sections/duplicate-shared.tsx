@@ -7,12 +7,14 @@
 // the same state — and a page that could disagree with its neighbour about what the
 // last scan found.
 import { useState } from "react";
+import { ArrowDownAZ, ArrowDownWideNarrow } from "lucide-react";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { Modal } from "../../../shared/Modal";
 
 export interface DuplicateMember {
   itemId: string;
+  kind: "photo" | "video";
   libraryId: string;
   libraryName: string;
   path: string;
@@ -50,6 +52,7 @@ export interface DuplicateFolderMember {
   bytes: number;
   linkCount: number;
   coverUrls: string[];
+  addedAt: string | null;
   isKeeper: boolean;
 }
 
@@ -218,84 +221,11 @@ export function ExperimentalNotice() {
 /** How a folder is marked in the picker while it's being edited. */
 export type PreferenceDraft = Record<string, FolderPreferenceMode>;
 
-const MODES: { value: FolderPreferenceMode | ""; label: string; hint: string }[] = [
-  { value: "keep", label: "Keep here", hint: "When copies are in several places, keep this one" },
-  { value: "", label: "No preference", hint: "Let the usual rules decide" },
-  { value: "clear", label: "Clear out", hint: "Keep the copies elsewhere and let this folder's go" }
+const MODES: { value: FolderPreferenceMode | ""; label: string; short: string; hint: string }[] = [
+  { value: "keep", label: "Keep here", short: "Keep", hint: "When copies are in several places, keep this one" },
+  { value: "", label: "No preference", short: "—", hint: "Let the usual rules decide" },
+  { value: "clear", label: "Clear out", short: "Clear", hint: "Keep the copies elsewhere and let this folder's go" }
 ];
-
-/** "How to treat each folder" — a saved decision that re-picks every automatic keeper. */
-export function PreferredFoldersModal({
-  options,
-  draft,
-  busy,
-  error,
-  onChange,
-  onSave,
-  onClose
-}: {
-  options: FolderOption[];
-  draft: PreferenceDraft;
-  busy: boolean;
-  error: string;
-  onChange: (next: PreferenceDraft) => void;
-  onSave: () => void;
-  onClose: () => void;
-}) {
-  const set = (key: string, mode: FolderPreferenceMode | "") => {
-    const next = { ...draft };
-    if (mode === "") delete next[key];
-    else next[key] = mode;
-    onChange(next);
-  };
-  const marked = Object.keys(draft).length;
-
-  return (
-    <Modal title="How to treat each folder" onClose={onClose}>
-      <p className="datagrid-muted dup-picker-note">
-        When the same photo sits in several places, this decides which copy survives — before any of the automatic
-        reasoning. <strong>Keep here</strong> means copies in that folder win. <strong>Clear out</strong> is the
-        opposite: the copies elsewhere are kept and this folder's go, which is how you retire a folder whose photos
-        are already filed properly somewhere else.
-      </p>
-      <p className="datagrid-muted dup-picker-note">
-        Clearing out can't empty a folder on its own — a photo with no copy anywhere else isn't a duplicate, so it is
-        never touched, and a set with nothing but cleared-out copies still keeps one. A folder covers everything below
-        it, and the most specific instruction wins, so you can keep a whole library and clear out one folder inside it.
-      </p>
-      <div className="dup-folder-picker">
-        {options.map((option) => (
-          <div className="dup-folder-choice dup-folder-modes" key={option.key}>
-            <span className="dup-folder-choice-body">
-              <strong>{option.folderPath || "Library root"}</strong>
-              <span className="datagrid-muted">{option.libraryName}</span>
-            </span>
-            <span className="dup-mode-group" role="radiogroup" aria-label={`How to treat ${option.folderPath || "the library root"}`}>
-              {MODES.map((mode) => (
-                <label className={`dup-mode${(draft[option.key] ?? "") === mode.value ? " is-on" : ""}`} key={mode.label} title={mode.hint}>
-                  <input
-                    type="radio"
-                    name={`pref-${option.key}`}
-                    checked={(draft[option.key] ?? "") === mode.value}
-                    disabled={busy}
-                    onChange={() => set(option.key, mode.value)}
-                  />
-                  <span>{mode.label}</span>
-                </label>
-              ))}
-            </span>
-          </div>
-        ))}
-      </div>
-      {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
-      <div className="modal-actions">
-        <Button variant="text" disabled={busy || marked === 0} onClick={() => onChange({})}>Clear all</Button>
-        <Button variant="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
-        <Button variant="primary" disabled={busy} onClick={onSave}>{busy ? "Saving…" : "Save"}</Button>
-      </div>
-    </Modal>
-  );
-}
 
 // ── One box for every way of narrowing the page ─────────────────────────────
 //
@@ -312,9 +242,20 @@ export interface DuplicateFilterState {
   search: string;
   folders: string[];
   tier: DuplicateTier;
+  mediaKind: DuplicateMediaKind;
 }
 
 export type DuplicateTier = "all" | "exact" | "near";
+
+/** Photos and videos duplicate for different reasons and are cleared at different
+ *  scales — a handful of videos can outweigh a thousand photos. */
+export type DuplicateMediaKind = "all" | "photo" | "video";
+
+const MEDIA_CHOICES: { value: DuplicateMediaKind; label: string }[] = [
+  { value: "all", label: "Photos and videos" },
+  { value: "photo", label: "Photos only" },
+  { value: "video", label: "Videos only" }
+];
 
 const TIER_CHOICES: { value: DuplicateTier; label: string; hint: string }[] = [
   { value: "all", label: "All duplicates", hint: "Identical files and near-identical alike" },
@@ -325,9 +266,9 @@ const TIER_CHOICES: { value: DuplicateTier; label: string; hint: string }[] = [
 /** How many of the four are doing something, for the button's badge. */
 export function activeFilterCount(state: DuplicateFilterState, withTier: boolean): number {
   return (state.scopeId ? 1 : 0)
-    + (state.search.trim() ? 1 : 0)
     + (state.folders.length > 0 ? 1 : 0)
-    + (withTier && state.tier !== "all" ? 1 : 0);
+    + (withTier && state.tier !== "all" ? 1 : 0)
+    + (state.mediaKind !== "all" ? 1 : 0);
 }
 
 export function DuplicateFiltersModal({
@@ -335,6 +276,9 @@ export function DuplicateFiltersModal({
   options,
   libraries,
   withTier,
+  preferences,
+  preferencesBusy,
+  onPreferencesChange,
   onChange,
   onClose
 }: {
@@ -343,6 +287,12 @@ export function DuplicateFiltersModal({
   libraries: DuplicateLibraryOption[];
   /** The photo page has two tiers to choose between; the folders page has none. */
   withTier: boolean;
+  /** The saved keep/clear instructions, edited in the Folders tab. A server setting,
+   *  unlike the filters around it — but saved the moment it's clicked, because a
+   *  dialog where one control needs a separate Save reads as one that ignored you. */
+  preferences: PreferenceDraft;
+  preferencesBusy: boolean;
+  onPreferencesChange: (next: PreferenceDraft) => void;
   onChange: (next: DuplicateFilterState) => void;
   onClose: () => void;
 }) {
@@ -351,12 +301,24 @@ export function DuplicateFiltersModal({
   // split is by kind of question — what to compare, then which folders — and each tab
   // carries a count so a filter set on the other one can't be forgotten about.
   const [tab, setTab] = useState<"what" | "folders">("what");
+  const [folderQuery, setFolderQuery] = useState("");
+  // Most duplicates first by default: on a long list that is the order you'd work in.
+  const [folderSort, setFolderSort] = useState<"count" | "name">("count");
   const set = (patch: Partial<DuplicateFilterState>) => onChange({ ...state, ...patch });
   const active = activeFilterCount(state, withTier);
   const whatCount = active - (state.folders.length > 0 ? 1 : 0);
 
+  const folderNeedle = folderQuery.trim().toLowerCase();
+  const shownFolders = options
+    .filter((option) => !folderNeedle
+      || option.folderPath.toLowerCase().includes(folderNeedle)
+      || option.libraryName.toLowerCase().includes(folderNeedle))
+    .sort((a, b) => (folderSort === "count"
+      ? b.setCount - a.setCount || a.folderPath.localeCompare(b.folderPath)
+      : a.folderPath.localeCompare(b.folderPath)));
+
   return (
-    <Modal title="Narrow what's shown" onClose={onClose}>
+    <Modal title="Narrow what's shown" className="dup-filters-modal" onClose={onClose}>
       <div className="modal-tabs">
         <button
           type="button"
@@ -413,27 +375,58 @@ export function DuplicateFiltersModal({
             )}
 
             <label className="dup-filter-field">
-              <span className="dup-filter-label">Search</span>
-              <input
-                type="search"
-                value={state.search}
-                placeholder="Filename, folder or library"
-                onChange={(event) => set({ search: event.target.value })}
-              />
-              <span className="dup-filter-hint">Keeps a whole set when any copy in it matches.</span>
+              <span className="dup-filter-label">Media type</span>
+              <select
+                value={state.mediaKind}
+                onChange={(event) => set({ mediaKind: event.target.value as DuplicateMediaKind })}
+              >
+                {MEDIA_CHOICES.map((choice) => (
+                  <option key={choice.value} value={choice.value}>{choice.label}</option>
+                ))}
+              </select>
             </label>
+
           </>
         ) : (
           <div className="dup-filter-field">
             <span className="dup-filter-hint">
               Only folders something duplicated was found in. A folder covers everything below it.
+              Tick a folder to work on it — that just narrows the page. <strong>Keep</strong> and
+              <strong> Clear</strong> are saved instructions about which copy survives — they save as you click them.
             </span>
+
+            {options.length > 0 && (
+              <div className="dup-folder-tools">
+                <input
+                  type="search"
+                  value={folderQuery}
+                  placeholder="Find a folder"
+                  aria-label="Find a folder in this list"
+                  onChange={(event) => setFolderQuery(event.target.value)}
+                />
+                <Button
+                  variant="icon"
+                  className="dup-folder-sort"
+                  aria-label={folderSort === "count" ? "Sorted by most sets first — switch to name order" : "Sorted by name — switch to most sets first"}
+                  title={folderSort === "count" ? "Most sets first" : "Name A–Z"}
+                  onClick={() => setFolderSort((current) => (current === "count" ? "name" : "count"))}
+                >
+                  {folderSort === "count"
+                    ? <ArrowDownWideNarrow size={17} aria-hidden="true" />
+                    : <ArrowDownAZ size={17} aria-hidden="true" />}
+                </Button>
+              </div>
+            )}
+
             {options.length > 0 ? (
+              shownFolders.length > 0 ? (
               <div className="dup-folder-picker dup-folder-picker-tall">
-                {options.map((option) => (
-                  <label className="dup-folder-choice" key={option.key}>
+                {shownFolders.map((option) => (
+                  <div className="dup-folder-choice dup-folder-row" key={option.key}>
                     <input
                       type="checkbox"
+                      id={`work-${option.key}`}
+                      aria-label={`Work on ${option.folderPath || "the library root"}`}
                       checked={state.folders.includes(option.key)}
                       onChange={(event) => set({
                         folders: event.target.checked
@@ -441,15 +434,37 @@ export function DuplicateFiltersModal({
                           : state.folders.filter((key) => key !== option.key)
                       })}
                     />
-                    <span className="dup-folder-choice-body">
+                    <label className="dup-folder-choice-body" htmlFor={`work-${option.key}`}>
                       <strong>{option.folderPath || "Library root"}</strong>
                       <span className="datagrid-muted">
                         {option.libraryName} · {option.setCount} set{option.setCount === 1 ? "" : "s"}
                       </span>
+                    </label>
+                    <span className="dup-mode-group" role="radiogroup" aria-label={`When copies are in several places, ${option.folderPath || "the library root"}`}>
+                      {MODES.map((mode) => (
+                        <label className={`dup-mode${(preferences[option.key] ?? "") === mode.value ? " is-on" : ""}`} key={mode.label} title={mode.hint}>
+                          <input
+                            type="radio"
+                            name={`pref-${option.key}`}
+                            checked={(preferences[option.key] ?? "") === mode.value}
+                            disabled={preferencesBusy}
+                            onChange={() => {
+                              const next = { ...preferences };
+                              if (mode.value === "") delete next[option.key];
+                              else next[option.key] = mode.value;
+                              onPreferencesChange(next);
+                            }}
+                          />
+                          <span>{mode.short}</span>
+                        </label>
+                      ))}
                     </span>
-                  </label>
+                  </div>
                 ))}
               </div>
+              ) : (
+                <p className="management-empty">No folder matches “{folderQuery.trim()}”.</p>
+              )
             ) : (
               <p className="management-empty">Nothing found yet, so there are no folders to choose.</p>
             )}
@@ -460,12 +475,12 @@ export function DuplicateFiltersModal({
       <div className="modal-actions">
         <Button
           variant="text"
-          disabled={active === 0}
-          onClick={() => onChange({ scopeId: "", search: "", folders: [], tier: "all" })}
+          disabled={active === 0 || preferencesBusy}
+          onClick={() => onChange({ scopeId: "", search: "", folders: [], tier: "all", mediaKind: "all" })}
         >
-          Clear all
+          Clear filters
         </Button>
-        <Button variant="secondary" onClick={onClose}>Done</Button>
+        <Button variant="secondary" disabled={preferencesBusy} onClick={onClose}>Done</Button>
       </div>
     </Modal>
   );
