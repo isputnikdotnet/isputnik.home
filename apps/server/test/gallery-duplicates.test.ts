@@ -19,6 +19,8 @@ import {
   NEAR_IDENTICAL_DISTANCE,
   runDuplicateScan,
   listDuplicateGroups,
+  searchDuplicateGroups,
+  sweepableGroupIds,
   setDuplicateKeeper,
   ignoreDuplicateGroup,
   resolveDuplicateGroup,
@@ -691,9 +693,10 @@ describe("route payload shape", () => {
 
   const asAdmin = { "x-test-user": "u1" };
 
-  // The admin page assigns EITHER response straight onto its state and then renders
-  // payload.groups, so a scan route returning only the status fields threw during
-  // render and blanked the whole app. Both routes must carry the same payload.
+  // The admin page assigns EITHER response straight onto its state, so a scan route
+  // returning only the status fields threw during render and blanked the whole app.
+  // Both routes must carry the same payload — which no longer includes the sets
+  // themselves: those are paged, and come from /search.
   it("returns the same payload from the list and the scan route", async () => {
     asset("a", "a.jpg", { hash: "same" });
     asset("b", "b.jpg", { hash: "same" });
@@ -709,9 +712,19 @@ describe("route payload shape", () => {
     expect(scan.statusCode).toBe(200);
     // The scan route adds `queued`; everything else must match key for key.
     expect(Object.keys(scan.json()).sort()).toEqual([...Object.keys(list.json()), "queued"].sort());
-    expect(list.json().groups).toHaveLength(1);
-    expect(scan.json().groups).toHaveLength(1);
+    // The sets are not in it — and the folder vocabulary the filter box needs is.
+    expect(list.json().groups).toBeUndefined();
+    expect(list.json().folderOptions).toEqual([
+      { key: "GAL ", libraryId: "GAL", libraryName: "GAL", folderPath: "", setCount: 1 }
+    ]);
     expect(scan.json().queued).toBe(false); // already queued — not double-queued
+
+    const page = await app.inject({
+      method: "GET", url: "/api/library/gallery/duplicates/search?perPage=10", headers: asAdmin
+    });
+    expect(page.statusCode).toBe(200);
+    expect(page.json().groups).toHaveLength(1);
+    expect(page.json().total).toBe(1);
   });
 
   it("is admin-only", async () => {
@@ -1059,5 +1072,103 @@ describe("end-to-end scan over real files", () => {
     const row = db.prepare("SELECT content_hash FROM gallery_details WHERE item_id = 'b'").get() as { content_hash: string | null };
     expect(row.content_hash).toBeNull();
     expect(listDuplicateGroups()).toEqual([]);
+  });
+});
+
+// ── Server-side filtering and paging ────────────────────────────────────────
+//
+// The page used to receive every set and narrow them itself. Now the server does,
+// which means these are the rules that decide what "Delete all extras" touches —
+// the reason the filtering was ported as the same shape of code rather than
+// rewritten into SQL.
+describe("searching and paging the sets", () => {
+  // GAL and GAL2 already exist — see the outer beforeEach.
+  const seed = (): void => {
+    asset("a1", "Trip/one.jpg", { hash: "h-one" });
+    asset("a2", "Backup/one.jpg", { hash: "h-one" });
+    asset("b1", "Trip/two.jpg", { hash: "h-two" });
+    asset("b2", "Backup/two.jpg", { hash: "h-two" });
+    asset("c1", "clip.mp4", { hash: "h-vid", kind: "video" });
+    asset("c2", "Backup/clip.mp4", { hash: "h-vid", kind: "video" });
+    // A pair that lives entirely in the other library.
+    asset("d1", "Other/three.jpg", { hash: "h-three", library: "GAL2" });
+    asset("d2", "Other/copy-three.jpg", { hash: "h-three", library: "GAL2" });
+    rebuildExactDuplicateGroups();
+  };
+
+  it("returns one page and the true total", () => {
+    seed();
+    const first = searchDuplicateGroups({ page: 1, perPage: 2 });
+    expect(first.total).toBe(4);
+    expect(first.groups).toHaveLength(2);
+
+    const second = searchDuplicateGroups({ page: 2, perPage: 2 });
+    expect(second.groups).toHaveLength(2);
+    // No set appears on both pages.
+    const ids = [...first.groups, ...second.groups].map((group) => group.id);
+    expect(new Set(ids).size).toBe(4);
+  });
+
+  it("clamps a page past the end rather than returning nothing", () => {
+    seed();
+    const page = searchDuplicateGroups({ page: 99, perPage: 2 });
+    expect(page.page).toBe(2);
+    expect(page.groups).toHaveLength(2);
+  });
+
+  it("narrows by library, and drops sets left with one copy", () => {
+    seed();
+    const page = searchDuplicateGroups({ libraryId: "GAL2", perPage: 0 });
+    // Only the pair that lives wholly in GAL2 survives; the others have one copy
+    // there at most, which is not a duplicate within that library.
+    expect(page.total).toBe(1);
+    expect(page.groups[0].members.every((member) => member.libraryId === "GAL2")).toBe(true);
+  });
+
+  it("narrows by media kind, search and folder", () => {
+    seed();
+    expect(searchDuplicateGroups({ mediaKind: "video", perPage: 0 }).total).toBe(1);
+    expect(searchDuplicateGroups({ search: "two", perPage: 0 }).total).toBe(1);
+    // A folder covers everything below it.
+    expect(searchDuplicateGroups({ folders: [{ libraryId: "GAL", folderPath: "Trip" }], perPage: 0 }).total).toBe(2);
+    expect(searchDuplicateGroups({ folders: [{ libraryId: "GAL", folderPath: "Nope" }], perPage: 0 }).total).toBe(0);
+  });
+
+  it("counts the sweep over everything the filters leave, not over the page", () => {
+    seed();
+    const page = searchDuplicateGroups({ perPage: 1 });
+    expect(page.groups).toHaveLength(1);
+    // Four identical sets match, one extra copy each — regardless of the page size.
+    expect(page.sweepableSets).toBe(4);
+    expect(page.sweepableCopies).toBe(4);
+
+    const ids = sweepableGroupIds({ perPage: 1 });
+    expect(ids.groupIds).toHaveLength(4);
+    expect(ids.copies).toBe(4);
+  });
+
+  it("gives the sweep exactly the filtered sets, so the dialog's count is a promise", () => {
+    seed();
+    const filtered = { folders: [{ libraryId: "GAL", folderPath: "Trip" }] };
+    const page = searchDuplicateGroups({ ...filtered, perPage: 1 });
+    const ids = sweepableGroupIds(filtered);
+
+    expect(page.sweepableSets).toBe(2);
+    expect(ids.groupIds).toHaveLength(2);
+    // And they are the sets the page counted, not merely the same number of them.
+    expect(new Set(ids.groupIds)).toEqual(new Set(searchDuplicateGroups({ ...filtered, perPage: 0 })
+      .groups.filter((group) => group.kind === "exact").map((group) => group.id)));
+  });
+
+  it("hydrates only the page — the totals still describe everything", () => {
+    seed();
+    const page = searchDuplicateGroups({ perPage: 1 });
+    expect(page.groups).toHaveLength(1);
+    expect(page.scopedSets).toBe(4);
+    expect(page.scopedExtraCopies).toBe(4);
+    expect(page.exactTotal).toBe(4);
+    // The hydrated copy carries what a card renders, not just what filtering needed.
+    expect(page.groups[0].members[0]).toHaveProperty("fileUrl");
+    expect(page.groups[0].members[0]).toHaveProperty("linkCount");
   });
 });

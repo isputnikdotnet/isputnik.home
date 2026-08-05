@@ -10,7 +10,11 @@ import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import {
-  listDuplicateGroups,
+  searchDuplicateGroups,
+  sweepableGroupIds,
+  duplicateSetFolders,
+  duplicateReclaimableBytes,
+  type DuplicateSearch,
   duplicateScanStatus,
   enqueueDuplicateScan,
   processDuplicateScanQueue,
@@ -24,14 +28,16 @@ import {
   rebuildDuplicateGroups
 } from "./duplicates.js";
 import {
-  listDuplicateFolderGroups,
+  searchDuplicateFolderGroups,
+  searchContainedFolders,
+  folderAnswerSummary,
   setDuplicateFolderKeeper,
   ignoreDuplicateFolderGroup,
   resolveDuplicateFolderGroup,
-  listContainedFolders,
   ignoreContainedFolder,
   resolveContainedFolder,
-  type ContainedRefusal
+  type ContainedRefusal,
+  type FolderSearch
 } from "./duplicate-folders.js";
 
 // The ONE shape the page's state is built from. Both the list and the scan route
@@ -41,21 +47,143 @@ import {
 //
 // `folderGroups` are a rollup of the identical-file sets, so their bytes are already
 // inside `reclaimableBytes` — never add the two together.
+// The page-level state every duplicate tab shares: the scan, the standing folder
+// instructions, and the filter box's vocabulary. No lists — all three are paged now,
+// and building them here was the whole problem.
 function duplicatePayload() {
-  const groups = listDuplicateGroups();
+  const summary = folderAnswerSummary();
+
+  // The filter box's folder list: the folders duplicated PHOTOS sit in, plus the
+  // folders the two folder answers name.
+  const options = new Map(duplicateSetFolders().map((option) => [option.key, option]));
+  for (const folder of summary.folders) {
+    const key = `${folder.libraryId} ${folder.folderPath}`;
+    const existing = options.get(key);
+    if (existing) existing.setCount += 1;
+    else options.set(key, { key, ...folder, setCount: 1 });
+  }
+
   return {
     ...duplicateScanStatus(),
-    groups,
-    folderGroups: listDuplicateFolderGroups(),
-    containedFolders: listContainedFolders(),
     folderPreferences: folderPreferences(),
-    reclaimableBytes: groups.reduce((sum, g) => sum + g.reclaimableBytes, 0)
+    folderOptions: [...options.values()].sort((a, b) =>
+      a.libraryName.localeCompare(b.libraryName) || a.folderPath.localeCompare(b.folderPath)),
+    /** How many of each folder answer there are — the photo page links with these. */
+    folderSetCount: summary.folderSets,
+    containedCount: summary.containedRowCount,
+    reclaimableBytes: duplicateReclaimableBytes()
+  };
+}
+
+// The filters the page narrows by, as a query string. `folders` is JSON because a
+// folder path may contain anything a filesystem allows, including whatever separator
+// a flatter encoding would have picked.
+const searchSchema = z.object({
+  library: z.string().trim().max(64).optional(),
+  tier: z.enum(["all", "exact", "near"]).optional(),
+  kind: z.enum(["all", "photo", "video"]).optional(),
+  q: z.string().max(200).optional(),
+  // The photo tab's orders, then the folder tabs'.
+  sort: z.enum(["recent", "size", "copies", "identical", "name", "newest", "photos"]).optional(),
+  folders: z.string().max(20000).optional(),
+  page: z.coerce.number().int().min(1).max(100000).optional(),
+  perPage: z.coerce.number().int().min(0).max(500).optional()
+});
+
+type ParsedSearch = DuplicateSearch & { rawSort?: string };
+
+function parseSearch(raw: unknown): ParsedSearch | { error: string } {
+  const parsed = searchSchema.safeParse(raw ?? {});
+  if (!parsed.success) return { error: "Invalid filters" };
+  const data = parsed.data;
+
+  let folders: { libraryId: string; folderPath: string }[] = [];
+  if (data.folders) {
+    try {
+      const decoded = JSON.parse(data.folders) as unknown;
+      if (!Array.isArray(decoded)) return { error: "Invalid folder filter" };
+      folders = decoded.slice(0, 500).map((entry) => {
+        const pair = entry as { libraryId?: unknown; folderPath?: unknown };
+        return {
+          libraryId: typeof pair.libraryId === "string" ? pair.libraryId : "",
+          folderPath: typeof pair.folderPath === "string" ? pair.folderPath : ""
+        };
+      }).filter((pair) => pair.libraryId !== "");
+    } catch {
+      return { error: "Invalid folder filter" };
+    }
+  }
+
+  // The two families of tab order overlap only in "size" and "name"; each route takes
+  // the ones it knows and falls back to its own default for the rest.
+  const photoSorts = ["recent", "size", "copies", "identical", "name"] as const;
+  return {
+    libraryId: data.library || null,
+    tier: data.tier,
+    mediaKind: data.kind,
+    search: data.q,
+    sort: (photoSorts as readonly string[]).includes(data.sort ?? "")
+      ? data.sort as DuplicateSearch["sort"]
+      : undefined,
+    rawSort: data.sort,
+    folders,
+    page: data.page,
+    perPage: data.perPage
   };
 }
 
 export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/duplicates", { preHandler: app.requireAdmin }, async () => {
     return duplicatePayload();
+  });
+
+  // One page of photo sets, filtered and ordered by the server. The whole-payload
+  // route above stays for the folder tabs and the scan status, which are small; this
+  // is the one that used to describe every set in the install on every load.
+  app.get("/api/library/gallery/duplicates/search", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const query = parseSearch(request.query);
+    if ("error" in query) { reply.code(400).send({ error: query.error }); return; }
+    reply.send(searchDuplicateGroups(query));
+  });
+
+  // What "Delete all extras" would cover, as explicit ids: the page confirms this
+  // exact count and then names them, so the destructive route below still acts on a
+  // list rather than on a filter re-run at delete time.
+  app.get("/api/library/gallery/duplicates/sweep-ids", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const query = parseSearch(request.query);
+    if ("error" in query) { reply.code(400).send({ error: query.error }); return; }
+    reply.send(sweepableGroupIds(query));
+  });
+
+  // The two folder answers, paged the same way. Their cards are the expensive ones —
+  // a link count over what may be an entire library — so they are built for the ten
+  // on screen rather than for every folder the scan found.
+  const folderQuery = (raw: unknown): FolderSearch | { error: string } => {
+    const parsed = parseSearch(raw);
+    if ("error" in parsed) return parsed;
+    const folderSorts = ["newest", "photos", "size", "name"] as const;
+    return {
+      libraryId: parsed.libraryId,
+      folders: parsed.folders,
+      search: parsed.search,
+      sort: (folderSorts as readonly string[]).includes(parsed.rawSort ?? "")
+        ? parsed.rawSort as FolderSearch["sort"]
+        : "newest",
+      page: parsed.page,
+      perPage: parsed.perPage
+    };
+  };
+
+  app.get("/api/library/gallery/duplicates/folders/search", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const query = folderQuery(request.query);
+    if ("error" in query) { reply.code(400).send({ error: query.error }); return; }
+    reply.send(searchDuplicateFolderGroups(query));
+  });
+
+  app.get("/api/library/gallery/duplicates/folders/contained/search", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const query = folderQuery(request.query);
+    if ("error" in query) { reply.code(400).send({ error: query.error }); return; }
+    reply.send(searchContainedFolders(query));
   });
 
   // Rebuild the results from the digests already stored, without reading a single
