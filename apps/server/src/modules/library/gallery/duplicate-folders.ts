@@ -991,35 +991,86 @@ function folderItemIds(ref: FolderRef): string[] {
   `).all(ref.libraryId, ref.folderPath, `${prefix}%`) as { id: string }[]).map((row) => row.id);
 }
 
-// When a folder entered the library: the earliest of its photos. Shown on the card
-// because two copies of a folder are often told apart by when they arrived.
-function folderAddedAt(itemIds: string[]): string | null {
-  if (itemIds.length === 0) return null;
-  let oldest: string | null = null;
-  for (let i = 0; i < itemIds.length; i += ID_CHUNK) {
-    const chunk = itemIds.slice(i, i + ID_CHUNK);
-    const row = db.prepare(
-      `SELECT MIN(discovered_at) AS at FROM library_items WHERE id IN (${chunk.map(() => "?").join(",")})`
-    ).get(...chunk) as { at: string | null };
-    if (row.at && (!oldest || row.at < oldest)) oldest = row.at;
-  }
-  return oldest;
+// Everything below a folder, as a SQL condition — the way to ask about a folder
+// without first pulling every id in it into JavaScript.
+//
+// This matters more than it looks. A folder here is routinely a whole LIBRARY: the
+// covering folder on the stored-elsewhere tab is often the library root, and that
+// side of the card is drawn on every load of a page that polls every three seconds
+// during a scan. Materialising 12,000 ids and then asking about them 400 at a time,
+// across nine link tables, is tens of thousands of rows of synchronous work per
+// poll — and better-sqlite3 is synchronous, so that is the whole server stopped.
+// A RANGE, not a LIKE. SQLite's LIKE is case-insensitive by default and so cannot
+// use an index on a plain TEXT column — the prefix scan everywhere else in this file
+// therefore reads the whole library and filters row by row. "path/" ≤ x < "path0"
+// asks the same question ("/" is 0x2F, so "0" is the character straight after it)
+// and reads only the matching slice of idx_items_library_folder.
+//
+// It also stops "Photos" matching "photos/holiday.jpg", which LIKE was doing.
+function folderScope(ref: FolderRef): { where: string; args: string[] } {
+  const base = "li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready'";
+  if (ref.folderPath === "") return { where: base, args: [ref.libraryId] };
+  return {
+    where: `${base} AND li.folder_path >= ? AND li.folder_path < ?`,
+    args: [ref.libraryId, `${ref.folderPath}/`, `${ref.folderPath}0`]
+  };
 }
 
-// One folder, as a card sees it. Four queries a folder — affordable because both
-// lists are short by construction, and the alternative is a page that shows a folder
-// without saying when it arrived or how big it is.
+// The hand-filed work on the photos below a folder: tags, albums, collections,
+// saves, shares, tagged people. Nine tables, one query, each joined against the
+// folder scope rather than against a list of ids.
+const LINK_SOURCES: { table: string; column: string; extra?: string }[] = [
+  { table: "taggables", column: "entity_id", extra: "x.entity_type = 'library_item'" },
+  { table: "gallery_album_items", column: "item_id" },
+  { table: "gallery_slideshow_items", column: "item_id" },
+  { table: "collection_items", column: "entity_id", extra: "x.entity_type = 'library_item'" },
+  { table: "item_saves", column: "item_id" },
+  { table: "shares", column: "resource_id", extra: "x.module = 'gallery' AND x.revoked_at IS NULL" },
+  { table: "family_tree_photos", column: "item_id" },
+  { table: "family_tree_event_photos", column: "item_id" },
+  { table: "gallery_faces", column: "item_id", extra: "x.assignment != 'rejected' AND x.person_id IS NOT NULL" }
+];
+
+function folderLinkCount(ref: FolderRef): number {
+  const scope = folderScope(ref);
+  const parts = LINK_SOURCES.map((source) => `
+    (SELECT COUNT(*) FROM ${source.table} x
+     JOIN library_items li ON li.id = x.${source.column}
+     WHERE ${source.extra ? `${source.extra} AND ` : ""}${scope.where})`);
+  const row = db.prepare(`SELECT ${parts.join(" + ")} AS n`)
+    .get(...LINK_SOURCES.flatMap(() => scope.args)) as { n: number };
+  return row.n;
+}
+
+// One folder, as a card sees it: three queries, none of them proportional to how
+// much the folder holds.
 function folderDetail(ref: FolderRef, libraryName: string): FolderDetail {
-  const itemIds = folderItemIds(ref);
+  const scope = folderScope(ref);
+  const totals = db.prepare(`
+    SELECT COUNT(*) AS n, COALESCE(SUM(gd.size), 0) AS bytes, MIN(li.discovered_at) AS added
+    FROM library_items li
+    JOIN gallery_details gd ON gd.item_id = li.id
+    WHERE ${scope.where}
+  `).get(...scope.args) as { n: number; bytes: number; added: string | null };
+
+  const covers = db.prepare(`
+    SELECT im.cover_storage_key AS cover
+    FROM library_items li
+    JOIN item_metadata im ON im.item_id = li.id
+    WHERE ${scope.where} AND im.cover_storage_key IS NOT NULL
+    ORDER BY li.folder_path
+    LIMIT ?
+  `).all(...scope.args, COVER_LIMIT) as { cover: string }[];
+
   return {
     ...ref,
     libraryName,
     name: folderName(ref.folderPath),
-    itemCount: itemIds.length,
-    bytes: itemIds.length === 0 ? 0 : sumBytes(itemIds),
-    linkCount: linkCountFor(itemIds),
-    coverUrls: folderCovers(itemIds),
-    addedAt: folderAddedAt(itemIds)
+    itemCount: totals.n,
+    bytes: totals.bytes,
+    linkCount: totals.n === 0 ? 0 : folderLinkCount(ref),
+    coverUrls: covers.map((row) => `/api/library/covers/${row.cover}`),
+    addedAt: totals.added
   };
 }
 
@@ -1049,7 +1100,7 @@ function counterpartFolders(folder: FolderRef, target: FolderRef): { paths: stri
   }
   if (digests.size === 0) return { paths: [], total: 0 };
 
-  const prefix = target.folderPath === "" ? "" : `${target.folderPath.replace(/[\\%_]/g, "\\$&")}/`;
+  const scope = folderScope(target);
   const counts = new Map<string, number>();
   const list = [...digests];
   for (let i = 0; i < list.length; i += ID_CHUNK) {
@@ -1057,10 +1108,9 @@ function counterpartFolders(folder: FolderRef, target: FolderRef): { paths: stri
     const rows = db.prepare(`
       SELECT li.folder_path FROM library_items li
       JOIN gallery_details gd ON gd.item_id = li.id
-      WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready'
-        AND (? = '' OR li.folder_path LIKE ? ESCAPE '\\')
+      WHERE ${scope.where}
         AND gd.content_hash IN (${chunk.map(() => "?").join(",")})
-    `).all(target.libraryId, target.folderPath, `${prefix}%`, ...chunk) as { folder_path: string }[];
+    `).all(...scope.args, ...chunk) as { folder_path: string }[];
     for (const row of rows) {
       // A file inside the folder being removed is not a copy OF it.
       if (isInside(folder, row.folder_path, target.libraryId)) continue;
@@ -1074,17 +1124,6 @@ function counterpartFolders(folder: FolderRef, target: FolderRef): { paths: stri
 }
 
 const COVER_LIMIT = 4;
-
-function folderCovers(itemIds: string[]): string[] {
-  if (itemIds.length === 0) return [];
-  const chunk = itemIds.slice(0, 40);
-  const rows = db.prepare(`
-    SELECT im.cover_storage_key AS cover FROM item_metadata im
-    WHERE im.item_id IN (${chunk.map(() => "?").join(",")}) AND im.cover_storage_key IS NOT NULL
-    LIMIT ?
-  `).all(...chunk, COVER_LIMIT) as { cover: string }[];
-  return rows.map((row) => `/api/library/covers/${row.cover}`);
-}
 
 export function listDuplicateFolderGroups(): DuplicateFolderGroup[] {
   const groups = db.prepare(`
@@ -1132,18 +1171,6 @@ export function listDuplicateFolderGroups(): DuplicateFolderGroup[] {
       members
     };
   }).filter((group) => group.members.length > 1);
-}
-
-function sumBytes(itemIds: string[]): number {
-  let total = 0;
-  for (let i = 0; i < itemIds.length; i += ID_CHUNK) {
-    const chunk = itemIds.slice(i, i + ID_CHUNK);
-    const row = db.prepare(
-      `SELECT COALESCE(SUM(size), 0) AS n FROM gallery_details WHERE item_id IN (${chunk.map(() => "?").join(",")})`
-    ).get(...chunk) as { n: number };
-    total += row.n;
-  }
-  return total;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
