@@ -14,6 +14,7 @@ import {
   scanForRestored,
   purgeTrashedItem,
   emptyTrash,
+  trashFolderFor,
   getTrashRetentionDays,
   TrashError,
   type TrashedItem
@@ -162,9 +163,25 @@ export function registerTrashRoutes(app: FastifyInstance) {
 
     const retentionDays = getTrashRetentionDays();
     const visible = rows.filter((row) => canManageTrashItem(user, row));
+
+    // Where the files actually are, one folder per library — derived from the rows
+    // the caller may already see, so this can never disclose the source path of a
+    // library they have no business knowing about.
+    const bins = new Map<string, { libraryId: string; libraryName: string; path: string }>();
+    for (const row of visible) {
+      if (!bins.has(row.library_id)) {
+        bins.set(row.library_id, {
+          libraryId: row.library_id,
+          libraryName: row.library_name,
+          path: trashFolderFor(row.source_path)
+        });
+      }
+    }
+
     reply.send({
       items: visible.map((row) => serializeTrashedItem(row, retentionDays)),
-      retentionDays
+      retentionDays,
+      bins: [...bins.values()].sort((a, b) => a.libraryName.localeCompare(b.libraryName))
     });
   });
 

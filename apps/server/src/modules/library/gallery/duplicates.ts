@@ -26,7 +26,7 @@ import { pathIsInside } from "../shared/storage-roots.js";
 import { libraryJobRunning } from "../shared/scan-lock.js";
 import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
-import { trashBook } from "../shared/trash.js";
+import { trashBook, libraryAllowsDelete } from "../shared/trash.js";
 import { recomputeFaceCount } from "./people.js";
 // Mutual import: duplicate-folders.ts builds on this module's digests and keeper
 // heuristics, and a scan rebuilds its groups as a third pass. Both sides only ever
@@ -109,6 +109,11 @@ export interface DuplicateLibraryOption {
   candidateCount: number;
   /** Of those, how many a scan would have to read from disk right now. */
   pendingCount: number;
+  /** False for an external library, or one with deleting turned off. Its copies are
+   *  still found and still shown — knowing a photo is duplicated somewhere you only
+   *  read is worth knowing — but nothing here may remove them, and trashBook refuses
+   *  regardless of what the page offers. */
+  canDelete: boolean;
 }
 
 // Every gallery library with both counts, so the picker can show the cost of choosing
@@ -121,14 +126,19 @@ export function duplicateLibraryOptions(): DuplicateLibraryOption[] {
          AND gd.size IS NOT NULL AND gd.size > 0
          AND gd.size IN (${COLLIDING_SIZES_SQL})
   `;
-  return db.prepare(`
-    SELECT lib.id, lib.name,
+  const rows = db.prepare(`
+    SELECT lib.id, lib.name, lib.policy_json,
       (SELECT COUNT(*) ${perLibrary}) AS candidateCount,
       (SELECT COUNT(*) ${perLibrary} ${NEEDS_READING_SQL}) AS pendingCount
     FROM libraries lib
     WHERE lib.type = 'gallery'
     ORDER BY lib.name COLLATE NOCASE, lib.id
-  `).all() as DuplicateLibraryOption[];
+  `).all() as (Omit<DuplicateLibraryOption, "canDelete"> & { policy_json: string })[];
+
+  return rows.map(({ policy_json, ...option }) => ({
+    ...option,
+    canDelete: libraryAllowsDelete(option.id)
+  }));
 }
 
 interface CandidateRow {
@@ -288,31 +298,56 @@ const DETAIL_COLUMNS = `
   gd.item_id, gd.kind, li.library_id, lib.name AS library_name, gd.relative_path, li.discovered_at,
   gd.size, gd.width, gd.height, gd.taken_at, gd.taken_at_source, gd.gps_source,
   gd.camera_make, gd.camera_model, gd.content_hash,
-  im.title, im.source AS metadata_source, im.cover_storage_key, gd.preview_storage_key,
-  (SELECT COUNT(*) FROM gallery_faces f WHERE f.item_id = gd.item_id AND f.assignment != 'rejected') AS face_count,
-  (SELECT COUNT(*) FROM gallery_album_items a WHERE a.item_id = gd.item_id) AS album_count,
-  (SELECT COUNT(*) FROM gallery_slideshow_items s WHERE s.item_id = gd.item_id) AS slideshow_count,
-  (SELECT COUNT(*) FROM collection_items c WHERE c.entity_type = 'library_item' AND c.entity_id = gd.item_id) AS collection_count,
-  (SELECT COUNT(*) FROM taggables t WHERE t.entity_type = 'library_item' AND t.entity_id = gd.item_id) AS tag_count,
-  (SELECT COUNT(*) FROM item_saves sv WHERE sv.item_id = gd.item_id) AS save_count,
-  (SELECT COUNT(*) FROM shares sh WHERE sh.module = 'gallery' AND sh.resource_id = gd.item_id AND sh.revoked_at IS NULL) AS share_count,
-  (SELECT COUNT(*) FROM family_tree_photos fp WHERE fp.item_id = gd.item_id) AS ft_person_count,
-  (SELECT COUNT(*) FROM family_tree_event_photos fe WHERE fe.item_id = gd.item_id) AS ft_event_count
+  im.title, im.source AS metadata_source, im.cover_storage_key, gd.preview_storage_key
 `;
+
+// The hand-filed work on each copy, which decides which one the scan suggests keeping.
+// These were nine correlated subqueries on DETAIL_COLUMNS, so SQLite ran nine lookups
+// for EVERY copy on the page — and this page loads every set it found, then polls
+// itself every three seconds while a scan runs. Nine grouped scans over a chunk of ids
+// answer the same question once each instead of once per row.
+const LINK_COUNTS: { field: keyof DetailRow; table: string; column: string; extra?: string }[] = [
+  { field: "face_count", table: "gallery_faces", column: "item_id", extra: "assignment != 'rejected'" },
+  { field: "album_count", table: "gallery_album_items", column: "item_id" },
+  { field: "slideshow_count", table: "gallery_slideshow_items", column: "item_id" },
+  { field: "collection_count", table: "collection_items", column: "entity_id", extra: "entity_type = 'library_item'" },
+  { field: "tag_count", table: "taggables", column: "entity_id", extra: "entity_type = 'library_item'" },
+  { field: "save_count", table: "item_saves", column: "item_id" },
+  { field: "share_count", table: "shares", column: "resource_id", extra: "module = 'gallery' AND revoked_at IS NULL" },
+  { field: "ft_person_count", table: "family_tree_photos", column: "item_id" },
+  { field: "ft_event_count", table: "family_tree_event_photos", column: "item_id" }
+];
 
 function loadDetails(itemIds: string[]): Map<string, DetailRow> {
   const out = new Map<string, DetailRow>();
   for (let i = 0; i < itemIds.length; i += ID_CHUNK) {
     const chunk = itemIds.slice(i, i + ID_CHUNK);
+    const list = chunk.map(() => "?").join(",");
     const rows = db.prepare(`
       SELECT ${DETAIL_COLUMNS}
       FROM gallery_details gd
       JOIN library_items li ON li.id = gd.item_id
       JOIN libraries lib ON lib.id = li.library_id
       LEFT JOIN item_metadata im ON im.item_id = gd.item_id
-      WHERE gd.item_id IN (${chunk.map(() => "?").join(",")})
+      WHERE gd.item_id IN (${list})
     `).all(...chunk) as DetailRow[];
-    for (const row of rows) out.set(row.item_id, row);
+
+    for (const row of rows) {
+      for (const source of LINK_COUNTS) (row[source.field] as number) = 0;
+      out.set(row.item_id, row);
+    }
+
+    for (const source of LINK_COUNTS) {
+      const counted = db.prepare(`
+        SELECT ${source.column} AS item_id, COUNT(*) AS n FROM ${source.table}
+        WHERE ${source.extra ? `${source.extra} AND ` : ""}${source.column} IN (${list})
+        GROUP BY ${source.column}
+      `).all(...chunk) as { item_id: string; n: number }[];
+      for (const hit of counted) {
+        const row = out.get(hit.item_id);
+        if (row) (row[source.field] as number) = hit.n;
+      }
+    }
   }
   return out;
 }
@@ -406,9 +441,21 @@ interface Scored extends DetailRow {
   copyMarker: boolean;
   derivedFolder: boolean;
   preference: FolderPreferenceMode | null;
+  /** Its library forbids deleting — external, or deleting turned off. */
+  protectedLibrary: boolean;
 }
 
-function score(row: DetailRow, preferences: FolderPreference[] = folderPreferences()): Scored {
+// Which libraries refuse deletion, answered once and reused for every copy scored.
+function protectedLibraries(): Set<string> {
+  const rows = db.prepare("SELECT id FROM libraries WHERE type = 'gallery'").all() as { id: string }[];
+  return new Set(rows.filter((row) => !libraryAllowsDelete(row.id)).map((row) => row.id));
+}
+
+function score(
+  row: DetailRow,
+  preferences: FolderPreference[] = folderPreferences(),
+  protectedLibs: Set<string> = protectedLibraries()
+): Scored {
   const segments = row.relative_path.split("/");
   const fileName = segments[segments.length - 1] ?? "";
   const baseName = fileName.replace(/\.[^.]+$/, "");
@@ -428,7 +475,8 @@ function score(row: DetailRow, preferences: FolderPreference[] = folderPreferenc
       + (row.camera_model ? 1 : 0),
     pixels: (row.width ?? 0) * (row.height ?? 0),
     copyMarker: COPY_MARKERS.some((re) => re.test(baseName)),
-    derivedFolder: segments.slice(0, -1).some((seg) => DERIVED_FOLDERS.test(seg))
+    derivedFolder: segments.slice(0, -1).some((seg) => DERIVED_FOLDERS.test(seg)),
+    protectedLibrary: protectedLibs.has(row.library_id)
   };
 }
 
@@ -438,6 +486,12 @@ function score(row: DetailRow, preferences: FolderPreference[] = folderPreferenc
 // sum creates. User work outranks everything, because it's the only thing that can't be
 // recovered from the file itself.
 const KEEPER_CRITERIA: { label: string; value: (row: Scored) => number }[] = [
+  // Above even the explicit instructions, because this one is not a preference: a copy
+  // in an external library CANNOT be deleted, so naming it the loser proposes an action
+  // that will be refused. Where a photo sits in both an ordinary library and one the app
+  // only reads, the readable one keeps its copy and the ordinary one gives its up — the
+  // only outcome that is actually available.
+  { label: "in a library its files can't be deleted from", value: (r) => (r.protectedLibrary ? 1 : 0) },
   // Explicit instructions beat every guess below them, in both directions. Nothing is
   // lost by obeying them: the losing copies' tags and people are merged onto the
   // keeper either way. "Clearing out" ranks above hand-filed work for the same reason
@@ -478,9 +532,10 @@ export interface KeeperChoice {
 // links either side) fall through to the stable "added first" tiebreak.
 export function pickKeeper(rows: DetailRow[]): KeeperChoice | null {
   if (rows.length === 0) return null;
-  // Read the preferences once per set rather than once per copy.
+  // Read the preferences and the protected libraries once per set, not once per copy.
   const preferences = folderPreferences();
-  const scored = rows.map((row) => score(row, preferences)).sort(compareCandidates);
+  const protectedLibs = protectedLibraries();
+  const scored = rows.map((row) => score(row, preferences, protectedLibs)).sort(compareCandidates);
   const winner = scored[0];
   const runnerUp = scored[1];
   if (!runnerUp) return { keeperId: winner.item_id, reason: null };
@@ -935,6 +990,10 @@ export function listDuplicateGroups(): DuplicateGroup[] {
     "SELECT group_id, item_id FROM gallery_duplicate_members"
   ).all() as { group_id: string; item_id: string }[];
   const details = loadDetails(memberRows.map((r) => r.item_id));
+  // Read ONCE for the whole page. score()'s default arguments made these a database
+  // read and a JSON parse per copy — the same answer, fetched thousands of times.
+  const preferences = folderPreferences();
+  const protectedLibs = protectedLibraries();
 
   const byGroup = new Map<string, string[]>();
   for (const row of memberRows) {
@@ -948,7 +1007,7 @@ export function listDuplicateGroups(): DuplicateGroup[] {
       .map((id) => details.get(id))
       .filter((row): row is DetailRow => Boolean(row))
       .map((row) => {
-        const scored = score(row);
+        const scored = score(row, preferences, protectedLibs);
         const camera = [row.camera_make, row.camera_model].filter(Boolean).join(" ") || null;
         return {
           itemId: row.item_id,

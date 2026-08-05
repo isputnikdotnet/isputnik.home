@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.20.3",
+          label: "Nothing deletes out of an external library, and the duplicate page stops re-asking",
+          changes: [
+            "An external library is one the app reads and does not own. Its files were safe from every delete button in the app EXCEPT the duplicate finders, which went straight to the Recycle Bin machinery without asking whether the library allowed it — and a set of copies routinely spans libraries, so one protected copy in a set was a live delete button over a file that isn't ours. Every path to a deletion now passes the same check, and a library that is external, or simply has deleting turned off, refuses.",
+            "The scan's own suggestion follows suit: where a photo sits in both an ordinary library and one that can't be deleted from, the protected copy is the one kept. It outranks even the folder instructions you've saved, because it isn't a preference — proposing to delete a file the app may not touch is proposing something that cannot happen. Whole folders follow the same rule.",
+            "\"Clear out\" is no longer offered for a folder in such a library. It means \"let this folder's copies go\", which is exactly what can't be done there.",
+            "The Duplicate photos page was asking the database nine questions about every copy it showed — one per kind of tag, album, collection and so on — and re-reading your saved folder instructions once per copy on top. It now asks each question once for the whole page. The page loads every set it has found, so this was the difference between a page that opens and one that thinks about it for a while."
+          ]
+        },
+        {
           version: "2.20.2",
           label: "Restore all could bring the server to a halt",
           changes: [

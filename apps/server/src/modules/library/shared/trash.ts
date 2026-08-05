@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
+import { parsePolicy } from "../../../core/permissions.js";
 import { validateLibrarySource } from "./library-source.js";
 import { pathIsInside, normaliseRelativePath } from "./storage-roots.js";
 import { thumbnailStorageKey, thumbnailAbsolutePath } from "./thumbnail.js";
@@ -27,6 +28,13 @@ import { enqueueGalleryScan, processGalleryScanQueue } from "../gallery/scanner.
 import { faceCropKeysForItem, removeFaceCropFiles } from "../gallery/faces/crop-files.js";
 
 const TRASH_DIR = ".trash";
+
+/** Where a library's deleted files physically sit. Inside the library's own folder,
+ *  so deleting is a rename within one filesystem rather than a copy across shares —
+ *  which also means there is one bin per library, not one for the install. Shown on
+ *  the Recycle Bin page: "restore it from the app" is no help when the app is down,
+ *  or when the question is which disk the space is still on. */
+export const trashFolderFor = (sourcePath: string): string => path.join(sourcePath, TRASH_DIR);
 const TRASH_RETENTION_KEY = "trash_retention_days";
 const DEFAULT_RETENTION_DAYS = 30;
 
@@ -261,9 +269,37 @@ export interface TrashResult {
 // Move one book to the Recycle Bin. Throws TrashError on a filesystem problem; the book is
 // only removed from the catalog once its files are safely relocated (and put back if the
 // teardown itself fails).
+/** Does this library's own policy permit removing files from it at all?
+ *
+ *  Separate from "may this person delete": that is a question about a user and is
+ *  answered by can(). This is a property of the LIBRARY — an external library is
+ *  somewhere the app reads and does not own, and allowDelete=false says the same
+ *  thing more narrowly. Nobody's role overrides either. */
+export function libraryAllowsDelete(libraryId: string): boolean {
+  const row = db.prepare("SELECT policy_json FROM libraries WHERE id = ?").get(libraryId) as
+    | { policy_json: string }
+    | undefined;
+  if (!row) return false;
+  const policy = parsePolicy(row.policy_json);
+  if ((policy.mode ?? "managed") === "external") return false;
+  return policy.allowDelete !== false;
+}
+
 export function trashBook(bookId: string, userId: string): TrashResult {
   const row = loadBookForTrash(bookId);
   if (!row) throw new TrashError("Item not found.", 404);
+
+  // The fail-safe, deliberately HERE rather than at each caller. The item routes
+  // check can() before getting this far, but the duplicate finders call straight in
+  // — they act on sets that span libraries, and had no notion of a library that must
+  // not be written to. One protected copy in a set was enough to delete a file out
+  // of a library the app was only ever supposed to read.
+  if (!libraryAllowsDelete(row.library_id)) {
+    throw new TrashError(
+      `"${row.library_name}" is set to external, or has deleting turned off, so its files can't be removed by the app.`,
+      403
+    );
+  }
 
   let root: string;
   try {
