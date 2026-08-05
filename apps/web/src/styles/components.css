@@ -497,6 +497,10 @@ a.icon-button svg {
   user-select: none;
 }
 
+.choice:has(.choice-icon) {
+  grid-template-columns: 18px 34px minmax(0, 1fr);
+}
+
 .choice.is-selected {
   border-color: var(--control-primary-button, var(--mint));
   box-shadow: 0 0 0 1px var(--control-primary-button, var(--mint));
@@ -513,6 +517,16 @@ a.icon-button svg {
   margin: 2px 0 0;
   accent-color: var(--control-primary-button, var(--mint));
   cursor: inherit;
+}
+
+.choice-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 12%, transparent);
 }
 
 .choice-body {
@@ -645,6 +659,12 @@ a.icon-button svg {
   min-width: 0;
 }
 
+.modal-title-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
 .modal-title-icon {
   display: grid;
   flex: 0 0 auto;
@@ -658,6 +678,13 @@ a.icon-button svg {
 
 .modal-title-row h2 {
   margin: 0;
+}
+
+.modal-subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
 .modal-title-action {

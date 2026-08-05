@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 
 // A radio group where each option carries its own explanation — for the handful
 // of places that ask the user to pick between approaches (which second factor to
@@ -9,6 +9,7 @@ export interface Choice<T extends string> {
   value: T;
   label: string;
   description?: string;
+  icon?: ReactNode;
   /** Renders the option but blocks selecting it; explain why in `note`. */
   disabled?: boolean;
   note?: string;
@@ -19,18 +20,20 @@ export function ChoiceGroup<T extends string>({
   options,
   value,
   onChange,
-  disabled = false
+  disabled = false,
+  className
 }: {
   legend: string;
   options: Choice<T>[];
   value: T;
   onChange: (value: T) => void;
   disabled?: boolean;
+  className?: string;
 }) {
   const name = useId();
 
   return (
-    <fieldset className="choice-group">
+    <fieldset className={["choice-group", className].filter(Boolean).join(" ")}>
       <legend>{legend}</legend>
       {options.map((option) => (
         <label
@@ -45,6 +48,7 @@ export function ChoiceGroup<T extends string>({
             disabled={disabled || option.disabled}
             onChange={() => onChange(option.value)}
           />
+          {option.icon && <span className="choice-icon" aria-hidden="true">{option.icon}</span>}
           <span className="choice-body">
             <span className="choice-label">{option.label}</span>
             {option.description && <span className="choice-description">{option.description}</span>}

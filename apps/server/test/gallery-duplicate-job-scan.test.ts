@@ -42,12 +42,15 @@ function asset(id: string, relativePath: string, opts: AssetOpts = {}): string {
   return id;
 }
 
+// A cleanup is folders OR files, never both, so every test says which it wants —
+// a folder job holds no single-file sets and a file job holds no folder answers.
+//
 // A test that scans twice wants two jobs, and only one may be active at a time —
 // so retire whatever the last call left behind rather than tripping the lock.
-const scan = (libraries = ["GAL"]) => {
+const scan = (libraries = ["GAL"], duplicateType: "folders" | "files" = "folders") => {
   const open = activeJob();
   if (open) completeJob(open.id, "u1", true);
-  const created = createJob({ ownerUserId: "u1", libraryIds: libraries });
+  const created = createJob({ ownerUserId: "u1", libraryIds: libraries, duplicateType });
   if (!created.ok) throw new Error(`job refused: ${created.refused}`);
   const done = runJobScan(created.job.id, "u1");
   if (!done.ok) throw new Error(`scan refused: ${done.refused}`);
@@ -221,7 +224,7 @@ describe("photo sets", () => {
     asset("a1", "Album/one.jpg", { hash: "same" });
     asset("a2", "Downloads/one.jpg", { hash: "same" });
 
-    const sets = byType(scan().results, "photo_set");
+    const sets = byType(scan(["GAL"], "files").results, "photo_set");
     expect(sets).toHaveLength(1);
     const keep = sets[0].members.find((member) => member.role === "keep");
     const going = sets[0].members.find((member) => member.role === "delete");
@@ -229,7 +232,7 @@ describe("photo sets", () => {
     expect(going?.keeperPath).toBe("Album/one.jpg");
   });
 
-  it("are left out when the job asked for folders only", () => {
+  it("are left out of a folder cleanup entirely", () => {
     asset("a1", "Album/one.jpg", { hash: "same" });
     asset("a2", "Downloads/one.jpg", { hash: "same" });
 
@@ -263,8 +266,8 @@ describe("scope", () => {
 
     // Scoped to GAL alone there is only one copy, so there is nothing to offer —
     // and crucially nothing that would propose deleting the last copy in scope.
-    expect(scan(["GAL"]).results).toHaveLength(0);
-    expect(byType(scan(["GAL", "GAL2"]).results, "photo_set")).toHaveLength(1);
+    expect(scan(["GAL"], "files").results).toHaveLength(0);
+    expect(byType(scan(["GAL", "GAL2"], "files").results, "photo_set")).toHaveLength(1);
   });
 
   it("shows a copy in a read-only library but never offers it for deletion", () => {
@@ -273,7 +276,7 @@ describe("scope", () => {
     asset("a1", "Album/one.jpg", { hash: "same" });
     asset("e1", "Sync/one.jpg", { hash: "same", library: "EXT" });
 
-    const sets = byType(scan(["GAL", "EXT"]).results, "photo_set");
+    const sets = byType(scan(["GAL", "EXT"], "files").results, "photo_set");
     expect(sets).toHaveLength(1);
     // The external copy wins the keeper contest — it is the only outcome available.
     const keep = sets[0].members.find((member) => member.role === "keep");
@@ -377,7 +380,7 @@ describe("the snapshot", () => {
     asset("a1", "Album/one.jpg", { hash: "same", size: 500 });
     asset("a2", "Copies/one.jpg", { hash: "same", size: 500 });
 
-    const { jobId } = scan();
+    const { jobId } = scan(["GAL"], "files");
     const job = getJob(jobId)!;
     expect(job.status).toBe("review");
     expect(job.scanCompletedAt).not.toBeNull();

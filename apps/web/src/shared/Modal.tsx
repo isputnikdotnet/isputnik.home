@@ -14,6 +14,7 @@ import { X } from "lucide-react";
 export function Modal({
   variant = "card",
   title,
+  subtitle,
   icon,
   alert = false,
   busy = false,
@@ -28,6 +29,7 @@ export function Modal({
 }: {
   variant?: "card" | "panel";
   title: string;
+  subtitle?: React.ReactNode;
   icon?: React.ReactNode;
   /** role="alertdialog" — use for destructive confirmations. */
   alert?: boolean;
@@ -73,7 +75,10 @@ export function Modal({
       <div className={["modal-header", headerClassName].filter(Boolean).join(" ")}>
         <div className="book-metadata-title">
           {icon && <span className="book-metadata-title-icon" aria-hidden="true">{icon}</span>}
-          <h2 id={titleId}>{title}</h2>
+          <div className="modal-title-copy">
+            <h2 id={titleId}>{title}</h2>
+            {subtitle && <p className="modal-subtitle">{subtitle}</p>}
+          </div>
         </div>
         <div className="modal-header-actions">
           {headerAction}
@@ -89,11 +94,14 @@ export function Modal({
         </div>
       </div>
     ) : (
-      headerAction || icon ? (
+      headerAction || icon || subtitle ? (
         <div className="modal-title-row">
           <div className="modal-title-heading">
             {icon && <span className="modal-title-icon" aria-hidden="true">{icon}</span>}
-            <h2 id={titleId}>{title}</h2>
+            <div className="modal-title-copy">
+              <h2 id={titleId}>{title}</h2>
+              {subtitle && <p className="modal-subtitle">{subtitle}</p>}
+            </div>
           </div>
           <div className="modal-title-action">{headerAction}</div>
         </div>
