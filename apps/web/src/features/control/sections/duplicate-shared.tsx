@@ -44,6 +44,10 @@ export interface DuplicateGroup {
   keeperSource: "auto" | "manual";
   keeperReason: string | null;
   reclaimableBytes: number;
+  /** Copies in libraries outside the chosen one — cut from the set by scoping, never
+   *  deleted, but said out loud so "delete every copy" can't read as removing the
+   *  picture outright when another library still holds it. 0 when unscoped. */
+  elsewhereCount?: number;
   members: DuplicateMember[];
 }
 
@@ -120,11 +124,17 @@ export interface DuplicateLibraryOption {
   canDelete?: boolean;
 }
 
+// The page-level payload: scan status, the folder-shaped answers, and the filter
+// box's vocabulary. Deliberately NOT the photo sets — those are paged, and asking
+// for all of them was a response describing every duplicate in the install, rebuilt
+// on every load and every three seconds during a scan. See DuplicatePage.
 export interface DuplicatePayload {
-  groups: DuplicateGroup[];
-  folderGroups: DuplicateFolderGroup[];
-  containedFolders: ContainedFolder[];
   folderPreferences: FolderPreference[];
+  /** The filter box's folder list, built server-side across all three answers. */
+  folderOptions: FolderOption[];
+  /** How many of each folder answer there are — the lists themselves are paged. */
+  folderSetCount: number;
+  containedCount: number;
   lastScanAt: string | null;
   candidateCount: number;
   scanning: boolean;
@@ -134,8 +144,32 @@ export interface DuplicatePayload {
   libraries: DuplicateLibraryOption[];
 }
 
+/** One page of photo sets, plus the totals the page reports — which describe every
+ *  match, not the page, so the counts never shrink to the size of the slice. */
+export interface DuplicatePage {
+  groups: DuplicateGroup[];
+  total: number;
+  /** Sets found, before any filter — what "N hidden" is measured against. */
+  allSets: number;
+  page: number;
+  scopedSets: number;
+  scopedExtraCopies: number;
+  scopedReclaimableBytes: number;
+  spanning: number;
+  exactTotal: number;
+  sweepableSets: number;
+  sweepableCopies: number;
+  sweepableBytes: number;
+}
+
+export const EMPTY_PAGE: DuplicatePage = {
+  groups: [], total: 0, allSets: 0, page: 1, scopedSets: 0, scopedExtraCopies: 0,
+  scopedReclaimableBytes: 0, spanning: 0, exactTotal: 0, sweepableSets: 0, sweepableCopies: 0,
+  sweepableBytes: 0
+};
+
 export const EMPTY_PAYLOAD: DuplicatePayload = {
-  groups: [], folderGroups: [], containedFolders: [], folderPreferences: [],
+  folderPreferences: [], folderOptions: [], folderSetCount: 0, containedCount: 0,
   lastScanAt: null, candidateCount: 0, pendingCount: 0, staleCount: 0,
   scanning: false, reclaimableBytes: 0, libraries: []
 };
@@ -144,10 +178,10 @@ export const EMPTY_PAYLOAD: DuplicatePayload = {
 // than just a panel, so every list degrades to empty instead.
 export function normalisePayload(next: Partial<DuplicatePayload>): DuplicatePayload {
   return {
-    groups: next.groups ?? [],
-    folderGroups: next.folderGroups ?? [],
-    containedFolders: next.containedFolders ?? [],
     folderPreferences: next.folderPreferences ?? [],
+    folderOptions: next.folderOptions ?? [],
+    folderSetCount: next.folderSetCount ?? 0,
+    containedCount: next.containedCount ?? 0,
     lastScanAt: next.lastScanAt ?? null,
     candidateCount: next.candidateCount ?? 0,
     scanning: next.scanning ?? false,
@@ -156,6 +190,36 @@ export function normalisePayload(next: Partial<DuplicatePayload>): DuplicatePayl
     staleCount: next.staleCount ?? 0,
     libraries: next.libraries ?? []
   };
+}
+
+export function normalisePage(next: Partial<DuplicatePage>): DuplicatePage {
+  return { ...EMPTY_PAGE, ...next, groups: next.groups ?? [] };
+}
+
+/** The filters, as the query string both the search and the sweep-ids routes take.
+ *  One function, so the page can never confirm a count from one set of filters and
+ *  delete against another. */
+export function duplicateQuery(state: DuplicateFilterState, options: FolderOption[], extra?: {
+  sort?: string;
+  page?: number;
+  perPage?: number;
+}): string {
+  const params = new URLSearchParams();
+  if (state.scopeId) params.set("library", state.scopeId);
+  if (state.tier !== "all") params.set("tier", state.tier);
+  if (state.mediaKind !== "all") params.set("kind", state.mediaKind);
+  if (state.search.trim()) params.set("q", state.search.trim());
+  const chosen = options.filter((option) => state.folders.includes(option.key));
+  if (chosen.length > 0) {
+    params.set("folders", JSON.stringify(chosen.map((option) => ({
+      libraryId: option.libraryId,
+      folderPath: option.folderPath
+    }))));
+  }
+  if (extra?.sort) params.set("sort", extra.sort);
+  if (extra?.page) params.set("page", String(extra.page));
+  if (extra?.perPage !== undefined) params.set("perPage", String(extra.perPage));
+  return params.toString();
 }
 
 export const folderKey = (member: { libraryId: string; folderPath: string }): string =>
@@ -170,6 +234,12 @@ export const ROOT_HINT = "The library's own top folder — the root of every pat
 
 export const folderPathLabel = (member: { folderPath: string }): string =>
   member.folderPath || ROOT_LABEL;
+
+/** The path line on a folder tile. A folder shows its path; the library's own top
+ *  folder shows what it is, because "." there reads as a location and the photos in
+ *  question are nowhere near the root. */
+export const folderTilePath = (folder: { folderPath: string }): string =>
+  folder.folderPath || "Everything in this library";
 
 // A photo can sit in no folder at all — directly in the library's own folder. That
 // used to read "Library root", which is the name of a PLACE, so people went looking
@@ -211,36 +281,9 @@ export interface FolderOption {
   setCount: number;
 }
 
-export function folderOptionsFrom(payload: DuplicatePayload): FolderOption[] {
-  const options = new Map<string, FolderOption>();
-  const note = (libraryId: string, libraryName: string, folderPath: string) => {
-    const key = folderKey({ libraryId, folderPath });
-    const existing = options.get(key);
-    if (existing) existing.setCount += 1;
-    else options.set(key, { key, libraryId, libraryName, folderPath, setCount: 1 });
-  };
-
-  for (const group of payload.groups) {
-    // Count a folder once per set, however many copies of the set live in it.
-    const seen = new Set<string>();
-    for (const member of group.members) {
-      const key = folderKey({ libraryId: member.libraryId, folderPath: folderOf(member) });
-      if (seen.has(key)) continue;
-      seen.add(key);
-      note(member.libraryId, member.libraryName, folderOf(member));
-    }
-  }
-  for (const group of payload.folderGroups) {
-    for (const member of group.members) note(member.libraryId, member.libraryName, member.folderPath);
-  }
-  for (const row of payload.containedFolders) {
-    note(row.folder.libraryId, row.folder.libraryName, row.folder.folderPath);
-    note(row.target.libraryId, row.target.libraryName, row.target.folderPath);
-  }
-
-  return [...options.values()].sort((a, b) =>
-    a.libraryName.localeCompare(b.libraryName) || a.folderPath.localeCompare(b.folderPath));
-}
+// Built by the server now, across all three answers at once — the page no longer
+// holds the full set list this was derived from.
+export const folderOptionsFrom = (payload: DuplicatePayload): FolderOption[] => payload.folderOptions;
 
 // ── The shell the two folder pages share ────────────────────────────────────
 //
@@ -286,8 +329,37 @@ export function pageSlice<T>(list: T[], perPage: string, page: number) {
   };
 }
 
-export function useDuplicateFolderPage(loadErrorMessage: string) {
+/** One page of whichever folder answer a tab shows. The two differ in what an item
+ *  is and in nothing else, so they share this. */
+export interface FolderListPage<T> {
+  items: T[];
+  /** Matching the filters — what the pager counts. */
+  total: number;
+  /** Found by the scan, before any filter. */
+  allItems: number;
+  page: number;
+  reclaimableBytes: number;
+}
+
+const emptyList = <T,>(): FolderListPage<T> =>
+  ({ items: [], total: 0, allItems: 0, page: 1, reclaimableBytes: 0 });
+
+// The server names them `groups`/`allSets` on one route and `rows`/`allRows` on the
+// other; the tabs care about neither distinction.
+function normaliseList<T>(next: Record<string, unknown>): FolderListPage<T> {
+  return {
+    items: (next.groups ?? next.rows ?? []) as T[],
+    total: (next.total as number) ?? 0,
+    allItems: (next.allSets ?? next.allRows ?? 0) as number,
+    page: (next.page as number) ?? 1,
+    reclaimableBytes: (next.reclaimableBytes as number) ?? 0
+  };
+}
+
+export function useDuplicateFolderPage<T>(loadErrorMessage: string, listPath: string) {
   const [payload, setPayload] = useState<DuplicatePayload>(EMPTY_PAYLOAD);
+  const [list, setList] = useState<FolderListPage<T>>(emptyList<T>());
+  const [listLoaded, setListLoaded] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -309,11 +381,35 @@ export function useDuplicateFolderPage(loadErrorMessage: string) {
     setPayload(normalisePayload(await api<DuplicatePayload>("/api/library/gallery/duplicates")));
   };
 
+  // The cards themselves, one page at a time — their expensive half (thumbnails, and
+  // a link count over what may be a whole library) is built only for what's on screen.
+  const loadList = async () => {
+    const query = duplicateQuery(filters, payload.folderOptions, {
+      sort,
+      page,
+      perPage: perPage === "all" ? 0 : Number(perPage)
+    });
+    setList(normaliseList<T>(await api<Record<string, unknown>>(`${listPath}?${query}`)));
+  };
+
+  const reload = async () => { await Promise.all([load(), loadList()]); };
+
   useEffect(() => {
     load()
       .catch((err) => setError(err instanceof Error ? err.message : loadErrorMessage))
       .finally(() => setLoaded(true));
   }, []);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      loadList()
+        .catch((err) => setError(err instanceof Error ? err.message : loadErrorMessage))
+        .finally(() => setListLoaded(true));
+    }, filters.search ? 250 : 0);
+    return () => window.clearTimeout(handle);
+  }, [
+    filters.scopeId, filters.search, filters.folders, sort, perPage, page, payload.folderOptions
+  ]);
 
   // A scan started on the Duplicate photos page rebuilds these too, so follow it here
   // rather than showing a stale list until the tab is reopened.
@@ -323,7 +419,10 @@ export function useDuplicateFolderPage(loadErrorMessage: string) {
       return;
     }
     if (pollRef.current !== null) return;
-    pollRef.current = window.setInterval(() => { void load().catch(() => { /* keep polling */ }); }, 3000);
+    pollRef.current = window.setInterval(() => {
+      void load().catch(() => { /* keep polling */ });
+      void loadList().catch(() => { /* keep polling */ });
+    }, 3000);
     return () => {
       if (pollRef.current !== null) { window.clearInterval(pollRef.current); pollRef.current = null; }
     };
@@ -339,6 +438,7 @@ export function useDuplicateFolderPage(loadErrorMessage: string) {
         method: "POST",
         body: "{}"
       })));
+      await loadList();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Unable to rebuild the results");
     } finally {
@@ -352,13 +452,13 @@ export function useDuplicateFolderPage(loadErrorMessage: string) {
     try {
       await api(path, { method: "POST", body: "{}" });
       onDone();
-      await load();
+      await reload();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : whenFailed);
       // A refusal can still have changed the server: an offer it recognised as dead
       // gets taken off the list as it declines. Re-read either way, so the page can't
       // go on showing the card the message just said was gone.
-      await load().catch(() => { /* the error already on screen is the useful one */ });
+      await reload().catch(() => { /* the error already on screen is the useful one */ });
     } finally {
       setBusyId("");
     }
@@ -402,7 +502,9 @@ export function useDuplicateFolderPage(loadErrorMessage: string) {
 
   return {
     payload, loaded, error, actionError, setActionError, busyId, setBusyId,
-    rebuilding, load, rebuild, post,
+    rebuilding, load, loadList, reload, rebuild, post,
+    /** The page of cards, and the totals describing every match rather than the slice. */
+    list, listLoaded,
     filters, setFilters, sort, setSort, perPage, setPerPage, page, setPage,
     filterOpen, setFilterOpen, preferDraft, setPreferDraft, preferBusy, savePreferences,
     savedPreferences, folderOptions, chosenFolders,
@@ -416,10 +518,10 @@ export function useDuplicateFolderPage(loadErrorMessage: string) {
   };
 }
 
-export type DuplicateFolderPage = ReturnType<typeof useDuplicateFolderPage>;
+export type DuplicateFolderPageState = ReturnType<typeof useDuplicateFolderPage>;
 
 /** Filters, search, order and rebuild — identical on both folder tabs. */
-export function DuplicateFolderToolbar({ page, searchHint }: { page: DuplicateFolderPage; searchHint: string }) {
+export function DuplicateFolderToolbar({ page, searchHint }: { page: DuplicateFolderPageState; searchHint: string }) {
   const active = activeFilterCount(page.filters, false);
   return (
     <div className="dup-toolbar dup-folder-toolbar">
@@ -562,7 +664,7 @@ export function FolderTile({
         ) : (
           <span className="dup-set-name-row">{name}</span>
         )}
-        <span className="dup-set-path" title={folder.folderPath || ROOT_HINT}>{folderPathLabel(folder)}</span>
+        <span className="dup-set-path" title={folder.folderPath || ROOT_HINT}>{folderTilePath(folder)}</span>
         <span className="dup-set-line">{formatWhen(folder.addedAt)}</span>
         <span className="dup-set-line">
           {formatBytes(folder.bytes)}

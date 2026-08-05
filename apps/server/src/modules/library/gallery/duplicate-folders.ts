@@ -709,7 +709,19 @@ export interface ContainedFolder {
   linkCount: number;
 }
 
-export function listContainedFolders(): ContainedFolder[] {
+interface LeanContained {
+  id: string;
+  libraryId: string;
+  folderPath: string;
+  libraryName: string;
+  targetLibraryId: string;
+  targetFolderPath: string;
+  targetLibraryName: string;
+  totals: FolderTotals;
+  targetTotals: FolderTotals;
+}
+
+function containedRows(): LeanContained[] {
   // The NOT EXISTS is the same rule rebuildContainedFolders applies when it writes
   // these rows: a folder already answered by an equal-contents set is not reported
   // here as well. It is repeated at READ time because these are two caches that are
@@ -738,42 +750,57 @@ export function listContainedFolders(): ContainedFolder[] {
     library_name: string; target_library_name: string;
   }[];
 
-  return rows.map((row) => {
-    const folder = folderDetail({ libraryId: row.library_id, folderPath: row.folder_path }, row.library_name);
-    const target = folderDetail(
-      { libraryId: row.target_library_id, folderPath: row.target_folder_path },
-      row.target_library_name
-    );
-    const encloses = isInside(target, folder.folderPath, folder.libraryId);
-    const counterparts = counterpartFolders(
-      { libraryId: row.library_id, folderPath: row.folder_path },
-      { libraryId: row.target_library_id, folderPath: row.target_folder_path }
-    );
-    return {
-      id: row.id,
-      folder,
-      target,
-      targetFolders: counterparts.paths,
-      targetFolderCount: counterparts.total,
-      // Every number is re-derived from the library as it stands, never read back from
-      // the columns the scan wrote. Photos leave — deleted here, deleted from the
-      // gallery, emptied out of the Recycle Bin — and a card mixing a stale count with
-      // a live one states two different facts about one folder.
-      itemCount: folder.itemCount,
-      bytes: folder.bytes,
-      // What the keeper holds beyond the copies it covers. When it ENCLOSES the doomed
-      // folder its own count includes those photos twice over: once inside, once as the
-      // counterparts outside.
-      extraCount: Math.max(target.itemCount - folder.itemCount * (encloses ? 2 : 1), 0),
-      encloses,
-      coverUrls: folder.coverUrls,
-      linkCount: folder.linkCount
-    };
-  }).filter((row) =>
+  return rows.map((row) => ({
+    id: row.id,
+    libraryId: row.library_id,
+    folderPath: row.folder_path,
+    libraryName: row.library_name,
+    targetLibraryId: row.target_library_id,
+    targetFolderPath: row.target_folder_path,
+    targetLibraryName: row.target_library_name,
+    // Every number is re-derived from the library as it stands, never read back from
+    // the columns the scan wrote. Photos leave — deleted here, deleted from the
+    // gallery, emptied out of the Recycle Bin — and a card mixing a stale count with
+    // a live one states two different facts about one folder.
+    totals: folderTotals({ libraryId: row.library_id, folderPath: row.folder_path }),
+    targetTotals: folderTotals({ libraryId: row.target_library_id, folderPath: row.target_folder_path })
+  })).filter((row) =>
     // A folder holding fewer than two photos is not a duplicate folder — that is the
     // gate it had to pass to get here. Emptied since the scan, it can only mislead:
     // the offer is impossible to carry out and every action on it fails.
-    row.folder.itemCount >= MIN_FOLDER_FILES && row.target.itemCount > 0);
+    row.totals.itemCount >= MIN_FOLDER_FILES && row.targetTotals.itemCount > 0);
+}
+
+// The expensive half of a contained row: covers, link counts and where the copies
+// really sit. Only for the rows on screen.
+function hydrateContained(row: LeanContained): ContainedFolder {
+  const folderRef = { libraryId: row.libraryId, folderPath: row.folderPath };
+  const targetRef = { libraryId: row.targetLibraryId, folderPath: row.targetFolderPath };
+  const folder = folderDetail(folderRef, row.libraryName, row.totals);
+  const target = folderDetail(targetRef, row.targetLibraryName, row.targetTotals);
+  const encloses = isInside(target, folder.folderPath, folder.libraryId);
+  const counterparts = counterpartFolders(folderRef, targetRef);
+  return {
+    id: row.id,
+    folder,
+    target,
+    targetFolders: counterparts.paths,
+    targetFolderCount: counterparts.total,
+    itemCount: folder.itemCount,
+    bytes: folder.bytes,
+    // What the keeper holds beyond the copies it covers. When it ENCLOSES the doomed
+    // folder its own count includes those photos twice over: once inside, once as the
+    // counterparts outside.
+    extraCount: Math.max(target.itemCount - folder.itemCount * (encloses ? 2 : 1), 0),
+    encloses,
+    coverUrls: folder.coverUrls,
+    linkCount: folder.linkCount
+  };
+}
+
+/** Every contained row, fully built. Kept for callers that genuinely want them all. */
+export function listContainedFolders(): ContainedFolder[] {
+  return containedRows().map(hydrateContained);
 }
 
 // Drop every cached row that named a folder whose photos have just gone to the Recycle
@@ -1049,17 +1076,31 @@ function folderLinkCount(ref: FolderRef): number {
   return row.n;
 }
 
-// One folder, as a card sees it: three queries, none of them proportional to how
-// much the folder holds.
-function folderDetail(ref: FolderRef, libraryName: string): FolderDetail {
+/** What a folder holds, in one query — enough to filter, sort and count by, and
+ *  cheap enough to ask about every folder in both lists. */
+export interface FolderTotals {
+  itemCount: number;
+  bytes: number;
+  addedAt: string | null;
+}
+
+function folderTotals(ref: FolderRef): FolderTotals {
   const scope = folderScope(ref);
-  const totals = db.prepare(`
+  const row = db.prepare(`
     SELECT COUNT(*) AS n, COALESCE(SUM(gd.size), 0) AS bytes, MIN(li.discovered_at) AS added
     FROM library_items li
     JOIN gallery_details gd ON gd.item_id = li.id
     WHERE ${scope.where}
   `).get(...scope.args) as { n: number; bytes: number; added: string | null };
+  return { itemCount: row.n, bytes: row.bytes, addedAt: row.added };
+}
 
+// The rest of a card: thumbnails and the hand-filed work. Split from the totals
+// above because it is the expensive half — folderLinkCount alone is nine scans, and
+// the folder it is asked about is routinely an entire library. Both lists page now,
+// so this runs for the ten folders on screen rather than for every folder found.
+function folderDetail(ref: FolderRef, libraryName: string, totals = folderTotals(ref)): FolderDetail {
+  const scope = folderScope(ref);
   const covers = db.prepare(`
     SELECT im.cover_storage_key AS cover
     FROM library_items li
@@ -1073,11 +1114,11 @@ function folderDetail(ref: FolderRef, libraryName: string): FolderDetail {
     ...ref,
     libraryName,
     name: folderName(ref.folderPath),
-    itemCount: totals.n,
+    itemCount: totals.itemCount,
     bytes: totals.bytes,
-    linkCount: totals.n === 0 ? 0 : folderLinkCount(ref),
+    linkCount: totals.itemCount === 0 ? 0 : folderLinkCount(ref),
     coverUrls: covers.map((row) => `/api/library/covers/${row.cover}`),
-    addedAt: totals.added
+    addedAt: totals.addedAt
   };
 }
 
@@ -1131,6 +1172,238 @@ function counterpartFolders(folder: FolderRef, target: FolderRef): { paths: stri
 }
 
 const COVER_LIMIT = 4;
+
+// ── Searching and paging the folder answers ─────────────────────────────────
+//
+// Same split as the photo sets: the cheap half (what a folder holds) runs over every
+// folder to decide what matches and in what order, and the expensive half — covers,
+// and the nine-scan link count over what may be an entire library — runs only for
+// the folders on screen. The filtering is the page's own, moved rather than rewritten.
+
+export interface FolderSearch {
+  libraryId?: string | null;
+  folders?: FolderRef[];
+  search?: string;
+  sort?: "newest" | "photos" | "size" | "name";
+  page?: number;
+  /** 0 means every match. */
+  perPage?: number;
+}
+
+interface LeanFolderMember extends FolderRef, FolderTotals {
+  libraryName: string;
+  name: string;
+  isKeeper: boolean;
+}
+
+interface LeanFolderGroup {
+  id: string;
+  itemCount: number;
+  copyBytes: number;
+  reclaimableBytes: number;
+  keeperSource: "auto" | "manual";
+  keeperReason: string | null;
+  members: LeanFolderMember[];
+}
+
+/** A folder covers itself and everything below it. */
+const folderChosen = (chosen: FolderRef[], libraryId: string, folderPath: string): boolean =>
+  chosen.length === 0 || chosen.some((folder) =>
+    folder.libraryId === libraryId
+    && (folder.folderPath === "" || folderPath === folder.folderPath || folderPath.startsWith(`${folder.folderPath}/`)));
+
+function paginate<T>(list: T[], query: FolderSearch): { items: T[]; page: number } {
+  const perPage = query.perPage && query.perPage > 0 ? query.perPage : list.length || 1;
+  const totalPages = Math.max(1, Math.ceil(list.length / perPage));
+  const page = Math.min(Math.max(query.page ?? 1, 1), totalPages);
+  return { items: list.slice((page - 1) * perPage, page * perPage), page };
+}
+
+function leanFolderGroups(): LeanFolderGroup[] {
+  const groups = db.prepare(`
+    SELECT id, item_count, copy_bytes, keeper_library_id, keeper_folder_path, keeper_source, keeper_reason
+    FROM gallery_duplicate_folder_groups ORDER BY copy_bytes DESC, id
+  `).all() as {
+    id: string; item_count: number; copy_bytes: number;
+    keeper_library_id: string | null; keeper_folder_path: string | null;
+    keeper_source: "auto" | "manual"; keeper_reason: string | null;
+  }[];
+  if (groups.length === 0) return [];
+
+  const memberRows = db.prepare(`
+    SELECT m.group_id, m.library_id, m.folder_path, lib.name AS library_name
+    FROM gallery_duplicate_folder_members m
+    JOIN libraries lib ON lib.id = m.library_id
+  `).all() as { group_id: string; library_id: string; folder_path: string; library_name: string }[];
+
+  const byGroup = new Map<string, typeof memberRows>();
+  for (const row of memberRows) {
+    const bucket = byGroup.get(row.group_id);
+    if (bucket) bucket.push(row); else byGroup.set(row.group_id, [row]);
+  }
+
+  return groups.map((group) => {
+    const members = (byGroup.get(group.id) ?? []).map((row) => ({
+      libraryId: row.library_id,
+      folderPath: row.folder_path,
+      libraryName: row.library_name,
+      name: folderName(row.folder_path),
+      isKeeper: row.library_id === group.keeper_library_id && row.folder_path === group.keeper_folder_path,
+      ...folderTotals({ libraryId: row.library_id, folderPath: row.folder_path })
+    // A member emptied since the scan holds nothing to keep or delete.
+    })).filter((member) => member.itemCount > 0)
+      .sort((a, b) => Number(b.isKeeper) - Number(a.isKeeper)
+        || a.libraryName.localeCompare(b.libraryName)
+        || a.folderPath.localeCompare(b.folderPath));
+
+    return {
+      id: group.id,
+      itemCount: group.item_count,
+      copyBytes: group.copy_bytes,
+      reclaimableBytes: members.filter((m) => !m.isKeeper).reduce((sum, m) => sum + m.bytes, 0),
+      keeperSource: group.keeper_source,
+      keeperReason: group.keeper_reason,
+      members
+    };
+  }).filter((group) => group.members.length > 1);
+}
+
+/** Only folders inside the chosen library are compared; a set left with fewer than
+ *  two of them isn't a duplicate there. */
+function scopeFolderGroup(group: LeanFolderGroup, libraryId: string): LeanFolderGroup | null {
+  if (!libraryId) return group;
+  const mine = group.members.filter((member) => member.libraryId === libraryId);
+  if (mine.length < 2) return null;
+  const keeper = mine.find((member) => member.isKeeper) ?? mine[0];
+  const members = mine.map((member) => ({ ...member, isKeeper: member === keeper }));
+  return {
+    ...group,
+    members,
+    reclaimableBytes: members.filter((m) => !m.isKeeper).reduce((sum, m) => sum + m.bytes, 0)
+  };
+}
+
+const newestMember = (group: LeanFolderGroup): string =>
+  group.members.reduce((latest, m) => (m.addedAt && m.addedAt > latest ? m.addedAt : latest), "");
+
+/** Every folder the two folder answers name, for the filter box's vocabulary — and
+ *  how many of each answer there are, for the counts the photo page links with. Both
+ *  without building a single card. */
+export function folderAnswerSummary(): {
+  folders: { libraryId: string; libraryName: string; folderPath: string }[];
+  folderSets: number;
+  containedRowCount: number;
+} {
+  const members = db.prepare(`
+    SELECT m.library_id AS libraryId, lib.name AS libraryName, m.folder_path AS folderPath
+    FROM gallery_duplicate_folder_members m
+    JOIN libraries lib ON lib.id = m.library_id
+  `).all() as { libraryId: string; libraryName: string; folderPath: string }[];
+
+  const contained = containedRows();
+  const folders = [...members];
+  for (const row of contained) {
+    folders.push({ libraryId: row.libraryId, libraryName: row.libraryName, folderPath: row.folderPath });
+    folders.push({ libraryId: row.targetLibraryId, libraryName: row.targetLibraryName, folderPath: row.targetFolderPath });
+  }
+
+  return {
+    folders,
+    folderSets: (db.prepare("SELECT COUNT(*) AS n FROM gallery_duplicate_folder_groups").get() as { n: number }).n,
+    containedRowCount: contained.length
+  };
+}
+
+export interface DuplicateFolderPage {
+  groups: DuplicateFolderGroup[];
+  total: number;
+  allSets: number;
+  page: number;
+  reclaimableBytes: number;
+}
+
+export function searchDuplicateFolderGroups(query: FolderSearch): DuplicateFolderPage {
+  const all = leanFolderGroups();
+  const needle = (query.search ?? "").trim().toLowerCase();
+  const chosen = query.folders ?? [];
+
+  const matched = all
+    .map((group) => scopeFolderGroup(group, query.libraryId ?? ""))
+    .filter((group): group is LeanFolderGroup => group !== null)
+    .filter((group) => group.members.some((member) =>
+      (!needle || member.folderPath.toLowerCase().includes(needle) || member.libraryName.toLowerCase().includes(needle))
+      && folderChosen(chosen, member.libraryId, member.folderPath)));
+
+  const sort = query.sort ?? "newest";
+  const ordered = [...matched].sort((a, b) => {
+    if (sort === "photos") return b.itemCount - a.itemCount;
+    if (sort === "size") return b.copyBytes - a.copyBytes;
+    if (sort === "name") return (a.members[0]?.name ?? "").localeCompare(b.members[0]?.name ?? "");
+    return newestMember(b).localeCompare(newestMember(a));
+  });
+
+  const { items, page } = paginate(ordered, query);
+  return {
+    groups: items.map((group) => ({
+      id: group.id,
+      itemCount: group.itemCount,
+      copyBytes: group.copyBytes,
+      reclaimableBytes: group.reclaimableBytes,
+      keeperSource: group.keeperSource,
+      keeperReason: group.keeperReason,
+      members: group.members.map((member) => ({
+        ...folderDetail({ libraryId: member.libraryId, folderPath: member.folderPath }, member.libraryName, member),
+        isKeeper: member.isKeeper
+      }))
+    })),
+    total: ordered.length,
+    allSets: all.length,
+    page,
+    reclaimableBytes: matched.reduce((sum, group) => sum + group.reclaimableBytes, 0)
+  };
+}
+
+export interface ContainedFolderPage {
+  rows: ContainedFolder[];
+  total: number;
+  allRows: number;
+  page: number;
+  reclaimableBytes: number;
+}
+
+export function searchContainedFolders(query: FolderSearch): ContainedFolderPage {
+  const all = containedRows();
+  const needle = (query.search ?? "").trim().toLowerCase();
+  const chosen = query.folders ?? [];
+  const libraryId = query.libraryId ?? "";
+
+  // With one library chosen, only rows where BOTH sides live there make sense.
+  const matched = all.filter((row) =>
+    (!libraryId || (row.libraryId === libraryId && row.targetLibraryId === libraryId))
+    && (!needle
+      || row.folderPath.toLowerCase().includes(needle)
+      || row.targetFolderPath.toLowerCase().includes(needle)
+      || row.libraryName.toLowerCase().includes(needle))
+    && (folderChosen(chosen, row.libraryId, row.folderPath)
+      || folderChosen(chosen, row.targetLibraryId, row.targetFolderPath)));
+
+  const sort = query.sort ?? "newest";
+  const ordered = [...matched].sort((a, b) => {
+    if (sort === "photos") return b.totals.itemCount - a.totals.itemCount;
+    if (sort === "size") return b.totals.bytes - a.totals.bytes;
+    if (sort === "name") return folderName(a.folderPath).localeCompare(folderName(b.folderPath));
+    return (b.totals.addedAt ?? "").localeCompare(a.totals.addedAt ?? "");
+  });
+
+  const { items, page } = paginate(ordered, query);
+  return {
+    rows: items.map(hydrateContained),
+    total: ordered.length,
+    allRows: all.length,
+    page,
+    reclaimableBytes: matched.reduce((sum, row) => sum + row.totals.bytes, 0)
+  };
+}
 
 export function listDuplicateFolderGroups(): DuplicateFolderGroup[] {
   const groups = db.prepare(`

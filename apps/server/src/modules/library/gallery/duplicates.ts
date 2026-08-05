@@ -957,6 +957,10 @@ export interface DuplicateMember {
   path: string;
   title: string;
   coverUrl: string | null;
+  /** Web-sized preview for viewing a copy large; `fileUrl` is the original itself.
+   *  Both were always sent — the interface simply hadn't said so. */
+  previewUrl: string | null;
+  fileUrl: string;
   width: number | null;
   height: number | null;
   size: number | null;
@@ -973,7 +977,382 @@ export interface DuplicateGroup {
   keeperSource: "auto" | "manual";
   keeperReason: string | null;
   reclaimableBytes: number;
+  /** Copies of this set in libraries outside the chosen one; 0 when unscoped. */
+  elsewhereCount?: number;
   members: DuplicateMember[];
+}
+
+// ── Searching and paging the sets ───────────────────────────────────────────
+//
+// The page used to receive every set it had found and do the filtering, sorting and
+// paging itself. On a library with thousands of duplicates that is a response
+// describing tens of thousands of photos, rebuilt on every load and every three
+// seconds during a scan, to show twenty-five of them.
+//
+// The work splits in two. Deciding WHICH sets match and in what order needs only a
+// handful of cheap columns per copy — path, title, library, kind, size, keeper. What
+// a card actually renders — covers, dimensions, EXIF, the nine link counts — is
+// needed for one page. So the lean pass runs over everything and the expensive one
+// runs over twenty-five.
+//
+// The filtering and scoping below is a straight port of what the page did, kept
+// deliberately as the same shape of code rather than rewritten into SQL: this is what
+// decides which sets a bulk delete touches, and a clever rewrite that drifts by one
+// set is a photo nobody meant to delete.
+
+export type DuplicateSort = "recent" | "size" | "copies" | "identical" | "name";
+
+export interface DuplicateSearch {
+  /** Compare only within this library; sets left with one copy drop out entirely. */
+  libraryId?: string | null;
+  tier?: "all" | "exact" | "near";
+  mediaKind?: "all" | "photo" | "video";
+  folders?: FolderRef[];
+  search?: string;
+  sort?: DuplicateSort;
+  page?: number;
+  /** 0 means every match — the page's "Show all". */
+  perPage?: number;
+}
+
+interface FolderRef {
+  libraryId: string;
+  folderPath: string;
+}
+
+interface LeanMember {
+  itemId: string;
+  kind: string;
+  libraryId: string;
+  libraryName: string;
+  path: string;
+  title: string;
+  size: number | null;
+  isKeeper: boolean;
+}
+
+interface LeanGroup {
+  id: string;
+  kind: "exact" | "near";
+  keeperItemId: string | null;
+  keeperSource: "auto" | "manual";
+  keeperReason: string | null;
+  reclaimableBytes: number;
+  elsewhereCount: number;
+  members: LeanMember[];
+}
+
+// Everything needed to decide what matches, in one query over cheap columns.
+function leanGroups(): LeanGroup[] {
+  const rows = db.prepare(`
+    SELECT m.group_id, g.kind AS group_kind, g.keeper_item_id, g.keeper_source, g.keeper_reason,
+           gd.item_id, gd.kind, gd.relative_path, gd.size,
+           li.library_id, lib.name AS library_name, im.title
+    FROM gallery_duplicate_members m
+    JOIN gallery_duplicate_groups g ON g.id = m.group_id
+    JOIN gallery_details gd ON gd.item_id = m.item_id
+    JOIN library_items li ON li.id = gd.item_id
+    JOIN libraries lib ON lib.id = li.library_id
+    LEFT JOIN item_metadata im ON im.item_id = gd.item_id
+    ORDER BY datetime(g.created_at) DESC, g.id
+  `).all() as {
+    group_id: string; group_kind: "exact" | "near"; keeper_item_id: string | null;
+    keeper_source: "auto" | "manual"; keeper_reason: string | null;
+    item_id: string; kind: string; relative_path: string; size: number | null;
+    library_id: string; library_name: string; title: string | null;
+  }[];
+
+  const out = new Map<string, LeanGroup>();
+  for (const row of rows) {
+    let group = out.get(row.group_id);
+    if (!group) {
+      group = {
+        id: row.group_id,
+        kind: row.group_kind,
+        keeperItemId: row.keeper_item_id,
+        keeperSource: row.keeper_source,
+        keeperReason: row.keeper_reason,
+        reclaimableBytes: 0,
+        elsewhereCount: 0,
+        members: []
+      };
+      out.set(row.group_id, group);
+    }
+    group.members.push({
+      itemId: row.item_id,
+      kind: row.kind,
+      libraryId: row.library_id,
+      libraryName: row.library_name,
+      path: row.relative_path,
+      title: row.title ?? row.relative_path,
+      size: row.size,
+      isKeeper: row.item_id === row.keeper_item_id
+    });
+  }
+
+  for (const group of out.values()) {
+    group.members.sort((a, b) => Number(b.isKeeper) - Number(a.isKeeper) || a.path.localeCompare(b.path));
+    group.reclaimableBytes = group.members
+      .filter((member) => !member.isKeeper)
+      .reduce((sum, member) => sum + (member.size ?? 0), 0);
+  }
+  // A set needs two copies to be a set at all; one can be left behind by a delete
+  // that took the rest.
+  return [...out.values()].filter((group) => group.members.length > 1);
+}
+
+// Compare only within one library. Not a filter — a rewrite: the copies elsewhere
+// drop out, and if the scan's keeper was one of them the best remaining copy takes
+// its place, exactly as the sweep will pick it when it runs.
+function scopeToLibrary(group: LeanGroup, libraryId: string): LeanGroup | null {
+  if (!libraryId) return group;
+  const mine = group.members.filter((member) => member.libraryId === libraryId);
+  if (mine.length < 2) return null;
+
+  const keeper = mine.find((member) => member.isKeeper) ?? mine[0];
+  const inherited = keeper.isKeeper;
+  const members = mine
+    .map((member) => ({ ...member, isKeeper: member.itemId === keeper.itemId }))
+    .sort((a, b) => Number(b.isKeeper) - Number(a.isKeeper) || a.path.localeCompare(b.path));
+  return {
+    ...group,
+    keeperItemId: keeper.itemId,
+    keeperSource: inherited ? group.keeperSource : "auto",
+    keeperReason: inherited ? group.keeperReason : null,
+    members,
+    reclaimableBytes: members.filter((member) => !member.isKeeper).reduce((sum, m) => sum + (m.size ?? 0), 0),
+    elsewhereCount: group.members.length - mine.length
+  };
+}
+
+/** A folder covers itself and everything below it — picking one means "and all of it". */
+const folderCovers = (folder: FolderRef, libraryId: string, filePath: string): boolean => {
+  if (folder.libraryId !== libraryId) return false;
+  if (folder.folderPath === "") return true;
+  const cut = filePath.lastIndexOf("/");
+  const dir = cut === -1 ? "" : filePath.slice(0, cut);
+  return dir === folder.folderPath || dir.startsWith(`${folder.folderPath}/`);
+};
+
+const groupName = (group: LeanGroup): string => {
+  const first = group.members[0];
+  return (first?.title || first?.path || "").toLowerCase();
+};
+
+// Sets whose copies agree on filename and size — the ones safe to clear without
+// opening anything.
+function copiesLookAlike(group: LeanGroup): boolean {
+  const first = group.members[0];
+  if (!first) return false;
+  const name = first.path.split("/").pop();
+  return group.members.every((member) => member.path.split("/").pop() === name && member.size === first.size);
+}
+
+function sortGroups(groups: LeanGroup[], sort: DuplicateSort): LeanGroup[] {
+  if (sort === "recent") return groups; // the query already returns them newest-first
+  const list = [...groups];
+  if (sort === "copies") return list.sort((a, b) => b.members.length - a.members.length);
+  if (sort === "name") return list.sort((a, b) => groupName(a).localeCompare(groupName(b)));
+  if (sort === "identical") {
+    return list.sort((a, b) =>
+      Number(copiesLookAlike(b)) - Number(copiesLookAlike(a))
+      || b.reclaimableBytes - a.reclaimableBytes);
+  }
+  return list.sort((a, b) => b.reclaimableBytes - a.reclaimableBytes);
+}
+
+/** Scoped and filtered, in the page's order — everything except hydration. */
+function matchingGroups(query: DuplicateSearch): { scoped: LeanGroup[]; matched: LeanGroup[] } {
+  const scoped = leanGroups()
+    .map((group) => scopeToLibrary(group, query.libraryId ?? ""))
+    .filter((group): group is LeanGroup => group !== null);
+
+  const needle = (query.search ?? "").trim().toLowerCase();
+  const folders = query.folders ?? [];
+  const tier = query.tier ?? "all";
+  const mediaKind = query.mediaKind ?? "all";
+
+  const matched = scoped.filter((group) => {
+    if (tier !== "all" && group.kind !== tier) return false;
+    if (mediaKind !== "all" && group.members[0]?.kind !== mediaKind) return false;
+    if (needle && !group.members.some((member) =>
+      member.path.toLowerCase().includes(needle)
+      || member.title.toLowerCase().includes(needle)
+      || member.libraryName.toLowerCase().includes(needle))) return false;
+    if (folders.length > 0 && !group.members.some((member) =>
+      folders.some((folder) => folderCovers(folder, member.libraryId, member.path)))) return false;
+    return true;
+  });
+
+  // Identical sets first, so one pager can span both tiers with each keeping its
+  // heading — the order the page has always shown.
+  const ordered = tier === "all"
+    ? [...sortGroups(matched.filter((g) => g.kind === "exact"), query.sort ?? "recent"),
+       ...sortGroups(matched.filter((g) => g.kind === "near"), query.sort ?? "recent")]
+    : sortGroups(matched, query.sort ?? "recent");
+
+  return { scoped, matched: ordered };
+}
+
+export interface DuplicateFolderOption {
+  key: string;
+  libraryId: string;
+  libraryName: string;
+  folderPath: string;
+  /** Sets with a copy in this folder — counted once per set, however many copies. */
+  setCount: number;
+}
+
+const optionKey = (libraryId: string, folderPath: string): string => `${libraryId} ${folderPath}`;
+
+/** Every folder a duplicated PHOTO was found in. The filter box's vocabulary, which
+ *  the page used to derive from the full set list it no longer receives. One cheap
+ *  query — no per-copy work. */
+export function duplicateSetFolders(): DuplicateFolderOption[] {
+  const rows = db.prepare(`
+    SELECT m.group_id, li.library_id, lib.name AS library_name, gd.relative_path
+    FROM gallery_duplicate_members m
+    JOIN gallery_details gd ON gd.item_id = m.item_id
+    JOIN library_items li ON li.id = gd.item_id
+    JOIN libraries lib ON lib.id = li.library_id
+  `).all() as { group_id: string; library_id: string; library_name: string; relative_path: string }[];
+
+  const options = new Map<string, DuplicateFolderOption>();
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const cut = row.relative_path.lastIndexOf("/");
+    const folderPath = cut === -1 ? "" : row.relative_path.slice(0, cut);
+    const key = optionKey(row.library_id, folderPath);
+    // Once per set, however many of its copies are in this folder.
+    const perSet = `${row.group_id} ${key}`;
+    if (seen.has(perSet)) continue;
+    seen.add(perSet);
+    const existing = options.get(key);
+    if (existing) existing.setCount += 1;
+    else options.set(key, { key, libraryId: row.library_id, libraryName: row.library_name, folderPath, setCount: 1 });
+  }
+  return [...options.values()];
+}
+
+/** Bytes the extra copies of every set occupy — the page's headline number, which it
+ *  used to add up itself from a list of every set. */
+export function duplicateReclaimableBytes(): number {
+  const row = db.prepare(`
+    SELECT COALESCE(SUM(gd.size), 0) AS n
+    FROM gallery_duplicate_members m
+    JOIN gallery_duplicate_groups g ON g.id = m.group_id
+    JOIN gallery_details gd ON gd.item_id = m.item_id
+    WHERE m.item_id IS NOT g.keeper_item_id
+  `).get() as { n: number };
+  return row.n;
+}
+
+export interface DuplicatePage {
+  groups: DuplicateGroup[];
+  /** Sets matching the filters — what the pager counts. */
+  total: number;
+  /** Sets the scan found, before any filter including the library — what "N hidden"
+   *  is measured against. */
+  allSets: number;
+  page: number;
+  /** Totals the page reports, at the scopes it has always reported them. */
+  scopedSets: number;
+  scopedExtraCopies: number;
+  scopedReclaimableBytes: number;
+  /** Identical sets with a copy in another library too; the sweep leaves them alone. */
+  spanning: number;
+  /** Identical sets across every library, ignoring the filters — the "of N" the
+   *  sweep dialog compares its own count against. */
+  exactTotal: number;
+  /** What "Delete all extras" would cover under these filters. */
+  sweepableSets: number;
+  sweepableCopies: number;
+  /** Roughly what the sweep would free — the dialog's estimate. */
+  sweepableBytes: number;
+}
+
+export function searchDuplicateGroups(query: DuplicateSearch): DuplicatePage {
+  const { scoped, matched } = matchingGroups(query);
+
+  const perPage = query.perPage && query.perPage > 0 ? query.perPage : matched.length || 1;
+  const totalPages = Math.max(1, Math.ceil(matched.length / perPage));
+  const page = Math.min(Math.max(query.page ?? 1, 1), totalPages);
+  const slice = matched.slice((page - 1) * perPage, page * perPage);
+
+  const sweepable = matched.filter((group) => group.kind === "exact");
+
+  return {
+    groups: hydrateGroups(slice),
+    total: matched.length,
+    allSets: (db.prepare("SELECT COUNT(*) AS n FROM gallery_duplicate_groups").get() as { n: number }).n,
+    page,
+    scopedSets: scoped.length,
+    scopedExtraCopies: scoped.reduce((sum, group) => sum + group.members.length - 1, 0),
+    scopedReclaimableBytes: scoped.reduce((sum, group) => sum + group.reclaimableBytes, 0),
+    spanning: scoped.filter((group) => group.kind === "exact" && group.elsewhereCount > 0).length,
+    exactTotal: (db.prepare("SELECT COUNT(*) AS n FROM gallery_duplicate_groups WHERE kind = 'exact'")
+      .get() as { n: number }).n,
+    sweepableSets: sweepable.length,
+    sweepableCopies: sweepable.reduce((sum, group) => sum + group.members.length - 1, 0),
+    sweepableBytes: sweepable.reduce((sum, group) => sum + group.reclaimableBytes, 0)
+  };
+}
+
+/** The ids "Delete all extras" would act on, so the page can confirm an exact count
+ *  and then name them explicitly — the destructive endpoint still takes a list. */
+export function sweepableGroupIds(query: DuplicateSearch): { groupIds: string[]; copies: number } {
+  const { matched } = matchingGroups(query);
+  const sweepable = matched.filter((group) => group.kind === "exact");
+  return {
+    groupIds: sweepable.map((group) => group.id),
+    copies: sweepable.reduce((sum, group) => sum + group.members.length - 1, 0)
+  };
+}
+
+// The expensive half, over one page: covers, dimensions, EXIF and the link counts.
+function hydrateGroups(groups: LeanGroup[]): DuplicateGroup[] {
+  if (groups.length === 0) return [];
+  const details = loadDetails(groups.flatMap((group) => group.members.map((member) => member.itemId)));
+  const preferences = folderPreferences();
+  const protectedLibs = protectedLibraries();
+
+  return groups.map((group) => ({
+    id: group.id,
+    kind: group.kind,
+    keeperItemId: group.keeperItemId,
+    keeperSource: group.keeperSource,
+    keeperReason: group.keeperReason,
+    reclaimableBytes: group.reclaimableBytes,
+    elsewhereCount: group.elsewhereCount,
+    members: group.members
+      .map((member) => {
+        const row = details.get(member.itemId);
+        if (!row) return null;
+        const scored = score(row, preferences, protectedLibs);
+        const camera = [row.camera_make, row.camera_model].filter(Boolean).join(" ") || null;
+        return {
+          itemId: row.item_id,
+          kind: row.kind === "video" ? "video" as const : "photo" as const,
+          libraryId: row.library_id,
+          libraryName: row.library_name,
+          path: row.relative_path,
+          title: row.title ?? row.relative_path,
+          coverUrl: row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
+          previewUrl: row.preview_storage_key
+            ? `/api/library/covers/${row.preview_storage_key}`
+            : row.cover_storage_key ? `/api/library/covers/${row.cover_storage_key}` : null,
+          fileUrl: `/api/library/gallery/assets/${row.item_id}/file`,
+          width: row.width,
+          height: row.height,
+          size: row.size,
+          takenAt: row.taken_at,
+          camera,
+          linkCount: scored.linkCount,
+          isKeeper: member.isKeeper
+        };
+      })
+      .filter((member): member is DuplicateMember => member !== null)
+  }));
 }
 
 export function listDuplicateGroups(): DuplicateGroup[] {

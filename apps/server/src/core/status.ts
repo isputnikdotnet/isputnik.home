@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.21.0",
+          label: "The duplicate pages send a page, not everything they found",
+          changes: [
+            "All three duplicate tabs asked the server for every result it had ever found and then showed you twenty-five of them. On a large library that is a reply describing tens of thousands of photos, rebuilt every time the page opened and every three seconds while a scan ran. Each tab now asks for the page it is showing, and narrowing, ordering and paging happen where the data is.",
+            "That splits the work in two. Deciding WHICH results match and in what order needs a handful of cheap details about each; what a card draws — thumbnails, dimensions, dates, and the counts of tags, albums and people — is needed for the ten or twenty-five on screen. The second kind is now done for those alone. On the folder tabs it is the bigger saving, because the folder a card describes is routinely an entire library.",
+            "\"Delete all extras\" still covers exactly the sets your filters leave, and still names every one of them explicitly rather than re-deciding at the moment of deletion: the page asks which sets those are, using the same filters it counted with, and the count you confirm is the count that goes.",
+            "Typing in the search box waits a moment before asking, rather than asking on every keystroke.",
+            "On Stored elsewhere, a kept folder that is a whole library now says so and gives the library's name, instead of showing \".\" as though the photos were at the top of it. The folders the copies are really in are named underneath, as before."
+          ]
+        },
+        {
           version: "2.20.3",
           label: "Nothing deletes out of an external library, and the duplicate page stops re-asking",
           changes: [

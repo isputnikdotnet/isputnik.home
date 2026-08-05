@@ -62,28 +62,19 @@ function sortRows(list: ContainedFolder[], sort: FolderSort): ContainedFolder[] 
 }
 
 export function DuplicateContainedFoldersSection() {
-  const page = useDuplicateFolderPage("Unable to load the folders stored elsewhere");
+  const page = useDuplicateFolderPage<ContainedFolder>(
+    "Unable to load the folders stored elsewhere",
+    "/api/library/gallery/duplicates/folders/contained/search"
+  );
   const { payload, busy, scopeName, needle } = page;
 
   const [deleteTarget, setDeleteTarget] = useState<ContainedFolder | null>(null);
   const [ignoreTarget, setIgnoreTarget] = useState<ContainedFolder | null>(null);
 
-  // With one library chosen, only rows where BOTH sides live there make sense —
-  // removing a folder because its photos are safe in a library you aren't looking at
-  // is a different decision.
-  const rows = payload.containedFolders.filter((row) =>
-    (!page.filters.scopeId
-      || (row.folder.libraryId === page.filters.scopeId && row.target.libraryId === page.filters.scopeId))
-    && (!needle
-      || row.folder.folderPath.toLowerCase().includes(needle)
-      || row.target.folderPath.toLowerCase().includes(needle)
-      || row.folder.libraryName.toLowerCase().includes(needle))
-    && (page.inChosenFolders(row.folder.libraryId, row.folder.folderPath)
-      || page.inChosenFolders(row.target.libraryId, row.target.folderPath)));
-
-  const ordered = sortRows(rows, page.sort);
-  const shown = pageSlice(ordered, page.perPage, page.page);
-  const reclaimable = rows.reduce((sum, row) => sum + row.bytes, 0);
+  // One page of rows, already narrowed and ordered by the server — including the rule
+  // that with a library chosen, only rows where BOTH sides live there make sense.
+  const shown = page.list;
+  const reclaimable = page.list.reclaimableBytes;
 
   // One row as a card, laid out like a set: what the folders hold, a strip of the
   // pictures themselves, then the kept folder and the one that goes side by side.
@@ -101,6 +92,17 @@ export function DuplicateContainedFoldersSection() {
     const reason = row.extraCount > 0
       ? `Cleaning out “${labels.folder}” because every photo is also in ${where}${inLibrary}, which holds ${row.extraCount} more.`
       : `Cleaning out “${labels.folder}” because every photo is also in ${where}${inLibrary} — the same pictures, arranged differently.`;
+
+    // What the kept side is CALLED. When the coverer is a real folder that's just its
+    // name; when it is the library's top folder it isn't a folder anyone can go and
+    // look at, and showing "." there put a root path on a card whose photos are
+    // nowhere near the root. Say the library, and let the note below name the folders
+    // the copies are really in — the totals on the tile are the library's, and now
+    // the label agrees with them.
+    const keptAtRoot = row.target.folderPath === "";
+    const keptTile = keptAtRoot
+      ? { ...row.target, name: row.target.libraryName, folderPath: "" }
+      : row.target;
 
     const deleteThis = () => { page.setActionError(""); setDeleteTarget(row); };
 
@@ -132,7 +134,7 @@ export function DuplicateContainedFoldersSection() {
 
           <div className="dup-set-folders">
             <FolderTile
-              folder={row.target}
+              folder={keptTile}
               keep
               showLibrary={!scopeName}
               position={0}
@@ -170,18 +172,18 @@ export function DuplicateContainedFoldersSection() {
 
       <p className="dup-status dup-status-row datagrid-muted">
         <span>Last scan: {formatWhen(payload.lastScanAt)}</span>
-        {rows.length > 0
+        {shown.total > 0
           ? (
             <>
-              <span>{rows.length} folder{rows.length === 1 ? "" : "s"}</span>
+              <span>{shown.total} folder{shown.total === 1 ? "" : "s"}</span>
               <span>{formatBytes(reclaimable)} to reclaim</span>
             </>
           )
           : null}
         <a href={controlHref("duplicatePhotos")}>Scanning and single photos are on the Duplicate photos tab</a>
-        {payload.folderGroups.length > 0 && (
+        {payload.folderSetCount > 0 && (
           <a href={controlHref("duplicateFolders")}>
-            {payload.folderGroups.length} set{payload.folderGroups.length === 1 ? "" : "s"} of identical folders
+            {payload.folderSetCount} set{payload.folderSetCount === 1 ? "" : "s"} of identical folders
           </a>
         )}
       </p>
@@ -200,11 +202,11 @@ export function DuplicateContainedFoldersSection() {
         <MessageBox tone="error" title="Action failed">{page.actionError}</MessageBox>
       )}
 
-      {payload.containedFolders.length > 0 && (
+      {shown.allItems > 0 && (
         <DuplicateFolderToolbar page={page} searchHint="Search these folders by path or library" />
       )}
 
-      {page.loaded && payload.containedFolders.length === 0 && !page.error && (
+      {page.listLoaded && shown.allItems === 0 && !page.error && (
         <p className="management-empty">
           {payload.lastScanAt
             ? "No folder is fully stored elsewhere. A folder holding even one photo that exists nowhere else isn't listed here."
@@ -212,7 +214,7 @@ export function DuplicateContainedFoldersSection() {
         </p>
       )}
 
-      {page.loaded && payload.containedFolders.length > 0 && rows.length === 0 && (
+      {page.listLoaded && shown.allItems > 0 && shown.total === 0 && (
         <p className="management-empty">
           {page.filtering
             ? "Nothing matches what you've narrowed the page to."
@@ -220,14 +222,14 @@ export function DuplicateContainedFoldersSection() {
         </p>
       )}
 
-      {rows.length > 0 && (
+      {shown.total > 0 && (
         <>
           <div className="dup-sets">{shown.items.map(renderRow)}</div>
           <div className="dup-pager-row">
             <span className="datagrid-muted">
-              Showing {shown.firstShown}–{shown.lastShown} of {ordered.length} folder{ordered.length === 1 ? "" : "s"}
+              Showing {shown.total} folder{shown.total === 1 ? "" : "s"}
             </span>
-            <Pager page={shown.currentPage} totalPages={shown.totalPages} onChange={page.setPage} label="Pages of folders stored elsewhere" />
+            <Pager page={shown.page} totalPages={Math.max(1, Math.ceil(shown.total / (page.perPage === "all" ? Math.max(shown.total, 1) : Number(page.perPage))))} onChange={page.setPage} label="Pages of folders stored elsewhere" />
           </div>
         </>
       )}

@@ -62,7 +62,10 @@ function scopeFolderGroup(group: DuplicateFolderGroup, libraryId: string): Dupli
 }
 
 export function DuplicateFoldersSection() {
-  const page = useDuplicateFolderPage("Unable to load duplicate folders");
+  const page = useDuplicateFolderPage<DuplicateFolderGroup>(
+    "Unable to load duplicate folders",
+    "/api/library/gallery/duplicates/folders/search"
+  );
   const { payload, busy, scopeName, needle } = page;
 
   // A folder set keeps exactly ONE folder — keeping two identical folders isn't
@@ -74,18 +77,11 @@ export function DuplicateFoldersSection() {
   const [deleteFolders, setDeleteFolders] = useState<DuplicateFolderMember[] | null>(null);
   const [ignoreTarget, setIgnoreTarget] = useState<DuplicateFolderGroup | null>(null);
 
-  const groups = payload.folderGroups
-    .map((group) => scopeFolderGroup(group, page.filters.scopeId))
-    .filter((group): group is DuplicateFolderGroup => group !== null)
-    .filter((group) => group.members.some((member) =>
-      (!needle
-        || member.folderPath.toLowerCase().includes(needle)
-        || member.libraryName.toLowerCase().includes(needle))
-      && page.inChosenFolders(member.libraryId, member.folderPath)));
-
-  const ordered = sortSets(groups, page.sort);
-  const shown = pageSlice(ordered, page.perPage, page.page);
-  const reclaimable = groups.reduce((sum, group) => sum + group.reclaimableBytes, 0);
+  // One page of sets, already scoped to the chosen library, narrowed and ordered by
+  // the server — including the rule that a set left with fewer than two folders in
+  // that library is not a duplicate there.
+  const shown = page.list;
+  const reclaimable = page.list.reclaimableBytes;
 
   const keeperOf = (group: DuplicateFolderGroup): DuplicateFolderMember => {
     const picked = keeperPick[group.id];
@@ -212,18 +208,18 @@ export function DuplicateFoldersSection() {
 
       <p className="dup-status dup-status-row datagrid-muted">
         <span>Last scan: {formatWhen(payload.lastScanAt)}</span>
-        {groups.length > 0
+        {shown.total > 0
           ? (
             <>
-              <span>{groups.length} duplicate set{groups.length === 1 ? "" : "s"}</span>
+              <span>{shown.total} duplicate set{shown.total === 1 ? "" : "s"}</span>
               <span>{formatBytes(reclaimable)} to reclaim</span>
             </>
           )
           : null}
         <a href={controlHref("duplicatePhotos")}>Scanning and single photos are on the Duplicate photos tab</a>
-        {payload.containedFolders.length > 0 && (
+        {payload.containedCount > 0 && (
           <a href={controlHref("duplicateContainedFolders")}>
-            {payload.containedFolders.length} folder{payload.containedFolders.length === 1 ? " is" : "s are"} already
+            {payload.containedCount} folder{payload.containedCount === 1 ? " is" : "s are"} already
             {" "}stored elsewhere
           </a>
         )}
@@ -243,11 +239,11 @@ export function DuplicateFoldersSection() {
         <MessageBox tone="error" title="Action failed">{page.actionError}</MessageBox>
       )}
 
-      {payload.folderGroups.length > 0 && (
+      {shown.allItems > 0 && (
         <DuplicateFolderToolbar page={page} searchHint="Search duplicate folders by path or library" />
       )}
 
-      {page.loaded && payload.folderGroups.length === 0 && !page.error && (
+      {page.listLoaded && shown.allItems === 0 && !page.error && (
         <p className="management-empty">
           {payload.lastScanAt
             ? "No folder holds exactly the same photos as another. A folder differing by even one photo isn't listed here — its copies still appear individually under Duplicate photos."
@@ -255,7 +251,7 @@ export function DuplicateFoldersSection() {
         </p>
       )}
 
-      {page.loaded && payload.folderGroups.length > 0 && groups.length === 0 && (
+      {page.listLoaded && shown.allItems > 0 && shown.total === 0 && (
         <p className="management-empty">
           {page.filtering
             ? "Nothing matches what you've narrowed the page to."
@@ -263,14 +259,14 @@ export function DuplicateFoldersSection() {
         </p>
       )}
 
-      {groups.length > 0 && (
+      {shown.total > 0 && (
         <>
           <div className="dup-sets">{shown.items.map(renderGroup)}</div>
           <div className="dup-pager-row">
             <span className="datagrid-muted">
-              Showing {shown.firstShown}–{shown.lastShown} of {ordered.length} set{ordered.length === 1 ? "" : "s"}
+              Showing {shown.total} set{shown.total === 1 ? "" : "s"}
             </span>
-            <Pager page={shown.currentPage} totalPages={shown.totalPages} onChange={page.setPage} label="Duplicate folder pages" />
+            <Pager page={shown.page} totalPages={Math.max(1, Math.ceil(shown.total / (page.perPage === "all" ? Math.max(shown.total, 1) : Number(page.perPage))))} onChange={page.setPage} label="Duplicate folder pages" />
           </div>
         </>
       )}

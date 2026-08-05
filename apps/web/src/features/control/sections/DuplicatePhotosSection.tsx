@@ -16,17 +16,20 @@ import {
   type DuplicateGroup,
   type DuplicateMember,
   type DuplicatePayload,
+  type DuplicatePage,
   EMPTY_PAYLOAD,
+  EMPTY_PAGE,
   ExperimentalNotice,
   DuplicateFiltersModal,
   type DuplicateFilterState,
   activeFilterCount,
   type PreferenceDraft,
-  folderCovers,
+  duplicateQuery,
   folderKey,
   folderOf,
   folderOptionsFrom,
   normalisePayload,
+  normalisePage,
   TOP_LEVEL,
   TOP_LEVEL_HINT
 } from "./duplicate-shared";
@@ -134,48 +137,19 @@ function matchesSearch(group: DuplicateGroup, needle: string): boolean {
 // `elsewhereCount` is what was cut: the page never deletes those, but it has to say
 // they exist, or "delete every copy" would read as removing the picture outright
 // when another library still holds it.
-function scopeToLibrary(group: DuplicateGroup, libraryId: string): ScopedGroup | null {
-  if (!libraryId) return { ...group, elsewhereCount: 0 };
-  const mine = group.members.filter((member) => member.libraryId === libraryId);
-  if (mine.length < 2) return null;
-
-  // The scan's keeper may be one of the copies that just dropped out; then the best
-  // in-library copy takes its place — the server picks the same one when the sweep
-  // runs, and every deletion names its copies explicitly regardless.
-  const keeper = mine.find((member) => member.isKeeper) ?? mine[0];
-  const inherited = keeper.isKeeper;
-  const members = mine
-    .map((member) => ({ ...member, isKeeper: member.itemId === keeper.itemId }))
-    .sort((a, b) => Number(b.isKeeper) - Number(a.isKeeper) || a.path.localeCompare(b.path));
-  return {
-    ...group,
-    keeperItemId: keeper.itemId,
-    keeperSource: inherited ? group.keeperSource : "auto",
-    keeperReason: inherited ? group.keeperReason : null,
-    members,
-    reclaimableBytes: members.filter((member) => !member.isKeeper).reduce((sum, member) => sum + (member.size ?? 0), 0),
-    elsewhereCount: group.members.length - mine.length
-  };
-}
-
-function sortGroups(groups: ScopedGroup[], sort: DupSort): ScopedGroup[] {
-  // The server already hands them back newest-first, so "recent" is the order as given.
-  if (sort === "recent") return groups;
-  const list = [...groups];
-  if (sort === "copies") return list.sort((a, b) => b.members.length - a.members.length);
-  if (sort === "name") return list.sort((a, b) => groupName(a).localeCompare(groupName(b)));
-  // Sets whose copies match on name and size first — the ones safe to clear without
-  // comparing anything. Size breaks the tie so the biggest wins are at the top.
-  if (sort === "identical") {
-    return list.sort((a, b) =>
-      Number(copiesLookAlike(b)) - Number(copiesLookAlike(a))
-      || b.reclaimableBytes - a.reclaimableBytes);
-  }
-  return list.sort((a, b) => b.reclaimableBytes - a.reclaimableBytes);
-}
+//
+// That scoping — and the filtering, ordering and paging that used to live here —
+// now runs on the server, which sends one page rather than every set it has ever
+// found. See searchDuplicateGroups.
+const scopedGroup = (group: DuplicateGroup): ScopedGroup =>
+  ({ ...group, elsewhereCount: group.elsewhereCount ?? 0 });
 
 export function DuplicatePhotosSection() {
   const [payload, setPayload] = useState<DuplicatePayload>(EMPTY_PAYLOAD);
+  // One page of sets, with totals describing every match rather than the slice.
+  const [result, setResult] = useState<DuplicatePage>(EMPTY_PAGE);
+  const [pageLoaded, setPageLoaded] = useState(false);
+  const [pageBusy, setPageBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -221,25 +195,59 @@ export function DuplicatePhotosSection() {
     applyPayload(await api<DuplicatePayload>("/api/library/gallery/duplicates"));
   };
 
+  // The sets themselves, one page at a time. Kept in its own state and its own
+  // request: the payload above describes the scan and the folder answers and barely
+  // changes, while this re-fetches on every filter, sort and page.
+  const loadPage = async () => {
+    const query = duplicateQuery(filters, payload.folderOptions, {
+      sort,
+      page,
+      perPage: perPage === "all" ? 0 : Number(perPage)
+    });
+    setResult(normalisePage(await api<DuplicatePage>(`/api/library/gallery/duplicates/search?${query}`)));
+  };
+
   useEffect(() => {
     load()
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load duplicate photos"))
       .finally(() => setLoaded(true));
   }, []);
 
+  // Refetch whenever what's asked for changes. The search box is debounced so typing
+  // doesn't fire a request per keystroke; everything else is a discrete choice and
+  // goes immediately.
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setPageBusy(true);
+      loadPage()
+        .catch((err) => setError(err instanceof Error ? err.message : "Unable to load duplicate photos"))
+        .finally(() => { setPageBusy(false); setPageLoaded(true); });
+    }, filters.search ? 250 : 0);
+    return () => window.clearTimeout(handle);
+  }, [
+    filters.scopeId, filters.search, filters.tier, filters.mediaKind, filters.folders,
+    sort, perPage, page, payload.folderOptions
+  ]);
+
   // A scan runs in the background, so poll while one is in flight and stop as soon as
-  // it finishes (the results arrive with the same payload).
+  // it finishes. Both halves refresh: the status line and the sets.
   useEffect(() => {
     if (!payload.scanning) {
       if (pollRef.current !== null) { window.clearInterval(pollRef.current); pollRef.current = null; }
       return;
     }
     if (pollRef.current !== null) return;
-    pollRef.current = window.setInterval(() => { void load().catch(() => { /* keep polling */ }); }, 3000);
+    pollRef.current = window.setInterval(() => {
+      void load().catch(() => { /* keep polling */ });
+      void loadPage().catch(() => { /* keep polling */ });
+    }, 3000);
     return () => {
       if (pollRef.current !== null) { window.clearInterval(pollRef.current); pollRef.current = null; }
     };
   }, [payload.scanning]);
+
+  /** After anything that changes the sets — a delete, a keeper change, a dismissal. */
+  const reload = async () => { await Promise.all([load(), loadPage()]); };
 
   // Read the filter state out under plain names. MUST come before anything that
   // uses them: `scoped` below reads scopeId inside a .map callback, which the type
@@ -248,63 +256,36 @@ export function DuplicatePhotosSection() {
   const { scopeId, search, tier, mediaKind } = filters;
   const folderFilter = filters.folders;
 
-  // Every set as the chosen library sees it — sets it holds no duplicate of are gone,
-  // and the ones left show only its own copies. With no library chosen this is the
-  // payload unchanged. Everything below counts, sorts and deletes against THIS list,
-  // so the page and its buttons can't disagree about what a set is.
-  const scoped = payload.groups
-    .map((group) => scopeToLibrary(group, scopeId))
-    .filter((group): group is ScopedGroup => group !== null);
+  // The page the server sent, already scoped to the chosen library, filtered, ordered
+  // and sliced. Everything below counts and deletes against the totals that came with
+  // it, so the page and its buttons can't disagree about what a set is.
+  const pageGroups = result.groups.map(scopedGroup);
+  const pageExact = pageGroups.filter((group) => group.kind === "exact");
+  const pageNear = pageGroups.filter((group) => group.kind === "near");
 
-  // exact/near are the whole scoped sets — "Delete all extras" and the counts in its
-  // dialog work on every one of them, not just what the search happens to be showing.
-  // Only the two visible* lists are filtered further, and they feed rendering alone.
-  const exact = scoped.filter((group) => group.kind === "exact");
-  const near = scoped.filter((group) => group.kind === "near");
+  // These describe every MATCH, not the slice on screen — the server counts them
+  // over the whole filtered list precisely so the sweep dialog can promise a number.
+  const extraCopies = result.scopedExtraCopies;
+  const reclaimableBytes = result.scopedReclaimableBytes;
+  const exactTotal = result.exactTotal;
+  const spanning = result.spanning;
+  const sweepableSets = result.sweepableSets;
+  const sweepableCopies = result.sweepableCopies;
 
-  const extraCopies = scoped.reduce((sum, group) => sum + group.members.length - 1, 0);
-  const reclaimableBytes = scoped.reduce((sum, group) => sum + group.reclaimableBytes, 0);
   const busy = starting || deletingAll || busyGroupId !== "";
-
   const scanLabel = payload.scanning ? "Scanning…" : starting ? "Starting…" : "Scan now";
 
   const folderOptions = folderOptionsFrom(payload);
   const activeFilters = activeFilterCount(filters, true);
-  const exactTotal = payload.groups.filter((group) => group.kind === "exact").length;
   const chosenFolders = folderOptions.filter((option) => folderFilter.includes(option.key));
-  // A set is in scope when any copy of it sits in one of the chosen folders, or below
-  // one — picking a folder means "and everything in it".
-  const inChosenFolders = (libraryId: string, path: string) =>
-    chosenFolders.length === 0 || chosenFolders.some((folder) => folderCovers(folder, libraryId, path));
 
   // Folder-shaped results live on their own tab; this page only points at them.
-  const folderCount = payload.folderGroups.length + payload.containedFolders.length;
+  const folderCount = payload.folderSetCount + payload.containedCount;
 
   const needle = search.trim().toLowerCase();
-  const shown = (group: ScopedGroup) =>
-    matchesSearch(group, needle)
-    && (mediaKind === "all" || group.members[0]?.kind === mediaKind)
-    && group.members.some((member) => inChosenFolders(member.libraryId, member.path));
   const filtering = needle !== "" || scopeId !== "" || chosenFolders.length > 0 || tier !== "all" || mediaKind !== "all";
-  const visibleExact = sortGroups(exact.filter(shown), sort);
-  const visibleNear = sortGroups(near.filter(shown), sort);
-
   const scopeName = payload.libraries.find((library) => library.id === scopeId)?.name ?? "";
-  // Sets with copies in another library too. "Delete all extras" leaves those alone,
-  // which is worth saying before it runs.
-  const spanning = exact.filter((group) => group.elsewhereCount > 0).length;
 
-  // One pager spans both tiers: paging each separately would mean two sets of
-  // controls. Identical sets come first, so a page can straddle the boundary and
-  // show the tail of one tier above the head of the other — each keeps its heading.
-  const ordered = tier === "exact" ? visibleExact
-    : tier === "near" ? visibleNear
-    : [...visibleExact, ...visibleNear];
-  // What the bulk delete covers: identical sets that survived every filter. The
-  // near tier is excluded here as well as on the server, so the count in the
-  // dialog is the number of sets that will actually be touched.
-  const sweepable = ordered.filter((group) => group.kind === "exact");
-  const sweepableCopies = sweepable.reduce((sum, group) => sum + group.members.length - 1, 0);
   const advancedFilterCount = (folderFilter.length > 0 ? 1 : 0)
     + (tier !== "all" ? 1 : 0)
     + (mediaKind !== "all" ? 1 : 0);
@@ -313,16 +294,13 @@ export function DuplicatePhotosSection() {
     ...payload.libraries.map((library) => ({ value: library.id, label: library.name }))
   ];
 
-  const pageSize = perPage === "all" ? Math.max(ordered.length, 1) : Number(perPage);
-  const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize));
-  // Clamped rather than corrected in state, so a shrinking list (a delete, a new
-  // scan) can't strand the view on a page that no longer exists.
-  const currentPage = Math.min(page, totalPages);
-  const pageGroups = ordered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const pageExact = pageGroups.filter((group) => group.kind === "exact");
-  const pageNear = pageGroups.filter((group) => group.kind === "near");
-  const firstShown = ordered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const lastShown = Math.min(currentPage * pageSize, ordered.length);
+  const pageSize = perPage === "all" ? Math.max(result.total, 1) : Number(perPage);
+  const totalPages = Math.max(1, Math.ceil(result.total / pageSize));
+  // The server clamps too, and its answer wins: a list that shrank under you (a
+  // delete, a new scan) can't strand the view on a page that no longer exists.
+  const currentPage = result.page;
+  const firstShown = result.total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const lastShown = Math.min(currentPage * pageSize, result.total);
 
   // Any change to what's listed or how it's ordered puts you back at the top —
   // staying on page 7 of a freshly filtered list shows an arbitrary slice.
@@ -379,7 +357,7 @@ export function DuplicatePhotosSection() {
         return next;
       });
       setDeleteTarget(null);
-      await load();
+      await reload();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Unable to remove the selected copies");
     } finally {
@@ -394,7 +372,7 @@ export function DuplicatePhotosSection() {
     try {
       await api(`/api/library/gallery/duplicates/${ignoreTarget.id}/ignore`, { method: "POST", body: "{}" });
       setIgnoreTarget(null);
-      await load();
+      await reload();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Unable to dismiss the set");
     } finally {
@@ -406,18 +384,24 @@ export function DuplicatePhotosSection() {
     setDeletingAll(true);
     setActionError("");
     try {
-      // Exactly the identical sets on screen — across every page, not just this
-      // one. A button that ignored the filters above it would be the one thing on
-      // the page doing something other than what it looks like.
+      // Exactly the identical sets the filters leave — across every page, not just
+      // this one. The page only holds a page now, so it asks the server which sets
+      // those are, using the SAME filters it counted with, and then names them
+      // explicitly. The destructive call still takes a list: what was confirmed is
+      // what gets deleted, even if a scan lands in between.
+      const query = duplicateQuery(filters, payload.folderOptions);
+      const sweep = await api<{ groupIds: string[]; copies: number }>(
+        `/api/library/gallery/duplicates/sweep-ids?${query}`
+      );
       await api("/api/library/gallery/duplicates/resolve-all", {
         method: "POST",
         body: JSON.stringify({
           libraryId: scopeId || null,
-          groupIds: sweepable.map((group) => group.id)
+          groupIds: sweep.groupIds
         })
       });
       setDeleteAllOpen(false);
-      await load();
+      await reload();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Unable to remove the extra copies");
     } finally {
@@ -442,6 +426,9 @@ export function DuplicatePhotosSection() {
         method: "POST",
         body: JSON.stringify({ folders })
       }));
+      // Saving re-picks every automatic keeper, so the sets themselves changed —
+      // the response only carries the page-level half of the state now.
+      await loadPage();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Unable to save the folder choices");
       // Put the dialog back to what the server still holds, so it never shows a
@@ -665,11 +652,11 @@ export function DuplicatePhotosSection() {
           repeated here. */}
       <p className="dup-status dup-status-row datagrid-muted">
         <span>Last scan: {formatWhen(payload.lastScanAt)}</span>
-        {scoped.length > 0
+        {result.scopedSets > 0
           ? (
             <>
               <span>
-                {copies(extraCopies)} in {scoped.length} group{scoped.length === 1 ? "" : "s"}
+                {copies(extraCopies)} in {result.scopedSets} group{result.scopedSets === 1 ? "" : "s"}
                 {scopeName ? ` in ${scopeName}` : ""}
               </span>
               <span>{formatBytes(reclaimableBytes)}</span>
@@ -703,7 +690,7 @@ export function DuplicatePhotosSection() {
       {error && <MessageBox tone="error" title="Unable to load duplicate photos">{error}</MessageBox>}
       {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}
 
-      {loaded && payload.groups.length === 0 && !error ? (
+      {loaded && pageLoaded && result.allSets === 0 && !error ? (
         <p className="management-empty">
           {payload.lastScanAt
             ? "No duplicate photos found — every catalogued photo is unique."
@@ -711,7 +698,7 @@ export function DuplicatePhotosSection() {
         </p>
       ) : null}
 
-      {payload.groups.length > 0 && (
+      {result.allSets > 0 && (
         <div className="dup-toolbar dup-photo-toolbar">
           {/* One box for every way of narrowing the page — library, kind, folders,
               search. They were four controls in three places and nothing said how
@@ -757,9 +744,9 @@ export function DuplicatePhotosSection() {
         </div>
       )}
 
-      {filtering && payload.groups.length - ordered.length > 0 && (
+      {filtering && result.allSets - result.total > 0 && (
         <p className="dup-filter-note datagrid-muted">
-          Showing {ordered.length} of {payload.groups.length} sets · {payload.groups.length - ordered.length} hidden
+          Showing {result.total} of {result.allSets} sets · {result.allSets - result.total} hidden
           by {scopeName && needle
             ? `“${scopeName}” and your search`
             : scopeName
@@ -768,7 +755,7 @@ export function DuplicatePhotosSection() {
         </p>
       )}
 
-      {loaded && payload.groups.length > 0 && ordered.length === 0 && (
+      {pageLoaded && result.allSets > 0 && result.total === 0 && (
         <p className="management-empty">
           {scopeName && needle
             ? `No duplicate sets inside “${scopeName}” match “${search.trim()}”.`
@@ -799,10 +786,10 @@ export function DuplicatePhotosSection() {
         </>
       )}
 
-      {ordered.length > 0 && (
+      {result.total > 0 && (
         <div className="dup-pager-row">
           <span className="datagrid-muted">
-            Showing {firstShown}–{lastShown} of {ordered.length} set{ordered.length === 1 ? "" : "s"}
+            Showing {firstShown}–{lastShown} of {result.total} set{result.total === 1 ? "" : "s"}
           </span>
           <Pager
             page={currentPage}
@@ -814,10 +801,10 @@ export function DuplicatePhotosSection() {
       )}
 
       {viewGroupId && (() => {
-        // Read the set back out of the scoped list each render, so marks toggled inside
-        // the viewer show immediately, a reload can't leave it on a stale copy, and it
-        // holds the same copies the tiles do rather than the whole install's.
-        const group = scoped.find((candidate) => candidate.id === viewGroupId);
+        // Read the set back out of the page each render, so marks toggled inside the
+        // viewer show immediately and a reload can't leave it on a stale copy. The
+        // viewer only ever opens from a card, so the set is always on this page.
+        const group = pageGroups.find((candidate) => candidate.id === viewGroupId);
         if (!group) return null;
         return (
           <DuplicateViewer
@@ -997,8 +984,8 @@ export function DuplicatePhotosSection() {
       {deleteAllOpen && (
         <ConfirmDialog
           title={activeFilters > 0
-            ? `Delete the extra copies in the ${sweepable.length} set${sweepable.length === 1 ? "" : "s"} you've filtered to?`
-            : `Delete the extra copies in ${sweepable.length} set${sweepable.length === 1 ? "" : "s"}?`}
+            ? `Delete the extra copies in the ${sweepableSets} set${sweepableSets === 1 ? "" : "s"} you've filtered to?`
+            : `Delete the extra copies in ${sweepableSets} set${sweepableSets === 1 ? "" : "s"}?`}
           confirmLabel={`Delete ${copies(sweepableCopies)}`}
           busyLabel="Deleting…"
           danger
@@ -1013,7 +1000,7 @@ export function DuplicatePhotosSection() {
             “Keeping”, including any you chose yourself. Their tags, albums and tagged people are merged onto it first.
           </p>
           <p>
-            This frees about {formatBytes(sweepable.reduce((sum, group) => sum + group.reclaimableBytes, 0))}. Everything
+            This frees about {formatBytes(result.sweepableBytes)}. Everything
             removed goes to the Recycle Bin and can be restored until it's emptied. Near-identical sets are never
             touched by this button.
           </p>
@@ -1022,7 +1009,7 @@ export function DuplicatePhotosSection() {
               filtered one. */}
           {activeFilters > 0 && (
             <p>
-              This covers only what your filters leave on screen: {sweepable.length} of the {exactTotal} identical
+              This covers only what your filters leave on screen: {sweepableSets} of the {exactTotal} identical
               set{exactTotal === 1 ? "" : "s"} found. Clear the filters first if you meant all of them.
             </p>
           )}
