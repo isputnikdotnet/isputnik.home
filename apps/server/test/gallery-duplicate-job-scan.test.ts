@@ -1,0 +1,395 @@
+// The cleanup job's SNAPSHOT — what a scan writes into the job's own tables.
+//
+// The case that matters most here is the scattered one. A folder whose copies sit in
+// several other folders has no single covering folder except the library's own root,
+// and the cached contained tier — one target column — could only answer "the root",
+// which the card rendered as "Everything in this library" with a note reading
+// «Copies sit in ".", "FolderOne", "FolderThree" and 1 more folder». Four releases
+// re-worded that sentence. These tests pin the data shape that makes it sayable.
+import { beforeEach, describe, expect, it } from "vitest";
+import { db } from "../src/db.js";
+import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
+import {
+  activeJob, completeJob, createJob, getJob, setJobFolderPreferences
+} from "../src/modules/library/gallery/duplicate-jobs.js";
+import {
+  runJobScan,
+  listJobResults,
+  keeperFoldersOf,
+  type SnapshotResult
+} from "../src/modules/library/gallery/duplicate-job-scan.js";
+import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
+
+const EXTERNAL = JSON.stringify({ mode: "external" });
+
+interface AssetOpts {
+  library?: string;
+  size?: number;
+  hash?: string | null;
+  kind?: "photo" | "video";
+}
+
+function asset(id: string, relativePath: string, opts: AssetOpts = {}): string {
+  const { library = "GAL", size = 1000, hash = `h-${id}`, kind = "photo" } = opts;
+  db.prepare(`
+    INSERT INTO library_items (id, library_id, type, folder_path, status, discovered_at)
+    VALUES (?, ?, 'gallery', ?, 'ready', '2024-01-01T00:00:00.000Z')
+  `).run(id, library, relativePath);
+  db.prepare(`
+    INSERT INTO gallery_details (item_id, kind, relative_path, size, content_hash, content_hash_at, modified_at)
+    VALUES (?, ?, ?, ?, ?, 'm1', 'm1')
+  `).run(id, kind, relativePath, size, hash);
+  return id;
+}
+
+// A test that scans twice wants two jobs, and only one may be active at a time —
+// so retire whatever the last call left behind rather than tripping the lock.
+const scan = (libraries = ["GAL"]) => {
+  const open = activeJob();
+  if (open) completeJob(open.id, "u1", true);
+  const created = createJob({ ownerUserId: "u1", libraryIds: libraries });
+  if (!created.ok) throw new Error(`job refused: ${created.refused}`);
+  const done = runJobScan(created.job.id, "u1");
+  if (!done.ok) throw new Error(`scan refused: ${done.refused}`);
+  return { jobId: created.job.id, summary: done.summary!, results: listJobResults(created.job.id) };
+};
+
+const byType = (results: SnapshotResult[], type: SnapshotResult["type"]) =>
+  results.filter((result) => result.type === type);
+
+const doomedFolder = (result: SnapshotResult) =>
+  result.folders.find((folder) => folder.role === "delete");
+
+beforeEach(() => {
+  resetDb();
+  makeUser("u1", "admin");
+  makeLibrary("GAL", { createdBy: "u1", type: "gallery" });
+  makeLibrary("GAL2", { createdBy: "u1", type: "gallery" });
+  grant("group", EVERYONE_GROUP_ID, "GAL", "member");
+  grant("group", EVERYONE_GROUP_ID, "GAL2", "member");
+});
+
+// ── The defect this whole redesign exists to fix ────────────────────────────
+
+describe("a folder whose copies are scattered", () => {
+  // Exactly the shape found in the dev library: "test" holds three files whose
+  // counterparts sit one in each of three other folders. No single folder covers it.
+  beforeEach(() => {
+    asset("t1", "test/one.jpg", { hash: "pic-1" });
+    asset("t2", "test/two.jpg", { hash: "pic-2" });
+    asset("t3", "test/three.jpg", { hash: "pic-3" });
+    asset("f1", "FolderOne/one.jpg", { hash: "pic-1" });
+    asset("f2", "FolderTwo/two.jpg", { hash: "pic-2" });
+    asset("f3", "FolderThree/three.jpg", { hash: "pic-3" });
+  });
+
+  it("is still found — coverage does not need one folder to hold everything", () => {
+    const { results } = scan();
+    const contained = byType(results, "contained");
+    expect(contained).toHaveLength(1);
+    expect(doomedFolder(contained[0])).toMatchObject({ folderPath: "test", itemCount: 3 });
+  });
+
+  it("names every folder the copies are really in, and never the library root", () => {
+    const { results } = scan();
+    const contained = byType(results, "contained")[0];
+    expect(keeperFoldersOf(contained)).toEqual(["FolderOne", "FolderThree", "FolderTwo"]);
+    // The bug, stated as a test: no "" folder, which is what the card printed as "."
+    // and what forced "Everything in this library" onto the tile beside it.
+    expect(keeperFoldersOf(contained)).not.toContain("");
+  });
+
+  it("says where each individual copy survives", () => {
+    const { results } = scan();
+    const contained = byType(results, "contained")[0];
+    const doomed = contained.members.filter((member) => member.role === "delete");
+    expect(doomed.map((member) => `${member.path} -> ${member.keeperPath}`).sort()).toEqual([
+      "test/one.jpg -> FolderOne/one.jpg",
+      "test/three.jpg -> FolderThree/three.jpg",
+      "test/two.jpg -> FolderTwo/two.jpg"
+    ]);
+  });
+});
+
+describe("a copy genuinely loose at the top level", () => {
+  it("is still named as the top level, because that is where it really is", () => {
+    asset("t1", "test/one.jpg", { hash: "pic-1" });
+    asset("t2", "test/two.jpg", { hash: "pic-2" });
+    asset("r1", "one.jpg", { hash: "pic-1" });
+    asset("r2", "two.jpg", { hash: "pic-2" });
+
+    const contained = byType(scan().results, "contained")[0];
+    // "" here is the honest answer — the counterparts are in no folder at all — and
+    // it is one entry in a list, not a stand-in for "somewhere in this library".
+    expect(keeperFoldersOf(contained)).toEqual([""]);
+  });
+
+  it("mixes loose copies and foldered ones in one list", () => {
+    asset("t1", "test/one.jpg", { hash: "pic-1" });
+    asset("t2", "test/two.jpg", { hash: "pic-2" });
+    asset("r1", "one.jpg", { hash: "pic-1" });
+    asset("f2", "Album/two.jpg", { hash: "pic-2" });
+
+    const contained = byType(scan().results, "contained")[0];
+    expect(keeperFoldersOf(contained)).toEqual(["", "Album"]);
+  });
+});
+
+// ── Coverage is per file, and refuses when a file has no counterpart ─────────
+
+describe("coverage", () => {
+  it("is refused when even one photo has no copy elsewhere", () => {
+    asset("t1", "test/one.jpg", { hash: "pic-1" });
+    asset("t2", "test/two.jpg", { hash: "pic-2" });
+    asset("f1", "Album/one.jpg", { hash: "pic-1" });
+    // pic-2 exists nowhere else.
+    expect(byType(scan().results, "contained")).toHaveLength(0);
+  });
+
+  it("respects multiplicity — two copies here need two copies there", () => {
+    asset("t1", "test/one.jpg", { hash: "pic-1" });
+    asset("t2", "test/also-one.jpg", { hash: "pic-1" });
+    asset("f1", "Album/one.jpg", { hash: "pic-1" });
+    expect(byType(scan().results, "contained")).toHaveLength(0);
+
+    asset("f2", "Album/one-again.jpg", { hash: "pic-1" });
+    expect(byType(scan().results, "contained")).toHaveLength(1);
+  });
+
+  it("does not count a folder's own files as copies of itself", () => {
+    asset("t1", "test/one.jpg", { hash: "pic-1" });
+    asset("t2", "test/nested/one.jpg", { hash: "pic-1" });
+    expect(byType(scan().results, "contained")).toHaveLength(0);
+  });
+
+  // The commonest real mess: a folder copied INSIDE itself. The parent's own files
+  // cover the child's, and no equal-contents test can ever see it.
+  it("catches a folder copied into itself", () => {
+    asset("a1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("a2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("b1", "Trip/Trip/one.jpg", { hash: "pic-1" });
+    asset("b2", "Trip/Trip/two.jpg", { hash: "pic-2" });
+
+    const contained = byType(scan().results, "contained")[0];
+    expect(doomedFolder(contained)?.folderPath).toBe("Trip/Trip");
+    expect(keeperFoldersOf(contained)).toEqual(["Trip"]);
+  });
+});
+
+// ── Identical folders ───────────────────────────────────────────────────────
+
+describe("identical folders", () => {
+  it("keeps one and offers the rest, with every file pointing at its counterpart", () => {
+    asset("a1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("a2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("b1", "Backups/Trip/one.jpg", { hash: "pic-1" });
+    asset("b2", "Backups/Trip/two.jpg", { hash: "pic-2" });
+
+    const results = scan().results;
+    const sets = byType(results, "folder_set");
+    expect(sets).toHaveLength(1);
+
+    const kept = sets[0].folders.find((folder) => folder.role === "keep");
+    const going = sets[0].folders.find((folder) => folder.role === "delete");
+    // "Backups/…" is named like a copy, so the original is the one kept.
+    expect(kept?.folderPath).toBe("Trip");
+    expect(going?.folderPath).toBe("Backups/Trip");
+
+    const doomed = sets[0].members.filter((member) => member.role === "delete");
+    expect(doomed.map((member) => `${member.path} -> ${member.keeperPath}`).sort()).toEqual([
+      "Backups/Trip/one.jpg -> Trip/one.jpg",
+      "Backups/Trip/two.jpg -> Trip/two.jpg"
+    ]);
+  });
+
+  it("does not also report the same folders as stored elsewhere", () => {
+    asset("a1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("a2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("b1", "Copy/one.jpg", { hash: "pic-1" });
+    asset("b2", "Copy/two.jpg", { hash: "pic-2" });
+
+    const results = scan().results;
+    expect(byType(results, "folder_set")).toHaveLength(1);
+    expect(byType(results, "contained")).toHaveLength(0);
+  });
+});
+
+// ── Photo sets ──────────────────────────────────────────────────────────────
+
+describe("photo sets", () => {
+  it("group byte-identical copies and name the survivor", () => {
+    asset("a1", "Album/one.jpg", { hash: "same" });
+    asset("a2", "Downloads/one.jpg", { hash: "same" });
+
+    const sets = byType(scan().results, "photo_set");
+    expect(sets).toHaveLength(1);
+    const keep = sets[0].members.find((member) => member.role === "keep");
+    const going = sets[0].members.find((member) => member.role === "delete");
+    expect(keep?.path).toBe("Album/one.jpg");
+    expect(going?.keeperPath).toBe("Album/one.jpg");
+  });
+
+  it("are left out when the job asked for folders only", () => {
+    asset("a1", "Album/one.jpg", { hash: "same" });
+    asset("a2", "Downloads/one.jpg", { hash: "same" });
+
+    const created = createJob({ ownerUserId: "u1", libraryIds: ["GAL"], duplicateType: "folders" });
+    if (!created.ok) throw new Error("expected a job");
+    runJobScan(created.job.id, "u1");
+    expect(byType(listJobResults(created.job.id), "photo_set")).toHaveLength(0);
+  });
+
+  it("honour the media type the wizard chose", () => {
+    asset("p1", "Album/one.jpg", { hash: "pic" });
+    asset("p2", "Copies/one.jpg", { hash: "pic" });
+    asset("v1", "Album/clip.mp4", { hash: "vid", kind: "video" });
+    asset("v2", "Copies/clip.mp4", { hash: "vid", kind: "video" });
+
+    const created = createJob({ ownerUserId: "u1", libraryIds: ["GAL"], duplicateType: "files", mediaType: "video" });
+    if (!created.ok) throw new Error("expected a job");
+    runJobScan(created.job.id, "u1");
+    const sets = byType(listJobResults(created.job.id), "photo_set");
+    expect(sets).toHaveLength(1);
+    expect(sets[0].members.every((member) => member.path.endsWith(".mp4"))).toBe(true);
+  });
+});
+
+// ── Scope and protection ────────────────────────────────────────────────────
+
+describe("scope", () => {
+  it("never looks at a library the job didn't include", () => {
+    asset("a1", "Album/one.jpg", { hash: "same" });
+    asset("b1", "Elsewhere/one.jpg", { hash: "same", library: "GAL2" });
+
+    // Scoped to GAL alone there is only one copy, so there is nothing to offer —
+    // and crucially nothing that would propose deleting the last copy in scope.
+    expect(scan(["GAL"]).results).toHaveLength(0);
+    expect(byType(scan(["GAL", "GAL2"]).results, "photo_set")).toHaveLength(1);
+  });
+
+  it("shows a copy in a read-only library but never offers it for deletion", () => {
+    makeLibrary("EXT", { createdBy: "u1", type: "gallery", policyJson: EXTERNAL });
+    grant("group", EVERYONE_GROUP_ID, "EXT", "member");
+    asset("a1", "Album/one.jpg", { hash: "same" });
+    asset("e1", "Sync/one.jpg", { hash: "same", library: "EXT" });
+
+    const sets = byType(scan(["GAL", "EXT"]).results, "photo_set");
+    expect(sets).toHaveLength(1);
+    // The external copy wins the keeper contest — it is the only outcome available.
+    const keep = sets[0].members.find((member) => member.role === "keep");
+    expect(keep?.libraryId).toBe("EXT");
+    const going = sets[0].members.find((member) => member.role === "delete");
+    expect(going?.libraryId).toBe("GAL");
+    expect(sets[0].members.some((member) => member.role === "delete" && member.libraryId === "EXT")).toBe(false);
+  });
+
+  it("never offers to clear out a folder in a read-only library", () => {
+    makeLibrary("EXT", { createdBy: "u1", type: "gallery", policyJson: EXTERNAL });
+    grant("group", EVERYONE_GROUP_ID, "EXT", "member");
+    asset("e1", "Sync/one.jpg", { hash: "pic-1", library: "EXT" });
+    asset("e2", "Sync/two.jpg", { hash: "pic-2", library: "EXT" });
+    asset("a1", "Album/one.jpg", { hash: "pic-1" });
+    asset("a2", "Album/two.jpg", { hash: "pic-2" });
+
+    const results = scan(["GAL", "EXT"]).results;
+    for (const result of byType(results, "contained")) {
+      expect(doomedFolder(result)?.libraryId).not.toBe("EXT");
+    }
+    for (const result of byType(results, "folder_set")) {
+      const going = result.folders.filter((folder) => folder.role === "delete");
+      expect(going.every((folder) => folder.libraryId !== "EXT")).toBe(true);
+    }
+  });
+});
+
+describe("the job's own folder instructions", () => {
+  it("decide which side is kept, without touching the global ones", () => {
+    asset("a1", "Trip/one.jpg", { hash: "pic-1" });
+    asset("a2", "Trip/two.jpg", { hash: "pic-2" });
+    asset("b1", "Second/one.jpg", { hash: "pic-1" });
+    asset("b2", "Second/two.jpg", { hash: "pic-2" });
+
+    const created = createJob({ ownerUserId: "u1", libraryIds: ["GAL"] });
+    if (!created.ok) throw new Error("expected a job");
+    setJobFolderPreferences(created.job.id, "u1", [
+      { libraryId: "GAL", folderPath: "Second", mode: "keep" }
+    ]);
+    runJobScan(created.job.id, "u1");
+
+    const set = byType(listJobResults(created.job.id), "folder_set")[0];
+    expect(set.folders.find((folder) => folder.role === "keep")?.folderPath).toBe("Second");
+  });
+
+  it("keep a folder from being offered for removal at all", () => {
+    asset("t1", "test/one.jpg", { hash: "pic-1" });
+    asset("t2", "test/two.jpg", { hash: "pic-2" });
+    asset("f1", "One/one.jpg", { hash: "pic-1" });
+    asset("f2", "Two/two.jpg", { hash: "pic-2" });
+
+    const created = createJob({ ownerUserId: "u1", libraryIds: ["GAL"] });
+    if (!created.ok) throw new Error("expected a job");
+    setJobFolderPreferences(created.job.id, "u1", [
+      { libraryId: "GAL", folderPath: "test", mode: "keep" }
+    ]);
+    runJobScan(created.job.id, "u1");
+    expect(byType(listJobResults(created.job.id), "contained")).toHaveLength(0);
+  });
+});
+
+// ── The snapshot is the job's own ───────────────────────────────────────────
+
+describe("the snapshot", () => {
+  it("survives a rebuild of the global caches", () => {
+    asset("t1", "test/one.jpg", { hash: "pic-1" });
+    asset("t2", "test/two.jpg", { hash: "pic-2" });
+    asset("f1", "One/one.jpg", { hash: "pic-1" });
+    asset("f2", "Two/two.jpg", { hash: "pic-2" });
+
+    const { jobId, results } = scan();
+    // One contained folder, plus the two photo sets the same copies also form.
+    expect(byType(results, "contained")).toHaveLength(1);
+    const before = results.length;
+
+    // Everything the older pages do on a Rebuild — the caches are emptied and
+    // rewritten under new ids. A job that referenced them would be gutted here.
+    db.prepare("DELETE FROM gallery_duplicate_contained_folders").run();
+    db.prepare("DELETE FROM gallery_duplicate_groups").run();
+    db.prepare("DELETE FROM gallery_duplicate_folder_groups").run();
+
+    const after = listJobResults(jobId);
+    expect(after).toHaveLength(before);
+    expect(keeperFoldersOf(byType(after, "contained")[0])).toEqual(["One", "Two"]);
+  });
+
+  it("is replaced, not added to, when the job is scanned again", () => {
+    asset("a1", "Album/one.jpg", { hash: "same" });
+    asset("a2", "Copies/one.jpg", { hash: "same" });
+
+    const created = createJob({ ownerUserId: "u1", libraryIds: ["GAL"] });
+    if (!created.ok) throw new Error("expected a job");
+    runJobScan(created.job.id, "u1");
+    const first = listJobResults(created.job.id).length;
+    runJobScan(created.job.id, "u1");
+    expect(listJobResults(created.job.id)).toHaveLength(first);
+  });
+
+  it("leaves the job in review with its totals counted", () => {
+    asset("a1", "Album/one.jpg", { hash: "same", size: 500 });
+    asset("a2", "Copies/one.jpg", { hash: "same", size: 500 });
+
+    const { jobId } = scan();
+    const job = getJob(jobId)!;
+    expect(job.status).toBe("review");
+    expect(job.scanCompletedAt).not.toBeNull();
+    expect(job.totals.results).toBe(1);
+    expect(job.totals.remaining).toBe(1);
+    expect(job.totals.reclaimableBytes).toBe(500);
+  });
+
+  it("refuses to scan someone else's job", () => {
+    makeUser("u2", "admin");
+    const created = createJob({ ownerUserId: "u1", libraryIds: ["GAL"] });
+    if (!created.ok) throw new Error("expected a job");
+    expect(runJobScan(created.job.id, "u2")).toMatchObject({ ok: false, refused: "not_owner" });
+  });
+});

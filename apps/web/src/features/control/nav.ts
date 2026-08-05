@@ -106,6 +106,7 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     // views of one scan — and worse to look at: a second row of tabs under the first
     // is a lot of chrome to explain a relationship the page titles already imply.
     tabs: [
+      { section: "duplicateCleanup", label: "Duplicate cleanup", context: "Gallery" },
       { section: "duplicatePhotos", label: "Duplicate photos", context: "Gallery" },
       { section: "duplicateFolders", label: "Duplicate folders", context: "Gallery" },
       { section: "missingPhotos", label: "Missing photos", context: "Gallery" }

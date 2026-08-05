@@ -51,6 +51,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   missingPhotos: "gallery missing gone offline broken files photos videos",
   // Short labels now that they are views of Duplicates, so the words someone would
   // actually type have to be here — "duplicate photos" is no longer in the title.
+  duplicateCleanup: "duplicate cleanup job wizard clean up duplicates saved job resume come back later owner one at a time keep clean folder rules review delete copies reclaim space scan libraries",
   duplicatePhotos: "duplicate photos gallery duplicates copies identical phash near-identical free space imported twice scan",
   duplicateFolders: "duplicate folders gallery same folder twice identical folder keep photos in preferred folder already stored elsewhere contained copied into itself overlapping shared some photos partial copy",
 

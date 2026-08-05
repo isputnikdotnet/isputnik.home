@@ -1,6 +1,6 @@
 import {
   BookOpen, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, LibraryBig,
-  Mail, Rocket, Settings, ShieldCheck, UserRound, Wifi, type LucideIcon
+  Mail, Rocket, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
@@ -126,6 +126,14 @@ const HELP_SECTIONS: HelpSection[] = [
         title: "The control panel",
         description: "A tour of every section: status, backups, security, labels, logs, scheduled jobs, and accounts.",
         href: guide("control-panel.md"),
+        external: false,
+        adminOnly: true
+      },
+      {
+        icon: Trash2,
+        title: "Duplicate cleanup",
+        description: "Clearing out copied photos and folders, a saved job at a time — and what stops a delete going wrong.",
+        href: guide("duplicate-cleanup.md"),
         external: false,
         adminOnly: true
       },

@@ -13,7 +13,7 @@ export type ControlSection =
   | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // Maintenance
   | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
-  | "duplicatePhotos" | "duplicateFolders"
+  | "duplicatePhotos" | "duplicateFolders" | "duplicateCleanup"
   // Settings
   | "appearance" | "email" | "readerAccess" | "about";
 
@@ -49,6 +49,7 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
 
   // Gallery utilities: tools that work on a library rather than configuring one.
   // One flat row of them, so one flat level of addresses.
+  duplicateCleanup: "/control/utilities/duplicate-cleanup",
   duplicatePhotos: "/control/utilities/duplicate-photos",
   duplicateFolders: "/control/utilities/duplicate-folders",
   missingPhotos: "/control/utilities/missing-photos",

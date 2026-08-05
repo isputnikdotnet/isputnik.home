@@ -502,6 +502,19 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.23.0",
+          label: "Duplicate cleanup, as a job you can put down and come back to",
+          changes: [
+            "A new Utilities page: Duplicate cleanup. The same detection as the two pages beside it, held as one saved job instead of a list you happen to be looking at. Choose which libraries to compare, scan once, and work through what it found whenever you like — closing the browser loses nothing, and next week it opens on the same list with the same decisions already made.",
+            "One cleanup runs at a time, and it belongs to whoever started it. Another administrator sees it and how far it has got, but cannot change it underneath them; any administrator can finish it, cancel it, or take it over when the person who started it isn't coming back.",
+            "A folder already stored elsewhere now names EVERY folder its copies actually sit in — \"also sits in 'Holiday 2019', 'Card import' and 'Phone backup'\" — rather than one folder that covers them all. When copies are scattered a photo at a time, no single folder covers them except the library's own top folder, which is how this card came to read \"Everything in this library\" with a note about a place called \".\". It was re-worded four times over four releases; the answer is a list of folders, and now the cleanup stores one.",
+            "Nothing is taken on trust when you come back. The moment you confirm a deletion every photo is checked against the library as it stands — still there, same size, same contents, same modification date — and so is the copy it was promised to survive in. If anything has moved on, nothing at all is removed and the card says what changed. That covers a photo deleted somewhere else, a file re-saved by an editor, a library turned read-only since the scan, and the Recycle Bin emptied under a promise.",
+            "Skipping and dismissing are told apart at last. Skip is a note on this cleanup and the next one offers the folder again; \"Not the same\" is a standing decision no future scan overrules. They used to be one button, so every \"I'll deal with that later\" quietly became \"never show me this again\".",
+            "Read-only libraries — external, or with deleting turned off — are compared and never cleaned. A copy kept in one still counts as somewhere the photo survives, so the copies elsewhere can go, and no folder rule can turn that around.",
+            "The Duplicate photos and Duplicate folders pages are unchanged and still there. Rebuilding on either of them no longer disturbs a cleanup in progress: a job keeps its own copy of what the scan found."
+          ]
+        },
+        {
           version: "2.22.0",
           label: "One folder page, and folders that share only some photos",
           changes: [

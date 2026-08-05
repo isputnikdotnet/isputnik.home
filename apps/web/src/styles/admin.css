@@ -1397,6 +1397,56 @@
 }
 .dup-copy.is-trash .dup-copy-where { opacity: 0.75; }
 
+/* ── The cleanup job's own card ─────────────────────────────────────
+   What is being worked on, who owns it, and how far it has got. Sits above the
+   results and stays put while they page underneath it. */
+.dup-job-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.dup-job-card-body { flex: 1 1 320px; min-width: 0; }
+.dup-job-card-body h2 { margin: 2px 0 6px; font-size: 1.05rem; }
+.dup-job-card-body p { margin: 0 0 4px; }
+/* A warning inside the card spans it rather than squeezing beside the buttons. */
+.dup-job-card > .message-box { flex: 1 1 100%; }
+
+/* One copy of a photo set, as a row: what happens to it, where it is, whose
+   library it is in. Folder answers get tiles; single files get a list, because a
+   set of eight copies as eight tiles is a wall. */
+.dup-member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dup-member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.dup-member-row.is-keep { border-color: var(--ok, #2e7d32); }
+.dup-member-row.is-trash { border-color: var(--danger, #c62828); }
+.dup-member-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.85rem;
+}
+
 /* ── A duplicate-folder set, as a card ──────────────────────────────
    Numbered, with what the folders hold, then a strip of the pictures themselves and
    the folders side by side. The strip is the fastest way to recognise which holiday

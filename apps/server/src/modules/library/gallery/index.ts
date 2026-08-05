@@ -5,6 +5,7 @@ import { galleryAlbumRoutesPlugin } from "./album-routes.js";
 import { gallerySlideshowRoutesPlugin } from "./slideshow-routes.js";
 import { galleryMusicRoutesPlugin } from "./music-routes.js";
 import { galleryDuplicateRoutesPlugin } from "./duplicate-routes.js";
+import { galleryDuplicateJobRoutesPlugin } from "./duplicate-job-routes.js";
 import { removeBuiltinMusic } from "./music.js";
 import { startSlideshowRenderWorker } from "./slideshow-render.js";
 import { startTranscodeWorker } from "./transcode.js";
@@ -20,6 +21,7 @@ export async function galleryPlugin(app: FastifyInstance) {
   await app.register(gallerySlideshowRoutesPlugin);
   await app.register(galleryMusicRoutesPlugin);
   await app.register(galleryDuplicateRoutesPlugin);
+  await app.register(galleryDuplicateJobRoutesPlugin);
   await app.register(galleryStreamPlugin);
 
   // Slideshows use only user-uploaded music now; purge any built-in beds a prior

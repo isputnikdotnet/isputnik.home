@@ -303,9 +303,14 @@ export interface FolderKeeperChoice {
   reason: string | null;
 }
 
-export function pickFolderKeeper(prints: FolderFingerprint[]): FolderKeeperChoice | null {
+export function pickFolderKeeper(
+  prints: FolderFingerprint[],
+  /** A cleanup job's own instructions, which diverge from the global set once the
+   *  job is created. Omitted everywhere else, which reads the global ones. */
+  instructions?: FolderPreference[]
+): FolderKeeperChoice | null {
   if (prints.length === 0) return null;
-  const preferences = folderPreferences();
+  const preferences = instructions ?? folderPreferences();
   const scored = prints.map((print) => scoreFolder(print, preferences)).sort((a, b) => {
     for (const criterion of FOLDER_CRITERIA) {
       const diff = criterion.value(b) - criterion.value(a);
