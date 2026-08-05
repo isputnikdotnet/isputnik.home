@@ -902,10 +902,49 @@
   margin-bottom: 14px;
 }
 
+.dup-photo-section-head {
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.dup-photo-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  flex: 1 1 420px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.dup-photo-head-actions .select-menu-trigger.secondary-button,
+.dup-photo-head-actions .secondary-button.compact-button {
+  min-height: 46px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--shadow) 18%, transparent);
+}
+
+.dup-library-menu {
+  width: min(100%, 220px);
+}
+
+.dup-scan-button,
+.dup-delete-all-button {
+  padding-inline: 18px;
+  white-space: nowrap;
+}
+
+.dup-toolbar > .secondary-button.compact,
+.dup-toolbar > .danger-button.compact,
+.dup-toolbar .select-menu-trigger.secondary-button {
+  font-size: 0.78rem;
+}
+
 .dup-toolbar .audiobook-library-tab {
   min-height: 40px;
   padding: 0 14px;
-  font-size: 0.88rem;
+  font-size: 0.8rem;
 }
 
 .dup-toolbar-controls {
@@ -959,8 +998,38 @@
   min-height: 32px;
   padding: 0 10px;
   gap: 6px;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   white-space: nowrap;
+}
+
+.dup-delete-action.secondary-button.danger:not(:disabled) {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 58%, var(--line));
+  background: color-mix(in srgb, var(--rose) 7%, transparent);
+}
+
+.dup-delete-action.secondary-button.danger:hover:not(:disabled),
+.dup-delete-action.secondary-button.danger:focus-visible {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 74%, var(--line));
+  background: color-mix(in srgb, var(--rose) 13%, transparent);
+}
+
+.dup-delete-action svg {
+  color: inherit;
+}
+
+.dup-delete-icon.icon-button.danger:not(:disabled) {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 58%, var(--line));
+  background: color-mix(in srgb, var(--rose) 7%, var(--icon-control-bg));
+}
+
+.dup-delete-icon.icon-button.danger:hover:not(:disabled),
+.dup-delete-icon.icon-button.danger:focus-visible {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 74%, var(--line));
+  background: color-mix(in srgb, var(--rose) 13%, var(--icon-control-bg));
 }
 
 .dup-scope {
@@ -970,8 +1039,124 @@
 
 .dup-toolbar-controls .dup-per-page .select-menu-trigger {
   min-height: 40px;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   white-space: nowrap;
+}
+
+.dup-photo-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  margin: 24px 0 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 72%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 18%, transparent);
+}
+
+.dup-photo-search {
+  width: 100%;
+  max-width: none;
+  min-height: 46px;
+  background: color-mix(in srgb, var(--field) 90%, transparent);
+}
+
+.dup-photo-toolbar > .secondary-button.compact-button {
+  min-height: 46px;
+  padding-inline: 16px;
+}
+
+.dup-photo-toolbar .dup-toolbar-controls {
+  gap: 18px;
+  margin-left: 0;
+}
+
+.dup-photo-toolbar .select-menu-trigger.secondary-button {
+  min-height: 46px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding-inline: 16px 12px;
+}
+
+.dup-photo-toolbar .select-menu-trigger > span {
+  overflow: hidden;
+  min-width: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dup-photo-sort-menu {
+  width: 190px;
+}
+
+.dup-photo-page-menu {
+  width: 230px;
+}
+
+.dup-photo-sort-menu .select-menu-trigger::before,
+.dup-photo-page-menu .select-menu-trigger::before {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dup-photo-sort-menu .select-menu-trigger::before {
+  content: "Sort by";
+}
+
+.dup-photo-page-menu .select-menu-trigger::before {
+  content: "Photos per page";
+}
+
+@media (max-width: 1120px) {
+  .dup-photo-head-actions {
+    justify-content: flex-start;
+    flex-basis: 100%;
+  }
+
+  .dup-photo-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dup-photo-toolbar .dup-toolbar-controls {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .dup-photo-head-actions,
+  .dup-photo-toolbar .dup-toolbar-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .dup-photo-head-actions .select-menu,
+  .dup-photo-head-actions .secondary-button,
+  .dup-photo-toolbar .select-menu,
+  .dup-photo-toolbar > .secondary-button {
+    width: 100%;
+  }
+
+  .dup-group-head {
+    align-items: stretch;
+  }
+
+  .dup-group-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .dup-group-actions .secondary-button {
+    flex: 1 1 150px;
+  }
+
+  .dup-copies .dup-copy {
+    flex-basis: 176px;
+  }
 }
 
 /* Count on the left, page controls on the right — the same split the list header
@@ -1026,23 +1211,48 @@
 .trash-status { margin: 0 0 10px; font-size: 0.84rem; }
 .dup-tier-heading { margin: 16px 0 4px; font-size: 0.95rem; }
 .dup-tier-note { margin: 0 0 8px; font-size: 0.8rem; }
-.dup-groups { display: flex; flex-direction: column; gap: 10px; }
+.dup-groups { display: flex; flex-direction: column; gap: 16px; }
 
 .dup-group {
   border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 9px 11px 11px;
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 18%, transparent);
 }
 .dup-group-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 9px;
+  gap: 12px;
+  margin-bottom: 0;
+  padding: 16px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
 }
-.dup-group-summary { font-size: 0.85rem; min-width: 0; }
-.dup-group-actions { display: flex; align-items: center; gap: 6px; }
+.dup-group-summary {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+.dup-group-title-line {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin: 0;
+  flex-wrap: wrap;
+}
+.dup-group-title-line strong {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+.dup-group-reason {
+  margin: 0;
+  font-size: 0.82rem;
+}
+.dup-group-actions { display: flex; align-items: center; gap: 10px; }
 
 /* One tile per copy. Clicking a tile makes that copy the one that survives, so the
    whole tile is the button — hence the shared text Button carrying .dup-copy, whose
@@ -1050,26 +1260,33 @@
    Tiles are a FIXED width, not `minmax(…, 1fr)`: a set of two copies would otherwise
    stretch each thumbnail across half the page. */
 .dup-copies {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 150px);
-  gap: 8px;
-  /* Names wrap to as many lines as they need, so tiles in a row differ in height —
-     align them to the top rather than stretching the short ones. */
+  display: flex;
+  gap: 18px;
   align-items: start;
+  overflow-x: auto;
+  padding: 14px 18px 18px;
+  scrollbar-color: color-mix(in srgb, var(--muted) 56%, transparent) transparent;
+  scrollbar-width: thin;
 }
 /* The tile is a plain box; the pick button inside it carries the click target, so
    the badge and info control can sit on top without nesting buttons. */
 .dup-copies .dup-copy {
   position: relative;
-  padding: 6px;
+  flex: 0 0 190px;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 7px;
   min-width: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
 }
-.dup-copies .dup-copy:hover { border-color: var(--accent, #c8a24a); }
+.dup-copies .dup-copy:hover { border-color: color-mix(in srgb, var(--success) 58%, var(--line)); }
 .dup-copies .dup-copy.is-keep {
-  border-color: var(--accent, #c8a24a);
-  box-shadow: inset 0 0 0 1px var(--accent, #c8a24a);
+  border-color: color-mix(in srgb, var(--success) 64%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--success) 10%, transparent), transparent 68%),
+    color-mix(in srgb, var(--surface-raised) 68%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success) 54%, var(--line));
 }
 /* Marked for deletion: dimmed so a set reads at a glance, without hiding the
    picture you're deciding about. */
@@ -1080,7 +1297,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 4px;
+  gap: 0;
   width: 100%;
   padding: 0;
   background: none;
@@ -1089,6 +1306,14 @@
   color: inherit;
   min-width: 0;
   height: auto;
+}
+
+.dup-copies .dup-copy-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 0 0 8px;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* Sits over the thumbnail's top-left corner, as on the mockup. */
@@ -1106,25 +1331,32 @@
   background: var(--rose);
   pointer-events: none;
 }
-.dup-copy.is-keep .dup-copy-badge { background: var(--mint); color: var(--canvas); }
+.dup-copy.is-keep .dup-copy-badge { background: var(--success); color: #ffffff; }
 
 .dup-copies .dup-copy-info {
   position: absolute;
-  top: 9px;
-  right: 9px;
-  min-width: 24px;
-  min-height: 24px;
+  top: 8px;
+  right: 8px;
+  min-width: 26px;
+  min-height: 26px;
   padding: 0;
   border-radius: 50%;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.55);
+  color: color-mix(in srgb, var(--ink) 80%, var(--muted));
+  background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--shadow) 30%, transparent);
 }
-.dup-copies .dup-copy-info:hover { background: rgba(0, 0, 0, 0.75); }
+.dup-copies .dup-copy-info:hover {
+  color: var(--ink);
+  background: var(--surface-raised);
+}
 
 /* Shown in full, however many lines that takes — two copies often differ only in
    the tail of a long name, so clipping it hides the thing you're comparing. */
 .dup-copy-name {
-  font-size: 0.72rem;
+  padding: 0 10px;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 650;
   line-height: 1.3;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -1135,11 +1367,20 @@
 .dup-copy-where {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 7px;
   min-width: 0;
+  padding: 2px 10px 10px;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   line-height: 1.3;
+}
+.dup-copy-context {
+  overflow: hidden;
+  padding: 2px 10px 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dup-copy-where svg { flex: 0 0 auto; opacity: 0.8; }
 .dup-copy-where > span {
@@ -1168,6 +1409,10 @@
   gap: 8px;
   margin-bottom: 12px;
 }
+.dup-set-summary {
+  flex: 1 1 320px;
+  min-width: 0;
+}
 .dup-set-title { margin: 0; font-size: 1rem; }
 .dup-set-meta {
   display: flex;
@@ -1179,7 +1424,13 @@
 }
 .dup-set-meta span { display: inline-flex; align-items: center; gap: 5px; }
 .dup-set-meta svg { opacity: 0.8; }
-.dup-set-reason { font-style: italic; }
+.dup-set-explain {
+  max-width: 760px;
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  font-style: italic;
+  line-height: 1.35;
+}
 
 /* Strip left, folders right — they wrap under each other when the panel is narrow. */
 .dup-set-body {
@@ -1201,8 +1452,7 @@
   border-radius: 7px;
   display: block;
 }
-.dup-set-strip-empty,
-.dup-set-more {
+.dup-set-strip-empty {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1308,7 +1558,7 @@
   width: auto;
   min-height: 26px;
   padding: 3px 10px;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
 }
 .dup-set-keep-action { color: var(--mint); border-color: var(--mint); }
 .dup-set-keep-action:hover:not(:disabled) {
@@ -1319,6 +1569,338 @@
 
 /* Search takes what the two menus leave, as on any list page. */
 .dup-folder-search { flex: 1 1 220px; min-width: 0; }
+
+/* Mockup-aligned folder duplicate pages: spacious status metrics, one search-led
+   toolbar, then broad set cards with a green keeper and red delete candidate. */
+.dup-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 0;
+  margin-bottom: 22px;
+  line-height: 1.4;
+}
+
+.dup-status-row > * {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.dup-status-row > * + * {
+  position: relative;
+  margin-left: 16px;
+  padding-left: 16px;
+}
+
+.dup-status-row > * + *::before {
+  position: absolute;
+  top: 0.18em;
+  bottom: 0.18em;
+  left: 0;
+  width: 1px;
+  content: "";
+  background: var(--line);
+}
+
+.dup-folder-toolbar {
+  gap: 14px;
+  margin: 20px 0 24px;
+}
+
+.dup-folder-toolbar > .secondary-button.compact,
+.dup-folder-toolbar .search-field,
+.dup-folder-toolbar .select-menu-trigger.secondary-button,
+.dup-folder-toolbar .icon-button {
+  min-height: 46px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--shadow) 22%, transparent);
+}
+
+.dup-folder-toolbar > .secondary-button.compact {
+  padding-inline: 18px;
+  font-size: 0.78rem;
+}
+
+.dup-folder-toolbar .search-field {
+  flex: 1 1 300px;
+  width: auto;
+  max-width: none;
+}
+
+.dup-folder-toolbar .dup-toolbar-controls {
+  gap: 12px;
+}
+
+.dup-folder-toolbar .select-menu-trigger.secondary-button {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding-inline: 16px 12px;
+}
+
+.dup-folder-toolbar .select-menu-trigger > span {
+  overflow: hidden;
+  min-width: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dup-folder-sort-menu {
+  width: 220px;
+}
+
+.dup-folder-page-menu {
+  width: 170px;
+}
+
+.dup-folder-sort-menu .select-menu-trigger::before,
+.dup-folder-page-menu .select-menu-trigger::before {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.dup-folder-sort-menu .select-menu-trigger::before {
+  content: "Sort by:";
+}
+
+.dup-folder-page-menu .select-menu-trigger::before {
+  content: "Per page:";
+}
+
+.dup-sets {
+  gap: 18px;
+}
+
+.dup-set {
+  padding: 22px 24px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--shadow) 24%, transparent);
+}
+
+.dup-set-head {
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.dup-set-title {
+  font-size: 1.08rem;
+  line-height: 1.2;
+}
+
+.dup-set-meta {
+  gap: 6px 24px;
+  margin-top: 9px;
+  font-size: 0.86rem;
+}
+
+.dup-set-body {
+  display: grid;
+  grid-template-columns: minmax(270px, 0.8fr) minmax(520px, 1.35fr);
+  gap: 28px;
+  align-items: center;
+}
+
+.dup-set-strip {
+  gap: 8px;
+  overflow: hidden;
+}
+
+.dup-set-strip img,
+.dup-set-strip-empty {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 76px;
+  border-radius: 7px;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--shadow) 22%, transparent);
+}
+
+.dup-set-folders {
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: nowrap;
+}
+
+.dup-set-folder-wrap {
+  gap: 14px;
+}
+
+.dup-set-arrow {
+  width: 24px;
+  height: 24px;
+  color: color-mix(in srgb, var(--muted) 82%, transparent);
+}
+
+.dup-set-folder {
+  width: 240px;
+  min-height: 168px;
+  gap: 5px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--shadow) 18%, transparent);
+}
+
+.dup-set-folder:not(:has(.dup-set-action)) {
+  min-height: 136px;
+}
+
+.dup-set-folder.is-keep {
+  border-color: color-mix(in srgb, var(--success) 64%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--success) 13%, transparent), transparent 72%),
+    color-mix(in srgb, var(--surface-raised) 92%, transparent);
+}
+
+.dup-set-folder.is-trash {
+  border-color: color-mix(in srgb, var(--rose) 64%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--rose) 10%, transparent), transparent 72%),
+    color-mix(in srgb, var(--surface-raised) 92%, transparent);
+}
+
+.dup-set-folder.is-keep .dup-set-badge {
+  color: #ffffff;
+  background: var(--success);
+}
+
+.dup-set-folder.is-trash .dup-set-badge {
+  color: #ffffff;
+  background: var(--rose);
+}
+
+.dup-set-folder-top {
+  min-height: 22px;
+  margin-bottom: 3px;
+}
+
+.dup-set-badge {
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 0.58rem;
+}
+
+.dup-set-open {
+  opacity: 0.68;
+}
+
+.dup-set-open:hover,
+.dup-set-open:focus-visible {
+  opacity: 1;
+}
+
+.dup-set-name-row {
+  gap: 9px;
+  margin-top: 2px;
+}
+
+.dup-set-name-row svg {
+  width: 25px;
+  height: 25px;
+  color: #7c3aed;
+}
+
+.dup-set-folder-name {
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.dup-set-path {
+  margin-top: -2px;
+  font-weight: 650;
+}
+
+.dup-set-path,
+.dup-set-line {
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.dup-set-action {
+  align-self: stretch;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 0.76rem;
+}
+
+.dup-set-keep-action.secondary-button {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 54%, var(--line));
+  background: color-mix(in srgb, var(--success) 5%, transparent);
+}
+
+.dup-set-keep-action.secondary-button:hover:not(:disabled),
+.dup-set-keep-action.secondary-button:focus-visible {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 72%, var(--line));
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+@media (max-width: 1200px) {
+  .dup-set-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dup-set-folders {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .dup-folder-toolbar {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .dup-folder-toolbar .search-field,
+  .dup-folder-toolbar .dup-toolbar-controls,
+  .dup-folder-toolbar .select-menu {
+    width: 100%;
+  }
+
+  .dup-folder-toolbar .dup-toolbar-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto;
+    margin-left: 0;
+  }
+
+  .dup-folder-sort-menu,
+  .dup-folder-page-menu {
+    width: 100%;
+  }
+
+  .dup-set {
+    padding: 18px;
+  }
+
+  .dup-set-strip {
+    flex-wrap: wrap;
+  }
+
+  .dup-set-folders {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dup-set-folder-wrap {
+    display: grid;
+    justify-items: stretch;
+  }
+
+  .dup-set-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+
+  .dup-set-folder {
+    width: 100%;
+  }
+}
 
 /* ── Folder pickers (work on / keep in) ─────────────────────────────
    Both modals list the same folders, so they share one list style. Scrolls at a
@@ -1536,7 +2118,10 @@
   border: 1px solid var(--line);
   border-radius: 10px;
 }
-.dup-view-pane.is-keep { border-color: var(--accent, #c8a24a); }
+.dup-view-pane.is-keep {
+  border-color: color-mix(in srgb, var(--success) 64%, var(--line));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success) 42%, transparent);
+}
 
 /* A fixed stage keeps both sides the same size, so a difference in the pictures
    reads as a difference in the pictures — not in how they happen to be laid out.
@@ -1575,7 +2160,7 @@
   color: #fff;
   background: var(--rose);
 }
-.dup-view-pane.is-keep .dup-view-chip { background: var(--mint); color: var(--canvas); }
+.dup-view-pane.is-keep .dup-view-chip { background: var(--success); color: #ffffff; }
 
 .dup-view-meta {
   display: flex;

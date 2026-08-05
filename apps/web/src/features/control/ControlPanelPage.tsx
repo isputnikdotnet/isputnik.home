@@ -1,10 +1,16 @@
 import { useCallback, useState } from "react";
-import { Home, Search } from "lucide-react";
+import { ChevronDown, Home, Image, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { controlHref, followRoute } from "../../router";
 import type { ControlSection } from "../../router";
-import { CONTROL_GROUPS, groupForSection, parentTabForSection, type ControlTabDef } from "./nav";
+import {
+  CONTROL_GROUPS,
+  groupForSection,
+  navChildrenFor,
+  sectionContext,
+  type ControlTabDef
+} from "./nav";
 import { ControlSearch, useControlSearchShortcut } from "./ControlSearch";
 import { UsersSection } from "./sections/UsersSection";
 import { InvitesSection } from "./sections/InvitesSection";
@@ -47,7 +53,6 @@ export function ControlPanelPage({
   useControlSearchShortcut(openSearch);
 
   const group = groupForSection(section);
-  const parentTab = parentTabForSection(section);
   // The category editor is a sub-page of Categories, not a tab of its own, so it
   // keeps the nav highlight but drops the tab row.
   const editingCategory = section === "categories" && categoryId !== undefined;
@@ -61,19 +66,8 @@ export function ControlPanelPage({
     >
       <div className="control-panel control-panel-single">
         <section className={`work-area control-work${section === "backup" ? " backup-control-work" : ""}`}>
-          {/* Up to two rows: the group's tabs, then the active tab's own views where
-              it has any. A one-tab row is no row at all — it would be a heading that
-              only ever points at the page you are already on. */}
           {!editingCategory && group.tabs.length > 1 && (
             <ControlTabs tabs={group.tabs} section={section} label={`${group.label} sections`} />
-          )}
-          {!editingCategory && parentTab?.tabs && (
-            <ControlTabs
-              tabs={parentTab.tabs}
-              section={section}
-              label={`${parentTab.label} views`}
-              className="control-subtabs"
-            />
           )}
           <ControlSectionBody section={section} categoryId={categoryId} currentUser={user} />
         </section>
@@ -131,6 +125,24 @@ function ControlSectionBody({
 
 function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSearch: () => void }) {
   const activeGroup = groupForSection(section);
+  const activeContext = sectionContext(section);
+  // Open on the branch you are standing in. Landing on a page whose group shows as a
+  // collapsed toggle — with nothing marked current anywhere — reads as having left
+  // the nav behind entirely.
+  const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
+    () => (activeContext ? new Set([activeGroup.key]) : new Set())
+  );
+  const toggleBranch = useCallback((key: string) => {
+    setExpandedBranches((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <nav className="home-control-nav" aria-label="Control panel">
@@ -147,17 +159,65 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
           const active = group.key === activeGroup.key;
           // Each group links to its first tab, which is its landing page.
           const href = controlHref(group.tabs[0].section);
+          // Derived from the tabs' own `context`, so a second Gallery tab joins the
+          // Gallery branch rather than adding a second link with the same name.
+          const nestedLinks = navChildrenFor(group);
+          const expanded = expandedBranches.has(group.key);
+          const nestedId = `control-nav-${group.key}-nested`;
           return (
-            <a
-              key={group.key}
-              className={`home-nav-link${active ? " is-active" : ""}`}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              onClick={(event) => followRoute(event, href)}
-            >
-              <Icon size={21} aria-hidden="true" />
-              <span>{group.label}</span>
-            </a>
+            <div className="control-nav-branch" key={group.key}>
+              {nestedLinks.length > 0 ? (
+                <button
+                  type="button"
+                  className={`home-nav-link control-nav-toggle${active ? " is-active" : ""}`}
+                  aria-expanded={expanded}
+                  aria-controls={nestedId}
+                  onClick={() => toggleBranch(group.key)}
+                >
+                  <Icon size={21} aria-hidden="true" />
+                  <span>{group.label}</span>
+                  <ChevronDown className="control-nav-toggle-icon" size={16} aria-hidden="true" />
+                </button>
+              ) : (
+                <a
+                  className={`home-nav-link${active ? " is-active" : ""}`}
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={(event) => followRoute(event, href)}
+                >
+                  <Icon size={21} aria-hidden="true" />
+                  <span>{group.label}</span>
+                </a>
+              )}
+              {nestedLinks.length > 0 && (
+                <div
+                  className="control-nav-nested"
+                  id={nestedId}
+                  aria-label={`${group.label} destinations`}
+                  hidden={!expanded}
+                >
+                  {nestedLinks.map((item) => {
+                    const ChildIcon = item.icon;
+                    const childHref = controlHref(item.section);
+                    // The branch you are actually in, not merely the group — with two
+                    // branches, highlighting on the group alone would light both.
+                    const childActive = active && activeContext === item.label;
+                    return (
+                      <a
+                        className={`home-nav-link control-nav-child${childActive ? " is-active" : ""}`}
+                        href={childHref}
+                        aria-current={childActive ? "page" : undefined}
+                        onClick={(event) => followRoute(event, childHref)}
+                        key={item.label}
+                      >
+                        <ChildIcon size={17} aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
@@ -179,16 +239,14 @@ function ControlPanelNav({ section, onSearch }: { section: ControlSection; onSea
 function ControlTabs({
   tabs,
   section,
-  label,
-  className
+  label
 }: {
   tabs: ControlTabDef[];
   section: ControlSection;
   label: string;
-  className?: string;
 }) {
   return (
-    <div className={["control-tabs", className].filter(Boolean).join(" ")} role="tablist" aria-label={label}>
+    <div className="control-tabs" role="tablist" aria-label={label}>
       {tabs.map((tab) => {
         const href = controlHref(tab.section);
         const active = tab.section === section;

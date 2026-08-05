@@ -3,7 +3,7 @@
 Everything an administrator runs the server with. It's the last item in the menu
 with your name on it, and only administrators see it.
 
-The left-hand nav has six sections, each with a row of tabs across the top of the
+The left-hand nav has seven sections, each with a row of tabs across the top of the
 page. This guide walks them in order; where a page already has a guide of its own,
 it points there rather than repeating it.
 
@@ -13,21 +13,20 @@ it points there rather than repeating it.
 | **Library** | Libraries, Storage, Categories, Tags |
 | **Members** | Users, Groups, Invite links, Sessions |
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
-| **Maintenance** | Backup, Scheduled jobs, Recycle Bin, Missing photos |
-| **Utilities** | Duplicates → Photos, Folders, Stored elsewhere |
+| **Maintenance** | Backup, Scheduled jobs, Recycle Bin |
+| **Utilities** | Gallery → Duplicate photos, Duplicate folders, Stored elsewhere, Missing photos |
 | **Settings** | Appearance, Email, Reader access, About |
 
 Every tab has its own address, so any page here can be bookmarked or linked to.
-Duplicates is the one destination with a second row of tabs beneath it: its three
-views come from one scan, so they belong together rather than as three entries in
-the nav.
+**Utilities** expands in the left nav to a **Gallery** branch, since everything under
+it so far works on photos.
 
 ## Finding things
 
 **Search…** at the top of the nav — or **Ctrl+K** (**⌘K** on a Mac) from anywhere in
 the control panel — searches every page *and* the settings on them. Typing `smtp`
 goes to Settings → Email; `lockout` goes to Security → Policies; `duplicate` goes to
-Maintenance → Duplicate photos. Arrow keys move through the results, Enter opens one.
+Utilities → Duplicate photos. Arrow keys move through the results, Enter opens one.
 
 Use it rather than hunting through tabs. It's usually faster even when you know
 where a setting lives.
@@ -233,21 +232,31 @@ first by default, or by size, name, or what's about to be removed), and sets how
 many appear per page. The two buttons on each tile restore that item or delete it
 for good.
 
-### Missing photos
-
-Files the catalog knows about that are no longer on disk. Usually a drive that
-didn't mount, which is why they aren't removed automatically.
+**Restore all**, beside Empty in the header, puts back everything the page is
+showing — so with a library chosen it restores that library's items and leaves the
+rest alone. Each item is put back on its own, so one that can't be doesn't stop the
+others: an item whose library has since been removed, or whose old place on disk is
+now occupied, stays in the bin and is named afterwards. Nothing is deleted either
+way, which is why it asks in ordinary terms rather than the red warning Empty gets.
 
 ---
 
 ## Utilities
 
-Tools that work *on* a library rather than configuring one. Duplicates is the only
-one so far, and it is one destination with three tabs — Photos, Folders and Stored
-elsewhere — because all three are views of a single scan rather than three separate
-jobs. Start the scan on **Photos**; the other two report what it found.
+Tools that work *on* a library rather than configuring one. They live under a
+**Gallery** branch in the left nav, since everything here so far works on photos.
 
-### Photos
+Four tabs. Three of them — Duplicate photos, Duplicate folders and Stored elsewhere —
+are views of a single scan rather than three separate jobs: start the scan on
+**Duplicate photos**, and the other two report what it found. **Missing photos**
+stands on its own.
+
+### Missing photos
+
+Files the catalog knows about that are no longer on disk. Usually a drive that
+didn't mount, which is why they aren't removed automatically.
+
+### Duplicate photos
 
 A folder imported twice, or a phone backup copied in beside the originals, leaves
 the same picture in the library several times. This tab finds those and lets you
@@ -259,7 +268,7 @@ decide, copy by copy, which ones stay.
 > empty it — but check, test, and check again first.
 
 Results come in two groups here, and they deserve different amounts of trust. Whole
-folders live on the other two tabs — **Folders** and **Stored elsewhere**, both
+folders live on the other two tabs — **Duplicate folders** and **Stored elsewhere**, both
 below — and are worth working through first: one decision there settles hundreds of
 the sets on this tab.
 
@@ -385,11 +394,12 @@ left out of the comparison and the page says so; re-scan that library from
 **Library → Libraries**, then scan for duplicates again.
 
 
-### Folders
+### Duplicate folders
 
 Whole folders that duplicate another folder, on their own tab because they are a
 different unit of work: clearing one settles hundreds of the photo sets next door.
-It comes from the scan you start on **Photos** — this tab reports, it never scans.
+It comes from the scan you start on **Duplicate photos** — this tab reports, it
+never scans.
 
 There are two folder-shaped answers and they get a tab each. This one is folders
 holding *exactly* the same photos; **Stored elsewhere**, next to it, is folders whose

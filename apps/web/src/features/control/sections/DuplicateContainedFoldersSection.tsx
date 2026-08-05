@@ -8,7 +8,7 @@
 // here is not a choice. Coverage runs one way, and offering the swap would delete the
 // photos that exist only in the folder being kept.
 import { useState } from "react";
-import { FolderCheck, HardDrive, Images, Trash2 } from "lucide-react";
+import { Eye, FolderCheck, HardDrive, Images, Trash2 } from "lucide-react";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
@@ -25,6 +25,7 @@ import {
   FolderStrip,
   FolderTile,
   folderPathLabel,
+  folderPreviewSummary,
   formatWhen,
   pageSlice,
   useDuplicateFolderPage
@@ -79,29 +80,30 @@ export function DuplicateContainedFoldersSection() {
     // ENCLOSES the folder — then its own count includes the photos about to go, and
     // would otherwise look like it dropped for no reason.
     const remaining = row.itemCount + row.extraCount;
+    const previewInfo = folderPreviewSummary(row.coverUrls, row.itemCount);
+    const reason = row.extraCount > 0
+      ? `Cleaning out “${labels.folder}” because every photo is also in “${labels.target}”, which holds ${row.extraCount} more.`
+      : `Cleaning out “${labels.folder}” because every photo is also in “${labels.target}” — the same pictures, arranged differently.`;
 
     const deleteThis = () => { page.setActionError(""); setDeleteTarget(row); };
 
     return (
       <div className="dup-set" key={row.id}>
         <div className="dup-set-head">
-          <div>
+          <div className="dup-set-summary">
             <h3 className="dup-set-title">Folder {index + 1}</h3>
             <p className="dup-set-meta datagrid-muted">
               <span><Images size={14} aria-hidden="true" /> {row.itemCount} photo{row.itemCount === 1 ? "" : "s"}</span>
               <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(row.bytes)}</span>
-              <span className="dup-set-reason">
-                {row.extraCount > 0
-                  ? `all of them also in “${labels.target}”, which holds ${row.extraCount} more`
-                  : `all of them also in “${labels.target}” — the same pictures, arranged differently`}
-              </span>
+              <span><Eye size={14} aria-hidden="true" /> {previewInfo}</span>
             </p>
+            <p className="dup-set-explain datagrid-muted">{reason}</p>
           </div>
           <div className="dup-group-actions">
             <Button variant="secondary" compact disabled={busy} onClick={() => { page.setActionError(""); setIgnoreTarget(row); }}>
               Leave it
             </Button>
-            <Button variant="danger" compact disabled={busy} onClick={deleteThis}>
+            <Button variant="secondary" danger compact className="dup-delete-action" disabled={busy} onClick={deleteThis}>
               <Trash2 size={14} />
               <span>Delete “{labels.folder}”</span>
             </Button>
@@ -109,7 +111,7 @@ export function DuplicateContainedFoldersSection() {
         </div>
 
         <div className="dup-set-body">
-          <FolderStrip urls={row.coverUrls} total={row.itemCount} />
+          <FolderStrip urls={row.coverUrls} />
 
           <div className="dup-set-folders">
             <FolderTile
@@ -121,18 +123,6 @@ export function DuplicateContainedFoldersSection() {
               note={row.encloses
                 ? `Holds “${labels.folder}” inside it — ${remaining} photo${remaining === 1 ? "" : "s"} left after`
                 : undefined}
-              action={(
-                <Button
-                  variant="secondary"
-                  compact
-                  disabled={busy}
-                  className="dup-set-action dup-set-keep-action"
-                  title="Keep this folder and delete the other"
-                  onClick={deleteThis}
-                >
-                  Keep this
-                </Button>
-              )}
             />
             <FolderTile
               folder={row.folder}
@@ -140,11 +130,6 @@ export function DuplicateContainedFoldersSection() {
               showLibrary={!scopeName}
               position={1}
               busy={busy}
-              action={(
-                <Button variant="danger" compact disabled={busy} className="dup-set-action" onClick={deleteThis}>
-                  Delete this
-                </Button>
-              )}
             />
           </div>
         </div>
@@ -162,20 +147,21 @@ export function DuplicateContainedFoldersSection() {
       >
       </ControlSectionHead>
 
-      <p className="dup-status datagrid-muted">
-        Last scan: {formatWhen(payload.lastScanAt)}
+      <p className="dup-status dup-status-row datagrid-muted">
+        <span>Last scan: {formatWhen(payload.lastScanAt)}</span>
         {rows.length > 0
-          ? ` · ${rows.length} folder${rows.length === 1 ? "" : "s"}, ${formatBytes(reclaimable)} to reclaim`
-          : ""}
-        {" · "}
-        <a href={controlHref("duplicatePhotos")}>Scanning and single photos are on the Photos tab</a>
+          ? (
+            <>
+              <span>{rows.length} folder{rows.length === 1 ? "" : "s"}</span>
+              <span>{formatBytes(reclaimable)} to reclaim</span>
+            </>
+          )
+          : null}
+        <a href={controlHref("duplicatePhotos")}>Scanning and single photos are on the Duplicate photos tab</a>
         {payload.folderGroups.length > 0 && (
-          <>
-            {" · "}
-            <a href={controlHref("duplicateFolders")}>
-              {payload.folderGroups.length} set{payload.folderGroups.length === 1 ? "" : "s"} of identical folders
-            </a>
-          </>
+          <a href={controlHref("duplicateFolders")}>
+            {payload.folderGroups.length} set{payload.folderGroups.length === 1 ? "" : "s"} of identical folders
+          </a>
         )}
       </p>
 
@@ -201,7 +187,7 @@ export function DuplicateContainedFoldersSection() {
         <p className="management-empty">
           {payload.lastScanAt
             ? "No folder is fully stored elsewhere. A folder holding even one photo that exists nowhere else isn't listed here."
-            : "No scan has run yet. Start one on the Photos tab and the folders it finds appear here."}
+            : "No scan has run yet. Start one on the Duplicate photos tab and the folders it finds appear here."}
         </p>
       )}
 
@@ -215,11 +201,6 @@ export function DuplicateContainedFoldersSection() {
 
       {rows.length > 0 && (
         <>
-          <p className="datagrid-muted dup-tier-note">
-            Every photo in these folders also sits in the folder beside it, so the folder itself can go and nothing is
-            lost. Only the topmost such folder is listed — removing it takes anything below it too. And where two
-            folders cover each other, only one is offered: acting on both would delete every copy between them.
-          </p>
           <div className="dup-sets">{shown.items.map(renderRow)}</div>
           <div className="dup-pager-row">
             <span className="datagrid-muted">
@@ -287,7 +268,7 @@ export function DuplicateContainedFoldersSection() {
             This folder stops being suggested for removal, whichever folder turns out to hold copies of its photos.
             Nothing is deleted and no photo is changed.
           </p>
-          <p>Its photos are still compared with the rest individually, under Photos.</p>
+          <p>Its photos are still compared with the rest individually, under Duplicate photos.</p>
         </ConfirmDialog>
       )}
 

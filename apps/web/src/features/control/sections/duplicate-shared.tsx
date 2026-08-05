@@ -245,9 +245,9 @@ export const FOLDER_SORT_OPTIONS: { value: FolderSort; label: string }[] = [
 ];
 
 export const FOLDER_PER_PAGE_OPTIONS = [
-  { value: "10", label: "10 per page" },
-  { value: "25", label: "25 per page" },
-  { value: "50", label: "50 per page" },
+  { value: "10", label: "10" },
+  { value: "25", label: "25" },
+  { value: "50", label: "50" },
   { value: "all", label: "Show all" }
 ];
 
@@ -408,7 +408,7 @@ export type DuplicateFolderPage = ReturnType<typeof useDuplicateFolderPage>;
 export function DuplicateFolderToolbar({ page, searchHint }: { page: DuplicateFolderPage; searchHint: string }) {
   const active = activeFilterCount(page.filters, false);
   return (
-    <div className="dup-toolbar">
+    <div className="dup-toolbar dup-folder-toolbar">
       {/* The filter box holds library and folders; search and ordering sit out here
           because they are the two you reach for on every visit. */}
       <Button
@@ -432,7 +432,7 @@ export function DuplicateFolderToolbar({ page, searchHint }: { page: DuplicateFo
         <input
           type="search"
           value={page.filters.search}
-          placeholder="Search folders…"
+          placeholder="Search folders..."
           onChange={(event) => page.setFilters((current) => ({ ...current, search: event.target.value }))}
         />
       </label>
@@ -442,13 +442,14 @@ export function DuplicateFolderToolbar({ page, searchHint }: { page: DuplicateFo
           value={page.sort}
           options={FOLDER_SORT_OPTIONS}
           label="Sort folders"
+          className="dup-folder-sort-menu"
           onChange={page.setSort}
         />
         <SelectMenu
           value={page.perPage}
           options={FOLDER_PER_PAGE_OPTIONS}
           label="Cards per page"
-          className="dup-per-page"
+          className="dup-per-page dup-folder-page-menu"
           onChange={page.setPerPage}
         />
         <Button
@@ -467,16 +468,24 @@ export function DuplicateFolderToolbar({ page, searchHint }: { page: DuplicateFo
   );
 }
 
+const FOLDER_PREVIEW_LIMIT = 4;
+
+export function folderPreviewSummary(urls: string[], total: number): string {
+  const visible = Math.min(urls.length, FOLDER_PREVIEW_LIMIT, Math.max(total, 0));
+  const hidden = Math.max(total - visible, 0);
+  return hidden > 0
+    ? `${visible} shown · ${hidden} hidden`
+    : `${visible} shown`;
+}
+
 /** The pictures themselves — the fastest way to recognise which holiday this is. */
-export function FolderStrip({ urls, total }: { urls: string[]; total: number }) {
-  const strip = urls.slice(0, 4);
-  const rest = Math.max(total - strip.length, 0);
+export function FolderStrip({ urls }: { urls: string[] }) {
+  const strip = urls.slice(0, FOLDER_PREVIEW_LIMIT);
   return (
     <div className="dup-set-strip" aria-hidden="true">
       {strip.length > 0
         ? strip.map((url) => <img key={url} src={url} alt="" loading="lazy" />)
         : <span className="dup-set-strip-empty"><ImageOff size={18} /></span>}
-      {rest > 0 && <span className="dup-set-more">+{rest} more</span>}
     </div>
   );
 }
@@ -499,7 +508,7 @@ export function FolderTile({
   onKeepInstead?: () => void;
   /** A line of page-specific detail under the counts. */
   note?: ReactNode;
-  action: ReactNode;
+  action?: ReactNode;
 }) {
   const name = (
     <>
@@ -524,8 +533,8 @@ export function FolderTile({
             <ExternalLink size={14} aria-hidden="true" />
           </a>
         </div>
-        {/* The name swaps the keeper where that's allowed — the card has room for one
-            action button, so the swap lives on the name rather than beside it. */}
+        {/* The name swaps the keeper where that's allowed, without adding another
+            visible action button to the folder tile. */}
         {onKeepInstead ? (
           <Button
             variant="text"
@@ -542,12 +551,12 @@ export function FolderTile({
         <span className="dup-set-path" title={folder.folderPath || "Library root"}>{folderPathLabel(folder)}</span>
         <span className="dup-set-line">{formatWhen(folder.addedAt)}</span>
         <span className="dup-set-line">
-          {folder.itemCount} photo{folder.itemCount === 1 ? "" : "s"} · {formatBytes(folder.bytes)}
+          {formatBytes(folder.bytes)}
           {folder.linkCount > 0 ? ` · ${folder.linkCount} tags/links` : ""}
           {showLibrary ? ` · ${folder.libraryName}` : ""}
         </span>
         {note && <span className="dup-set-line dup-set-note">{note}</span>}
-        {action}
+        {action && <>{action}</>}
       </div>
     </div>
   );

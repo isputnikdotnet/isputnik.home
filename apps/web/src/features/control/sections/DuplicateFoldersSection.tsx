@@ -7,7 +7,7 @@
 // neither runs one; the scan lives on Duplicate photos, so there is one place that
 // starts work and one place per answer that reports it.
 import { useState } from "react";
-import { FolderOpen, HardDrive, Images, Trash2 } from "lucide-react";
+import { Eye, FolderOpen, HardDrive, Images, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -27,6 +27,7 @@ import {
   FolderTile,
   folderKey,
   folderPathLabel,
+  folderPreviewSummary,
   formatWhen,
   pageSlice,
   useDuplicateFolderPage
@@ -138,27 +139,31 @@ export function DuplicateFoldersSection() {
   const renderGroup = (group: DuplicateFolderGroup, index: number) => {
     const keeper = keeperOf(group);
     const doomed = group.members.filter((member) => folderKey(member) !== folderKey(keeper));
+    const previewInfo = folderPreviewSummary(keeper.coverUrls, group.itemCount);
 
     return (
       <div className="dup-set" key={group.id}>
         <div className="dup-set-head">
-          <div>
+          <div className="dup-set-summary">
             <h3 className="dup-set-title">Set {index + 1}</h3>
             <p className="dup-set-meta datagrid-muted">
               <span><Images size={14} aria-hidden="true" /> {group.itemCount} photo{group.itemCount === 1 ? "" : "s"}</span>
               <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(group.copyBytes)}</span>
-              {group.keeperReason && (
-                <span className="dup-set-reason">kept because: {group.keeperReason}</span>
-              )}
+              <span><Eye size={14} aria-hidden="true" /> {previewInfo}</span>
             </p>
+            {group.keeperReason && (
+              <p className="dup-set-explain datagrid-muted">Kept because: {group.keeperReason}</p>
+            )}
           </div>
           <div className="dup-group-actions">
             <Button variant="secondary" compact disabled={busy} onClick={() => { page.setActionError(""); setIgnoreTarget(group); }}>
               Not the same
             </Button>
             <Button
-              variant="danger"
+              variant="secondary"
+              danger
               compact
+              className="dup-delete-action"
               disabled={busy || doomed.length === 0}
               onClick={() => { page.setActionError(""); setDeleteFolders(null); setDeleteTarget(group); }}
             >
@@ -169,7 +174,7 @@ export function DuplicateFoldersSection() {
         </div>
 
         <div className="dup-set-body">
-          <FolderStrip urls={keeper.coverUrls} total={group.itemCount} />
+          <FolderStrip urls={keeper.coverUrls} />
 
           <div className="dup-set-folders">
             {[keeper, ...doomed].map((member, position) => {
@@ -185,28 +190,6 @@ export function DuplicateFoldersSection() {
                   onKeepInstead={keep
                     ? undefined
                     : () => setKeeperPick((current) => ({ ...current, [group.id]: folderKey(member) }))}
-                  action={keep ? (
-                    <Button
-                      variant="secondary"
-                      compact
-                      disabled={busy || doomed.length === 0}
-                      className="dup-set-action dup-set-keep-action"
-                      title="Keep this folder and delete the others"
-                      onClick={() => { page.setActionError(""); setDeleteFolders(doomed); setDeleteTarget(group); }}
-                    >
-                      Keep this
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="danger"
-                      compact
-                      disabled={busy}
-                      className="dup-set-action"
-                      onClick={() => { page.setActionError(""); setDeleteFolders([member]); setDeleteTarget(group); }}
-                    >
-                      Delete this
-                    </Button>
-                  )}
                 />
               );
             })}
@@ -221,26 +204,28 @@ export function DuplicateFoldersSection() {
       <ControlSectionHead
         section="duplicateFolders"
         className="dup-section-head"
+        iconClassName="duplicates"
         icon={<FolderOpen size={30} />}
-        description="Folders holding exactly the same photos as another folder, handled in one go."
+        description="Review duplicate folder pairs and remove extras."
       >
       </ControlSectionHead>
 
-      <p className="dup-status datagrid-muted">
-        Last scan: {formatWhen(payload.lastScanAt)}
+      <p className="dup-status dup-status-row datagrid-muted">
+        <span>Last scan: {formatWhen(payload.lastScanAt)}</span>
         {groups.length > 0
-          ? ` · ${groups.length} set${groups.length === 1 ? "" : "s"}, ${formatBytes(reclaimable)} to reclaim`
-          : ""}
-        {" · "}
-        <a href={controlHref("duplicatePhotos")}>Scanning and single photos are on the Photos tab</a>
+          ? (
+            <>
+              <span>{groups.length} duplicate set{groups.length === 1 ? "" : "s"}</span>
+              <span>{formatBytes(reclaimable)} to reclaim</span>
+            </>
+          )
+          : null}
+        <a href={controlHref("duplicatePhotos")}>Scanning and single photos are on the Duplicate photos tab</a>
         {payload.containedFolders.length > 0 && (
-          <>
-            {" · "}
-            <a href={controlHref("duplicateContainedFolders")}>
-              {payload.containedFolders.length} folder{payload.containedFolders.length === 1 ? " is" : "s are"} already
-              {" "}stored elsewhere
-            </a>
-          </>
+          <a href={controlHref("duplicateContainedFolders")}>
+            {payload.containedFolders.length} folder{payload.containedFolders.length === 1 ? " is" : "s are"} already
+            {" "}stored elsewhere
+          </a>
         )}
       </p>
 
@@ -265,8 +250,8 @@ export function DuplicateFoldersSection() {
       {page.loaded && payload.folderGroups.length === 0 && !page.error && (
         <p className="management-empty">
           {payload.lastScanAt
-            ? "No folder holds exactly the same photos as another. A folder differing by even one photo isn't listed here — its copies still appear individually under Photos."
-            : "No scan has run yet. Start one on the Photos tab and the folders it finds appear here."}
+            ? "No folder holds exactly the same photos as another. A folder differing by even one photo isn't listed here — its copies still appear individually under Duplicate photos."
+            : "No scan has run yet. Start one on the Duplicate photos tab and the folders it finds appear here."}
         </p>
       )}
 
@@ -280,10 +265,6 @@ export function DuplicateFoldersSection() {
 
       {groups.length > 0 && (
         <>
-          <p className="datagrid-muted dup-tier-note">
-            The same pictures, file for file, whatever the two folders are called. Every photo in them is also a set
-            on Photos — clearing a folder here settles all of them at once.
-          </p>
           <div className="dup-sets">{shown.items.map(renderGroup)}</div>
           <div className="dup-pager-row">
             <span className="datagrid-muted">
@@ -350,7 +331,7 @@ export function DuplicateFoldersSection() {
             This set disappears and future scans won't pair these folders again. Nothing is deleted and no photo is
             changed.
           </p>
-          <p>The photos inside them are still compared with each other individually, under Photos.</p>
+          <p>The photos inside them are still compared with each other individually, under Duplicate photos.</p>
         </ConfirmDialog>
       )}
 
