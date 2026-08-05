@@ -1209,6 +1209,18 @@
 .dup-status { margin: 0 0 10px; font-size: 0.84rem; }
 /* What the bin holds, above its toolbar — same line style as the duplicate pages. */
 .trash-status { margin: 0 0 10px; font-size: 0.84rem; }
+
+/* Where the files are on disk. Quieter than the counts above it — it answers a
+   question you ask occasionally, not the one you came for — and the paths wrap
+   rather than stretching the page, since a share path can be long. */
+.trash-bins { margin: -4px 0 12px; font-size: 0.8rem; line-height: 1.5; }
+.trash-bins code {
+  font-size: 0.95em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  overflow-wrap: anywhere;
+}
 .dup-tier-heading { margin: 16px 0 4px; font-size: 0.95rem; }
 .dup-tier-note { margin: 0 0 8px; font-size: 0.8rem; }
 .dup-groups { display: flex; flex-direction: column; gap: 16px; }
@@ -1983,6 +1995,11 @@
 .dup-mode-group .dup-mode:last-child.is-on { background: var(--rose); color: #fff; }
 /* Keyboard focus has to be visible: the radio itself is off-screen. */
 .dup-mode:focus-within { outline: 2px solid var(--accent, #c8a24a); outline-offset: -2px; }
+
+/* Offered but not available: an external library has nothing to clear out. Shown
+   rather than removed, so the three choices stay in the same places on every row. */
+.dup-mode.is-blocked { opacity: 0.35; cursor: not-allowed; }
+.dup-mode.is-blocked:hover { color: var(--muted); }
 
 /* ── The filters box ────────────────────────────────────────────────
    Four ways of narrowing the page, stacked in the order you'd reason in. */

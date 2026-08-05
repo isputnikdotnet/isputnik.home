@@ -221,6 +221,16 @@ how many files that is. It follows the library picker, so it counts what you're
 looking at — with a library chosen it also says what the whole bin holds, since
 "what would emptying this free?" is usually the reason you came.
 
+Under that is **where those files actually are** — a `.trash` folder inside each
+library's own folder, so there is one per library rather than one for the install.
+That's deliberate: deleting is then a rename within one filesystem, instant even for
+a 4 GB video, instead of a copy across shares. It also means the space a deleted item
+is still using is on that library's disk, which is the thing the path tells you.
+
+Don't clear those folders by hand while the server is running: the bin's list would
+still name files that are gone, and restoring one would fail rather than doing
+anything graceful. Empty from this page instead.
+
 Items show as tiles, each led by the cover it had when you deleted it, so you can
 recognise a photo or a book without reading filenames. Underneath: the name, the
 folder it came out of, its library, its size, when it was deleted and by whom, and

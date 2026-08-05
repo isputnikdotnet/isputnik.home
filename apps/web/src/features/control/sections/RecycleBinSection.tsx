@@ -29,6 +29,14 @@ interface TrashedItem {
   purgesAt: string | null;
 }
 
+/** One library's Recycle Bin folder on disk. The server sends one per library that
+ *  currently has something in the bin. */
+interface TrashBin {
+  libraryId: string;
+  libraryName: string;
+  path: string;
+}
+
 const TYPE_ICON: Record<string, LucideIcon> = {
   audiobook: Headphones,
   ebook: BookOpen,
@@ -95,6 +103,7 @@ function sortItems(items: TrashedItem[], sort: TrashSort): TrashedItem[] {
 
 export function RecycleBinSection() {
   const [items, setItems] = useState<TrashedItem[]>([]);
+  const [bins, setBins] = useState<TrashBin[]>([]);
   const [retentionDays, setRetentionDays] = useState(30);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -136,6 +145,7 @@ export function RecycleBinSection() {
     [items, scopeId, sort]
   );
   const scopeName = scopeId ? items.find((item) => item.libraryId === scopeId)?.libraryName ?? "" : "";
+  const shownBins = scopeId ? bins.filter((bin) => bin.libraryId === scopeId) : bins;
 
   const pageSize = perPage === "all" ? Math.max(visible.length, 1) : Number(perPage);
   const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
@@ -149,8 +159,9 @@ export function RecycleBinSection() {
   useEffect(() => { setPage(1); }, [scopeId, sort, perPage]);
 
   const load = async () => {
-    const payload = await api<{ items: TrashedItem[]; retentionDays: number }>("/api/library/trash");
+    const payload = await api<{ items: TrashedItem[]; retentionDays: number; bins?: TrashBin[] }>("/api/library/trash");
     setItems(payload.items);
+    setBins(payload.bins ?? []);
     setRetentionDays(payload.retentionDays);
   };
 
@@ -298,6 +309,25 @@ export function RecycleBinSection() {
           {" · "}{formatBytes(visibleBytes)}
           {" · "}{visibleFiles} file{visibleFiles === 1 ? "" : "s"}
           {scopeId ? ` · ${items.length} in the whole bin, ${formatBytes(totalBytes)}` : ""}
+        </p>
+      )}
+
+      {/* Where the files physically are. One folder per library rather than one for
+          the install, because deleting moves a file inside its own library — a
+          rename within a filesystem, never a copy across shares. Worth stating: the
+          app is not always the thing you have to hand when the question is which
+          disk is still holding the space. Follows the library picker, like the
+          counts above it. */}
+      {shownBins.length > 0 && (
+        <p className="trash-bins datagrid-muted">
+          {shownBins.length === 1 ? "Deleted files are kept in " : "Deleted files are kept in each library's own folder: "}
+          {shownBins.map((bin, index) => (
+            <span key={bin.libraryId}>
+              {index > 0 && ", "}
+              <code title={`The Recycle Bin folder for ${bin.libraryName}`}>{bin.path}</code>
+              {shownBins.length > 1 && <> ({bin.libraryName})</>}
+            </span>
+          ))}
         </p>
       )}
 

@@ -345,6 +345,20 @@ describe("keeper choice", () => {
     expect(pickKeeper([received, camera])?.keeperId).toBe("camera");
   });
 
+  it("keeps the copy in a library nothing may be deleted from", () => {
+    // GAL2 is external: the app reads it and does not own it. A copy there cannot be
+    // removed at all, so naming it the loser would propose work that gets refused —
+    // whatever else is true of the two files.
+    db.prepare("UPDATE libraries SET policy_json = ? WHERE id = 'GAL2'").run(JSON.stringify({ mode: "external" }));
+    const ordinary = { ...detail("ordinary"), tag_count: 5, width: 8000, height: 6000 };
+    const external = { ...detail("external"), library_id: "GAL2", library_name: "GAL2" };
+
+    // 'ordinary' wins on every other criterion there is, and still gives up its copy.
+    const choice = pickKeeper([ordinary, external]);
+    expect(choice?.keeperId).toBe("external");
+    expect(choice?.reason).toContain("can't be deleted from");
+  });
+
   it("falls back to the copy added first, deterministically", () => {
     const older = { ...detail("zzz"), discovered_at: "2023-01-01T00:00:00.000Z" };
     const newer = { ...detail("aaa"), discovered_at: "2025-01-01T00:00:00.000Z" };
@@ -1017,8 +1031,10 @@ describe("end-to-end scan over real files", () => {
       staleCount: 0,
       scanning: false,
       libraries: [
-        { id: "GAL", name: "GAL", candidateCount: 2, pendingCount: 2 },
-        { id: "GAL2", name: "GAL2", candidateCount: 0, pendingCount: 0 }
+        // canDelete is the library's own policy, not the caller's role: an external
+        // library's copies are still found and shown, but nothing may remove them.
+        { id: "GAL", name: "GAL", candidateCount: 2, pendingCount: 2, canDelete: true },
+        { id: "GAL2", name: "GAL2", candidateCount: 0, pendingCount: 0, canDelete: true }
       ]
     });
 

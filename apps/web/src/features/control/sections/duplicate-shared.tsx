@@ -115,6 +115,9 @@ export interface DuplicateLibraryOption {
   name: string;
   candidateCount: number;
   pendingCount: number;
+  /** False for an external library, or one with deleting turned off. Its copies are
+   *  still found and shown; nothing may remove them. */
+  canDelete?: boolean;
 }
 
 export interface DuplicatePayload {
@@ -671,6 +674,8 @@ export function DuplicateFiltersModal({
   const [folderQuery, setFolderQuery] = useState("");
   // Most duplicates first by default: on a long list that is the order you'd work in.
   const [folderSort, setFolderSort] = useState<"count" | "name">("count");
+  // Libraries the app may read but not delete from — external, or deleting turned off.
+  const protectedLibraries = new Set(libraries.filter((library) => library.canDelete === false).map((library) => library.id));
   const set = (patch: Partial<DuplicateFilterState>) => onChange({ ...state, ...patch });
   const active = activeFilterCount(state, withTier);
   const whatCount = active - (state.folders.length > 0 ? 1 : 0);
@@ -814,13 +819,23 @@ export function DuplicateFiltersModal({
                       </span>
                     </label>
                     <span className="dup-mode-group" role="radiogroup" aria-label={`When copies are in several places, ${option.folderPath || `everywhere in ${option.libraryName}`}`}>
-                      {MODES.map((mode) => (
-                        <label className={`dup-mode${(preferences[option.key] ?? "") === mode.value ? " is-on" : ""}`} key={mode.label} title={mode.hint}>
+                      {MODES.map((mode) => {
+                        // "Clear out" means "let this folder's copies go", which an
+                        // external library can't do — its files are not ours to
+                        // remove. Offering it would be an instruction the scan then
+                        // has to ignore, so it isn't offered.
+                        const blocked = mode.value === "clear" && protectedLibraries.has(option.libraryId);
+                        return (
+                        <label
+                          className={`dup-mode${(preferences[option.key] ?? "") === mode.value ? " is-on" : ""}${blocked ? " is-blocked" : ""}`}
+                          key={mode.label}
+                          title={blocked ? `"${option.libraryName}" is external, so nothing can be cleared out of it` : mode.hint}
+                        >
                           <input
                             type="radio"
                             name={`pref-${option.key}`}
                             checked={(preferences[option.key] ?? "") === mode.value}
-                            disabled={preferencesBusy}
+                            disabled={preferencesBusy || blocked}
                             onChange={() => {
                               const next = { ...preferences };
                               if (mode.value === "") delete next[option.key];
@@ -830,7 +845,8 @@ export function DuplicateFiltersModal({
                           />
                           <span>{mode.short}</span>
                         </label>
-                      ))}
+                        );
+                      })}
                     </span>
                   </div>
                 ))}

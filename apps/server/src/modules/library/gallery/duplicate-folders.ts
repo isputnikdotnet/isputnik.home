@@ -25,7 +25,7 @@
 import crypto from "node:crypto";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
-import { trashBook } from "../shared/trash.js";
+import { trashBook, libraryAllowsDelete } from "../shared/trash.js";
 import {
   absorbDuplicateMetadata, COPY_MARKERS, DERIVED_FOLDERS,
   folderPreferences, preferenceFor, type FolderPreference, type FolderPreferenceMode
@@ -222,6 +222,8 @@ interface ScoredFolder extends FolderFingerprint {
   copyMarker: boolean;
   derivedFolder: boolean;
   preference: FolderPreferenceMode | null;
+  /** Its library forbids deleting — external, or deleting turned off. */
+  protectedLibrary: boolean;
 }
 
 // Tags, albums, collections, saves, shares and tagged people on the photos below a
@@ -261,6 +263,7 @@ function scoreFolder(print: FolderFingerprint, preferences: FolderPreference[]):
   return {
     ...print,
     preference: preferenceFor(preferences, print.libraryId, print.folderPath),
+    protectedLibrary: !libraryAllowsDelete(print.libraryId),
     linkCount: linkCountFor(print.itemIds),
     depth: segments.length,
     // Any segment, not just the folder's own name: everything under "Backups/" is a
@@ -276,6 +279,10 @@ function scoreFolder(print: FolderFingerprint, preferences: FolderPreference[]):
 // Ordered, not weighted — the same contract as the item tier: compare criterion by
 // criterion, first difference wins, and the winning criterion IS the reason shown.
 const FOLDER_CRITERIA: { label: string; value: (row: ScoredFolder) => number }[] = [
+  // Not a preference — a fact about the library. Its files cannot be deleted, so
+  // choosing it as the one to remove proposes work that will be refused. See the
+  // item tier's criterion of the same name.
+  { label: "in a library its files can't be deleted from", value: (r) => (r.protectedLibrary ? 1 : 0) },
   { label: "a folder you chose to keep", value: (r) => (r.preference === "keep" ? 1 : 0) },
   { label: "not a folder you're clearing out", value: (r) => (r.preference === "clear" ? 0 : 1) },
   { label: "its photos carry tags, albums or people", value: (r) => r.linkCount },
