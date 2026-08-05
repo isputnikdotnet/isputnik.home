@@ -265,7 +265,7 @@ export async function hashDuplicateCandidates(
 //  Keeper scoring
 // ────────────────────────────────────────────────────────────────────────────
 
-interface DetailRow {
+export interface DetailRow {
   item_id: string;
   kind: string;
   library_id: string;
@@ -320,7 +320,7 @@ const LINK_COUNTS: { field: keyof DetailRow; table: string; column: string; extr
   { field: "ft_event_count", table: "family_tree_event_photos", column: "item_id" }
 ];
 
-function loadDetails(itemIds: string[]): Map<string, DetailRow> {
+export function loadDetails(itemIds: string[]): Map<string, DetailRow> {
   const out = new Map<string, DetailRow>();
   for (let i = 0; i < itemIds.length; i += ID_CHUNK) {
     const chunk = itemIds.slice(i, i + ID_CHUNK);
@@ -532,10 +532,13 @@ export interface KeeperChoice {
 // Pick the copy to keep, plus a short explanation naming the criteria on which it beat
 // the runner-up. Identical copies (the normal case for byte-identical files with no
 // links either side) fall through to the stable "added first" tiebreak.
-export function pickKeeper(rows: DetailRow[]): KeeperChoice | null {
+export function pickKeeper(rows: DetailRow[], instructions?: FolderPreference[]): KeeperChoice | null {
   if (rows.length === 0) return null;
   // Read the preferences and the protected libraries once per set, not once per copy.
-  const preferences = folderPreferences();
+  // A cleanup job passes its OWN instructions here: they are seeded from the global
+  // ones and diverge from then on, and a keeper picked under the wrong set is a
+  // choice the page that set it would not recognise.
+  const preferences = instructions ?? folderPreferences();
   const protectedLibs = protectedLibraries();
   const scored = rows.map((row) => score(row, preferences, protectedLibs)).sort(compareCandidates);
   const winner = scored[0];
