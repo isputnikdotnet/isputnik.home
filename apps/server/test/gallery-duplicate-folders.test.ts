@@ -482,6 +482,48 @@ describe("contained folders", () => {
     expect(row?.targetFolderCount).toBe(2);
   });
 
+  // The library's own top folder covers everything in it, so it always qualifies as a
+  // container — and naming it sends you to a folder full of folders with no photos in
+  // it. It is the answer only when nothing narrower is, which is exactly when it's
+  // true: copies loose at the top level.
+  it("names the real folder, not the library, even when the library is marked keep", () => {
+    // The folder that can go is in one library; the copies are in a FOLDER of
+    // another. (A "keep" on the source library's own root would protect every folder
+    // under it and nothing would be offered at all — see the rule in
+    // rebuildContainedFolders.)
+    asset("a1", "Album/a/one.jpg", { hash: "pic-1" });
+    asset("a2", "Album/b/two.jpg", { hash: "pic-2" });
+    asset("d1", "OneDrive/one.jpg", { hash: "pic-1", library: "GAL2" });
+    asset("d2", "OneDrive/two.jpg", { hash: "pic-2", library: "GAL2" });
+    // One extra, so OneDrive isn't covered by Album in return and the pair survives.
+    asset("d3", "OneDrive/three.jpg", { hash: "pic-3", library: "GAL2" });
+
+    // "Keep photos in this library" — which outranks tightest-fit on purpose, and
+    // used to drag that library's root ahead of the folder the copies are in.
+    setFolderPreferences([{ libraryId: "GAL2", folderPath: "", mode: "keep" }]);
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+
+    const row = listContainedFolders().find((entry) => entry.folder.folderPath === "Album");
+    expect(row?.target.libraryId).toBe("GAL2");
+    expect(row?.target.folderPath).toBe("OneDrive");
+    expect(row?.targetFolders).toEqual(["OneDrive"]);
+  });
+
+  it("still names the library's top folder when the copies really are loose in it", () => {
+    asset("a1", "Album/a/one.jpg", { hash: "pic-1" });
+    asset("a2", "Album/b/two.jpg", { hash: "pic-2" });
+    // The counterparts sit at the top level, in no folder at all.
+    asset("r1", "one.jpg", { hash: "pic-1" });
+    asset("r2", "two.jpg", { hash: "pic-2" });
+    asset("r3", "three.jpg", { hash: "pic-3" });
+
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+    const row = listContainedFolders().find((entry) => entry.folder.folderPath === "Album");
+    expect(row?.target.folderPath).toBe("");
+  });
+
   it("drops a row whose folder has been emptied since the scan", () => {
     asset("p1", "Trip/one.jpg", { hash: "pic-1" });
     asset("p2", "Trip/two.jpg", { hash: "pic-2" });

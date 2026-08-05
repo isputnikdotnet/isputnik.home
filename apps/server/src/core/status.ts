@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.21.1",
+          label: "A library's root is a place, not a folder to clear out",
+          changes: [
+            "Stored elsewhere could offer a library's own top folder as the thing to remove — a card named \".\", whose link opened a folder full of folders with no photos in it, while the note underneath named the folder the copies were really in. It was proposing to empty an entire library. The rule that hides a folder when its parent is also redundant was doing it: the top folder counts as everyone's parent, so it hid the real folder and stood in its place. A library's top folder no longer hides anything inside it, and is itself offered only when nothing narrower is — which is exactly when it is the honest answer, the photos being loose at the top level.",
+            "The same correction on the other side of the card: a library marked \"keep photos here\" no longer drags its top folder ahead of the actual folder the copies sit in. Both sides now name a folder you can go and open.",
+            "Folder cards are down to three lines — the folder's name, its full path, and the library it's in, each with a small icon. Size, date added and the tags-and-links count have gone: all true, none of them what you are deciding with, and the card's header already says what the folder holds and what clearing it frees."
+          ]
+        },
+        {
           version: "2.21.0",
           label: "The duplicate pages send a page, not everything they found",
           changes: [

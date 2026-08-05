@@ -66,7 +66,7 @@ export function DuplicateContainedFoldersSection() {
     "Unable to load the folders stored elsewhere",
     "/api/library/gallery/duplicates/folders/contained/search"
   );
-  const { payload, busy, scopeName, needle } = page;
+  const { payload, busy } = page;
 
   const [deleteTarget, setDeleteTarget] = useState<ContainedFolder | null>(null);
   const [ignoreTarget, setIgnoreTarget] = useState<ContainedFolder | null>(null);
@@ -136,7 +136,6 @@ export function DuplicateContainedFoldersSection() {
             <FolderTile
               folder={keptTile}
               keep
-              showLibrary={!scopeName}
               position={0}
               busy={busy}
               // A library's top folder has no name worth showing, so the tile says
@@ -150,7 +149,6 @@ export function DuplicateContainedFoldersSection() {
             <FolderTile
               folder={row.folder}
               keep={false}
-              showLibrary={!scopeName}
               position={1}
               busy={busy}
             />

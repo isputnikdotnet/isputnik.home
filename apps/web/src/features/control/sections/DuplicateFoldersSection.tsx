@@ -66,7 +66,7 @@ export function DuplicateFoldersSection() {
     "Unable to load duplicate folders",
     "/api/library/gallery/duplicates/folders/search"
   );
-  const { payload, busy, scopeName, needle } = page;
+  const { payload, busy, scopeName } = page;
 
   // A folder set keeps exactly ONE folder — keeping two identical folders isn't
   // de-duplicating, and the stakes are a whole folder.
@@ -180,7 +180,6 @@ export function DuplicateFoldersSection() {
                   key={folderKey(member)}
                   folder={member}
                   keep={keep}
-                  showLibrary={!scopeName}
                   position={position}
                   busy={busy}
                   onKeepInstead={keep
