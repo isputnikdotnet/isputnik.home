@@ -38,8 +38,15 @@ padlock. They are still worth including: a copy kept in one counts as somewhere 
 survives, so the copies elsewhere can go. Nothing in them is ever offered for deletion, and
 no folder rule can change that.
 
-**2 — What to look for.** Whole folders, single files, or both. And photos, videos, or
-both — a handful of videos can be worth more space than a thousand photos.
+**2 — What to look for.** Whole folders **or** single files — one or the other, not both.
+They are different jobs of work: clearing folders is a few decisions about a great many
+photos, and going through single copies is a great many decisions about a few. Mixed into
+one list, neither gets done, and every folder you clear reshuffles the single-file half
+underneath it. Run a folder cleanup first; what it leaves behind is what a file cleanup is
+for.
+
+Then photos, videos, or both — a handful of videos can be worth more space than a thousand
+photos.
 
 **3 — Review and run.** Once the scan runs, these answers are locked: everything it found
 was worked out under them. To compare something else, finish this cleanup and start
@@ -50,7 +57,8 @@ takes seconds rather than a pass over your photos.
 
 ## What it finds
 
-Results come in three kinds, strongest statement first.
+A **folder** cleanup finds the first two kinds below; a **file** cleanup finds the third.
+Strongest statement first.
 
 **Identical folders** — two or more folders holding exactly the same pictures, file for
 file, whatever they are called. One is kept and the others can go whole.

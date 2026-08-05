@@ -23,17 +23,20 @@
 // library". That is a data shape, not a wording, and it is fixed in the snapshot.
 import { useEffect, useState } from "react";
 import {
-  ArrowRight, CircleCheck, FolderOpen, HardDrive, Images, Lock, RefreshCw, Search,
-  SlidersHorizontal, Trash2, TriangleAlert
+  ArrowLeft, ArrowRight, Briefcase, Check, CircleCheck, Cloud, File, FolderOpen, HardDrive,
+  Image as ImageIcon, Images, Lock, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Smartphone,
+  Trash2, TriangleAlert, UserRound, Video
 } from "lucide-react";
-import { api } from "../../../api";
+import { api, type PublicUser } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
+import { ChoiceGroup, type Choice } from "../../../shared/ChoiceGroup";
 import { Modal } from "../../../shared/Modal";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Pager } from "../../../shared/Pager";
 import { SelectMenu } from "../../../shared/SelectMenu";
+import { ToggleSwitch } from "../../../shared/ToggleSwitch";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { controlHref } from "../../../router";
 import { ExperimentalNotice, formatWhen } from "./duplicate-shared";
@@ -74,7 +77,8 @@ interface DuplicateJob {
   ownerUserId: string;
   ownerName: string;
   status: JobStatus;
-  duplicateType: "folders" | "files" | "both";
+  /** Folders OR files — a cleanup is one kind of work or the other, never both. */
+  duplicateType: "folders" | "files";
   mediaType: "photo" | "video" | "both";
   currentStep: number;
   statusDetail: string | null;
@@ -177,12 +181,20 @@ const TYPE_HEADINGS: Record<ResultType, { title: string; note: string }> = {
   }
 };
 
-const TYPE_FILTERS: { value: string; label: string }[] = [
-  { value: "", label: "Everything" },
-  { value: "folder_set", label: "Identical folders" },
-  { value: "contained", label: "Stored elsewhere" },
-  { value: "photo_set", label: "Single photos" }
-];
+// What a cleanup of this kind can actually contain. A folder cleanup never holds a
+// single-photo set and vice versa, so offering the other kind is a filter that can
+// only ever empty the page.
+const typeFilters = (kind: "folders" | "files"): { value: string; label: string }[] =>
+  kind === "folders"
+    ? [
+      { value: "", label: "Everything" },
+      { value: "folder_set", label: "Identical folders" },
+      { value: "contained", label: "Stored elsewhere" }
+    ]
+    : [
+      { value: "", label: "Everything" },
+      { value: "photo_set", label: "Single files" }
+    ];
 
 const REVIEW_FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Any state" },
@@ -218,7 +230,7 @@ function folderSentence(folders: SnapshotFolder[]): string {
 
 // ── The page ────────────────────────────────────────────────────────────────
 
-export function DuplicateCleanupSection() {
+export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUser }) {
   const [payload, setPayload] = useState<JobsPayload>(EMPTY_PAYLOAD);
   const [results, setResults] = useState<ResultsPage>(EMPTY_RESULTS);
   const [loaded, setLoaded] = useState(false);
@@ -644,6 +656,7 @@ export function DuplicateCleanupSection() {
         <CleanupWizard
           libraries={payload.libraries}
           job={job && job.status === "draft" ? job : null}
+          ownerName={currentUser.displayName}
           onClose={() => setWizardOpen(false)}
           onSaved={async () => { setWizardOpen(false); await reload(); }}
         />
@@ -654,7 +667,12 @@ export function DuplicateCleanupSection() {
           <div className="dup-filter-form">
             <label className="dup-filter-field">
               <span className="dup-filter-label">Kind of result</span>
-              <SelectMenu value={typeFilter} options={TYPE_FILTERS} label="Kind of result" onChange={setTypeFilter} />
+              <SelectMenu
+                value={typeFilter}
+                options={typeFilters(job?.duplicateType ?? "folders")}
+                label="Kind of result"
+                onChange={setTypeFilter}
+              />
             </label>
             <label className="dup-filter-field">
               <span className="dup-filter-label">Where you've got to</span>
@@ -821,7 +839,7 @@ function JobCard({
         <p className="eyebrow">{STATUS_WORDS[job.status]}</p>
         <h2>
           {included.length} librar{included.length === 1 ? "y" : "ies"}
-          {job.duplicateType === "folders" ? " · folders only" : job.duplicateType === "files" ? " · single files only" : ""}
+          {job.duplicateType === "folders" ? " · whole folders" : " · single files"}
           {job.mediaType === "photo" ? " · photos" : job.mediaType === "video" ? " · videos" : ""}
         </h2>
         <p className="datagrid-muted">
@@ -874,25 +892,65 @@ function JobCard({
 
 // ── The wizard ──────────────────────────────────────────────────────────────
 //
-// Three steps and no more. Everything about which copy survives belongs to the
-// review, not here: choosing what to compare and choosing what to keep are different
-// questions, and answering the second before seeing anything is guesswork.
+// Two steps: choose the scope, then look over the exact job that will be created.
+// Everything about which copy survives belongs to the review, not here: choosing
+// what to compare and choosing what to keep are different questions.
+
+type DuplicateKind = DuplicateJob["duplicateType"];
+type MediaKind = DuplicateJob["mediaType"];
+
+const cleanupTypeLabel = (type: DuplicateKind): string =>
+  type === "folders" ? "Duplicate folders" : "Individual files";
+
+const cleanupTypeDescription = (type: DuplicateKind): string =>
+  type === "folders"
+    ? "Compare duplicate folders and their contents"
+    : "Review duplicate photos or videos one by one";
+
+const mediaTypeLabel = (type: MediaKind): string =>
+  type === "photo" ? "Photos" : type === "video" ? "Videos" : "Photos and videos";
+
+const mediaTypeDescription = (type: MediaKind): string =>
+  type === "photo"
+    ? "Image fingerprints only"
+    : type === "video"
+      ? "Video fingerprints only"
+      : "Include both images and videos";
+
+function libraryModeLabel(library: LibraryOption): string {
+  return library.mode === "external" ? "External" : "Internal";
+}
+
+function libraryIcon(library: LibraryOption) {
+  const text = `${library.name} ${library.sourcePath}`.toLowerCase();
+  if (text.includes("phone") || text.includes("mobile") || text.includes("iphone") || text.includes("android")) {
+    return <Smartphone size={19} aria-hidden="true" />;
+  }
+  if (text.includes("cloud") || text.includes("google") || text.includes("icloud")) {
+    return <Cloud size={19} aria-hidden="true" />;
+  }
+  if (library.mode === "external" || text.includes("nas") || text.includes("usb") || text.includes("volume")) {
+    return <HardDrive size={19} aria-hidden="true" />;
+  }
+  return <ImageIcon size={19} aria-hidden="true" />;
+}
 
 function CleanupWizard({
-  libraries, job, onClose, onSaved
+  libraries, job, ownerName, onClose, onSaved
 }: {
   libraries: LibraryOption[];
   job: DuplicateJob | null;
+  ownerName: string;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
-  const [step, setStep] = useState(job?.currentStep ?? 1);
+  const [step, setStep] = useState(Math.min(job?.currentStep ?? 1, 2));
   const [chosen, setChosen] = useState<string[]>(
     job ? job.libraries.filter((library) => library.included).map((library) => library.libraryId)
       : libraries.filter((library) => !library.isProtected).map((library) => library.id)
   );
-  const [duplicateType, setDuplicateType] = useState(job?.duplicateType ?? "both");
-  const [mediaType, setMediaType] = useState(job?.mediaType ?? "both");
+  const [duplicateType, setDuplicateType] = useState<DuplicateKind>(job?.duplicateType ?? "folders");
+  const [mediaType, setMediaType] = useState<MediaKind>(job?.mediaType ?? "photo");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -901,6 +959,50 @@ function CleanupWizard({
 
   const chosenLibraries = libraries.filter((library) => chosen.includes(library.id));
   const externalCount = chosenLibraries.filter((library) => library.isProtected).length;
+  const internalCount = chosenLibraries.length - externalCount;
+  const hasProtected = libraries.some((library) => library.isProtected);
+  const stepName = step === 1 ? "Select what to scan" : "Review and run";
+
+  const cleanupTypeChoices: Choice<DuplicateKind>[] = [
+    {
+      value: "folders",
+      label: "Duplicate folders",
+      description: "Compare duplicate folders and their contents",
+      icon: <FolderOpen size={22} />
+    },
+    {
+      value: "files",
+      label: "Individual files",
+      description: "Review duplicate photos or videos one by one",
+      icon: <File size={22} />
+    }
+  ];
+
+  const mediaTypeChoices: Choice<MediaKind>[] = [
+    {
+      value: "photo",
+      label: "Photos",
+      description: "Image fingerprints only",
+      icon: <ImageIcon size={21} />
+    },
+    {
+      value: "video",
+      label: "Videos",
+      description: "Video fingerprints only",
+      icon: <Video size={21} />
+    },
+    {
+      value: "both",
+      label: "Photos and videos",
+      description: "Include both images and videos",
+      icon: (
+        <span className="cleanup-choice-pair" aria-hidden="true">
+          <ImageIcon size={18} />
+          <Video size={18} />
+        </span>
+      )
+    }
+  ];
 
   const save = async (andRun: boolean) => {
     setSaving(true);
@@ -928,159 +1030,246 @@ function CleanupWizard({
   return (
     <Modal
       variant="panel"
-      title={job ? "Change what to compare" : "New duplicate cleanup"}
+      title={job ? "Change duplicate cleanup job" : "Create duplicate cleanup job"}
+      subtitle={`Step ${step} of 2 · ${stepName}`}
+      icon={<FolderOpen size={30} />}
+      className="cleanup-wizard-modal"
+      headerClassName="cleanup-wizard-header"
       busy={saving}
       onClose={onClose}
     >
-      <div className="modal-tab-content dup-filter-form">
-        {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+      <div className="cleanup-wizard-shell">
+        <aside className="cleanup-wizard-rail" aria-label="Duplicate cleanup steps">
+          {[
+            { value: 1, title: "Scan setup", note: "Libraries, cleanup type, media" },
+            { value: 2, title: "Summary", note: "Review and run" }
+          ].map((item) => {
+            const done = step > item.value;
+            const active = step === item.value;
+            return (
+              <div
+                className={`cleanup-step${active ? " is-active" : ""}${done ? " is-done" : ""}`}
+                aria-current={active ? "step" : undefined}
+                key={item.value}
+              >
+                <span className="cleanup-step-dot" aria-hidden="true">
+                  {done ? <Check size={14} /> : item.value}
+                </span>
+                <span className="cleanup-step-copy">
+                  <strong>{item.title}</strong>
+                  <span>{item.note}</span>
+                </span>
+              </div>
+            );
+          })}
+        </aside>
 
-        {step === 1 && (
-          <>
-            <p className="dup-filter-hint">
-              Which photo libraries should be compared with each other. A copy is only ever found — and only ever
-              removed — inside what you tick here.
-            </p>
-            <div className="dup-folder-picker">
-              {libraries.map((library) => (
-                <div className="dup-folder-choice dup-folder-row" key={library.id}>
-                  <input
-                    type="checkbox"
-                    id={`lib-${library.id}`}
-                    checked={chosen.includes(library.id)}
-                    onChange={() => toggle(library.id)}
-                  />
-                  <label className="dup-folder-choice-body" htmlFor={`lib-${library.id}`}>
-                    <strong>{library.name}</strong>
-                    <span className="datagrid-muted">
-                      {library.sourcePath}
-                      {library.isProtected ? ` · ${library.mode === "external" ? "External" : "Read-only"}` : ""}
-                    </span>
-                  </label>
-                  {library.isProtected && (
-                    <span className="dup-mode-group" title="Nothing can be deleted from this library">
-                      <Lock size={14} aria-hidden="true" />
-                    </span>
-                  )}
+        <div className="cleanup-wizard-content">
+          {error && <MessageBox tone="error" title="Unable to save">{error}</MessageBox>}
+
+          {step === 1 && (
+            <div className="cleanup-wizard-page">
+              <div className="cleanup-wizard-intro">
+                <h3>Select what to scan</h3>
+                <p>Choose libraries, cleanup type, and media type for this duplicate cleanup job.</p>
+              </div>
+
+              <section className="cleanup-wizard-section">
+                <h4>1. Select libraries</h4>
+                {libraries.length === 0 ? (
+                  <MessageBox tone="warning" title="No gallery libraries">
+                    Create a gallery library before starting a duplicate cleanup job.
+                  </MessageBox>
+                ) : (
+                  <div className="cleanup-library-list" role="list">
+                    {libraries.map((library) => {
+                      const included = chosen.includes(library.id);
+                      return (
+                        <div className={`cleanup-library-row${included ? " is-selected" : ""}`} role="listitem" key={library.id}>
+                          <span className="cleanup-library-icon" aria-hidden="true">{libraryIcon(library)}</span>
+                          <span className="cleanup-library-copy">
+                            <strong>{library.name}</strong>
+                            <span>{library.sourcePath}</span>
+                          </span>
+                          <span className={`cleanup-library-badge ${library.mode}`}>
+                            {libraryModeLabel(library)}
+                          </span>
+                          {library.isProtected && (
+                            <span className="cleanup-library-lock" title="This library is protected from cleanup actions">
+                              <Lock size={15} aria-hidden="true" />
+                            </span>
+                          )}
+                          <ToggleSwitch
+                            checked={included}
+                            onChange={() => toggle(library.id)}
+                            disabled={saving}
+                            ariaLabel={`${included ? "Exclude" : "Include"} ${library.name}`}
+                            className="cleanup-library-toggle"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {hasProtected && (
+                  <MessageBox tone="info" title="External libraries stay protected">
+                    External libraries can be included for comparison, but files there cannot be cleaned.
+                  </MessageBox>
+                )}
+              </section>
+
+              <section className="cleanup-wizard-section">
+                <ChoiceGroup
+                  legend="2. Cleanup type"
+                  className="cleanup-choice-grid"
+                  value={duplicateType}
+                  onChange={setDuplicateType}
+                  disabled={saving}
+                  options={cleanupTypeChoices}
+                />
+              </section>
+
+              <section className="cleanup-wizard-section">
+                <ChoiceGroup
+                  legend="3. Media type"
+                  className="cleanup-choice-grid"
+                  value={mediaType}
+                  onChange={setMediaType}
+                  disabled={saving}
+                  options={mediaTypeChoices}
+                />
+              </section>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="cleanup-summary-layout">
+              <div className="cleanup-summary-main">
+                <div className="cleanup-wizard-intro">
+                  <h3>Summary</h3>
+                  <p>Review your selections before starting the duplicate cleanup scan.</p>
                 </div>
-              ))}
-            </div>
-            {libraries.some((library) => library.isProtected) && (
-              <MessageBox tone="info" title="Read-only libraries are always protected">
-                They can be compared, so a copy kept there counts as somewhere the photo survives — but nothing in them
-                is ever offered for deletion, and no folder rule can change that.
-              </MessageBox>
-            )}
-          </>
-        )}
 
-        {step === 2 && (
-          <>
-            <div className="dup-filter-field">
-              <span className="dup-filter-label">What to look for</span>
-              <div className="dup-tier-choices" role="radiogroup" aria-label="What to look for">
-                {[
-                  { value: "both", label: "Folders and single files", hint: "Everything, strongest statement first" },
-                  { value: "folders", label: "Whole folders only", hint: "Folders that duplicate or are stored inside another" },
-                  { value: "files", label: "Single files only", hint: "Byte-identical copies of one picture" }
-                ].map((choice) => (
-                  <label className={`dup-tier-choice${duplicateType === choice.value ? " is-on" : ""}`} key={choice.value}>
-                    <input
-                      type="radio"
-                      name="dup-job-type"
-                      checked={duplicateType === choice.value}
-                      onChange={() => setDuplicateType(choice.value as typeof duplicateType)}
-                    />
-                    <span>
-                      <strong>{choice.label}</strong>
-                      <span className="datagrid-muted">{choice.hint}</span>
+                <section className="cleanup-summary-card">
+                  <h4>1. Selected libraries</h4>
+                  <div className="cleanup-summary-libraries">
+                    {chosenLibraries.map((library) => (
+                      <div className="cleanup-summary-library" key={library.id}>
+                        <span className="cleanup-library-icon" aria-hidden="true">{libraryIcon(library)}</span>
+                        <strong>{library.name}</strong>
+                        <span className={`cleanup-library-badge ${library.mode}`}>{libraryModeLabel(library)}</span>
+                      </div>
+                    ))}
+                    {chosenLibraries.length === 0 && (
+                      <p className="datagrid-muted cleanup-summary-empty">No libraries selected.</p>
+                    )}
+                  </div>
+                  <p className="cleanup-summary-count">
+                    {chosenLibraries.length} librar{chosenLibraries.length === 1 ? "y" : "ies"} selected
+                    {" · "}{internalCount} internal
+                    {" · "}{externalCount} external
+                  </p>
+                </section>
+
+                <section className="cleanup-summary-card cleanup-summary-choice">
+                  <h4>2. Cleanup type</h4>
+                  <div>
+                    <span className="cleanup-summary-icon">
+                      {duplicateType === "files"
+                        ? <File size={22} aria-hidden="true" />
+                        : <FolderOpen size={22} aria-hidden="true" />}
                     </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="dup-filter-field">
-              <span className="dup-filter-label">Photos or videos</span>
-              <div className="dup-tier-choices" role="radiogroup" aria-label="Photos or videos">
-                {[
-                  { value: "both", label: "Photos and videos", hint: "" },
-                  { value: "photo", label: "Photos only", hint: "" },
-                  { value: "video", label: "Videos only", hint: "A handful of videos can outweigh a thousand photos" }
-                ].map((choice) => (
-                  <label className={`dup-tier-choice${mediaType === choice.value ? " is-on" : ""}`} key={choice.value}>
-                    <input
-                      type="radio"
-                      name="dup-job-media"
-                      checked={mediaType === choice.value}
-                      onChange={() => setMediaType(choice.value as typeof mediaType)}
-                    />
                     <span>
-                      <strong>{choice.label}</strong>
-                      {choice.hint && <span className="datagrid-muted">{choice.hint}</span>}
+                      <strong>{cleanupTypeLabel(duplicateType)}</strong>
+                      <small>{cleanupTypeDescription(duplicateType)}</small>
                     </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
+                  </div>
+                </section>
 
-        {step === 3 && (
-          <>
-            <p className="dup-filter-hint">
-              Once the scan runs, these can't be changed — everything it finds is worked out under them. Start a new
-              cleanup to compare something else.
-            </p>
-            <ul className="dup-member-list">
-              <li className="dup-member-row">
-                <span className="dup-member-path">Libraries</span>
-                <span className="datagrid-muted">{chosenLibraries.map((library) => library.name).join(", ") || "none"}</span>
-              </li>
-              <li className="dup-member-row">
-                <span className="dup-member-path">Read-only among them</span>
-                <span className="datagrid-muted">{externalCount} — compared, never deleted from</span>
-              </li>
-              <li className="dup-member-row">
-                <span className="dup-member-path">Looking for</span>
-                <span className="datagrid-muted">
-                  {duplicateType === "both" ? "Folders and single files" : duplicateType === "folders" ? "Whole folders" : "Single files"}
-                </span>
-              </li>
-              <li className="dup-member-row">
-                <span className="dup-member-path">Media</span>
-                <span className="datagrid-muted">
-                  {mediaType === "both" ? "Photos and videos" : mediaType === "photo" ? "Photos" : "Videos"}
-                </span>
-              </li>
-            </ul>
-            <MessageBox tone="info" title="The scan reads no files">
-              It works from the fingerprints already stored, so it costs seconds rather than a pass over the library.
-            </MessageBox>
-          </>
-        )}
+                <section className="cleanup-summary-card cleanup-summary-choice">
+                  <h4>3. Media type</h4>
+                  <div>
+                    <span className="cleanup-summary-icon">
+                      {mediaType === "video" ? (
+                        <Video size={22} aria-hidden="true" />
+                      ) : mediaType === "both" ? (
+                        <span className="cleanup-choice-pair" aria-hidden="true">
+                          <ImageIcon size={18} />
+                          <Video size={18} />
+                        </span>
+                      ) : (
+                        <ImageIcon size={22} aria-hidden="true" />
+                      )}
+                    </span>
+                    <span>
+                      <strong>{mediaTypeLabel(mediaType)}</strong>
+                      <small>{mediaTypeDescription(mediaType)}</small>
+                    </span>
+                  </div>
+                </section>
+
+                {externalCount > 0 && (
+                  <MessageBox tone="info" title="External libraries are comparison only">
+                    They are always protected and cannot be cleaned or selected for deletion.
+                  </MessageBox>
+                )}
+
+                <div className="cleanup-summary-note">
+                  <ShieldCheck size={17} aria-hidden="true" />
+                  <span>This scan creates one active duplicate cleanup job assigned to the current user.</span>
+                </div>
+              </div>
+
+              <aside className="cleanup-overview-card" aria-label="Job overview">
+                <h4>Job overview</h4>
+                <dl>
+                  <div>
+                    <dt><UserRound size={20} aria-hidden="true" />Owner</dt>
+                    <dd>{job?.ownerName ?? ownerName}</dd>
+                  </div>
+                  <div>
+                    <dt><RefreshCw size={20} aria-hidden="true" />Estimated action</dt>
+                    <dd>Scan and review</dd>
+                  </div>
+                  <div>
+                    <dt><Briefcase size={20} aria-hidden="true" />Job type</dt>
+                    <dd>Duplicate cleanup</dd>
+                  </div>
+                </dl>
+              </aside>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="modal-actions">
+      <div className="modal-actions cleanup-wizard-actions">
         {step > 1 && (
-          <Button variant="text" disabled={saving} onClick={() => setStep(step - 1)}>Back</Button>
+          <Button variant="secondary" disabled={saving} onClick={() => setStep(step - 1)}>
+            <ArrowLeft size={16} aria-hidden="true" />
+            <span>Back</span>
+          </Button>
         )}
         <Button variant="secondary" disabled={saving} onClick={onClose}>Cancel</Button>
-        {step < 3 ? (
+        <span className="cleanup-wizard-action-spacer" aria-hidden="true" />
+        {step < 2 ? (
           <Button
             variant="primary"
             disabled={saving || chosen.length === 0}
             onClick={() => setStep(step + 1)}
           >
-            Next
+            <span>Next</span>
+            <ArrowRight size={16} aria-hidden="true" />
           </Button>
         ) : (
           <>
-            <Button variant="secondary" disabled={saving} onClick={() => void save(false)}>
-              {saving ? "Saving…" : "Save for later"}
-            </Button>
+            {job && (
+              <Button variant="secondary" disabled={saving || chosen.length === 0} onClick={() => void save(false)}>
+                {saving ? "Saving…" : "Save changes"}
+              </Button>
+            )}
             <Button variant="primary" disabled={saving || chosen.length === 0} onClick={() => void save(true)}>
-              {saving ? "Scanning…" : "Run scan"}
+              <span>{saving ? "Scanning…" : "Run scan"}</span>
+              <ArrowRight size={16} aria-hidden="true" />
             </Button>
           </>
         )}

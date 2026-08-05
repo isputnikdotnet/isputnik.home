@@ -25,8 +25,9 @@ function asset(id: string, relativePath: string, hash: string, library = "GAL"):
   return id;
 }
 
-const startJob = (libraries = ["GAL"]) => {
-  const created = createJob({ ownerUserId: "u1", libraryIds: libraries });
+// A cleanup is folders OR files, never both, so each test says which kind of work it exercises.
+const startJob = (libraries = ["GAL"], duplicateType: "folders" | "files" = "folders") => {
+  const created = createJob({ ownerUserId: "u1", libraryIds: libraries, duplicateType });
   if (!created.ok) throw new Error(`job refused: ${created.refused}`);
   const done = runJobScan(created.job.id, "u1");
   if (!done.ok) throw new Error(`scan refused: ${done.refused}`);
@@ -47,7 +48,7 @@ describe("marking a result", () => {
   it("records the mark without touching a photo", () => {
     asset("a1", "Album/one.jpg", "same");
     asset("a2", "Copies/one.jpg", "same");
-    const jobId = startJob();
+    const jobId = startJob(["GAL"], "files");
     const result = listJobResults(jobId)[0];
 
     expect(markResult(jobId, "u1", result.id, "skipped").ok).toBe(true);
@@ -63,7 +64,7 @@ describe("marking a result", () => {
   it("is only for the owner", () => {
     asset("a1", "Album/one.jpg", "same");
     asset("a2", "Copies/one.jpg", "same");
-    const jobId = startJob();
+    const jobId = startJob(["GAL"], "files");
     const result = listJobResults(jobId)[0];
     expect(markResult(jobId, "u2", result.id, "skipped")).toMatchObject({ ok: false, refused: "not_owner" });
   });
@@ -71,7 +72,7 @@ describe("marking a result", () => {
   it("counts towards the job's totals", () => {
     asset("a1", "Album/one.jpg", "same");
     asset("a2", "Copies/one.jpg", "same");
-    const jobId = startJob();
+    const jobId = startJob(["GAL"], "files");
     markResult(jobId, "u1", listJobResults(jobId)[0].id, "reviewed");
     expect(getJob(jobId)!.totals.reviewed).toBe(1);
   });
@@ -83,7 +84,7 @@ describe("dismissing a result", () => {
   it("takes a photo set off the list and stops it being found again", () => {
     asset("a1", "Album/one.jpg", "same");
     asset("a2", "Copies/one.jpg", "same");
-    const jobId = startJob();
+    const jobId = startJob(["GAL"], "files");
     const result = listJobResults(jobId)[0];
 
     expect(dismissResult(jobId, "u1", result.id).ok).toBe(true);
@@ -129,7 +130,7 @@ describe("dismissing a result", () => {
   it("is only for the owner", () => {
     asset("a1", "Album/one.jpg", "same");
     asset("a2", "Copies/one.jpg", "same");
-    const jobId = startJob();
+    const jobId = startJob(["GAL"], "files");
     const result = listJobResults(jobId)[0];
     expect(dismissResult(jobId, "u2", result.id)).toMatchObject({ ok: false, refused: "not_owner" });
   });
@@ -171,13 +172,16 @@ describe("applying the job's folder instructions", () => {
   it("is refused once the job is finished", () => {
     asset("a1", "Album/one.jpg", "same");
     asset("a2", "Copies/one.jpg", "same");
-    const jobId = startJob();
+    const jobId = startJob(["GAL"], "files");
     db.prepare("UPDATE duplicate_jobs SET status = 'completed' WHERE id = ?").run(jobId);
     expect(applyPreferences(jobId, "u1")).toMatchObject({ ok: false, refused: "not_reviewable" });
   });
 });
 
 describe("narrowing the list", () => {
+  // A folder cleanup, so every fixture here is folder-shaped. GAL holds a scattered
+  // contained folder; GAL2 holds an identical pair — two kinds, one library each, so
+  // the type and library filters have something distinct to bite on.
   beforeEach(() => {
     // Scattered on purpose: the counterparts sit in two different folders, so "test"
     // is a contained folder rather than half of an identical pair.
@@ -186,18 +190,22 @@ describe("narrowing the list", () => {
     asset("f1", "Holiday/one.jpg", "pic-1");
     asset("f2", "Archive/two.jpg", "pic-2");
     asset("g1", "Other/three.jpg", "pic-3", "GAL2");
-    asset("g2", "Spare/three.jpg", "pic-3", "GAL2");
+    asset("g2", "Other/four.jpg", "pic-4", "GAL2");
+    asset("g3", "Spare/three.jpg", "pic-3", "GAL2");
+    asset("g4", "Spare/four.jpg", "pic-4", "GAL2");
   });
 
   it("filters by kind of result", () => {
     const jobId = startJob(["GAL", "GAL2"]);
     const all = countJobResults(jobId);
     const contained = countJobResults(jobId, { type: "contained" });
-    const photos = countJobResults(jobId, { type: "photo_set" });
+    const folderSets = countJobResults(jobId, { type: "folder_set" });
     expect(contained).toBeGreaterThan(0);
-    expect(photos).toBeGreaterThan(0);
-    expect(contained + photos).toBe(all);
+    expect(folderSets).toBeGreaterThan(0);
+    expect(contained + folderSets).toBe(all);
     expect(listJobResults(jobId, 50, 0, { type: "contained" }).every((r) => r.type === "contained")).toBe(true);
+    // A folder cleanup holds no single-file sets at all — that is a different job.
+    expect(countJobResults(jobId, { type: "photo_set" })).toBe(0);
   });
 
   it("filters by library", () => {
@@ -224,10 +232,10 @@ describe("narrowing the list", () => {
 
   it("counts and pages from the same filter", () => {
     const jobId = startJob(["GAL", "GAL2"]);
-    const filter = { type: "photo_set" as const };
+    const filter = { type: "folder_set" as const };
     const total = countJobResults(jobId, filter);
-    const page = listJobResults(jobId, 1, 0, filter);
-    expect(page).toHaveLength(1);
+    expect(total).toBeGreaterThan(0);
+    expect(listJobResults(jobId, 1, 0, filter)).toHaveLength(1);
     expect(listJobResults(jobId, 100, 0, filter)).toHaveLength(total);
   });
 });

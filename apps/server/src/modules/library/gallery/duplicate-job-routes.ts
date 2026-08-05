@@ -49,12 +49,17 @@ const REFUSALS: Record<JobRefusal, { code: number; error: string }> = {
     error: "The scan has already run, so the libraries and scan type can't be changed. Start a new cleanup to change them."
   },
   no_libraries: { code: 400, error: "Choose at least one photo library to compare." },
-  not_reviewable: { code: 409, error: "This cleanup is already finished." }
+  not_reviewable: { code: 409, error: "This cleanup is already finished." },
+  scan_failed: { code: 500, error: "The scan couldn't finish." }
 };
 
+// The detail is appended to the message rather than left in a field of its own. A
+// scan that broke on something specific — a column, a file, a library — used to
+// answer with a generic sentence and hide the useful half where nothing showed it.
 function refuse(reply: { code: (n: number) => { send: (body: unknown) => void } }, refused: JobRefusal, detail?: string) {
   const answer = REFUSALS[refused];
-  reply.code(answer.code).send({ error: answer.error, detail: detail ?? null });
+  const spoken = detail && refused === "scan_failed" ? `${answer.error} ${detail}` : answer.error;
+  reply.code(answer.code).send({ error: spoken, detail: detail ?? null });
 }
 
 /** The page-level payload: the active job (whoever owns it), what the wizard may
@@ -83,7 +88,7 @@ const send = (
 
 const scopeSchema = z.object({
   libraryIds: z.array(z.string().min(1).max(64)).max(200).optional(),
-  duplicateType: z.enum(["folders", "files", "both"]).optional(),
+  duplicateType: z.enum(["folders", "files"]).optional(),
   mediaType: z.enum(["photo", "video", "both"]).optional(),
   currentStep: z.number().int().min(1).max(3).optional()
 });

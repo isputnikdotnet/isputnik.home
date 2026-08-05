@@ -38,7 +38,9 @@ export const ACTIVE_STATUSES: JobStatus[] = ["draft", "scanning", "review", "pro
 
 const isActive = (status: JobStatus): boolean => ACTIVE_STATUSES.includes(status);
 
-export type DuplicateTypeScope = "folders" | "files" | "both";
+/** A cleanup works on folders OR on single files, never both at once — see the
+ *  column's own note in schema.sql. */
+export type DuplicateTypeScope = "folders" | "files";
 export type MediaTypeScope = "photo" | "video" | "both";
 
 export interface JobLibrary {
@@ -292,7 +294,12 @@ export type JobRefusal =
   | "not_owner"
   | "locked"
   | "no_libraries"
-  | "not_reviewable";
+  | "not_reviewable"
+  // The scan itself broke. Its own refusal, because it was folded into
+  // not_reviewable once and a crashed scan then reported "this cleanup is already
+  // finished" — which is not merely unhelpful, it points at the wrong thing
+  // entirely and buries the real message in a field nothing displayed.
+  | "scan_failed";
 
 export type JobOutcome<T> = { ok: true; job: T } | { ok: false; refused: JobRefusal; detail?: string };
 
@@ -350,7 +357,7 @@ export function createJob(input: CreateJobInput): JobOutcome<DuplicateJob> {
     db.prepare(`
       INSERT INTO duplicate_jobs (id, owner_user_id, status, duplicate_type, media_type, current_step)
       VALUES (?, ?, 'draft', ?, ?, 1)
-    `).run(id, input.ownerUserId, input.duplicateType ?? "both", input.mediaType ?? "both");
+    `).run(id, input.ownerUserId, input.duplicateType ?? "folders", input.mediaType ?? "both");
 
     const addLibrary = db.prepare(`
       INSERT INTO duplicate_job_libraries (job_id, library_id, included, library_type_snapshot, protected_snapshot)

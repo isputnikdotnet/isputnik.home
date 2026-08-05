@@ -114,7 +114,7 @@ function ControlSectionBody({
     case "missingPhotos":   return <MissingPhotosSection />;
     case "duplicatePhotos": return <DuplicatePhotosSection />;
     case "duplicateFolders": return <DuplicateFoldersSection />;
-    case "duplicateCleanup": return <DuplicateCleanupSection />;
+    case "duplicateCleanup": return <DuplicateCleanupSection currentUser={currentUser} />;
 
     case "appearance":      return <AppearanceSection />;
     case "email":           return <MailSection />;

@@ -634,7 +634,12 @@ CREATE TABLE IF NOT EXISTS duplicate_jobs (
                                        'paused', 'completed', 'failed', 'cancelled')),
   -- What the wizard asked for. Locked once scanning starts; changing either means a
   -- new scan, because the snapshot below was taken under them.
-  duplicate_type     TEXT NOT NULL DEFAULT 'both' CHECK (duplicate_type IN ('folders', 'files', 'both')),
+  -- Folders OR files, never both. They are different jobs of work: clearing whole
+  -- folders is a few decisions about a lot of photos, and going through single
+  -- copies is a lot of decisions about a few. Mixing them produced one list nobody
+  -- could work through in a sitting, and every folder cleared re-ordered the file
+  -- half underneath it.
+  duplicate_type     TEXT NOT NULL DEFAULT 'folders' CHECK (duplicate_type IN ('folders', 'files')),
   media_type         TEXT NOT NULL DEFAULT 'both' CHECK (media_type IN ('photo', 'video', 'both')),
   -- Which wizard step to reopen on, for a draft put down mid-way.
   current_step       INTEGER NOT NULL DEFAULT 1,

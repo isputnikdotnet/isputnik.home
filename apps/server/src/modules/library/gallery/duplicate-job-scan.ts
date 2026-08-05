@@ -564,19 +564,19 @@ export function runJobScan(jobId: string, userId: string): JobOutcome<DuplicateJ
       db.prepare("DELETE FROM duplicate_job_results WHERE job_id = ?").run(jobId);
 
       const write = writerFor(jobId);
-      const wantsFolders = job.duplicateType !== "files";
-      const wantsFiles = job.duplicateType !== "folders";
 
-      let claimed = new Set<string>();
-      if (wantsFolders) {
+      // One or the other, never both. A folder cleanup answers "is this whole folder
+      // redundant"; a file cleanup answers "is this one picture here twice". Running
+      // both at once meant every folder cleared re-ordered the single-file half
+      // underneath it, and the two kinds of decision were nothing like the same size
+      // of work to sit down to.
+      if (job.duplicateType === "folders") {
         const sets = snapshotFolderSets(write, prints, filesByFolder, preferences, protectedLibs);
         summary.folderSets = sets.written;
-        claimed = sets.claimed;
         summary.contained = snapshotContained(
-          write, prints, files, filesByFolder, claimed, preferences, protectedLibs, preferenceFor
+          write, prints, files, filesByFolder, sets.claimed, preferences, protectedLibs, preferenceFor
         );
-      }
-      if (wantsFiles) {
+      } else {
         summary.photoSets = snapshotPhotoSets(write, files, preferences, protectedLibs);
       }
       summary.results = summary.photoSets + summary.folderSets + summary.contained;
@@ -584,7 +584,7 @@ export function runJobScan(jobId: string, userId: string): JobOutcome<DuplicateJ
   } catch (err) {
     const message = err instanceof Error ? err.message : "The scan failed.";
     setJobStatus(jobId, userId, "failed", message);
-    return { ok: false, refused: "not_reviewable", detail: message };
+    return { ok: false, refused: "scan_failed", detail: message };
   }
 
   recordAction({

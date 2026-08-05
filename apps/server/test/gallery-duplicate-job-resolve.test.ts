@@ -28,8 +28,9 @@ function asset(id: string, relativePath: string, hash: string, library = "GAL"):
   return id;
 }
 
-const startJob = (libraries = ["GAL"]) => {
-  const created = createJob({ ownerUserId: "u1", libraryIds: libraries });
+// A cleanup is folders OR files, never both, so each test says which kind of work it exercises.
+const startJob = (libraries = ["GAL"], duplicateType: "folders" | "files" = "files") => {
+  const created = createJob({ ownerUserId: "u1", libraryIds: libraries, duplicateType });
   if (!created.ok) throw new Error(`job refused: ${created.refused}`);
   const done = runJobScan(created.job.id, "u1");
   if (!done.ok) throw new Error(`scan refused: ${done.refused}`);
@@ -201,7 +202,7 @@ describe("a contained folder", () => {
     asset("t2", "test/two.jpg", "pic-2");
     asset("f1", "One/one.jpg", "pic-1");
     asset("f2", "Two/two.jpg", "pic-2");
-    const jobId = startJob();
+    const jobId = startJob(["GAL"], "folders");
     const contained = listJobResults(jobId).find((result) => result.type === "contained")!;
 
     expect(checkResult(jobId, contained.id)!.ok).toBe(true);
