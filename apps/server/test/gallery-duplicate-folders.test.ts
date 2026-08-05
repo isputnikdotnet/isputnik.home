@@ -461,6 +461,27 @@ describe("contained folders", () => {
   // folder that is empty now can only mislead — it advertises photos and bytes that
   // aren't there, and every action on it fails.
 
+  // The folder that COVERS the copies and the folders the copies are IN are only the
+  // same thing when the coverer is a real folder. It is often a whole library — the
+  // copies spread across several of its folders, or it was marked "keep here" — and
+  // then naming it says nothing anyone can go and open.
+  it("names the folders the copies actually sit in, not just the one that covers them", () => {
+    asset("a1", "Album/a/one.jpg", { hash: "pic-1" });
+    asset("a2", "Album/b/two.jpg", { hash: "pic-2" });
+    asset("k1", "Keep/x/one.jpg", { hash: "pic-1" });
+    asset("k2", "Keep/y/two.jpg", { hash: "pic-2" });
+    // One extra, so Keep isn't covered by Album in return and the pair isn't dropped.
+    asset("k3", "Keep/z/three.jpg", { hash: "pic-3" });
+
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+    const row = listContainedFolders().find((entry) => entry.folder.folderPath === "Album");
+    expect(row?.target.folderPath).toBe("Keep");
+    // Nothing is kept in "Keep" itself — the copies are two folders below it.
+    expect(row?.targetFolders).toEqual(["Keep/x", "Keep/y"]);
+    expect(row?.targetFolderCount).toBe(2);
+  });
+
   it("drops a row whose folder has been emptied since the scan", () => {
     asset("p1", "Trip/one.jpg", { hash: "pic-1" });
     asset("p2", "Trip/two.jpg", { hash: "pic-2" });

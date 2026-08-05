@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.20.1",
+          label: "Where the copies actually are, instead of \"Library root\"",
+          changes: [
+            "A folder on the Stored elsewhere tab could say every photo in it was \"also in Library root\", which is the name of nothing: the library's top folder is the root of every path in it, not a folder anyone named. Beside a real folder name it looked like one, and sent people off to open a folder holding none of what the card was about. It shows as \".\" now.",
+            "More to the point, the card names the folders the copies are ACTUALLY in. The folder that covers a set of copies and the folders those copies sit in are only the same thing when the coverer is a real folder — it is often a whole library, either because the copies are spread across several of its folders or because that library was marked \"keep here\", which outranks the usual tightest-fit rule on purpose. Both the explanation and the kept folder now name the real folders, up to three of them and a count of the rest.",
+            "Which also answers, without any reasoning on your part, why a whole library was named: one folder listed means a saved instruction put the library ahead of it; several means the copies really are scattered."
+          ]
+        },
+        {
           version: "2.20.0",
           label: "A Utilities section, and a way to undo an emptying you regret",
           changes: [

@@ -70,8 +70,12 @@ const parentOf = (folderPath: string): string | null => {
   return cut === -1 ? "" : folderPath.slice(0, cut);
 };
 
+// A folder's own name. The library's top folder has none — it is the root of the
+// relative paths, not a folder someone named — so it gets the shell's name for
+// exactly that, ".". Calling it "Library root" made it look like a folder you could
+// go and open, and on a card next to a real folder name it read as one.
 const folderName = (folderPath: string): string =>
-  folderPath === "" ? "Library root" : folderPath.slice(folderPath.lastIndexOf("/") + 1);
+  folderPath === "" ? "." : folderPath.slice(folderPath.lastIndexOf("/") + 1);
 
 // The path of `filePath` relative to the folder `base`. base "" gives the path back.
 const below = (base: string, filePath: string): string =>
@@ -689,6 +693,11 @@ export interface ContainedFolder {
   /** The target is an ancestor of the folder — the copied-into-itself shape, where
    *  the kept folder's own counts include the photos about to go. */
   encloses: boolean;
+  /** The folders inside the target that actually hold the copies, at most three of
+   *  them. What to name when the target itself is a whole library. */
+  targetFolders: string[];
+  /** How many there are in total, so the card can say "and N more". */
+  targetFolderCount: number;
   coverUrls: string[];
   linkCount: number;
 }
@@ -729,10 +738,16 @@ export function listContainedFolders(): ContainedFolder[] {
       row.target_library_name
     );
     const encloses = isInside(target, folder.folderPath, folder.libraryId);
+    const counterparts = counterpartFolders(
+      { libraryId: row.library_id, folderPath: row.folder_path },
+      { libraryId: row.target_library_id, folderPath: row.target_folder_path }
+    );
     return {
       id: row.id,
       folder,
       target,
+      targetFolders: counterparts.paths,
+      targetFolderCount: counterparts.total,
       // Every number is re-derived from the library as it stands, never read back from
       // the columns the scan wrote. Photos leave — deleted here, deleted from the
       // gallery, emptied out of the Recycle Bin — and a card mixing a stale count with
@@ -1006,6 +1021,56 @@ function folderDetail(ref: FolderRef, libraryName: string): FolderDetail {
     coverUrls: folderCovers(itemIds),
     addedAt: folderAddedAt(itemIds)
   };
+}
+
+/** At most this many counterpart folders are named before the card falls back to
+ *  counting them. Three is enough to recognise a pattern, short enough to read. */
+const COUNTERPART_FOLDER_LIMIT = 3;
+
+// WHERE the copies actually sit inside the covering folder.
+//
+// The covering folder is often the whole library — because the copies are spread
+// across several of its folders, or because someone marked that library "keep here",
+// which outranks the tightest-fit rule on purpose. Naming it is then true and
+// useless: "every photo is also in ." tells you nothing you can go and look at.
+// These are the folders a person would actually open.
+function counterpartFolders(folder: FolderRef, target: FolderRef): { paths: string[]; total: number } {
+  const ids = folderItemIds(folder);
+  if (ids.length === 0) return { paths: [], total: 0 };
+
+  const digests = new Set<string>();
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const chunk = ids.slice(i, i + ID_CHUNK);
+    const rows = db.prepare(`
+      SELECT DISTINCT content_hash AS hash FROM gallery_details
+      WHERE item_id IN (${chunk.map(() => "?").join(",")}) AND content_hash IS NOT NULL
+    `).all(...chunk) as { hash: string }[];
+    for (const row of rows) digests.add(row.hash);
+  }
+  if (digests.size === 0) return { paths: [], total: 0 };
+
+  const prefix = target.folderPath === "" ? "" : `${target.folderPath.replace(/[\\%_]/g, "\\$&")}/`;
+  const counts = new Map<string, number>();
+  const list = [...digests];
+  for (let i = 0; i < list.length; i += ID_CHUNK) {
+    const chunk = list.slice(i, i + ID_CHUNK);
+    const rows = db.prepare(`
+      SELECT li.folder_path FROM library_items li
+      JOIN gallery_details gd ON gd.item_id = li.id
+      WHERE li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready'
+        AND (? = '' OR li.folder_path LIKE ? ESCAPE '\\')
+        AND gd.content_hash IN (${chunk.map(() => "?").join(",")})
+    `).all(target.libraryId, target.folderPath, `${prefix}%`, ...chunk) as { folder_path: string }[];
+    for (const row of rows) {
+      // A file inside the folder being removed is not a copy OF it.
+      if (isInside(folder, row.folder_path, target.libraryId)) continue;
+      const cut = row.folder_path.lastIndexOf("/");
+      counts.set(cut === -1 ? "" : row.folder_path.slice(0, cut), 1);
+    }
+  }
+
+  const sorted = [...counts.keys()].sort();
+  return { paths: sorted.slice(0, COUNTERPART_FOLDER_LIMIT), total: sorted.length };
 }
 
 const COVER_LIMIT = 4;
