@@ -1,11 +1,23 @@
-// Duplicate FOLDERS — two or more folders holding exactly the same photos, file for
-// file, whatever they are called. One decision here settles hundreds of the photo sets
-// on Duplicate photos.
+// Duplicate FOLDERS — one page for all three strengths of the same relationship:
 //
-// The other folder-shaped answer — a folder whose photos all sit in some LARGER folder
-// — is its own tab, DuplicateContainedFoldersSection. Both read the same scan and
-// neither runs one; the scan lives on Duplicate photos, so there is one place that
-// starts work and one place per answer that reports it.
+//   Identical         two or more folders holding exactly the same photos.
+//   Stored elsewhere  a folder whose every photo also sits in another folder,
+//                     which may hold more besides.
+//   Overlapping       two folders that merely SHARE some identical photos.
+//
+// They were three lists on two tabs, and the split made people check two places to
+// answer one question about a folder. One paged list now, strongest statement first,
+// each kind under its own heading with its own action:
+//
+//   identical  → keep one folder, delete the others
+//   contained  → delete the covered folder outright
+//   overlap    → delete only the shared copies from the losing side; both folders stay
+//
+// All three read the same scan and none runs one; the scan lives on Duplicate photos.
+// Which side keeps is decided the same way everywhere: a library whose files can't be
+// deleted always keeps, then your saved Keep/Clear folder instructions, then the
+// usual scoring — and trashBook refuses a protected library regardless of what any
+// page offers.
 import { useState } from "react";
 import { Eye, FolderOpen, HardDrive, Images, Trash2 } from "lucide-react";
 import { api } from "../../../api";
@@ -17,9 +29,12 @@ import { Pager } from "../../../shared/Pager";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { controlHref } from "../../../router";
 import {
+  type ContainedFolder,
+  type DuplicateFolderDetail,
   type DuplicateFolderGroup,
   type DuplicateFolderMember,
-  type FolderSort,
+  type FolderMatch,
+  type FolderOverlapPair,
   ExperimentalNotice,
   DuplicateFiltersModal,
   DuplicateFolderToolbar,
@@ -29,40 +44,37 @@ import {
   folderPathLabel,
   folderPreviewSummary,
   formatWhen,
-  pageSlice,
   useDuplicateFolderPage
 } from "./duplicate-shared";
 
-// A set is dated by the newest folder in it — the copy you most recently acquired is
-// what makes a pair feel recent, not the original it duplicates.
-const setDate = (group: DuplicateFolderGroup): string =>
-  group.members.reduce((latest, member) => (member.addedAt && member.addedAt > latest ? member.addedAt : latest), "");
-
-function sortSets(list: DuplicateFolderGroup[], sort: FolderSort): DuplicateFolderGroup[] {
-  const out = [...list];
-  if (sort === "photos") return out.sort((a, b) => b.itemCount - a.itemCount);
-  if (sort === "size") return out.sort((a, b) => b.copyBytes - a.copyBytes);
-  if (sort === "name") return out.sort((a, b) => (a.members[0]?.name ?? "").localeCompare(b.members[0]?.name ?? ""));
-  return out.sort((a, b) => setDate(b).localeCompare(setDate(a)));
+// What to call the two sides of a pair. Their names collide constantly — a folder
+// copied into itself has exactly the same name as its parent, and a partial
+// re-import often keeps the name — so fall back to full paths the moment they match.
+function pairLabels(one: DuplicateFolderDetail, other: DuplicateFolderDetail): { one: string; other: string } {
+  if (one.name !== other.name) return { one: one.name, other: other.name };
+  return { one: folderPathLabel(one), other: folderPathLabel(other) };
 }
 
-// The same rule the photo sets follow under a chosen library: only folders inside it
-// are compared, and a set left with fewer than two of them isn't a duplicate there.
-function scopeFolderGroup(group: DuplicateFolderGroup, libraryId: string): DuplicateFolderGroup | null {
-  if (!libraryId) return group;
-  const mine = group.members.filter((member) => member.libraryId === libraryId);
-  if (mine.length < 2) return null;
-  const keeper = mine.find((member) => member.isKeeper) ?? mine[0];
-  return {
-    ...group,
-    members: mine.map((member) => ({ ...member, isKeeper: folderKey(member) === folderKey(keeper) })),
-    reclaimableBytes: mine.filter((member) => folderKey(member) !== folderKey(keeper))
-      .reduce((sum, member) => sum + member.bytes, 0)
-  };
+const containedLabels = (row: ContainedFolder) => {
+  const labels = pairLabels(row.folder, row.target);
+  return { folder: labels.one, target: labels.other };
+};
+
+// Where the copies actually are, in words. The covering folder is often a whole
+// library — the copies are spread across several of its folders, or it was marked
+// "keep here" — and naming it then says nothing you can go and open. So name the
+// folders themselves, and fall back to the covering folder only when there are none
+// to name (every copy loose at the library's top level).
+function copiesLiveIn(row: ContainedFolder): string {
+  const quoted = row.targetFolders.map((path) => `“${path || "."}”`);
+  if (quoted.length === 0) return `“${row.target.name}”`;
+  const named = quoted.length === 2 ? quoted.join(" and ") : quoted.join(", ");
+  const hidden = row.targetFolderCount - quoted.length;
+  return hidden > 0 ? `${named} and ${hidden} more folder${hidden === 1 ? "" : "s"}` : named;
 }
 
 export function DuplicateFoldersSection() {
-  const page = useDuplicateFolderPage<DuplicateFolderGroup>(
+  const page = useDuplicateFolderPage<FolderMatch>(
     "Unable to load duplicate folders",
     "/api/library/gallery/duplicates/folders/search"
   );
@@ -76,12 +88,29 @@ export function DuplicateFoldersSection() {
   // or every non-keeper (the header button, or the keeper card's Keep this).
   const [deleteFolders, setDeleteFolders] = useState<DuplicateFolderMember[] | null>(null);
   const [ignoreTarget, setIgnoreTarget] = useState<DuplicateFolderGroup | null>(null);
+  const [containedDelete, setContainedDelete] = useState<ContainedFolder | null>(null);
+  const [containedIgnore, setContainedIgnore] = useState<ContainedFolder | null>(null);
+  const [overlapDelete, setOverlapDelete] = useState<FolderOverlapPair | null>(null);
+  const [overlapIgnore, setOverlapIgnore] = useState<FolderOverlapPair | null>(null);
 
-  // One page of sets, already scoped to the chosen library, narrowed and ordered by
-  // the server — including the rule that a set left with fewer than two folders in
-  // that library is not a duplicate there.
+  const dialogOpen = deleteTarget !== null || ignoreTarget !== null
+    || containedDelete !== null || containedIgnore !== null
+    || overlapDelete !== null || overlapIgnore !== null;
+
+  // One page of matches, already scoped, narrowed and ordered by the server —
+  // identical sets first, then stored-elsewhere, then overlaps, so a page can
+  // straddle the boundaries with each kind under its own heading.
   const shown = page.list;
   const reclaimable = page.list.reclaimableBytes;
+  // The pager's own arithmetic. The server clamps the page too and its answer wins,
+  // so a list that shrank under you can't strand the view past the end.
+  const perPage = page.perPage === "all" ? Math.max(shown.total, 1) : Number(page.perPage);
+  const totalPages = Math.max(1, Math.ceil(shown.total / perPage));
+  const firstShown = shown.total === 0 ? 0 : (shown.page - 1) * perPage + 1;
+  const lastShown = Math.min(shown.page * perPage, shown.total);
+  const pageIdentical = shown.items.filter((match): match is { kind: "identical" } & DuplicateFolderGroup => match.kind === "identical");
+  const pageContained = shown.items.filter((match): match is { kind: "contained" } & ContainedFolder => match.kind === "contained");
+  const pageOverlap = shown.items.filter((match): match is FolderOverlapPair => match.kind === "overlap");
 
   const keeperOf = (group: DuplicateFolderGroup): DuplicateFolderMember => {
     const picked = keeperPick[group.id];
@@ -121,7 +150,7 @@ export function DuplicateFoldersSection() {
       });
       setDeleteTarget(null);
       setDeleteFolders(null);
-      await page.load();
+      await page.reload();
     } catch (err) {
       page.setActionError(err instanceof Error ? err.message : "Unable to remove the folders");
     } finally {
@@ -194,6 +223,151 @@ export function DuplicateFoldersSection() {
     );
   };
 
+  // One contained row as a card: the kept folder and the one that goes, side by side.
+  const renderContained = (row: ContainedFolder, index: number) => {
+    const labels = containedLabels(row);
+    // What the keeper is left holding once this lands. Only worth saying when it
+    // ENCLOSES the folder — then its own count includes the photos about to go, and
+    // would otherwise look like it dropped for no reason.
+    const remaining = row.itemCount + row.extraCount;
+    const previewInfo = folderPreviewSummary(row.coverUrls, row.itemCount);
+    const where = copiesLiveIn(row);
+    const inLibrary = row.folder.libraryId === row.target.libraryId ? "" : ` in ${row.target.libraryName}`;
+    const reason = row.extraCount > 0
+      ? `Cleaning out “${labels.folder}” because every photo is also in ${where}${inLibrary}, which holds ${row.extraCount} more.`
+      : `Cleaning out “${labels.folder}” because every photo is also in ${where}${inLibrary} — the same pictures, arranged differently.`;
+
+    // A library's top folder isn't a folder anyone can go and look at; say the
+    // library, and let the note name the folders the copies are really in.
+    const keptAtRoot = row.target.folderPath === "";
+    const keptTile = keptAtRoot ? { ...row.target, name: row.target.libraryName } : row.target;
+
+    const deleteThis = () => { page.setActionError(""); setContainedDelete(row); };
+
+    return (
+      <div className="dup-set" key={row.id}>
+        <div className="dup-set-head">
+          <div className="dup-set-summary">
+            <h3 className="dup-set-title">Folder {index + 1}</h3>
+            <p className="dup-set-meta datagrid-muted">
+              <span><Images size={14} aria-hidden="true" /> {row.itemCount} photo{row.itemCount === 1 ? "" : "s"}</span>
+              <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(row.bytes)}</span>
+              <span><Eye size={14} aria-hidden="true" /> {previewInfo}</span>
+            </p>
+            <p className="dup-set-explain datagrid-muted">{reason}</p>
+          </div>
+          <div className="dup-group-actions">
+            <Button variant="secondary" compact disabled={busy} onClick={() => { page.setActionError(""); setContainedIgnore(row); }}>
+              Leave it
+            </Button>
+            <Button variant="secondary" danger compact className="dup-delete-action" disabled={busy} onClick={deleteThis}>
+              <Trash2 size={14} />
+              <span>Delete “{labels.folder}”</span>
+            </Button>
+          </div>
+        </div>
+
+        <div className="dup-set-body">
+          <FolderStrip urls={row.coverUrls} />
+
+          <div className="dup-set-folders">
+            <FolderTile
+              folder={keptTile}
+              keep
+              position={0}
+              busy={busy}
+              note={row.target.folderPath === ""
+                ? `Copies sit in ${where}`
+                : row.encloses
+                  ? `Holds “${labels.folder}” inside it — ${remaining} photo${remaining === 1 ? "" : "s"} left after`
+                  : undefined}
+            />
+            <FolderTile
+              folder={row.folder}
+              keep={false}
+              position={1}
+              busy={busy}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // One overlap pair as a card. The narrowest action on the page: only the shared
+  // copies on the losing side go, both folders stay — and the card says what each
+  // side keeps, because "delete" next to a folder name otherwise reads as the whole
+  // folder going.
+  const renderOverlap = (pair: FolderOverlapPair, index: number) => {
+    const labels = pairLabels(pair.lose, pair.keep);
+    const previewInfo = folderPreviewSummary(pair.coverUrls, pair.sharedCount);
+    const reason = `${pair.sharedCount} photo${pair.sharedCount === 1 ? "" : "s"} in “${labels.one}” ${pair.sharedCount === 1 ? "is" : "are"} also
+      in “${labels.other}”. The rest of each folder is not duplicated between them.`;
+
+    const deleteThis = () => { page.setActionError(""); setOverlapDelete(pair); };
+
+    return (
+      <div className="dup-set" key={pair.id}>
+        <div className="dup-set-head">
+          <div className="dup-set-summary">
+            <h3 className="dup-set-title">Pair {index + 1}</h3>
+            <p className="dup-set-meta datagrid-muted">
+              <span><Images size={14} aria-hidden="true" /> {pair.sharedCount} shared photo{pair.sharedCount === 1 ? "" : "s"}</span>
+              <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(pair.sharedBytes)}</span>
+              <span><Eye size={14} aria-hidden="true" /> {previewInfo}</span>
+            </p>
+            <p className="dup-set-explain datagrid-muted">
+              {reason}
+              {pair.keeperReason ? ` Keeping “${labels.other}”'s copies because: ${pair.keeperReason}.` : ""}
+            </p>
+          </div>
+          <div className="dup-group-actions">
+            <Button variant="secondary" compact disabled={busy} onClick={() => { page.setActionError(""); setOverlapIgnore(pair); }}>
+              Not the same
+            </Button>
+            <Button
+              variant="secondary"
+              danger
+              compact
+              className="dup-delete-action"
+              disabled={busy || !pair.canDelete}
+              title={pair.canDelete
+                ? undefined
+                : "Both folders are in libraries that don't allow deleting, so neither side's copies can be removed"}
+              onClick={deleteThis}
+            >
+              <Trash2 size={14} />
+              <span>Delete {pair.sharedCount} cop{pair.sharedCount === 1 ? "y" : "ies"} in “{labels.one}”</span>
+            </Button>
+          </div>
+        </div>
+
+        <div className="dup-set-body">
+          <FolderStrip urls={pair.coverUrls} />
+
+          <div className="dup-set-folders">
+            <FolderTile
+              folder={pair.keep}
+              keep
+              position={0}
+              busy={busy}
+              note="All its photos stay, shared ones included"
+            />
+            <FolderTile
+              folder={pair.lose}
+              keep={false}
+              position={1}
+              busy={busy}
+              note={pair.loseExtraCount > 0
+                ? `Only the ${pair.sharedCount} shared cop${pair.sharedCount === 1 ? "y" : "ies"} go — its ${pair.loseExtraCount} own photo${pair.loseExtraCount === 1 ? "" : "s"} stay`
+                : `The ${pair.sharedCount} shared cop${pair.sharedCount === 1 ? "y" : "ies"} go; the folder itself stays`}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <ControlSectionHead
@@ -201,7 +375,7 @@ export function DuplicateFoldersSection() {
         className="dup-section-head"
         iconClassName="duplicates"
         icon={<FolderOpen size={30} />}
-        description="Review duplicate folder pairs and remove extras."
+        description="Folders that duplicate, contain or overlap another folder, handled in one go."
       >
       </ControlSectionHead>
 
@@ -210,18 +384,12 @@ export function DuplicateFoldersSection() {
         {shown.total > 0
           ? (
             <>
-              <span>{shown.total} duplicate set{shown.total === 1 ? "" : "s"}</span>
+              <span>{shown.total} folder match{shown.total === 1 ? "" : "es"}</span>
               <span>{formatBytes(reclaimable)} to reclaim</span>
             </>
           )
           : null}
         <a href={controlHref("duplicatePhotos")}>Scanning and single photos are on the Duplicate photos tab</a>
-        {payload.containedCount > 0 && (
-          <a href={controlHref("duplicateContainedFolders")}>
-            {payload.containedCount} folder{payload.containedCount === 1 ? " is" : "s are"} already
-            {" "}stored elsewhere
-          </a>
-        )}
       </p>
 
       <ExperimentalNotice />
@@ -234,18 +402,18 @@ export function DuplicateFoldersSection() {
       {page.error && <MessageBox tone="error" title="Unable to load duplicate folders">{page.error}</MessageBox>}
       {/* An open dialog carries the error itself — showing it here as well says the
           same thing twice, once where it can't be read behind the dialog. */}
-      {page.actionError && !deleteTarget && !ignoreTarget && (
+      {page.actionError && !dialogOpen && (
         <MessageBox tone="error" title="Action failed">{page.actionError}</MessageBox>
       )}
 
       {shown.allItems > 0 && (
-        <DuplicateFolderToolbar page={page} searchHint="Search duplicate folders by path or library" />
+        <DuplicateFolderToolbar page={page} searchHint="Search folder matches by path or library" />
       )}
 
       {page.listLoaded && shown.allItems === 0 && !page.error && (
         <p className="management-empty">
           {payload.lastScanAt
-            ? "No folder holds exactly the same photos as another. A folder differing by even one photo isn't listed here — its copies still appear individually under Duplicate photos."
+            ? "No folder duplicates, contains or overlaps another. Single duplicated photos still appear under Duplicate photos."
             : "No scan has run yet. Start one on the Duplicate photos tab and the folders it finds appear here."}
         </p>
       )}
@@ -258,16 +426,47 @@ export function DuplicateFoldersSection() {
         </p>
       )}
 
-      {shown.total > 0 && (
+      {/* The heading stands whether or not the kind has results on THIS page — but a
+          kind with none anywhere is not announced, because "no folder overlaps" is
+          already said by the empty state above. */}
+      {pageIdentical.length > 0 && (
         <>
-          <div className="dup-sets">{shown.items.map(renderGroup)}</div>
-          <div className="dup-pager-row">
-            <span className="datagrid-muted">
-              Showing {shown.total} set{shown.total === 1 ? "" : "s"}
-            </span>
-            <Pager page={shown.page} totalPages={Math.max(1, Math.ceil(shown.total / (page.perPage === "all" ? Math.max(shown.total, 1) : Number(page.perPage))))} onChange={page.setPage} label="Duplicate folder pages" />
-          </div>
+          <h2 className="dup-tier-heading">Identical folders</h2>
+          <p className="datagrid-muted dup-tier-note">
+            The same pictures, file for file, whatever the folders are called. One is kept; the others can go whole.
+          </p>
+          <div className="dup-sets">{pageIdentical.map(renderGroup)}</div>
         </>
+      )}
+
+      {pageContained.length > 0 && (
+        <>
+          <h2 className="dup-tier-heading">Folders already stored elsewhere</h2>
+          <p className="datagrid-muted dup-tier-note">
+            Every photo in these folders also sits in another folder, so the folder itself can go and nothing is lost.
+          </p>
+          <div className="dup-sets">{pageContained.map(renderContained)}</div>
+        </>
+      )}
+
+      {pageOverlap.length > 0 && (
+        <>
+          <h2 className="dup-tier-heading">Folders sharing some photos</h2>
+          <p className="datagrid-muted dup-tier-note">
+            Two folders holding SOME identical photos — a partial copy, a “best of”, half a card re-imported. Only the
+            shared copies on one side are offered for deletion; both folders stay.
+          </p>
+          <div className="dup-sets">{pageOverlap.map(renderOverlap)}</div>
+        </>
+      )}
+
+      {shown.total > 0 && (
+        <div className="dup-pager-row">
+          <span className="datagrid-muted">
+            Showing {firstShown}–{lastShown} of {shown.total} match{shown.total === 1 ? "" : "es"}
+          </span>
+          <Pager page={shown.page} totalPages={totalPages} onChange={page.setPage} label="Folder match pages" />
+        </div>
       )}
 
       {deleteTarget && (() => {
@@ -327,6 +526,131 @@ export function DuplicateFoldersSection() {
             changed.
           </p>
           <p>The photos inside them are still compared with each other individually, under Duplicate photos.</p>
+        </ConfirmDialog>
+      )}
+
+      {containedDelete && (
+        <ConfirmDialog
+          title={`Delete the folder “${containedLabels(containedDelete).folder}”?`}
+          confirmLabel={`Delete ${containedDelete.itemCount} photo${containedDelete.itemCount === 1 ? "" : "s"}`}
+          busyLabel="Deleting…"
+          danger
+          busy={page.busyId === containedDelete.id}
+          error={page.actionError}
+          onConfirm={() => page.post(
+            `/api/library/gallery/duplicates/folders/contained/${containedDelete.id}/resolve`,
+            () => setContainedDelete(null),
+            "Unable to remove the folder",
+            containedDelete.id
+          )}
+          onCancel={() => setContainedDelete(null)}
+          rich
+        >
+          <p>
+            Every one of the {containedDelete.itemCount} photos in
+            {" "}<strong>{folderPathLabel(containedDelete.folder)}</strong> also sits in
+            {" "}<strong>{folderPathLabel(containedDelete.target)}</strong>
+            {containedDelete.folder.libraryId === containedDelete.target.libraryId
+              ? ""
+              : ` in ${containedDelete.target.libraryName}`}, which is not touched. That's checked again the
+            moment you confirm — if even one photo here no longer has a copy there, nothing is deleted.
+          </p>
+          <p>
+            Each photo hands its tags, albums, collections and tagged people to its copy in the kept folder first.
+            The copies are the same file byte for byte, so tagged faces still line up.
+          </p>
+          <p>
+            All {containedDelete.itemCount} photo{containedDelete.itemCount === 1 ? "" : "s"} go to the
+            Recycle Bin and can be restored until it's emptied. The folder itself is left behind on disk, empty.
+          </p>
+        </ConfirmDialog>
+      )}
+
+      {containedIgnore && (
+        <ConfirmDialog
+          title={`Leave “${containedLabels(containedIgnore).folder}” alone?`}
+          confirmLabel="Leave it"
+          busyLabel="Saving…"
+          busy={page.busyId === containedIgnore.id}
+          error={page.actionError}
+          onConfirm={() => page.post(
+            `/api/library/gallery/duplicates/folders/contained/${containedIgnore.id}/ignore`,
+            () => setContainedIgnore(null),
+            "Unable to dismiss the folder",
+            containedIgnore.id
+          )}
+          onCancel={() => setContainedIgnore(null)}
+          rich
+        >
+          <p>
+            This folder stops being suggested for removal, whichever folder turns out to hold copies of its photos.
+            Nothing is deleted and no photo is changed.
+          </p>
+          <p>Its photos are still compared with the rest individually, under Duplicate photos.</p>
+        </ConfirmDialog>
+      )}
+
+      {overlapDelete && (() => {
+        const labels = pairLabels(overlapDelete.lose, overlapDelete.keep);
+        return (
+          <ConfirmDialog
+            title={`Delete ${overlapDelete.sharedCount} duplicated photo${overlapDelete.sharedCount === 1 ? "" : "s"} from “${labels.one}”?`}
+            confirmLabel={`Delete ${overlapDelete.sharedCount} cop${overlapDelete.sharedCount === 1 ? "y" : "ies"}`}
+            busyLabel="Deleting…"
+            danger
+            busy={page.busyId === overlapDelete.id}
+            error={page.actionError}
+            onConfirm={() => page.post(
+              `/api/library/gallery/duplicates/folders/overlaps/${overlapDelete.id}/resolve`,
+              () => setOverlapDelete(null),
+              "Unable to remove the copies",
+              overlapDelete.id
+            )}
+            onCancel={() => setOverlapDelete(null)}
+            rich
+          >
+            <p>
+              Only the photos these two folders hold in common are deleted, and only from
+              {" "}<strong>{folderPathLabel(overlapDelete.lose)}</strong>
+              {overlapDelete.lose.libraryId === overlapDelete.keep.libraryId ? "" : ` in ${overlapDelete.lose.libraryName}`}.
+              {" "}What's shared is worked out again the moment you confirm, and which side keeps is re-decided under the
+              current library policies and folder instructions — so a choice changed since this page loaded is honoured.
+            </p>
+            <p>
+              Each deleted copy hands its tags, albums, collections and tagged people to its byte-identical counterpart
+              in <strong>{folderPathLabel(overlapDelete.keep)}</strong>, which keeps every one of its photos.
+              {overlapDelete.loseExtraCount > 0
+                ? ` The ${overlapDelete.loseExtraCount} photo${overlapDelete.loseExtraCount === 1 ? "" : "s"} “${labels.one}” holds that aren't duplicated stay where they are.`
+                : ""}
+            </p>
+            <p>
+              Everything removed goes to the Recycle Bin and can be restored until it's emptied. Both folders remain.
+            </p>
+          </ConfirmDialog>
+        );
+      })()}
+
+      {overlapIgnore && (
+        <ConfirmDialog
+          title="Stop pairing these folders?"
+          confirmLabel="Not the same"
+          busyLabel="Saving…"
+          busy={page.busyId === overlapIgnore.id}
+          error={page.actionError}
+          onConfirm={() => page.post(
+            `/api/library/gallery/duplicates/folders/overlaps/${overlapIgnore.id}/ignore`,
+            () => setOverlapIgnore(null),
+            "Unable to dismiss the pair",
+            overlapIgnore.id
+          )}
+          onCancel={() => setOverlapIgnore(null)}
+          rich
+        >
+          <p>
+            This pair disappears and future scans won't put these two folders side by side again. Nothing is deleted
+            and no photo is changed.
+          </p>
+          <p>The shared photos are still compared individually, under Duplicate photos.</p>
         </ConfirmDialog>
       )}
 

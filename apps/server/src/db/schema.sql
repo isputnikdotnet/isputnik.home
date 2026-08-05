@@ -551,6 +551,43 @@ CREATE TABLE IF NOT EXISTS gallery_duplicate_contained_ignores (
   PRIMARY KEY (library_id, folder_path, target_library_id, target_folder_path)
 );
 
+-- Two folders that SHARE identical photos without either equalling or containing the
+-- other — the third folder-shaped answer, for the common mess of a partial copy: half
+-- a card's photos re-imported into a new folder, a "best of" pulled from several
+-- trips. The action is narrower than the other tiers': only the shared copies on the
+-- losing side go; the folders themselves both stay.
+--
+-- A cache over one scan, like its two siblings: rebuilt from stored digests, no disk.
+-- Pairs already answered by an equal-contents set or a stored-elsewhere row are not
+-- written — those are stronger statements about the same folders. Side A is the
+-- lexically smaller (library, path); which side KEEPS is chosen at read time, so a
+-- changed folder instruction or library policy applies without a rebuild.
+CREATE TABLE IF NOT EXISTS gallery_duplicate_folder_overlaps (
+  id           TEXT PRIMARY KEY,
+  library_a    TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  path_a       TEXT NOT NULL,
+  library_b    TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  path_b       TEXT NOT NULL,
+  -- Photos the two hold in common, multiplicity respected, and the bytes ONE side's
+  -- copies occupy — what resolving the pair frees.
+  shared_count INTEGER NOT NULL,
+  shared_bytes INTEGER NOT NULL,
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  UNIQUE (library_a, path_a, library_b, path_b)
+);
+
+-- "These two just share some photos — stop pairing them." A pair, like the
+-- equal-contents dismissals: the overlap is symmetric and the decision has to
+-- survive a rebuild. Side A is the lexically smaller (library, path).
+CREATE TABLE IF NOT EXISTS gallery_duplicate_folder_overlap_ignores (
+  library_a  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  path_a     TEXT NOT NULL,
+  library_b  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+  path_b     TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (library_a, path_a, library_b, path_b)
+);
+
 -- "These two folders are not duplicates", as a pair, for the same reason the
 -- item-level dismissals are pairs: the decision has to survive a rebuild that
 -- regroups the set. The lexically smaller (library, path) is always side A.

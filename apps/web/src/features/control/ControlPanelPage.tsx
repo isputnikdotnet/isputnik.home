@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ChevronDown, Home, Image, Search } from "lucide-react";
+import { ChevronDown, Home, Search } from "lucide-react";
 import type { PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { controlHref, followRoute } from "../../router";
@@ -30,7 +30,6 @@ import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
 import { MissingPhotosSection } from "./sections/MissingPhotosSection";
 import { DuplicatePhotosSection } from "./sections/DuplicatePhotosSection";
 import { DuplicateFoldersSection } from "./sections/DuplicateFoldersSection";
-import { DuplicateContainedFoldersSection } from "./sections/DuplicateContainedFoldersSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { MailSection } from "./sections/MailSection";
 import { OpdsAccessSection } from "./sections/OpdsAccessSection";
@@ -114,7 +113,6 @@ function ControlSectionBody({
     case "missingPhotos":   return <MissingPhotosSection />;
     case "duplicatePhotos": return <DuplicatePhotosSection />;
     case "duplicateFolders": return <DuplicateFoldersSection />;
-    case "duplicateContainedFolders": return <DuplicateContainedFoldersSection />;
 
     case "appearance":      return <AppearanceSection />;
     case "email":           return <MailSection />;

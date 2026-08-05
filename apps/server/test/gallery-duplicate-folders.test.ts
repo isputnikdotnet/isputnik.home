@@ -17,7 +17,12 @@ import {
   rebuildContainedFolders,
   listContainedFolders,
   ignoreContainedFolder,
-  resolveContainedFolder
+  resolveContainedFolder,
+  rebuildFolderOverlaps,
+  searchFolderMatches,
+  resolveFolderOverlap,
+  ignoreFolderOverlap,
+  type FolderOverlapPair
 } from "../src/modules/library/gallery/duplicate-folders.js";
 import {
   setFolderPreferences,
@@ -522,6 +527,62 @@ describe("contained folders", () => {
     rebuildContainedFolders();
     const row = listContainedFolders().find((entry) => entry.folder.folderPath === "Album");
     expect(row?.target.folderPath).toBe("");
+    // And the self-heal leaves it alone: a genuine root keeper re-derives to the
+    // root, so a second read neither rewrites nor renames it.
+    const again = listContainedFolders().find((entry) => entry.folder.folderPath === "Album");
+    expect(again?.target.folderPath).toBe("");
+  });
+
+  // A row can outlive the RULES as well as the photos: one cached before 2.21.1 may
+  // still name a library's root as the keeper although a real folder holds the
+  // copies. The rebuild no longer writes that shape, but the keeper on screen comes
+  // from the cache — so reading the list repairs it, rather than leaving "press
+  // Rebuild" as the only cure.
+  it("heals a cached row that still names the library root as the keeper", () => {
+    asset("a1", "Photos/_2013/2013-11-02/one.jpg", { hash: "pic-1" });
+    asset("a2", "Photos/_2013/2013-11-02/two.jpg", { hash: "pic-2" });
+    asset("d1", "OneDrive/one.jpg", { hash: "pic-1" });
+    asset("d2", "OneDrive/two.jpg", { hash: "pic-2" });
+    // Extras, so OneDrive isn't covered in return and the leaf's ancestors — which
+    // hold this unique file too — aren't themselves redundant.
+    asset("d3", "OneDrive/three.jpg", { hash: "pic-3" });
+    asset("u1", "Photos/_2013/unique.jpg", { hash: "pic-u" });
+
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+    const fresh = listContainedFolders().find((entry) => entry.folder.folderPath === "Photos/_2013/2013-11-02");
+    expect(fresh?.target.folderPath).toBe("OneDrive");
+
+    // Regress the row to the pre-2.21.1 shape by hand, then just read the list.
+    db.prepare("UPDATE gallery_duplicate_contained_folders SET target_folder_path = '' WHERE id = ?").run(fresh!.id);
+    const healed = listContainedFolders().find((entry) => entry.folder.folderPath === "Photos/_2013/2013-11-02");
+    expect(healed?.target.folderPath).toBe("OneDrive");
+    // Written back, not merely displayed — the delete confirm reads the same row.
+    expect(db.prepare("SELECT target_folder_path AS t FROM gallery_duplicate_contained_folders WHERE id = ?").get(fresh!.id))
+      .toEqual({ t: "OneDrive" });
+  });
+
+  it("still deletes against a cached root keeper — the root covers even when it isn't named", () => {
+    asset("a1", "Photos/_2013/2013-11-02/one.jpg", { hash: "pic-1" });
+    asset("a2", "Photos/_2013/2013-11-02/two.jpg", { hash: "pic-2" });
+    asset("d1", "OneDrive/one.jpg", { hash: "pic-1" });
+    asset("d2", "OneDrive/two.jpg", { hash: "pic-2" });
+    asset("d3", "OneDrive/three.jpg", { hash: "pic-3" });
+    asset("u1", "Photos/_2013/unique.jpg", { hash: "pic-u" });
+
+    rebuildDuplicateFolderGroups();
+    rebuildContainedFolders();
+    // Straight from the table — listing would heal it first, and the point here is
+    // that a row nothing has healed is still safe to act on.
+    const row = db.prepare(
+      "SELECT id FROM gallery_duplicate_contained_folders WHERE folder_path = 'Photos/_2013/2013-11-02'"
+    ).get() as { id: string };
+    db.prepare("UPDATE gallery_duplicate_contained_folders SET target_folder_path = '' WHERE id = ?").run(row.id);
+
+    // Coverage is checked directly now. Membership in the NAMED candidates — where
+    // the root is passed over for a real folder — used to refuse this with a message
+    // blaming the copies.
+    expect(resolveContainedFolder(row.id, "u1").ok).toBe(true);
   });
 
   it("drops a row whose folder has been emptied since the scan", () => {
@@ -759,5 +820,227 @@ describe("stale results can't be displayed", () => {
     rebuildDuplicateFolderGroups();
     rebuildContainedFolders();
     expect(listContainedFolders().map((row) => row.folder.folderPath)).toEqual(["Trip/Trip"]);
+  });
+});
+
+// ── Overlapping folders ─────────────────────────────────────────────────────
+//
+// Two folders that SHARE identical photos without either equalling or containing
+// the other — the partial mess the first two tiers can't speak about. The action is
+// the narrowest on the page: only the shared copies on the losing side go, and
+// which side loses honours the same rules as everywhere else — a protected library
+// always keeps, then the saved Keep/Clear instructions.
+
+const overlapMatches = (): FolderOverlapPair[] =>
+  searchFolderMatches({}).matches.filter((match): match is FolderOverlapPair => match.kind === "overlap");
+
+const rebuildAll = () => {
+  rebuildDuplicateFolderGroups();
+  rebuildContainedFolders();
+  rebuildFolderOverlaps();
+};
+
+describe("overlapping folders", () => {
+  it("finds a pair sharing some photos, with the counts", () => {
+    // Trip and Best-of share two pictures; each also holds a photo of its own.
+    asset("t1", "Trip/one.jpg", { hash: "pic-1", size: 100 });
+    asset("t2", "Trip/two.jpg", { hash: "pic-2", size: 200 });
+    asset("t3", "Trip/three.jpg", { hash: "pic-3" });
+    asset("b1", "Best-of/one.jpg", { hash: "pic-1", size: 100 });
+    asset("b2", "Best-of/two.jpg", { hash: "pic-2", size: 200 });
+    asset("b3", "Best-of/other.jpg", { hash: "pic-4" });
+
+    rebuildAll();
+    const pairs = overlapMatches();
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0].sharedCount).toBe(2);
+    expect(pairs[0].sharedBytes).toBe(300);
+    // Each side keeps a photo of its own, and the card says so.
+    expect(pairs[0].keepExtraCount).toBe(1);
+    expect(pairs[0].loseExtraCount).toBe(1);
+  });
+
+  it("defers to the stronger tiers: identical and contained pairs are not repeated", () => {
+    // A and B are identical; C is fully inside D; E and F merely overlap.
+    trip("A", "a");
+    trip("B", "b");
+    asset("c1", "C/one.jpg", { hash: "pic-c1" });
+    asset("c2", "C/two.jpg", { hash: "pic-c2" });
+    asset("d1", "D/one.jpg", { hash: "pic-c1" });
+    asset("d2", "D/two.jpg", { hash: "pic-c2" });
+    asset("d3", "D/three.jpg", { hash: "pic-c3" });
+    asset("e1", "E/one.jpg", { hash: "pic-e1" });
+    asset("e2", "E/two.jpg", { hash: "pic-e2" });
+    asset("e3", "E/mine.jpg", { hash: "pic-e3" });
+    asset("f1", "F/one.jpg", { hash: "pic-e1" });
+    asset("f2", "F/two.jpg", { hash: "pic-e2" });
+    asset("f3", "F/other.jpg", { hash: "pic-e4" });
+
+    rebuildAll();
+    const pairs = overlapMatches().map((pair) => [pair.keep.name, pair.lose.name].sort().join("+"));
+    expect(pairs).toEqual(["E+F"]);
+  });
+
+  it("ignores a pair below two shared photos, and a folder against its own parent", () => {
+    // One shared photo is a duplicate PHOTO, not a folder relationship.
+    asset("g1", "G/one.jpg", { hash: "pic-g" });
+    asset("g2", "G/mine.jpg", { hash: "pic-gm" });
+    asset("h1", "H/one.jpg", { hash: "pic-g" });
+    asset("h2", "H/mine.jpg", { hash: "pic-hm" });
+    // Copies sitting one level up from their originals: the photo tier's business.
+    asset("p1", "Photos/x.jpg", { hash: "pic-p1" });
+    asset("p2", "Photos/y.jpg", { hash: "pic-p2" });
+    asset("q1", "Photos/sub/x.jpg", { hash: "pic-p1" });
+    asset("q2", "Photos/sub/y.jpg", { hash: "pic-p2" });
+    asset("q3", "Photos/sub/z.jpg", { hash: "pic-p3" });
+
+    rebuildAll();
+    expect(overlapMatches()).toEqual([]);
+  });
+
+  it("keeps the protected library's side, whatever else is true", () => {
+    db.prepare("UPDATE libraries SET policy_json = ? WHERE id = 'GAL2'").run(JSON.stringify({ mode: "external" }));
+    asset("m1", "Mine/one.jpg", { hash: "pic-1" });
+    asset("m2", "Mine/two.jpg", { hash: "pic-2" });
+    asset("m3", "Mine/extra.jpg", { hash: "pic-m" });
+    asset("x1", "Theirs/one.jpg", { hash: "pic-1", library: "GAL2" });
+    asset("x2", "Theirs/two.jpg", { hash: "pic-2", library: "GAL2" });
+    asset("x3", "Theirs/extra.jpg", { hash: "pic-x", library: "GAL2" });
+
+    rebuildAll();
+    const pair = overlapMatches()[0];
+    expect(pair.keep.libraryId).toBe("GAL2");
+    expect(pair.lose.libraryId).toBe("GAL");
+    expect(pair.canDelete).toBe(true);
+  });
+
+  it("offers no delete at all when both sides are protected", () => {
+    db.prepare("UPDATE libraries SET policy_json = ?").run(JSON.stringify({ mode: "external" }));
+    asset("m1", "Mine/one.jpg", { hash: "pic-1" });
+    asset("m2", "Mine/two.jpg", { hash: "pic-2" });
+    asset("m3", "Mine/extra.jpg", { hash: "pic-m" });
+    asset("x1", "Theirs/one.jpg", { hash: "pic-1", library: "GAL2" });
+    asset("x2", "Theirs/two.jpg", { hash: "pic-2", library: "GAL2" });
+    asset("x3", "Theirs/extra.jpg", { hash: "pic-x", library: "GAL2" });
+
+    rebuildAll();
+    const pair = overlapMatches()[0];
+    // Shown — the overlap is still worth knowing about — but not actionable.
+    expect(pair.canDelete).toBe(false);
+    expect(resolveFolderOverlap(pair.id, "u1")).toEqual({ ok: false, refused: "protected" });
+  });
+
+  it("honours a Clear out instruction when choosing the losing side", () => {
+    asset("m1", "Mine/one.jpg", { hash: "pic-1" });
+    asset("m2", "Mine/two.jpg", { hash: "pic-2" });
+    asset("m3", "Mine/extra.jpg", { hash: "pic-m" });
+    asset("x1", "Theirs/one.jpg", { hash: "pic-1" });
+    asset("x2", "Theirs/two.jpg", { hash: "pic-2" });
+    asset("x3", "Theirs/extra.jpg", { hash: "pic-x" });
+
+    setFolderPreferences([{ libraryId: "GAL", folderPath: "Mine", mode: "clear" }]);
+    rebuildAll();
+    const pair = overlapMatches()[0];
+    expect(pair.lose.name).toBe("Mine");
+    expect(pair.keep.name).toBe("Theirs");
+  });
+
+  it("deletes only the shared copies, and the unique photos on both sides survive", () => {
+    asset("m1", "Mine/one.jpg", { hash: "pic-1" });
+    asset("m2", "Mine/two.jpg", { hash: "pic-2" });
+    asset("m3", "Mine/extra.jpg", { hash: "pic-m" });
+    asset("x1", "Theirs/one.jpg", { hash: "pic-1" });
+    asset("x2", "Theirs/two.jpg", { hash: "pic-2" });
+    asset("x3", "Theirs/extra.jpg", { hash: "pic-x" });
+    // Make Mine the keeper, so the shared copies in Theirs are the ones that go.
+    setFolderPreferences([{ libraryId: "GAL", folderPath: "Mine", mode: "keep" }]);
+    db.prepare("INSERT INTO tags (id, key, display_name) VALUES ('t1', 'trips', 'Trips')").run();
+    db.prepare("INSERT INTO taggables (tag_id, entity_type, entity_id) VALUES ('t1', 'library_item', 'x1')").run();
+
+    rebuildAll();
+    const pair = overlapMatches()[0];
+    const outcome = resolveFolderOverlap(pair.id, "u1");
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    // Exactly the two shared copies in Theirs were acted on — never x3, and nothing
+    // in Mine. (The move to the bin itself needs real files; attempted = deleted or
+    // reported, exactly as the other tiers' suites treat it.)
+    const touched = [...outcome.resolution.deletedItemIds, ...outcome.resolution.failed.map((f) => f.itemId)];
+    expect(touched.sort()).toEqual(["x1", "x2"]);
+    // x1's tag moved to its byte-identical counterpart in Mine before removal.
+    const tagged = db.prepare(
+      "SELECT entity_id FROM taggables WHERE tag_id = 't1' AND entity_type = 'library_item'"
+    ).all() as { entity_id: string }[];
+    expect(tagged.map((row) => row.entity_id)).toContain("m1");
+  });
+
+  it("dismisses a pair for good — the rebuild does not bring it back", () => {
+    asset("m1", "Mine/one.jpg", { hash: "pic-1" });
+    asset("m2", "Mine/two.jpg", { hash: "pic-2" });
+    asset("m3", "Mine/extra.jpg", { hash: "pic-m" });
+    asset("x1", "Theirs/one.jpg", { hash: "pic-1" });
+    asset("x2", "Theirs/two.jpg", { hash: "pic-2" });
+    asset("x3", "Theirs/extra.jpg", { hash: "pic-x" });
+
+    rebuildAll();
+    const pair = overlapMatches()[0];
+    expect(ignoreFolderOverlap(pair.id)).toBe(true);
+    expect(overlapMatches()).toEqual([]);
+    rebuildAll();
+    expect(overlapMatches()).toEqual([]);
+  });
+
+  it("puts all three kinds on one page, strongest first", () => {
+    trip("A", "a");
+    trip("B", "b");
+    asset("c1", "C/one.jpg", { hash: "pic-c1" });
+    asset("c2", "C/two.jpg", { hash: "pic-c2" });
+    asset("d1", "D/one.jpg", { hash: "pic-c1" });
+    asset("d2", "D/two.jpg", { hash: "pic-c2" });
+    asset("d3", "D/three.jpg", { hash: "pic-c3" });
+    asset("e1", "E/one.jpg", { hash: "pic-e1" });
+    asset("e2", "E/two.jpg", { hash: "pic-e2" });
+    asset("e3", "E/mine.jpg", { hash: "pic-e3" });
+    asset("f1", "F/one.jpg", { hash: "pic-e1" });
+    asset("f2", "F/two.jpg", { hash: "pic-e2" });
+    asset("f3", "F/other.jpg", { hash: "pic-e4" });
+
+    rebuildAll();
+    const result = searchFolderMatches({});
+    expect(result.matches.map((match) => match.kind)).toEqual(["identical", "contained", "overlap"]);
+    expect(result.total).toBe(3);
+    expect(result.allMatches).toBe(3);
+  });
+
+  // Merging three lists into one pager means a page can straddle the boundary
+  // between kinds — the case where an off-by-one would hide.
+  it("pages the merged list, straddling the boundaries between kinds", () => {
+    trip("A", "a");
+    trip("B", "b");
+    asset("c1", "C/one.jpg", { hash: "pic-c1" });
+    asset("c2", "C/two.jpg", { hash: "pic-c2" });
+    asset("d1", "D/one.jpg", { hash: "pic-c1" });
+    asset("d2", "D/two.jpg", { hash: "pic-c2" });
+    asset("d3", "D/three.jpg", { hash: "pic-c3" });
+    asset("e1", "E/one.jpg", { hash: "pic-e1" });
+    asset("e2", "E/two.jpg", { hash: "pic-e2" });
+    asset("e3", "E/mine.jpg", { hash: "pic-e3" });
+    asset("f1", "F/one.jpg", { hash: "pic-e1" });
+    asset("f2", "F/two.jpg", { hash: "pic-e2" });
+    asset("f3", "F/other.jpg", { hash: "pic-e4" });
+
+    rebuildAll();
+    const first = searchFolderMatches({ page: 1, perPage: 2 });
+    const second = searchFolderMatches({ page: 2, perPage: 2 });
+    // Every page reports the whole total, not the size of its slice.
+    expect(first.total).toBe(3);
+    expect(second.total).toBe(3);
+    expect(first.matches.map((match) => match.kind)).toEqual(["identical", "contained"]);
+    expect(second.matches.map((match) => match.kind)).toEqual(["overlap"]);
+
+    // A page past the end clamps rather than coming back empty.
+    const past = searchFolderMatches({ page: 99, perPage: 2 });
+    expect(past.page).toBe(2);
+    expect(past.matches).toHaveLength(1);
   });
 });

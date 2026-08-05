@@ -34,8 +34,10 @@ import { recomputeFaceCount } from "./people.js";
 import {
   rebuildDuplicateFolderGroups,
   rebuildContainedFolders,
+  rebuildFolderOverlaps,
   type FolderGroupTotals,
-  type ContainedFolderTotals
+  type ContainedFolderTotals,
+  type FolderOverlapTotals
 } from "./duplicate-folders.js";
 
 export const DUPLICATE_SCAN_JOB_TYPE = "SCAN_GALLERY_DUPLICATES";
@@ -863,6 +865,7 @@ export function rebuildNearDuplicateGroups(): GroupTotals {
 export function rebuildDuplicateGroups(): GroupTotals & {
   folders: FolderGroupTotals;
   contained: ContainedFolderTotals;
+  overlaps: FolderOverlapTotals;
 } {
   const exact = rebuildExactDuplicateGroups();
   const near = rebuildNearDuplicateGroups();
@@ -870,6 +873,9 @@ export function rebuildDuplicateGroups(): GroupTotals & {
   // After the equal-contents pass, which it defers to: a folder with a partner there
   // is already offered with a keeper choice, and shouldn't be offered twice.
   const contained = rebuildContainedFolders();
+  // Last, deferring to both above: a pair those tiers speak for is a stronger
+  // statement about the same folders than "they share some photos".
+  const overlaps = rebuildFolderOverlaps();
   db.prepare(`
     INSERT INTO app_settings (key, value, updated_at)
     VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -880,7 +886,8 @@ export function rebuildDuplicateGroups(): GroupTotals & {
     extraCopies: exact.extraCopies + near.extraCopies,
     reclaimableBytes: exact.reclaimableBytes + near.reclaimableBytes,
     folders,
-    contained
+    contained,
+    overlaps
   };
 }
 

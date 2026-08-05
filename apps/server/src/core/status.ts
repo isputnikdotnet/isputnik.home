@@ -502,6 +502,19 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.22.0",
+          label: "One folder page, and folders that share only some photos",
+          changes: [
+            "Duplicate folders and Stored elsewhere were two tabs asking one question about a folder, so you had to check both to answer it. They are one page now, strongest statement first, each kind under its own heading with its own action: identical folders keep one and remove the others, a folder stored elsewhere goes whole. Every address the old tab had still lands here.",
+            "A third kind joins them: folders that share only SOME photos. Half a card re-imported into a new folder, a \"best of\" pulled from several trips — neither folder equals or contains the other, so nothing used to report them, though they may share hundreds of identical pictures.",
+            "Their action is the narrowest on the page. Only the shared copies on one side go; every photo either folder holds alone stays exactly where it is, and both folders remain. The card says how many photos of its own each side keeps, because \"delete\" beside a folder name otherwise reads as the whole folder going.",
+            "Which side keeps follows the same rule everywhere now: a library whose files can't be deleted — external, or with deleting turned off — always keeps, ahead of even the folder instructions you have saved, because proposing to delete from it proposes something that cannot happen. When BOTH folders of a pair are protected, the pair is still shown, since knowing about it is worth something, but no deletion is offered.",
+            "What is shared, and which side keeps, are worked out again the moment you confirm — so a library policy or folder instruction changed since the page loaded is honoured rather than ignored.",
+            "A pair whose folders are already answered by one of the stronger kinds is never repeated as a weaker one, a folder is never paired with its own parent, and two shared photos is the minimum: one shared photo is a duplicate photo, which the other page already reports.",
+            "The pager on the folder page said how many matches there were in total where it meant to say which of them you were looking at. It reads \"Showing 1–10 of 47\" again."
+          ]
+        },
+        {
           version: "2.21.2",
           label: "Every copy says which folder and which library it's in",
           changes: [

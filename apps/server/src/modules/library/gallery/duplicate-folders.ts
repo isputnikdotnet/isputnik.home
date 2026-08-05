@@ -608,6 +608,43 @@ function containersOf(print: FolderFingerprint): ContainmentTarget[] {
     || (refKey(a) < refKey(b) ? -1 : 1));
 }
 
+// Does `target` still hold a copy of everything in `print` — multiplicity respected,
+// and never counting print's own files where target encloses it?
+//
+// This is the SAFETY question, and it is deliberately not containersOf. That function
+// additionally chooses which covering folder is worth NAMING — it drops the library
+// root whenever a real folder also covers, which is a presentation rule. A cached row
+// from before that rule may still name the root as its keeper; the root still covers,
+// the deletion against it is still safe, and refusing it because the root lost a
+// beauty contest would strand the row behind a message blaming the copies.
+function containerCovers(print: FolderFingerprint, target: FolderRef): boolean {
+  const needed = digestCountsOf(print);
+  if (needed.size === 0) return false;
+
+  const scope = folderScope(target);
+  const counts: DigestCounts = new Map();
+  const digests = [...needed.keys()];
+  for (let i = 0; i < digests.length; i += ID_CHUNK) {
+    const chunk = digests.slice(i, i + ID_CHUNK);
+    const rows = db.prepare(`
+      SELECT gd.content_hash AS hash, li.folder_path AS path
+      FROM library_items li
+      JOIN gallery_details gd ON gd.item_id = li.id
+      WHERE ${scope.where} AND gd.content_hash IN (${chunk.map(() => "?").join(",")})
+    `).all(...scope.args, ...chunk) as { hash: string; path: string }[];
+    for (const row of rows) {
+      // A file inside the folder being removed is not a copy OF it.
+      if (isInside(print, row.path, target.libraryId)) continue;
+      counts.set(row.hash, (counts.get(row.hash) ?? 0) + 1);
+    }
+  }
+
+  for (const [hash, count] of needed) {
+    if ((counts.get(hash) ?? 0) < count) return false;
+  }
+  return true;
+}
+
 export interface ContainedFolderTotals {
   folders: number;
   reclaimableBytes: number;
@@ -806,9 +843,36 @@ function containedRows(): LeanContained[] {
 // really sit. Only for the rows on screen.
 function hydrateContained(row: LeanContained): ContainedFolder {
   const folderRef = { libraryId: row.libraryId, folderPath: row.folderPath };
-  const targetRef = { libraryId: row.targetLibraryId, folderPath: row.targetFolderPath };
+  let targetRef = { libraryId: row.targetLibraryId, folderPath: row.targetFolderPath };
+  let targetName = row.targetLibraryName;
+  let targetTotals = row.targetTotals;
+
+  // Self-heal the one stale shape older rebuilds left behind: a keeper that is a
+  // library's ROOT although a real folder holds the copies. The 2.21.1 rule stops a
+  // rebuild from writing such a row, but the keeper on screen comes from the CACHE,
+  // so a row written before the rule kept showing "." with the true folder relegated
+  // to a note — and pressing Rebuild was the only cure. Re-derive the choice here,
+  // for the rare root-keeper row only, and write it back so the delete confirm and
+  // this card agree. Legitimate root keepers (copies genuinely loose at the top
+  // level) re-derive to the root and pass through unchanged.
+  if (row.targetFolderPath === "") {
+    const print = fingerprintOf(folderRef);
+    const best = print ? containersOf(print)[0] : undefined;
+    if (best && best.folderPath !== "") {
+      db.prepare(
+        "UPDATE gallery_duplicate_contained_folders SET target_library_id = ?, target_folder_path = ? WHERE id = ?"
+      ).run(best.libraryId, best.folderPath, row.id);
+      const lib = db.prepare("SELECT name FROM libraries WHERE id = ?").get(best.libraryId) as
+        | { name: string }
+        | undefined;
+      targetRef = { libraryId: best.libraryId, folderPath: best.folderPath };
+      targetName = lib?.name ?? row.targetLibraryName;
+      targetTotals = folderTotals(targetRef);
+    }
+  }
+
   const folder = folderDetail(folderRef, row.libraryName, row.totals);
-  const target = folderDetail(targetRef, row.targetLibraryName, row.targetTotals);
+  const target = folderDetail(targetRef, targetName, targetTotals);
   const encloses = isInside(target, folder.folderPath, folder.libraryId);
   const counterparts = counterpartFolders(folderRef, targetRef);
   return {
@@ -935,8 +999,10 @@ export function resolveContainedFolder(id: string, userId: string): ContainedOut
     return { ok: false, refused: "uncovered" };
   }
 
-  const stillCovered = containersOf(print).some((candidate) => refKey(candidate) === refKey(target));
-  if (!stillCovered) return { ok: false, refused: "uncovered" };
+  // Coverage checked directly, not by membership in containersOf's output — that list
+  // also decides which container is worth naming, and a cached row may name one (the
+  // library root, before 2.21.1) that the naming rules now pass over. Safe is safe.
+  if (!containerCovers(print, target)) return { ok: false, refused: "uncovered" };
 
   // Counterparts in the covering folder, by digest, with the same-relative-path copy
   // preferred so the obvious pairing wins when there is one.
@@ -1324,6 +1390,7 @@ export function folderAnswerSummary(): {
   folders: { libraryId: string; libraryName: string; folderPath: string }[];
   folderSets: number;
   containedRowCount: number;
+  overlapCount: number;
 } {
   const members = db.prepare(`
     SELECT m.library_id AS libraryId, lib.name AS libraryName, m.folder_path AS folderPath
@@ -1338,101 +1405,573 @@ export function folderAnswerSummary(): {
     folders.push({ libraryId: row.targetLibraryId, libraryName: row.targetLibraryName, folderPath: row.targetFolderPath });
   }
 
+  const overlapSides = db.prepare(`
+    SELECT o.library_a, o.path_a, o.library_b, o.path_b, la.name AS name_a, lb.name AS name_b
+    FROM gallery_duplicate_folder_overlaps o
+    JOIN libraries la ON la.id = o.library_a
+    JOIN libraries lb ON lb.id = o.library_b
+  `).all() as { library_a: string; path_a: string; library_b: string; path_b: string; name_a: string; name_b: string }[];
+  for (const row of overlapSides) {
+    folders.push({ libraryId: row.library_a, libraryName: row.name_a, folderPath: row.path_a });
+    folders.push({ libraryId: row.library_b, libraryName: row.name_b, folderPath: row.path_b });
+  }
+
   return {
     folders,
     folderSets: (db.prepare("SELECT COUNT(*) AS n FROM gallery_duplicate_folder_groups").get() as { n: number }).n,
-    containedRowCount: contained.length
+    containedRowCount: contained.length,
+    overlapCount: overlapSides.length
   };
 }
 
-export interface DuplicateFolderPage {
-  groups: DuplicateFolderGroup[];
-  total: number;
-  allSets: number;
-  page: number;
-  reclaimableBytes: number;
+// ── Overlapping folders — SOME photos identical between two folders ─────────
+//
+// The third folder-shaped answer, for the common partial mess: half a card
+// re-imported into a new folder, a "best of" pulled from several trips. Neither
+// folder equals nor contains the other, so the first two tiers say nothing — yet the
+// pair may share hundreds of byte-identical photos. The action is narrower than the
+// other tiers': only the shared copies on the losing side go, never the unique ones,
+// and both folders remain.
+//
+// A folder here means the photos DIRECTLY in it, not its subtree. Subtree overlap
+// would pair every ancestor with every counterpart's ancestor — an explosion of
+// rows all restating one fact — and the subtree-shaped statements are exactly what
+// the identical and stored-elsewhere tiers already make.
+
+/** The photos directly in a folder — no subtree. Range first so the index does the
+ *  slicing, then "nothing after the prefix contains a slash". */
+function directScope(ref: FolderRef): { where: string; args: (string | number)[] } {
+  const base = "li.library_id = ? AND li.deleted_at IS NULL AND li.status = 'ready'";
+  if (ref.folderPath === "") {
+    return { where: `${base} AND instr(li.folder_path, '/') = 0`, args: [ref.libraryId] };
+  }
+  return {
+    where: `${base} AND li.folder_path >= ? AND li.folder_path < ? AND instr(substr(li.folder_path, ?), '/') = 0`,
+    args: [ref.libraryId, `${ref.folderPath}/`, `${ref.folderPath}0`, ref.folderPath.length + 2]
+  };
 }
 
-export function searchDuplicateFolderGroups(query: FolderSearch): DuplicateFolderPage {
-  const all = leanFolderGroups();
-  const needle = (query.search ?? "").trim().toLowerCase();
-  const chosen = query.folders ?? [];
+function directTotals(ref: FolderRef): FolderTotals {
+  const scope = directScope(ref);
+  const row = db.prepare(`
+    SELECT COUNT(*) AS n, COALESCE(SUM(gd.size), 0) AS bytes, MIN(li.discovered_at) AS added
+    FROM library_items li
+    JOIN gallery_details gd ON gd.item_id = li.id
+    WHERE ${scope.where}
+  `).get(...scope.args) as { n: number; bytes: number; added: string | null };
+  return { itemCount: row.n, bytes: row.bytes, addedAt: row.added };
+}
 
-  const matched = all
-    .map((group) => scopeFolderGroup(group, query.libraryId ?? ""))
-    .filter((group): group is LeanFolderGroup => group !== null)
-    .filter((group) => group.members.some((member) =>
-      (!needle || member.folderPath.toLowerCase().includes(needle) || member.libraryName.toLowerCase().includes(needle))
-      && folderChosen(chosen, member.libraryId, member.folderPath)));
+function directHashedFiles(ref: FolderRef): { id: string; hash: string; size: number }[] {
+  const scope = directScope(ref);
+  return db.prepare(`
+    SELECT li.id, gd.content_hash AS hash, COALESCE(gd.size, 0) AS size
+    FROM library_items li
+    JOIN gallery_details gd ON gd.item_id = li.id
+    WHERE ${scope.where} AND gd.content_hash IS NOT NULL
+  `).all(...scope.args) as { id: string; hash: string; size: number }[];
+}
 
-  const sort = query.sort ?? "newest";
-  const ordered = [...matched].sort((a, b) => {
-    if (sort === "photos") return b.itemCount - a.itemCount;
-    if (sort === "size") return b.copyBytes - a.copyBytes;
-    if (sort === "name") return (a.members[0]?.name ?? "").localeCompare(b.members[0]?.name ?? "");
-    return newestMember(b).localeCompare(newestMember(a));
+/** What two folders hold in common, live: per shared digest, the copies on each
+ *  side. Multiplicity respected — a folder holding one picture twice shares two
+ *  only if the other side holds two as well. */
+function overlapShared(a: FolderRef, b: FolderRef): {
+  count: number;
+  bytes: number;
+  perHash: { hash: string; size: number; aIds: string[]; bIds: string[] }[];
+  aIds: string[];
+  bIds: string[];
+} {
+  const bucket = (files: { id: string; hash: string; size: number }[]) => {
+    const out = new Map<string, { ids: string[]; size: number }>();
+    for (const file of files) {
+      const entry = out.get(file.hash);
+      if (entry) entry.ids.push(file.id); else out.set(file.hash, { ids: [file.id], size: file.size });
+    }
+    return out;
+  };
+  const byA = bucket(directHashedFiles(a));
+  const byB = bucket(directHashedFiles(b));
+
+  let count = 0;
+  let bytes = 0;
+  const perHash: { hash: string; size: number; aIds: string[]; bIds: string[] }[] = [];
+  const aIds: string[] = [];
+  const bIds: string[] = [];
+  for (const [hash, sideA] of byA) {
+    const sideB = byB.get(hash);
+    if (!sideB) continue;
+    const shared = Math.min(sideA.ids.length, sideB.ids.length);
+    count += shared;
+    bytes += shared * sideA.size;
+    perHash.push({ hash, size: sideA.size, aIds: sideA.ids, bIds: sideB.ids });
+    aIds.push(...sideA.ids);
+    bIds.push(...sideB.ids);
+  }
+  return { count, bytes, perHash, aIds, bIds };
+}
+
+const sameOrInside = (libA: string, pathA: string, libB: string, pathB: string): boolean =>
+  libA === libB && (pathB === "" || pathA === pathB || pathA.startsWith(`${pathB}/`));
+
+function overlapIgnores(): Set<string> {
+  const rows = db.prepare(
+    "SELECT library_a, path_a, library_b, path_b FROM gallery_duplicate_folder_overlap_ignores"
+  ).all() as { library_a: string; path_a: string; library_b: string; path_b: string }[];
+  return new Set(rows.map((r) =>
+    `${refKey({ libraryId: r.library_a, folderPath: r.path_a })}|${refKey({ libraryId: r.library_b, folderPath: r.path_b })}`));
+}
+
+export interface FolderOverlapTotals {
+  pairs: number;
+  sharedBytes: number;
+}
+
+// Rebuild the overlap pairs from the digests already stored. Runs AFTER the other
+// two folder rebuilds, and defers to both: a pair the equal-contents tier groups, or
+// that a stored-elsewhere row speaks for, is a stronger statement about the same
+// folders and is not repeated here as a weaker one.
+export function rebuildFolderOverlaps(): FolderOverlapTotals {
+  // Every live copy of every digest that exists at least twice, with the folder it
+  // sits directly in.
+  const rows = db.prepare(`
+    SELECT gd.content_hash AS hash, COALESCE(gd.size, 0) AS size, li.library_id AS lib, li.folder_path AS path
+    FROM gallery_details gd
+    JOIN library_items li ON li.id = gd.item_id AND li.deleted_at IS NULL AND li.status = 'ready'
+    JOIN libraries l ON l.id = li.library_id AND l.type = 'gallery'
+    WHERE gd.content_hash IN (
+      SELECT gd2.content_hash
+      FROM gallery_details gd2
+      JOIN library_items li2 ON li2.id = gd2.item_id AND li2.deleted_at IS NULL AND li2.status = 'ready'
+      JOIN libraries l2 ON l2.id = li2.library_id AND l2.type = 'gallery'
+      WHERE gd2.content_hash IS NOT NULL
+      GROUP BY gd2.content_hash HAVING COUNT(*) > 1
+    )
+  `).all() as { hash: string; size: number; lib: string; path: string }[];
+
+  // digest → the folders holding it, with multiplicity.
+  const byHash = new Map<string, Map<string, { ref: FolderRef; count: number; size: number }>>();
+  for (const row of rows) {
+    const cut = row.path.lastIndexOf("/");
+    const dir = cut === -1 ? "" : row.path.slice(0, cut);
+    const key = refKey({ libraryId: row.lib, folderPath: dir });
+    let folders = byHash.get(row.hash);
+    if (!folders) { folders = new Map(); byHash.set(row.hash, folders); }
+    const entry = folders.get(key);
+    if (entry) entry.count += 1;
+    else folders.set(key, { ref: { libraryId: row.lib, folderPath: dir }, count: 1, size: row.size });
+  }
+
+  // Accumulate per unordered pair. Side A is the lexically smaller key, so a pair
+  // has exactly one accumulator however its digests are ordered.
+  const pairs = new Map<string, { a: FolderRef; b: FolderRef; count: number; bytes: number }>();
+  for (const folders of byHash.values()) {
+    const entries = [...folders.entries()];
+    for (let i = 0; i < entries.length; i += 1) {
+      for (let j = i + 1; j < entries.length; j += 1) {
+        const [keyI, sideI] = entries[i];
+        const [keyJ, sideJ] = entries[j];
+        const [first, second] = keyI <= keyJ ? [sideI, sideJ] : [sideJ, sideI];
+        const pairKey = keyI <= keyJ ? `${keyI}|${keyJ}` : `${keyJ}|${keyI}`;
+        const shared = Math.min(sideI.count, sideJ.count);
+        const entry = pairs.get(pairKey);
+        if (entry) { entry.count += shared; entry.bytes += shared * sideI.size; }
+        else pairs.set(pairKey, { a: first.ref, b: second.ref, count: shared, bytes: shared * sideI.size });
+      }
+    }
+  }
+
+  // What the stronger tiers already answer. Members of one equal-contents group
+  // explain the overlap between anything inside them; a stored-elsewhere row speaks
+  // for its whole folder.
+  const groupMembers = db.prepare(
+    "SELECT group_id, library_id, folder_path FROM gallery_duplicate_folder_members"
+  ).all() as { group_id: string; library_id: string; folder_path: string }[];
+  const containedFolders = db.prepare(
+    "SELECT library_id, folder_path FROM gallery_duplicate_contained_folders"
+  ).all() as { library_id: string; folder_path: string }[];
+  const ignored = overlapIgnores();
+
+  const groupsCovering = (ref: FolderRef): Set<string> => {
+    const out = new Set<string>();
+    for (const member of groupMembers) {
+      if (sameOrInside(ref.libraryId, ref.folderPath, member.library_id, member.folder_path)) out.add(member.group_id);
+    }
+    return out;
+  };
+
+  const kept = [...pairs.entries()].filter(([key, pair]) => {
+    if (pair.count < MIN_FOLDER_FILES) return false;
+    if (ignored.has(key)) return false;
+    // A folder does not "overlap" its own parent — those copies are the photo
+    // tier's to report, and the pair reads as nonsense on a card.
+    if (sameOrInside(pair.a.libraryId, pair.a.folderPath, pair.b.libraryId, pair.b.folderPath)
+      || sameOrInside(pair.b.libraryId, pair.b.folderPath, pair.a.libraryId, pair.a.folderPath)) return false;
+    // Answered by an equal-contents set both sides sit in.
+    const shared = groupsCovering(pair.a);
+    if (shared.size > 0) {
+      for (const groupId of groupsCovering(pair.b)) if (shared.has(groupId)) return false;
+    }
+    // Answered by a stored-elsewhere row about either side.
+    if (containedFolders.some((row) =>
+      sameOrInside(pair.a.libraryId, pair.a.folderPath, row.library_id, row.folder_path)
+      || sameOrInside(pair.b.libraryId, pair.b.folderPath, row.library_id, row.folder_path))) return false;
+    return true;
   });
 
-  const { items, page } = paginate(ordered, query);
+  let sharedBytes = 0;
+  db.transaction(() => {
+    db.prepare("DELETE FROM gallery_duplicate_folder_overlaps").run();
+    const insert = db.prepare(`
+      INSERT INTO gallery_duplicate_folder_overlaps
+        (id, library_a, path_a, library_b, path_b, shared_count, shared_bytes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const [, pair] of kept) {
+      insert.run(nanoid(16), pair.a.libraryId, pair.a.folderPath, pair.b.libraryId, pair.b.folderPath, pair.count, pair.bytes);
+      sharedBytes += pair.bytes;
+    }
+  })();
+
+  return { pairs: kept.length, sharedBytes };
+}
+
+interface LeanOverlap {
+  id: string;
+  a: FolderRef & { libraryName: string };
+  b: FolderRef & { libraryName: string };
+  sharedCount: number;
+  sharedBytes: number;
+  aTotals: FolderTotals;
+  bTotals: FolderTotals;
+}
+
+function overlapLeanRows(): LeanOverlap[] {
+  const rows = db.prepare(`
+    SELECT o.id, o.library_a, o.path_a, o.library_b, o.path_b, o.shared_count, o.shared_bytes,
+           la.name AS name_a, lb.name AS name_b
+    FROM gallery_duplicate_folder_overlaps o
+    JOIN libraries la ON la.id = o.library_a
+    JOIN libraries lb ON lb.id = o.library_b
+    ORDER BY o.shared_bytes DESC, o.id
+  `).all() as {
+    id: string; library_a: string; path_a: string; library_b: string; path_b: string;
+    shared_count: number; shared_bytes: number; name_a: string; name_b: string;
+  }[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    a: { libraryId: row.library_a, folderPath: row.path_a, libraryName: row.name_a },
+    b: { libraryId: row.library_b, folderPath: row.path_b, libraryName: row.name_b },
+    sharedCount: row.shared_count,
+    sharedBytes: row.shared_bytes,
+    aTotals: directTotals({ libraryId: row.library_a, folderPath: row.path_a }),
+    bTotals: directTotals({ libraryId: row.library_b, folderPath: row.path_b })
+  // A side emptied since the scan has nothing left to share.
+  })).filter((row) => row.aTotals.itemCount > 0 && row.bTotals.itemCount > 0);
+}
+
+export interface FolderOverlapPair {
+  kind: "overlap";
+  id: string;
+  /** The side that keeps everything. Chosen at read time — a protected library
+   *  first, then the saved Keep/Clear instructions, then the usual scoring — so a
+   *  changed policy applies without a rebuild. */
+  keep: FolderDetail;
+  lose: FolderDetail;
+  sharedCount: number;
+  sharedBytes: number;
+  /** Photos each side holds beyond the shared ones. The card says these survive. */
+  keepExtraCount: number;
+  loseExtraCount: number;
+  keeperReason: string | null;
+  /** False when the LOSING side's library forbids deleting too — both sides
+   *  protected. Shown, not offered: knowing the overlap exists is still worth it. */
+  canDelete: boolean;
+  coverUrls: string[];
+}
+
+/** Fabricate the fingerprint shape the keeper scoring reads, from the SHARED photos
+ *  of one side — the links that matter are the ones on what would move. */
+function overlapPrint(
+  side: FolderRef,
+  totals: FolderTotals,
+  shared: { count: number; bytes: number },
+  ids: string[]
+): FolderFingerprint {
   return {
-    groups: items.map((group) => ({
-      id: group.id,
-      itemCount: group.itemCount,
-      copyBytes: group.copyBytes,
-      reclaimableBytes: group.reclaimableBytes,
-      keeperSource: group.keeperSource,
-      keeperReason: group.keeperReason,
-      members: group.members.map((member) => ({
-        ...folderDetail({ libraryId: member.libraryId, folderPath: member.folderPath }, member.libraryName, member),
-        isKeeper: member.isKeeper
-      }))
-    })),
-    total: ordered.length,
-    allSets: all.length,
-    page,
-    reclaimableBytes: matched.reduce((sum, group) => sum + group.reclaimableBytes, 0)
+    libraryId: side.libraryId,
+    folderPath: side.folderPath,
+    digest: "",
+    itemCount: shared.count,
+    bytes: shared.bytes,
+    firstSeen: totals.addedAt ?? "",
+    itemIds: ids
   };
 }
 
-export interface ContainedFolderPage {
-  rows: ContainedFolder[];
+function coverUrlsFor(itemIds: string[]): string[] {
+  if (itemIds.length === 0) return [];
+  const chunk = itemIds.slice(0, 40);
+  const rows = db.prepare(`
+    SELECT im.cover_storage_key AS cover FROM item_metadata im
+    WHERE im.item_id IN (${chunk.map(() => "?").join(",")}) AND im.cover_storage_key IS NOT NULL
+    LIMIT ?
+  `).all(...chunk, COVER_LIMIT) as { cover: string }[];
+  return rows.map((row) => `/api/library/covers/${row.cover}`);
+}
+
+/** The tile's three lines, without folderDetail's nine-scan link count — an overlap
+ *  side is a plain folder and the tile shows name, path and library alone. */
+function overlapTile(side: FolderRef & { libraryName: string }, totals: FolderTotals): FolderDetail {
+  return {
+    libraryId: side.libraryId,
+    folderPath: side.folderPath,
+    libraryName: side.libraryName,
+    name: folderName(side.folderPath),
+    itemCount: totals.itemCount,
+    bytes: totals.bytes,
+    linkCount: 0,
+    coverUrls: [],
+    addedAt: totals.addedAt
+  };
+}
+
+function hydrateOverlap(row: LeanOverlap): FolderOverlapPair | null {
+  const shared = overlapShared(row.a, row.b);
+  if (shared.count < 1) return null;
+
+  const choice = pickFolderKeeper([
+    overlapPrint(row.a, row.aTotals, shared, shared.aIds),
+    overlapPrint(row.b, row.bTotals, shared, shared.bIds)
+  ]);
+  const aKeeps = choice !== null && refKey(choice.keeper) === refKey(row.a);
+  const keepSide = aKeeps ? row.a : row.b;
+  const loseSide = aKeeps ? row.b : row.a;
+  const keepTotals = aKeeps ? row.aTotals : row.bTotals;
+  const loseTotals = aKeeps ? row.bTotals : row.aTotals;
+
+  return {
+    kind: "overlap",
+    id: row.id,
+    keep: overlapTile(keepSide, keepTotals),
+    lose: overlapTile(loseSide, loseTotals),
+    sharedCount: shared.count,
+    sharedBytes: shared.bytes,
+    keepExtraCount: Math.max(keepTotals.itemCount - shared.count, 0),
+    loseExtraCount: Math.max(loseTotals.itemCount - shared.count, 0),
+    keeperReason: choice?.reason ?? null,
+    canDelete: libraryAllowsDelete(loseSide.libraryId),
+    coverUrls: coverUrlsFor(aKeeps ? shared.bIds : shared.aIds)
+  };
+}
+
+export type OverlapRefusal = "missing" | "nothing_shared" | "protected";
+
+export type OverlapOutcome =
+  | { ok: true; resolution: { keptIn: FolderRef; removedFrom: FolderRef; deletedItemIds: string[]; failed: { itemId: string; error: string }[] } }
+  | { ok: false; refused: OverlapRefusal };
+
+// Delete the shared copies from the losing side — and nothing else. Everything is
+// re-derived live before anything moves: which photos are shared, which side keeps
+// (so a policy changed since the page rendered is honoured), and each deleted copy
+// hands its tags, albums and people to one of its byte-identical counterparts on
+// the keeping side, which stays.
+export function resolveFolderOverlap(id: string, userId: string): OverlapOutcome {
+  const row = db.prepare(`
+    SELECT id, library_a, path_a, library_b, path_b FROM gallery_duplicate_folder_overlaps WHERE id = ?
+  `).get(id) as { id: string; library_a: string; path_a: string; library_b: string; path_b: string } | undefined;
+  if (!row) return { ok: false, refused: "missing" };
+
+  const a: FolderRef = { libraryId: row.library_a, folderPath: row.path_a };
+  const b: FolderRef = { libraryId: row.library_b, folderPath: row.path_b };
+  const shared = overlapShared(a, b);
+  if (shared.count < 1) {
+    // Nothing left in common — the row outlived the photos. Drop it as it declines.
+    db.prepare("DELETE FROM gallery_duplicate_folder_overlaps WHERE id = ?").run(id);
+    return { ok: false, refused: "nothing_shared" };
+  }
+
+  const aTotals = directTotals(a);
+  const bTotals = directTotals(b);
+  const choice = pickFolderKeeper([
+    overlapPrint(a, aTotals, shared, shared.aIds),
+    overlapPrint(b, bTotals, shared, shared.bIds)
+  ]);
+  const aKeeps = choice !== null && refKey(choice.keeper) === refKey(a);
+  const loser = aKeeps ? b : a;
+  if (!libraryAllowsDelete(loser.libraryId)) return { ok: false, refused: "protected" };
+
+  const deletedItemIds: string[] = [];
+  const failed: { itemId: string; error: string }[] = [];
+  for (const entry of shared.perHash) {
+    const loserIds = aKeeps ? entry.bIds : entry.aIds;
+    const keeperIds = aKeeps ? entry.aIds : entry.bIds;
+    // Each deleted copy claims its own counterpart; a folder holding a picture more
+    // times than the keeper does keeps the surplus.
+    const removable = Math.min(loserIds.length, keeperIds.length);
+    for (let i = 0; i < removable; i += 1) {
+      absorbDuplicateMetadata(keeperIds[i], [loserIds[i]]);
+      try {
+        trashBook(loserIds[i], userId);
+        deletedItemIds.push(loserIds[i]);
+      } catch (err) {
+        failed.push({ itemId: loserIds[i], error: err instanceof Error ? err.message : "Could not move the photo to the Recycle Bin." });
+      }
+    }
+  }
+
+  db.prepare("DELETE FROM gallery_duplicate_folder_overlaps WHERE id = ?").run(id);
+
+  if (deletedItemIds.length > 0) {
+    logActivity({
+      event: "library.gallery.folder_overlap_resolved",
+      actorUserId: userId,
+      targetType: "library",
+      targetId: loser.libraryId,
+      detail: `Moved ${deletedItemIds.length} duplicated photo${deletedItemIds.length === 1 ? "" : "s"} from "${loser.folderPath || "the library root"}" to the Recycle Bin — each also sits in "${(aKeeps ? a : b).folderPath || "the library root"}", which keeps its copies.`,
+      ipAddress: null
+    });
+  }
+
+  return {
+    ok: true,
+    resolution: { keptIn: aKeeps ? a : b, removedFrom: loser, deletedItemIds, failed }
+  };
+}
+
+export function ignoreFolderOverlap(id: string): boolean {
+  const row = db.prepare(
+    "SELECT library_a, path_a, library_b, path_b FROM gallery_duplicate_folder_overlaps WHERE id = ?"
+  ).get(id) as { library_a: string; path_a: string; library_b: string; path_b: string } | undefined;
+  if (!row) return false;
+  db.transaction(() => {
+    db.prepare(`
+      INSERT OR IGNORE INTO gallery_duplicate_folder_overlap_ignores (library_a, path_a, library_b, path_b)
+      VALUES (?, ?, ?, ?)
+    `).run(row.library_a, row.path_a, row.library_b, row.path_b);
+    db.prepare("DELETE FROM gallery_duplicate_folder_overlaps WHERE id = ?").run(id);
+  })();
+  return true;
+}
+
+// ── One page over all three answers ─────────────────────────────────────────
+//
+// Identical folders, folders wholly stored elsewhere, and folders that merely
+// overlap are three strengths of the same relationship, and they were three
+// lists on two tabs. One search now, one pager: strongest statement first, so a
+// page can straddle the boundaries with each kind under its own heading.
+
+export type FolderMatch =
+  | ({ kind: "identical" } & DuplicateFolderGroup)
+  | ({ kind: "contained" } & ContainedFolder)
+  | FolderOverlapPair;
+
+export interface FolderMatchesPage {
+  matches: FolderMatch[];
   total: number;
-  allRows: number;
+  allMatches: number;
   page: number;
   reclaimableBytes: number;
 }
 
-export function searchContainedFolders(query: FolderSearch): ContainedFolderPage {
-  const all = containedRows();
+export function searchFolderMatches(query: FolderSearch): FolderMatchesPage {
   const needle = (query.search ?? "").trim().toLowerCase();
   const chosen = query.folders ?? [];
   const libraryId = query.libraryId ?? "";
-
-  // With one library chosen, only rows where BOTH sides live there make sense.
-  const matched = all.filter((row) =>
-    (!libraryId || (row.libraryId === libraryId && row.targetLibraryId === libraryId))
-    && (!needle
-      || row.folderPath.toLowerCase().includes(needle)
-      || row.targetFolderPath.toLowerCase().includes(needle)
-      || row.libraryName.toLowerCase().includes(needle))
-    && (folderChosen(chosen, row.libraryId, row.folderPath)
-      || folderChosen(chosen, row.targetLibraryId, row.targetFolderPath)));
-
   const sort = query.sort ?? "newest";
-  const ordered = [...matched].sort((a, b) => {
-    if (sort === "photos") return b.totals.itemCount - a.totals.itemCount;
-    if (sort === "size") return b.totals.bytes - a.totals.bytes;
-    if (sort === "name") return folderName(a.folderPath).localeCompare(folderName(b.folderPath));
-    return (b.totals.addedAt ?? "").localeCompare(a.totals.addedAt ?? "");
-  });
+
+  const allGroups = leanFolderGroups();
+  const groups = allGroups
+    .map((group) => scopeFolderGroup(group, libraryId))
+    .filter((group): group is LeanFolderGroup => group !== null)
+    .filter((group) => group.members.some((member) =>
+      (!needle || member.folderPath.toLowerCase().includes(needle) || member.libraryName.toLowerCase().includes(needle))
+      && folderChosen(chosen, member.libraryId, member.folderPath)))
+    .sort((a, b) => {
+      if (sort === "photos") return b.itemCount - a.itemCount;
+      if (sort === "size") return b.copyBytes - a.copyBytes;
+      if (sort === "name") return (a.members[0]?.name ?? "").localeCompare(b.members[0]?.name ?? "");
+      return newestMember(b).localeCompare(newestMember(a));
+    });
+
+  const allContained = containedRows();
+  // With one library chosen, only rows where BOTH sides live there make sense.
+  const contained = allContained
+    .filter((row) =>
+      (!libraryId || (row.libraryId === libraryId && row.targetLibraryId === libraryId))
+      && (!needle
+        || row.folderPath.toLowerCase().includes(needle)
+        || row.targetFolderPath.toLowerCase().includes(needle)
+        || row.libraryName.toLowerCase().includes(needle))
+      && (folderChosen(chosen, row.libraryId, row.folderPath)
+        || folderChosen(chosen, row.targetLibraryId, row.targetFolderPath)))
+    .sort((a, b) => {
+      if (sort === "photos") return b.totals.itemCount - a.totals.itemCount;
+      if (sort === "size") return b.totals.bytes - a.totals.bytes;
+      if (sort === "name") return folderName(a.folderPath).localeCompare(folderName(b.folderPath));
+      return (b.totals.addedAt ?? "").localeCompare(a.totals.addedAt ?? "");
+    });
+
+  const allOverlaps = overlapLeanRows();
+  const overlaps = allOverlaps
+    .filter((row) =>
+      (!libraryId || (row.a.libraryId === libraryId && row.b.libraryId === libraryId))
+      && (!needle
+        || row.a.folderPath.toLowerCase().includes(needle)
+        || row.b.folderPath.toLowerCase().includes(needle)
+        || row.a.libraryName.toLowerCase().includes(needle)
+        || row.b.libraryName.toLowerCase().includes(needle))
+      && (folderChosen(chosen, row.a.libraryId, row.a.folderPath)
+        || folderChosen(chosen, row.b.libraryId, row.b.folderPath)))
+    .sort((a, b) => {
+      if (sort === "photos") return b.sharedCount - a.sharedCount;
+      if (sort === "size") return b.sharedBytes - a.sharedBytes;
+      if (sort === "name") return folderName(a.a.folderPath).localeCompare(folderName(b.a.folderPath));
+      const newestOf = (row: LeanOverlap) =>
+        [row.aTotals.addedAt ?? "", row.bTotals.addedAt ?? ""].sort().reverse()[0];
+      return newestOf(b).localeCompare(newestOf(a));
+    });
+
+  type Pending =
+    | { kind: "identical"; group: LeanFolderGroup }
+    | { kind: "contained"; row: LeanContained }
+    | { kind: "overlap"; row: LeanOverlap };
+  const ordered: Pending[] = [
+    ...groups.map((group) => ({ kind: "identical" as const, group })),
+    ...contained.map((row) => ({ kind: "contained" as const, row })),
+    ...overlaps.map((row) => ({ kind: "overlap" as const, row }))
+  ];
 
   const { items, page } = paginate(ordered, query);
+  const matches = items.map((item): FolderMatch | null => {
+    if (item.kind === "identical") {
+      return {
+        kind: "identical",
+        id: item.group.id,
+        itemCount: item.group.itemCount,
+        copyBytes: item.group.copyBytes,
+        reclaimableBytes: item.group.reclaimableBytes,
+        keeperSource: item.group.keeperSource,
+        keeperReason: item.group.keeperReason,
+        members: item.group.members.map((member) => ({
+          ...folderDetail({ libraryId: member.libraryId, folderPath: member.folderPath }, member.libraryName, member),
+          isKeeper: member.isKeeper
+        }))
+      };
+    }
+    if (item.kind === "contained") return { kind: "contained", ...hydrateContained(item.row) };
+    return hydrateOverlap(item.row);
+  }).filter((match): match is FolderMatch => match !== null);
+
   return {
-    rows: items.map(hydrateContained),
+    matches,
     total: ordered.length,
-    allRows: all.length,
+    allMatches: allGroups.length + allContained.length + allOverlaps.length,
     page,
-    reclaimableBytes: matched.reduce((sum, row) => sum + row.totals.bytes, 0)
+    reclaimableBytes: groups.reduce((sum, group) => sum + group.reclaimableBytes, 0)
+      + contained.reduce((sum, row) => sum + row.totals.bytes, 0)
+      + overlaps.reduce((sum, row) => sum + row.sharedBytes, 0)
   };
 }
 
