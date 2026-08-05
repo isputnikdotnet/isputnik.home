@@ -40,6 +40,19 @@ function labelsOf(row: ContainedFolder): { folder: string; target: string } {
   return { folder: folderPathLabel(row.folder), target: folderPathLabel(row.target) };
 }
 
+// Where the copies actually are, in words. The covering folder is often a whole
+// library — the copies are spread across several of its folders, or it was marked
+// "keep here" — and naming it then says nothing you can go and open. So name the
+// folders themselves, and fall back to the covering folder only when there are none
+// to name (every copy loose at the library's top level).
+function copiesLiveIn(row: ContainedFolder): string {
+  const quoted = row.targetFolders.map((path) => `“${path || "."}”`);
+  if (quoted.length === 0) return `“${row.target.name}”`;
+  const named = quoted.length === 2 ? quoted.join(" and ") : quoted.join(", ");
+  const hidden = row.targetFolderCount - quoted.length;
+  return hidden > 0 ? `${named} and ${hidden} more folder${hidden === 1 ? "" : "s"}` : named;
+}
+
 function sortRows(list: ContainedFolder[], sort: FolderSort): ContainedFolder[] {
   const out = [...list];
   if (sort === "photos") return out.sort((a, b) => b.itemCount - a.itemCount);
@@ -81,9 +94,13 @@ export function DuplicateContainedFoldersSection() {
     // would otherwise look like it dropped for no reason.
     const remaining = row.itemCount + row.extraCount;
     const previewInfo = folderPreviewSummary(row.coverUrls, row.itemCount);
+    // Says where the copies ARE, not merely which folder covers them — those are the
+    // same thing only when the covering folder is a real folder rather than a library.
+    const where = copiesLiveIn(row);
+    const inLibrary = row.folder.libraryId === row.target.libraryId ? "" : ` in ${row.target.libraryName}`;
     const reason = row.extraCount > 0
-      ? `Cleaning out “${labels.folder}” because every photo is also in “${labels.target}”, which holds ${row.extraCount} more.`
-      : `Cleaning out “${labels.folder}” because every photo is also in “${labels.target}” — the same pictures, arranged differently.`;
+      ? `Cleaning out “${labels.folder}” because every photo is also in ${where}${inLibrary}, which holds ${row.extraCount} more.`
+      : `Cleaning out “${labels.folder}” because every photo is also in ${where}${inLibrary} — the same pictures, arranged differently.`;
 
     const deleteThis = () => { page.setActionError(""); setDeleteTarget(row); };
 
@@ -120,9 +137,13 @@ export function DuplicateContainedFoldersSection() {
               showLibrary={!scopeName}
               position={0}
               busy={busy}
-              note={row.encloses
-                ? `Holds “${labels.folder}” inside it — ${remaining} photo${remaining === 1 ? "" : "s"} left after`
-                : undefined}
+              // A library's top folder has no name worth showing, so the tile says
+              // where the copies really are instead of leaving you with a dot.
+              note={row.target.folderPath === ""
+                ? `Copies sit in ${where}`
+                : row.encloses
+                  ? `Holds “${labels.folder}” inside it — ${remaining} photo${remaining === 1 ? "" : "s"} left after`
+                  : undefined}
             />
             <FolderTile
               folder={row.folder}

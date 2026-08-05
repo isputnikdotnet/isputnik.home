@@ -83,6 +83,10 @@ export interface ContainedFolder {
   id: string;
   /** The folder that can go. */
   folder: DuplicateFolderDetail;
+  /** Where the copies actually sit inside `target`, at most three — what to name
+   *  when `target` is a whole library and so has no useful name of its own. */
+  targetFolders: string[];
+  targetFolderCount: number;
   /** The folder that keeps its photos. Never swappable: coverage runs one way, and
    *  offering the other direction would delete photos that exist only here. */
   target: DuplicateFolderDetail;
@@ -154,8 +158,15 @@ export function normalisePayload(next: Partial<DuplicatePayload>): DuplicatePayl
 export const folderKey = (member: { libraryId: string; folderPath: string }): string =>
   `${member.libraryId} ${member.folderPath}`;
 
+// The library's top folder is the root of every relative path, not a folder anyone
+// named — so it shows as ".", the shell's name for exactly that. It used to read
+// "Library root", which on a card beside a real folder name looked like one, and
+// sent people off to open a folder that holds nothing of what the card was about.
+export const ROOT_LABEL = ".";
+export const ROOT_HINT = "The library's own top folder — the root of every path in it";
+
 export const folderPathLabel = (member: { folderPath: string }): string =>
-  member.folderPath || "Library root";
+  member.folderPath || ROOT_LABEL;
 
 // A photo can sit in no folder at all — directly in the library's own folder. That
 // used to read "Library root", which is the name of a PLACE, so people went looking
@@ -548,7 +559,7 @@ export function FolderTile({
         ) : (
           <span className="dup-set-name-row">{name}</span>
         )}
-        <span className="dup-set-path" title={folder.folderPath || "Library root"}>{folderPathLabel(folder)}</span>
+        <span className="dup-set-path" title={folder.folderPath || ROOT_HINT}>{folderPathLabel(folder)}</span>
         <span className="dup-set-line">{formatWhen(folder.addedAt)}</span>
         <span className="dup-set-line">
           {formatBytes(folder.bytes)}
