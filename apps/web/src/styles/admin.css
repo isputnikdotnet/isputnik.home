@@ -1531,8 +1531,27 @@
 .dup-set-open:hover { color: var(--ink); }
 
 .dup-set-folder-name { font-size: 0.9rem; overflow-wrap: anywhere; }
+/* Each line leads with a small icon saying what KIND of fact it is — a path, a
+   library — so three lines of grey text don't have to be read in order to be told
+   apart. The icon holds the left edge while a long path wraps beside it, rather than
+   sitting in the flow and letting the second line start under the glyph. */
 .dup-set-path,
-.dup-set-line { color: var(--muted); font-size: 0.74rem; overflow-wrap: anywhere; }
+.dup-set-line {
+  color: var(--muted);
+  font-size: 0.74rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+.dup-set-path > svg,
+.dup-set-line > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  opacity: 0.75;
+}
+.dup-set-path > span,
+.dup-set-line > span { min-width: 0; overflow-wrap: anywhere; }
 
 /* Said only when the kept folder ENCLOSES the one going, where its own photo count
    already includes what is about to leave — italic so it reads as a caveat about the

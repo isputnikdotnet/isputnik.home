@@ -1218,15 +1218,20 @@ export function duplicateSetFolders(): DuplicateFolderOption[] {
   `).all() as { group_id: string; library_id: string; library_name: string; relative_path: string }[];
 
   const options = new Map<string, DuplicateFolderOption>();
-  const seen = new Set<string>();
+  // Folders already counted for a given set — nested rather than a composite
+  // string key, so no separator has to be chosen that a library id or a folder
+  // path cannot contain.
+  const seen = new Map<string, Set<string>>();
   for (const row of rows) {
     const cut = row.relative_path.lastIndexOf("/");
     const folderPath = cut === -1 ? "" : row.relative_path.slice(0, cut);
     const key = optionKey(row.library_id, folderPath);
+
     // Once per set, however many of its copies are in this folder.
-    const perSet = `${row.group_id} ${key}`;
-    if (seen.has(perSet)) continue;
-    seen.add(perSet);
+    let counted = seen.get(row.group_id);
+    if (!counted) { counted = new Set(); seen.set(row.group_id, counted); }
+    if (counted.has(key)) continue;
+    counted.add(key);
     const existing = options.get(key);
     if (existing) existing.setCount += 1;
     else options.set(key, { key, libraryId: row.library_id, libraryName: row.library_name, folderPath, setCount: 1 });

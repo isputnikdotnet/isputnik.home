@@ -582,13 +582,26 @@ function containersOf(print: FolderFingerprint): ContainmentTarget[] {
   // the one worth naming.
   // A folder chosen to keep is the natural home for these photos; one being cleared
   // out is the last place to point at, since it is on its way out itself.
+  // A library's own top folder covers everything in it, so it always qualifies — and
+  // naming it is almost never the useful answer. "These photos are also somewhere in
+  // this library" sends you to a folder full of folders and no photos in it, which is
+  // not a place you can go and check.
+  //
+  // It only wins when nothing narrower does, and that is exactly when it is the true
+  // answer: copies sitting loose at the top level. Filtered here rather than sorted
+  // lower, because the preference rank below outranks tightest-fit on purpose — a
+  // library marked "keep here" would otherwise put its root ahead of the real folder
+  // every time, which is how this went wrong.
+  const named = out.filter((ref) => ref.folderPath !== "");
+  const candidates = named.length > 0 ? named : out;
+
   const preferences = folderPreferences();
   const rank = (ref: FolderRef) => {
     const mode = preferenceFor(preferences, ref.libraryId, ref.folderPath);
     return mode === "keep" ? 0 : mode === "clear" ? 2 : 1;
   };
   const depth = (ref: FolderRef) => (ref.folderPath === "" ? 0 : ref.folderPath.split("/").length);
-  return out.sort((a, b) =>
+  return candidates.sort((a, b) =>
     rank(a) - rank(b)
     || a.fileCount - b.fileCount
     || depth(b) - depth(a)
@@ -661,10 +674,28 @@ export function rebuildContainedFolders(): ContainedFolderTotals {
 
   // Topmost only, as with the equal-contents sets: if a folder's parent is covered
   // too, removing the parent takes this one with it.
+  //
+  // The library's OWN root is the exception, both ways round. It covers everything in
+  // the library, so it qualifies whenever the library's whole contents are duplicated
+  // somewhere — and offering it means "empty this library", which is never what "this
+  // folder is redundant" is meant to say. Worse, it suppressed the real folders
+  // underneath it, so the only thing on offer was a row whose name is a dot and whose
+  // link opens a folder full of folders and no photos.
+  //
+  // So: a root never suppresses a folder inside it, and is itself offered only when
+  // nothing narrower is — which is exactly when it's the honest answer, the photos
+  // being loose at the top level.
   const covered = new Set(found.keys());
   const rows = [...found.values()].filter(({ print }) => {
+    if (print.folderPath === "") {
+      return ![...covered].some((key) => {
+        const ref = parseKey(key);
+        return ref.libraryId === print.libraryId && ref.folderPath !== "";
+      });
+    }
     const parent = parentOf(print.folderPath);
-    return parent === null || !covered.has(refKey({ libraryId: print.libraryId, folderPath: parent }));
+    if (parent === null || parent === "") return true;
+    return !covered.has(refKey({ libraryId: print.libraryId, folderPath: parent }));
   });
 
   let reclaimableBytes = 0;

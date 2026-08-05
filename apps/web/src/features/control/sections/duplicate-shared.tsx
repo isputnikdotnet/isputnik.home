@@ -8,11 +8,10 @@
 // last scan found.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowDownAZ, ArrowDownWideNarrow, ArrowRight, ExternalLink, FolderOpen, ImageOff,
-  RefreshCw, Search, SlidersHorizontal
+  ArrowDownAZ, ArrowDownWideNarrow, ArrowRight, ExternalLink, FolderOpen, FolderTree,
+  ImageOff, Images, RefreshCw, Search, SlidersHorizontal
 } from "lucide-react";
 import { api } from "../../../api";
-import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { Modal } from "../../../shared/Modal";
@@ -606,15 +605,13 @@ export function FolderStrip({ urls }: { urls: string[] }) {
   );
 }
 
-/** One folder on a card: green for the one being kept, red for the one that goes,
- *  with its path, when it arrived, its size, and exactly one action. */
+/** One folder on a card: green for the one being kept, red for the one that goes.
+ *  Its name, its path, and the library it's in — nothing else. */
 export function FolderTile({
-  folder, keep, showLibrary, position, busy, onKeepInstead, note, action
+  folder, keep, position, busy, onKeepInstead, note, action
 }: {
   folder: DuplicateFolderDetail;
   keep: boolean;
-  /** Off when the page is scoped to one library — the name would be on every tile. */
-  showLibrary: boolean;
   /** Anything but the first tile is preceded by the arrow that separates them. */
   position: number;
   busy: boolean;
@@ -664,12 +661,17 @@ export function FolderTile({
         ) : (
           <span className="dup-set-name-row">{name}</span>
         )}
-        <span className="dup-set-path" title={folder.folderPath || ROOT_HINT}>{folderTilePath(folder)}</span>
-        <span className="dup-set-line">{formatWhen(folder.addedAt)}</span>
-        <span className="dup-set-line">
-          {formatBytes(folder.bytes)}
-          {folder.linkCount > 0 ? ` · ${folder.linkCount} tags/links` : ""}
-          {showLibrary ? ` · ${folder.libraryName}` : ""}
+        {/* Three lines and no more: what the folder is called, where it is, and which
+            library it's in. Size, date added and the tags/links count were on here
+            too — true, and none of them the thing you are deciding with. The header
+            above already carries what the set holds and what clearing it frees. */}
+        <span className="dup-set-path" title={folder.folderPath || ROOT_HINT}>
+          <FolderTree size={12} aria-hidden="true" />
+          <span>{folderTilePath(folder)}</span>
+        </span>
+        <span className="dup-set-line" title={`In the library "${folder.libraryName}"`}>
+          <Images size={12} aria-hidden="true" />
+          <span>{folder.libraryName}</span>
         </span>
         {note && <span className="dup-set-line dup-set-note">{note}</span>}
         {action && <>{action}</>}
