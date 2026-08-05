@@ -369,11 +369,28 @@ export async function scanSingleGalleryFile(libraryId: string, relativePath: str
 
 // ── Job queue (mirrors the ebook scan worker) ──
 
+// Queue a scan, or join the one already waiting.
+//
+// Identical pending jobs used to stack, and a caller in a loop could queue hundreds
+// of full library scans without meaning to — restoring N photos from the Recycle Bin
+// queued N of them, each a complete walk of the library, run one after another. A
+// scan that has not started yet cannot have missed anything a second one would find,
+// so the waiting job IS the answer to the new request.
+//
+// Matched on the exact payload: a subtree rescan and a full scan are different work,
+// and a running job is never joined — it may already be past the file in question.
 export function enqueueGalleryScan(libraryId: string, options: GalleryScanOptions = {}): string {
-  const jobId = nanoid(16);
+  const payload = JSON.stringify({ libraryId, options });
   db.prepare("UPDATE libraries SET scan_status = 'scanning', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(libraryId);
+
+  const waiting = db.prepare(
+    "SELECT id FROM jobs WHERE type = ? AND status = 'pending' AND payload = ? LIMIT 1"
+  ).get(scanJobType, payload) as { id: string } | undefined;
+  if (waiting) return waiting.id;
+
+  const jobId = nanoid(16);
   db.prepare("INSERT INTO jobs (id, type, payload, status) VALUES (?, ?, ?, 'pending')")
-    .run(jobId, scanJobType, JSON.stringify({ libraryId, options }));
+    .run(jobId, scanJobType, payload);
   return jobId;
 }
 

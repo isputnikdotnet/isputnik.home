@@ -502,6 +502,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.20.2",
+          label: "Restore all could bring the server to a halt",
+          changes: [
+            "Restoring in bulk asked for a full library scan for every single photo put back. Each of those walks the whole library, and they run one after another, so restoring a few hundred photos left the server working through a few hundred complete scans and answering nothing else in the meantime. A bulk restore now starts one scan per library, once, when it has finished.",
+            "Asking for a scan twice no longer queues it twice. A scan that has not started yet cannot have missed anything a second one would find, so an identical request now joins the one already waiting instead of stacking behind it. This guards every part of the app that queues a scan, not just restoring — twenty quick restores used to mean twenty scans.",
+            "Both duplicate folder lists were reading a folder by pulling every photo id in it into memory and then asking about them four hundred at a time across nine tables. The covering folder on the Stored elsewhere tab is routinely an entire library, and that page reloads every three seconds while a scan runs. It is three fixed queries a folder now, however much the folder holds.",
+            "Those queries were also unable to use an index at all — SQLite cannot use one for the \"everything below this folder\" test the old code was written with. They ask for a range instead, over a new index, which is the difference between reading a slice of a library and reading all of it. Nothing to do on your part: it is added the next time the server starts.",
+            "As a side effect of that, a folder named \"Photos\" no longer matches paths under \"photos\".",
+            "Restoring a large number of items no longer blocks everything else for the duration; the server keeps serving between items."
+          ]
+        },
+        {
           version: "2.20.1",
           label: "Where the copies actually are, instead of \"Library root\"",
           changes: [

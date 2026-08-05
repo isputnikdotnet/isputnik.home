@@ -1072,6 +1072,11 @@ CREATE INDEX IF NOT EXISTS idx_libraries_type           ON libraries(type);
 CREATE INDEX IF NOT EXISTS idx_libraries_owner          ON libraries(owner_id);
 CREATE INDEX IF NOT EXISTS idx_items_library            ON library_items(library_id, status);
 CREATE INDEX IF NOT EXISTS idx_items_type               ON library_items(type);
+-- "everything below this folder" — the shape of the gallery's Folders view, the
+-- duplicate-folder fingerprints, and every folder card. Without the folder_path
+-- column here each of those scans a whole library to answer a question about one
+-- folder, which on a big library is the server stopping for the duration.
+CREATE INDEX IF NOT EXISTS idx_items_library_folder     ON library_items(library_id, folder_path);
 
 CREATE INDEX IF NOT EXISTS idx_item_people_item         ON item_people(item_id);
 CREATE INDEX IF NOT EXISTS idx_item_people_person       ON item_people(person_id);

@@ -313,7 +313,23 @@ export function trashBook(bookId: string, userId: string): TrashResult {
 // Restore a trashed item: move its files back (deduping the path if it's been reused) and
 // re-catalogue from disk. Per-user progress/bookmarks/shares from before are not resurrected
 // — the item comes back as if freshly added (matches what a hard delete + re-add would do).
-export async function restoreTrashedItem(id: string): Promise<TrashResult> {
+/** Kick the library scan that re-discovers a restored file. Public so a bulk restore
+ *  can call it once per library instead of once per item. */
+export function scanForRestored(libraryType: string, libraryId: string): void {
+  if (libraryType === "gallery") {
+    enqueueGalleryScan(libraryId);
+    void processGalleryScanQueue();
+  } else if (libraryType !== "audiobook") {
+    // ebook, and future types that catalogue from a path.
+    enqueueEbookScan(libraryId);
+    void processEbookScanQueue();
+  }
+}
+
+/** `deferScan` leaves the re-discovery scan to the caller — see scanForRestored.
+ *  Audiobooks ignore it: they re-catalogue their own single item, which is cheap
+ *  and is not a library-wide walk. */
+export async function restoreTrashedItem(id: string, deferScan = false): Promise<TrashResult> {
   const item = getTrashedItem(id);
   if (!item) throw new TrashError("Item not found.", 404);
 
@@ -347,14 +363,11 @@ export async function restoreTrashedItem(id: string): Promise<TrashResult> {
         .run(bookId, item.library_id, item.library_type, restoredPath);
     }
     try { await rescanSingleBook(bookId); } catch { /* files are back; a library rescan will finish it */ }
-  } else if (item.library_type === "gallery") {
-    // gallery: a library scan re-discovers the restored asset by its path.
-    enqueueGalleryScan(item.library_id);
-    void processGalleryScanQueue();
-  } else {
-    // ebook (and future types): the library scan re-discovers the restored file by its path.
-    enqueueEbookScan(item.library_id);
-    void processEbookScanQueue();
+  } else if (!deferScan) {
+    // A library scan re-discovers the restored file by its path. Deferred by callers
+    // restoring in bulk, which start ONE scan per library when they are done: the
+    // scan is per-library work, so doing it per item is the same walk over and over.
+    scanForRestored(item.library_type, item.library_id);
   }
 
   // The restored item is re-catalogued from disk under a fresh id and generates its

@@ -11,6 +11,7 @@ import { getLibraryForBook } from "./library-access.js";
 import {
   trashBook,
   restoreTrashedItem,
+  scanForRestored,
   purgeTrashedItem,
   emptyTrash,
   getTrashRetentionDays,
@@ -223,11 +224,22 @@ export function registerTrashRoutes(app: FastifyInstance) {
     let restored = 0;
     let forbidden = 0;
     const failures: { title: string; error: string }[] = [];
+    // The re-discovery scan is per LIBRARY, not per item, and it walks the whole
+    // library. Doing it per item queued one full scan for every photo restored —
+    // hundreds of complete library walks, run back to back. Collected here and
+    // started once each when the loop is done.
+    const toScan = new Map<string, string>();
     for (const item of rows) {
       if (!canManageTrashItem(user, item)) { forbidden += 1; continue; }
+      // Hand the event loop back between items. Restoring one is a burst of
+      // synchronous work — file moves, a re-catalogue, a pile of better-sqlite3
+      // calls — and a bin holding thousands of them would otherwise be one
+      // unbroken block with nothing else served for its duration.
+      await new Promise((resolve) => setImmediate(resolve));
       try {
-        await restoreTrashedItem(item.id);
+        await restoreTrashedItem(item.id, true);
         restored += 1;
+        toScan.set(item.library_id, item.library_type);
       } catch (err) {
         failures.push({
           title: item.title,
@@ -235,6 +247,8 @@ export function registerTrashRoutes(app: FastifyInstance) {
         });
       }
     }
+
+    for (const [libraryId, libraryType] of toScan) scanForRestored(libraryType, libraryId);
 
     if (restored > 0) {
       logActivity({
