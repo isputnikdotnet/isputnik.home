@@ -502,6 +502,17 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.20.0",
+          label: "A Utilities section, and a way to undo an emptying you regret",
+          changes: [
+            "The control panel has a Utilities section: tools that work ON a library rather than settings that configure one. It opens to a Gallery branch, because everything under it so far works on photos.",
+            "Duplicate photos, Duplicate folders, Stored elsewhere and Missing photos all live there now, as four tabs side by side. They were scattered through Maintenance among backups and scheduled jobs, which is where you look after the server rather than after the library. Every address any of them has ever had still lands on the right page.",
+            "The duplicate pages have been reworked: the library picker, Scan and the bulk delete moved up into the page header where the page's own controls belong, search has a field of its own, and each set now leads with a plain-English line saying what is being cleaned out and why it was chosen.",
+            "The Recycle Bin has a Restore all button beside Empty. It puts back everything the page is showing, so choosing a library first restores that library's items and leaves the rest alone.",
+            "Restoring in bulk is not all-or-nothing and doesn't pretend to be: each item goes back on its own, so one that can't — its library has since been removed, or something else now occupies the place it came from — doesn't stop the others. Whatever stays behind is named afterwards, and nothing is deleted either way."
+          ]
+        },
+        {
           version: "2.19.1",
           label: "\"Library root\" said two different things, and neither clearly",
           changes: [

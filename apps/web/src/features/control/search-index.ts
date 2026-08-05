@@ -1,4 +1,4 @@
-import { LEAF_TABS, sectionEyebrow, sectionHref, sectionTitle } from "./nav";
+import { ALL_TABS, sectionEyebrow, sectionHref, sectionTitle } from "./nav";
 import type { ControlSection } from "../../router";
 
 // What the control-panel search can find. Two kinds of entry:
@@ -88,9 +88,7 @@ function breadcrumbFor(section: ControlSection): string {
 }
 
 export const CONTROL_SEARCH_ENTRIES: ControlSearchEntry[] = [
-  // LEAF_TABS, not group.tabs: a page one row down is still a page, and a parent tab
-  // is not one. Searching "stored elsewhere" has to reach it.
-  ...LEAF_TABS.map((tab) => ({
+  ...ALL_TABS.map((tab) => ({
     id: `tab:${tab.section}`,
     title: tab.label,
     breadcrumb: sectionEyebrow(tab.section),

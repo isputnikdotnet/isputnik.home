@@ -119,19 +119,6 @@
   border-bottom-color: var(--mint);
 }
 
-/* The second row, where one destination has several views. Deliberately quieter and
-   tighter than the row above it: two rows of equal weight read as two questions of
-   equal weight, and this one is the smaller question — which view, not which page.
-   It sits directly under the first, so the first loses its gap. */
-.control-tabs:has(+ .control-subtabs) { margin-bottom: 0; }
-
-.control-subtabs {
-  gap: 2px;
-  margin-bottom: 18px;
-  font-size: 0.92em;
-}
-.control-subtabs a { padding: 6px 12px; font-weight: 600; }
-
 .control-work {
   width: min(100%, 1040px);
 }

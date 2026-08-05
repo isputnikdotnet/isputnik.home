@@ -233,6 +233,19 @@ a.icon-button svg {
   background: transparent;
 }
 
+.secondary-button.danger:not(:disabled) {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 44%, var(--line));
+  background: color-mix(in srgb, var(--rose) 6%, transparent);
+}
+
+.secondary-button.danger:hover:not(:disabled),
+.secondary-button.danger:focus-visible {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 70%, var(--line));
+  background: color-mix(in srgb, var(--rose) 12%, transparent);
+}
+
 .danger-button {
   border: 0;
   color: #fff;
@@ -1294,6 +1307,11 @@ a.icon-button svg {
 .admin-page-icon.logs {
   color: var(--blue);
   background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.admin-page-icon.duplicates {
+  color: #7c3aed;
+  background: color-mix(in srgb, #7c3aed 14%, transparent);
 }
 
 .admin-heading-copy {

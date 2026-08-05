@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Copy, ExternalLink, Folder, FolderOpen, HardDrive, ImageOff, Images, Info, Maximize2, RefreshCw, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, ExternalLink, FolderOpen, ImageOff, Info, Maximize2, RefreshCw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -9,14 +9,10 @@ import { Modal } from "../../../shared/Modal";
 import { Pager } from "../../../shared/Pager";
 import { DuplicateViewer } from "./DuplicateViewer";
 import { SelectMenu } from "../../../shared/SelectMenu";
-import { AudiobookHeaderSort } from "../../audiobooks/AudiobooksPage";
-import type { SortKey } from "../../audiobooks/BookFilter";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { controlHref } from "../../../router";
 
 import {
-  type ContainedFolder,
-  type DuplicateFolderGroup,
   type DuplicateGroup,
   type DuplicateMember,
   type DuplicatePayload,
@@ -62,18 +58,18 @@ type DupPerPage = "10" | "25" | "50" | "all";
 
 
 const PER_PAGE_OPTIONS: { value: DupPerPage; label: string }[] = [
-  { value: "10", label: "10 per page" },
-  { value: "25", label: "25 per page" },
-  { value: "50", label: "50 per page" },
+  { value: "10", label: "10" },
+  { value: "25", label: "25" },
+  { value: "50", label: "50" },
   { value: "all", label: "Show all" }
 ];
 
 const SORT_OPTIONS: { value: DupSort; label: string }[] = [
-  { value: "size", label: "Size to reclaim" },
-  { value: "copies", label: "Number of copies" },
-  { value: "identical", label: "Identical photos first" },
+  { value: "size", label: "Size" },
+  { value: "copies", label: "Copies" },
+  { value: "identical", label: "Identical first" },
   { value: "name", label: "Filename" },
-  { value: "recent", label: "Recently found" }
+  { value: "recent", label: "Recent" }
 ];
 
 // The tile shows the file's own name; the folder it sits in is in its details.
@@ -206,7 +202,6 @@ export function DuplicatePhotosSection() {
   // groupId → itemId → keep/trash, holding only the copies clicked in this sitting.
   const [marks, setMarks] = useState<Record<string, Record<string, "keep" | "trash">>>({});
   const [deletingAll, setDeletingAll] = useState(false);
-  const [rebuilding, setRebuilding] = useState(false);
   // The saved keep/clear instructions, as edited in the Folders tab of that box.
   const savedPreferences = Object.fromEntries(payload.folderPreferences
     .map((folder) => [folderKey(folder), folder.mode] as const));
@@ -269,7 +264,7 @@ export function DuplicatePhotosSection() {
 
   const extraCopies = scoped.reduce((sum, group) => sum + group.members.length - 1, 0);
   const reclaimableBytes = scoped.reduce((sum, group) => sum + group.reclaimableBytes, 0);
-  const busy = starting || deletingAll || rebuilding || busyGroupId !== "";
+  const busy = starting || deletingAll || busyGroupId !== "";
 
   const scanLabel = payload.scanning ? "Scanning…" : starting ? "Starting…" : "Scan now";
 
@@ -309,6 +304,14 @@ export function DuplicatePhotosSection() {
   // near tier is excluded here as well as on the server, so the count in the
   // dialog is the number of sets that will actually be touched.
   const sweepable = ordered.filter((group) => group.kind === "exact");
+  const sweepableCopies = sweepable.reduce((sum, group) => sum + group.members.length - 1, 0);
+  const advancedFilterCount = (folderFilter.length > 0 ? 1 : 0)
+    + (tier !== "all" ? 1 : 0)
+    + (mediaKind !== "all" ? 1 : 0);
+  const libraryOptions = [
+    { value: "", label: "All libraries" },
+    ...payload.libraries.map((library) => ({ value: library.id, label: library.name }))
+  ];
 
   const pageSize = perPage === "all" ? Math.max(ordered.length, 1) : Number(perPage);
   const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize));
@@ -324,24 +327,6 @@ export function DuplicatePhotosSection() {
   // Any change to what's listed or how it's ordered puts you back at the top —
   // staying on page 7 of a freshly filtered list shows an arbitrary slice.
   useEffect(() => { setPage(1); }, [needle, scopeId, sort, perPage, tier, mediaKind, folderFilter]);
-
-  // Recompute every list from the digests already stored — no file is read. A scan
-  // re-reads the library; this only re-derives what a scan concluded, which is the
-  // right answer when a list looks stale rather than incomplete.
-  const rebuild = async () => {
-    setRebuilding(true);
-    setActionError("");
-    try {
-      applyPayload(await api<DuplicatePayload>("/api/library/gallery/duplicates/rebuild", {
-        method: "POST",
-        body: "{}"
-      }));
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to rebuild the results");
-    } finally {
-      setRebuilding(false);
-    }
-  };
 
   const startScan = async () => {
     setStarting(true);
@@ -481,7 +466,13 @@ export function DuplicatePhotosSection() {
     const clearingSet = marked.length === group.members.length;
     const extras = group.members.length - 1;
     const collapsible = copiesLookAlike(group);
-    const expanded = !collapsible || expandedIds.has(group.id);
+    const expanded = !collapsible || !expandedIds.has(group.id);
+    const touched = Object.keys(marks[group.id] ?? {}).length > 0;
+    const keeperLine = touched
+      ? "You chose which copy to keep"
+      : group.keeperReason && group.keeperSource === "auto"
+        ? `Keeping ${group.keeperReason}`
+        : "Keeping the suggested copy";
     // Collapsed still shows a copy you're keeping — you should always be able to see
     // the photo; what's hidden is the identical repeats of it. If every copy is marked
     // for deletion there is no kept one to show, so fall back to the first.
@@ -492,28 +483,24 @@ export function DuplicatePhotosSection() {
       <div className="dup-group" key={group.id}>
         <div className="dup-group-head">
           <div className="dup-group-summary">
-            <strong>
-              {group.members.length} copies of the same photo{scopeName ? ` in ${scopeName}` : ""}
-            </strong>
-            <span className="datagrid-muted">
-              {" · "}{formatBytes(group.reclaimableBytes)} to reclaim
+            <p className="dup-group-title-line">
+              <strong>
+                {group.members.length} copies of the same photo{scopeName ? ` in ${scopeName}` : ""}
+              </strong>
+              <span aria-hidden="true">•</span>
+              <span>{formatBytes(group.reclaimableBytes)} to reclaim</span>
+            </p>
+            <p className="dup-group-reason datagrid-muted">
+              {keeperLine}
               {group.elsewhereCount > 0
                 ? ` · ${group.elsewhereCount} more in ${group.elsewhereCount === 1 ? "another library" : "other libraries"}, left alone`
                 : ""}
-              {" · "}
               {marked.length === 0
-                ? "nothing selected — click a copy to mark it"
+                ? " · nothing selected"
                 : clearingSet
-                  ? "every copy selected for deletion"
-                  : `keeping ${keepCount}, deleting ${marked.length}`}
-              {/* Why THIS copy is the one kept. The scan works it out and has always
-                  stored it, but only the folder tiers ever showed it — so a set that
-                  ignored a folder instruction, or obeyed one in a way you didn't
-                  expect, looked identical to one that had no instruction at all. */}
-              {group.keeperReason && group.keeperSource === "auto" && (
-                <>{" · "}kept because: {group.keeperReason}</>
-              )}
-            </span>
+                  ? " · every copy selected for deletion"
+                  : ` · keeping ${keepCount}, deleting ${marked.length}`}
+            </p>
           </div>
           <div className="dup-group-actions">
             <Button
@@ -534,8 +521,10 @@ export function DuplicatePhotosSection() {
               Not duplicates
             </Button>
             <Button
-              variant="danger"
+              variant="secondary"
+              danger
               compact
+              className="dup-delete-action"
               disabled={busy || marked.length === 0}
               title={marked.length === 0 ? "Click a copy to mark it for deletion" : undefined}
               onClick={() => { setActionError(""); setDeleteTarget(group); }}
@@ -583,20 +572,13 @@ export function DuplicatePhotosSection() {
                     which is which. Under a chosen library every copy is in it by
                     definition, and the heading says so, so the chip goes. */}
                 {!scopeName && (
-                  <span className="dup-copy-where">
-                    <Images size={11} aria-hidden="true" />
-                    <span>{member.libraryName}</span>
+                  <span className="dup-copy-context" title={`${member.libraryName} · ${folderName(member)}`}>
+                    {member.libraryName} · {folderName(member)}
                   </span>
                 )}
-                <span className="dup-copy-where" title={folderOf(member) || TOP_LEVEL_HINT}>
-                  <Folder size={11} aria-hidden="true" />
-                  <span>{folderName(member)}</span>
-                </span>
-                {/* Byte size on the tile, not just behind the info button: in a
-                    near-identical set it's the quickest read on which copy is the
-                    original and which is the re-saved one. */}
                 <span className="dup-copy-where">
-                  <HardDrive size={11} aria-hidden="true" />
+                  <span>{dimensions(member)}</span>
+                  <span aria-hidden="true">•</span>
                   <span>{member.size != null ? formatBytes(member.size) : "Unknown size"}</span>
                 </span>
               </Button>
@@ -638,29 +620,68 @@ export function DuplicatePhotosSection() {
     <>
       <ControlSectionHead
         section="duplicatePhotos"
-        className="dup-section-head"
+        className="dup-section-head dup-photo-section-head"
         icon={<Copy size={30} />}
         description="Find and manage duplicate photos to free up space."
-      />
+      >
+        <div className="dup-photo-head-actions">
+          <SelectMenu
+            value={scopeId}
+            options={libraryOptions}
+            label="Duplicate photo library"
+            className="dup-library-menu"
+            onChange={(next) => setFilters((current) => ({ ...current, scopeId: next }))}
+          />
+          <Button
+            variant="secondary"
+            compact
+            className="dup-scan-button"
+            disabled={busy || payload.scanning}
+            onClick={startScan}
+          >
+            {payload.scanning || starting
+              ? <span className="icon-spin" aria-hidden="true"><RefreshCw size={16} /></span>
+              : <RefreshCw size={16} aria-hidden="true" />}
+            <span>{scanLabel}</span>
+          </Button>
+          <Button
+            variant="secondary"
+            danger
+            compact
+            className="dup-delete-action dup-delete-all-button"
+            disabled={busy || sweepableCopies === 0}
+            title={sweepableCopies === 0 ? "No identical extra copies are available to delete" : undefined}
+            onClick={() => { setActionError(""); setDeleteAllOpen(true); }}
+          >
+            <Trash2 size={16} aria-hidden="true" />
+            <span>Delete all extras</span>
+          </Button>
+        </div>
+      </ControlSectionHead>
 
       {/* Totals for what's actually being compared: with a library chosen that's its
           own duplicates, not the install's. The counts beside each library in the
           picker are how many files a scan of it would have to read, so they aren't
           repeated here. */}
-      <p className="dup-status datagrid-muted">
-        Last scan: {formatWhen(payload.lastScanAt)}
+      <p className="dup-status dup-status-row datagrid-muted">
+        <span>Last scan: {formatWhen(payload.lastScanAt)}</span>
         {scoped.length > 0
-          ? ` · ${scoped.length} duplicate set${scoped.length === 1 ? "" : "s"}${scopeName ? ` in ${scopeName}` : ""}, ${copies(extraCopies)} using ${formatBytes(reclaimableBytes)}`
-          : ""}
+          ? (
+            <>
+              <span>
+                {copies(extraCopies)} in {scoped.length} group{scoped.length === 1 ? "" : "s"}
+                {scopeName ? ` in ${scopeName}` : ""}
+              </span>
+              <span>{formatBytes(reclaimableBytes)}</span>
+            </>
+          )
+          : null}
         {/* Whole folders are their own page: one decision there settles hundreds of
             the sets below, so it's worth saying so before anyone starts clicking. */}
         {folderCount > 0 && (
-          <>
-            {" · "}
-            <a href={controlHref("duplicateFolders")}>
-              {folderCount} whole folder{folderCount === 1 ? "" : "s"} can go at once
-            </a>
-          </>
+          <a href={controlHref("duplicateFolders")}>
+            {folderCount} whole folder{folderCount === 1 ? "" : "s"} can go at once
+          </a>
         )}
       </p>
 
@@ -691,78 +712,47 @@ export function DuplicatePhotosSection() {
       ) : null}
 
       {payload.groups.length > 0 && (
-        <div className="dup-toolbar">
+        <div className="dup-toolbar dup-photo-toolbar">
           {/* One box for every way of narrowing the page — library, kind, folders,
               search. They were four controls in three places and nothing said how
               they combined; now the badge says how many are on, and the bulk delete
               below acts on exactly what they leave. */}
+          <label className="search-field dup-photo-search">
+            <Search size={17} aria-hidden="true" />
+            <span className="sr-only">Search duplicate photos by filename, path, title or library</span>
+            <input
+              type="search"
+              value={search}
+              placeholder="Search photos or filenames"
+              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+            />
+          </label>
           <Button
             variant="secondary"
             compact
-            className={activeFilters > 0 ? "is-active" : ""}
+            className={advancedFilterCount > 0 ? "is-active" : ""}
             disabled={busy}
             onClick={() => { setActionError(""); setPreferDraft(savedPreferences); setFilterOpen(true); }}
           >
             <SlidersHorizontal size={16} aria-hidden="true" />
-            <span>{activeFilters > 0 ? `Filters (${activeFilters})` : "Filters"}</span>
+            <span>{advancedFilterCount > 0 ? `Filters (${advancedFilterCount})` : "Filters"}</span>
           </Button>
 
           <div className="dup-toolbar-controls">
-
+            <SelectMenu
+              value={sort}
+              options={SORT_OPTIONS}
+              label="Sort duplicate photos"
+              className="dup-photo-sort-menu"
+              onChange={setSort}
+            />
             <SelectMenu
               value={perPage}
               options={PER_PAGE_OPTIONS}
-              label="Sets per page"
-              className="dup-per-page"
+              label="Photos per page"
+              className="dup-per-page dup-photo-page-menu"
               onChange={setPerPage}
             />
-            <AudiobookHeaderSort
-              value={sort as unknown as SortKey}
-              onChange={(next) => setSort(next as unknown as DupSort)}
-              options={SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
-              ariaLabel="Sort duplicate sets"
-              compact
-            />
-            <Button
-              variant="icon"
-              disabled={busy || payload.scanning}
-              onClick={() => void rebuild()}
-              aria-label={rebuilding ? "Rebuilding results…" : "Rebuild results from the last scan"}
-              title={rebuilding ? "Rebuilding…" : "Rebuild results from the last scan (reads no files)"}
-            >
-              {rebuilding
-                ? <span className="icon-spin" aria-hidden="true"><RotateCw size={18} /></span>
-                : <RotateCw size={18} aria-hidden="true" />}
-            </Button>
-            <Button
-              variant="icon"
-              disabled={busy || payload.scanning}
-              onClick={startScan}
-              aria-label={scanLabel}
-              title={scanLabel}
-            >
-              {payload.scanning || starting
-                ? <span className="icon-spin" aria-hidden="true"><RefreshCw size={18} /></span>
-                : <RefreshCw size={18} aria-hidden="true" />}
-            </Button>
-            {/* Says which sets it covers, not just "all extras": the button has
-                always been identical-only (the server's query excludes the near tier
-                outright), but a lone trash icon over a list holding both reads as
-                though it might take the lot. */}
-            {sweepable.length > 0 && (
-              <Button
-                variant="icon"
-                danger
-                disabled={busy}
-                onClick={() => { setActionError(""); setDeleteAllOpen(true); }}
-                aria-label={`Delete the extra copies in every identical set${scopeName ? ` in ${scopeName}` : ""}`}
-                title={scopeName
-                  ? `Delete extras in identical sets — “${scopeName}” only`
-                  : "Delete extras in identical sets (never near-identical)"}
-              >
-                <Trash2 size={18} aria-hidden="true" />
-              </Button>
-            )}
           </div>
         </div>
       )}
@@ -1009,7 +999,7 @@ export function DuplicatePhotosSection() {
           title={activeFilters > 0
             ? `Delete the extra copies in the ${sweepable.length} set${sweepable.length === 1 ? "" : "s"} you've filtered to?`
             : `Delete the extra copies in ${sweepable.length} set${sweepable.length === 1 ? "" : "s"}?`}
-          confirmLabel={`Delete ${copies(sweepable.reduce((sum, group) => sum + group.members.length - 1, 0))}`}
+          confirmLabel={`Delete ${copies(sweepableCopies)}`}
           busyLabel="Deleting…"
           danger
           busy={deletingAll}

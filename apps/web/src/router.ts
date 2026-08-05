@@ -46,13 +46,13 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   backup: "/control/maintenance/backup",
   scheduledJobs: "/control/maintenance/scheduled-jobs",
   recycleBin: "/control/maintenance/recycle-bin",
-  missingPhotos: "/control/maintenance/missing-photos",
 
-  // Three views of one scan, so three addresses under one destination rather than
-  // three peers. /control/utilities/duplicates lands on Photos — see CONTROL_ALIASES.
-  duplicatePhotos: "/control/utilities/duplicates/photos",
-  duplicateFolders: "/control/utilities/duplicates/folders",
-  duplicateContainedFolders: "/control/utilities/duplicates/stored-elsewhere",
+  // Gallery utilities: tools that work on a library rather than configuring one.
+  // One flat row of them, so one flat level of addresses.
+  duplicatePhotos: "/control/utilities/duplicate-photos",
+  duplicateFolders: "/control/utilities/duplicate-folders",
+  duplicateContainedFolders: "/control/utilities/stored-elsewhere",
+  missingPhotos: "/control/utilities/missing-photos",
 
   appearance: "/control/settings",
   email: "/control/settings/email",
@@ -125,15 +125,19 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/trash": "recycleBin",
   "/control/libraries/missing-photos": "missingPhotos",
   "/control/missing-photos": "missingPhotos",
-  // Duplicates moved out of Maintenance and became one destination with three
-  // views. Every address it has ever had still lands on the right one of them —
-  // the last of these is what the Utilities tab itself links to.
+  "/control/maintenance/missing-photos": "missingPhotos",
+  // Duplicates left Maintenance for Utilities, and spent one release nested under a
+  // "Duplicates" tab before that row was flattened away. Every address any of them
+  // has ever had still lands on the right page.
   "/control/libraries/duplicate-photos": "duplicatePhotos",
   "/control/duplicate-photos": "duplicatePhotos",
   "/control/maintenance/duplicate-photos": "duplicatePhotos",
+  "/control/utilities/duplicates/photos": "duplicatePhotos",
   "/control/duplicate-folders": "duplicateFolders",
   "/control/maintenance/duplicate-folders": "duplicateFolders",
+  "/control/utilities/duplicates/folders": "duplicateFolders",
   "/control/maintenance/folders-elsewhere": "duplicateContainedFolders",
+  "/control/utilities/duplicates/stored-elsewhere": "duplicateContainedFolders",
   "/control/utilities": "duplicatePhotos",
   "/control/utilities/duplicates": "duplicatePhotos",
 

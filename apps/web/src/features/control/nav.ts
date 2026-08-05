@@ -1,5 +1,6 @@
 import {
   Activity,
+  Image,
   LibraryBig,
   PocketKnife,
   Settings,
@@ -20,24 +21,18 @@ import { controlHref, type ControlSection } from "../../router";
 // inside an existing group rather than as an eighth: a long left nav is what this
 // structure exists to prevent, and the tab row is free to grow where the nav isn't.
 //
-// A tab may itself hold `tabs` — one more row, beneath the first — for a
-// destination that is genuinely several views of one thing rather than several
-// pages that happen to be related. Duplicates is the case it exists for: photos,
-// folders and stored-elsewhere are three cuts of ONE scan, and they were three
-// peers in the nav pretending otherwise. Two rows is the floor and the ceiling;
-// a third would be a sitemap, not a navigation.
+// ONE row of tabs, and only one. A second row under it was tried, to say that the
+// three duplicate pages are three views of a single scan; it was more chrome than
+// the relationship was worth, and the page titles carry it anyway. Related pages
+// sit side by side as peers and share a `context` instead.
 
 export interface ControlTabDef {
-  /** Where the tab's own link lands. On a tab with sub-tabs this is the first of
-   *  them — a parent tab is a landing spot, never a page of its own. */
   section: ControlSection;
   label: string;
-  /** Grouping that earns a word in the eyebrow but not a row of its own: one
-   *  media type has utilities so far, so "Gallery" says what these work on
-   *  without costing a level of navigation. */
+  /** Grouping that earns a branch in the left nav and a word in the eyebrow, but
+   *  not a row of its own: one media type has utilities so far, so "Gallery" says
+   *  what these work on without costing a level of navigation. */
   context?: string;
-  /** The second row. Present only where one destination has several views. */
-  tabs?: ControlTabDef[];
 }
 
 export interface ControlGroupDef {
@@ -99,28 +94,22 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     tabs: [
       { section: "backup", label: "Backup" },
       { section: "scheduledJobs", label: "Scheduled jobs" },
-      { section: "recycleBin", label: "Recycle Bin" },
-      { section: "missingPhotos", label: "Missing photos" }
+      { section: "recycleBin", label: "Recycle Bin" }
     ]
   },
   {
     key: "utilities",
     label: "Utilities",
     icon: PocketKnife,
+    // One row, four peers. The three duplicate pages did have a "Duplicates" tab of
+    // their own with these three beneath it, which is truer to what they are — three
+    // views of one scan — and worse to look at: a second row of tabs under the first
+    // is a lot of chrome to explain a relationship the page titles already imply.
     tabs: [
-      {
-        // One destination, three views of one scan — see the sub-tab note above.
-        // Its own link lands on Photos, which is where the scan is started and so
-        // where someone arriving with no particular tab in mind should be.
-        section: "duplicatePhotos",
-        label: "Duplicates",
-        context: "Gallery",
-        tabs: [
-          { section: "duplicatePhotos", label: "Photos" },
-          { section: "duplicateFolders", label: "Folders" },
-          { section: "duplicateContainedFolders", label: "Stored elsewhere" }
-        ]
-      }
+      { section: "duplicatePhotos", label: "Duplicate photos", context: "Gallery" },
+      { section: "duplicateFolders", label: "Duplicate folders", context: "Gallery" },
+      { section: "duplicateContainedFolders", label: "Stored elsewhere", context: "Gallery" },
+      { section: "missingPhotos", label: "Missing photos", context: "Gallery" }
     ]
   },
   {
@@ -136,31 +125,16 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
   }
 ];
 
-/** Every tab in a group, both rows flattened — a parent tab appears once for its
- *  own landing section and once per sub-tab, so a lookup on any section lands on
- *  the tab a person would say they were on. Sub-tabs win, being the deeper answer. */
-const tabsOf = (group: ControlGroupDef): ControlTabDef[] =>
-  group.tabs.flatMap((tab) => (tab.tabs ? [tab, ...tab.tabs] : [tab]));
-
-/** The tabs of the row a page's own name sits in — the second row where there is
- *  one, the first where there isn't. This is what search indexes and what titles
- *  come from; a parent tab is never a page. */
-export const LEAF_TABS: ControlTabDef[] = CONTROL_GROUPS
-  .flatMap((group) => group.tabs.flatMap((tab) => tab.tabs ?? [tab]));
+/** Every tab there is. One row per group, so this is simply all of them — what
+ *  search indexes and what page titles come from. */
+export const ALL_TABS: ControlTabDef[] = CONTROL_GROUPS.flatMap((group) => group.tabs);
 
 const GROUP_BY_SECTION = new Map<ControlSection, ControlGroupDef>(
-  CONTROL_GROUPS.flatMap((group) => tabsOf(group).map((tab) => [tab.section, group] as const))
+  CONTROL_GROUPS.flatMap((group) => group.tabs.map((tab) => [tab.section, group] as const))
 );
 
 const TAB_BY_SECTION = new Map<ControlSection, ControlTabDef>(
-  LEAF_TABS.map((tab) => [tab.section, tab] as const)
-);
-
-/** The parent tab a section hangs under, where it has one. Both the second tab row
- *  and the extra breadcrumb in the eyebrow come from this. */
-const PARENT_BY_SECTION = new Map<ControlSection, ControlTabDef>(
-  CONTROL_GROUPS.flatMap((group) => group.tabs.flatMap((tab) =>
-    (tab.tabs ?? []).map((sub) => [sub.section, tab] as const)))
+  ALL_TABS.map((tab) => [tab.section, tab] as const)
 );
 
 export function groupForSection(section: ControlSection): ControlGroupDef {
@@ -174,19 +148,47 @@ export function sectionTitle(section: ControlSection): string {
   return TAB_BY_SECTION.get(section)?.label ?? "";
 }
 
-/** Where the page sits, as a trail: "Utilities", or "Utilities › Gallery ›
- *  Duplicates" for a page that is one view of a larger destination. */
+/** The branch a page sits in, where its group has any. */
+const CONTEXT_BY_SECTION = new Map<ControlSection, string>(
+  ALL_TABS.flatMap((tab) => (tab.context ? [[tab.section, tab.context] as const] : []))
+);
+
+export function sectionContext(section: ControlSection): string | null {
+  return CONTEXT_BY_SECTION.get(section) ?? null;
+}
+
+/** Where the page sits, as a trail: "Maintenance", or "Utilities › Gallery". */
 export function sectionEyebrow(section: ControlSection): string {
-  const parent = PARENT_BY_SECTION.get(section);
-  return [groupForSection(section).label, parent?.context, parent?.label]
+  return [groupForSection(section).label, CONTEXT_BY_SECTION.get(section)]
     .filter(Boolean)
     .join(" › ");
 }
 
-/** The destination a page is one view of, or null where it stands alone. Its
- *  `tabs` are the second row and its label names that row. */
-export function parentTabForSection(section: ControlSection): ControlTabDef | null {
-  return PARENT_BY_SECTION.get(section) ?? null;
+/** What the left nav shows underneath a group: one child per distinct `context`
+ *  among its tabs, in declaration order, each landing on the first tab that
+ *  carries it. Derived rather than listed, so a second Gallery tab joins the
+ *  existing branch instead of adding a second one with the same name.
+ *
+ *  A group with no contexts has no children and stays a plain link. */
+export interface ControlNavChild {
+  label: string;
+  section: ControlSection;
+  icon: LucideIcon;
+}
+
+/** Icons for the branches. A context without one falls back to its group's. */
+const CONTEXT_ICONS: Record<string, LucideIcon> = { Gallery: Image };
+
+export function navChildrenFor(group: ControlGroupDef): ControlNavChild[] {
+  const seen = new Map<string, ControlSection>();
+  for (const tab of group.tabs) {
+    if (tab.context && !seen.has(tab.context)) seen.set(tab.context, tab.section);
+  }
+  return [...seen].map(([label, section]) => ({
+    label,
+    section,
+    icon: CONTEXT_ICONS[label] ?? group.icon
+  }));
 }
 
 export function sectionHref(section: ControlSection): string {

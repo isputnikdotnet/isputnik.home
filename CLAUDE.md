@@ -66,9 +66,9 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   `features/control/nav.ts`; canonical URLs in `CONTROL_PATHS` (`router.ts`), linked
   via `controlHref()`. Every tab is a real route — no `useState` tab rows in there —
   and pages open with `ControlSectionHead`, which takes eyebrow + title from `nav.ts`.
-  A tab may carry its own `tabs` for a second row, but only where one destination has
-  several views of the same thing (Utilities → Duplicates → Photos/Folders/Stored
-  elsewhere). Two rows is the ceiling.
+  **One tab row only** — a second row under it was tried for Duplicates and removed as
+  too much chrome. Related pages sit as peers sharing a `context`, which draws a branch
+  in the left nav (Utilities → Gallery) and a word in the eyebrow, not another row.
   New settings get search terms in `features/control/search-index.ts`. Profile's
   tabs follow the same rule (`PROFILE_PATHS` / `profileHref()`).
 

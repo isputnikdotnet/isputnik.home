@@ -197,6 +197,61 @@ export function registerTrashRoutes(app: FastifyInstance) {
     }
   });
 
+  const restoreAllSchema = z.object({ libraryId: z.string().trim().min(1).optional() });
+
+  // Put everything back. Scoped to one library or, with no scope, the whole bin.
+  //
+  // Unlike emptying, this is not all-or-nothing and must not pretend to be: a single
+  // item can refuse (its library is gone, a file now sits where it used to live) while
+  // the rest go back perfectly well. So each is attempted on its own and the reply
+  // says how many made it, how many were skipped for want of permission, and what the
+  // first few failures actually said — a bare count would leave someone re-pressing a
+  // button that will never clear the last three rows.
+  app.post("/api/library/trash/restore-all", { preHandler: app.authenticate }, async (request, reply) => {
+    const parsed = parseBody(restoreAllSchema, request.body ?? {});
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid request", details: parsed.error });
+      return;
+    }
+    const user = request.user!;
+    const libraryId = parsed.data.libraryId;
+
+    const rows = (libraryId
+      ? db.prepare("SELECT * FROM trashed_items WHERE library_id = ? ORDER BY datetime(trashed_at) DESC").all(libraryId)
+      : db.prepare("SELECT * FROM trashed_items ORDER BY datetime(trashed_at) DESC").all()) as TrashedItem[];
+
+    let restored = 0;
+    let forbidden = 0;
+    const failures: { title: string; error: string }[] = [];
+    for (const item of rows) {
+      if (!canManageTrashItem(user, item)) { forbidden += 1; continue; }
+      try {
+        await restoreTrashedItem(item.id);
+        restored += 1;
+      } catch (err) {
+        failures.push({
+          title: item.title,
+          error: err instanceof Error ? err.message : "Could not restore the item."
+        });
+      }
+    }
+
+    if (restored > 0) {
+      logActivity({
+        event: "library.item_restored",
+        actorUserId: user.id,
+        targetType: libraryId ? "library" : "setting",
+        targetId: libraryId ?? "trash",
+        detail: `Restored ${restored} item${restored === 1 ? "" : "s"} from the Recycle Bin${libraryId ? " for one library" : ""}.`,
+        ipAddress: request.ip
+      });
+    }
+
+    // 200 even with failures: the work that succeeded really did happen, and the
+    // client renders the shortfall rather than treating the whole call as an error.
+    reply.send({ restored, forbidden, failed: failures.length, failures: failures.slice(0, 5) });
+  });
+
   app.delete("/api/library/trash/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = request.user!;

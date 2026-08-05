@@ -103,7 +103,13 @@ export function RecycleBinSection() {
   const [purging, setPurging] = useState(false);
   const [emptyOpen, setEmptyOpen] = useState(false);
   const [emptying, setEmptying] = useState(false);
+  const [restoreAllOpen, setRestoreAllOpen] = useState(false);
+  const [restoringAll, setRestoringAll] = useState(false);
   const [actionError, setActionError] = useState("");
+  // A bulk restore can half-work — one item's library is gone, another's old place is
+  // taken. That is not a failed action and must not be dressed as one, so the outcome
+  // gets its own line rather than the error box.
+  const [notice, setNotice] = useState("");
   // Newest deletion first — the order the server hands them back, and the one you
   // want when you've just deleted something by mistake.
   const [sort, setSort] = useState<TrashSort>("recent");
@@ -129,6 +135,7 @@ export function RecycleBinSection() {
     () => sortItems(scopeId ? items.filter((item) => item.libraryId === scopeId) : items, sort),
     [items, scopeId, sort]
   );
+  const scopeName = scopeId ? items.find((item) => item.libraryId === scopeId)?.libraryName ?? "" : "";
 
   const pageSize = perPage === "all" ? Math.max(visible.length, 1) : Number(perPage);
   const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
@@ -181,6 +188,37 @@ export function RecycleBinSection() {
     }
   };
 
+  // Restores exactly what the page is showing — the library filter counts here, so
+  // "restore all" can never mean more than what is in front of you.
+  const confirmRestoreAll = async () => {
+    setRestoringAll(true);
+    setActionError("");
+    setNotice("");
+    try {
+      const result = await api<{
+        restored: number; forbidden: number; failed: number;
+        failures: { title: string; error: string }[];
+      }>("/api/library/trash/restore-all", {
+        method: "POST",
+        body: JSON.stringify(scopeId ? { libraryId: scopeId } : {})
+      });
+      setRestoreAllOpen(false);
+      await load();
+
+      const held: string[] = [];
+      if (result.failed > 0) held.push(`${result.failed} couldn't go back`);
+      if (result.forbidden > 0) held.push(`${result.forbidden} you don't have permission to restore`);
+      if (held.length > 0) {
+        const why = result.failures.map((entry) => `“${entry.title}” — ${entry.error}`).join(" ");
+        setNotice(`Restored ${result.restored} item${result.restored === 1 ? "" : "s"}. ${held.join(", ")}, and stayed in the bin. ${why}`.trim());
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Unable to restore the items");
+    } finally {
+      setRestoringAll(false);
+    }
+  };
+
   const confirmEmpty = async () => {
     setEmptying(true);
     setActionError("");
@@ -216,6 +254,20 @@ export function RecycleBinSection() {
         {/* Refresh sits last, at the right edge of the header — the same spot it
             holds on Scheduled jobs, so it's in one place across the panel. */}
         <div className="row-actions control-head-actions">
+          {/* Restore before Empty, and secondary against its danger: one puts things
+              back, the other destroys them, and the reversible one should not be the
+              harder to reach of the two. */}
+          {visible.length > 0 && (
+            <Button
+              variant="secondary"
+              compact
+              disabled={restoringAll}
+              onClick={() => { setActionError(""); setNotice(""); setRestoreAllOpen(true); }}
+            >
+              <RotateCcw size={16} />
+              <span>Restore all</span>
+            </Button>
+          )}
           {items.length > 0 && (
             <Button variant="danger" compact onClick={() => { setActionError(""); setEmptyOpen(true); }}>
               <Trash2 size={16} />
@@ -251,6 +303,7 @@ export function RecycleBinSection() {
 
       {error && <MessageBox tone="error" title="Unable to load the Recycle Bin">{error}</MessageBox>}
       {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}
+      {notice && <MessageBox tone="warning" title="Some items stayed in the bin">{notice}</MessageBox>}
 
       {items.length > 0 && (
         /* Scope on the left, view controls on the right — the Duplicate photos
@@ -366,6 +419,35 @@ export function RecycleBinSection() {
           onCancel={() => setPurgeTarget(null)}
         >
           Its {purgeTarget.fileCount} file{purgeTarget.fileCount === 1 ? "" : "s"} will be erased from disk. This cannot be undone — restore it instead if you might want it back.
+        </ConfirmDialog>
+      )}
+
+      {restoreAllOpen && (
+        <ConfirmDialog
+          title={scopeName
+            ? `Restore all ${visible.length} item${visible.length === 1 ? "" : "s"} in “${scopeName}”?`
+            : `Restore all ${visible.length} item${visible.length === 1 ? "" : "s"}?`}
+          confirmLabel={`Restore ${visible.length} item${visible.length === 1 ? "" : "s"}`}
+          busyLabel="Restoring…"
+          busy={restoringAll}
+          error={actionError}
+          onConfirm={confirmRestoreAll}
+          onCancel={() => setRestoreAllOpen(false)}
+          rich
+        >
+          <p>
+            {scopeName
+              ? <>Everything the bin holds for <strong>{scopeName}</strong> goes back where it came from — its files return
+                to their library folder and it appears in the library again. Deleted items in other libraries are left
+                alone.</>
+              : <>Everything in the bin goes back where it came from — files return to their library folders and the
+                items appear in their libraries again.</>}
+          </p>
+          <p>
+            Each is put back on its own, so one that can't be — its library has been removed, or something else now
+            occupies the place it came from — doesn't stop the rest. Anything that can't go back stays in the bin and
+            is named here afterwards. Nothing is deleted either way.
+          </p>
         </ConfirmDialog>
       )}
 
