@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Copy, ExternalLink, FolderOpen, ImageOff, Info, Maximize2, RefreshCw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import {
+  ChevronDown, Copy, ExternalLink, FolderOpen, FolderTree, ImageOff, Images, Info,
+  Maximize2, RefreshCw, Search, SlidersHorizontal, Trash2
+} from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -78,18 +81,6 @@ const SORT_OPTIONS: { value: DupSort; label: string }[] = [
 // The tile shows the file's own name; the folder it sits in is in its details.
 function fileName(member: DuplicateMember): string {
   return member.path.split("/").pop() || member.title || "Untitled";
-}
-
-// Just the folder the copy sits in, without its ancestors — that's what tells two
-// copies apart at a glance. The full path stays in the tooltip and the details.
-//
-// A copy in no folder at all used to read "Library root", which named a place and
-// so sent people looking for one — into whichever library's top folder they happened
-// to open, which in a library that files everything into subfolders holds no photos
-// at all. This is the ABSENCE of a folder, so say that instead.
-function folderName(member: DuplicateMember): string {
-  const folder = folderOf(member);
-  return folder ? folder.split("/").pop() || folder : TOP_LEVEL;
 }
 
 // Deep link into the gallery's Folders view, scoped to the library this copy lives
@@ -554,19 +545,25 @@ export function DuplicatePhotosSection() {
                   {member.coverUrl ? <img src={member.coverUrl} alt="" loading="lazy" /> : <ImageOff size={16} />}
                 </span>
                 <span className="dup-copy-name">{fileName(member)}</span>
-                {/* Copies of one photo routinely sit in different libraries or in
-                    different folders of the same one; the filename alone doesn't say
-                    which is which. Under a chosen library every copy is in it by
-                    definition, and the heading says so, so the chip goes. */}
-                {!scopeName && (
-                  <span className="dup-copy-context" title={`${member.libraryName} · ${folderName(member)}`}>
-                    {member.libraryName} · {folderName(member)}
-                  </span>
-                )}
                 <span className="dup-copy-where">
                   <span>{dimensions(member)}</span>
                   <span aria-hidden="true">•</span>
                   <span>{member.size != null ? formatBytes(member.size) : "Unknown size"}</span>
+                </span>
+                {/* Copies of one photo routinely sit in different libraries, or in
+                    different folders of the same one, and the filename alone never
+                    says which is which. The FULL path, not just the last segment:
+                    "2021-10-20" appears under half a dozen parents in a phone backup,
+                    so the tail on its own tells copies apart from nothing.
+
+                    Same two lines, same two icons, as the folder tiles next door. */}
+                <span className="dup-copy-where" title={folderOf(member) || TOP_LEVEL_HINT}>
+                  <FolderTree size={11} aria-hidden="true" />
+                  <span>{folderOf(member) || TOP_LEVEL}</span>
+                </span>
+                <span className="dup-copy-where" title={`In the library "${member.libraryName}"`}>
+                  <Images size={11} aria-hidden="true" />
+                  <span>{member.libraryName}</span>
                 </span>
               </Button>
 

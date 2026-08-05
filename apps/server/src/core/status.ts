@@ -502,6 +502,14 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "2.21.2",
+          label: "Every copy says which folder and which library it's in",
+          changes: [
+            "A copy on Duplicate photos now shows its full folder path and its library, under the filename and size, with the same two icons the folder cards use. It used to show only the folder's last segment — and in a phone backup a name like \"2021-10-20\" or \"SM-G960U\" sits under half a dozen different parents, so the tail on its own told two copies apart from nothing, which is the entire job of that line.",
+            "The library is shown even when you have picked one. It used to disappear then, which was reasonable and made the tile change shape depending on the filter above it."
+          ]
+        },
+        {
           version: "2.21.1",
           label: "A library's root is a place, not a folder to clear out",
           changes: [
