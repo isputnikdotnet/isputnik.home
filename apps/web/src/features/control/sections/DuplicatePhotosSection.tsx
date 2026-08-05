@@ -271,7 +271,7 @@ export function DuplicatePhotosSection() {
   const chosenFolders = folderOptions.filter((option) => folderFilter.includes(option.key));
 
   // Folder-shaped results live on their own tab; this page only points at them.
-  const folderCount = payload.folderSetCount + payload.containedCount;
+  const folderCount = payload.folderSetCount + payload.containedCount + payload.overlapCount;
 
   const needle = search.trim().toLowerCase();
   const filtering = needle !== "" || scopeId !== "" || chosenFolders.length > 0 || tier !== "all" || mediaKind !== "all";

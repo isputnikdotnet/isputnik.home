@@ -52,8 +52,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   // Short labels now that they are views of Duplicates, so the words someone would
   // actually type have to be here — "duplicate photos" is no longer in the title.
   duplicatePhotos: "duplicate photos gallery duplicates copies identical phash near-identical free space imported twice scan",
-  duplicateFolders: "duplicate folders gallery same folder twice identical folder keep photos in preferred folder",
-  duplicateContainedFolders: "folders already stored elsewhere contained folder copied into itself nested redundant folder covered gallery",
+  duplicateFolders: "duplicate folders gallery same folder twice identical folder keep photos in preferred folder already stored elsewhere contained copied into itself overlapping shared some photos partial copy",
 
   appearance: "theme default look colours colors dark light branding",
   email: "smtp mail relay server port tls starttls password sender from test",

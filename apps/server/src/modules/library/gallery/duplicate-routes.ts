@@ -28,15 +28,17 @@ import {
   rebuildDuplicateGroups
 } from "./duplicates.js";
 import {
-  searchDuplicateFolderGroups,
-  searchContainedFolders,
+  searchFolderMatches,
   folderAnswerSummary,
   setDuplicateFolderKeeper,
   ignoreDuplicateFolderGroup,
   resolveDuplicateFolderGroup,
   ignoreContainedFolder,
   resolveContainedFolder,
+  resolveFolderOverlap,
+  ignoreFolderOverlap,
   type ContainedRefusal,
+  type OverlapRefusal,
   type FolderSearch
 } from "./duplicate-folders.js";
 
@@ -71,6 +73,7 @@ function duplicatePayload() {
     /** How many of each folder answer there are — the photo page links with these. */
     folderSetCount: summary.folderSets,
     containedCount: summary.containedRowCount,
+    overlapCount: summary.overlapCount,
     reclaimableBytes: duplicateReclaimableBytes()
   };
 }
@@ -174,16 +177,56 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
     };
   };
 
+  // ONE list for all three folder answers — identical, stored elsewhere, and
+  // overlapping — strongest statement first. The contained search kept its old
+  // address for a release; both now serve the merged page.
   app.get("/api/library/gallery/duplicates/folders/search", { preHandler: app.requireAdmin }, async (request, reply) => {
     const query = folderQuery(request.query);
     if ("error" in query) { reply.code(400).send({ error: query.error }); return; }
-    reply.send(searchDuplicateFolderGroups(query));
+    reply.send(searchFolderMatches(query));
   });
 
-  app.get("/api/library/gallery/duplicates/folders/contained/search", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const query = folderQuery(request.query);
-    if ("error" in query) { reply.code(400).send({ error: query.error }); return; }
-    reply.send(searchContainedFolders(query));
+  // Delete the shared copies from an overlap pair's losing side. Which side loses is
+  // re-derived at this moment — protected library first, then the saved Keep/Clear
+  // instructions — so a policy changed since the page rendered is honoured.
+  const OVERLAP_REFUSALS: Record<OverlapRefusal, { code: number; error: string }> = {
+    missing: { code: 404, error: "This pair is no longer on the list — it has already been resolved or dismissed." },
+    nothing_shared: {
+      code: 409,
+      error: "These folders no longer share any photos, so there is nothing to delete. The pair has been taken off the list."
+    },
+    protected: {
+      code: 403,
+      error: "Both folders are in libraries that don't allow deleting, so neither side's copies can be removed."
+    }
+  };
+
+  app.post("/api/library/gallery/duplicates/folders/overlaps/:id/resolve", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const outcome = resolveFolderOverlap(id, request.user!.id);
+    if (!outcome.ok) {
+      const refusal = OVERLAP_REFUSALS[outcome.refused];
+      reply.code(refusal.code).send({ error: refusal.error });
+      return;
+    }
+    reply.send(outcome.resolution);
+  });
+
+  app.post("/api/library/gallery/duplicates/folders/overlaps/:id/ignore", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (!ignoreFolderOverlap(id)) {
+      reply.code(404).send({ error: "No such pair." });
+      return;
+    }
+    logActivity({
+      event: "library.gallery.folder_overlap_dismissed",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: null,
+      detail: "Dismissed a pair of folders that share some photos; they won't be paired again.",
+      ipAddress: request.ip
+    });
+    reply.send({ ignored: true });
   });
 
   // Rebuild the results from the digests already stored, without reading a single
@@ -198,7 +241,7 @@ export async function galleryDuplicateRoutesPlugin(app: FastifyInstance) {
       actorUserId: request.user!.id,
       targetType: "library",
       targetId: null,
-      detail: `Rebuilt duplicate results from the stored digests: ${totals.groups} photo sets, ${totals.folders.groups} folder sets, ${totals.contained.folders} folders stored elsewhere.`,
+      detail: `Rebuilt duplicate results from the stored digests: ${totals.groups} photo sets, ${totals.folders.groups} folder sets, ${totals.contained.folders} folders stored elsewhere, ${totals.overlaps.pairs} overlapping pairs.`,
       ipAddress: request.ip
     });
     reply.send(duplicatePayload());

@@ -104,6 +104,32 @@ export interface ContainedFolder {
   linkCount: number;
 }
 
+/** Two folders that share SOME identical photos — neither equal nor contained. The
+ *  action deletes only the shared copies from the losing side; both folders stay. */
+export interface FolderOverlapPair {
+  kind: "overlap";
+  id: string;
+  /** Chosen by the server at read time: a protected library first, then the saved
+   *  Keep/Clear instructions, then the usual scoring. Not swappable here. */
+  keep: DuplicateFolderDetail;
+  lose: DuplicateFolderDetail;
+  sharedCount: number;
+  sharedBytes: number;
+  keepExtraCount: number;
+  loseExtraCount: number;
+  keeperReason: string | null;
+  /** False when the losing side's library forbids deleting too — the pair is shown,
+   *  the button isn't offered. */
+  canDelete: boolean;
+  coverUrls: string[];
+}
+
+/** One entry on the merged folder page — three strengths of the same relationship. */
+export type FolderMatch =
+  | ({ kind: "identical" } & DuplicateFolderGroup)
+  | ({ kind: "contained" } & ContainedFolder)
+  | FolderOverlapPair;
+
 export type FolderPreferenceMode = "keep" | "clear";
 
 /** A standing instruction attached to a folder: keep copies here, or let them go. */
@@ -134,6 +160,7 @@ export interface DuplicatePayload {
   /** How many of each folder answer there are — the lists themselves are paged. */
   folderSetCount: number;
   containedCount: number;
+  overlapCount: number;
   lastScanAt: string | null;
   candidateCount: number;
   scanning: boolean;
@@ -168,7 +195,7 @@ export const EMPTY_PAGE: DuplicatePage = {
 };
 
 export const EMPTY_PAYLOAD: DuplicatePayload = {
-  folderPreferences: [], folderOptions: [], folderSetCount: 0, containedCount: 0,
+  folderPreferences: [], folderOptions: [], folderSetCount: 0, containedCount: 0, overlapCount: 0,
   lastScanAt: null, candidateCount: 0, pendingCount: 0, staleCount: 0,
   scanning: false, reclaimableBytes: 0, libraries: []
 };
@@ -181,6 +208,7 @@ export function normalisePayload(next: Partial<DuplicatePayload>): DuplicatePayl
     folderOptions: next.folderOptions ?? [],
     folderSetCount: next.folderSetCount ?? 0,
     containedCount: next.containedCount ?? 0,
+    overlapCount: next.overlapCount ?? 0,
     lastScanAt: next.lastScanAt ?? null,
     candidateCount: next.candidateCount ?? 0,
     scanning: next.scanning ?? false,
@@ -347,9 +375,9 @@ const emptyList = <T,>(): FolderListPage<T> =>
 // other; the tabs care about neither distinction.
 function normaliseList<T>(next: Record<string, unknown>): FolderListPage<T> {
   return {
-    items: (next.groups ?? next.rows ?? []) as T[],
+    items: (next.matches ?? next.groups ?? next.rows ?? []) as T[],
     total: (next.total as number) ?? 0,
-    allItems: (next.allSets ?? next.allRows ?? 0) as number,
+    allItems: (next.allMatches ?? next.allSets ?? next.allRows ?? 0) as number,
     page: (next.page as number) ?? 1,
     reclaimableBytes: (next.reclaimableBytes as number) ?? 0
   };

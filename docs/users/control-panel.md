@@ -14,7 +14,7 @@ it points there rather than repeating it.
 | **Members** | Users, Groups, Invite links, Sessions |
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
 | **Maintenance** | Backup, Scheduled jobs, Recycle Bin |
-| **Utilities** | Gallery → Duplicate photos, Duplicate folders, Stored elsewhere, Missing photos |
+| **Utilities** | Gallery → Duplicate photos, Duplicate folders, Missing photos |
 | **Settings** | Appearance, Email, Reader access, About |
 
 Every tab has its own address, so any page here can be bookmarked or linked to.
@@ -256,9 +256,10 @@ way, which is why it asks in ordinary terms rather than the red warning Empty ge
 Tools that work *on* a library rather than configuring one. They live under a
 **Gallery** branch in the left nav, since everything here so far works on photos.
 
-Four tabs. Three of them — Duplicate photos, Duplicate folders and Stored elsewhere —
-are views of a single scan rather than three separate jobs: start the scan on
-**Duplicate photos**, and the other two report what it found. **Missing photos**
+Three tabs. Duplicate photos and Duplicate folders are two views of a single scan
+rather than separate jobs: start the scan on **Duplicate photos**, and the folder
+page reports everything folder-shaped it found — identical folders, folders wholly
+stored elsewhere, and folders that merely share some photos. **Missing photos**
 stands on its own.
 
 ### Missing photos
@@ -278,9 +279,8 @@ decide, copy by copy, which ones stay.
 > empty it — but check, test, and check again first.
 
 Results come in two groups here, and they deserve different amounts of trust. Whole
-folders live on the other two tabs — **Duplicate folders** and **Stored elsewhere**, both
-below — and are worth working through first: one decision there settles hundreds of
-the sets on this tab.
+folders live on the **Duplicate folders** tab and are worth working through first:
+one decision there settles hundreds of the sets on this tab.
 
 **Identical files** are byte-for-byte the same, so a set is never a guess. Finding
 them is cheap because identical files must be the same size: photos whose size
@@ -406,15 +406,28 @@ left out of the comparison and the page says so; re-scan that library from
 
 ### Duplicate folders
 
-Whole folders that duplicate another folder, on their own tab because they are a
-different unit of work: clearing one settles hundreds of the photo sets next door.
-It comes from the scan you start on **Duplicate photos** — this tab reports, it
-never scans.
+Whole folders that relate to another folder, on their own tab because they are a
+different unit of work: one decision here settles hundreds of the photo sets next
+door. It comes from the scan you start on **Duplicate photos** — this tab reports,
+it never scans.
 
-There are two folder-shaped answers and they get a tab each. This one is folders
-holding *exactly* the same photos; **Stored elsewhere**, next to it, is folders whose
-photos all sit in some larger folder. The two tabs share a look, a filter box and a
-toolbar, and each carries a link to the other with its count.
+One page, three strengths of the same relationship, strongest first, each under its
+own heading:
+
+- **Identical folders** — exactly the same photos, file for file. One folder is
+  kept; the others can go whole.
+- **Folders already stored elsewhere** — every photo in the folder also sits in
+  another folder, which may hold more besides. The folder itself can go.
+- **Folders sharing some photos** — two folders that merely *overlap*: a partial
+  copy, a "best of" pulled from several trips. Only the shared copies on one side
+  are offered for deletion; both folders stay, and each card says how many photos
+  of its own each side keeps.
+
+Whichever the kind, which side keeps follows one rule everywhere: a library whose
+files can't be deleted — external, or with deleting turned off — always keeps, then
+your saved **Keep here** / **Clear out** instructions, then the usual scoring. When
+both sides of an overlapping pair are protected, the pair is still shown — knowing
+it exists is worth something — but no delete is offered.
 
 A folder is matched on what it holds, not what it's called: every file below it,
 by content and by the path it sits at. *Italy 2019* and *Backup/holiday-2019* pair
@@ -448,8 +461,8 @@ photos inside them are still compared with each other individually.
 #### Choosing what to work on, and where to keep it
 
 Two controls in the bar work in folders rather than in sets, and both list only folders
-something duplicated was actually found in. They are the same on **Stored elsewhere**,
-and a saved instruction applies to both tabs.
+something duplicated was actually found in. They apply across every kind of
+folder match on this page.
 
 One row in that list is **Everywhere in *library*** rather than a folder name. It is
 the whole library, not the photos sitting loose at its top — every folder covers what
@@ -485,41 +498,34 @@ Both treat a folder as covering everything below it, and the most specific
 instruction wins — so you can keep a whole library and clear out one folder inside it.
 
 
-### Stored elsewhere
+#### Stored elsewhere, in more detail
 
-Folders whose every photo also sits in another folder, which may hold more besides —
-so the folder itself can go and nothing is lost. This is the shape the tab next door
-can never see: a folder copied *inside itself* always holds more than the copy within
-it, so the two can't match exactly. Sync clients and photo managers produce it all the
-time.
+A folder is *stored elsewhere* when every photo in it also sits in another folder,
+which may hold more besides. This is the shape an exact match can never see: a folder
+copied *inside itself* always holds more than the copy within it, so the two can't
+match exactly. Sync clients and photo managers produce it all the time.
 
-Same card as a duplicate-folder set: what the folder holds, a strip of the pictures
-themselves, then the two folders side by side — green for the one keeping the photos,
-red for the one that goes — each with its path, when it was added and its size, and a
-link out to the gallery. The header says how many photos the kept folder holds beyond
-the ones it covers; 0 means the two hold the same pictures arranged differently. Where
-the kept folder is the one *enclosing* the other, it says so and how many photos it is
-left with, because its own count includes what's about to leave.
-
-**Which folder is kept is not a choice here**, and that is the one thing this tab does
-differently. Coverage runs one way: swapping the two would delete the photos that exist
-only in the folder being kept.
-
+**Which folder is kept is not a choice for these rows.** Coverage runs one way:
+swapping the two would delete the photos that exist only in the folder being kept.
 Only the topmost such folder is listed — removing it takes anything below it too. And
 when two folders cover *each other*, only one is offered, because acting on both would
 delete every copy between them.
 
-**Delete this** (or **Keep this** on the green folder — the same action from the other
-side) moves that folder's photos to the Recycle Bin, handing each one's tags, albums,
-collections and tagged people to its copy in the folder being kept first. Coverage is
-re-checked the moment you confirm: if even one photo no longer has a copy over there,
-nothing is deleted. **Leave it** drops the row for good — the folder stops being
-suggested however its photos are covered later.
+**Delete** moves that folder's photos to the Recycle Bin, handing each one's tags,
+albums, collections and tagged people to its copy in the folder being kept first.
+Coverage is re-checked the moment you confirm: if even one photo no longer has a copy
+over there, nothing is deleted. **Leave it** drops the row for good.
 
-The list sorts by newest, largest, most photos or name, and pages. Filters, search and
-**Rebuild** work exactly as they do on Duplicate folders.
+#### Sharing some photos, in more detail
 
-Both folder lists are worked out by a scan and photos keep leaving after it. Everything
+An overlapping pair deletes **only the duplicated copies**, from the losing side, and
+never a photo that exists in one folder alone. What's shared is worked out again the
+moment you confirm, and which side keeps is re-decided under the current library
+policies and folder instructions — so a choice changed since the page loaded is
+honoured. **Not the same** dismisses the pair for good; the shared photos are still
+compared individually under Duplicate photos.
+
+All three lists are worked out by a scan and photos keep leaving after it. Everything
 on a card is therefore read from the library as it stands, not from what the scan
 recorded, and a folder left holding nothing drops off the list rather than offering a
 deletion that can't happen. Deleting a folder also clears the other results that named

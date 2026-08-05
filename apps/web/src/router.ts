@@ -13,7 +13,7 @@ export type ControlSection =
   | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // Maintenance
   | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
-  | "duplicatePhotos" | "duplicateFolders" | "duplicateContainedFolders"
+  | "duplicatePhotos" | "duplicateFolders"
   // Settings
   | "appearance" | "email" | "readerAccess" | "about";
 
@@ -51,7 +51,6 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   // One flat row of them, so one flat level of addresses.
   duplicatePhotos: "/control/utilities/duplicate-photos",
   duplicateFolders: "/control/utilities/duplicate-folders",
-  duplicateContainedFolders: "/control/utilities/stored-elsewhere",
   missingPhotos: "/control/utilities/missing-photos",
 
   appearance: "/control/settings",
@@ -136,8 +135,9 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/duplicate-folders": "duplicateFolders",
   "/control/maintenance/duplicate-folders": "duplicateFolders",
   "/control/utilities/duplicates/folders": "duplicateFolders",
-  "/control/maintenance/folders-elsewhere": "duplicateContainedFolders",
-  "/control/utilities/duplicates/stored-elsewhere": "duplicateContainedFolders",
+  "/control/maintenance/folders-elsewhere": "duplicateFolders",
+  "/control/utilities/stored-elsewhere": "duplicateFolders",
+  "/control/utilities/duplicates/stored-elsewhere": "duplicateFolders",
   "/control/utilities": "duplicatePhotos",
   "/control/utilities/duplicates": "duplicatePhotos",
 

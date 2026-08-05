@@ -108,7 +108,6 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     tabs: [
       { section: "duplicatePhotos", label: "Duplicate photos", context: "Gallery" },
       { section: "duplicateFolders", label: "Duplicate folders", context: "Gallery" },
-      { section: "duplicateContainedFolders", label: "Stored elsewhere", context: "Gallery" },
       { section: "missingPhotos", label: "Missing photos", context: "Gallery" }
     ]
   },
