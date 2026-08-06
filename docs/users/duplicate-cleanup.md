@@ -63,16 +63,22 @@ Strongest statement first.
 **Identical folders** — two or more folders holding exactly the same pictures, file for
 file, whatever they are called. One is kept and the others can go whole.
 
-**Folders already stored elsewhere** — every photo in the folder also sits somewhere else,
-so the folder itself can go and nothing is lost. The commonest case by far is a folder
-copied into itself.
+**Folders already stored elsewhere** — photos that also sit somewhere else, so these copies
+can go and nothing is lost. The commonest case by far is a folder copied into itself.
 
-The card names **every folder** the copies actually live in:
+Each card compares **one folder with one other folder**:
 
-> Every photo here also sits in "Holiday 2019", "Card import" and "Phone backup".
+> These 2 photos also sit in "Holiday 2019".
 
-That matters. Copies are often scattered — one photo survives in one folder, the next in
-another — and each named folder is somewhere you can go and look.
+Copies are often scattered — one photo survives in one folder, the next in another — so a
+single folder can produce several cards, one per destination:
+
+> These 2 photos in "test" also sit in "Holiday 2019".
+> This photo in "test" also sits in "Card import".
+
+Each card stands on its own. Every photo it offers has its counterpart in the folder named,
+so you can act on one card and leave the others, and the folder empties as you work through
+them. Clearing all of a folder's cards is what empties it completely.
 
 **Duplicate photos** — byte-identical copies of a single picture. One is kept and the rest
 can go.

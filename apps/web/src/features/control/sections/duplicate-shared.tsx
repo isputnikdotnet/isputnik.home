@@ -9,9 +9,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowDownAZ, ArrowDownWideNarrow, ArrowRight, ExternalLink, FolderOpen, FolderTree,
-  ImageOff, Images, RefreshCw, Search, SlidersHorizontal
+  ImageOff, RefreshCw, Search, SlidersHorizontal
 } from "lucide-react";
 import { api } from "../../../api";
+import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { Modal } from "../../../shared/Modal";
@@ -622,13 +623,20 @@ export function folderPreviewSummary(urls: string[], total: number): string {
 }
 
 /** The pictures themselves — the fastest way to recognise which holiday this is. */
-export function FolderStrip({ urls }: { urls: string[] }) {
+export function FolderStrip({ urls, total }: { urls: string[]; total?: number }) {
   const strip = urls.slice(0, FOLDER_PREVIEW_LIMIT);
+  const hidden = Math.max((total ?? urls.length) - strip.length, 0);
   return (
     <div className="dup-set-strip" aria-hidden="true">
       {strip.length > 0
         ? strip.map((url) => <img key={url} src={url} alt="" loading="lazy" />)
         : <span className="dup-set-strip-empty"><ImageOff size={18} /></span>}
+      {hidden > 0 && (
+        <span className="dup-set-strip-more">
+          +{hidden}
+          <small>more</small>
+        </span>
+      )}
     </div>
   );
 }
@@ -636,7 +644,7 @@ export function FolderStrip({ urls }: { urls: string[] }) {
 /** One folder on a card: green for the one being kept, red for the one that goes.
  *  Its name, its path, and the library it's in — nothing else. */
 export function FolderTile({
-  folder, keep, position, busy, onKeepInstead, note, action
+  folder, keep, position, busy, onKeepInstead, note, action, showOpenLink = false
 }: {
   folder: DuplicateFolderDetail;
   keep: boolean;
@@ -650,7 +658,9 @@ export function FolderTile({
   /** A line of page-specific detail under the counts. */
   note?: ReactNode;
   action?: ReactNode;
+  showOpenLink?: boolean;
 }) {
+  const location = folder.folderPath ? `/${folder.libraryName}/${folder.folderPath}` : `/${folder.libraryName}`;
   const name = (
     <>
       <FolderOpen size={17} aria-hidden="true" />
@@ -664,15 +674,17 @@ export function FolderTile({
       <div className={`dup-set-folder${keep ? " is-keep" : " is-trash"}`}>
         <div className="dup-set-folder-top">
           <span className="dup-copy-badge dup-set-badge" aria-hidden="true">{keep ? "Keep" : "Delete"}</span>
-          <a
-            className="dup-set-open"
-            href={`/gallery/folders/${folder.folderPath.split("/").map(encodeURIComponent).join("/")}?library=${encodeURIComponent(folder.libraryId)}`}
-            target="_blank"
-            rel="noreferrer"
-            title="Open this folder in the gallery, in a new tab"
-          >
-            <ExternalLink size={14} aria-hidden="true" />
-          </a>
+          {showOpenLink && (
+            <a
+              className="dup-set-open"
+              href={`/gallery/folders/${folder.folderPath.split("/").map(encodeURIComponent).join("/")}?library=${encodeURIComponent(folder.libraryId)}`}
+              target="_blank"
+              rel="noreferrer"
+              title="Open this folder in the gallery, in a new tab"
+            >
+              <ExternalLink size={14} aria-hidden="true" />
+            </a>
+          )}
         </div>
         {/* The name swaps the keeper where that's allowed, without adding another
             visible action button to the folder tile. */}
@@ -695,12 +707,10 @@ export function FolderTile({
             above already carries what the set holds and what clearing it frees. */}
         <span className="dup-set-path" title={folder.folderPath || ROOT_HINT}>
           <FolderTree size={12} aria-hidden="true" />
-          <span>{folderTilePath(folder)}</span>
+          <span>{location}</span>
         </span>
-        <span className="dup-set-line" title={`In the library "${folder.libraryName}"`}>
-          <Images size={12} aria-hidden="true" />
-          <span>{folder.libraryName}</span>
-        </span>
+        {folder.addedAt && <span className="dup-set-line">{formatWhen(folder.addedAt)}</span>}
+        <span className="dup-set-line">{formatBytes(folder.bytes)}</span>
         {note && <span className="dup-set-line dup-set-note">{note}</span>}
         {action && <>{action}</>}
       </div>

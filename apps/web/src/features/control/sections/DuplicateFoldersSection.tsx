@@ -19,7 +19,7 @@
 // usual scoring — and trashBook refuses a protected library regardless of what any
 // page offers.
 import { useState } from "react";
-import { Eye, FolderOpen, HardDrive, Images, Trash2 } from "lucide-react";
+import { FolderOpen, HardDrive, Images } from "lucide-react";
 import { api } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -42,7 +42,6 @@ import {
   FolderTile,
   folderKey,
   folderPathLabel,
-  folderPreviewSummary,
   formatWhen,
   useDuplicateFolderPage
 } from "./duplicate-shared";
@@ -164,60 +163,71 @@ export function DuplicateFoldersSection() {
   const renderGroup = (group: DuplicateFolderGroup, index: number) => {
     const keeper = keeperOf(group);
     const doomed = group.members.filter((member) => folderKey(member) !== folderKey(keeper));
-    const previewInfo = folderPreviewSummary(keeper.coverUrls, group.itemCount);
 
     return (
-      <div className="dup-set" key={group.id}>
-        <div className="dup-set-head">
-          <div className="dup-set-summary">
-            <h3 className="dup-set-title">Set {index + 1}</h3>
-            <p className="dup-set-meta datagrid-muted">
-              <span><Images size={14} aria-hidden="true" /> {group.itemCount} photo{group.itemCount === 1 ? "" : "s"}</span>
-              <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(group.copyBytes)}</span>
-              <span><Eye size={14} aria-hidden="true" /> {previewInfo}</span>
-            </p>
-            {group.keeperReason && (
-              <p className="dup-set-explain datagrid-muted">Kept because: {group.keeperReason}</p>
-            )}
+      <div className="dup-set dup-folder-card" key={group.id}>
+        <div className="dup-folder-card-main">
+          <div className="dup-set-head">
+            <div className="dup-set-summary">
+              <h3 className="dup-set-title">Set {index + 1}</h3>
+              <p className="dup-set-meta datagrid-muted">
+                <span><Images size={14} aria-hidden="true" /> {group.itemCount} photo{group.itemCount === 1 ? "" : "s"}</span>
+                <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(group.copyBytes)}</span>
+              </p>
+              {group.keeperReason && (
+                <p className="dup-set-explain datagrid-muted">Kept because: {group.keeperReason}</p>
+              )}
+            </div>
           </div>
-          <div className="dup-group-actions">
-            <Button variant="secondary" compact disabled={busy} onClick={() => { page.setActionError(""); setIgnoreTarget(group); }}>
-              Not the same
-            </Button>
-            <Button
-              variant="secondary"
-              danger
-              compact
-              className="dup-delete-action"
-              disabled={busy || doomed.length === 0}
-              onClick={() => { page.setActionError(""); setDeleteFolders(null); setDeleteTarget(group); }}
-            >
-              <Trash2 size={14} />
-              <span>Delete {doomed.length} folder{doomed.length === 1 ? "" : "s"}</span>
-            </Button>
-          </div>
+          <FolderStrip urls={keeper.coverUrls} total={group.itemCount} />
+          <Button
+            variant="text"
+            compact
+            className="dup-folder-dismiss-action"
+            disabled={busy}
+            onClick={() => { page.setActionError(""); setIgnoreTarget(group); }}
+          >
+            Not the same
+          </Button>
         </div>
 
-        <div className="dup-set-body">
-          <FolderStrip urls={keeper.coverUrls} />
-
-          <div className="dup-set-folders">
-            {[keeper, ...doomed].map((member, position) => {
-              const keep = folderKey(member) === folderKey(keeper);
-              return (
-                <FolderTile
-                  key={folderKey(member)}
-                  folder={member}
-                  keep={keep}
-                  position={position}
-                  busy={busy}
-                  onKeepInstead={keep
-                    ? undefined
-                    : () => setKeeperPick((current) => ({ ...current, [group.id]: folderKey(member) }))}
-                />
-              );
-            })}
-          </div>
+        <div className="dup-set-folders">
+          {[keeper, ...doomed].map((member, position) => {
+            const keep = folderKey(member) === folderKey(keeper);
+            return (
+              <FolderTile
+                key={folderKey(member)}
+                folder={member}
+                keep={keep}
+                position={position}
+                busy={busy}
+                onKeepInstead={keep
+                  ? undefined
+                  : () => setKeeperPick((current) => ({ ...current, [group.id]: folderKey(member) }))}
+                action={keep ? (
+                  <Button
+                    variant="secondary"
+                    compact
+                    className="dup-set-action dup-set-keep-action"
+                    disabled
+                  >
+                    Keep this
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    danger
+                    compact
+                    className="dup-set-action dup-set-delete-action"
+                    disabled={busy}
+                    onClick={() => { page.setActionError(""); setDeleteFolders([member]); setDeleteTarget(group); }}
+                  >
+                    Delete this
+                  </Button>
+                )}
+              />
+            );
+          })}
         </div>
       </div>
     );
@@ -230,7 +240,6 @@ export function DuplicateFoldersSection() {
     // ENCLOSES the folder — then its own count includes the photos about to go, and
     // would otherwise look like it dropped for no reason.
     const remaining = row.itemCount + row.extraCount;
-    const previewInfo = folderPreviewSummary(row.coverUrls, row.itemCount);
     const where = copiesLiveIn(row);
     const inLibrary = row.folder.libraryId === row.target.libraryId ? "" : ` in ${row.target.libraryName}`;
     const reason = row.extraCount > 0
@@ -245,50 +254,52 @@ export function DuplicateFoldersSection() {
     const deleteThis = () => { page.setActionError(""); setContainedDelete(row); };
 
     return (
-      <div className="dup-set" key={row.id}>
-        <div className="dup-set-head">
-          <div className="dup-set-summary">
-            <h3 className="dup-set-title">Folder {index + 1}</h3>
-            <p className="dup-set-meta datagrid-muted">
-              <span><Images size={14} aria-hidden="true" /> {row.itemCount} photo{row.itemCount === 1 ? "" : "s"}</span>
-              <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(row.bytes)}</span>
-              <span><Eye size={14} aria-hidden="true" /> {previewInfo}</span>
-            </p>
-            <p className="dup-set-explain datagrid-muted">{reason}</p>
+      <div className="dup-set dup-folder-card" key={row.id}>
+        <div className="dup-folder-card-main">
+          <div className="dup-set-head">
+            <div className="dup-set-summary">
+              <h3 className="dup-set-title">Folder {index + 1}</h3>
+              <p className="dup-set-meta datagrid-muted">
+                <span><Images size={14} aria-hidden="true" /> {row.itemCount} photo{row.itemCount === 1 ? "" : "s"}</span>
+                <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(row.bytes)}</span>
+              </p>
+              <p className="dup-set-explain datagrid-muted">{reason}</p>
+            </div>
           </div>
-          <div className="dup-group-actions">
-            <Button variant="secondary" compact disabled={busy} onClick={() => { page.setActionError(""); setContainedIgnore(row); }}>
-              Leave it
-            </Button>
-            <Button variant="secondary" danger compact className="dup-delete-action" disabled={busy} onClick={deleteThis}>
-              <Trash2 size={14} />
-              <span>Delete “{labels.folder}”</span>
-            </Button>
-          </div>
+          <FolderStrip urls={row.coverUrls} total={row.itemCount} />
+          <Button variant="text" compact className="dup-folder-dismiss-action" disabled={busy} onClick={() => { page.setActionError(""); setContainedIgnore(row); }}>
+            Leave it
+          </Button>
         </div>
 
-        <div className="dup-set-body">
-          <FolderStrip urls={row.coverUrls} />
-
-          <div className="dup-set-folders">
-            <FolderTile
-              folder={keptTile}
-              keep
-              position={0}
-              busy={busy}
-              note={row.target.folderPath === ""
-                ? `Copies sit in ${where}`
-                : row.encloses
-                  ? `Holds “${labels.folder}” inside it — ${remaining} photo${remaining === 1 ? "" : "s"} left after`
-                  : undefined}
-            />
-            <FolderTile
-              folder={row.folder}
-              keep={false}
-              position={1}
-              busy={busy}
-            />
-          </div>
+        <div className="dup-set-folders">
+          <FolderTile
+            folder={keptTile}
+            keep
+            position={0}
+            busy={busy}
+            note={row.target.folderPath === ""
+              ? `Copies sit in ${where}`
+              : row.encloses
+                ? `Holds “${labels.folder}” inside it — ${remaining} photo${remaining === 1 ? "" : "s"} left after`
+                : undefined}
+            action={(
+              <Button variant="secondary" compact className="dup-set-action dup-set-keep-action" disabled>
+                Keep this
+              </Button>
+            )}
+          />
+          <FolderTile
+            folder={row.folder}
+            keep={false}
+            position={1}
+            busy={busy}
+            action={(
+              <Button variant="secondary" danger compact className="dup-set-action dup-set-delete-action" disabled={busy} onClick={deleteThis}>
+                Delete this
+              </Button>
+            )}
+          />
         </div>
       </div>
     );
@@ -300,69 +311,70 @@ export function DuplicateFoldersSection() {
   // folder going.
   const renderOverlap = (pair: FolderOverlapPair, index: number) => {
     const labels = pairLabels(pair.lose, pair.keep);
-    const previewInfo = folderPreviewSummary(pair.coverUrls, pair.sharedCount);
     const reason = `${pair.sharedCount} photo${pair.sharedCount === 1 ? "" : "s"} in “${labels.one}” ${pair.sharedCount === 1 ? "is" : "are"} also
       in “${labels.other}”. The rest of each folder is not duplicated between them.`;
 
     const deleteThis = () => { page.setActionError(""); setOverlapDelete(pair); };
 
     return (
-      <div className="dup-set" key={pair.id}>
-        <div className="dup-set-head">
-          <div className="dup-set-summary">
-            <h3 className="dup-set-title">Pair {index + 1}</h3>
-            <p className="dup-set-meta datagrid-muted">
-              <span><Images size={14} aria-hidden="true" /> {pair.sharedCount} shared photo{pair.sharedCount === 1 ? "" : "s"}</span>
-              <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(pair.sharedBytes)}</span>
-              <span><Eye size={14} aria-hidden="true" /> {previewInfo}</span>
-            </p>
-            <p className="dup-set-explain datagrid-muted">
-              {reason}
-              {pair.keeperReason ? ` Keeping “${labels.other}”'s copies because: ${pair.keeperReason}.` : ""}
-            </p>
+      <div className="dup-set dup-folder-card" key={pair.id}>
+        <div className="dup-folder-card-main">
+          <div className="dup-set-head">
+            <div className="dup-set-summary">
+              <h3 className="dup-set-title">Pair {index + 1}</h3>
+              <p className="dup-set-meta datagrid-muted">
+                <span><Images size={14} aria-hidden="true" /> {pair.sharedCount} shared photo{pair.sharedCount === 1 ? "" : "s"}</span>
+                <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(pair.sharedBytes)}</span>
+              </p>
+              <p className="dup-set-explain datagrid-muted">
+                {reason}
+                {pair.keeperReason ? ` Keeping “${labels.other}”'s copies because: ${pair.keeperReason}.` : ""}
+              </p>
+            </div>
           </div>
-          <div className="dup-group-actions">
-            <Button variant="secondary" compact disabled={busy} onClick={() => { page.setActionError(""); setOverlapIgnore(pair); }}>
-              Not the same
-            </Button>
-            <Button
-              variant="secondary"
-              danger
-              compact
-              className="dup-delete-action"
-              disabled={busy || !pair.canDelete}
-              title={pair.canDelete
-                ? undefined
-                : "Both folders are in libraries that don't allow deleting, so neither side's copies can be removed"}
-              onClick={deleteThis}
-            >
-              <Trash2 size={14} />
-              <span>Delete {pair.sharedCount} cop{pair.sharedCount === 1 ? "y" : "ies"} in “{labels.one}”</span>
-            </Button>
-          </div>
+          <FolderStrip urls={pair.coverUrls} total={pair.sharedCount} />
+          <Button variant="text" compact className="dup-folder-dismiss-action" disabled={busy} onClick={() => { page.setActionError(""); setOverlapIgnore(pair); }}>
+            Not the same
+          </Button>
         </div>
 
-        <div className="dup-set-body">
-          <FolderStrip urls={pair.coverUrls} />
-
-          <div className="dup-set-folders">
-            <FolderTile
-              folder={pair.keep}
-              keep
-              position={0}
-              busy={busy}
-              note="All its photos stay, shared ones included"
-            />
-            <FolderTile
-              folder={pair.lose}
-              keep={false}
-              position={1}
-              busy={busy}
-              note={pair.loseExtraCount > 0
-                ? `Only the ${pair.sharedCount} shared cop${pair.sharedCount === 1 ? "y" : "ies"} go — its ${pair.loseExtraCount} own photo${pair.loseExtraCount === 1 ? "" : "s"} stay`
-                : `The ${pair.sharedCount} shared cop${pair.sharedCount === 1 ? "y" : "ies"} go; the folder itself stays`}
-            />
-          </div>
+        <div className="dup-set-folders">
+          <FolderTile
+            folder={pair.keep}
+            keep
+            position={0}
+            busy={busy}
+            note="All its photos stay, shared ones included"
+            action={(
+              <Button variant="secondary" compact className="dup-set-action dup-set-keep-action" disabled>
+                Keep this
+              </Button>
+            )}
+          />
+          <FolderTile
+            folder={pair.lose}
+            keep={false}
+            position={1}
+            busy={busy}
+            note={pair.loseExtraCount > 0
+              ? `Only the ${pair.sharedCount} shared cop${pair.sharedCount === 1 ? "y" : "ies"} go — its ${pair.loseExtraCount} own photo${pair.loseExtraCount === 1 ? "" : "s"} stay`
+              : `The ${pair.sharedCount} shared cop${pair.sharedCount === 1 ? "y" : "ies"} go; the folder itself stays`}
+            action={(
+              <Button
+                variant="secondary"
+                danger
+                compact
+                className="dup-set-action dup-set-delete-action"
+                disabled={busy || !pair.canDelete}
+                title={pair.canDelete
+                  ? undefined
+                  : "Both folders are in libraries that don't allow deleting, so neither side's copies can be removed"}
+                onClick={deleteThis}
+              >
+                Delete copies
+              </Button>
+            )}
+          />
         </div>
       </div>
     );
@@ -384,7 +396,7 @@ export function DuplicateFoldersSection() {
         {shown.total > 0
           ? (
             <>
-              <span>{shown.total} folder match{shown.total === 1 ? "" : "es"}</span>
+              <span>{shown.allItems} duplicate set{shown.allItems === 1 ? "" : "s"}</span>
               <span>{formatBytes(reclaimable)} to reclaim</span>
             </>
           )
@@ -463,7 +475,7 @@ export function DuplicateFoldersSection() {
       {shown.total > 0 && (
         <div className="dup-pager-row">
           <span className="datagrid-muted">
-            Showing {firstShown}–{lastShown} of {shown.total} match{shown.total === 1 ? "" : "es"}
+            Showing {firstShown}–{lastShown} of {shown.total} set{shown.total === 1 ? "" : "s"}
           </span>
           <Pager page={shown.page} totalPages={totalPages} onChange={page.setPage} label="Folder match pages" />
         </div>

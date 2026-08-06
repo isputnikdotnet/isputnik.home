@@ -241,8 +241,8 @@ describe("narrowing the list", () => {
 });
 
 describe("the contained card's sentence", () => {
-  // The whole point, restated where the page will read it: a list of real folders,
-  // never a stand-in for "somewhere in this library".
+  // The whole point, restated where the page will read it: one card, one real
+  // destination folder, never a stand-in for "somewhere in this library".
   it("survives being narrowed, marked and re-read", () => {
     asset("t1", "test/one.jpg", "pic-1");
     asset("t2", "test/two.jpg", "pic-2");
@@ -252,11 +252,16 @@ describe("the contained card's sentence", () => {
     asset("f3", "FolderThree/three.jpg", "pic-3");
 
     const jobId = startJob();
-    const contained = listJobResults(jobId, 50, 0, { type: "contained" })[0];
-    markResult(jobId, "u1", contained.id, "reviewed");
+    const contained = listJobResults(jobId, 50, 0, { type: "contained" });
+    expect(contained).toHaveLength(3);
+    markResult(jobId, "u1", contained[0].id, "reviewed");
 
-    const again = listJobResults(jobId, 50, 0, { type: "contained" })[0];
-    expect(keeperFoldersOf(again)).toEqual(["FolderOne", "FolderThree", "FolderTwo"]);
-    expect(again.reviewStatus).toBe("reviewed");
+    const again = listJobResults(jobId, 50, 0, { type: "contained" });
+    // Each card still names exactly one folder, and between them the three real
+    // destinations — no "" standing in for the library.
+    expect(again.every((result) => keeperFoldersOf(result).length === 1)).toBe(true);
+    expect(again.flatMap(keeperFoldersOf).sort()).toEqual(["FolderOne", "FolderThree", "FolderTwo"]);
+    // Marking one card leaves the others where they were.
+    expect(again.filter((result) => result.reviewStatus === "reviewed")).toHaveLength(1);
   });
 });
