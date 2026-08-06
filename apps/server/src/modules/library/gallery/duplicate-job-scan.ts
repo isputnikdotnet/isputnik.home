@@ -442,64 +442,71 @@ function snapshotContained(
     const pairs = coverageOf(print, doomed);
     if (!pairs) continue;
 
-    const bytes = inside.reduce((sum, file) => sum + (file.size ?? 0), 0);
-    const resultId = write.result({
-      type: "contained",
-      reclaimableBytes: bytes,
-      keeperReason: null
-    });
+    // ONE RESULT PER DESTINATION. The files of a folder rarely all survive in the
+    // same place, and a card that lists several destinations has to be read as "one
+    // folder against a set", which nobody does — it gets read as "these folders are
+    // duplicates of each other". Grouping the pairs by where the copies actually
+    // live makes every card a plain sentence: these N photos of yours are already
+    // in that folder.
+    //
+    // The cards stay independent: a photo may go because ITS counterpart exists, and
+    // that is true whatever happens to the others. Clearing only some of them leaves
+    // the folder part-emptied, which is a smaller version of the same safe act.
+    const byDestination = new Map<string, Pair[]>();
+    for (const pair of pairs) {
+      const folderPath = dirOf(pair.counterpart.path);
+      const destination = pair.counterpart.libraryId + SEP + folderPath;
+      const bucket = byDestination.get(destination);
+      if (bucket) bucket.push(pair);
+      else byDestination.set(destination, [pair]);
+    }
 
-    const doomedFolderId = write.folder(resultId, {
-      libraryId: print.libraryId, folderPath: print.folderPath,
-      role: "delete", itemCount: inside.length, bytes
-    });
+    for (const [destination, group] of byDestination) {
+      const cut = destination.indexOf(SEP);
+      const destLibraryId = destination.slice(0, cut);
+      const destFolderPath = destination.slice(cut + 1);
+      const goingBytes = group.reduce((sum, pair) => sum + (pair.file.size ?? 0), 0);
 
-    // ONE folder row per folder the counterparts actually sit in — the union that the
-    // single target column could never hold. This is what the card reads.
-    const keeperFolders = new Map<string, { id: string; itemCount: number; bytes: number }>();
-    const keeperMembers = new Map<string, string>();
-    for (const { counterpart } of pairs) {
-      const folderPath = dirOf(counterpart.path);
-      const folderKey = counterpart.libraryId + SEP + folderPath;
-      let folder = keeperFolders.get(folderKey);
-      if (!folder) {
-        folder = {
-          id: write.folder(resultId, {
-            libraryId: counterpart.libraryId, folderPath,
-            role: protectedLibs.has(counterpart.libraryId) ? "protected" : "keep",
-            itemCount: 0, bytes: 0
-          }),
-          itemCount: 0,
-          bytes: 0
-        };
-        keeperFolders.set(folderKey, folder);
-      }
-      folder.itemCount += 1;
-      folder.bytes += counterpart.size ?? 0;
-      if (!keeperMembers.has(counterpart.itemId)) {
+      const resultId = write.result({
+        type: "contained",
+        reclaimableBytes: goingBytes,
+        keeperReason: null
+      });
+
+      // The doomed side of THIS card is only the photos that survive here — not the
+      // whole folder, which may be leaving across several cards.
+      const doomedFolderId = write.folder(resultId, {
+        libraryId: print.libraryId, folderPath: print.folderPath,
+        role: "delete", itemCount: group.length, bytes: goingBytes
+      });
+      const keeperFolderId = write.folder(resultId, {
+        libraryId: destLibraryId, folderPath: destFolderPath,
+        role: protectedLibs.has(destLibraryId) ? "protected" : "keep",
+        itemCount: group.length,
+        bytes: group.reduce((sum, pair) => sum + (pair.counterpart.size ?? 0), 0)
+      });
+
+      const keeperMembers = new Map<string, string>();
+      for (const { counterpart } of group) {
+        if (keeperMembers.has(counterpart.itemId)) continue;
         keeperMembers.set(
           counterpart.itemId,
-          write.member(resultId, { file: counterpart, role: "keep", folderId: folder.id })
+          write.member(resultId, { file: counterpart, role: "keep", folderId: keeperFolderId })
         );
       }
-    }
-    const countFolder = db.prepare(
-      "UPDATE duplicate_job_result_folders SET item_count = ?, bytes = ? WHERE id = ?"
-    );
-    for (const folder of keeperFolders.values()) countFolder.run(folder.itemCount, folder.bytes, folder.id);
-
-    for (const { file, counterpart } of pairs) {
-      write.member(resultId, {
-        file, role: "delete", folderId: doomedFolderId,
-        keeperMemberId: keeperMembers.get(counterpart.itemId) ?? null
-      });
+      for (const { file, counterpart } of group) {
+        write.member(resultId, {
+          file, role: "delete", folderId: doomedFolderId,
+          keeperMemberId: keeperMembers.get(counterpart.itemId) ?? null
+        });
+      }
+      written += 1;
     }
 
     for (const { file, counterpart } of pairs) {
       doomed.add(file.itemId);
       survivors.add(counterpart.itemId);
     }
-    written += 1;
   }
 
   return written;
@@ -606,6 +613,7 @@ export interface SnapshotFolder {
   role: MemberRole;
   itemCount: number;
   bytes: number;
+  addedAt: string | null;
 }
 
 export interface SnapshotMember {
@@ -628,6 +636,7 @@ export interface SnapshotResult {
   reviewStatus: string;
   reclaimableBytes: number;
   keeperReason: string | null;
+  coverUrls: string[];
   folders: SnapshotFolder[];
   members: SnapshotMember[];
 }
@@ -645,6 +654,8 @@ export interface ResultFilter {
   review?: "unreviewed" | "reviewed" | "skipped";
   libraryId?: string;
 }
+
+const RESULT_COVER_LIMIT = 4;
 
 // One WHERE clause for both the listing and its count, so the pager can never report
 // a total from one set of filters and a page from another.
@@ -701,14 +712,19 @@ export function listJobResults(
   const list = ids.map(() => "?").join(",");
 
   const folders = db.prepare(`
-    SELECT f.result_id, f.library_id, lib.name AS library_name, f.folder_path, f.role, f.item_count, f.bytes
+    SELECT f.result_id, f.library_id, lib.name AS library_name,
+           f.folder_path, f.role, f.item_count, f.bytes,
+           (SELECT MIN(li.discovered_at)
+              FROM duplicate_job_result_members m
+              JOIN library_items li ON li.id = m.item_id
+             WHERE m.folder_id = f.id) AS added_at
     FROM duplicate_job_result_folders f
     LEFT JOIN libraries lib ON lib.id = f.library_id
     WHERE f.result_id IN (${list})
     ORDER BY f.role DESC, f.folder_path
   `).all(...ids) as {
-    result_id: string; library_id: string; library_name: string | null; folder_path: string;
-    role: MemberRole; item_count: number; bytes: number;
+    result_id: string; library_id: string; library_name: string | null;
+    folder_path: string; role: MemberRole; item_count: number; bytes: number; added_at: string | null;
   }[];
 
   const members = db.prepare(`
@@ -734,7 +750,8 @@ export function listJobResults(
       folderPath: row.folder_path,
       role: row.role,
       itemCount: row.item_count,
-      bytes: row.bytes
+      bytes: row.bytes,
+      addedAt: row.added_at
     });
     foldersBy.set(row.result_id, bucket);
   }
@@ -756,6 +773,28 @@ export function listJobResults(
     membersBy.set(row.result_id, bucket);
   }
 
+  const coverRows = db.prepare(`
+    SELECT result_id, cover FROM (
+      SELECT m.result_id, im.cover_storage_key AS cover,
+             ROW_NUMBER() OVER (
+               PARTITION BY m.result_id
+               ORDER BY CASE m.role WHEN 'delete' THEN 0 WHEN 'keep' THEN 1 ELSE 2 END, m.path
+             ) AS rank
+      FROM duplicate_job_result_members m
+      JOIN item_metadata im ON im.item_id = m.item_id
+      WHERE m.result_id IN (${list}) AND im.cover_storage_key IS NOT NULL
+    )
+    WHERE rank <= ?
+    ORDER BY result_id, rank
+  `).all(...ids, RESULT_COVER_LIMIT) as { result_id: string; cover: string }[];
+
+  const coversBy = new Map<string, string[]>();
+  for (const row of coverRows) {
+    const bucket = coversBy.get(row.result_id) ?? [];
+    bucket.push(`/api/library/covers/${row.cover}`);
+    coversBy.set(row.result_id, bucket);
+  }
+
   return results.map((row) => ({
     id: row.id,
     type: row.result_type,
@@ -763,6 +802,7 @@ export function listJobResults(
     reviewStatus: row.review_status,
     reclaimableBytes: row.reclaimable_bytes,
     keeperReason: row.keeper_reason,
+    coverUrls: coversBy.get(row.id) ?? [],
     folders: foldersBy.get(row.id) ?? [],
     members: membersBy.get(row.id) ?? []
   }));

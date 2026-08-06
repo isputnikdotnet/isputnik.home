@@ -1978,6 +1978,279 @@
   }
 }
 
+/* Folder result cards: the mockup reads left-to-right as set summary, preview strip,
+   keeper, arrow, deletion candidate. Duplicate folders and cleanup jobs both reuse
+   this shape so folder decisions feel the same in either workflow. */
+.dup-folder-card {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.88fr) minmax(530px, 1.35fr);
+  align-items: center;
+  gap: 34px;
+  min-height: 260px;
+  padding: 28px 30px;
+}
+
+.dup-folder-card-main {
+  display: grid;
+  align-content: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.dup-folder-card .dup-set-head {
+  display: block;
+  margin: 0;
+}
+
+.dup-folder-card .dup-set-summary {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+}
+
+.dup-folder-card .dup-set-title {
+  font-size: 1.32rem;
+  line-height: 1.2;
+}
+
+.dup-folder-card .dup-set-meta {
+  gap: 8px 26px;
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.dup-folder-card .dup-set-explain {
+  margin: 0;
+  white-space: normal;
+}
+
+.dup-folder-card .dup-set-strip {
+  gap: 9px;
+  flex-wrap: nowrap;
+}
+
+.dup-folder-card .dup-set-strip img,
+.dup-folder-card .dup-set-strip-empty,
+.dup-set-strip-more {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 92px;
+  border-radius: 8px;
+}
+
+.dup-folder-card .dup-set-strip img,
+.dup-folder-card .dup-set-strip-empty {
+  object-fit: cover;
+}
+
+.dup-set-strip-more {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  color: color-mix(in srgb, var(--muted) 90%, var(--ink));
+  background: color-mix(in srgb, var(--line) 34%, transparent);
+  font-size: 0.96rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.dup-set-strip-more small {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.dup-folder-dismiss-action.text-button {
+  justify-self: start;
+  min-height: 30px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.dup-folder-dismiss-action.text-button:hover:not(:disabled),
+.dup-folder-dismiss-action.text-button:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.dup-folder-card .dup-set-folders {
+  justify-content: flex-end;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.dup-folder-card .dup-set-folder-wrap {
+  gap: 18px;
+}
+
+.dup-folder-card .dup-set-folder {
+  width: 232px;
+  min-height: 206px;
+  padding: 16px 18px;
+}
+
+.dup-folder-card .dup-set-folder-top {
+  min-height: 24px;
+  margin: 0 0 4px;
+}
+
+.dup-folder-card .dup-set-badge {
+  padding: 4px 8px;
+  font-size: 0.58rem;
+}
+
+.dup-folder-card .dup-set-name-row {
+  margin-top: 0;
+}
+
+.dup-folder-card .dup-set-name-row svg {
+  width: 30px;
+  height: 30px;
+}
+
+.dup-folder-card .dup-set-folder-name {
+  font-size: 1rem;
+}
+
+.dup-folder-card .dup-set-path,
+.dup-folder-card .dup-set-line {
+  display: block;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+.dup-folder-card .dup-set-path {
+  margin-top: -1px;
+  font-weight: 700;
+}
+
+.dup-folder-card .dup-set-path > svg {
+  display: none;
+}
+
+.dup-folder-card .dup-set-path > span,
+.dup-folder-card .dup-set-line > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dup-folder-card .dup-set-note {
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+}
+
+.dup-folder-card .dup-set-action {
+  margin-top: auto;
+}
+
+.dup-folder-card .dup-set-keep-action.secondary-button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.dup-set-delete-action.secondary-button.danger {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 38%, var(--line));
+  background: color-mix(in srgb, var(--rose) 4%, transparent);
+}
+
+.dup-set-delete-action.secondary-button.danger:hover:not(:disabled),
+.dup-set-delete-action.secondary-button.danger:focus-visible {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 68%, var(--line));
+  background: color-mix(in srgb, var(--rose) 10%, transparent);
+}
+
+/* The cleanup job result page uses the same readable folder cards, with the job's
+   review controls tucked under the preview strip and the destructive action living
+   inside the red folder tile. */
+.dup-cleanup-folder-card {
+  grid-template-columns: minmax(320px, 0.86fr) minmax(530px, 1.4fr);
+}
+
+.dup-cleanup-folder-card .dup-set-summary {
+  max-width: 470px;
+}
+
+.dup-cleanup-folder-card .dup-set-strip {
+  min-height: 92px;
+}
+
+.dup-cleanup-folder-card .dup-set-folders {
+  align-content: center;
+  flex-wrap: wrap;
+}
+
+.dup-cleanup-folder-card .dup-set-folder {
+  min-height: 216px;
+}
+
+.dup-cleanup-folder-card .dup-set-folder.is-keep .dup-set-action {
+  margin-top: auto;
+}
+
+.dup-cleanup-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+}
+
+.dup-cleanup-secondary-actions .dup-folder-dismiss-action.text-button {
+  min-height: 28px;
+}
+
+@media (max-width: 1220px) {
+  .dup-folder-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .dup-folder-card .dup-set-folders {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .dup-folder-card {
+    min-height: 0;
+    padding: 20px;
+  }
+
+  .dup-folder-card .dup-set-strip {
+    flex-wrap: wrap;
+  }
+
+  .dup-folder-card .dup-set-folders {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dup-folder-card .dup-set-folder-wrap {
+    display: grid;
+  }
+
+  .dup-folder-card .dup-set-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+
+  .dup-folder-card .dup-set-folder {
+    width: 100%;
+  }
+}
+
 /* ── Duplicate cleanup job wizard ──────────────────────────────────
    A larger two-step panel: scope selection first, then the job summary with the
    action anchored at the bottom. */

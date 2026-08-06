@@ -87,30 +87,40 @@ describe("a folder whose copies are scattered", () => {
   });
 
   it("is still found — coverage does not need one folder to hold everything", () => {
-    const { results } = scan();
-    const contained = byType(results, "contained");
-    expect(contained).toHaveLength(1);
-    expect(doomedFolder(contained[0])).toMatchObject({ folderPath: "test", itemCount: 3 });
+    const contained = byType(scan().results, "contained");
+    // One card per destination: the three photos are safe in three different
+    // folders, so there are three plain statements rather than one compound one.
+    expect(contained).toHaveLength(3);
+    expect(contained.every((result) => doomedFolder(result)?.folderPath === "test")).toBe(true);
   });
 
-  it("names every folder the copies are really in, and never the library root", () => {
-    const { results } = scan();
-    const contained = byType(results, "contained")[0];
-    expect(keeperFoldersOf(contained)).toEqual(["FolderOne", "FolderThree", "FolderTwo"]);
-    // The bug, stated as a test: no "" folder, which is what the card printed as "."
-    // and what forced "Everything in this library" onto the tile beside it.
-    expect(keeperFoldersOf(contained)).not.toContain("");
+  it("gives every card exactly one destination, and never the library root", () => {
+    const contained = byType(scan().results, "contained");
+    // The whole point of the split: a card compares one folder with one folder.
+    expect(contained.every((result) => keeperFoldersOf(result).length === 1)).toBe(true);
+    expect(contained.flatMap(keeperFoldersOf).sort())
+      .toEqual(["FolderOne", "FolderThree", "FolderTwo"]);
+    // The bug, stated as a test: no "" folder standing in for "somewhere in this
+    // library", which is what the old single-target row was forced to answer.
+    expect(contained.flatMap(keeperFoldersOf)).not.toContain("");
   });
 
   it("says where each individual copy survives", () => {
-    const { results } = scan();
-    const contained = byType(results, "contained")[0];
-    const doomed = contained.members.filter((member) => member.role === "delete");
+    const contained = byType(scan().results, "contained");
+    const doomed = contained.flatMap((result) =>
+      result.members.filter((member) => member.role === "delete"));
     expect(doomed.map((member) => `${member.path} -> ${member.keeperPath}`).sort()).toEqual([
       "test/one.jpg -> FolderOne/one.jpg",
       "test/three.jpg -> FolderThree/three.jpg",
       "test/two.jpg -> FolderTwo/two.jpg"
     ]);
+  });
+
+  it("counts only the photos that card is actually about", () => {
+    const contained = byType(scan().results, "contained");
+    // Each card offers one photo here, not the folder's whole three — the folder
+    // leaves across all three cards, and no single one of them empties it.
+    expect(contained.map((result) => doomedFolder(result)?.itemCount)).toEqual([1, 1, 1]);
   });
 });
 
@@ -121,20 +131,24 @@ describe("a copy genuinely loose at the top level", () => {
     asset("r1", "one.jpg", { hash: "pic-1" });
     asset("r2", "two.jpg", { hash: "pic-2" });
 
-    const contained = byType(scan().results, "contained")[0];
-    // "" here is the honest answer — the counterparts are in no folder at all — and
-    // it is one entry in a list, not a stand-in for "somewhere in this library".
-    expect(keeperFoldersOf(contained)).toEqual([""]);
+    // Both copies survive in the same place, so it is one card — and "" is the
+    // honest destination, the counterparts being in no folder at all.
+    const contained = byType(scan().results, "contained");
+    expect(contained).toHaveLength(1);
+    expect(keeperFoldersOf(contained[0])).toEqual([""]);
   });
 
-  it("mixes loose copies and foldered ones in one list", () => {
+  it("gets a card of its own, separate from the foldered copies", () => {
     asset("t1", "test/one.jpg", { hash: "pic-1" });
     asset("t2", "test/two.jpg", { hash: "pic-2" });
     asset("r1", "one.jpg", { hash: "pic-1" });
     asset("f2", "Album/two.jpg", { hash: "pic-2" });
 
-    const contained = byType(scan().results, "contained")[0];
-    expect(keeperFoldersOf(contained)).toEqual(["", "Album"]);
+    // One photo survives loose at the top, the other inside "Album" — two
+    // destinations, so two cards, each naming exactly one place.
+    const contained = byType(scan().results, "contained");
+    expect(contained).toHaveLength(2);
+    expect(contained.flatMap(keeperFoldersOf).sort()).toEqual(["", "Album"]);
   });
 });
 
@@ -349,8 +363,8 @@ describe("the snapshot", () => {
     asset("f2", "Two/two.jpg", { hash: "pic-2" });
 
     const { jobId, results } = scan();
-    // One contained folder, plus the two photo sets the same copies also form.
-    expect(byType(results, "contained")).toHaveLength(1);
+    // Two destinations, so two cards.
+    expect(byType(results, "contained")).toHaveLength(2);
     const before = results.length;
 
     // Everything the older pages do on a Rebuild — the caches are emptied and
@@ -361,7 +375,7 @@ describe("the snapshot", () => {
 
     const after = listJobResults(jobId);
     expect(after).toHaveLength(before);
-    expect(keeperFoldersOf(byType(after, "contained")[0])).toEqual(["One", "Two"]);
+    expect(byType(after, "contained").flatMap(keeperFoldersOf).sort()).toEqual(["One", "Two"]);
   });
 
   it("is replaced, not added to, when the job is scanned again", () => {

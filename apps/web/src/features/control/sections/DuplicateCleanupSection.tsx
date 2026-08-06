@@ -21,7 +21,7 @@
 // in. The older page could not: its row held one covering folder, so scattered
 // copies came out as the library root and the card read "everything in this
 // library". That is a data shape, not a wording, and it is fixed in the snapshot.
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ArrowLeft, ArrowRight, Briefcase, Check, CircleCheck, Cloud, File, FolderOpen, HardDrive,
   Image as ImageIcon, Images, Lock, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Smartphone,
@@ -39,7 +39,7 @@ import { SelectMenu } from "../../../shared/SelectMenu";
 import { ToggleSwitch } from "../../../shared/ToggleSwitch";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { controlHref } from "../../../router";
-import { ExperimentalNotice, formatWhen } from "./duplicate-shared";
+import { ExperimentalNotice, FolderStrip, formatWhen } from "./duplicate-shared";
 
 // ── What the server says ────────────────────────────────────────────────────
 
@@ -112,6 +112,7 @@ interface SnapshotFolder {
   role: MemberRole;
   itemCount: number;
   bytes: number;
+  addedAt?: string | null;
 }
 
 interface SnapshotMember {
@@ -133,6 +134,7 @@ interface SnapshotResult {
   reviewStatus: "unreviewed" | "reviewed" | "skipped";
   reclaimableBytes: number;
   keeperReason: string | null;
+  coverUrls?: string[];
   folders: SnapshotFolder[];
   members: SnapshotMember[];
 }
@@ -211,21 +213,74 @@ const keeperFolders = (result: SnapshotResult): SnapshotFolder[] =>
 const doomedFolder = (result: SnapshotResult): SnapshotFolder | undefined =>
   result.folders.find((folder) => folder.role === "delete");
 
-/** A folder path as a person reads it. "" is the library's own top folder — not a
- *  place with a name, so it is described rather than named. */
-const folderLabel = (path: string): string => path || "the top level";
+/** A folder as a person reads it. An empty path means the file sits directly in the
+ *  library's own folder, in no subfolder at all, and "." is what that place is
+ *  called — the same label the older duplicate pages use (ROOT_LABEL in
+ *  duplicate-shared), so one place has one name across the whole app.
+ *
+ *  Tried and rejected: "Everything in this library" (reads as a claim about the
+ *  library, not a location), "the top level" (reads as a folder somebody named),
+ *  and the source directory's real name (accurate, but a third word for a place
+ *  the card already identifies by library). */
+const folderLabel = (folder: Pick<SnapshotFolder, "folderPath">): string =>
+  folder.folderPath || ".";
 
-// "A", "A and B", "A, B and C", "A, B, C and 2 more folders" — a list, because the
-// answer is a list. The single-target column this replaces could only ever name one
-// place, and named the library root whenever the copies were spread out.
-function folderSentence(folders: SnapshotFolder[]): string {
-  const names = folders.map((folder) => `“${folderLabel(folder.folderPath)}”`);
-  if (names.length === 0) return "another folder";
-  if (names.length === 1) return names[0];
-  if (names.length <= 3) return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-  const shown = names.slice(0, 3).join(", ");
-  const rest = names.length - 3;
-  return `${shown} and ${rest} more folder${rest === 1 ? "" : "s"}`;
+// The folder's path inside its library, written the way a shell writes a path: a
+// leading slash meaning "the top of this library", not of the filesystem. The tile
+// names the library on its own line, so repeating it here was both redundant and
+// untrue — "/Test/FolderTwo" reads as a path, but "Test" is the library's NAME and
+// the directory on disk is whatever its source is set to, so that path points at
+// nothing.
+const folderLocation = (folder: SnapshotFolder): string =>
+  folder.folderPath ? `/${folder.folderPath}` : "/root";
+
+const photoCountLabel = (count: number): string =>
+  `${count} photo${count === 1 ? "" : "s"}`;
+
+function CleanupFolderTile({
+  folder, keep, position, badge, note, action
+}: {
+  folder: SnapshotFolder;
+  keep: boolean;
+  position: number;
+  badge: string;
+  note?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="dup-set-folder-wrap">
+      {position > 0 && <ArrowRight className="dup-set-arrow" size={18} aria-hidden="true" />}
+      <div className={`dup-set-folder${keep ? " is-keep" : " is-trash"}`}>
+        <div className="dup-set-folder-top">
+          <span className="dup-copy-badge dup-set-badge" aria-hidden="true">{badge}</span>
+        </div>
+        <span className="dup-set-name-row">
+          <FolderOpen size={17} aria-hidden="true" />
+          <strong className="dup-set-folder-name">{folderLabel(folder)}</strong>
+        </span>
+        <span className="dup-set-path" title={folderLocation(folder)}>
+          <span>{folderLocation(folder)}</span>
+        </span>
+        {folder.addedAt && <span className="dup-set-line">{formatWhen(folder.addedAt)}</span>}
+        <span className="dup-set-line">{formatBytes(folder.bytes)}</span>
+        {note && <span className="dup-set-line dup-set-note">{note}</span>}
+        {action && <>{action}</>}
+      </div>
+    </div>
+  );
+}
+
+function KeepTileAction({ protectedFolder = false }: { protectedFolder?: boolean }) {
+  return (
+    <Button
+      variant="secondary"
+      compact
+      className="dup-set-action dup-set-keep-action"
+      disabled
+    >
+      {protectedFolder ? "Protected" : "Keep this"}
+    </Button>
+  );
 }
 
 // ── The page ────────────────────────────────────────────────────────────────
@@ -309,72 +364,64 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
 
   // ── Cards ─────────────────────────────────────────────────────────────────
 
+  // One card, one destination. A folder whose photos survive in three different
+  // places produces three of these rather than one card listing three folders —
+  // "this folder against that folder" is how a person reads a card, and a list of
+  // destinations gets read as "these folders duplicate each other", which is a
+  // different and wrong statement.
   const renderContained = (result: SnapshotResult) => {
     const going = doomedFolder(result);
-    const keepers = keeperFolders(result);
+    const keeper = keeperFolders(result)[0];
     const doomedCount = result.members.filter((member) => member.role === "delete").length;
-    const elsewhere = new Set(keepers.map((folder) => folder.libraryName));
-    const otherLibrary = elsewhere.size === 1 && going && !elsewhere.has(going.libraryName)
-      ? ` in ${[...elsewhere][0]}`
+    const totalPhotos = going?.itemCount ?? doomedCount;
+    const otherLibrary = keeper && going && keeper.libraryName !== going.libraryName
+      ? ` in ${keeper.libraryName}`
       : "";
 
     return (
-      <div className="dup-set" key={result.id}>
-        <div className="dup-set-head">
-          <div className="dup-set-summary">
-            <h3 className="dup-set-title">“{folderLabel(going?.folderPath ?? "")}”</h3>
-            <p className="dup-set-meta datagrid-muted">
-              <span><Images size={14} aria-hidden="true" /> {doomedCount} photo{doomedCount === 1 ? "" : "s"}</span>
-              <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(result.reclaimableBytes)}</span>
-              {result.reviewStatus !== "unreviewed" && (
-                <span><CircleCheck size={14} aria-hidden="true" /> {result.reviewStatus === "skipped" ? "Skipped" : "Looked at"}</span>
-              )}
-            </p>
-            {/* The whole point of the snapshot, in one sentence: every folder the
-                copies really sit in, named. */}
-            <p className="dup-set-explain datagrid-muted">
-              Every photo here also sits in {folderSentence(keepers)}{otherLibrary}.
-            </p>
+      <div className="dup-set dup-folder-card dup-cleanup-folder-card" key={result.id}>
+        <div className="dup-folder-card-main">
+          <div className="dup-set-head">
+            <div className="dup-set-summary">
+              <h3 className="dup-set-title">“{going ? folderLabel(going) : ""}”</h3>
+              <p className="dup-set-meta datagrid-muted">
+                <span><Images size={14} aria-hidden="true" /> {photoCountLabel(totalPhotos)}</span>
+                <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(result.reclaimableBytes)}</span>
+                {result.reviewStatus !== "unreviewed" && (
+                  <span><CircleCheck size={14} aria-hidden="true" /> {result.reviewStatus === "skipped" ? "Skipped" : "Looked at"}</span>
+                )}
+              </p>
+              {/* One plain sentence, because the card is one plain comparison. */}
+              <p className="dup-set-explain datagrid-muted">
+                {totalPhotos === 1 ? "This photo" : `These ${totalPhotos} photos`} also
+                {totalPhotos === 1 ? " sits" : " sit"} in “{keeper ? folderLabel(keeper) : ""}”{otherLibrary}.
+              </p>
+            </div>
           </div>
-          {canWork && <CardActions result={result} />}
+          <FolderStrip urls={result.coverUrls ?? []} total={totalPhotos} />
+          {canWork && <ReviewActions result={result} />}
         </div>
 
-        <div className="dup-set-body">
-          <div className="dup-set-folders">
-            <div className="dup-set-folder-wrap">
-              <div className="dup-set-folder is-trash">
-                <div className="dup-set-folder-top">
-                  <span className="dup-copy-badge dup-set-badge" aria-hidden="true">Delete</span>
-                </div>
-                <span className="dup-set-name-row">
-                  <FolderOpen size={17} aria-hidden="true" />
-                  <strong className="dup-set-folder-name">{folderLabel(going?.folderPath ?? "")}</strong>
-                </span>
-                <span className="dup-set-line"><Images size={12} aria-hidden="true" /><span>{going?.libraryName}</span></span>
-              </div>
-            </div>
-            <ArrowRight className="dup-set-arrow" size={18} aria-hidden="true" />
-            {keepers.map((folder) => (
-              <div className="dup-set-folder-wrap" key={`${folder.libraryId}:${folder.folderPath}`}>
-                <div className="dup-set-folder is-keep">
-                  <div className="dup-set-folder-top">
-                    <span className="dup-copy-badge dup-set-badge" aria-hidden="true">
-                      {folder.role === "protected" ? "Protected" : "Keep"}
-                    </span>
-                  </div>
-                  <span className="dup-set-name-row">
-                    <FolderOpen size={17} aria-hidden="true" />
-                    <strong className="dup-set-folder-name">{folderLabel(folder.folderPath)}</strong>
-                  </span>
-                  <span className="dup-set-line">
-                    <Images size={12} aria-hidden="true" />
-                    <span>{folder.itemCount} of them here</span>
-                  </span>
-                  <span className="dup-set-line"><span>{folder.libraryName}</span></span>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="dup-set-folders">
+          {keeper && (
+            <CleanupFolderTile
+              key={`${keeper.libraryId}:${keeper.folderPath}`}
+              folder={keeper}
+              keep
+              position={0}
+              badge={keeper.role === "protected" ? "Protected" : "Keep"}
+              action={<KeepTileAction protectedFolder={keeper.role === "protected"} />}
+            />
+          )}
+          {going && (
+            <CleanupFolderTile
+              folder={going}
+              keep={false}
+              position={1}
+              badge="Delete"
+              action={<DeleteResultAction result={result} label="Delete these" />}
+            />
+          )}
         </div>
       </div>
     );
@@ -383,57 +430,55 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
   const renderFolderSet = (result: SnapshotResult) => {
     const kept = result.folders.find((folder) => folder.role === "keep");
     const going = result.folders.filter((folder) => folder.role !== "keep");
+    const deleteFolders = going.filter((folder) => folder.role === "delete");
+    const totalPhotos = kept?.itemCount ?? going[0]?.itemCount ?? result.members.length;
+    const titleFolder = kept ?? going[0];
+    const deleteLabel = deleteFolders.length === 1 ? "Delete this" : "Delete copies";
 
     return (
-      <div className="dup-set" key={result.id}>
-        <div className="dup-set-head">
-          <div className="dup-set-summary">
-            <h3 className="dup-set-title">“{folderLabel(kept?.folderPath ?? "")}”</h3>
-            <p className="dup-set-meta datagrid-muted">
-              <span><Images size={14} aria-hidden="true" /> {kept?.itemCount ?? 0} photo{kept?.itemCount === 1 ? "" : "s"}</span>
-              <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(result.reclaimableBytes)}</span>
-            </p>
-            {result.keeperReason && (
-              <p className="dup-set-explain datagrid-muted">Kept because: {result.keeperReason}</p>
-            )}
+      <div className="dup-set dup-folder-card dup-cleanup-folder-card" key={result.id}>
+        <div className="dup-folder-card-main">
+          <div className="dup-set-head">
+            <div className="dup-set-summary">
+              <h3 className="dup-set-title">“{titleFolder ? folderLabel(titleFolder) : ""}”</h3>
+              <p className="dup-set-meta datagrid-muted">
+                <span><Images size={14} aria-hidden="true" /> {photoCountLabel(totalPhotos)}</span>
+                <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(result.reclaimableBytes)}</span>
+                {result.reviewStatus !== "unreviewed" && (
+                  <span><CircleCheck size={14} aria-hidden="true" /> {result.reviewStatus === "skipped" ? "Skipped" : "Looked at"}</span>
+                )}
+              </p>
+              {result.keeperReason && (
+                <p className="dup-set-explain datagrid-muted">Kept because: {result.keeperReason}</p>
+              )}
+            </div>
           </div>
-          {canWork && <CardActions result={result} />}
+          <FolderStrip urls={result.coverUrls ?? []} total={totalPhotos} />
+          {canWork && <ReviewActions result={result} />}
         </div>
 
-        <div className="dup-set-body">
-          <div className="dup-set-folders">
-            {kept && (
-              <div className="dup-set-folder-wrap">
-                <div className="dup-set-folder is-keep">
-                  <div className="dup-set-folder-top">
-                    <span className="dup-copy-badge dup-set-badge" aria-hidden="true">Keep</span>
-                  </div>
-                  <span className="dup-set-name-row">
-                    <FolderOpen size={17} aria-hidden="true" />
-                    <strong className="dup-set-folder-name">{folderLabel(kept.folderPath)}</strong>
-                  </span>
-                  <span className="dup-set-line"><span>{kept.libraryName}</span></span>
-                </div>
-              </div>
-            )}
-            {going.map((folder) => (
-              <div className="dup-set-folder-wrap" key={`${folder.libraryId}:${folder.folderPath}`}>
-                <ArrowRight className="dup-set-arrow" size={18} aria-hidden="true" />
-                <div className={`dup-set-folder ${folder.role === "protected" ? "is-keep" : "is-trash"}`}>
-                  <div className="dup-set-folder-top">
-                    <span className="dup-copy-badge dup-set-badge" aria-hidden="true">
-                      {folder.role === "protected" ? "Protected" : "Delete"}
-                    </span>
-                  </div>
-                  <span className="dup-set-name-row">
-                    <FolderOpen size={17} aria-hidden="true" />
-                    <strong className="dup-set-folder-name">{folderLabel(folder.folderPath)}</strong>
-                  </span>
-                  <span className="dup-set-line"><span>{folder.libraryName}</span></span>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="dup-set-folders">
+          {kept && (
+            <CleanupFolderTile
+              folder={kept}
+              keep
+              position={0}
+              badge="Keep"
+              action={<KeepTileAction />}
+            />
+          )}
+          {going.map((folder, index) => (
+            <CleanupFolderTile
+              key={`${folder.libraryId}:${folder.folderPath}`}
+              folder={folder}
+              keep={folder.role === "protected"}
+              position={(kept ? 1 : 0) + index}
+              badge={folder.role === "protected" ? "Protected" : "Delete"}
+              action={folder.role === "protected"
+                ? <KeepTileAction protectedFolder />
+                : <DeleteResultAction result={result} label={deleteLabel} />}
+            />
+          ))}
         </div>
       </div>
     );
@@ -481,6 +526,55 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
       </div>
     );
   };
+
+  function DeleteResultAction({ result, label }: { result: SnapshotResult; label: string }) {
+    const running = busyId === result.id;
+    const deletable = result.members.some((member) => member.role === "delete" && member.status !== "deleted");
+    return (
+      <Button
+        variant="secondary"
+        danger
+        compact
+        className="dup-set-action dup-set-delete-action"
+        disabled={busy || !deletable}
+        onClick={() => { setActionError(""); setConfirm(result); }}
+      >
+        {running ? "Deleting…" : label}
+      </Button>
+    );
+  }
+
+  function ReviewActions({ result }: { result: SnapshotResult }) {
+    return (
+      <div className="dup-cleanup-secondary-actions">
+        <Button
+          variant="text"
+          compact
+          className="dup-folder-dismiss-action"
+          disabled={busy}
+          title="Take it off this cleanup. The next one will offer it again."
+          onClick={() => void post(
+            `/api/library/gallery/duplicate-jobs/${job!.id}/results/${result.id}/mark`,
+            result.id,
+            "Unable to skip this one",
+            { mark: result.reviewStatus === "skipped" ? "unreviewed" : "skipped" }
+          )}
+        >
+          {result.reviewStatus === "skipped" ? "Put back" : "Skip"}
+        </Button>
+        <Button
+          variant="text"
+          compact
+          className="dup-folder-dismiss-action"
+          disabled={busy}
+          title="These are not duplicates. No future scan will pair them again."
+          onClick={() => { setActionError(""); setDismissing(result); }}
+        >
+          Not the same
+        </Button>
+      </div>
+    );
+  }
 
   function CardActions({ result }: { result: SnapshotResult }) {
     const running = busyId === result.id;
@@ -694,9 +788,14 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
 
       {confirm && (() => {
         const doomed = confirm.members.filter((member) => member.role === "delete" && member.status !== "deleted");
-        const keepers = confirm.type === "photo_set"
-          ? confirm.members.filter((member) => member.role !== "delete").map((member) => member.path)
-          : keeperFolders(confirm).map((folder) => folderLabel(folder.folderPath));
+        // A folder result now has exactly one destination, so this is a name, not a
+        // list. A photo set still names the surviving file itself.
+        const survivesIn = confirm.type === "photo_set"
+          ? confirm.members.find((member) => member.role !== "delete")?.path ?? ""
+          : (() => { const keeper = keeperFolders(confirm)[0]; return keeper ? folderLabel(keeper) : ""; })();
+        // Only a folder-shaped result leaves a directory behind; a photo set is
+        // loose files and there is no folder to mention.
+        const leavesFolder = confirm.type !== "photo_set";
         return (
           <ConfirmDialog
             title={`Delete ${doomed.length} cop${doomed.length === 1 ? "y" : "ies"}?`}
@@ -718,8 +817,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
           >
             <p>
               Every one of these {doomed.length} photo{doomed.length === 1 ? "" : "s"} also sits in
-              {" "}<strong>{keepers.slice(0, 3).join(", ")}</strong>
-              {keepers.length > 3 ? ` and ${keepers.length - 3} more` : ""}, which {keepers.length === 1 ? "is" : "are"} not touched.
+              {" "}<strong>{survivesIn}</strong>, which is not touched.
             </p>
             <p>
               That is checked again the moment you confirm, against the library as it stands rather than as the scan
@@ -729,6 +827,9 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
             <p>
               Each photo hands its tags, albums, collections and tagged people to the copy that survives it first.
               Everything removed goes to the Recycle Bin and can be restored until you empty it.
+              {leavesFolder
+                ? " Only the photos go: the folder itself is left behind on disk, empty."
+                : ""}
             </p>
           </ConfirmDialog>
         );

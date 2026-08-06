@@ -197,24 +197,33 @@ describe("deleting", () => {
 });
 
 describe("a contained folder", () => {
-  it("checks every copy AND every folder the copies survive in", () => {
+  // One card per destination, so losing a destination stops THAT card and leaves
+  // the others alone — which is the point of splitting them. Each card is a
+  // self-contained promise about the photos it names.
+  it("stops only the card whose destination has gone", () => {
     asset("t1", "test/one.jpg", "pic-1");
     asset("t2", "test/two.jpg", "pic-2");
     asset("f1", "One/one.jpg", "pic-1");
     asset("f2", "Two/two.jpg", "pic-2");
     const jobId = startJob(["GAL"], "folders");
-    const contained = listJobResults(jobId).find((result) => result.type === "contained")!;
+    const cards = listJobResults(jobId).filter((result) => result.type === "contained");
+    expect(cards).toHaveLength(2);
+    expect(cards.every((card) => checkResult(jobId, card.id)!.ok)).toBe(true);
 
-    expect(checkResult(jobId, contained.id)!.ok).toBe(true);
+    const viaTwo = cards.find((card) =>
+      card.folders.some((folder) => folder.role !== "delete" && folder.folderPath === "Two"))!;
+    const viaOne = cards.find((card) => card.id !== viaTwo.id)!;
 
-    // Lose one of the two folders the copies live in, and the whole offer stops —
-    // even though the other folder is untouched.
     db.prepare("UPDATE library_items SET deleted_at = '2026-01-01T00:00:00.000Z' WHERE id = 'f2'").run();
-    const check = checkResult(jobId, contained.id)!;
-    expect(check.ok).toBe(false);
-    expect(check.problems.map((problem) => problem.path).sort())
-      .toEqual(["test/two.jpg", "Two/two.jpg"].sort());
-    // And the copy whose counterpart is fine is NOT flagged.
-    expect(check.problems.some((problem) => problem.path === "test/one.jpg")).toBe(false);
+
+    // The card that depended on "Two" refuses, naming both the lost copy and the
+    // photo that was counting on it.
+    const broken = checkResult(jobId, viaTwo.id)!;
+    expect(broken.ok).toBe(false);
+    expect(broken.problems.map((problem) => problem.path).sort())
+      .toEqual(["Two/two.jpg", "test/two.jpg"].sort());
+
+    // The other card is untouched and still safe to carry out.
+    expect(checkResult(jobId, viaOne.id)!.ok).toBe(true);
   });
 });
