@@ -23,9 +23,9 @@
 // library". That is a data shape, not a wording, and it is fixed in the snapshot.
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  ArrowLeft, ArrowRight, Briefcase, Check, CircleCheck, Cloud, File, FolderOpen, HardDrive,
-  Image as ImageIcon, Images, Lock, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Smartphone,
-  Trash2, TriangleAlert, UserRound, Video
+  ArrowLeft, ArrowRight, Briefcase, Check, CircleCheck, Cloud, ExternalLink, File, FlaskConical,
+  FolderOpen, FolderTree, HardDrive, Image as ImageIcon, Images, Lock, RefreshCw, Search,
+  ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Trash2, TriangleAlert, UserRound, Video
 } from "lucide-react";
 import { api, type PublicUser } from "../../../api";
 import { formatBytes } from "../../../shared/utils";
@@ -37,9 +37,8 @@ import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Pager } from "../../../shared/Pager";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { ToggleSwitch } from "../../../shared/ToggleSwitch";
-import { ControlSectionHead } from "../ControlSectionHead";
 import { controlHref } from "../../../router";
-import { ExperimentalNotice, FolderStrip, formatWhen } from "./duplicate-shared";
+import { FolderStrip, formatWhen } from "./duplicate-shared";
 
 // ── What the server says ────────────────────────────────────────────────────
 
@@ -112,7 +111,6 @@ interface SnapshotFolder {
   role: MemberRole;
   itemCount: number;
   bytes: number;
-  addedAt?: string | null;
 }
 
 interface SnapshotMember {
@@ -205,6 +203,9 @@ const REVIEW_FILTERS: { value: string; label: string }[] = [
   { value: "skipped", label: "Skipped" }
 ];
 
+const cleanupKindSummary = (kind: DuplicateJob["duplicateType"]): string =>
+  kind === "folders" ? "whole folders" : "single files";
+
 /** The folders a result's copies survive in — the union the snapshot records, which
  *  is the sentence the older card could not say. */
 const keeperFolders = (result: SnapshotResult): SnapshotFolder[] =>
@@ -234,18 +235,26 @@ const folderLabel = (folder: Pick<SnapshotFolder, "folderPath">): string =>
 const folderLocation = (folder: SnapshotFolder): string =>
   folder.folderPath ? `/${folder.folderPath}` : "/";
 
+// The gallery's own address for this folder. Each segment is encoded separately so
+// a folder called "Holiday #2" or "50% off" survives the trip, while the slashes
+// that separate them stay slashes. The library root has no segments at all, and the
+// route's trailing slash is optional, so it lands on the library's top view.
+const galleryFolderHref = (folder: SnapshotFolder): string => {
+  const path = folder.folderPath.split("/").filter(Boolean).map(encodeURIComponent).join("/");
+  return `/gallery/folders/${path}?library=${encodeURIComponent(folder.libraryId)}`;
+};
+
 const photoCountLabel = (count: number): string =>
   `${count} photo${count === 1 ? "" : "s"}`;
 
 function CleanupFolderTile({
-  folder, keep, position, badge, note, action
+  folder, keep, position, badge, note
 }: {
   folder: SnapshotFolder;
   keep: boolean;
   position: number;
   badge: string;
   note?: ReactNode;
-  action?: ReactNode;
 }) {
   return (
     <div className="dup-set-folder-wrap">
@@ -253,33 +262,46 @@ function CleanupFolderTile({
       <div className={`dup-set-folder${keep ? " is-keep" : " is-trash"}`}>
         <div className="dup-set-folder-top">
           <span className="dup-copy-badge dup-set-badge" aria-hidden="true">{badge}</span>
+          {/* Opens in a new tab on purpose: this is a page you are working THROUGH,
+              and navigating away from a cleanup mid-review to go and look at a
+              folder loses your place in it. */}
+          <a
+            className="dup-set-open"
+            href={galleryFolderHref(folder)}
+            target="_blank"
+            rel="noreferrer"
+            title={`Open “${folderLabel(folder)}” in the gallery, in a new tab`}
+          >
+            <ExternalLink size={14} aria-hidden="true" />
+            <span className="sr-only">Open {folderLabel(folder)} in the gallery</span>
+          </a>
         </div>
         <span className="dup-set-name-row">
           <FolderOpen size={17} aria-hidden="true" />
           <strong className="dup-set-folder-name">{folderLabel(folder)}</strong>
         </span>
+        {/* Three facts, three icons — so they are told apart at a glance instead of
+            read in order. Each icon holds the left edge while its text wraps beside
+            it, which is what keeps a long path from starting under its own glyph. */}
         <span className="dup-set-path" title={folderLocation(folder)}>
+          <FolderTree size={12} aria-hidden="true" />
           <span>{folderLocation(folder)}</span>
         </span>
-        {folder.addedAt && <span className="dup-set-line">{formatWhen(folder.addedAt)}</span>}
-        <span className="dup-set-line">{formatBytes(folder.bytes)}</span>
+        {/* Which library, not when it was added. A card can compare two folders in
+            different libraries, and then the library is the difference between them
+            — the one thing you cannot work out from the name and path above. The
+            date was true and answered a question nobody was asking here. */}
+        <span className="dup-set-line" title={`In the library “${folder.libraryName}”`}>
+          <Images size={12} aria-hidden="true" />
+          <span>{folder.libraryName}</span>
+        </span>
+        <span className="dup-set-line" title={`${photoCountLabel(folder.itemCount)}, ${formatBytes(folder.bytes)}`}>
+          <HardDrive size={12} aria-hidden="true" />
+          <span>{formatBytes(folder.bytes)}</span>
+        </span>
         {note && <span className="dup-set-line dup-set-note">{note}</span>}
-        {action && <>{action}</>}
       </div>
     </div>
-  );
-}
-
-function KeepTileAction({ protectedFolder = false }: { protectedFolder?: boolean }) {
-  return (
-    <Button
-      variant="secondary"
-      compact
-      className="dup-set-action dup-set-keep-action"
-      disabled
-    >
-      {protectedFolder ? "Protected" : "Keep this"}
-    </Button>
   );
 }
 
@@ -399,29 +421,29 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
             </div>
           </div>
           <FolderStrip urls={result.coverUrls ?? []} total={totalPhotos} />
-          {canWork && <ReviewActions result={result} />}
         </div>
 
-        <div className="dup-set-folders">
-          {keeper && (
-            <CleanupFolderTile
-              key={`${keeper.libraryId}:${keeper.folderPath}`}
-              folder={keeper}
-              keep
-              position={0}
-              badge={keeper.role === "protected" ? "Protected" : "Keep"}
-              action={<KeepTileAction protectedFolder={keeper.role === "protected"} />}
-            />
-          )}
-          {going && (
-            <CleanupFolderTile
-              folder={going}
-              keep={false}
-              position={1}
-              badge="Delete"
-              action={<DeleteResultAction result={result} label="Delete these" />}
-            />
-          )}
+        <div className="dup-folder-card-decision">
+          {canWork && <FolderReviewActions result={result} deleteLabel="Delete this" />}
+          <div className="dup-set-folders">
+            {keeper && (
+              <CleanupFolderTile
+                key={`${keeper.libraryId}:${keeper.folderPath}`}
+                folder={keeper}
+                keep
+                position={0}
+                badge={keeper.role === "protected" ? "Protected" : "Keep"}
+              />
+            )}
+            {going && (
+              <CleanupFolderTile
+                folder={going}
+                keep={false}
+                position={1}
+                badge="Delete"
+              />
+            )}
+          </div>
         </div>
       </div>
     );
@@ -454,31 +476,29 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
             </div>
           </div>
           <FolderStrip urls={result.coverUrls ?? []} total={totalPhotos} />
-          {canWork && <ReviewActions result={result} />}
         </div>
 
-        <div className="dup-set-folders">
-          {kept && (
-            <CleanupFolderTile
-              folder={kept}
-              keep
-              position={0}
-              badge="Keep"
-              action={<KeepTileAction />}
-            />
-          )}
-          {going.map((folder, index) => (
-            <CleanupFolderTile
-              key={`${folder.libraryId}:${folder.folderPath}`}
-              folder={folder}
-              keep={folder.role === "protected"}
-              position={(kept ? 1 : 0) + index}
-              badge={folder.role === "protected" ? "Protected" : "Delete"}
-              action={folder.role === "protected"
-                ? <KeepTileAction protectedFolder />
-                : <DeleteResultAction result={result} label={deleteLabel} />}
-            />
-          ))}
+        <div className="dup-folder-card-decision">
+          {canWork && <FolderReviewActions result={result} deleteLabel={deleteLabel} />}
+          <div className="dup-set-folders">
+            {kept && (
+              <CleanupFolderTile
+                folder={kept}
+                keep
+                position={0}
+                badge="Keep"
+              />
+            )}
+            {going.map((folder, index) => (
+              <CleanupFolderTile
+                key={`${folder.libraryId}:${folder.folderPath}`}
+                folder={folder}
+                keep={folder.role === "protected"}
+                position={(kept ? 1 : 0) + index}
+                badge={folder.role === "protected" ? "Protected" : "Delete"}
+              />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -527,30 +547,14 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
     );
   };
 
-  function DeleteResultAction({ result, label }: { result: SnapshotResult; label: string }) {
+  function FolderReviewActions({ result, deleteLabel }: { result: SnapshotResult; deleteLabel: string }) {
     const running = busyId === result.id;
     const deletable = result.members.some((member) => member.role === "delete" && member.status !== "deleted");
     return (
-      <Button
-        variant="secondary"
-        danger
-        compact
-        className="dup-set-action dup-set-delete-action"
-        disabled={busy || !deletable}
-        onClick={() => { setActionError(""); setConfirm(result); }}
-      >
-        {running ? "Deleting…" : label}
-      </Button>
-    );
-  }
-
-  function ReviewActions({ result }: { result: SnapshotResult }) {
-    return (
-      <div className="dup-cleanup-secondary-actions">
+      <div className="dup-folder-card-actions">
         <Button
-          variant="text"
+          variant="secondary"
           compact
-          className="dup-folder-dismiss-action"
           disabled={busy}
           title="Take it off this cleanup. The next one will offer it again."
           onClick={() => void post(
@@ -563,14 +567,23 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
           {result.reviewStatus === "skipped" ? "Put back" : "Skip"}
         </Button>
         <Button
-          variant="text"
+          variant="secondary"
           compact
-          className="dup-folder-dismiss-action"
           disabled={busy}
           title="These are not duplicates. No future scan will pair them again."
           onClick={() => { setActionError(""); setDismissing(result); }}
         >
           Not the same
+        </Button>
+        <Button
+          variant="secondary"
+          danger
+          compact
+          className="dup-set-delete-action"
+          disabled={busy || !deletable}
+          onClick={() => { setActionError(""); setConfirm(result); }}
+        >
+          {running ? "Deleting…" : deleteLabel}
         </Button>
       </div>
     );
@@ -636,75 +649,73 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
 
   return (
     <>
-      <ControlSectionHead
-        section="duplicateCleanup"
-        className="dup-section-head"
-        iconClassName="duplicates"
-        icon={<Trash2 size={30} />}
-        description="One saved cleanup at a time: choose what to compare, scan once, and work through it whenever you like."
-      />
+      <div className="dup-cleanup-top">
+        <CleanupHero />
 
-      <ExperimentalNotice />
+        {loaded && !job && (
+          <div className="dup-job-card dup-job-card-empty">
+            <div className="dup-job-title-row">
+              <span className="dup-job-card-icon" aria-hidden="true">
+                <Briefcase size={24} />
+              </span>
+              <div className="dup-job-card-body">
+                <p className="eyebrow">No active cleanup</p>
+                <h2>No cleanup in progress</h2>
+                <p className="datagrid-muted">
+                  A cleanup remembers what it found and what you decided, so you can stop and come back to it.
+                </p>
+              </div>
+            </div>
+            <Button variant="primary" onClick={() => { setActionError(""); setWizardOpen(true); }}>
+              Start a cleanup
+            </Button>
+          </div>
+        )}
+
+        {job && (
+          <JobCard
+            job={job}
+            isOwner={payload.isOwner}
+            busy={busy}
+            onScan={() => void post(`/api/library/gallery/duplicate-jobs/${job.id}/scan`, job.id, "The scan could not run")}
+            onFinish={() => { setActionError(""); setFinishing(true); }}
+            onCancel={() => { setActionError(""); setCancelling(true); }}
+          />
+        )}
+
+        {job && job.status !== "draft" && results.allResults > 0 && (
+          <div className="dup-toolbar dup-folder-toolbar dup-cleanup-toolbar">
+            <Button
+              variant="secondary"
+              compact
+              className={narrowed ? "is-active" : ""}
+              onClick={() => setFiltersOpen(true)}
+            >
+              <SlidersHorizontal size={16} aria-hidden="true" />
+              <span>{narrowed ? "Filters (on)" : "Filters"}</span>
+            </Button>
+            <label className="search-field dup-folder-search">
+              <Search size={17} aria-hidden="true" />
+              <span className="sr-only">Search this cleanup by folder, file or library</span>
+              <input
+                type="search"
+                value={search}
+                placeholder="Search this cleanup..."
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <div className="dup-toolbar-controls">
+              <span className="datagrid-muted">
+                {results.total} of {results.allResults} shown
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {error && <MessageBox tone="error" title="Unable to load duplicate cleanup">{error}</MessageBox>}
       {actionError && !confirm && !dismissing && (
         <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>
-      )}
-
-      {loaded && !job && (
-        <div className="dup-job-card">
-          <div className="dup-job-card-body">
-            <h2>No cleanup in progress</h2>
-            <p className="datagrid-muted">
-              A cleanup remembers what it found and what you decided, so you can stop and come back to it. Only one
-              runs at a time.
-            </p>
-          </div>
-          <Button variant="primary" onClick={() => { setActionError(""); setWizardOpen(true); }}>
-            Start a cleanup
-          </Button>
-        </div>
-      )}
-
-      {job && (
-        <JobCard
-          job={job}
-          isOwner={payload.isOwner}
-          busy={busy}
-          onScan={() => void post(`/api/library/gallery/duplicate-jobs/${job.id}/scan`, job.id, "The scan could not run")}
-          onFinish={() => { setActionError(""); setFinishing(true); }}
-          onCancel={() => { setActionError(""); setCancelling(true); }}
-          onEdit={() => { setActionError(""); setWizardOpen(true); }}
-        />
-      )}
-
-      {job && job.status !== "draft" && results.allResults > 0 && (
-        <div className="dup-toolbar dup-folder-toolbar">
-          <Button
-            variant="secondary"
-            compact
-            className={narrowed ? "is-active" : ""}
-            onClick={() => setFiltersOpen(true)}
-          >
-            <SlidersHorizontal size={16} aria-hidden="true" />
-            <span>{narrowed ? "Filters (on)" : "Filters"}</span>
-          </Button>
-          <label className="search-field dup-folder-search">
-            <Search size={17} aria-hidden="true" />
-            <span className="sr-only">Search this cleanup by folder, file or library</span>
-            <input
-              type="search"
-              value={search}
-              placeholder="Search this cleanup..."
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-          <div className="dup-toolbar-controls">
-            <span className="datagrid-muted">
-              {results.total} of {results.allResults} shown
-            </span>
-          </div>
-        </div>
       )}
 
       {job && job.status === "draft" && (
@@ -915,10 +926,59 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
   );
 }
 
-// ── The job card ────────────────────────────────────────────────────────────
+// ── The cleanup header and job card ─────────────────────────────────────────
+
+function CleanupHero() {
+  return (
+    <section className="dup-cleanup-hero" aria-labelledby="dup-cleanup-title">
+      <div className="dup-cleanup-hero-main">
+        <span className="dup-cleanup-hero-icon" aria-hidden="true">
+          <Trash2 size={54} />
+        </span>
+        <div className="dup-cleanup-hero-copy">
+          <h1 id="dup-cleanup-title">Duplicate cleanup</h1>
+          <p>One saved cleanup at a time: choose what to compare, scan once, and work through it whenever you like.</p>
+
+          <div className="dup-cleanup-experiment">
+            <div className="dup-cleanup-experiment-label" tabIndex={0}>
+              <FlaskConical size={20} aria-hidden="true" />
+              <strong>Experimental</strong>
+            </div>
+            <div className="dup-cleanup-experiment-card" role="status">
+              <TriangleAlert size={28} aria-hidden="true" />
+              <p>
+                Duplicate detection is still being proven. Check sets before deleting. Items go to the Recycle Bin and
+                can be restored until emptied.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function JobMetric({
+  icon, value, label, strong = false
+}: {
+  icon: ReactNode;
+  value: string | number;
+  label?: string;
+  strong?: boolean;
+}) {
+  return (
+    <div className={`dup-job-metric${strong ? " is-strong" : ""}`}>
+      <span className="dup-job-metric-icon" aria-hidden="true">{icon}</span>
+      <span className="dup-job-metric-copy">
+        <strong>{value}</strong>
+        {label && <small>{label}</small>}
+      </span>
+    </div>
+  );
+}
 
 function JobCard({
-  job, isOwner, busy, onScan, onFinish, onCancel, onEdit
+  job, isOwner, busy, onScan, onFinish, onCancel
 }: {
   job: DuplicateJob;
   isOwner: boolean;
@@ -926,57 +986,54 @@ function JobCard({
   onScan: () => void;
   onFinish: () => void;
   onCancel: () => void;
-  onEdit: () => void;
 }) {
   const included = job.libraries.filter((library) => library.included);
   // A library that changed under the job. Worth saying: the results were worked out
   // when it was something else.
   const changed = job.libraries.filter((library) =>
     !library.missing && (library.mode !== library.currentMode || library.isProtected !== library.currentlyProtected));
+  const canScan = job.status === "draft" || job.status === "review";
+  const scopeTitle = `${included.length} librar${included.length === 1 ? "y" : "ies"} • ${cleanupKindSummary(job.duplicateType)}`;
 
   return (
     <div className="dup-job-card">
-      <div className="dup-job-card-body">
-        <p className="eyebrow">{STATUS_WORDS[job.status]}</p>
-        <h2>
-          {included.length} librar{included.length === 1 ? "y" : "ies"}
-          {job.duplicateType === "folders" ? " · whole folders" : " · single files"}
-          {job.mediaType === "photo" ? " · photos" : job.mediaType === "video" ? " · videos" : ""}
-        </h2>
-        <p className="datagrid-muted">
-          Started by {job.ownerName} · last touched {formatWhen(job.lastActivityAt)}
-        </p>
-        {job.status !== "draft" && (
-          <p className="dup-set-meta datagrid-muted">
-            <span>{job.totals.results} found</span>
-            <span>{job.totals.reviewed} looked at</span>
-            <span>{job.totals.deleted} removed</span>
-            <span>{formatBytes(job.totals.reclaimableBytes)} still to reclaim</span>
-            {job.totals.errors > 0 && <span>{job.totals.errors} with problems</span>}
+      <div className="dup-job-title-row">
+        <div className="dup-job-card-body">
+          <p className="eyebrow">{STATUS_WORDS[job.status]}</p>
+          <h2>{scopeTitle}</h2>
+          <p className="datagrid-muted">
+            Started by {job.ownerName} • last touched {formatWhen(job.lastActivityAt)}
           </p>
-        )}
-        {job.statusDetail && <p className="datagrid-muted">{job.statusDetail}</p>}
+          {job.statusDetail && <p className="datagrid-muted">{job.statusDetail}</p>}
+        </div>
+
+        <div className="dup-job-actions">
+          {!isOwner ? (
+            <span className="datagrid-muted dup-job-owner-note">
+              <Lock size={14} aria-hidden="true" /> {job.ownerName} is working on this
+            </span>
+          ) : (
+            <>
+              {canScan && (
+                <Button variant="primary" compact className="dup-job-scan-action" disabled={busy} onClick={onScan}>
+                  <RefreshCw size={18} aria-hidden="true" />
+                  <span>{job.status === "draft" ? "Run scan" : "Scan again"}</span>
+                </Button>
+              )}
+              <Button variant="secondary" compact disabled={busy} onClick={onFinish}>Finish</Button>
+              <Button variant="secondary" danger compact disabled={busy} onClick={onCancel}>Cancel</Button>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="dup-group-actions">
-        {!isOwner ? (
-          <span className="datagrid-muted">
-            <Lock size={14} aria-hidden="true" /> {job.ownerName} is working on this
-          </span>
-        ) : (
-          <>
-            {job.status === "draft" && (
-              <Button variant="secondary" compact disabled={busy} onClick={onEdit}>Change what to compare</Button>
-            )}
-            {(job.status === "draft" || job.status === "review") && (
-              <Button variant="primary" compact disabled={busy} onClick={onScan}>
-                <RefreshCw size={14} aria-hidden="true" />
-                <span>{job.status === "draft" ? "Run scan" : "Scan again"}</span>
-              </Button>
-            )}
-            <Button variant="secondary" compact disabled={busy} onClick={onFinish}>Finish</Button>
-            <Button variant="secondary" danger compact disabled={busy} onClick={onCancel}>Cancel</Button>
-          </>
+      <div className="dup-job-metrics" aria-label="Cleanup job summary">
+        <JobMetric icon={<Search size={22} />} value={job.totals.results} label="found" />
+        <JobMetric icon={<Trash2 size={22} />} value={job.totals.reviewed} label="looked at" />
+        <JobMetric icon={<CircleCheck size={22} />} value={job.totals.deleted} label="removed" />
+        <JobMetric icon={<Sparkles size={22} />} value={formatBytes(job.totals.reclaimableBytes)} label="to reclaim" strong />
+        {job.totals.errors > 0 && (
+          <JobMetric icon={<TriangleAlert size={22} />} value={job.totals.errors} label="with problems" />
         )}
       </div>
 
