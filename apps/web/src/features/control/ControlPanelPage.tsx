@@ -28,9 +28,7 @@ import { GroupsSection } from "./sections/GroupsSection";
 import { TasksSection } from "./sections/TasksSection";
 import { ScheduledJobsSection } from "./sections/ScheduledJobsSection";
 import { MissingPhotosSection } from "./sections/MissingPhotosSection";
-import { DuplicatePhotosSection } from "./sections/DuplicatePhotosSection";
-import { DuplicateFoldersSection } from "./sections/DuplicateFoldersSection";
-import { DuplicateCleanupSection } from "./sections/DuplicateCleanupSection";
+import { DuplicateCleanupSection } from "./sections/duplicates/DuplicateCleanupSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { MailSection } from "./sections/MailSection";
 import { OpdsAccessSection } from "./sections/OpdsAccessSection";
@@ -110,10 +108,8 @@ function ControlSectionBody({
 
     case "backup":          return <BackupSection />;
     case "scheduledJobs":   return <ScheduledJobsSection />;
-    case "recycleBin":      return <RecycleBinSection />;
+    case "recycleBin":      return <RecycleBinSection currentUser={currentUser} />;
     case "missingPhotos":   return <MissingPhotosSection />;
-    case "duplicatePhotos": return <DuplicatePhotosSection />;
-    case "duplicateFolders": return <DuplicateFoldersSection />;
     case "duplicateCleanup": return <DuplicateCleanupSection currentUser={currentUser} />;
 
     case "appearance":      return <AppearanceSection />;

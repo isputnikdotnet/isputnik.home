@@ -32,10 +32,10 @@ export function resetDb(): void {
     "audio_bookmarks", "reading_bookmarks",
     "audiobook_details", "ebook_details", "gallery_details", "gallery_faces", "gallery_face_scans", "gallery_face_exclusions", "gallery_people", "item_metadata",
     "gallery_album_items", "gallery_albums",
-    "gallery_duplicate_members", "gallery_duplicate_groups", "gallery_duplicate_ignores",
-    "gallery_duplicate_folder_members", "gallery_duplicate_folder_groups", "gallery_duplicate_folder_ignores",
-    "gallery_duplicate_contained_folders", "gallery_duplicate_contained_ignores",
-    "gallery_duplicate_folder_overlaps", "gallery_duplicate_folder_overlap_ignores",
+    // The four dismissal tables. Their caches were dropped with the pages that read
+    // them (migration 31); these hold decisions and a cleanup still writes them.
+    "gallery_duplicate_ignores", "gallery_duplicate_folder_ignores",
+    "gallery_duplicate_contained_ignores", "gallery_duplicate_folder_overlap_ignores",
     "duplicate_job_errors", "duplicate_job_actions", "duplicate_job_folder_preferences",
     "duplicate_job_result_members", "duplicate_job_result_folders", "duplicate_job_results",
     "duplicate_job_libraries", "duplicate_jobs",

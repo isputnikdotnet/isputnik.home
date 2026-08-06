@@ -9,9 +9,22 @@ import { RefreshButton } from "../../../shared/RefreshButton";
 import type { LibrarySettings, StorageRoot } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 
+/** The install-wide Recycle Bin folder. `path` null = each library keeps its own
+ *  `.trash`, the default. `editable` is false as soon as the bin holds anything. */
+interface TrashRootSettings {
+  path: string | null;
+  libraryCount: number;
+  itemsInBin: number;
+  editable: boolean;
+}
+
 export function StorageSection() {
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
   const [storageRoots, setStorageRoots] = useState<StorageRoot[]>([]);
+  const [trashRoot, setTrashRoot] = useState<TrashRootSettings | null>(null);
+  const [trashRootInput, setTrashRootInput] = useState("");
+  const [editTrashRootOpen, setEditTrashRootOpen] = useState(false);
+  const [savingTrashRoot, setSavingTrashRoot] = useState(false);
   const [thumbnailPathInput, setThumbnailPathInput] = useState("");
   const [rootNameInput, setRootNameInput] = useState("");
   const [rootPathInput, setRootPathInput] = useState("");
@@ -29,6 +42,10 @@ export function StorageSection() {
 
     const rootsPayload = await api<{ roots: StorageRoot[] }>("/api/storage/roots");
     setStorageRoots(rootsPayload.roots);
+
+    const trashPayload = await api<TrashRootSettings>("/api/storage/trash-root");
+    setTrashRoot(trashPayload);
+    setTrashRootInput(trashPayload.path ?? "");
   };
 
   useEffect(() => {
@@ -67,6 +84,26 @@ export function StorageSection() {
       setError(err instanceof Error ? err.message : "Unable to save Digital Library settings");
     } finally {
       setSavingLibrarySettings(false);
+    }
+  };
+
+  const saveTrashRoot = async (event: FormEvent) => {
+    event.preventDefault();
+    setSavingTrashRoot(true);
+    setError("");
+    try {
+      // Blank means "back to each library's own .trash" — a real choice, so it is sent
+      // as null rather than treated as an empty form.
+      await api("/api/storage/trash-root", {
+        method: "PUT",
+        body: JSON.stringify({ path: trashRootInput.trim() || null })
+      });
+      await loadStorage();
+      setEditTrashRootOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save the Recycle Bin location");
+    } finally {
+      setSavingTrashRoot(false);
     }
   };
 
@@ -155,6 +192,46 @@ export function StorageSection() {
         </div>
       </section>
 
+      {/* Deliberately under thumbnail storage and above containers: like the thumbnail
+          path, it is a decision that wants making before the first library exists. */}
+      <section className="library-settings-panel storage-settings-panel">
+        <div>
+          <h2>Recycle Bin location</h2>
+          <p>
+            One folder for every library's deleted files, instead of a hidden <code>.trash</code>{" "}
+            inside each library — which other apps reading the same folders will index and show
+            as though nothing had been deleted.
+          </p>
+        </div>
+        <div className="storage-path-summary">
+          <strong>{trashRoot?.path || "Each library's own .trash folder"}</strong>
+        </div>
+        <div className="library-settings-actions">
+          {/* Not a fault, just why the button is off — so it states the fact and the
+              tooltip on the button explains what to do about it. */}
+          {trashRoot && !trashRoot.editable && (
+            <span className="setting-status">
+              {trashRoot.itemsInBin} item{trashRoot.itemsInBin === 1 ? "" : "s"} in the bin
+            </span>
+          )}
+          <Button
+            variant="secondary"
+            compact
+            disabled={!trashRoot?.editable}
+            title={trashRoot?.editable
+              ? undefined
+              : "Empty the Recycle Bin first — the location can only change while it holds nothing"}
+            onClick={() => {
+              setError("");
+              setTrashRootInput(trashRoot?.path ?? "");
+              setEditTrashRootOpen(true);
+            }}
+          >
+            Edit location
+          </Button>
+        </div>
+      </section>
+
       <section className="storage-section">
         <div className="storage-section-head">
           <div>
@@ -238,6 +315,44 @@ export function StorageSection() {
                 {savingLibrarySettings ? "Saving..." : "Save path"}
               </Button>
             </div>
+        </Modal>
+      )}
+
+      {editTrashRootOpen && (
+        <Modal
+          title="Edit Recycle Bin location"
+          className="edit-thumbnail-modal"
+          busy={savingTrashRoot}
+          onClose={() => { setError(""); setEditTrashRootOpen(false); }}
+          onSubmit={saveTrashRoot}
+        >
+          <p>
+            Choose an existing folder inside a Digital Library container, but <strong>not</strong>{" "}
+            inside a library — anything in a library is scanned, so deleted files would be
+            catalogued straight back in. Leave it blank to keep using each library's own hidden{" "}
+            <code>.trash</code> folder.
+          </p>
+          <MessageBox tone="info" title="Best set before you create libraries">
+            The location can only change while the Recycle Bin is completely empty, so once
+            you are using it, moving it means restoring or permanently deleting everything in
+            it first. Nothing already deleted is moved by a change — every item remembers
+            where its own files went.
+          </MessageBox>
+          <MessageBox tone="warning" title="Keep it on the same storage as your libraries">
+            Deleting into a bin on the same disk is an instant rename. To another disk it is a
+            real copy of every byte, so deleting a large video, or a duplicate cleanup removing
+            thousands of photos, will take much longer.
+          </MessageBox>
+          <Field label="Recycle Bin folder" value={trashRootInput} onChange={setTrashRootInput} />
+          {error && <MessageBox tone="error" title="Unable to save the location">{error}</MessageBox>}
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => { setError(""); setEditTrashRootOpen(false); }} disabled={savingTrashRoot} autoFocus>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" disabled={savingTrashRoot}>
+              {savingTrashRoot ? "Saving…" : "Save location"}
+            </Button>
+          </div>
         </Modal>
       )}
 

@@ -292,7 +292,7 @@ CREATE TABLE IF NOT EXISTS gallery_details (
   -- Used by memory suggestions to pick visually distinct photos (similarity.ts).
   phash               TEXT,
   -- sha256 of the ORIGINAL file's bytes, written only by the duplicate scan
-  -- (duplicates.ts) and only for assets whose `size` collides with another asset —
+  -- (duplicates/items.ts) and only for assets whose `size` collides with another asset —
   -- byte-identical files must share a size, so most rows never need hashing and the
   -- catalog scan never has to read a whole file. `content_hash_at` records the file's
   -- own mtime at the moment it was hashed — read by stat during the duplicate scan, NOT
@@ -311,10 +311,9 @@ CREATE TABLE IF NOT EXISTS gallery_details (
 CREATE INDEX IF NOT EXISTS idx_gallery_taken_at ON gallery_details(taken_at);
 -- Drives the duplicate scan's size-collision candidate query.
 CREATE INDEX IF NOT EXISTS idx_gallery_size ON gallery_details(size);
--- idx_gallery_content_hash is created by migration 25, NOT here: this file runs BEFORE
--- the migrations, so on an existing database the column it indexes doesn't exist yet and
--- CREATE INDEX would abort the whole schema pass. Any index over a migration-added
--- column belongs in that migration.
+-- Finds the other copies of a digest during the duplicate scan's grouping pass.
+-- Partial: most photos are never hashed, because only a size collision earns a read.
+CREATE INDEX IF NOT EXISTS idx_gallery_content_hash ON gallery_details(content_hash) WHERE content_hash IS NOT NULL;
 
 -- People in photos. A `gallery_people` row is a named person (e.g. "Mum") that spans
 -- every gallery library (people are global, like book contributors). It doubles as
@@ -458,87 +457,14 @@ CREATE TABLE IF NOT EXISTS gallery_faces (
   updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
--- Duplicate photo detection (duplicates.ts). One row per set of assets found to be
--- the same picture, with `keeper_item_id` naming the copy to keep. Groups are a
--- derived CACHE: every scan deletes and rebuilds them, so they can never go stale.
--- `keeper_source = 'manual'` marks a keeper the admin picked by hand, which the
--- rebuild carries over when the same member set reappears.
-CREATE TABLE IF NOT EXISTS gallery_duplicate_groups (
-  id             TEXT PRIMARY KEY,
-  -- 'exact' = identical bytes (same content_hash). 'near' is reserved for the
-  -- perceptual-hash tier and is not produced yet.
-  kind           TEXT NOT NULL CHECK (kind IN ('exact', 'near')),
-  keeper_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
-  keeper_source  TEXT NOT NULL DEFAULT 'auto' CHECK (keeper_source IN ('auto', 'manual')),
-  -- Why the automatic keeper won, as a short pre-rendered list for the admin UI.
-  keeper_reason  TEXT,
-  created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
-
-CREATE TABLE IF NOT EXISTS gallery_duplicate_members (
-  group_id TEXT NOT NULL REFERENCES gallery_duplicate_groups(id) ON DELETE CASCADE,
-  item_id  TEXT NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
-  -- Perceptual distance from the keeper in bits; always 0 for an 'exact' group.
-  distance INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (group_id, item_id)
-);
-CREATE INDEX IF NOT EXISTS idx_gallery_dup_members_item ON gallery_duplicate_members(item_id);
-
--- Duplicate FOLDERS (duplicate-folders.ts). A folder whose whole subtree matches
--- another's, file for file, by content digest — the names may differ entirely.
--- Built on top of the byte-identical tier's digests, so it costs no disk access,
--- and rebuilt from scratch by every scan exactly like the item-level groups.
+-- ── Dismissals: "not the same, stop showing me this" ──────────────────────────
 --
--- `digest` is the folder's content fingerprint: every file below it as
--- "<path below this folder>\0<content_hash>", sorted, hashed. The folder's own
--- name is deliberately NOT part of it — two folders with different names and the
--- same contents are the whole point.
-CREATE TABLE IF NOT EXISTS gallery_duplicate_folder_groups (
-  id                 TEXT PRIMARY KEY,
-  digest             TEXT NOT NULL,
-  -- Files in each member folder's subtree, and the bytes ONE copy occupies.
-  item_count         INTEGER NOT NULL,
-  copy_bytes         INTEGER NOT NULL,
-  -- The folder to keep, as (library, path). Not a foreign key: a folder isn't a
-  -- row anywhere, it only exists as a prefix of library_items.folder_path.
-  keeper_library_id  TEXT REFERENCES libraries(id) ON DELETE CASCADE,
-  keeper_folder_path TEXT,
-  keeper_source      TEXT NOT NULL DEFAULT 'auto' CHECK (keeper_source IN ('auto', 'manual')),
-  keeper_reason      TEXT,
-  created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
-
-CREATE TABLE IF NOT EXISTS gallery_duplicate_folder_members (
-  group_id    TEXT NOT NULL REFERENCES gallery_duplicate_folder_groups(id) ON DELETE CASCADE,
-  library_id  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
-  folder_path TEXT NOT NULL,
-  PRIMARY KEY (group_id, library_id, folder_path)
-);
-
--- Folders whose contents are wholly CONTAINED in another folder — every photo below
--- them also sits somewhere else, so the folder can go and nothing is lost. Distinct
--- from the equal-contents table above and deliberately one-directional: the row names
--- the folder that can be removed and the folder that covers it.
---
--- The commonest shape by far is a folder copied into itself (sync clients do this),
--- which the equal-contents test can never see: a parent's fingerprint includes its
--- child's files, so it always holds strictly more.
-CREATE TABLE IF NOT EXISTS gallery_duplicate_contained_folders (
-  id                 TEXT PRIMARY KEY,
-  -- The folder that could be removed.
-  library_id         TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
-  folder_path        TEXT NOT NULL,
-  -- The folder that holds a copy of everything in it.
-  target_library_id  TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
-  target_folder_path TEXT NOT NULL,
-  item_count         INTEGER NOT NULL,
-  bytes              INTEGER NOT NULL,
-  /* Photos the target holds beyond what the contained folder has — 0 means the two
-     hold the same pictures, arranged differently. */
-  extra_count        INTEGER NOT NULL DEFAULT 0,
-  created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  UNIQUE (library_id, folder_path)
-);
+-- The four tables below outlived the caches they were built beside. Those held one
+-- install-wide scan and were rebuilt whole every time; a duplicate cleanup keeps its
+-- own snapshot instead (duplicate_job_*), and the caches are gone. Dismissals could
+-- not go with them: a decision that two things are NOT duplicates has to outlive the
+-- scan that proposed them, or every re-scan asks again. So a cleanup writes these,
+-- and every scan consults them before it groups anything.
 
 -- "Leave this one alone." Ordered, unlike the equal-contents dismissals: dismissing
 -- "A is already inside B" says nothing about whether B is inside A.
@@ -549,31 +475,6 @@ CREATE TABLE IF NOT EXISTS gallery_duplicate_contained_ignores (
   target_folder_path TEXT NOT NULL,
   created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   PRIMARY KEY (library_id, folder_path, target_library_id, target_folder_path)
-);
-
--- Two folders that SHARE identical photos without either equalling or containing the
--- other — the third folder-shaped answer, for the common mess of a partial copy: half
--- a card's photos re-imported into a new folder, a "best of" pulled from several
--- trips. The action is narrower than the other tiers': only the shared copies on the
--- losing side go; the folders themselves both stay.
---
--- A cache over one scan, like its two siblings: rebuilt from stored digests, no disk.
--- Pairs already answered by an equal-contents set or a stored-elsewhere row are not
--- written — those are stronger statements about the same folders. Side A is the
--- lexically smaller (library, path); which side KEEPS is chosen at read time, so a
--- changed folder instruction or library policy applies without a rebuild.
-CREATE TABLE IF NOT EXISTS gallery_duplicate_folder_overlaps (
-  id           TEXT PRIMARY KEY,
-  library_a    TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
-  path_a       TEXT NOT NULL,
-  library_b    TEXT NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
-  path_b       TEXT NOT NULL,
-  -- Photos the two hold in common, multiplicity respected, and the bytes ONE side's
-  -- copies occupy — what resolving the pair frees.
-  shared_count INTEGER NOT NULL,
-  shared_bytes INTEGER NOT NULL,
-  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  UNIQUE (library_a, path_a, library_b, path_b)
 );
 
 -- "These two just share some photos — stop pairing them." A pair, like the
@@ -611,7 +512,7 @@ CREATE TABLE IF NOT EXISTS gallery_duplicate_ignores (
   PRIMARY KEY (item_a, item_b)
 );
 
--- ── Duplicate cleanup JOBS (duplicate-jobs.ts) ──────────────────────────────
+-- ── Duplicate cleanup JOBS (duplicates/jobs.ts) ─────────────────────────────
 --
 -- Everything above this line is a CACHE over the last scan: rebuilt from scratch by
 -- every rebuild, pruned by every deletion, and identified by ids that do not survive
@@ -621,7 +522,7 @@ CREATE TABLE IF NOT EXISTS gallery_duplicate_ignores (
 -- back to days later. So a job takes its own SNAPSHOT of what a scan found and never
 -- references the cache's ids — a job pointing at them would be emptied by the next
 -- rebuild, including one pressed on the older duplicate pages, which stay available.
--- See docs/duplicate-cleanup-utility-proposal.md.
+-- See docs/duplicate-detection.md.
 
 CREATE TABLE IF NOT EXISTS duplicate_jobs (
   id                 TEXT PRIMARY KEY,
@@ -689,6 +590,21 @@ CREATE TABLE IF NOT EXISTS duplicate_job_results (
   reclaimable_bytes INTEGER NOT NULL DEFAULT 0,
   -- Why the keeper won, pre-rendered when the snapshot was taken.
   keeper_reason     TEXT,
+  -- HOW SURE the result is, on two separate axes. Folding them into one label would
+  -- lose the case that matters: a byte-identical set is certain about the match and
+  -- can still be a coin toss about which copy to keep.
+  --
+  -- match_confidence — is this the same picture? 'certain' means identical bytes, which
+  -- every folder answer also rests on. 'likely' and 'unsure' only ever appear on a
+  -- near-identical set, graded when the snapshot is taken from how far apart the
+  -- fingerprints are and whether the other evidence agrees.
+  match_confidence  TEXT NOT NULL DEFAULT 'certain'
+                    CHECK (match_confidence IN ('certain', 'likely', 'unsure')),
+  -- keeper_rank — WHICH criterion settled which copy survives, as its index in
+  -- KEEPER_CRITERIA: 0 is the first and strongest, -1 means nothing separated them and
+  -- the stable tiebreak decided. The ladder is ordered rather than weighted, so the
+  -- rank is the confidence; storing it saves the page re-deriving it from prose.
+  keeper_rank       INTEGER NOT NULL DEFAULT -1,
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -752,6 +668,12 @@ CREATE TABLE IF NOT EXISTS duplicate_job_result_members (
   size_snapshot    INTEGER,
   mtime_snapshot   TEXT,
   content_hash     TEXT,
+  -- Perceptual distance from the keeper, in bits of 64. Always 0 for a byte-identical
+  -- set — the copies ARE the same file — and 1..NEAR_IDENTICAL_DISTANCE for a
+  -- near-identical one. This is what separates the two tiers in the snapshot: a
+  -- result whose members are all at 0 is certain, and anything above it is a
+  -- judgement call the page has to present as one.
+  distance         INTEGER NOT NULL DEFAULT 0,
   role             TEXT NOT NULL CHECK (role IN ('keep', 'delete', 'protected')),
   status           TEXT NOT NULL DEFAULT 'pending'
                    CHECK (status IN ('pending', 'deleted', 'skipped', 'missing', 'modified', 'error')),
@@ -1230,6 +1152,26 @@ CREATE TABLE IF NOT EXISTS trashed_items (
   -- Recycle Bin can show what a row actually is. Deleted with the item's files on
   -- purge, and on restore (the re-catalogued item generates its own).
   cover_key    TEXT,
+  -- WHY this item is here, which decides how long it stays. A byte-identical duplicate
+  -- whose surviving copy was verified present at the moment it went is about the safest
+  -- deletion there is; a hand-deleted audiobook is a decision someone may want a long
+  -- time to reconsider. Also worth having on its own: without it a cleanup's thousands
+  -- of rows are indistinguishable from a hand delete in the bin.
+  source       TEXT NOT NULL DEFAULT 'manual',
+  -- WHEN it will be permanently removed. NULL = kept until the bin is emptied by hand.
+  --
+  -- Written when the item is trashed, NOT computed at purge from whatever the global
+  -- setting happens to say then. Retention used to be evaluated only at sweep time, so
+  -- lowering it from 30 days to 7 retroactively condemned everything already in the bin
+  -- older than 7 days — including items deleted under a promise of 30. Each item's fate
+  -- is now fixed at the moment the promise was made.
+  expires_at   TEXT,
+  -- WHERE this row's files are, when that is not the library's own folder. trash_path is
+  -- relative, so it needs a base: NULL means source_path (a .trash inside the library,
+  -- the default), and a value means the install-wide bin folder chosen on the Storage
+  -- page. Per row rather than read from the setting, so a row can always be found again
+  -- by the app that wrote it, whatever the setting later says.
+  trash_root   TEXT,
   trashed_by   TEXT REFERENCES users(id),
   trashed_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

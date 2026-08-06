@@ -284,6 +284,7 @@ apart, the workflow skips the dry run for a commit whose subject starts with
 | [`database.md`](database.md) | Database schema — unified `library_items` model, conventions, old→new map, table reference |
 | [`ebook-library.md`](ebook-library.md) | Ebook library type — EPUB/PDF catalog, in-app reader, per-type series |
 | [`gallery-library.md`](gallery-library.md) | Gallery library type — photos/videos, asset-as-item, timeline + folder views |
+| [`duplicate-detection.md`](duplicate-detection.md) | Duplicate detection — fingerprints, the five tiers, keeper scoring, cleanup jobs |
 | [`family-tree.md`](family-tree.md) | Family tree — people/unions/events, borrowed gallery photos, branch permissions, GEDCOM |
 | [`categories.md`](categories.md) | Categories — global genre taxonomy, scan matching, cross-type browse |
 | [`tags.md`](tags.md) | Tags — polymorphic labels, cross-type browse, admin management |

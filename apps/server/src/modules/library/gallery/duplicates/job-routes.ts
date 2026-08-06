@@ -1,4 +1,4 @@
-// Admin API for duplicate cleanup jobs (duplicate-jobs.ts). Admin-only throughout,
+// Admin API for duplicate cleanup jobs (jobs.ts). Admin-only throughout,
 // like the older duplicate routes: a cleanup spans libraries, so deciding which copy
 // survives is a whole-install decision.
 //
@@ -13,8 +13,8 @@
 // separate; this is the job's own paperwork.
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { logActivity } from "../../../db.js";
-import { parseBody } from "../../../core/shared.js";
+import { logActivity } from "../../../../db.js";
+import { parseBody } from "../../../../core/shared.js";
 import {
   activeJob,
   cancelJob,
@@ -23,6 +23,7 @@ import {
   deleteJob,
   galleryLibraryOptions,
   getJob,
+  jobFolderOptions,
   reassignJob,
   recentJobs,
   setJobFolderPreferences,
@@ -30,10 +31,13 @@ import {
   type DuplicateJob,
   type JobOutcome,
   type JobRefusal
-} from "./duplicate-jobs.js";
-import { countJobResults, listJobResults, runJobScan, type ResultFilter } from "./duplicate-job-scan.js";
-import { applyPreferences, dismissResult, markResult } from "./duplicate-job-review.js";
-import { checkResult, resolveJobResult } from "./duplicate-job-resolve.js";
+} from "./jobs.js";
+import {
+  countJobResults, listJobResults, startJobScan, sweepPreview, type ResultFilter
+} from "./job-scan.js";
+import { applyPreferences, dismissResult, markResult } from "./job-review.js";
+import { checkResult, resolveJobResult, sweepJobResults } from "./job-resolve.js";
+import { processDuplicateScanQueue } from "./items.js";
 
 // One refusal vocabulary, so a caller never has to read prose to tell "someone else
 // owns this" from "this job is past the point of changing".
@@ -73,6 +77,7 @@ function jobsPayload(userId: string) {
      *  re-derive a permission rule and get it subtly different. */
     isOwner: active ? active.ownerUserId === userId : false,
     libraries: galleryLibraryOptions(),
+
     history: recentJobs()
   };
 }
@@ -108,6 +113,18 @@ const preferencesSchema = z.object({
 export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/duplicate-jobs", { preHandler: app.requireAdmin }, async (request, reply) => {
     reply.send(jobsPayload(request.user!.id));
+  });
+
+  // The vocabulary for a job's folder instructions. Static path, so it is matched before
+  // /:id — and it takes the libraries as a query rather than reading them off a job,
+  // because the wizard asks while the job is still being drafted.
+  const folderOptionsSchema = z.object({ libraryIds: z.string().min(1).max(8192) });
+
+  app.get("/api/library/gallery/duplicate-jobs/folder-options", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(folderOptionsSchema, request.query);
+    if (parsed.error) { reply.send({ folders: [] }); return; }
+    const ids = parsed.data.libraryIds.split(",").map((id) => id.trim()).filter(Boolean).slice(0, 200);
+    reply.send({ folders: jobFolderOptions(ids) });
   });
 
   app.get("/api/library/gallery/duplicate-jobs/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -149,22 +166,27 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
     send(reply, setJobFolderPreferences(id, request.user!.id, parsed.data.folders), request.user!.id);
   });
 
-  // Compute the job's answers and write its snapshot. Reads no files — the digests
-  // were left behind by the hashing pass — so this is fast enough to answer inline,
-  // and the job is left in review with its results already counted.
+  // Start the job's scan and answer at once, with the job left in 'scanning'.
+  //
+  // It used to run inline, which was true while the only work was the snapshot — that
+  // reads no files. It now fingerprints the job's libraries first, which does read
+  // files and can take a long time on a library nobody has scanned before, so the page
+  // follows scan_progress instead of holding a request open. Nudge the worker so it
+  // starts without waiting for its next poll.
   app.post("/api/library/gallery/duplicate-jobs/:id/scan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const outcome = runJobScan(id, request.user!.id);
+    const outcome = startJobScan(id, request.user!.id);
     if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
     logActivity({
       event: "library.gallery.duplicate_job_scanned",
       actorUserId: request.user!.id,
       targetType: "library",
       targetId: null,
-      detail: `Scanned for a duplicate cleanup: ${outcome.summary?.results ?? 0} results found.`,
+      detail: "Started the scan for a duplicate cleanup.",
       ipAddress: request.ip
     });
-    reply.send({ ...jobsPayload(request.user!.id), summary: outcome.summary });
+    void processDuplicateScanQueue().catch(() => { /* logged per-job */ });
+    reply.send(jobsPayload(request.user!.id));
   });
 
   // One page of the snapshot. Anyone who may see the job may read its results; only
@@ -174,6 +196,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
     perPage: z.coerce.number().int().min(1).max(200).optional(),
     q: z.string().max(200).optional(),
     type: z.enum(["photo_set", "folder_set", "contained", "overlap"]).optional(),
+    tier: z.enum(["exact", "near"]).optional(),
     review: z.enum(["unreviewed", "reviewed", "skipped"]).optional(),
     library: z.string().max(64).optional()
   });
@@ -187,6 +210,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
     const filter: ResultFilter = {
       search: parsed.data.q,
       type: parsed.data.type,
+      tier: parsed.data.tier,
       review: parsed.data.review,
       libraryId: parsed.data.library || undefined
     };
@@ -200,10 +224,41 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       results: listJobResults(id, perPage, (page - 1) * perPage, filter),
       total,
       allResults: countJobResults(id),
+      // Sent with the page rather than fetched separately, so the number the sweep's
+      // confirm promises always belongs to the filters actually on screen.
+      sweep: sweepPreview(id, filter),
       page,
       perPage,
       isOwner: job.ownerUserId === request.user!.id
     });
+  });
+
+  // Clear every byte-identical set the given filters leave on screen. Same filters as
+  // the listing above — the button clears what a person can see, not everything a scan
+  // found. Never near-identical: sweepableResultIds forces the exact tier.
+  app.post("/api/library/gallery/duplicate-jobs/:id/results/sweep", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = parseBody(resultsSchema, request.query ?? {});
+    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+
+    const outcome = sweepJobResults(id, request.user!.id, {
+      search: parsed.data.q,
+      type: parsed.data.type,
+      tier: parsed.data.tier,
+      review: parsed.data.review,
+      libraryId: parsed.data.library || undefined
+    });
+    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
+
+    logActivity({
+      event: "library.gallery.duplicate_job_swept",
+      actorUserId: request.user!.id,
+      targetType: "library",
+      targetId: null,
+      detail: `Duplicate cleanup sweep: moved ${outcome.job.deleted} identical cop${outcome.job.deleted === 1 ? "y" : "ies"} to the Recycle Bin across ${outcome.job.results} set${outcome.job.results === 1 ? "" : "s"}.`,
+      ipAddress: request.ip
+    });
+    reply.send({ ...outcome.job, ...jobsPayload(request.user!.id) });
   });
 
   // "Not in this cleanup" — a note on the job, not a decision about the photos.

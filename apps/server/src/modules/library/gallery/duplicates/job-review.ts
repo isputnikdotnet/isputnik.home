@@ -13,9 +13,9 @@
 // They were one button on the older pages, which meant every "I'll deal with that
 // later" quietly became "never show me this again". Each control here says which of
 // the two it is.
-import { db } from "../../../db.js";
-import { getJob, recordAction, type JobOutcome } from "./duplicate-jobs.js";
-import { runJobScan } from "./duplicate-job-scan.js";
+import { db } from "../../../../db.js";
+import { getJob, recordAction, type JobOutcome } from "./jobs.js";
+import { runJobScan } from "./job-scan.js";
 
 export type ReviewMark = "unreviewed" | "reviewed" | "skipped";
 

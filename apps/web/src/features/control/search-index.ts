@@ -31,7 +31,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   logs: "activity audit trail events sign-in history retention prune clear",
 
   libraries: "add library scan sources folders paths extensions uploads access members wizard rescan",
-  storage: "thumbnails cache path containers approved folders disk location",
+  storage: "thumbnails cache path containers approved folders disk location recycle bin trash folder",
   categories: "genres genre keywords mapping icons images taxonomy",
   tags: "labels rename merge taxonomy",
 
@@ -47,13 +47,11 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
 
   backup: "restore zip archive download snapshot schedule retention export",
   scheduledJobs: "cron schedule nightly automatic recurring timer",
-  recycleBin: "trash deleted restore purge retention undelete",
+  recycleBin: "trash deleted restore purge retention undelete how long keep days cleanup expiry",
   missingPhotos: "gallery missing gone offline broken files photos videos",
   // Short labels now that they are views of Duplicates, so the words someone would
   // actually type have to be here — "duplicate photos" is no longer in the title.
-  duplicateCleanup: "duplicate cleanup job wizard clean up duplicates saved job resume come back later owner one at a time keep clean folder rules review delete copies reclaim space scan libraries",
-  duplicatePhotos: "duplicate photos gallery duplicates copies identical phash near-identical free space imported twice scan",
-  duplicateFolders: "duplicate folders gallery same folder twice identical folder keep photos in preferred folder already stored elsewhere contained copied into itself overlapping shared some photos partial copy",
+  duplicateCleanup: "duplicate cleanup job wizard clean up duplicates saved job resume come back later owner one at a time keep clean folder rules review delete copies reclaim space scan libraries duplicate photos duplicate folders copies identical phash near-identical free space imported twice same folder twice keep photos in preferred folder already stored elsewhere contained copied into itself overlapping shared some photos partial copy",
 
   appearance: "theme default look colours colors dark light branding",
   email: "smtp mail relay server port tls starttls password sender from test",

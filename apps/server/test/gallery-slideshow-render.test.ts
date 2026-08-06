@@ -591,16 +591,14 @@ describe("random transition persistence", () => {
   });
 });
 
-describe('schema baseline (2.0.0)', () => {
-  // 2.0.0 folded migrations 2-22 into schema.sql. What those migrations used to
-  // guarantee is now a property of the schema itself, so that is what we test:
-  // a database built in one pass accepts every value the rebuilds widened to.
+describe('schema baseline (3.0.0)', () => {
+  // 3.0.0 folded migrations 24-31 into schema.sql, as 2.0.0 folded 2-22 before them.
+  // What those migrations used to guarantee is now a property of the schema itself, so
+  // that is what these test: one pass builds everything, and nothing is replayed.
   it('builds a complete schema in one pass and stamps the current version', () => {
     const scratch = new Database(':memory:');
     migrate(scratch);
-    // Baseline 23 plus the migrations released since — the adds are all guarded,
-    // so replaying them over a schema.sql-built file is a no-op that just stamps.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(26);
+    expect(scratch.pragma('user_version', { simple: true })).toBe(32);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -608,6 +606,36 @@ describe('schema baseline (2.0.0)', () => {
     );
     const itemColumns = (scratch.pragma('table_info(library_items)') as { name: string }[]).map((c) => c.name);
     expect(itemColumns).toContain('scan_rule_id');
+    scratch.close();
+  });
+
+  // Everything the folded migrations added, in one place: if any of it went missing
+  // from schema.sql during the fold, a fresh install would be short a column with no
+  // migration left to add it back.
+  it('carries every column the folded migrations used to add', () => {
+    const scratch = new Database(':memory:');
+    migrate(scratch);
+    const columns = (table: string) =>
+      (scratch.pragma(`table_info(${table})`) as { name: string }[]).map((c) => c.name);
+
+    expect(columns('users')).toContain('mfa_method');
+    expect(columns('mfa_challenges')).toEqual(
+      expect.arrayContaining(['purpose', 'code_hash', 'sends', 'last_sent_at'])
+    );
+    expect(columns('gallery_details')).toEqual(expect.arrayContaining(['content_hash', 'content_hash_at']));
+    expect(columns('trashed_items')).toEqual(
+      expect.arrayContaining(['cover_key', 'source', 'expires_at', 'trash_root'])
+    );
+    expect(columns('duplicate_job_result_members')).toContain('distance');
+    expect(columns('duplicate_job_results')).toEqual(expect.arrayContaining(['match_confidence', 'keeper_rank']));
+
+    // The partial index over content_hash lived in migration 25 because schema.sql runs
+    // first and the column did not exist yet on an upgrade. With no upgrades it belongs
+    // in schema.sql — and has to actually be there.
+    const index = scratch.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_gallery_content_hash'"
+    ).get();
+    expect(index).toBeTruthy();
     scratch.close();
   });
 
@@ -629,77 +657,25 @@ describe('schema baseline (2.0.0)', () => {
     scratch.close();
   });
 
-  it('adopts a fully-migrated 1.x database but refuses an older one', () => {
-    const current = new Database(':memory:');
-    migrate(current);
-    current.pragma('user_version = 22'); // the last 1.x schema — already complete
-    expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(26);
-    current.close();
-
-    // Older databases still needed steps that no longer exist: stop, don't stamp.
+  // The whole upgrade path is one sentence now: 3.0.0 is a new install. A 2.x database
+  // is refused rather than half-migrated, and the message has to say what to do about
+  // it — including the one thing that cannot be rebuilt by rescanning.
+  it('refuses a 2.x database instead of upgrading it', () => {
     const stale = new Database(':memory:');
     migrate(stale);
-    stale.pragma('user_version = 12');
-    expect(() => migrate(stale)).toThrow(/older version/);
+    stale.pragma('user_version = 26'); // a 2.22.0 install
+    expect(() => migrate(stale)).toThrow(/new install rather than an upgrade/);
+    expect(() => migrate(stale)).toThrow(/GEDCOM/);
     stale.close();
   });
 
-  // schema.sql runs BEFORE the migrations, so anything in it that references a
-  // migration-added column blows up on a real (already-populated) database while every
-  // fresh-build test stays green — the column is right there in CREATE TABLE. Migration
-  // 25 shipped exactly that bug: a partial index on gallery_details.content_hash sat in
-  // schema.sql and aborted the whole schema pass on any existing install. Rehearse the
-  // upgrade an existing database actually performs.
-  it('upgrades an existing pre-25 database, whose gallery_details has no content_hash', () => {
-    const existing = new Database(':memory:');
-    migrate(existing);
-
-    // Wind the database back to what 2.4.x left on disk: no digest columns, no index.
-    existing.exec('DROP INDEX IF EXISTS idx_gallery_content_hash');
-    existing.exec('ALTER TABLE gallery_details DROP COLUMN content_hash');
-    existing.exec('ALTER TABLE gallery_details DROP COLUMN content_hash_at');
-    existing.exec('DROP TABLE IF EXISTS gallery_duplicate_members');
-    existing.exec('DROP TABLE IF EXISTS gallery_duplicate_groups');
-    existing.exec('DROP TABLE IF EXISTS gallery_duplicate_ignores');
-    existing.pragma('user_version = 24');
-
-    expect(() => migrate(existing)).not.toThrow();
-    expect(existing.pragma('user_version', { simple: true })).toBe(26);
-
-    const columns = (existing.pragma('table_info(gallery_details)') as { name: string }[]).map((c) => c.name);
-    expect(columns).toEqual(expect.arrayContaining(['content_hash', 'content_hash_at']));
-
-    const objects = (existing.prepare(
-      "SELECT name FROM sqlite_master WHERE name IN ('idx_gallery_content_hash', 'gallery_duplicate_groups', 'gallery_duplicate_members', 'gallery_duplicate_ignores')"
-    ).all() as { name: string }[]).map((r) => r.name).sort();
-    expect(objects).toEqual([
-      'gallery_duplicate_groups', 'gallery_duplicate_ignores', 'gallery_duplicate_members', 'idx_gallery_content_hash'
-    ]);
-    existing.close();
-  });
-
-  // Migration 26 adds the cover the Recycle Bin keeps for its preview. Existing
-  // rows stay NULL — there is no thumbnail left to backfill from — and the page
-  // falls back to a media-type icon for them.
-  it('upgrades an existing pre-26 database, whose trashed_items has no cover_key', () => {
-    const existing = new Database(':memory:');
-    migrate(existing);
-    existing.exec('ALTER TABLE trashed_items DROP COLUMN cover_key');
-    existing.pragma('user_version = 25');
-
-    existing.prepare(`
-      INSERT INTO trashed_items (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path)
-      VALUES ('t1', 'lib', 'audiobook', 'Lib', '/src', 'Old item', 'old', '.trash/tok')
-    `).run();
-
-    expect(() => migrate(existing)).not.toThrow();
-    expect(existing.pragma('user_version', { simple: true })).toBe(26);
-
-    const columns = (existing.pragma('table_info(trashed_items)') as { name: string }[]).map((c) => c.name);
-    expect(columns).toContain('cover_key');
-    expect(existing.prepare("SELECT cover_key FROM trashed_items WHERE id = 't1'").get()).toEqual({ cover_key: null });
-    existing.close();
+  it('adopts the last 2.x schema, which is already identical to a fresh one', () => {
+    const current = new Database(':memory:');
+    migrate(current);
+    current.pragma('user_version = 31'); // every 2.x migration applied
+    expect(() => migrate(current)).not.toThrow();
+    expect(current.pragma('user_version', { simple: true })).toBe(32);
+    current.close();
   });
 });
 

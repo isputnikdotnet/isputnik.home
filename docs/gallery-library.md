@@ -342,79 +342,18 @@ new and stale-model photos. Ships **enabled**, daily at **05:00** — deliberate
 the nightly library scans (randomized 01:00–04:59), so the day's new photos are already
 cataloged and get their faces the same night.
 
-## Duplicate photos
+## Duplicates
 
-`gallery/duplicates.ts` + `duplicate-routes.ts`, surfaced at Control panel → Maintenance →
-**Duplicate photos**. Two tiers: **byte-identical** files, and **near-identical** ones
-(same picture, different file).
+Utilities → **Duplicate cleanup**, a saved job that scans once and holds its own
+snapshot of what it found. Five tiers over two questions — identical files and
+near-identical ones for photos; identical folders, folders stored elsewhere and
+folders sharing photos for whole folders — with the size gate keeping the scan off
+most of the disk. Removals go to the Recycle Bin, never a hard delete.
 
-**Why it doesn't hash during the catalog scan.** `ingestGalleryAsset` skips any file
-whose size + mtime are unchanged, which is what keeps rescans cheap; hashing there would
-undo it. Instead the duplicate scan exploits the one thing byte-identical files must
-share — `gallery_details.size`, already recorded. Only assets whose size collides with
-another asset are ever opened, typically a few percent of a library.
-
-**Freshness comes from `stat`, not the catalogue.** Every candidate is stat'd (one
-syscall, no read) and that decides the work: a size mismatch means the catalogue is
-stale, so the digest is dropped and the file counted as `stale` (the page tells the admin
-to re-scan the library); an mtime mismatch means re-read; otherwise skip. The digest is
-stamped with the file's **real mtime** in `content_hash_at`, so a photo edited in place
-between catalog scans still rehashes. Nothing here requires a library scan to have run.
-
-**Grouping is always global**, even when a scan is scoped to one library — scoping
-limits which files are *read*, never which are *compared*. The same photo imported into
-two libraries is the commonest real duplicate, and narrowing the grouping would hide it.
-
-**Results are a cache.** `gallery_duplicate_groups` / `_members` are deleted and rebuilt
-every scan, so they can't go stale. Only the admin's decisions survive: a manually chosen
-keeper (`keeper_source = 'manual'`, re-applied when the same member set reappears) and
-`gallery_duplicate_ignores`, stored as **pairs** so a dismissal still holds when a third
-copy appears and regroups everything.
-
-**Keeper choice** is ordered criteria, not a weighted score — the copies are compared one
-criterion at a time and the first difference decides, so the winning criterion *is* the
-reason shown to the admin. User work (tags/albums/people/links) outranks everything, then
-manual edits, then filename/folder heuristics (`IMG_1234 (1).jpg`, `Downloads`,
-`WhatsApp`), then EXIF, resolution, size, and finally a stable `discovered_at` tiebreak.
-
-**Resolving** re-validates the digests at click time (a 409 rather than a guess if
-anything changed), runs `absorbDuplicateMetadata` to move tags, albums, slideshows,
-collections, saves, shares, family-tree links and album covers onto the keeper — plus
-face rows, deduplicated one per person, which is safe *only* because tier 1 copies are
-byte-identical — and then routes the losers through `trashBook`. There is no hard-delete
-path.
-
-**Tier 2 — near-identical** (`rebuildNearDuplicateGroups`) runs over the dHash the
-catalog scan already stores in `gallery_details.phash`, so it costs no disk access at
-all. The 64-bit hash is split into **4 × 16-bit bands** and only items sharing a band
-bucket are compared: by pigeonhole, two hashes differing by at most `BAND_COUNT - 1`
-bits must leave one band untouched, so band-4 is *exact* at
-`NEAR_IDENTICAL_DISTANCE = 3` and misses nothing. **Raising the threshold requires more
-bands** — a test asserts the constant so the pairing can't be broken silently. This is
-deliberately not `similarity.ts`'s `NEAR_DUPLICATE_DISTANCE` (10/64), which folds a whole
-burst into one representative for Memories and is far too loose to propose deleting
-anything. Fingerprints are parsed once into two 32-bit halves with a SWAR popcount;
-similarity.ts's BigInt bit-walk is fine for Memories' few hundred items and far too slow
-for banding's comparison counts.
-
-Three things tier 2 does differently. It runs **after** tier 1 and lets an identical set
-take part through its **keeper only**, so a byte-identical copy doesn't reappear inside
-the near set beside it. Its `distance` column is the real bit distance from the keeper,
-not 0. And it **never moves face rows** (`absorbDuplicateMetadata({ moveFaces: false })`)
-— a resized copy's normalised boxes describe different pixels, so carrying them over
-would land a box in the wrong place. `resolveDuplicateGroup` re-validates per tier:
-identical digests for tier 1, a fingerprint still inside the near window for tier 2.
-Bulk "delete all extras" is restricted to tier 1.
-
-**Scheduled job.** `find_duplicate_photos`, ships **enabled**, weekly at **02:15** —
-between the video conversions (01:45) and the face scan (05:00) so the CPU/disk-heavy
-gallery jobs don't collide. It only ever reports; deletion is always a human action.
-
-Schema: `gallery_details.content_hash` + `content_hash_at` (migration **25**; the index
-over them lives in that migration, *not* schema.sql, which runs first and would hit a
-column that doesn't exist yet on an existing database), and the three
-`gallery_duplicate_*` tables.
-
+Two earlier pages, Duplicate photos and Duplicate folders, were views of one
+install-wide scan rebuilt on every visit; they were retired in 3.0.0 once the
+cleanup could answer everything they could. Full detail:
+[`duplicate-detection.md`](duplicate-detection.md).
 ## Not yet (future phases)
 
 - **Best-of-burst picker** — the one thing duplicate detection deliberately does *not*

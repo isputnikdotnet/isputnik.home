@@ -101,14 +101,12 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     key: "utilities",
     label: "Utilities",
     icon: PocketKnife,
-    // One row, four peers. The three duplicate pages did have a "Duplicates" tab of
-    // their own with these three beneath it, which is truer to what they are — three
-    // views of one scan — and worse to look at: a second row of tabs under the first
-    // is a lot of chrome to explain a relationship the page titles already imply.
+    // Two peers. There were three duplicate pages here — cleanup, photos, folders —
+    // which were three views of one install-wide scan: opening any of them rebuilt it
+    // and renumbered everything underneath whoever else was looking. Duplicate cleanup
+    // holds its own snapshot and does everything they did, so they are gone.
     tabs: [
       { section: "duplicateCleanup", label: "Duplicate cleanup", context: "Gallery" },
-      { section: "duplicatePhotos", label: "Duplicate photos", context: "Gallery" },
-      { section: "duplicateFolders", label: "Duplicate folders", context: "Gallery" },
       { section: "missingPhotos", label: "Missing photos", context: "Gallery" }
     ]
   },

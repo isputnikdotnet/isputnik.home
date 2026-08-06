@@ -24,9 +24,11 @@
 // retiring the job is all that lives here; the scan, the review and the removal are
 // separate concerns in their own modules.
 import { nanoid } from "nanoid";
-import { db } from "../../../db.js";
-import { parsePolicy } from "../../../core/permissions.js";
-import { folderPreferences, type FolderPreferenceMode } from "./duplicates.js";
+import { db } from "../../../../db.js";
+import { parsePolicy } from "../../../../core/permissions.js";
+import {
+  duplicateCandidateCount, duplicatePendingCount, type FolderPreferenceMode
+} from "./items.js";
 
 /** Where a job is in its life. The five ACTIVE ones block a second job; the rest
  *  are history and block nothing. */
@@ -127,10 +129,23 @@ function libraryProtection(policyJson: string | null): { mode: "managed" | "exte
   return { mode, isProtected: mode === "external" || policy.allowDelete === false };
 }
 
-/** Every gallery library, with what a job may do to it. The wizard's step 1 list. */
-export function galleryLibraryOptions(): {
-  id: string; name: string; sourcePath: string; mode: "managed" | "external"; isProtected: boolean;
-}[] {
+export interface GalleryLibraryOption {
+  id: string;
+  name: string;
+  sourcePath: string;
+  mode: "managed" | "external";
+  isProtected: boolean;
+  /** Photos sharing a byte size with another photo — everything worth checking here. */
+  candidateCount: number;
+  /** Of those, how many the scan would have to open and read right now. Zero means the
+   *  fingerprints are current and this library costs nothing to scan. */
+  pendingCount: number;
+}
+
+/** Every gallery library, with what a job may do to it and what scanning it would cost.
+ *  The wizard's step 1 list, and the counts its summary quotes before you press Run
+ *  scan — pure SQL, no disk, so it is safe to compute on every page load. */
+export function galleryLibraryOptions(): GalleryLibraryOption[] {
   const rows = db.prepare(`
     SELECT id, name, source_path, policy_json FROM libraries
     WHERE type = 'gallery' ORDER BY name COLLATE NOCASE
@@ -139,8 +154,62 @@ export function galleryLibraryOptions(): {
     id: row.id,
     name: row.name,
     sourcePath: row.source_path,
-    ...libraryProtection(row.policy_json)
+    ...libraryProtection(row.policy_json),
+    candidateCount: duplicateCandidateCount(row.id),
+    pendingCount: duplicatePendingCount(row.id)
   }));
+}
+
+export interface JobFolderOption {
+  libraryId: string;
+  libraryName: string;
+  /** Relative to the library root; "" is the root itself. */
+  folderPath: string;
+  photoCount: number;
+  /** A library the app may read but not delete from — "clear" is meaningless there. */
+  isProtected: boolean;
+}
+
+/** The folders a cleanup's instructions can be attached to: every folder holding photos
+ *  in the job's libraries.
+ *
+ *  Read from the CATALOGUE, not from a duplicate scan. The old pages listed only folders
+ *  a scan had already found duplicates in, which cannot work here — instructions are set
+ *  before the scan runs, precisely so the scan can honour them. */
+export function jobFolderOptions(libraryIds: string[]): JobFolderOption[] {
+  if (libraryIds.length === 0) return [];
+  const placeholders = libraryIds.map(() => "?").join(", ");
+  const rows = db.prepare(`
+    SELECT li.library_id, lib.name AS library_name, lib.policy_json, gd.relative_path
+    FROM gallery_details gd
+    JOIN library_items li ON li.id = gd.item_id
+    JOIN libraries lib ON lib.id = li.library_id
+    WHERE li.library_id IN (${placeholders}) AND li.deleted_at IS NULL
+  `).all(...libraryIds) as {
+    library_id: string; library_name: string; policy_json: string; relative_path: string;
+  }[];
+
+  const options = new Map<string, JobFolderOption>();
+  for (const row of rows) {
+    const cut = row.relative_path.lastIndexOf("/");
+    const folderPath = cut === -1 ? "" : row.relative_path.slice(0, cut);
+    const key = `${row.library_id} ${folderPath}`;
+    const existing = options.get(key);
+    if (existing) {
+      existing.photoCount += 1;
+      continue;
+    }
+    options.set(key, {
+      libraryId: row.library_id,
+      libraryName: row.library_name,
+      folderPath,
+      photoCount: 1,
+      isProtected: libraryProtection(row.policy_json).isProtected
+    });
+  }
+
+  return [...options.values()].sort((a, b) =>
+    a.libraryName.localeCompare(b.libraryName) || a.folderPath.localeCompare(b.folderPath));
 }
 
 function jobLibraries(jobId: string): JobLibrary[] {
@@ -340,8 +409,8 @@ export interface CreateJobInput {
   mediaType?: MediaTypeScope;
 }
 
-/** Start a draft. Seeds the job's folder preferences from the global ones — after
- *  this they are the job's and diverge freely. */
+/** Start a draft. Its folder instructions start empty and are set in the wizard's
+ *  second step: they belong to this cleanup and nothing else. */
 export function createJob(input: CreateJobInput): JobOutcome<DuplicateJob> {
   const existing = activeJob();
   if (existing) return { ok: false, refused: "already_active", detail: existing.id };
@@ -351,7 +420,6 @@ export function createJob(input: CreateJobInput): JobOutcome<DuplicateJob> {
   if (chosen.length === 0) return { ok: false, refused: "no_libraries" };
 
   const id = nanoid(16);
-  const preferences = folderPreferences();
 
   db.transaction(() => {
     db.prepare(`
@@ -368,18 +436,6 @@ export function createJob(input: CreateJobInput): JobOutcome<DuplicateJob> {
       addLibrary.run(id, libraryId, library.mode, library.isProtected ? 1 : 0);
     }
 
-    // Only preferences for libraries this job covers: an instruction about a library
-    // the job never looks at is noise in its own picker.
-    const addPreference = db.prepare(`
-      INSERT INTO duplicate_job_folder_preferences (job_id, library_id, folder_path, preference, updated_by)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT (job_id, library_id, folder_path) DO NOTHING
-    `);
-    for (const preference of preferences) {
-      if (!available.has(preference.libraryId)) continue;
-      if (!chosen.includes(preference.libraryId)) continue;
-      addPreference.run(id, preference.libraryId, preference.folderPath, preference.mode, input.ownerUserId);
-    }
   })();
 
   recordAction({ jobId: id, userId: input.ownerUserId, action: "job.created", details: `${chosen.length} libraries` });
@@ -449,7 +505,11 @@ export function setJobStatus(
   if (!job) return { ok: false, refused: "not_found" };
 
   const patch: Record<string, unknown> = { status, status_detail: detail ?? null };
-  if (status === "scanning") { patch.scan_started_at = now(); patch.scan_progress = 0; }
+  // Only on ENTERING the state, not on re-asserting it. A two-phase scan says "scanning"
+  // twice — once when the fingerprint pass is queued, once when runJobScan starts the
+  // snapshot — and resetting on the second would wipe the progress the first just filled
+  // and restart the clock that says how long this has been running.
+  if (status === "scanning" && job.status !== "scanning") { patch.scan_started_at = now(); patch.scan_progress = 0; }
   if (status === "review" && job.status === "scanning") patch.scan_completed_at = now();
   if (status === "completed" || status === "cancelled" || status === "failed") patch.completed_at = now();
   // A finished job releases the lock, so leaving it on a wizard step it can never
@@ -459,6 +519,16 @@ export function setJobStatus(
   touch(id, patch);
   recordAction({ jobId: id, userId, action: `job.${status}`, details: detail ?? null });
   return { ok: true, job: getJob(id)! };
+}
+
+/** How far through the fingerprint pass the job is, 0–100, for the progress bar on its
+ *  card. Deliberately NOT touch(): progress is not activity, and stamping
+ *  last_activity_at every time it moved would make a long unattended scan read as
+ *  somebody working on the job. Guarded on 'scanning' so a late callback from a pass
+ *  that has already finished can't reanimate a finished job's bar. */
+export function setJobScanProgress(id: string, percent: number): void {
+  db.prepare("UPDATE duplicate_jobs SET scan_progress = ?, updated_at = ? WHERE id = ? AND status = 'scanning'")
+    .run(Math.max(0, Math.min(100, Math.round(percent))), now(), id);
 }
 
 /** Finish the job: history and audit stay, nothing more may be cleaned, and the lock

@@ -4,12 +4,13 @@ import { galleryPeopleRoutesPlugin } from "./people-routes.js";
 import { galleryAlbumRoutesPlugin } from "./album-routes.js";
 import { gallerySlideshowRoutesPlugin } from "./slideshow-routes.js";
 import { galleryMusicRoutesPlugin } from "./music-routes.js";
-import { galleryDuplicateRoutesPlugin } from "./duplicate-routes.js";
-import { galleryDuplicateJobRoutesPlugin } from "./duplicate-job-routes.js";
+import {
+  galleryDuplicateJobRoutesPlugin,
+  startDuplicateScanWorker
+} from "./duplicates/index.js";
 import { removeBuiltinMusic } from "./music.js";
 import { startSlideshowRenderWorker } from "./slideshow-render.js";
 import { startTranscodeWorker } from "./transcode.js";
-import { startDuplicateScanWorker } from "./duplicates.js";
 import { galleryStreamPlugin } from "./stream.js";
 import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
@@ -20,7 +21,6 @@ export async function galleryPlugin(app: FastifyInstance) {
   await app.register(galleryAlbumRoutesPlugin);
   await app.register(gallerySlideshowRoutesPlugin);
   await app.register(galleryMusicRoutesPlugin);
-  await app.register(galleryDuplicateRoutesPlugin);
   await app.register(galleryDuplicateJobRoutesPlugin);
   await app.register(galleryStreamPlugin);
 

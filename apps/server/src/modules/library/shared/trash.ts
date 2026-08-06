@@ -2,11 +2,13 @@
 // (audiobooks, ebooks, and any future library type). See docs/recycle-bin.md.
 //
 // Trashing keeps today's exact hard-delete teardown (drop the books row, cascade its
-// children, clean the polymorphic tables) but MOVES the item's files into the library's
-// hidden <source>/.trash/<token>/ folder instead of fs.rmSync-ing them. The scanner
-// ignores all dot-folders, so trashed files are never re-indexed, and the move is an
-// instant same-volume rename. A trashed_items row snapshots everything needed to restore
-// (origin path) or purge (source root + trash path) the item later.
+// children, clean the polymorphic tables) but MOVES the item's files into a bin folder
+// instead of fs.rmSync-ing them. By default that is the library's own hidden
+// <source>/.trash/<token>/ — the scanner ignores all dot-folders, so trashed files are
+// never re-indexed, and the move is an instant same-volume rename. An install-wide bin
+// can be chosen instead (Storage page), in which case files go to <bin>/<library>/<token>/
+// and the move may have to cross volumes. A trashed_items row snapshots everything needed
+// to restore (origin path) or purge (bin root + trash path) the item later.
 //
 // The unit moved is the book's OWN entry, keyed off books.folder_path — which is the
 // book's folder for audiobooks but the single file for ebooks (one file = one book, many
@@ -18,7 +20,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../../db.js";
 import { parsePolicy } from "../../../core/permissions.js";
 import { validateLibrarySource } from "./library-source.js";
-import { pathIsInside, normaliseRelativePath } from "./storage-roots.js";
+import { pathIsInside, normaliseRelativePath, findStorageRootForPath } from "./storage-roots.js";
 import { thumbnailStorageKey, thumbnailAbsolutePath } from "./thumbnail.js";
 import { deleteSharesForResource } from "./share-access.js";
 import { deleteCollectionItemsForResource } from "../../collections/cleanup.js";
@@ -29,14 +31,115 @@ import { faceCropKeysForItem, removeFaceCropFiles } from "../gallery/faces/crop-
 
 const TRASH_DIR = ".trash";
 
-/** Where a library's deleted files physically sit. Inside the library's own folder,
- *  so deleting is a rename within one filesystem rather than a copy across shares —
- *  which also means there is one bin per library, not one for the install. Shown on
- *  the Recycle Bin page: "restore it from the app" is no help when the app is down,
- *  or when the question is which disk the space is still on. */
+/** Where a library's deleted files sit by default: inside the library's own folder, so
+ *  deleting is a rename within one filesystem rather than a copy across shares — which
+ *  also means one bin per library, not one for the install. Only the default; an
+ *  install-wide folder can be chosen on the Storage page (see getTrashRootSetting). */
 export const trashFolderFor = (sourcePath: string): string => path.join(sourcePath, TRASH_DIR);
 const TRASH_RETENTION_KEY = "trash_retention_days";
 const DEFAULT_RETENTION_DAYS = 30;
+const TRASH_ROOT_KEY = "trash_root_path";
+
+/** The install-wide bin folder, or null for the per-library default.
+ *
+ *  Why offer it at all: other software walking the same share indexes `.trash` — Immich's
+ *  external libraries add every file in an import path, and its own docs call the exclusion
+ *  globs unreliable — so a month of deleted photos keeps showing up as live in whatever else
+ *  reads that folder. Moving the bin out of the library tree is the only fix that doesn't
+ *  depend on another tool's ignore rules. */
+export function getTrashRootSetting(): string | null {
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(TRASH_ROOT_KEY) as
+    | { value: string }
+    | undefined;
+  const value = row?.value.trim();
+  return value ? value : null;
+}
+
+/** Is there anything in the bin at all? The location can only change while there is not:
+ *  a bin split across two places is a bin nobody can reason about, and the page that names
+ *  where the files are would be naming only half of them. */
+export function binIsEmpty(): boolean {
+  return (db.prepare("SELECT COUNT(*) AS n FROM trashed_items").get() as { n: number }).n === 0;
+}
+
+/** Vet a candidate bin folder. Same containment rule as a library source — it must sit in
+ *  a configured storage container — plus the rules that are specific to this: it cannot be
+ *  inside a library (the scanner would catalogue deleted files straight back in) and cannot
+ *  contain one (emptying the bin would then be pointed at live files). */
+export function validateTrashRootPath(candidate: string): string {
+  const resolved = path.resolve(candidate);
+  if (!path.isAbsolute(resolved)) {
+    throw new TrashError("Use an absolute server path for the Recycle Bin folder.");
+  }
+
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(resolved);
+  } catch {
+    throw new TrashError(`That folder is missing or not accessible: ${resolved}`);
+  }
+  if (!stat.isDirectory()) throw new TrashError("The Recycle Bin location must be a folder.");
+
+  const real = fs.realpathSync(resolved);
+  if (!findStorageRootForPath(real)) {
+    throw new TrashError("Choose a folder inside a configured Digital Library container.");
+  }
+
+  const libraries = db.prepare("SELECT name, source_path FROM libraries").all() as
+    { name: string; source_path: string }[];
+  for (const library of libraries) {
+    const source = path.resolve(library.source_path);
+    if (pathIsInside(real, source)) {
+      throw new TrashError(
+        `That folder is inside the library "${library.name}", so deleted files would be scanned straight back in. Choose one outside every library.`
+      );
+    }
+    if (pathIsInside(source, real)) {
+      throw new TrashError(
+        `The library "${library.name}" is inside that folder. The Recycle Bin must not contain a library.`
+      );
+    }
+  }
+
+  return real;
+}
+
+export function setTrashRootSetting(rootPath: string | null, userId: string): void {
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_by, updated_at)
+    VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at
+  `).run(TRASH_ROOT_KEY, rootPath ?? "", userId);
+}
+
+/** What a row's trash_path is relative to. NULL trash_root = the library's own folder,
+ *  which is what every row written before the setting existed means. */
+const binRootFor = (item: { source_path: string; trash_root?: string | null }): string =>
+  path.resolve(item.trash_root || item.source_path);
+
+/** The folder holding this row's item directory — `<source>/.trash`, or `<bin>/<library>`.
+ *  Shown on the Recycle Bin page: "restore it from the app" is no help when the app is
+ *  down, or when the question is which disk the space is still on. */
+export function binFolderFor(item: { source_path: string; trash_root?: string | null; trash_path: string }): string {
+  return path.dirname(path.resolve(binRootFor(item), item.trash_path));
+}
+
+/** Move a file or folder, falling back to copy-then-delete across volumes.
+ *
+ *  rename() cannot cross a filesystem boundary (EXDEV), and an install-wide bin is very
+ *  likely on a different disk from some library. The fallback reads and rewrites every
+ *  byte, which is why the Storage page says a bin on other storage makes deleting slower
+ *  instead of instant. */
+function moveEntry(from: string, to: string): void {
+  try {
+    fs.renameSync(from, to);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
+    fs.cpSync(from, to, { recursive: true });
+    fs.rmSync(from, { recursive: true, force: true });
+  }
+}
 
 export interface TrashedItem {
   id: string;
@@ -51,6 +154,16 @@ export interface TrashedItem {
   size_bytes: number;
   /** Thumbnail kept alive for the bin's preview; null for pre-2.11 rows. */
   cover_key: string | null;
+  /** What removed it — a hand delete or a duplicate cleanup. Decides which retention
+   *  clock it was given, and lets the bin separate a cleanup's thousands of rows from
+   *  the handful someone deleted themselves. */
+  source: string;
+  /** When it will be purged, fixed at the moment it was trashed. NULL = kept until the
+   *  bin is emptied by hand. */
+  expires_at: string | null;
+  /** The install-wide bin folder this row's files went into; NULL = the library's own
+   *  `.trash`, which is the default and what every pre-2.23 row means. */
+  trash_root: string | null;
   trashed_by: string | null;
   trashed_at: string;
 }
@@ -118,20 +231,20 @@ function catalogedRelativePaths(bookId: string): string[] {
   return rows.map((row) => row.relative_path);
 }
 
-// Move the book's on-disk entry from the live tree into <root>/.trash/<token>/, keeping
-// each file at its original source-relative path so a restore is a clean inverse.
+// Move the book's on-disk entry from the live tree into its bin directory, keeping each
+// file at its original source-relative path so a restore is a clean inverse. `trashAbs`
+// is that directory, resolved by the caller — it is inside the library for the default
+// bin and somewhere else entirely for an install-wide one.
 // folder_path !== "." → move the single entry (audiobook folder or ebook file) wholesale.
 // folder_path === "." → move each catalogued file individually (root-grouped books).
-function moveEntryIntoTrash(root: string, token: string, row: TrashBookRow): void {
-  const trashAbs = path.join(root, TRASH_DIR, token);
-
+function moveEntryIntoTrash(root: string, trashAbs: string, row: TrashBookRow): void {
   if (row.folder_path === ".") {
     for (const relativePath of catalogedRelativePaths(row.id)) {
       const from = path.resolve(root, relativePath);
       if (!pathIsInside(from, root) || from === root || !fs.existsSync(from)) continue;
       const to = path.join(trashAbs, relativePath);
       fs.mkdirSync(path.dirname(to), { recursive: true });
-      fs.renameSync(from, to);
+      moveEntry(from, to);
     }
     return;
   }
@@ -143,7 +256,7 @@ function moveEntryIntoTrash(root: string, token: string, row: TrashBookRow): voi
   if (!fs.existsSync(from)) return; // already gone from disk; the DB teardown still runs
   const to = path.join(trashAbs, row.folder_path);
   fs.mkdirSync(path.dirname(to), { recursive: true });
-  fs.renameSync(from, to);
+  moveEntry(from, to);
 }
 
 // Pick a free relative path under root, deduping "Name (2).ext" style (extension kept for
@@ -164,8 +277,13 @@ function dedupeRelativePath(root: string, relativePath: string, isDirectory: boo
 // source-relative path. Returns the origin path actually restored to (deduped if the
 // original location is occupied again). dedupe=false is used for trash rollback, where the
 // just-vacated path is guaranteed free and must be restored exactly.
-function moveEntryOutOfTrash(root: string, item: { origin_path: string; trash_path: string }, dedupe: boolean): string {
-  const trashAbs = path.resolve(root, item.trash_path);
+function moveEntryOutOfTrash(
+  root: string,
+  item: { origin_path: string; trash_path: string; source_path?: string; trash_root?: string | null },
+  dedupe: boolean
+): string {
+  // The bin the row actually went into, which is the library itself only by default.
+  const trashAbs = path.resolve(item.trash_root || root, item.trash_path);
 
   if (item.origin_path === ".") {
     // Root-grouped: move each file under the token dir back to its relative path.
@@ -177,7 +295,7 @@ function moveEntryOutOfTrash(root: string, item: { origin_path: string; trash_pa
         const target = dedupe ? dedupeRelativePath(root, relative, false) : relative;
         const to = path.resolve(root, target);
         fs.mkdirSync(path.dirname(to), { recursive: true });
-        fs.renameSync(abs, to);
+        moveEntry(abs, to);
       }
     };
     if (fs.existsSync(trashAbs)) moveTree(trashAbs);
@@ -192,18 +310,22 @@ function moveEntryOutOfTrash(root: string, item: { origin_path: string; trash_pa
     throw new TrashError("Refusing to restore an item outside the library folder.", 500);
   }
   fs.mkdirSync(path.dirname(to), { recursive: true });
-  if (fs.existsSync(from)) fs.renameSync(from, to);
+  if (fs.existsSync(from)) moveEntry(from, to);
   return target;
 }
 
-// Remove the empty token dir (and an emptied .trash) after a move out.
-function pruneEmptyTrashDir(root: string, trashPath: string): void {
+// Remove the empty token dir, and the folder that held it if that is now empty too.
+// The parent is derived from trash_path rather than assumed: `.trash` for the default
+// bin, the library's own folder under an install-wide one. The bin root itself is never
+// removed — it is a folder someone chose, not one this created.
+function pruneEmptyTrashDir(root: string, item: { trash_path: string; trash_root?: string | null }): void {
   try {
-    const trashAbs = path.resolve(root, trashPath);
+    const base = path.resolve(item.trash_root || root);
+    const trashAbs = path.resolve(base, item.trash_path);
     fs.rmSync(trashAbs, { recursive: true, force: true });
-    const trashRoot = path.join(root, TRASH_DIR);
-    if (fs.existsSync(trashRoot) && fs.readdirSync(trashRoot).length === 0) {
-      fs.rmdirSync(trashRoot);
+    const container = path.dirname(trashAbs);
+    if (container !== base && fs.existsSync(container) && fs.readdirSync(container).length === 0) {
+      fs.rmdirSync(container);
     }
   } catch {
     // best-effort housekeeping; a leftover empty dir is harmless (scanner skips it)
@@ -285,9 +407,16 @@ export function libraryAllowsDelete(libraryId: string): boolean {
   return policy.allowDelete !== false;
 }
 
-export function trashBook(bookId: string, userId: string): TrashResult {
+export function trashBook(
+  bookId: string,
+  userId: string,
+  /** Why it is going, which decides how long it is kept. Defaults to a hand delete —
+   *  the safer assumption, since that is the longest-kept kind. */
+  options: { source?: TrashSource } = {}
+): TrashResult {
   const row = loadBookForTrash(bookId);
   if (!row) throw new TrashError("Item not found.", 404);
+  const source = options.source ?? "manual";
 
   // The fail-safe, deliberately HERE rather than at each caller. The item routes
   // check can() before getting this far, but the duplicate finders call straight in
@@ -309,14 +438,22 @@ export function trashBook(bookId: string, userId: string): TrashResult {
   }
 
   const token = nanoid(12);
-  const trashPath = normaliseRelativePath(path.join(TRASH_DIR, token));
+  // Where this row's files go, and what its trash_path is relative to. With an
+  // install-wide bin the library id is a folder inside it, so one bin can hold every
+  // library without two libraries' tokens sharing a directory. Both layouts end in
+  // <container>/<token>, which is what prune and restore rely on.
+  const trashRoot = getTrashRootSetting();
+  const trashPath = normaliseRelativePath(
+    trashRoot ? path.join(row.library_id, token) : path.join(TRASH_DIR, token)
+  );
+  const trashAbs = path.resolve(trashRoot ?? root, trashPath);
 
   // Face-crop thumbnails cascade away as DB rows with the item but live on as files —
   // snapshot their keys now (the teardown deletes the rows) and remove the files once
   // the teardown commits. They regenerate on a restore, like covers do.
   const faceCropKeys = row.library_type === "gallery" ? faceCropKeysForItem(row.id) : [];
 
-  moveEntryIntoTrash(root, token, row);
+  moveEntryIntoTrash(root, trashAbs, row);
 
   // Kept out of the cover sweep below and recorded on the bin row, so the Recycle
   // Bin can show the item rather than just its name.
@@ -328,17 +465,20 @@ export function trashBook(bookId: string, userId: string): TrashResult {
       deleteBookRecord(row.id, row.library_type);
       db.prepare(`
         INSERT INTO trashed_items
-          (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path, file_count, size_bytes, cover_key, trashed_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, library_id, library_type, library_name, source_path, title, origin_path, trash_path,
+           file_count, size_bytes, cover_key, source, expires_at, trash_root, trashed_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         nanoid(16), row.library_id, row.library_type, row.library_name, row.source_path,
-        row.title, row.folder_path, trashPath, row.file_count, row.size_bytes, coverKey, userId
+        row.title, row.folder_path, trashPath, row.file_count, row.size_bytes, coverKey,
+        source, expiryFor(source), trashRoot, userId
       );
     })();
   } catch (err) {
     // Teardown failed and nothing was committed — put the files back so the book stays live.
-    try { moveEntryOutOfTrash(root, { origin_path: row.folder_path, trash_path: trashPath }, false); } catch { /* ignore */ }
-    pruneEmptyTrashDir(root, trashPath);
+    const undo = { origin_path: row.folder_path, trash_path: trashPath, trash_root: trashRoot };
+    try { moveEntryOutOfTrash(root, undo, false); } catch { /* ignore */ }
+    pruneEmptyTrashDir(root, undo);
     throw new TrashError(err instanceof Error ? err.message : "Could not move the item to the Recycle Bin.", 500);
   }
 
@@ -384,7 +524,7 @@ export async function restoreTrashedItem(id: string, deferScan = false): Promise
   }
 
   const restoredPath = moveEntryOutOfTrash(root, item, true);
-  pruneEmptyTrashDir(root, item.trash_path);
+  pruneEmptyTrashDir(root, item);
 
   if (item.library_type === "audiobook") {
     // rescanSingleBook needs a row to scan — revive a stale one at this path or insert fresh,
@@ -420,13 +560,17 @@ function removeTrashFiles(item: TrashedItem): void {
   // The preview thumbnail the bin was holding for this row (see coverToKeep).
   // Every purge path funnels through here, so this is the one place it's dropped.
   removeBinCover(item.cover_key);
-  const root = path.resolve(item.source_path);
+  // The bin this row went into — the library itself by default, the install-wide folder
+  // otherwise. Guarded the same way either way: this can only ever touch <bin>/<...>/<token>.
+  const root = binRootFor(item);
   const abs = path.resolve(root, item.trash_path);
   if (pathIsInside(abs, root) && abs !== root) {
     fs.rmSync(abs, { recursive: true, force: true });
-    const trashRoot = path.join(root, TRASH_DIR);
+    const container = path.dirname(abs);
     try {
-      if (fs.existsSync(trashRoot) && fs.readdirSync(trashRoot).length === 0) fs.rmdirSync(trashRoot);
+      if (container !== root && fs.existsSync(container) && fs.readdirSync(container).length === 0) {
+        fs.rmdirSync(container);
+      }
     } catch { /* ignore */ }
   }
 }
@@ -466,6 +610,43 @@ export function purgeCataloguedItem(itemId: string): boolean {
   return true;
 }
 
+/** Why an item was removed. Two levels only, deliberately: the bin's own setting is the
+ *  default, and duplicate cleanup gets one override. Room for more, but a general
+ *  per-source policy system is more machinery than two answers need. */
+export type TrashSource = "manual" | "duplicate_cleanup";
+
+const CLEANUP_RETENTION_KEY = "trash_retention_days_duplicate_cleanup";
+
+/** How long a cleanup's removals are kept, or null to follow the bin's own setting.
+ *  Stored as a string so "unset" and "0 = keep for ever" stay distinguishable — the
+ *  difference between "I never chose" and "I chose never to purge". */
+export function getCleanupRetentionDays(): number | null {
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(CLEANUP_RETENTION_KEY) as
+    | { value: string }
+    | undefined;
+  if (!row || row.value === "") return null;
+  const parsed = Number.parseInt(row.value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+export function setCleanupRetentionDays(days: number | null): void {
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(CLEANUP_RETENTION_KEY, days == null ? "" : String(days));
+}
+
+/** The moment this item will be purged, decided ONCE, now. Null = keep until the bin is
+ *  emptied by hand. */
+export function expiryFor(source: TrashSource, at = new Date()): string | null {
+  const days = source === "duplicate_cleanup"
+    ? getCleanupRetentionDays() ?? getTrashRetentionDays()
+    : getTrashRetentionDays();
+  if (days <= 0) return null;
+  return new Date(at.getTime() + days * 86_400_000).toISOString();
+}
+
 export function getTrashRetentionDays(): number {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(TRASH_RETENTION_KEY) as
     | { value: string }
@@ -475,17 +656,26 @@ export function getTrashRetentionDays(): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_RETENTION_DAYS; // 0 = never auto-purge
 }
 
+export function setTrashRetentionDays(days: number): void {
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(TRASH_RETENTION_KEY, String(days));
+}
+
 // Auto-purge everything past the retention window. Items whose source volume is currently
 // offline are skipped (so their files aren't orphaned) and retried on the next sweep.
 export function purgeExpiredTrash(): number {
-  const days = getTrashRetentionDays();
-  if (days <= 0) return 0;
+  // Each row carries its own date, written when it was trashed. Changing the setting
+  // now therefore governs only what is deleted from now on — it cannot reach back and
+  // shorten a promise already made.
   const expired = db.prepare(
-    "SELECT * FROM trashed_items WHERE datetime(trashed_at) <= datetime('now', ?)"
-  ).all(`-${days} days`) as TrashedItem[];
+    "SELECT * FROM trashed_items WHERE expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now')"
+  ).all() as TrashedItem[];
   let purged = 0;
   for (const item of expired) {
-    if (!fs.existsSync(path.resolve(item.source_path))) continue;
+    if (!fs.existsSync(binRootFor(item))) continue;
     try {
       removeTrashFiles(item);
       db.prepare("DELETE FROM trashed_items WHERE id = ?").run(item.id);

@@ -13,6 +13,13 @@ import {
   publicStorageRoot,
   type StorageRootRow
 } from "./shared/storage-roots.js";
+import {
+  getTrashRootSetting,
+  setTrashRootSetting,
+  validateTrashRootPath,
+  binIsEmpty,
+  TrashError
+} from "./shared/trash.js";
 
 const storageRootSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -23,7 +30,68 @@ const browseQuerySchema = z.object({
   path: z.string().trim().max(1000).default("")
 });
 
+const trashRootSchema = z.object({
+  // null (or "") puts the bin back inside each library, the default.
+  path: z.string().trim().max(1000).nullable()
+});
+
 export async function storagePlugin(app: FastifyInstance) {
+  // ── The Recycle Bin's location ──────────────────────────────────────────────
+  // One folder for every library, or unset for each library's own .trash. It can only
+  // be changed while the bin is completely empty: every row records the bin it went
+  // into, so old rows would still resolve, but a bin whose files are split across two
+  // places is one nobody can reason about — least of all from the page that names where
+  // the files are.
+  app.get("/api/storage/trash-root", { preHandler: app.requireAdmin }, async () => {
+    const libraryCount = (db.prepare("SELECT COUNT(*) AS n FROM libraries").get() as { n: number }).n;
+    const itemsInBin = (db.prepare("SELECT COUNT(*) AS n FROM trashed_items").get() as { n: number }).n;
+    return {
+      path: getTrashRootSetting(),
+      libraryCount,
+      itemsInBin,
+      editable: itemsInBin === 0
+    };
+  });
+
+  app.put("/api/storage/trash-root", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const parsed = parseBody(trashRootSchema, request.body);
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid Recycle Bin location", details: parsed.error });
+      return;
+    }
+    if (!binIsEmpty()) {
+      reply.code(409).send({
+        error: "The Recycle Bin still holds items. Restore or permanently delete them first, then change the location — moving it now would leave those files behind."
+      });
+      return;
+    }
+
+    const wanted = parsed.data.path?.trim() ? parsed.data.path.trim() : null;
+    let resolved: string | null = null;
+    if (wanted) {
+      try {
+        resolved = validateTrashRootPath(wanted);
+      } catch (err) {
+        reply.code(err instanceof TrashError ? err.statusCode : 400)
+          .send({ error: err instanceof Error ? err.message : "Invalid Recycle Bin location" });
+        return;
+      }
+    }
+
+    setTrashRootSetting(resolved, request.user!.id);
+    logActivity({
+      event: "storage.trash_root.changed",
+      actorUserId: request.user!.id,
+      targetType: "setting",
+      targetId: "trash_root",
+      detail: resolved
+        ? `Recycle Bin location set to ${resolved} for every library.`
+        : "Recycle Bin location reset to each library's own .trash folder.",
+      ipAddress: request.ip
+    });
+    reply.send({ path: resolved });
+  });
+
   app.get("/api/storage/roots", { preHandler: app.requireAdmin }, async () => {
     const rows = db.prepare(`
       SELECT

@@ -32,10 +32,16 @@ interface ApiErrorPayload {
 export class ApiError extends Error {
   status: number;
 
-  constructor(message: string, status: number) {
+  /** The parsed error body, for the routes that send more than a sentence — a refused
+   *  duplicate deletion returns which copies moved and why, and the page can only say
+   *  so if the payload survives being turned into an Error. */
+  body: unknown;
+
+  constructor(message: string, status: number, body?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -82,7 +88,11 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
           .join("; ")
       : "";
     const formMessage = payload.details?.formErrors?.join("; ") ?? "";
-    throw new ApiError(fieldMessage || formMessage || payload.error || "Request failed", response.status);
+    throw new ApiError(
+      fieldMessage || formMessage || payload.error || "Request failed",
+      response.status,
+      payload
+    );
   }
 
   return response.json() as Promise<T>;
