@@ -4,9 +4,10 @@ All styles are imported by [`apps/web/src/styles.css`](../apps/web/src/styles.cs
 
 ```
 tokens → base → auth → layout → components → home → player →
-library-browse → library-collections → book-detail → category-images →
-book-media → ebook-reader → metadata-modal → admin → about →
-share → filter → install → offline → theme-picker → responsive
+library-browse → gallery → family-tree → library-collections →
+book-detail → category-images → book-media → ebook-reader →
+metadata-modal → admin → duplicates → about → share → filter →
+install → offline → theme-picker → responsive
 ```
 
 ### Stylesheet inventory
@@ -21,13 +22,16 @@ share → filter → install → offline → theme-picker → responsive
 | `home.css` | Home dashboard — Continue / Recently added feeds |
 | `player.css` | Audio player widget |
 | `library-browse.css` | Main audiobook catalog / landing + shared browse toolbar (split from `library.css`) |
+| `gallery.css` | Photo/video timeline + folder grid and the full-screen lightbox |
+| `family-tree.css` | People grid, person profile, pickers, and the SVG chart |
 | `library-collections.css` | Category, series & people pages (split from `library.css`) |
 | `book-detail.css` | Audiobook book detail + tags (split from `library.css`) |
 | `category-images.css` | Category icon/image for admin + browse cards (split from `library.css`) |
 | `book-media.css` | Book files, companion documents, in-app reader (split from `library.css`) |
 | `ebook-reader.css` | Immersive EPUB reader (foliate-js) — full-screen, own light/sepia/dark theme |
 | `metadata-modal.css` | Metadata lookup modal + cover-picker tab (split from `library.css`) |
-| `admin.css` | Control Center — all admin/management pages |
+| `admin.css` | Control Center — the shell and every page except the duplicate ones |
+| `duplicates.css` | Duplicate cleanup (split from `admin.css`; also carried the two duplicate pages it replaced) |
 | `about.css` | About page and version timeline |
 | `share.css` | Public guest share page (no app shell) |
 | `filter.css` | Filter button + popup + active-filter chips for the audiobook grid |
@@ -39,9 +43,9 @@ share → filter → install → offline → theme-picker → responsive
 > **Coverage:** the detailed per-class sections below were written for the original
 > foundational stylesheets (`tokens`, `base`, `auth`, `layout`, `components`,
 > `player`, `admin`, `about`, `responsive`). The feature stylesheets added since —
-> `home`, the files split out of the old `library.css`, `ebook-reader`, `share`,
-> `filter`, `install`, `offline`, `theme-picker` — are inventoried above but not yet
-> enumerated class-by-class.
+> `home`, the files split out of the old `library.css`, `gallery`, `family-tree`,
+> `duplicates`, `ebook-reader`, `share`, `filter`, `install`, `offline`,
+> `theme-picker` — are inventoried above but not yet enumerated class-by-class.
 
 ---
 
@@ -325,6 +329,20 @@ Large tabbed modal for editing book metadata and searching external sources.
 | `.log-event-cell` / `.event-category` | Event category chip; colors per category (`.cat-auth`, `.cat-invite`, `.cat-library` …) |
 | `.event-action` | Action name text in log rows |
 | `.log-pager` | Prev / page info / next pagination row |
+
+### Recycle Bin (`/control/libraries/recycle-bin`)
+| Class | What it styles |
+|---|---|
+| `.trash-status` | What the bin holds — items, space, files |
+| `.trash-bins` | Where the files are on disk, one folder per library |
+| `.trash-retention` / `.trash-retention-row` | The two retention windows: the bin's own, and duplicate cleanup's |
+| `.trash-toolbar` / `.trash-toolbar-controls` | Library + source filters left, sort and page size right |
+| `.trash-grid` / `.trash-tile` | Tile per deleted item |
+| `.trash-thumb` | The cover kept when the item was deleted (4:3, icon fallback) |
+| `.trash-tile-name` / `.trash-tile-line` / `.trash-tile-actions` | Tile contents: name, detail lines, restore + delete |
+
+### Missing photos (`/control/utilities/missing-photos`)
+`.missing-retention-row` — auto-purge window input. `.missing-thumb` — last-known thumbnail. `.missing-path` — wrapping relative path.
 
 ### Status / health (`/control/overview`)
 `.health-line` / `.health-dot` — live service health indicator. `.status-grid` — 3-column metrics grid. `.status-metric` — individual metric card (label + large value).

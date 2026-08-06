@@ -6,102 +6,36 @@ import type Database from "better-sqlite3";
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 // The whole schema lives in schema.sql and is idempotent (CREATE TABLE IF NOT
-// EXISTS), so a fresh database is built in one pass with no migration history to
-// replay. Version 2.0.0 folded migrations 2-22 back into schema.sql and reset
-// the baseline; `migrations` is empty again and grows only when a released
-// schema has to change in a way schema.sql alone can't apply to existing data
-// (a new column on an existing table, or a widened CHECK).
-const baseline = 23;
+// EXISTS), so a database is built in one pass with no migration history to replay.
+//
+// `migrations` is empty, and has been reset twice now. 2.0.0 folded 2-22 back into
+// schema.sql; 3.0.0 folds 24-31 the same way, because 3.0.0 does not upgrade an
+// earlier database at all — it is a fresh install, so a chain of ALTER TABLEs against
+// a 2.x file is code that can never run. It grows again only when a RELEASED 3.x
+// schema has to change in a way schema.sql alone cannot apply to existing data: a new
+// column on an existing table, or a widened CHECK.
+const baseline = 32;
 
-// Databases stamped below this were completed by the migrations that 2.0.0
-// removed. 22 (the last 1.x version) is already fully migrated and adopts the
-// new baseline untouched; anything older is missing columns nothing here can
-// add back, so it stops the server instead of failing later at a query.
-const LAST_LEGACY_VERSION = 22;
+// 3.0.0 starts from an empty database. 31 is the last 2.x schema and is structurally
+// identical to a fresh 3.0.0 one — every column and table matches — so it adopts the
+// new baseline untouched. Anything older is missing columns nothing here can add back,
+// so it stops the server rather than failing later at a query.
+const LAST_LEGACY_VERSION = 31;
 
-// ALTER TABLE ADD COLUMN is the one thing schema.sql can't do for an existing
-// database — and schema.sql has already run by the time migrations replay, so a
-// fresh file arrives here with the column present. Guard every add.
-function hasColumn(db: Database.Database, table: string, column: string): boolean {
-  return (db.pragma(`table_info(${table})`) as { name: string }[]).some((c) => c.name === column);
-}
-
-const migrations: { version: number; up: (db: Database.Database) => void }[] = [
-  {
-    // Email as an alternative second factor: which method a user chose, plus the
-    // emailed code (hash + resend budget) carried on the challenge row.
-    version: 24,
-    up: (db) => {
-      if (!hasColumn(db, "users", "mfa_method")) {
-        db.exec(
-          "ALTER TABLE users ADD COLUMN mfa_method TEXT NOT NULL DEFAULT 'totp' CHECK (mfa_method IN ('totp', 'email'))"
-        );
-      }
-      // Pending challenges from before the upgrade have no purpose/code columns;
-      // they're seconds-lived, so defaults are enough — nothing needs backfilling.
-      if (!hasColumn(db, "mfa_challenges", "purpose")) {
-        db.exec("ALTER TABLE mfa_challenges ADD COLUMN purpose TEXT NOT NULL DEFAULT 'login'");
-      }
-      if (!hasColumn(db, "mfa_challenges", "code_hash")) {
-        db.exec("ALTER TABLE mfa_challenges ADD COLUMN code_hash TEXT");
-      }
-      if (!hasColumn(db, "mfa_challenges", "sends")) {
-        db.exec("ALTER TABLE mfa_challenges ADD COLUMN sends INTEGER NOT NULL DEFAULT 0");
-      }
-      if (!hasColumn(db, "mfa_challenges", "last_sent_at")) {
-        db.exec("ALTER TABLE mfa_challenges ADD COLUMN last_sent_at TEXT");
-      }
-    }
-  },
-  {
-    // Duplicate photo detection: a content digest per gallery asset, plus the
-    // modified_at it was taken from so an edited file rehashes instead of grouping
-    // on a stale digest. Both stay NULL until the duplicate scan hashes the asset —
-    // nothing to backfill. The gallery_duplicate_* tables are new, so schema.sql
-    // creates them on its own.
-    version: 25,
-    up: (db) => {
-      if (!hasColumn(db, "gallery_details", "content_hash")) {
-        db.exec("ALTER TABLE gallery_details ADD COLUMN content_hash TEXT");
-      }
-      if (!hasColumn(db, "gallery_details", "content_hash_at")) {
-        db.exec("ALTER TABLE gallery_details ADD COLUMN content_hash_at TEXT");
-      }
-      // Has to be here rather than in schema.sql, which runs before this and would hit
-      // a column that doesn't exist yet on an existing database. Migrations replay on a
-      // fresh file too, so this is the one place that covers both.
-      db.exec("CREATE INDEX IF NOT EXISTS idx_gallery_content_hash ON gallery_details(content_hash) WHERE content_hash IS NOT NULL");
-    }
-  },
-  {
-    // The Recycle Bin shows each item's cover, which means the thumbnail has to
-    // survive the trip to the bin instead of being deleted with the catalogue row.
-    // Stays NULL for anything trashed before this — those rows fall back to a
-    // media-type icon, and there is no thumbnail left to backfill from.
-    version: 26,
-    up: (db) => {
-      if (!hasColumn(db, "trashed_items", "cover_key")) {
-        db.exec("ALTER TABLE trashed_items ADD COLUMN cover_key TEXT");
-      }
-    }
-  }
-];
+const migrations: { version: number; up: (db: Database.Database) => void }[] = [];
 
 function userVersion(db: Database.Database): number {
   return db.pragma("user_version", { simple: true }) as number;
 }
 
 export function migrate(db: Database.Database): void {
-  // 0 = a brand-new file; schema.sql below builds it complete. Anything from 1
-  // to LAST_LEGACY_VERSION - 1 is a partially-migrated 1.x database whose
-  // remaining steps no longer exist — refuse rather than stamp it current and
-  // let it fail later on a missing column.
+  // 0 = a brand-new file; schema.sql below builds it complete.
   const existing = userVersion(db);
   if (existing > 0 && existing < LAST_LEGACY_VERSION) {
     throw new Error(
-      `This database is from an older version (schema ${existing}) and can't be upgraded directly to 2.x. ` +
-      "Update to 1.16.0 first — it applies the remaining steps — then start this version again. " +
-      "Alternatively, start from an empty database (libraries rescan; export the family tree as GEDCOM first)."
+      `This database is from an older version (schema ${existing}). 3.0.0 is a new install rather than an upgrade, ` +
+      "so it cannot be carried across. Start from an empty database — libraries rescan from their files. " +
+      "Export the family tree as GEDCOM first: it is the one thing that cannot be rebuilt from disk."
     );
   }
 

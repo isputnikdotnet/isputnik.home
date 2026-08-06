@@ -13,14 +13,14 @@ import {
   deleteJob,
   galleryLibraryOptions,
   getJob,
+  jobFolderOptions,
   jobPreferenceFor,
   reassignJob,
   recentJobs,
   setJobFolderPreferences,
   setJobStatus,
   updateJobScope
-} from "../src/modules/library/gallery/duplicate-jobs.js";
-import { setFolderPreferences } from "../src/modules/library/gallery/duplicates.js";
+} from "../src/modules/library/gallery/duplicates/jobs.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 const EXTERNAL = JSON.stringify({ mode: "external" });
@@ -38,6 +38,20 @@ beforeEach(() => {
 
 const start = (libraries = ["GAL", "GAL2"], owner = "u1") =>
   createJob({ ownerUserId: owner, libraryIds: libraries });
+
+// A catalogued photo at a path. Enough for the folder list, which reads the catalogue
+// and never touches a fingerprint.
+function photo(id: string, library: string, relativePath: string, deleted = false): string {
+  db.prepare(`
+    INSERT INTO library_items (id, library_id, type, folder_path, status, deleted_at)
+    VALUES (?, ?, 'gallery', ?, 'ready', ?)
+  `).run(id, library, relativePath, deleted ? new Date().toISOString() : null);
+  db.prepare(`
+    INSERT INTO gallery_details (item_id, kind, relative_path, size, modified_at)
+    VALUES (?, 'photo', ?, 1000, 'm1')
+  `).run(id, relativePath);
+  return id;
+}
 
 describe("the wizard's library list", () => {
   it("offers photo libraries only, and says which may not be deleted from", () => {
@@ -188,94 +202,100 @@ describe("scope, locked once the scan has run", () => {
 });
 
 describe("folder preferences", () => {
-  it("seeds from the global instructions, then goes its own way", () => {
-    setFolderPreferences([
-      { libraryId: "GAL", folderPath: "Photos", mode: "keep" },
-      { libraryId: "GAL2", folderPath: "Dump", mode: "clear" }
-    ]);
-
+  // A cleanup's instructions are its own and start empty. There WAS an install-wide
+  // set that seeded every new job; its only editor was on the pages that have since
+  // been retired, and a standing rule nobody can edit is worse than no standing rule.
+  it("start empty on a new cleanup", () => {
     const created = start(["GAL", "GAL2"]);
     if (!created.ok) throw new Error("expected a job");
-    expect(created.job.folderPreferences).toEqual([
-      { libraryId: "GAL", folderPath: "Photos", mode: "keep" },
-      { libraryId: "GAL2", folderPath: "Dump", mode: "clear" }
-    ]);
-
-    setJobFolderPreferences(created.job.id, "u1", [
-      { libraryId: "GAL", folderPath: "Photos", mode: "clear" }
-    ]);
-
-    // The job changed; the global set the older pages read did not.
-    expect(getJob(created.job.id)?.folderPreferences).toEqual([
-      { libraryId: "GAL", folderPath: "Photos", mode: "clear" }
-    ]);
-    const global = db.prepare("SELECT value FROM app_settings WHERE key LIKE '%folder%'").get() as
-      | { value: string }
-      | undefined;
-    expect(JSON.parse(global!.value)).toEqual([
-      { libraryId: "GAL", folderPath: "Photos", mode: "keep" },
-      { libraryId: "GAL2", folderPath: "Dump", mode: "clear" }
-    ]);
+    expect(created.job.folderPreferences).toEqual([]);
   });
 
-  it("only seeds preferences for libraries the job covers", () => {
-    setFolderPreferences([
+  it("are kept per job, so one cleanup's instructions never reach another", () => {
+    const first = start(["GAL", "GAL2"]);
+    if (!first.ok) throw new Error("expected a job");
+    setJobFolderPreferences(first.job.id, "u1", [
+      { libraryId: "GAL", folderPath: "Photos", mode: "keep" }
+    ]);
+    expect(getJob(first.job.id)?.folderPreferences).toEqual([
+      { libraryId: "GAL", folderPath: "Photos", mode: "keep" }
+    ]);
+
+    completeJob(first.job.id, "u1", true);
+    const second = start(["GAL", "GAL2"]);
+    if (!second.ok) throw new Error("expected a second job");
+    expect(second.job.folderPreferences).toEqual([]);
+  });
+
+  it("ignores an instruction for a library the job does not cover", () => {
+    const created = start(["GAL"]);
+    if (!created.ok) throw new Error("expected a job");
+    setJobFolderPreferences(created.job.id, "u1", [
       { libraryId: "GAL", folderPath: "Photos", mode: "keep" },
       { libraryId: "GAL2", folderPath: "Dump", mode: "clear" }
     ]);
-    const created = start(["GAL"]);
-    if (!created.ok) throw new Error("expected a job");
-    expect(created.job.folderPreferences).toEqual([
+    expect(getJob(created.job.id)?.folderPreferences).toEqual([
       { libraryId: "GAL", folderPath: "Photos", mode: "keep" }
     ]);
   });
 
   it("drops a preference whose library leaves the job", () => {
-    setFolderPreferences([{ libraryId: "GAL2", folderPath: "Dump", mode: "clear" }]);
     const created = start(["GAL", "GAL2"]);
     if (!created.ok) throw new Error("expected a job");
-    expect(created.job.folderPreferences).toHaveLength(1);
+    setJobFolderPreferences(created.job.id, "u1", [
+      { libraryId: "GAL2", folderPath: "Dump", mode: "clear" }
+    ]);
+    expect(getJob(created.job.id)?.folderPreferences).toHaveLength(1);
 
     const updated = updateJobScope(created.job.id, "u1", { libraryIds: ["GAL"] });
     if (!updated.ok) throw new Error("expected the update to land");
-    expect(updated.job.folderPreferences).toEqual([]);
-  });
-
-  // "Clear out" means "let this folder's copies go", which an external library can't
-  // do — its files are not ours to remove. Stored, it would be an instruction the
-  // scan has to ignore later, which is how a keeper choice starts disagreeing with
-  // the page that set it.
-  it("refuses to store a Clear on a library nothing may be deleted from", () => {
-    makeLibrary("EXT", { createdBy: "u1", type: "gallery", policyJson: EXTERNAL });
-    const created = start(["GAL", "EXT"]);
-    if (!created.ok) throw new Error("expected a job");
-
-    const saved = setJobFolderPreferences(created.job.id, "u1", [
-      { libraryId: "EXT", folderPath: "Sync", mode: "clear" },
-      { libraryId: "EXT", folderPath: "Keepers", mode: "keep" },
-      { libraryId: "GAL", folderPath: "Dump", mode: "clear" }
-    ]);
-    if (!saved.ok) throw new Error("expected the save to land");
-    expect(saved.job.folderPreferences).toEqual([
-      { libraryId: "EXT", folderPath: "Keepers", mode: "keep" },
-      { libraryId: "GAL", folderPath: "Dump", mode: "clear" }
-    ]);
-  });
-
-  it("ignores a preference for a library the job never included", () => {
-    const created = start(["GAL"]);
-    if (!created.ok) throw new Error("expected a job");
-    const saved = setJobFolderPreferences(created.job.id, "u1", [
-      { libraryId: "GAL2", folderPath: "Anywhere", mode: "keep" }
-    ]);
-    if (!saved.ok) throw new Error("expected the save to land");
-    expect(saved.job.folderPreferences).toEqual([]);
+    expect(getJob(created.job.id)?.folderPreferences).toEqual([]);
   });
 });
 
-// Inheritance is derived, which is why the proposal's inherited_from and locked
-// columns aren't in the schema: the answer is a function of the list plus the path,
-// and a stored copy can only drift from it.
+describe("the folders an instruction can be attached to", () => {
+  it("lists every folder holding photos, with its count", () => {
+    photo("p1", "GAL", "2024/Trip/one.jpg");
+    photo("p2", "GAL", "2024/Trip/two.jpg");
+    photo("p3", "GAL", "2024/other.jpg");
+
+    expect(jobFolderOptions(["GAL"])).toEqual([
+      { libraryId: "GAL", libraryName: "GAL", folderPath: "2024", photoCount: 1, isProtected: false },
+      { libraryId: "GAL", libraryName: "GAL", folderPath: "2024/Trip", photoCount: 2, isProtected: false }
+    ]);
+  });
+
+  // Before the scan there are no duplicates to list folders BY — which is the whole
+  // reason this reads the catalogue rather than a scan's results.
+  it("lists them without a scan having run", () => {
+    photo("p1", "GAL", "one.jpg");
+    expect(db.prepare("SELECT COUNT(*) AS n FROM duplicate_job_results").get()).toEqual({ n: 0 });
+    // A photo at the library root belongs to the library itself, which is the row an
+    // instruction about the whole library is attached to.
+    expect(jobFolderOptions(["GAL"])).toEqual([
+      { libraryId: "GAL", libraryName: "GAL", folderPath: "", photoCount: 1, isProtected: false }
+    ]);
+  });
+
+  it("covers only the libraries asked for, and skips deleted photos", () => {
+    photo("p1", "GAL", "Kept/one.jpg");
+    photo("p2", "GAL2", "Elsewhere/two.jpg");
+    photo("p3", "GAL", "Gone/three.jpg", true);
+
+    expect(jobFolderOptions(["GAL"]).map((option) => option.folderPath)).toEqual(["Kept"]);
+    expect(jobFolderOptions(["GAL", "GAL2"]).map((option) => option.folderPath)).toEqual(["Kept", "Elsewhere"]);
+    expect(jobFolderOptions([])).toEqual([]);
+  });
+
+  // The wizard greys out "clear" for these: their files are not ours to remove, so the
+  // instruction could only ever be ignored.
+  it("says which libraries nothing can be cleared out of", () => {
+    makeLibrary("EXT", { createdBy: "u1", type: "gallery", policyJson: EXTERNAL });
+    photo("p1", "EXT", "Archive/one.jpg");
+    expect(jobFolderOptions(["EXT"])[0]).toMatchObject({ folderPath: "Archive", isProtected: true });
+  });
+});
+
 describe("which instruction applies to a path", () => {
   const preferences = [
     { libraryId: "GAL", folderPath: "", mode: "keep" as const },

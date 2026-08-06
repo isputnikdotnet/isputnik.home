@@ -14,6 +14,7 @@ export function ConfirmDialog({
   danger = false,
   busy = false,
   rich = false,
+  confirmDisabled = false,
   error,
   onConfirm,
   onCancel,
@@ -31,6 +32,10 @@ export function ConfirmDialog({
   busy?: boolean;
   /** Children already contain block markup (<p>…); skip the default <p> wrapper. */
   rich?: boolean;
+  /** The action can't go ahead — the children say why. Distinct from `busy`: that one
+   *  means "wait", this one means "not as things stand". Cancel stays available either
+   *  way, so the dialog is never a dead end. */
+  confirmDisabled?: boolean;
   error?: string;
   onConfirm: () => void;
   onCancel: () => void;
@@ -44,7 +49,7 @@ export function ConfirmDialog({
         <Button variant="secondary" onClick={onCancel} disabled={busy} autoFocus>
           Cancel
         </Button>
-        <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={busy}>
+        <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={busy || confirmDisabled}>
           {confirmIcon}
           {busy ? busyLabel ?? confirmLabel : confirmLabel}
         </Button>

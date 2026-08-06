@@ -34,7 +34,6 @@ describe("scheduled jobs registry", () => {
       "cleanup_job_logs",
       "convert_unplayable_videos",
       "empty_recycle_bin",
-      "find_duplicate_photos",
       "purge_missing_gallery",
       "scan_audiobook_libraries",
       "scan_ebook_libraries",
@@ -48,8 +47,6 @@ describe("scheduled jobs registry", () => {
     expect(byKey.scan_new_faces).toMatchObject({ enabled: true, frequency: "daily", time: "05:00" });
     expect(byKey.cleanup_job_logs).toMatchObject({ enabled: true, frequency: "weekly", time: "00:30" });
     expect(byKey.empty_recycle_bin).toMatchObject({ enabled: true, frequency: "weekly", time: "00:45" });
-    // Slots between the video conversions (01:45) and the face scan (05:00).
-    expect(byKey.find_duplicate_photos).toMatchObject({ enabled: true, frequency: "weekly", time: "02:15" });
     expect(byKey.scan_audiobook_libraries).toMatchObject({ enabled: true, frequency: "daily" });
     expect(byKey.scan_ebook_libraries).toMatchObject({ enabled: true, frequency: "daily" });
     expect(byKey.scan_gallery_libraries).toMatchObject({ enabled: true, frequency: "daily" });
@@ -71,11 +68,10 @@ describe("scheduled jobs registry", () => {
   it("lists jobs grouped by category, then by name", () => {
     const jobs = listScheduledJobs();
     expect(jobs.map((j) => j.category)).toEqual([
-      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "gallery", "system", "system"
+      "audiobooks", "ebooks", "gallery", "gallery", "gallery", "gallery", "system", "system"
     ]);
     expect(jobs.filter((j) => j.category === "gallery").map((j) => j.label)).toEqual([
       "Convert unplayable videos",
-      "Find duplicate photos",
       "Purge missing photos",
       "Scan new photos for faces",
       "Scan photo & video libraries"
@@ -89,7 +85,6 @@ describe("scheduled jobs registry", () => {
       cleanup_job_logs: "system",
       convert_unplayable_videos: "gallery",
       empty_recycle_bin: "system",
-      find_duplicate_photos: "gallery",
       purge_missing_gallery: "gallery",
       scan_audiobook_libraries: "audiobooks",
       scan_ebook_libraries: "ebooks",
@@ -108,7 +103,6 @@ describe("scheduled jobs registry", () => {
       "cleanup_job_logs",
       "convert_unplayable_videos",
       "empty_recycle_bin",
-      "find_duplicate_photos",
       "purge_missing_gallery",
       "scan_audiobook_libraries",
       "scan_ebook_libraries",
@@ -234,35 +228,6 @@ describe("clean task history", () => {
     for (let i = 0; i < 105; i++) insertJob(`c${i}`, "completed", i + 1);
     const result = runScheduledJob("cleanup_job_logs", null);
     expect(result?.lastMessage).toContain("Removed 5 old job records");
-  });
-});
-
-describe("find duplicate photos", () => {
-  const queued = () =>
-    (db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE type = 'SCAN_GALLERY_DUPLICATES' AND status = 'pending'")
-      .get() as { n: number }).n;
-
-  it("queues a scan and never deletes anything itself", () => {
-    const result = runScheduledJob("find_duplicate_photos", null);
-    expect(result?.lastStatus).toBe("success");
-    expect(result?.lastMessage).toContain("Queued a duplicate photo scan");
-    expect(queued()).toBe(1);
-  });
-
-  it("doesn't double-queue when a scan is already waiting", () => {
-    runScheduledJob("find_duplicate_photos", null);
-    const second = runScheduledJob("find_duplicate_photos", null);
-    expect(second?.lastMessage).toContain("already queued or running");
-    expect(queued()).toBe(1);
-  });
-
-  it("stands aside while a library or face scan is running", () => {
-    db.prepare(
-      "INSERT INTO jobs (id, type, payload, status) VALUES ('busy', 'SCAN_GALLERY_LIBRARY', '{}', 'running')"
-    ).run();
-    const result = runScheduledJob("find_duplicate_photos", null);
-    expect(result?.lastMessage).toContain("already running");
-    expect(queued()).toBe(0);
   });
 });
 

@@ -4,13 +4,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../src/db.js";
 import { EVERYONE_GROUP_ID } from "../src/core/permissions.js";
-import { createJob, getJob, setJobFolderPreferences } from "../src/modules/library/gallery/duplicate-jobs.js";
+import { createJob, getJob, setJobFolderPreferences } from "../src/modules/library/gallery/duplicates/jobs.js";
 import {
   runJobScan, listJobResults, countJobResults, keeperFoldersOf
-} from "../src/modules/library/gallery/duplicate-job-scan.js";
+} from "../src/modules/library/gallery/duplicates/job-scan.js";
 import {
   applyPreferences, dismissResult, markResult
-} from "../src/modules/library/gallery/duplicate-job-review.js";
+} from "../src/modules/library/gallery/duplicates/job-review.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 function asset(id: string, relativePath: string, hash: string, library = "GAL"): string {

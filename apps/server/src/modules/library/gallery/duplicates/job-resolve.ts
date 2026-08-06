@@ -12,10 +12,11 @@
 // hand each doomed photo's tags, albums, collections and tagged people to the copy
 // that survives it, and only then move the file to the Recycle Bin. Nothing is ever
 // erased — trashBook refuses outright for a library the app may only read.
-import { db, logActivity } from "../../../db.js";
-import { trashBook, libraryAllowsDelete } from "../shared/trash.js";
-import { absorbDuplicateMetadata } from "./duplicates.js";
-import { getJob, recordAction, type JobOutcome } from "./duplicate-jobs.js";
+import { db, logActivity } from "../../../../db.js";
+import { trashBook, libraryAllowsDelete } from "../../shared/trash.js";
+import { absorbDuplicateMetadata } from "./items.js";
+import { getJob, recordAction, type JobOutcome } from "./jobs.js";
+import { sweepableResultIds, type ResultFilter } from "./job-scan.js";
 
 /** Why a member can no longer be acted on. Each one is a different sentence on the
  *  page, because each has a different remedy. */
@@ -45,6 +46,7 @@ interface MemberRow {
   size_snapshot: number | null;
   mtime_snapshot: string | null;
   content_hash: string | null;
+  distance: number;
   role: "keep" | "delete" | "protected";
   status: string;
   keeper_member_id: string | null;
@@ -53,7 +55,7 @@ interface MemberRow {
 const membersOf = (resultId: string): MemberRow[] =>
   db.prepare(`
     SELECT id, item_id, library_id, path, size_snapshot, mtime_snapshot, content_hash,
-           role, status, keeper_member_id
+           distance, role, status, keeper_member_id
     FROM duplicate_job_result_members WHERE result_id = ? ORDER BY role DESC, path
   `).all(resultId) as MemberRow[];
 
@@ -145,6 +147,59 @@ export function checkResult(jobId: string, resultId: string): ResultCheck | null
   return { resultId, ok: problems.length === 0, members: checks, problems };
 }
 
+export interface SweepOutcome {
+  /** Sets cleared completely. */
+  results: number;
+  /** Copies moved to the Recycle Bin. */
+  deleted: number;
+  bytes: number;
+  /** Sets left alone because something had moved since the scan. */
+  skipped: number;
+  /** Individual copies the Recycle Bin refused. */
+  failed: number;
+}
+
+/** Clear every byte-identical set the current filters leave on screen.
+ *
+ *  Per RESULT, not per sweep: a set whose copies have moved since the scan is skipped
+ *  and the rest go ahead, because refusing the whole sweep over one stale photo would
+ *  make the button useless on exactly the libraries that need it most. Each result
+ *  still gets the same all-or-nothing revalidation it would get on its own — this only
+ *  presses the same button repeatedly, it does not take a shortcut through the checks.
+ *
+ *  What it may touch is decided by sweepableResultIds, which forces the exact tier. */
+export function sweepJobResults(
+  jobId: string,
+  userId: string,
+  filter: ResultFilter = {}
+): JobOutcome<SweepOutcome> {
+  const job = getJob(jobId);
+  if (!job) return { ok: false, refused: "not_found" };
+  if (job.ownerUserId !== userId) return { ok: false, refused: "not_owner" };
+  if (job.status !== "review" && job.status !== "paused" && job.status !== "processing") {
+    return { ok: false, refused: "not_reviewable", detail: job.status };
+  }
+
+  const totals: SweepOutcome = { results: 0, deleted: 0, bytes: 0, skipped: 0, failed: 0 };
+  for (const resultId of sweepableResultIds(jobId, filter)) {
+    const outcome = resolveJobResult(jobId, userId, resultId);
+    if (!outcome.ok) { totals.skipped += 1; continue; }
+    totals.results += 1;
+    totals.deleted += outcome.job.deletedItemIds.length;
+    totals.bytes += outcome.job.reclaimedBytes;
+    totals.failed += outcome.job.failed.length;
+  }
+
+  recordAction({
+    jobId, userId, action: "results.swept",
+    status: totals.skipped > 0 || totals.failed > 0 ? "partial" : "ok",
+    details: `${totals.deleted} copies from ${totals.results} identical sets`
+      + (totals.skipped > 0 ? `, ${totals.skipped} skipped as changed` : "")
+      + (totals.failed > 0 ? `, ${totals.failed} refused` : "") + "."
+  });
+  return { ok: true, job: totals };
+}
+
 export interface ResolveOutcome {
   resultId: string;
   deletedItemIds: string[];
@@ -204,10 +259,16 @@ export function resolveJobResult(
       continue;
     }
     // Hand over the hand-filed work first, so nothing filed by a person is lost with
-    // the file. The copies are byte-identical, so tagged faces still line up.
-    absorbDuplicateMetadata(keeper.item_id, [member.item_id]);
+    // the file.
+    //
+    // Faces are the exception, and the distance is what decides. On a byte-identical
+    // copy the pixels are the same, so a face box drawn on one describes the same spot
+    // on the other. A near-identical copy is a DIFFERENT image — resized, re-cropped,
+    // re-compressed — and its boxes are normalised to its own frame, so moving them
+    // would land rectangles on the wrong part of the keeper.
+    absorbDuplicateMetadata(keeper.item_id, [member.item_id], { moveFaces: member.distance === 0 });
     try {
-      trashBook(member.item_id, userId);
+      trashBook(member.item_id, userId, { source: "duplicate_cleanup" });
       deletedItemIds.push(member.item_id);
       reclaimed += member.size_snapshot ?? 0;
       markMember.run("deleted", member.id);

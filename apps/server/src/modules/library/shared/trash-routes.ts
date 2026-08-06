@@ -14,8 +14,11 @@ import {
   scanForRestored,
   purgeTrashedItem,
   emptyTrash,
-  trashFolderFor,
+  binFolderFor,
   getTrashRetentionDays,
+  setTrashRetentionDays,
+  getCleanupRetentionDays,
+  setCleanupRetentionDays,
   TrashError,
   type TrashedItem
 } from "./trash.js";
@@ -35,15 +38,11 @@ function canManageTrashItem(user: AuthUser, item: Pick<TrashedItem, "library_id"
   return can(user, { objectType: "library", objectId: lib.id, policy: parsePolicy(lib.policy_json) }, "manage");
 }
 
-// Timestamps are stored as ISO-8601 UTC (see schema.sql / nowIso) → epoch ms.
-function parseSqliteUtc(value: string): number {
-  return Date.parse(value);
-}
-
-function serializeTrashedItem(row: TrashedItem & { trashed_by_name: string | null }, retentionDays: number) {
-  const purgesAt = retentionDays > 0
-    ? new Date(parseSqliteUtc(row.trashed_at) + retentionDays * 24 * 60 * 60 * 1000).toISOString()
-    : null;
+function serializeTrashedItem(row: TrashedItem & { trashed_by_name: string | null }) {
+  // The row's own date, not a fresh sum of trashed_at + today's setting. Two items
+  // deleted the same afternoon can now leave on different days, and the one the page
+  // shows has to be the one the purge will actually use.
+  const purgesAt = row.expires_at ?? null;
   return {
     id: row.id,
     libraryId: row.library_id,
@@ -60,6 +59,7 @@ function serializeTrashedItem(row: TrashedItem & { trashed_by_name: string | nul
     coverUrl: row.cover_key ? `/api/library/covers/${row.cover_key}` : null,
     trashedAt: row.trashed_at,
     trashedByName: row.trashed_by_name,
+    source: row.source,
     purgesAt
   };
 }
@@ -161,7 +161,6 @@ export function registerTrashRoutes(app: FastifyInstance) {
       ORDER BY datetime(trashed_items.trashed_at) DESC
     `).all() as (TrashedItem & { trashed_by_name: string | null })[];
 
-    const retentionDays = getTrashRetentionDays();
     const visible = rows.filter((row) => canManageTrashItem(user, row));
 
     // Where the files actually are, one folder per library — derived from the rows
@@ -173,15 +172,69 @@ export function registerTrashRoutes(app: FastifyInstance) {
         bins.set(row.library_id, {
           libraryId: row.library_id,
           libraryName: row.library_name,
-          path: trashFolderFor(row.source_path)
+          // Derived from the row, not from the setting: a row remembers the bin it
+          // actually went into, which is the only path that will still find its files.
+          path: binFolderFor(row)
         });
       }
     }
 
     reply.send({
-      items: visible.map((row) => serializeTrashedItem(row, retentionDays)),
-      retentionDays,
+      items: visible.map(serializeTrashedItem),
+      retentionDays: getTrashRetentionDays(),
+      // null = duplicate cleanup follows the bin's own clock. The page needs the
+      // difference to say "same as the bin" instead of printing a number nobody set.
+      cleanupRetentionDays: getCleanupRetentionDays(),
       bins: [...bins.values()].sort((a, b) => a.libraryName.localeCompare(b.libraryName))
+    });
+  });
+
+  // Both clocks. Changing either governs what is deleted from here on: rows already in
+  // the bin carry the date they were given, and are deliberately left alone.
+  const retentionSchema = z.object({
+    retentionDays: z.number().int().min(0).max(3650).optional(),
+    // null puts duplicate cleanup back on the bin's own setting.
+    cleanupRetentionDays: z.number().int().min(0).max(3650).nullable().optional()
+  });
+
+  app.put("/api/library/trash/retention", { preHandler: [app.authenticate, app.requireAdmin] }, async (request, reply) => {
+    const parsed = parseBody(retentionSchema, request.body ?? {});
+    if (parsed.error) {
+      reply.code(400).send({ error: "Invalid retention", details: parsed.error });
+      return;
+    }
+    const user = request.user!;
+    const changes: string[] = [];
+
+    if (parsed.data.retentionDays !== undefined) {
+      setTrashRetentionDays(parsed.data.retentionDays);
+      changes.push(parsed.data.retentionDays === 0
+        ? "Recycle Bin auto-delete turned off"
+        : `Recycle Bin keeps items for ${parsed.data.retentionDays} days`);
+    }
+    if (parsed.data.cleanupRetentionDays !== undefined) {
+      setCleanupRetentionDays(parsed.data.cleanupRetentionDays);
+      changes.push(parsed.data.cleanupRetentionDays === null
+        ? "duplicate cleanup follows the Recycle Bin setting"
+        : parsed.data.cleanupRetentionDays === 0
+          ? "duplicate cleanup removals are never auto-deleted"
+          : `duplicate cleanup removals are kept for ${parsed.data.cleanupRetentionDays} days`);
+    }
+
+    if (changes.length) {
+      logActivity({
+        event: "setting.changed",
+        actorUserId: user.id,
+        targetType: "setting",
+        targetId: "trash_retention",
+        detail: `${changes.join("; ")}. Items already in the Recycle Bin keep the date they were given.`,
+        ipAddress: request.ip
+      });
+    }
+
+    reply.send({
+      retentionDays: getTrashRetentionDays(),
+      cleanupRetentionDays: getCleanupRetentionDays()
     });
   });
 

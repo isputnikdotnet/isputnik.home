@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Columns2, ExternalLink, Folder, ImageOff, Images, Square } from "lucide-react";
-import { Modal } from "../../../shared/Modal";
-import { Button } from "../../../shared/Button";
-import { formatBytes } from "../../../shared/utils";
-import { TOP_LEVEL, TOP_LEVEL_HINT } from "./duplicate-shared";
+import { Modal } from "../../../../shared/Modal";
+import { Button } from "../../../../shared/Button";
+import { formatBytes } from "../../../../shared/utils";
+import { TOP_LEVEL, TOP_LEVEL_HINT } from "./shared";
 
 // Full-size look at the copies in one duplicate set, so the decision can be made on
 // the pictures rather than on filenames and byte counts. Two modes: one copy at a
@@ -19,7 +19,9 @@ export interface ViewerMember {
   path: string;
   coverUrl: string | null;
   previewUrl: string | null;
-  fileUrl: string;
+  /** NULL when the item is gone — a cleanup's snapshot outlives the photos it describes,
+   *  so there may be nothing left to open. */
+  fileUrl: string | null;
   width: number | null;
   height: number | null;
   size: number | null;
@@ -49,31 +51,45 @@ function Pane({
   member,
   mark,
   onToggleMark,
-  busy
+  busy,
+  readOnly
 }: {
   member: ViewerMember;
   mark: "keep" | "trash";
   onToggleMark: () => void;
   busy: boolean;
+  readOnly: boolean;
 }) {
   const src = member.previewUrl ?? member.coverUrl;
+  const picture = src
+    ? <img src={src} alt={fileName(member)} />
+    : <span className="dup-view-missing"><ImageOff size={28} aria-hidden="true" /></span>;
+  const chip = <span className="dup-view-chip" aria-hidden="true">{mark === "keep" ? "Keep" : "Delete"}</span>;
+
   return (
     <div className={`dup-view-pane${mark === "keep" ? " is-keep" : " is-trash"}`}>
-      {/* The picture is the control, exactly as the tiles are on the page behind —
-          one way to mark a copy, learned once. */}
-      <Button
-        variant="text"
-        className="dup-view-stage"
-        aria-pressed={mark === "trash"}
-        disabled={busy}
-        title={mark === "keep" ? "Marked to keep — click to delete it instead" : "Marked for deletion — click to keep it"}
-        onClick={onToggleMark}
-      >
-        {src
-          ? <img src={src} alt={fileName(member)} />
-          : <span className="dup-view-missing"><ImageOff size={28} aria-hidden="true" /></span>}
-        <span className="dup-view-chip" aria-hidden="true">{mark === "keep" ? "Keep" : "Delete"}</span>
-      </Button>
+      {/* Read-only is not a disabled button: a cleanup job's keeper was settled by the
+          scan, so there is no control here to grey out. Rendering a real button that
+          does nothing would promise an action that does not exist, and rendering a
+          disabled one would suggest the action exists but is unavailable. */}
+      {readOnly ? (
+        <div className="dup-view-stage is-static">
+          {picture}
+          {chip}
+        </div>
+      ) : (
+        <Button
+          variant="text"
+          className="dup-view-stage"
+          aria-pressed={mark === "trash"}
+          disabled={busy}
+          title={mark === "keep" ? "Marked to keep — click to delete it instead" : "Marked for deletion — click to keep it"}
+          onClick={onToggleMark}
+        >
+          {picture}
+          {chip}
+        </Button>
+      )}
       <div className="dup-view-meta">
         <strong title={member.path}>{fileName(member)}</strong>
         <span className="dup-view-where">
@@ -87,10 +103,12 @@ function Pane({
         <span className="datagrid-muted">
           {dimensions(member)}{member.size != null ? ` · ${formatBytes(member.size)}` : ""}
         </span>
-        <a className="dup-view-original" href={member.fileUrl} target="_blank" rel="noreferrer">
-          <span>Open original</span>
-          <ExternalLink size={13} aria-hidden="true" />
-        </a>
+        {member.fileUrl && (
+          <a className="dup-view-original" href={member.fileUrl} target="_blank" rel="noreferrer">
+            <span>Open original</span>
+            <ExternalLink size={13} aria-hidden="true" />
+          </a>
+        )}
       </div>
     </div>
   );
@@ -100,16 +118,20 @@ export function DuplicateViewer({
   title,
   members,
   markOf,
-  onToggleMark,
+  onToggleMark = () => { /* read-only */ },
   onClose,
-  busy = false
+  busy = false,
+  readOnly = false
 }: {
   title: string;
   members: ViewerMember[];
   markOf: (member: ViewerMember) => "keep" | "trash";
-  onToggleMark: (member: ViewerMember) => void;
+  onToggleMark?: (member: ViewerMember) => void;
   onClose: () => void;
   busy?: boolean;
+  /** Show which copy is kept without offering to change it. A cleanup job settled that
+   *  at scan time, and this view is for checking the answer rather than making it. */
+  readOnly?: boolean;
 }) {
   // A pair opens straight into compare — with exactly two copies that's the only
   // thing anyone came here to do.
@@ -160,8 +182,8 @@ export function DuplicateViewer({
       {compare ? (
         <>
           <div className="dup-view-compare">
-            <Pane member={left} mark={markOf(left)} busy={busy} onToggleMark={() => onToggleMark(left)} />
-            <Pane member={right} mark={markOf(right)} busy={busy} onToggleMark={() => onToggleMark(right)} />
+            <Pane member={left} mark={markOf(left)} busy={busy} readOnly={readOnly} onToggleMark={() => onToggleMark(left)} />
+            <Pane member={right} mark={markOf(right)} busy={busy} readOnly={readOnly} onToggleMark={() => onToggleMark(right)} />
           </div>
           {members.length > 2 && (
             <div className="dup-view-pickers">
@@ -196,7 +218,7 @@ export function DuplicateViewer({
           >
             <ChevronLeft size={20} aria-hidden="true" />
           </Button>
-          <Pane member={left} mark={markOf(left)} busy={busy} onToggleMark={() => onToggleMark(left)} />
+          <Pane member={left} mark={markOf(left)} busy={busy} readOnly={readOnly} onToggleMark={() => onToggleMark(left)} />
           <Button
             variant="icon"
             className="dup-view-step"

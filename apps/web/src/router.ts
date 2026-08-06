@@ -13,7 +13,7 @@ export type ControlSection =
   | "security" | "securityPolicies" | "securityTrusted" | "securityBlocked"
   // Maintenance
   | "backup" | "scheduledJobs" | "recycleBin" | "missingPhotos"
-  | "duplicatePhotos" | "duplicateFolders" | "duplicateCleanup"
+  | "duplicateCleanup"
   // Settings
   | "appearance" | "email" | "readerAccess" | "about";
 
@@ -50,8 +50,6 @@ export const CONTROL_PATHS: Record<ControlSection, string> = {
   // Gallery utilities: tools that work on a library rather than configuring one.
   // One flat row of them, so one flat level of addresses.
   duplicateCleanup: "/control/utilities/duplicate-cleanup",
-  duplicatePhotos: "/control/utilities/duplicate-photos",
-  duplicateFolders: "/control/utilities/duplicate-folders",
   missingPhotos: "/control/utilities/missing-photos",
 
   appearance: "/control/settings",
@@ -126,21 +124,24 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/libraries/missing-photos": "missingPhotos",
   "/control/missing-photos": "missingPhotos",
   "/control/maintenance/missing-photos": "missingPhotos",
-  // Duplicates left Maintenance for Utilities, and spent one release nested under a
-  // "Duplicates" tab before that row was flattened away. Every address any of them
-  // has ever had still lands on the right page.
-  "/control/libraries/duplicate-photos": "duplicatePhotos",
-  "/control/duplicate-photos": "duplicatePhotos",
-  "/control/maintenance/duplicate-photos": "duplicatePhotos",
-  "/control/utilities/duplicates/photos": "duplicatePhotos",
-  "/control/duplicate-folders": "duplicateFolders",
-  "/control/maintenance/duplicate-folders": "duplicateFolders",
-  "/control/utilities/duplicates/folders": "duplicateFolders",
-  "/control/maintenance/folders-elsewhere": "duplicateFolders",
-  "/control/utilities/stored-elsewhere": "duplicateFolders",
-  "/control/utilities/duplicates/stored-elsewhere": "duplicateFolders",
-  "/control/utilities": "duplicatePhotos",
-  "/control/utilities/duplicates": "duplicatePhotos",
+  // Duplicates left Maintenance for Utilities, spent one release nested under a
+  // "Duplicates" tab, and were three pages before Duplicate cleanup absorbed the other
+  // two. Every address any of them has ever had lands on the cleanup, because that is
+  // now the only page that answers the question they were asked.
+  "/control/utilities/duplicate-photos": "duplicateCleanup",
+  "/control/utilities/duplicate-folders": "duplicateCleanup",
+  "/control/libraries/duplicate-photos": "duplicateCleanup",
+  "/control/duplicate-photos": "duplicateCleanup",
+  "/control/maintenance/duplicate-photos": "duplicateCleanup",
+  "/control/utilities/duplicates/photos": "duplicateCleanup",
+  "/control/duplicate-folders": "duplicateCleanup",
+  "/control/maintenance/duplicate-folders": "duplicateCleanup",
+  "/control/utilities/duplicates/folders": "duplicateCleanup",
+  "/control/maintenance/folders-elsewhere": "duplicateCleanup",
+  "/control/utilities/stored-elsewhere": "duplicateCleanup",
+  "/control/utilities/duplicates/stored-elsewhere": "duplicateCleanup",
+  "/control/utilities": "duplicateCleanup",
+  "/control/utilities/duplicates": "duplicateCleanup",
 
   // Config split into the Settings tabs; its old landing page was Appearance.
   "/control/config": "appearance",

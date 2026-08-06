@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, FileQuestion, Folder, Headphones, Image as ImageIcon, LibraryBig, RotateCcw, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { api } from "../../../api";
+import { api, type PublicUser } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
@@ -26,6 +26,9 @@ interface TrashedItem {
   coverUrl: string | null;
   trashedAt: string;
   trashedByName: string | null;
+  /** What removed it. A cleanup can put thousands of rows in here at once; without
+   *  this they are indistinguishable from the handful someone deleted by hand. */
+  source: string;
   purgesAt: string | null;
 }
 
@@ -101,10 +104,20 @@ function sortItems(items: TrashedItem[], sort: TrashSort): TrashedItem[] {
     - (b.purgesAt ? Date.parse(b.purgesAt) : Number.POSITIVE_INFINITY));
 }
 
-export function RecycleBinSection() {
+const SOURCE_LABEL: Record<string, string> = {
+  manual: "Deleted by hand",
+  duplicate_cleanup: "Duplicate cleanup"
+};
+
+export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) {
   const [items, setItems] = useState<TrashedItem[]>([]);
   const [bins, setBins] = useState<TrashBin[]>([]);
   const [retentionDays, setRetentionDays] = useState(30);
+  // null = duplicate cleanup follows the bin's own setting.
+  const [cleanupRetentionDays, setCleanupRetentionDays] = useState<number | null>(null);
+  const [binInput, setBinInput] = useState("30");
+  const [cleanupInput, setCleanupInput] = useState("");
+  const [savingRetention, setSavingRetention] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [restoringId, setRestoringId] = useState("");
@@ -123,6 +136,7 @@ export function RecycleBinSection() {
   // want when you've just deleted something by mistake.
   const [sort, setSort] = useState<TrashSort>("recent");
   const [scopeId, setScopeId] = useState(""); // "" = every library
+  const [sourceFilter, setSourceFilter] = useState(""); // "" = however it was removed
   const [perPage, setPerPage] = useState("24");
   const [page, setPage] = useState(1);
 
@@ -140,10 +154,28 @@ export function RecycleBinSection() {
     ];
   }, [items]);
 
-  const visible = useMemo(
-    () => sortItems(scopeId ? items.filter((item) => item.libraryId === scopeId) : items, sort),
-    [items, scopeId, sort]
-  );
+  // Only offered once the bin actually holds more than one kind — the whole point is
+  // to dig a hand delete out from under a cleanup's thousands of rows, and with one
+  // kind present that menu would filter nothing.
+  const sourceOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of items) counts.set(item.source, (counts.get(item.source) ?? 0) + 1);
+    if (counts.size < 2) return [];
+    return [
+      { value: "", label: `However removed (${items.length})` },
+      ...[...counts].map(([source, count]) => ({
+        value: source,
+        label: `${SOURCE_LABEL[source] ?? source} (${count})`
+      }))
+    ];
+  }, [items]);
+
+  const visible = useMemo(() => {
+    let list = items;
+    if (scopeId) list = list.filter((item) => item.libraryId === scopeId);
+    if (sourceFilter) list = list.filter((item) => item.source === sourceFilter);
+    return sortItems(list, sort);
+  }, [items, scopeId, sourceFilter, sort]);
   const scopeName = scopeId ? items.find((item) => item.libraryId === scopeId)?.libraryName ?? "" : "";
   const shownBins = scopeId ? bins.filter((bin) => bin.libraryId === scopeId) : bins;
 
@@ -156,13 +188,21 @@ export function RecycleBinSection() {
   const firstShown = visible.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
 
   // Any change to what's listed or how it's ordered goes back to the top.
-  useEffect(() => { setPage(1); }, [scopeId, sort, perPage]);
+  useEffect(() => { setPage(1); }, [scopeId, sourceFilter, sort, perPage]);
 
   const load = async () => {
-    const payload = await api<{ items: TrashedItem[]; retentionDays: number; bins?: TrashBin[] }>("/api/library/trash");
+    const payload = await api<{
+      items: TrashedItem[];
+      retentionDays: number;
+      cleanupRetentionDays: number | null;
+      bins?: TrashBin[];
+    }>("/api/library/trash");
     setItems(payload.items);
     setBins(payload.bins ?? []);
     setRetentionDays(payload.retentionDays);
+    setCleanupRetentionDays(payload.cleanupRetentionDays);
+    setBinInput(String(payload.retentionDays));
+    setCleanupInput(payload.cleanupRetentionDays == null ? "" : String(payload.cleanupRetentionDays));
   };
 
   useEffect(() => {
@@ -170,6 +210,41 @@ export function RecycleBinSection() {
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load the Recycle Bin"))
       .finally(() => setLoaded(true));
   }, []);
+
+  const isAdmin = currentUser.role === "admin";
+  const retentionDirty =
+    binInput.trim() !== String(retentionDays)
+    || cleanupInput.trim() !== (cleanupRetentionDays == null ? "" : String(cleanupRetentionDays));
+
+  const saveRetention = async () => {
+    const bin = Number.parseInt(binInput, 10);
+    if (!Number.isFinite(bin) || bin < 0) {
+      setActionError("Days must be a whole number, 0 or more.");
+      return;
+    }
+    // Blank is a real answer here, not a missing one: it puts cleanup back on the
+    // bin's clock rather than giving it a number of its own.
+    const cleanupText = cleanupInput.trim();
+    const cleanup = cleanupText === "" ? null : Number.parseInt(cleanupText, 10);
+    if (cleanup !== null && (!Number.isFinite(cleanup) || cleanup < 0)) {
+      setActionError("Days must be a whole number, 0 or more — or blank to follow the Recycle Bin.");
+      return;
+    }
+
+    setSavingRetention(true);
+    setActionError("");
+    try {
+      await api("/api/library/trash/retention", {
+        method: "PUT",
+        body: JSON.stringify({ retentionDays: bin, cleanupRetentionDays: cleanup })
+      });
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Unable to save the retention settings");
+    } finally {
+      setSavingRetention(false);
+    }
+  };
 
   const restore = async (item: TrashedItem) => {
     setRestoringId(item.id);
@@ -250,9 +325,19 @@ export function RecycleBinSection() {
   const visibleFiles = visible.reduce((sum, item) => sum + item.fileCount, 0);
   const totalBytes = items.reduce((sum, item) => sum + item.sizeBytes, 0);
 
-  const retentionBlurb = retentionDays > 0
-    ? `Deleted items keep their files here for ${retentionDays} day${retentionDays === 1 ? "" : "s"}, then they're permanently removed. Restore anything before then.`
-    : "Deleted items keep their files here until you remove them. Restore anything you need.";
+  // Each item carries the date it was given when it was deleted, so a single sentence
+  // for the whole page can only describe what happens from here on — the tiles hold
+  // the truth for what is already in the bin.
+  const days = (value: number) => `${value} day${value === 1 ? "" : "s"}`;
+  const binClause = retentionDays > 0
+    ? `Deleted items keep their files here for ${days(retentionDays)}`
+    : "Deleted items keep their files here until you remove them";
+  const cleanupClause = cleanupRetentionDays == null || cleanupRetentionDays === retentionDays
+    ? ""
+    : cleanupRetentionDays > 0
+      ? `, duplicate cleanup removals for ${days(cleanupRetentionDays)}`
+      : ", and duplicate cleanup removals stay until you remove them";
+  const retentionBlurb = `${binClause}${cleanupClause}. Every item shows its own date — changing these settings never moves a date already given.`;
 
   return (
     <>
@@ -331,6 +416,50 @@ export function RecycleBinSection() {
         </p>
       )}
 
+      {/* Two clocks, because one number can't serve both cases: a hand delete is a
+          mistake you might notice a month later, while a cleanup puts thousands of
+          files here at once and holding all of them for a month is a lot of disk.
+          Admin only — everything below is per-library, this is for the install. */}
+      {isAdmin && (
+        <div className="trash-retention">
+          <div className="trash-retention-row">
+            <label htmlFor="trash-retention">Keep deleted items for</label>
+            <input
+              id="trash-retention"
+              type="number"
+              min={0}
+              max={3650}
+              value={binInput}
+              disabled={savingRetention}
+              onChange={(event) => setBinInput(event.target.value)}
+            />
+            <span className="datagrid-muted">days (0 = until you empty the bin)</span>
+          </div>
+          <div className="trash-retention-row">
+            <label htmlFor="trash-retention-cleanup">Duplicate cleanup removals for</label>
+            <input
+              id="trash-retention-cleanup"
+              type="number"
+              min={0}
+              max={3650}
+              placeholder="same"
+              value={cleanupInput}
+              disabled={savingRetention}
+              onChange={(event) => setCleanupInput(event.target.value)}
+            />
+            <span className="datagrid-muted">days (blank = same as above)</span>
+            <Button
+              variant="secondary"
+              compact
+              disabled={savingRetention || !retentionDirty}
+              onClick={saveRetention}
+            >
+              {savingRetention ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {error && <MessageBox tone="error" title="Unable to load the Recycle Bin">{error}</MessageBox>}
       {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}
       {notice && <MessageBox tone="warning" title="Some items stayed in the bin">{notice}</MessageBox>}
@@ -347,6 +476,14 @@ export function RecycleBinSection() {
             onChange={setScopeId}
           />
           <div className="trash-toolbar-controls">
+            {sourceOptions.length > 0 && (
+              <SelectMenu
+                value={sourceFilter}
+                options={sourceOptions}
+                label="How the item was removed"
+                onChange={setSourceFilter}
+              />
+            )}
             <SelectMenu
               value={perPage}
               options={PER_PAGE_OPTIONS}
@@ -370,7 +507,13 @@ export function RecycleBinSection() {
       )}
 
       {items.length > 0 && visible.length === 0 && (
-        <p className="management-empty">Nothing deleted from that library.</p>
+        <p className="management-empty">
+          {sourceFilter && scopeId
+            ? "Nothing removed that way from that library."
+            : sourceFilter
+              ? "Nothing removed that way."
+              : "Nothing deleted from that library."}
+        </p>
       )}
 
       {pageItems.length > 0 && (
@@ -399,7 +542,15 @@ export function RecycleBinSection() {
                   <span className="trash-tile-line">
                     Deleted {formatManagedDate(item.trashedAt)}{item.trashedByName ? ` · ${item.trashedByName}` : ""}
                   </span>
-                  <span className="trash-tile-line">Removes {formatDay(item.purgesAt)}</span>
+                  <span className="trash-tile-line">
+                    <span>Removes {formatDay(item.purgesAt)}</span>
+                    {/* Only the cleanup is worth naming: a hand delete is what the bin
+                        is for, and badging every row with "Deleted by hand" would be
+                        noise on the common case. */}
+                    {item.source === "duplicate_cleanup" && (
+                      <span className="count-badge" title="Removed by a duplicate cleanup">cleanup</span>
+                    )}
+                  </span>
                   <div className="trash-tile-actions">
                     <Button
                       variant="icon"

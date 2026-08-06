@@ -56,12 +56,33 @@ the rescan. Restoring needs the original library to still exist.
 
 ## Retention & auto-purge
 
-- `app_settings.trash_retention_days` controls how long items are kept. **Default `30`.**
-  Set it to `0` to disable auto-purge (keep until emptied by hand).
+**Each row carries its own purge date** (`trashed_items.expires_at`), written when the item
+is trashed rather than derived at sweep time. That is the whole point of the column: with the
+date computed from the current setting, lowering the window from 30 days to 7 retroactively
+condemned everything already in the bin older than 7 days — including items deleted under a
+promise of 30. Changing either setting now governs only what goes in from that moment.
+`NULL` means keep until emptied by hand.
+
+**Two clocks**, chosen by `trashed_items.source`:
+
+| Source | Setting | Default |
+|---|---|---|
+| `manual` — someone pressed Delete | `app_settings.trash_retention_days` | `30` |
+| `duplicate_cleanup` — a cleanup removed it | `app_settings.trash_retention_days_duplicate_cleanup` | unset → follows the bin |
+
+`0` in either means never auto-purge. The cleanup key is stored as `""` when unset, so
+"I never chose" (follow the bin) stays distinguishable from "I chose 0" (never purge). A
+cleanup can put thousands of files in the bin at once, which is why it gets its own — holding
+all of them for a month is a lot of disk, while a hand delete is a mistake you might only
+notice weeks later.
+
+`source` also earns its keep in the UI: the bin filters by it, so a hand delete can still be
+found under a cleanup's thousands of rows.
+
 - A sweeper (`startTrashPurgeWorker`, started in
   [`library/index.ts`](../apps/server/src/modules/library/index.ts)) runs ~30 s after boot
-  and every 6 hours, permanently deleting items older than the window. Items whose source
-  volume is currently offline are **skipped** (not orphaned) and retried next sweep.
+  and every 6 hours, permanently deleting items whose `expires_at` has passed. Items whose
+  source volume is currently offline are **skipped** (not orphaned) and retried next sweep.
 - Permanent delete (`DELETE /api/library/trash/:id`) and **Empty** remove the `.trash`
   files and the row immediately — irreversible.
 
@@ -80,10 +101,43 @@ future surface.
 |---|---|---|
 | `DELETE /api/library/books/:id` | Move one item to the bin | library `delete` |
 | `POST /api/library/books/bulk-delete` | Move many (per-item gated) | library `delete` |
-| `GET /api/library/trash` | List manageable items + `retentionDays` | any signed-in (scoped) |
+| `GET /api/library/trash` | List manageable items + both retention windows | any signed-in (scoped) |
+| `PUT /api/library/trash/retention` | Set the bin and cleanup windows | admin |
 | `POST /api/library/trash/:id/restore` | Restore one item | `manage` |
 | `DELETE /api/library/trash/:id` | Permanently delete one item | `manage` |
 | `POST /api/library/trash/empty` | Empty (one library, or all = admin) | `manage` / admin |
+
+## Where the files go
+
+By default, inside the library itself: `<source>/.trash/<token>/`. Same volume, so the
+move is an instant rename, and the scanner skips dot-folders so nothing is re-indexed.
+
+One folder for the whole install can be chosen instead, on the **Storage** page
+(`app_settings.trash_root_path`, `PUT /api/storage/trash-root`). Then files go to
+`<bin>/<library id>/<token>/`. The library id keeps two libraries' tokens in separate
+folders, and both layouts end in `<container>/<token>`, which is what prune and restore
+walk up from.
+
+**Every row records its own bin** in `trashed_items.trash_root` (NULL = the library's
+own `.trash`). Resolution is always `path.resolve(trash_root ?? source_path, trash_path)`,
+so a row can still be found by the app that wrote it regardless of what the setting says
+later — the column, not the setting, is what makes a purge safe.
+
+**Rules on the chosen folder** (`validateTrashRootPath`): inside a configured storage
+container, not inside a library (its files would be scanned straight back in), and not
+a parent of one (emptying the bin would then be aimed at live files).
+
+**It can only change while the bin is completely empty.** Existing rows would in fact
+still resolve — that is what `trash_root` is for — but a bin whose files are split across
+two places is one nobody can reason about, least of all from the page that names where
+the files are. There is deliberately no combined "empty and change" action: emptying
+destroys files, and it should never be a step inside another operation.
+
+**Cross-volume moves.** An install-wide bin is very likely on a different filesystem from
+some library, where `rename()` fails with `EXDEV`. `moveEntry()` falls back to copy +
+delete, which reads and rewrites every byte — hence the Storage page's warning that a bin
+on other storage makes deleting slow instead of instant. It wraps all three move sites
+(into the bin, back out on restore, and the root-grouped file loop).
 
 ## Storage layout
 
@@ -96,6 +150,12 @@ future surface.
       Author/Book Title/      ← moved at its original relative path
     9f8e7d6c5b4a/
       Sci-Fi/Dune.epub
+
+# with an install-wide bin (Storage page):
+<bin>/
+  <library id>/
+    a1b2c3d4e5f6/             ← same token dir, outside the library tree
+      Author/Book Title/
 ```
 
 Schema: the `trashed_items` table in [`db.ts`](../apps/server/src/db.ts).
