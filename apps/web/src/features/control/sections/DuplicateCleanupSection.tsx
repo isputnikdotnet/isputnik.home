@@ -232,7 +232,7 @@ const folderLabel = (folder: Pick<SnapshotFolder, "folderPath">): string =>
 // the directory on disk is whatever its source is set to, so that path points at
 // nothing.
 const folderLocation = (folder: SnapshotFolder): string =>
-  folder.folderPath ? `/${folder.folderPath}` : "/root";
+  folder.folderPath ? `/${folder.folderPath}` : "/";
 
 const photoCountLabel = (count: number): string =>
   `${count} photo${count === 1 ? "" : "s"}`;
