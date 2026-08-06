@@ -613,7 +613,6 @@ export interface SnapshotFolder {
   role: MemberRole;
   itemCount: number;
   bytes: number;
-  addedAt: string | null;
 }
 
 export interface SnapshotMember {
@@ -713,18 +712,14 @@ export function listJobResults(
 
   const folders = db.prepare(`
     SELECT f.result_id, f.library_id, lib.name AS library_name,
-           f.folder_path, f.role, f.item_count, f.bytes,
-           (SELECT MIN(li.discovered_at)
-              FROM duplicate_job_result_members m
-              JOIN library_items li ON li.id = m.item_id
-             WHERE m.folder_id = f.id) AS added_at
+           f.folder_path, f.role, f.item_count, f.bytes
     FROM duplicate_job_result_folders f
     LEFT JOIN libraries lib ON lib.id = f.library_id
     WHERE f.result_id IN (${list})
     ORDER BY f.role DESC, f.folder_path
   `).all(...ids) as {
     result_id: string; library_id: string; library_name: string | null;
-    folder_path: string; role: MemberRole; item_count: number; bytes: number; added_at: string | null;
+    folder_path: string; role: MemberRole; item_count: number; bytes: number;
   }[];
 
   const members = db.prepare(`
@@ -750,8 +745,7 @@ export function listJobResults(
       folderPath: row.folder_path,
       role: row.role,
       itemCount: row.item_count,
-      bytes: row.bytes,
-      addedAt: row.added_at
+      bytes: row.bytes
     });
     foldersBy.set(row.result_id, bucket);
   }

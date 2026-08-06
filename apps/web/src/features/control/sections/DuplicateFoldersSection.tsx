@@ -83,14 +83,15 @@ export function DuplicateFoldersSection() {
   // de-duplicating, and the stakes are a whole folder.
   const [keeperPick, setKeeperPick] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<DuplicateFolderGroup | null>(null);
-  // Which of the set's folders the open confirm covers: one (a card's Delete this),
-  // or every non-keeper (the header button, or the keeper card's Keep this).
+  // Which of the set's folders the open confirm covers: one card's Delete this,
+  // or every non-keeper from the set-level Delete this action.
   const [deleteFolders, setDeleteFolders] = useState<DuplicateFolderMember[] | null>(null);
   const [ignoreTarget, setIgnoreTarget] = useState<DuplicateFolderGroup | null>(null);
   const [containedDelete, setContainedDelete] = useState<ContainedFolder | null>(null);
   const [containedIgnore, setContainedIgnore] = useState<ContainedFolder | null>(null);
   const [overlapDelete, setOverlapDelete] = useState<FolderOverlapPair | null>(null);
   const [overlapIgnore, setOverlapIgnore] = useState<FolderOverlapPair | null>(null);
+  const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set());
 
   const dialogOpen = deleteTarget !== null || ignoreTarget !== null
     || containedDelete !== null || containedIgnore !== null
@@ -100,6 +101,7 @@ export function DuplicateFoldersSection() {
   // identical sets first, then stored-elsewhere, then overlaps, so a page can
   // straddle the boundaries with each kind under its own heading.
   const shown = page.list;
+  const shownItems = shown.items.filter((match) => !skippedIds.has(match.id));
   const reclaimable = page.list.reclaimableBytes;
   // The pager's own arithmetic. The server clamps the page too and its answer wins,
   // so a list that shrank under you can't strand the view past the end.
@@ -107,9 +109,9 @@ export function DuplicateFoldersSection() {
   const totalPages = Math.max(1, Math.ceil(shown.total / perPage));
   const firstShown = shown.total === 0 ? 0 : (shown.page - 1) * perPage + 1;
   const lastShown = Math.min(shown.page * perPage, shown.total);
-  const pageIdentical = shown.items.filter((match): match is { kind: "identical" } & DuplicateFolderGroup => match.kind === "identical");
-  const pageContained = shown.items.filter((match): match is { kind: "contained" } & ContainedFolder => match.kind === "contained");
-  const pageOverlap = shown.items.filter((match): match is FolderOverlapPair => match.kind === "overlap");
+  const pageIdentical = shownItems.filter((match): match is { kind: "identical" } & DuplicateFolderGroup => match.kind === "identical");
+  const pageContained = shownItems.filter((match): match is { kind: "contained" } & ContainedFolder => match.kind === "contained");
+  const pageOverlap = shownItems.filter((match): match is FolderOverlapPair => match.kind === "overlap");
 
   const keeperOf = (group: DuplicateFolderGroup): DuplicateFolderMember => {
     const picked = keeperPick[group.id];
@@ -117,6 +119,50 @@ export function DuplicateFoldersSection() {
       ?? group.members.find((member) => member.isKeeper)
       ?? group.members[0];
   };
+
+  const skipMatch = (id: string) => {
+    page.setActionError("");
+    setSkippedIds((current) => {
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+  };
+
+  function FolderCardActions({
+    id, dismissLabel = "Not the same", deleteLabel = "Delete this", deleteDisabled = false,
+    deleteTitle, onDismiss, onDelete
+  }: {
+    id: string;
+    dismissLabel?: string;
+    deleteLabel?: string;
+    deleteDisabled?: boolean;
+    deleteTitle?: string;
+    onDismiss: () => void;
+    onDelete: () => void;
+  }) {
+    return (
+      <div className="dup-folder-card-actions">
+        <Button variant="secondary" compact disabled={busy} onClick={() => skipMatch(id)}>
+          Skip
+        </Button>
+        <Button variant="secondary" compact disabled={busy} onClick={onDismiss}>
+          {dismissLabel}
+        </Button>
+        <Button
+          variant="secondary"
+          danger
+          compact
+          className="dup-set-delete-action"
+          disabled={busy || deleteDisabled}
+          title={deleteTitle}
+          onClick={onDelete}
+        >
+          {deleteLabel}
+        </Button>
+      </div>
+    );
+  }
 
   // The keeper has to be settled on the server first when it isn't the one the scan
   // chose — otherwise it would refuse to delete the folder it still believes is kept.
@@ -163,9 +209,14 @@ export function DuplicateFoldersSection() {
   const renderGroup = (group: DuplicateFolderGroup, index: number) => {
     const keeper = keeperOf(group);
     const doomed = group.members.filter((member) => folderKey(member) !== folderKey(keeper));
+    const deleteThis = () => {
+      page.setActionError("");
+      setDeleteFolders(doomed);
+      setDeleteTarget(group);
+    };
 
     return (
-      <div className="dup-set dup-folder-card" key={group.id}>
+      <div className="dup-set dup-folder-card dup-folder-page-card" key={group.id}>
         <div className="dup-folder-card-main">
           <div className="dup-set-head">
             <div className="dup-set-summary">
@@ -180,54 +231,31 @@ export function DuplicateFoldersSection() {
             </div>
           </div>
           <FolderStrip urls={keeper.coverUrls} total={group.itemCount} />
-          <Button
-            variant="text"
-            compact
-            className="dup-folder-dismiss-action"
-            disabled={busy}
-            onClick={() => { page.setActionError(""); setIgnoreTarget(group); }}
-          >
-            Not the same
-          </Button>
         </div>
 
-        <div className="dup-set-folders">
-          {[keeper, ...doomed].map((member, position) => {
-            const keep = folderKey(member) === folderKey(keeper);
-            return (
-              <FolderTile
-                key={folderKey(member)}
-                folder={member}
-                keep={keep}
-                position={position}
-                busy={busy}
-                onKeepInstead={keep
-                  ? undefined
-                  : () => setKeeperPick((current) => ({ ...current, [group.id]: folderKey(member) }))}
-                action={keep ? (
-                  <Button
-                    variant="secondary"
-                    compact
-                    className="dup-set-action dup-set-keep-action"
-                    disabled
-                  >
-                    Keep this
-                  </Button>
-                ) : (
-                  <Button
-                    variant="secondary"
-                    danger
-                    compact
-                    className="dup-set-action dup-set-delete-action"
-                    disabled={busy}
-                    onClick={() => { page.setActionError(""); setDeleteFolders([member]); setDeleteTarget(group); }}
-                  >
-                    Delete this
-                  </Button>
-                )}
-              />
-            );
-          })}
+        <div className="dup-folder-card-decision">
+          <FolderCardActions
+            id={group.id}
+            deleteLabel={doomed.length === 1 ? "Delete this" : "Delete copies"}
+            deleteDisabled={doomed.length === 0}
+            onDismiss={() => { page.setActionError(""); setIgnoreTarget(group); }}
+            onDelete={deleteThis}
+          />
+          <div className="dup-set-folders">
+            {[keeper, ...doomed].map((member, position) => {
+              const keep = folderKey(member) === folderKey(keeper);
+              return (
+                <FolderTile
+                  key={folderKey(member)}
+                  folder={member}
+                  keep={keep}
+                  position={position}
+                  busy={busy}
+                  showOpenLink
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -254,7 +282,7 @@ export function DuplicateFoldersSection() {
     const deleteThis = () => { page.setActionError(""); setContainedDelete(row); };
 
     return (
-      <div className="dup-set dup-folder-card" key={row.id}>
+      <div className="dup-set dup-folder-card dup-folder-page-card" key={row.id}>
         <div className="dup-folder-card-main">
           <div className="dup-set-head">
             <div className="dup-set-summary">
@@ -267,39 +295,36 @@ export function DuplicateFoldersSection() {
             </div>
           </div>
           <FolderStrip urls={row.coverUrls} total={row.itemCount} />
-          <Button variant="text" compact className="dup-folder-dismiss-action" disabled={busy} onClick={() => { page.setActionError(""); setContainedIgnore(row); }}>
-            Leave it
-          </Button>
         </div>
 
-        <div className="dup-set-folders">
-          <FolderTile
-            folder={keptTile}
-            keep
-            position={0}
-            busy={busy}
-            note={row.target.folderPath === ""
-              ? `Copies sit in ${where}`
-              : row.encloses
-                ? `Holds “${labels.folder}” inside it — ${remaining} photo${remaining === 1 ? "" : "s"} left after`
-                : undefined}
-            action={(
-              <Button variant="secondary" compact className="dup-set-action dup-set-keep-action" disabled>
-                Keep this
-              </Button>
-            )}
+        <div className="dup-folder-card-decision">
+          <FolderCardActions
+            id={row.id}
+            dismissLabel="Leave it"
+            onDismiss={() => { page.setActionError(""); setContainedIgnore(row); }}
+            onDelete={deleteThis}
           />
-          <FolderTile
-            folder={row.folder}
-            keep={false}
-            position={1}
-            busy={busy}
-            action={(
-              <Button variant="secondary" danger compact className="dup-set-action dup-set-delete-action" disabled={busy} onClick={deleteThis}>
-                Delete this
-              </Button>
-            )}
-          />
+          <div className="dup-set-folders">
+            <FolderTile
+              folder={keptTile}
+              keep
+              position={0}
+              busy={busy}
+              showOpenLink
+              note={row.target.folderPath === ""
+                ? `Copies sit in ${where}`
+                : row.encloses
+                  ? `Holds “${labels.folder}” inside it — ${remaining} photo${remaining === 1 ? "" : "s"} left after`
+                  : undefined}
+            />
+            <FolderTile
+              folder={row.folder}
+              keep={false}
+              position={1}
+              busy={busy}
+              showOpenLink
+            />
+          </div>
         </div>
       </div>
     );
@@ -317,7 +342,7 @@ export function DuplicateFoldersSection() {
     const deleteThis = () => { page.setActionError(""); setOverlapDelete(pair); };
 
     return (
-      <div className="dup-set dup-folder-card" key={pair.id}>
+      <div className="dup-set dup-folder-card dup-folder-page-card" key={pair.id}>
         <div className="dup-folder-card-main">
           <div className="dup-set-head">
             <div className="dup-set-summary">
@@ -333,48 +358,39 @@ export function DuplicateFoldersSection() {
             </div>
           </div>
           <FolderStrip urls={pair.coverUrls} total={pair.sharedCount} />
-          <Button variant="text" compact className="dup-folder-dismiss-action" disabled={busy} onClick={() => { page.setActionError(""); setOverlapIgnore(pair); }}>
-            Not the same
-          </Button>
         </div>
 
-        <div className="dup-set-folders">
-          <FolderTile
-            folder={pair.keep}
-            keep
-            position={0}
-            busy={busy}
-            note="All its photos stay, shared ones included"
-            action={(
-              <Button variant="secondary" compact className="dup-set-action dup-set-keep-action" disabled>
-                Keep this
-              </Button>
-            )}
+        <div className="dup-folder-card-decision">
+          <FolderCardActions
+            id={pair.id}
+            deleteLabel="Delete copies"
+            deleteDisabled={!pair.canDelete}
+            deleteTitle={pair.canDelete
+              ? undefined
+              : "Both folders are in libraries that don't allow deleting, so neither side's copies can be removed"}
+            onDismiss={() => { page.setActionError(""); setOverlapIgnore(pair); }}
+            onDelete={deleteThis}
           />
-          <FolderTile
-            folder={pair.lose}
-            keep={false}
-            position={1}
-            busy={busy}
-            note={pair.loseExtraCount > 0
-              ? `Only the ${pair.sharedCount} shared cop${pair.sharedCount === 1 ? "y" : "ies"} go — its ${pair.loseExtraCount} own photo${pair.loseExtraCount === 1 ? "" : "s"} stay`
-              : `The ${pair.sharedCount} shared cop${pair.sharedCount === 1 ? "y" : "ies"} go; the folder itself stays`}
-            action={(
-              <Button
-                variant="secondary"
-                danger
-                compact
-                className="dup-set-action dup-set-delete-action"
-                disabled={busy || !pair.canDelete}
-                title={pair.canDelete
-                  ? undefined
-                  : "Both folders are in libraries that don't allow deleting, so neither side's copies can be removed"}
-                onClick={deleteThis}
-              >
-                Delete copies
-              </Button>
-            )}
-          />
+          <div className="dup-set-folders">
+            <FolderTile
+              folder={pair.keep}
+              keep
+              position={0}
+              busy={busy}
+              showOpenLink
+              note="All its photos stay, shared ones included"
+            />
+            <FolderTile
+              folder={pair.lose}
+              keep={false}
+              position={1}
+              busy={busy}
+              showOpenLink
+              note={pair.loseExtraCount > 0
+                ? `Only the ${pair.sharedCount} shared cop${pair.sharedCount === 1 ? "y" : "ies"} go — its ${pair.loseExtraCount} own photo${pair.loseExtraCount === 1 ? "" : "s"} stay`
+                : `The ${pair.sharedCount} shared cop${pair.sharedCount === 1 ? "y" : "ies"} go; the folder itself stays`}
+            />
+          </div>
         </div>
       </div>
     );
@@ -436,6 +452,10 @@ export function DuplicateFoldersSection() {
             ? "Nothing matches what you've narrowed the page to."
             : "Nothing to show."}
         </p>
+      )}
+
+      {page.listLoaded && shown.total > 0 && shownItems.length === 0 && (
+        <p className="management-empty">Everything on this page is skipped for now. Move to another page or change the filters.</p>
       )}
 
       {/* The heading stands whether or not the kind has results on THIS page — but a
