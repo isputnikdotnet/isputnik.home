@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, FileQuestion, Folder, Headphones, Image as ImageIcon, LibraryBig, RotateCcw, Trash2 } from "lucide-react";
+import {
+  ArrowUpDown, BookOpen, FileQuestion, Folder, Headphones, Hourglass, Image as ImageIcon,
+  LibraryBig, RotateCcw, Search, Settings2, SlidersHorizontal, Trash2
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, type PublicUser } from "../../../api";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Button } from "../../../shared/Button";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { LibraryMenu } from "../../../shared/LibraryMenu";
+import { Modal } from "../../../shared/Modal";
 import { Pager } from "../../../shared/Pager";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
-import { AudiobookHeaderSort } from "../../audiobooks/AudiobooksPage";
-import type { SortKey } from "../../audiobooks/BookFilter";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 interface TrashedItem {
@@ -104,6 +106,20 @@ function sortItems(items: TrashedItem[], sort: TrashSort): TrashedItem[] {
     - (b.purgesAt ? Date.parse(b.purgesAt) : Number.POSITIVE_INFINITY));
 }
 
+/** How long this item was given, in days — the gap between the day it was deleted and
+ *  the day it goes. Read back from the item's own two dates, never from the current
+ *  setting: the setting says what happens from now on, while every row here was
+ *  stamped under whatever it was at the time. Null = kept until the bin is emptied. */
+function retentionWindow(item: TrashedItem): number | null {
+  if (!item.purgesAt) return null;
+  const from = Date.parse(item.trashedAt);
+  const to = Date.parse(item.purgesAt);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+  return Math.max(0, Math.round((to - from) / 86_400_000));
+}
+
+const FOREVER = "forever";
+
 const SOURCE_LABEL: Record<string, string> = {
   manual: "Deleted by hand",
   duplicate_cleanup: "Duplicate cleanup"
@@ -118,6 +134,11 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   const [binInput, setBinInput] = useState("30");
   const [cleanupInput, setCleanupInput] = useState("");
   const [savingRetention, setSavingRetention] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
+  // The settings dialog keeps its own error, so a failed save is reported where the
+  // fields are rather than behind the dialog on the page underneath.
+  const [settingsError, setSettingsError] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [restoringId, setRestoringId] = useState("");
@@ -135,8 +156,10 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   // Newest deletion first — the order the server hands them back, and the one you
   // want when you've just deleted something by mistake.
   const [sort, setSort] = useState<TrashSort>("recent");
+  const [search, setSearch] = useState("");
   const [scopeId, setScopeId] = useState(""); // "" = every library
   const [sourceFilter, setSourceFilter] = useState(""); // "" = however it was removed
+  const [retentionFilter, setRetentionFilter] = useState(""); // "" = however long it's kept
   const [perPage, setPerPage] = useState("24");
   const [page, setPage] = useState(1);
 
@@ -145,12 +168,12 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   const libraryOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const item of items) if (!seen.has(item.libraryId)) seen.set(item.libraryId, item.libraryName);
+    // No counts on the labels. The line above the toolbar already says how many are
+    // showing, and the tally was the widest part of every menu — enough to stop the
+    // row fitting on one line, which costs more than it told anyone.
     return [
-      { value: "", label: `All libraries (${items.length})` },
-      ...[...seen].map(([id, name]) => ({
-        value: id,
-        label: `${name} (${items.filter((item) => item.libraryId === id).length})`
-      }))
+      { value: "", label: "All libraries" },
+      ...[...seen].map(([id, name]) => ({ value: id, label: name }))
     ];
   }, [items]);
 
@@ -170,12 +193,59 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     ];
   }, [items]);
 
+  // The windows actually present, not a fixed 30/90/180: a bin holds whatever the
+  // settings were when each row was stamped, so the menu is built from the rows.
+  //
+  // Shown even when every item shares one window, unlike the source menu above. That
+  // menu only narrows, so with one kind it is furniture; this one also ANSWERS —
+  // "everything in here is on the 180-day rule" is a thing you come to the bin to find
+  // out, and hiding the control hides the answer with it.
+  const retentionOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      const window = retentionWindow(item);
+      const key = window == null ? FOREVER : String(window);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    if (counts.size === 0) return [];
+    // Shortest first, because that is the order they leave in; "until you empty it"
+    // is not a length and sits at the end rather than pretending to be the longest.
+    const numeric = [...counts.keys()]
+      .filter((key) => key !== FOREVER)
+      .sort((a, b) => Number(a) - Number(b));
+    const ordered = counts.has(FOREVER) ? [...numeric, FOREVER] : numeric;
+    return [
+      { value: "", label: "However long" },
+      ...ordered.map((key) => ({
+        value: key,
+        label: key === FOREVER ? "Until emptied" : `${key} day${key === "1" ? "" : "s"}`
+      }))
+    ];
+  }, [items]);
+
   const visible = useMemo(() => {
     let list = items;
     if (scopeId) list = list.filter((item) => item.libraryId === scopeId);
     if (sourceFilter) list = list.filter((item) => item.source === sourceFilter);
+    if (retentionFilter) {
+      list = list.filter((item) => {
+        const window = retentionWindow(item);
+        return retentionFilter === FOREVER ? window == null : String(window) === retentionFilter;
+      });
+    }
+    // Name, folder and library, because all three are how someone describes what they
+    // are looking for — "that holiday one", "it was in Downloads", "something from
+    // Gallery". Client-side: the bin is already loaded whole, so a round trip per
+    // keystroke would be slower and no more correct.
+    const needle = search.trim().toLowerCase();
+    if (needle) {
+      list = list.filter((item) =>
+        item.title.toLowerCase().includes(needle)
+        || item.path.toLowerCase().includes(needle)
+        || item.libraryName.toLowerCase().includes(needle));
+    }
     return sortItems(list, sort);
-  }, [items, scopeId, sourceFilter, sort]);
+  }, [items, scopeId, sourceFilter, retentionFilter, search, sort]);
   const scopeName = scopeId ? items.find((item) => item.libraryId === scopeId)?.libraryName ?? "" : "";
   const shownBins = scopeId ? bins.filter((bin) => bin.libraryId === scopeId) : bins;
 
@@ -188,7 +258,7 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   const firstShown = visible.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
 
   // Any change to what's listed or how it's ordered goes back to the top.
-  useEffect(() => { setPage(1); }, [scopeId, sourceFilter, sort, perPage]);
+  useEffect(() => { setPage(1); }, [scopeId, sourceFilter, retentionFilter, search, sort, perPage]);
 
   const load = async () => {
     const payload = await api<{
@@ -216,10 +286,19 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     binInput.trim() !== String(retentionDays)
     || cleanupInput.trim() !== (cleanupRetentionDays == null ? "" : String(cleanupRetentionDays));
 
+  /** Put the fields back to what is actually saved. Closing the dialog is not a way to
+   *  half-change a setting, so an abandoned edit leaves nothing behind. */
+  const closeSettings = () => {
+    setBinInput(String(retentionDays));
+    setCleanupInput(cleanupRetentionDays == null ? "" : String(cleanupRetentionDays));
+    setSettingsError("");
+    setSettingsOpen(false);
+  };
+
   const saveRetention = async () => {
     const bin = Number.parseInt(binInput, 10);
     if (!Number.isFinite(bin) || bin < 0) {
-      setActionError("Days must be a whole number, 0 or more.");
+      setSettingsError("Days must be a whole number, 0 or more.");
       return;
     }
     // Blank is a real answer here, not a missing one: it puts cleanup back on the
@@ -227,20 +306,21 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     const cleanupText = cleanupInput.trim();
     const cleanup = cleanupText === "" ? null : Number.parseInt(cleanupText, 10);
     if (cleanup !== null && (!Number.isFinite(cleanup) || cleanup < 0)) {
-      setActionError("Days must be a whole number, 0 or more — or blank to follow the Recycle Bin.");
+      setSettingsError("Days must be a whole number, 0 or more — or blank to follow the Recycle Bin.");
       return;
     }
 
     setSavingRetention(true);
-    setActionError("");
+    setSettingsError("");
     try {
       await api("/api/library/trash/retention", {
         method: "PUT",
         body: JSON.stringify({ retentionDays: bin, cleanupRetentionDays: cleanup })
       });
       await load();
+      setSettingsOpen(false);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Unable to save the retention settings");
+      setSettingsError(err instanceof Error ? err.message : "Unable to save the retention settings");
     } finally {
       setSavingRetention(false);
     }
@@ -347,41 +427,19 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
         icon={<Trash2 size={30} />}
         description={retentionBlurb}
       >
-        {/* Refresh sits last, at the right edge of the header — the same spot it
-            holds on Scheduled jobs, so it's in one place across the panel. */}
-        <div className="row-actions control-head-actions">
-          {/* Restore before Empty, and secondary against its danger: one puts things
-              back, the other destroys them, and the reversible one should not be the
-              harder to reach of the two. */}
-          {visible.length > 0 && (
-            <Button
-              variant="secondary"
-              compact
-              disabled={restoringAll}
-              onClick={() => { setActionError(""); setNotice(""); setRestoreAllOpen(true); }}
-            >
-              <RotateCcw size={16} />
-              <span>Restore all</span>
-            </Button>
-          )}
-          {items.length > 0 && (
-            <Button variant="danger" compact onClick={() => { setActionError(""); setEmptyOpen(true); }}>
-              <Trash2 size={16} />
-              <span>Empty Recycle Bin</span>
-            </Button>
-          )}
-          <RefreshButton
-            onRefresh={async () => {
-              setError("");
-              try {
-                await load();
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "Unable to refresh the Recycle Bin");
-                throw err;
-              }
-            }}
+        {/* Search rides in the header beside the title, as on Logs — it is what you
+            reach for first, and it leaves the toolbar below to the controls that
+            change the whole view. */}
+        <label className="search-field trash-search">
+          <Search size={17} aria-hidden="true" />
+          <span className="sr-only">Search deleted items by name, folder or library</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search the bin..."
           />
-        </div>
+        </label>
       </ControlSectionHead>
 
       {/* What's in the bin and what it's costing — the two numbers you come here for
@@ -416,57 +474,16 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
         </p>
       )}
 
-      {/* Two clocks, because one number can't serve both cases: a hand delete is a
-          mistake you might notice a month later, while a cleanup puts thousands of
-          files here at once and holding all of them for a month is a lot of disk.
-          Admin only — everything below is per-library, this is for the install. */}
-      {isAdmin && (
-        <div className="trash-retention">
-          <div className="trash-retention-row">
-            <label htmlFor="trash-retention">Keep deleted items for</label>
-            <input
-              id="trash-retention"
-              type="number"
-              min={0}
-              max={3650}
-              value={binInput}
-              disabled={savingRetention}
-              onChange={(event) => setBinInput(event.target.value)}
-            />
-            <span className="datagrid-muted">days (0 = until you empty the bin)</span>
-          </div>
-          <div className="trash-retention-row">
-            <label htmlFor="trash-retention-cleanup">Duplicate cleanup removals for</label>
-            <input
-              id="trash-retention-cleanup"
-              type="number"
-              min={0}
-              max={3650}
-              placeholder="same"
-              value={cleanupInput}
-              disabled={savingRetention}
-              onChange={(event) => setCleanupInput(event.target.value)}
-            />
-            <span className="datagrid-muted">days (blank = same as above)</span>
-            <Button
-              variant="secondary"
-              compact
-              disabled={savingRetention || !retentionDirty}
-              onClick={saveRetention}
-            >
-              {savingRetention ? "Saving…" : "Save"}
-            </Button>
-          </div>
-        </div>
-      )}
 
       {error && <MessageBox tone="error" title="Unable to load the Recycle Bin">{error}</MessageBox>}
       {actionError && <MessageBox tone="error" title="Action failed">{actionError}</MessageBox>}
       {notice && <MessageBox tone="warning" title="Some items stayed in the bin">{notice}</MessageBox>}
 
       {items.length > 0 && (
-        /* Scope on the left, view controls on the right — the Duplicate photos
-           toolbar, which sits over a grid of the same kind of tiles. */
+        /* Filter on the left, view controls and the actions on the right — the Logs
+           toolbar. What NARROWS the list stays on the page, because you change it
+           while reading; how the list is LAID OUT moves into the view dialog, because
+           it is set once and then lived with. */
         <div className="trash-toolbar">
           <LibraryMenu
             value={scopeId}
@@ -475,28 +492,68 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
             label="Which library's deleted items to show"
             onChange={setScopeId}
           />
-          <div className="trash-toolbar-controls">
-            {sourceOptions.length > 0 && (
-              <SelectMenu
-                value={sourceFilter}
-                options={sourceOptions}
-                label="How the item was removed"
-                onChange={setSourceFilter}
-              />
-            )}
+          {sourceOptions.length > 0 && (
             <SelectMenu
-              value={perPage}
-              options={PER_PAGE_OPTIONS}
-              label="Items per page"
-              className="trash-per-page"
-              onChange={setPerPage}
+              value={sourceFilter}
+              options={sourceOptions}
+              label="How the item was removed"
+              onChange={setSourceFilter}
             />
-            <AudiobookHeaderSort
-              value={sort as unknown as SortKey}
-              onChange={(next) => setSort(next as unknown as TrashSort)}
-              options={SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
-              ariaLabel="Sort deleted items"
-              compact
+          )}
+
+          <div className="trash-toolbar-controls">
+            <Button
+              variant="icon"
+              aria-label="View options"
+              title="View options — per page, order and how long items are kept"
+              onClick={() => setViewOpen(true)}
+            >
+              <SlidersHorizontal size={18} aria-hidden="true" />
+            </Button>
+            {/* Admin only: the clocks are an install-wide setting, where everything
+                else in this row acts on what is in the bin today. */}
+            {isAdmin && (
+              <Button
+                variant="icon"
+                aria-label="Recycle Bin settings"
+                title="Recycle Bin settings"
+                onClick={() => { setSettingsError(""); setSettingsOpen(true); }}
+              >
+                <Settings2 size={18} aria-hidden="true" />
+              </Button>
+            )}
+            {/* Restore before Empty: one puts things back, the other destroys them,
+                and the reversible one should not be the harder to reach. */}
+            {visible.length > 0 && (
+              <Button
+                variant="icon"
+                disabled={restoringAll}
+                aria-label="Restore all"
+                title="Restore everything shown"
+                onClick={() => { setActionError(""); setNotice(""); setRestoreAllOpen(true); }}
+              >
+                <RotateCcw size={18} aria-hidden="true" />
+              </Button>
+            )}
+            <Button
+              variant="icon"
+              danger
+              aria-label="Empty Recycle Bin"
+              title="Empty Recycle Bin"
+              onClick={() => { setActionError(""); setEmptyOpen(true); }}
+            >
+              <Trash2 size={18} aria-hidden="true" />
+            </Button>
+            <RefreshButton
+              onRefresh={async () => {
+                setError("");
+                try {
+                  await load();
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Unable to refresh the Recycle Bin");
+                  throw err;
+                }
+              }}
             />
           </div>
         </div>
@@ -508,11 +565,17 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
 
       {items.length > 0 && visible.length === 0 && (
         <p className="management-empty">
-          {sourceFilter && scopeId
-            ? "Nothing removed that way from that library."
-            : sourceFilter
-              ? "Nothing removed that way."
-              : "Nothing deleted from that library."}
+          {/* Search is named first when it is on: it is the narrowing you just typed,
+              so it is the one you would undo first. */}
+          {search.trim()
+            ? `Nothing in the bin matches “${search.trim()}”.`
+            : retentionFilter
+              ? "Nothing in the bin is kept for that long."
+              : sourceFilter && scopeId
+                ? "Nothing removed that way from that library."
+                : sourceFilter
+                  ? "Nothing removed that way."
+                  : "Nothing deleted from that library."}
         </p>
       )}
 
@@ -546,9 +609,17 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
                     <span>Removes {formatDay(item.purgesAt)}</span>
                     {/* Only the cleanup is worth naming: a hand delete is what the bin
                         is for, and badging every row with "Deleted by hand" would be
-                        noise on the common case. */}
+                        noise on the common case.
+
+                        Says what the file WAS, not which tool ran — "cleanup" named a
+                        page nobody is looking at from here, while "duplicate" answers
+                        the question the row actually raises: why is this in the bin?
+                        Not "duplicate photo": a gallery cleanup removes videos too, and
+                        this same badge sits on them. */}
                     {item.source === "duplicate_cleanup" && (
-                      <span className="count-badge" title="Removed by a duplicate cleanup">cleanup</span>
+                      <span className="count-badge" title="A duplicate copy, removed by a duplicate cleanup">
+                        duplicate
+                      </span>
                     )}
                   </span>
                   <div className="trash-tile-actions">
@@ -586,6 +657,116 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
             <Pager page={currentPage} totalPages={totalPages} onChange={setPage} label="Recycle Bin pages" />
           </div>
         </>
+      )}
+
+      {/* How the list is laid out, in one place. These three used to sit in the
+          toolbar and, spelled out, took more width than the row had — and they are
+          not read-while-you-work controls: you set them once and then get on with
+          the bin. Each applies the moment it is chosen, so there is nothing to save
+          and Done is only a way out. */}
+      {viewOpen && (
+        <Modal variant="card" title="View options" onClose={() => setViewOpen(false)}>
+          <div className="trash-view-options">
+            <label className="trash-view-row">
+              <span>Items per page</span>
+              <SelectMenu
+                value={perPage}
+                options={PER_PAGE_OPTIONS}
+                label="Items per page"
+                onChange={setPerPage}
+              />
+            </label>
+            <label className="trash-view-row">
+              <span>Order</span>
+              <SelectMenu
+                value={sort}
+                options={SORT_OPTIONS}
+                label="Sort deleted items"
+                triggerIcon={<ArrowUpDown size={16} aria-hidden="true" />}
+                onChange={(next) => setSort(next as TrashSort)}
+              />
+            </label>
+            {retentionOptions.length > 0 && (
+              <label className="trash-view-row">
+                <span>Kept for</span>
+                <SelectMenu
+                  value={retentionFilter}
+                  options={retentionOptions}
+                  label="How long the item is kept for"
+                  triggerIcon={<Hourglass size={16} aria-hidden="true" />}
+                  onChange={setRetentionFilter}
+                />
+              </label>
+            )}
+          </div>
+
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setViewOpen(false)}>Done</Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Two clocks, because one number can't serve both cases: a hand delete is a
+          mistake you might notice a month later, while a cleanup puts thousands of
+          files here at once and holding all of them for a month is a lot of disk.
+          In a dialog rather than on the page — it is set once and then read off the
+          header's sentence, so it does not need to occupy the view every visit. */}
+      {settingsOpen && (
+        <Modal
+          variant="card"
+          title="Recycle Bin settings"
+          busy={savingRetention}
+          onClose={closeSettings}
+          onSubmit={(event) => { event.preventDefault(); void saveRetention(); }}
+        >
+          <div className="trash-retention">
+            <label className="trash-retention-row" htmlFor="trash-retention">
+              <span>Keep deleted items for</span>
+              <input
+                id="trash-retention"
+                type="number"
+                min={0}
+                max={3650}
+                value={binInput}
+                disabled={savingRetention}
+                onChange={(event) => setBinInput(event.target.value)}
+              />
+              <span className="datagrid-muted">days (0 = until you empty the bin)</span>
+            </label>
+            <label className="trash-retention-row" htmlFor="trash-retention-cleanup">
+              <span>Duplicate cleanup removals for</span>
+              <input
+                id="trash-retention-cleanup"
+                type="number"
+                min={0}
+                max={3650}
+                placeholder="same"
+                value={cleanupInput}
+                disabled={savingRetention}
+                onChange={(event) => setCleanupInput(event.target.value)}
+              />
+              <span className="datagrid-muted">days (blank = same as above)</span>
+            </label>
+          </div>
+
+          {/* Said here as well as in the header: this is the moment somebody is about
+              to change a number and might expect it to reach what is already in the bin. */}
+          <p className="datagrid-muted trash-retention-note">
+            Every item keeps the date it was given when it was deleted, so changing these
+            never moves a date already set. They decide what happens from now on.
+          </p>
+
+          {settingsError && (
+            <MessageBox tone="error" title="Unable to save">{settingsError}</MessageBox>
+          )}
+
+          <div className="modal-actions">
+            <Button variant="secondary" disabled={savingRetention} onClick={closeSettings}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={savingRetention || !retentionDirty}>
+              {savingRetention ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </Modal>
       )}
 
       {purgeTarget && (
