@@ -777,11 +777,12 @@
 
 /* The two retention clocks. Stacked rather than one long row so the labels line up
    and the pair reads as one setting with an exception, which is what it is. */
+/* The bin's two clocks, in the settings dialog. Each row is a label wrapping its own
+   field, so the whole line is a click target for the box it names. */
 .trash-retention {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 0 0 14px;
+  gap: 12px;
   font-size: 0.9rem;
 }
 .trash-retention-row {
@@ -790,10 +791,24 @@
   flex-wrap: wrap;
   gap: 8px;
 }
-/* Labels share a column so the two number boxes sit under each other. Falls back to
-   natural width below the wrap point, where stacking makes the alignment moot. */
-.trash-retention-row label { min-width: 208px; }
+/* The name takes a line of its own, then the box and its unit read as one phrase
+   under it — "[30] days (0 = until you empty the bin)". Side by side, the name and
+   box ate the dialog's 420px between them and left the unit stranded on a third
+   line, reading as a stray sentence rather than as part of the field. */
+.trash-retention-row > span:first-child {
+  flex: 1 0 100%;
+  min-width: 0;
+  font-weight: 650;
+}
 .trash-retention-row input[type="number"] { width: 84px; }
+
+.trash-retention-note {
+  margin: 14px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  /* Prose, so it must undo .datagrid-muted's nowrap — see .dup-tier-note. */
+  white-space: normal;
+}
 
 /* Scope on the left, view controls on the right — the Duplicate photos toolbar. */
 .trash-toolbar {
@@ -804,12 +819,59 @@
   margin-bottom: 14px;
 }
 
-.trash-toolbar .audiobook-library-tab {
+/* In the section header beside the title, like the Logs search. */
+.trash-search {
+  flex: 0 1 320px;
+  width: auto;
+  min-width: 0;
   min-height: 40px;
-  padding: 0 14px;
-  font-size: 0.88rem;
 }
 
+/* One height for everything in the row, as on the Logs toolbar. */
+.trash-toolbar .select-menu-trigger,
+.trash-toolbar .audiobook-library-tab {
+  min-height: 40px;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+.trash-toolbar-controls .icon-button {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.trash-toolbar-controls .refresh-button {
+  min-height: 40px;
+}
+
+/* Name on the left, control on the right — a settings list rather than a form, since
+   each one applies as it is chosen. */
+.trash-view-options {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 0.9rem;
+}
+
+.trash-view-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.trash-view-row > span:first-child {
+  font-weight: 650;
+}
+
+/* The menus open downward inside a short dialog, so they need room to do it. */
+.trash-view-options .select-menu-popover {
+  min-width: 190px;
+}
+
+/* Pushed to the end of the row, as on the Logs toolbar. That only reads correctly
+   because the grid below now fills its container too — see .trash-grid. */
 .trash-toolbar-controls {
   display: flex;
   align-items: center;
@@ -818,47 +880,23 @@
   flex-shrink: 0;
 }
 
-.trash-toolbar-controls .trash-per-page .select-menu-trigger {
-  min-height: 40px;
-  font-size: 0.84rem;
-  white-space: nowrap;
-}
-
-/* `compact` swaps the sort trigger for an icon but leaves the wrapper at its
-   browse-page width, so collapse it here — the same fix .dup-toolbar-controls makes. */
-.trash-toolbar-controls .audiobook-sort-control.compact {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  grid-template-columns: none;
-  gap: 0;
-  width: 40px;
-  min-width: 0;
-  height: 40px;
-  min-height: 40px;
-  padding: 0;
-  border-radius: 7px;
-  box-shadow: none;
-}
-
-.trash-toolbar-controls .audiobook-sort-control.compact:hover { background: var(--hover); }
-
-.trash-toolbar-controls .audiobook-sort-trigger {
-  width: 40px;
-  height: 40px;
-  min-width: 0;
-  justify-content: center;
-  padding: 0;
-}
-
 /* A grid of tiles rather than table rows: the cover is what you recognise a deleted
-   item by, so it leads and everything else reads underneath it. Fixed-width columns
-   like .dup-copies — with `1fr`, a bin holding two items would stretch each
-   thumbnail across half the page. */
+   item by, so it leads and everything else reads underneath it.
+
+   The columns were a fixed 208px, which left the grid ending at a whole number of
+   tiles and the rest of the container empty — 157px of it at the panel's usual width.
+   That was invisible until the toolbar above gained right-aligned buttons, which then
+   floated well past the last tile. The tracks now share the row out between them, so
+   the grid's right edge is the container's and the toolbar has a real edge to sit on.
+
+   `minmax(208px, 1fr)` was rejected here once, on the grounds that a bin holding two
+   items would stretch each thumbnail across half the page. That is true of auto-FIT,
+   which drops the empty tracks; auto-FILL keeps them, so two items in a three-track
+   row are ~260px each rather than ~395px. The tile is fluid (min-width: 0, and a 4:3
+   thumb that covers), so it takes the extra width without distorting. */
 .trash-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 208px);
+  grid-template-columns: repeat(auto-fill, minmax(208px, 1fr));
   gap: 10px;
   /* Stretched, not top-aligned like .dup-copies: every tile here ends in an action
      row, and those have to line up across a row rather than stepping up and down

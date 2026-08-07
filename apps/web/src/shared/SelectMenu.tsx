@@ -13,13 +13,19 @@ export function SelectMenu<T extends string>({
   options,
   label,
   onChange,
-  className
+  className,
+  triggerIcon
 }: {
   value: T;
   options: SelectMenuOption<T>[];
   label: string;
   onChange: (value: T) => void;
   className?: string;
+  /** Says what the menu is FOR, on the trigger, where the text can only say what is
+   *  currently chosen. Distinct from an option's own icon: this one never changes with
+   *  the selection and never appears in the list, so a menu can be named without
+   *  repeating one glyph down every row of its popover. */
+  triggerIcon?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const menuId = useId();
@@ -57,8 +63,14 @@ export function SelectMenu<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
+        // The visible text is the chosen VALUE, which on its own doesn't say what it
+        // is a value of — "Recently deleted" could be anything. Naming the trigger
+        // matters most where an icon has replaced a written prefix.
+        title={label}
+        aria-label={selected ? `${label}: ${selected.label}` : label}
         onClick={() => setOpen((current) => !current)}
       >
+        {triggerIcon && <span className="select-menu-trigger-icon" aria-hidden="true">{triggerIcon}</span>}
         {selected?.icon && <span className="select-menu-trigger-icon" aria-hidden="true">{selected.icon}</span>}
         <span>{selected?.label ?? label}</span>
         <ChevronDown size={16} aria-hidden="true" />
