@@ -10,7 +10,8 @@
 // sign-in — and Settings → About links back here for whenever the answer changes.
 import { useEffect, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, Check, Folder, HardDrive, Lock, Mail, Palette, ShieldCheck, Trash2
+  ArrowLeft, ArrowRight, Check, DatabaseBackup, Folder, HardDrive, Lock, Mail, Palette,
+  ShieldCheck, Trash2
 } from "lucide-react";
 import packageInfo from "../../../../package.json";
 import { api, type PublicUser } from "../api";
@@ -44,14 +45,28 @@ interface SecurityPolicy {
   alertNewIpSignIn: boolean;
 }
 
-type StepKey = "storage" | "bin" | "email" | "alerts" | "theme";
+/** As `/api/backups` returns it, and what PATCHing settings takes back. */
+interface BackupSettings {
+  enabled: boolean;
+  time: string;
+  retention: number;
+  includeCovers: boolean;
+}
+
+type StepKey = "storage" | "bin" | "backup" | "email" | "alerts" | "theme";
 
 // Two of these depend on the step before them, and say so rather than being hidden: the
 // Recycle Bin needs a container to live in, and an alert needs a way to reach you. A
 // step you cannot use yet still explains what it is for, and where to come back to.
+//
+// Backups sit third, beside the bin: both are about getting something back after it has
+// gone, and both are worth answering before there is anything to lose. It depends on
+// nothing — the archive is written inside the app's own data folder, not into a
+// container you have to approve first.
 const STEPS: { key: StepKey; title: string; note: string; icon: typeof HardDrive }[] = [
   { key: "storage", title: "Storage", note: "Where files live", icon: HardDrive },
   { key: "bin", title: "Recycle Bin", note: "Where deleted files wait", icon: Trash2 },
+  { key: "backup", title: "Backups", note: "A copy to go back to", icon: DatabaseBackup },
   { key: "email", title: "Email", note: "For alerts and codes", icon: Mail },
   { key: "alerts", title: "Security alerts", note: "Tell me about sign-ins", icon: ShieldCheck },
   { key: "theme", title: "Appearance", note: "How it looks", icon: Palette }
@@ -85,6 +100,11 @@ export function WelcomePage({ user, onDone }: {
   const [binPickerOpen, setBinPickerOpen] = useState(false);
   const [binSaved, setBinSaved] = useState(false);
 
+  // Backups
+  const [backup, setBackup] = useState<BackupSettings | null>(null);
+  const [backupPath, setBackupPath] = useState("");
+  const [backupSaved, setBackupSaved] = useState("");
+
   // Email
   const [mail, setMail] = useState<MailSettings | null>(null);
   const [password, setPassword] = useState("");
@@ -97,16 +117,17 @@ export function WelcomePage({ user, onDone }: {
   const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
-    // Five reads, once, in parallel: this page is only ever opened by an admin, and
-    // every step needs to open on what is already configured rather than on blanks.
+    // One read per step, once, in parallel: this page is only ever opened by an admin,
+    // and every step needs to open on what is already configured rather than on blanks.
     Promise.all([
       api<{ settings: LibrarySettings }>("/api/library/settings").catch(() => null),
       api<{ roots: StorageRoot[] }>("/api/storage/roots").catch(() => null),
       api<{ mail: MailSettings }>("/api/config/mail").catch(() => null),
       api<{ config: { defaultTheme: Theme } }>("/api/config").catch(() => null),
       api<{ policy: SecurityPolicy }>("/api/security").catch(() => null),
-      api<{ path: string | null; editable: boolean }>("/api/storage/trash-root").catch(() => null)
-    ]).then(([librarySettings, rootList, mailPayload, config, security, bin]) => {
+      api<{ path: string | null; editable: boolean }>("/api/storage/trash-root").catch(() => null),
+      api<{ settings: BackupSettings; backupPath: string }>("/api/backups").catch(() => null)
+    ]).then(([librarySettings, rootList, mailPayload, config, security, bin, backups]) => {
       if (librarySettings) {
         setSettings(librarySettings.settings);
         setThumbnailPath(librarySettings.settings.thumbnailPath);
@@ -118,6 +139,10 @@ export function WelcomePage({ user, onDone }: {
       if (bin) {
         setBinPath(bin.path);
         setBinEditable(bin.editable);
+      }
+      if (backups) {
+        setBackup(backups.settings);
+        setBackupPath(backups.backupPath);
       }
     });
   }, []);
@@ -164,6 +189,19 @@ export function WelcomePage({ user, onDone }: {
     setBinPath(payload.path);
     setBinSaved(true);
   }, "Unable to save the Recycle Bin location");
+
+  /** The endpoint takes the whole settings object, so a patch here has to carry the
+   *  fields this screen does not show — `includeCovers` above all, which defaults on
+   *  and must not be quietly turned off by a guide that never mentioned it. */
+  const saveBackup = (patch: Partial<BackupSettings>) => run(async () => {
+    if (!backup) return;
+    const next = { ...backup, ...patch };
+    await api("/api/backups/settings", { method: "PATCH", body: JSON.stringify(next) });
+    setBackup(next);
+    setBackupSaved(next.enabled
+      ? `Backing up daily at ${next.time}, keeping the last ${next.retention}.`
+      : "Scheduled backups are off.");
+  }, "Unable to save the backup schedule");
 
   const saveMail = () => run(async () => {
     if (!mail) return;
@@ -378,6 +416,68 @@ export function WelcomePage({ user, onDone }: {
                   </p>
                   {binSaved && <MessageBox tone="success" title="Saved">Recycle Bin location updated.</MessageBox>}
                 </>
+              )}
+            </>
+          )}
+
+          {step === "backup" && (
+            <>
+              <h2>A copy to go back to</h2>
+              <p>
+                A nightly archive of everything the app knows but your files do not: the
+                catalogue, who has access, what everyone has read and listened to, and every
+                setting on this page. Rebuilt from your media alone, none of that comes back.
+              </p>
+              <p className="welcome-note">
+                Not the media itself — that is far larger and already sitting in your
+                libraries. A backup is small, which is why it can run every night.
+              </p>
+
+              <div className="welcome-toggle">
+                <ToggleSwitch
+                  checked={Boolean(backup?.enabled)}
+                  disabled={busy || !backup}
+                  onChange={(on) => void saveBackup({ enabled: on })}
+                  label="Back up automatically, once a day"
+                />
+              </div>
+
+              {/* Only once it is on. A time and a keep-count are answers to "when" and
+                  "how many", and neither question exists while the answer to "at all?"
+                  is no. */}
+              {backup?.enabled && (
+                <div className="welcome-field-row">
+                  <Field
+                    label="Time"
+                    type="time"
+                    value={backup.time}
+                    onChange={(next) => setBackup({ ...backup, time: next })}
+                  />
+                  <Field
+                    label="Keep the last"
+                    type="number"
+                    value={String(backup.retention)}
+                    onChange={(next) => setBackup({ ...backup, retention: Number(next) || 0 })}
+                  />
+                  <Button variant="secondary" disabled={busy} onClick={() => void saveBackup({})}>
+                    Save
+                  </Button>
+                </div>
+              )}
+
+              {backupPath && (
+                <p className="welcome-note">
+                  Archives are written to <code>{backupPath}</code>. Worth copying somewhere
+                  off this machine as well — a backup on the same disk as the thing it is
+                  backing up survives a mistake, but not a failed drive.
+                </p>
+              )}
+
+              {backupSaved && (
+                <MessageBox tone="success" title="Saved">
+                  {backupSaved} Change it any time in Control panel → Maintenance → Backup,
+                  where you can also make one now or restore from one.
+                </MessageBox>
               )}
             </>
           )}
