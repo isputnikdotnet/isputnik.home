@@ -294,11 +294,10 @@ export function CleanupWizard({
                           <span className={`cleanup-library-badge ${library.mode}`}>
                             {libraryModeLabel(library)}
                           </span>
-                          {library.isProtected && (
-                            <span className="cleanup-library-lock" title="This library is protected from cleanup actions">
-                              <Lock size={15} aria-hidden="true" />
-                            </span>
-                          )}
+                          {/* The lock trails the toggle rather than preceding it. It only
+                              renders for a protected library, and a grid child that comes
+                              and goes shifts every column after it — so a row with a lock
+                              pushed its toggle out of line with the rows without one. */}
                           <ToggleSwitch
                             checked={included}
                             onChange={() => toggle(library.id)}
@@ -306,6 +305,11 @@ export function CleanupWizard({
                             ariaLabel={`${included ? "Exclude" : "Include"} ${library.name}`}
                             className="cleanup-library-toggle"
                           />
+                          {library.isProtected && (
+                            <span className="cleanup-library-lock" title="This library is protected from cleanup actions">
+                              <Lock size={15} aria-hidden="true" />
+                            </span>
+                          )}
                         </div>
                       );
                     })}

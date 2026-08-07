@@ -606,14 +606,19 @@ function snapshotContained(
       const options = (byHash.get(file.hash) ?? []).filter((other) =>
         !taken.has(other.itemId)
         && !offLimits.has(other.itemId)
-        && !(other.libraryId === print.libraryId && isUnder(print.folderPath, other.path)));
+        && !(other.libraryId === print.libraryId && isUnder(print.folderPath, other.path))
+        // A folder being cleared out is not somewhere a photo is SAFE. Naming one as
+        // the survivor says "this folder is redundant, the copies live over there"
+        // about the very folder the admin asked to empty — and it was only a tiebreak
+        // before, so with no alternative the scan pointed there anyway. When this
+        // leaves nothing, the folder simply is not covered, which is the truth.
+        && preferenceFor(other.libraryId, dirOf(other.path)) !== "clear");
       if (options.length === 0) return null;
       // Which copy is named as the survivor, best first: one that cannot be deleted
-      // anyway, then a folder marked keep, then anything not being cleared out.
+      // anyway, then a folder marked keep, then whatever sorts first.
       const best = options.sort((a, b) =>
         Number(protectedLibs.has(b.libraryId)) - Number(protectedLibs.has(a.libraryId))
         || Number(preferenceFor(b.libraryId, b.path) === "keep") - Number(preferenceFor(a.libraryId, a.path) === "keep")
-        || Number(preferenceFor(a.libraryId, a.path) === "clear") - Number(preferenceFor(b.libraryId, b.path) === "clear")
         || (a.path < b.path ? -1 : 1))[0];
       taken.add(best.itemId);
       found.push({ file, counterpart: best });
@@ -641,10 +646,20 @@ function snapshotContained(
 
   let written = 0;
 
-  // Deepest folders first: if an inner folder is covered, saying so is more useful
-  // than offering its parent, and the parent's own offer would take it along anyway.
+  // Folders marked "clear" first, then deepest first.
+  //
+  // Depth alone is the right default — if an inner folder is covered, saying so is
+  // more useful than offering its parent, and the parent's offer would take it along
+  // anyway. But the doomed side is claimed in this order, and whatever is claimed
+  // first turns everything covering it into a survivor. A shallow folder marked clear
+  // therefore lost every race to the deep dated folders it duplicated, and ended up
+  // named as THEIR survivor: the one outcome the instruction rules out.
+  const clearedFirst = (print: FolderFingerprint): number =>
+    preferenceFor(print.libraryId, print.folderPath) === "clear" ? 0 : 1;
+
   const ordered = [...prints].filter(eligible).sort((a, b) =>
-    b.folderPath.split("/").length - a.folderPath.split("/").length
+    clearedFirst(a) - clearedFirst(b)
+    || b.folderPath.split("/").length - a.folderPath.split("/").length
     || a.folderPath.localeCompare(b.folderPath));
 
   const candidates = new Map<string, { print: FolderFingerprint; pairs: Pair[] }>();

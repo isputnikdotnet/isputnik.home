@@ -233,10 +233,10 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
               <div className="dup-job-card-body">
                 <p className="eyebrow">No active cleanup</p>
                 <h2>No cleanup in progress</h2>
-                <p className="datagrid-muted">
+                <p className="dup-note">
                   A cleanup remembers what it found and what you decided, so you can stop and come back to it.
                 </p>
-                <p className="datagrid-muted">
+                <p className="dup-note">
                   {worthChecking === 0
                     ? "No two photos here share a file size, so nothing can be a copy of anything. There is nothing to clean up."
                     : `${worthChecking.toLocaleString()} photo${worthChecking === 1 ? " shares" : "s share"} a file size with another one, which is the first thing a copy has to do.`}

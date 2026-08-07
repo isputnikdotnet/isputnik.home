@@ -494,6 +494,46 @@ describe("clearing a folder out", () => {
     expect(keeperFoldersOf(inner!)).toEqual(["Keepsafe"]);
   });
 
+  // The shape that exposed both halves of this: OneDrive holds copies of dated folders
+  // and is marked clear, but sits SHALLOWER than they do — and the doomed side is picked
+  // deepest-first, so the dated folders claimed the removal and OneDrive became their
+  // survivor. The instruction says the opposite: OneDrive's copies are the ones to go.
+  it("offers the cleared folder for removal, not the folder it duplicates", () => {
+    asset("c1", "OneDrive/Camera Roll/a.jpg", { hash: "pic-a" });
+    asset("c2", "OneDrive/Camera Roll/b.jpg", { hash: "pic-b" });
+    asset("p1", "Photos/_2016/2016-05-01/a.jpg", { hash: "pic-a" });
+    asset("p2", "Photos/_2016/2016-05-01/b.jpg", { hash: "pic-b" });
+
+    const results = scanWith([{ folderPath: "OneDrive", mode: "clear" }]).results;
+    expect(results.length).toBeGreaterThan(0);
+    // Which TIER answers is not the point — the equal-contents pair is the stronger
+    // statement and claims it, leaving the cleared parent to the contained tier. What
+    // matters is the direction: everything offered for removal is inside OneDrive, and
+    // nothing is kept there.
+    for (const result of results) {
+      expect(doomedFolder(result)?.folderPath.startsWith("OneDrive")).toBe(true);
+      expect(keeperFoldersOf(result).some((path) => path.startsWith("OneDrive"))).toBe(false);
+    }
+  });
+
+  // And when the ONLY copy elsewhere is inside a folder being cleared out, the folder
+  // is not covered by anywhere the admin wants to keep — so there is nothing safe to
+  // say. Offering it anyway told them their photos were safe in the very folder they
+  // had asked to empty.
+  it("does not call a folder redundant when its only cover is being cleared out", () => {
+    asset("o1", "OneDrive/a.jpg", { hash: "pic-a" });
+    asset("o2", "OneDrive/b.jpg", { hash: "pic-b" });
+    // An extra of its own, so OneDrive is not itself fully covered and cannot go whole.
+    asset("o3", "OneDrive/only-here.jpg", { hash: "pic-unique" });
+    asset("p1", "Photos/_2013/2013-09-28/a.jpg", { hash: "pic-a" });
+    asset("p2", "Photos/_2013/2013-09-28/b.jpg", { hash: "pic-b" });
+
+    const results = scanWith([{ folderPath: "OneDrive", mode: "clear" }]).results;
+    const contained = byType(results, "contained");
+    // Nothing may be offered on the promise that OneDrive is keeping a copy.
+    expect(contained.flatMap(keeperFoldersOf)).not.toContain("OneDrive");
+  });
+
   it("reads the most specific instruction, so an exception inside a kept folder holds", () => {
     trip("Photos/keepers", "a");
     trip("Photos/unsorted", "b");

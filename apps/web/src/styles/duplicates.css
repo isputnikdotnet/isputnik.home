@@ -450,6 +450,23 @@
   align-items: center;
 }
 
+/* Prose in a card, as opposed to a value in a table column.
+   .datagrid-muted looks like the right class — muted, small — but it carries
+   white-space: nowrap, which is correct in a datagrid cell and wrong in a sentence.
+   In the empty-state card the text then refused to wrap inside its 1fr column and
+   ran underneath the "Start a cleanup" button sitting in the auto one. */
+.dup-note {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Belt and braces for the same card: anything prose-shaped in here wraps, whatever
+   class it was given. */
+.dup-job-card-body p { white-space: normal; }
+
 .dup-job-title-row {
   display: grid;
   grid-template-columns: minmax(320px, 1fr) auto;
@@ -1932,9 +1949,14 @@
   background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
 }
 
+/* icon · name+path · badge · toggle · lock.
+   The lock is LAST because it is the only optional child: a grid child that renders
+   for some rows and not others shifts every column after it, which knocked the
+   toggle out of line on protected libraries. Trailing it costs nothing — the column
+   collapses to zero on rows without one, and stays aligned on rows with one. */
 .cleanup-library-row {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto auto 54px;
+  grid-template-columns: 42px minmax(0, 1fr) auto 54px auto;
   align-items: center;
   gap: 12px;
   min-height: 62px;
