@@ -220,7 +220,17 @@ export function App() {
 
   if (route.name === "welcome") {
     return session.user
-      ? <WelcomePage user={session.user} />
+      ? (
+        <WelcomePage
+          user={session.user}
+          // Clear the flag HERE, in the state the redirect reads, before leaving —
+          // otherwise Home sends us straight back to the guide we just closed.
+          onDone={() => {
+            setSession((current) => ({ ...current, onboardingPending: false }));
+            navigate("/");
+          }}
+        />
+      )
       : <Shell><p className="status">Preparing sign in...</p></Shell>;
   }
 

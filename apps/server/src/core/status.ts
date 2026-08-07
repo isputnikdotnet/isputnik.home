@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "3.0.2",
+          label: "The setup guide lets you leave",
+          changes: [
+            "Skip for now and Finish work. Both did save your answer — and then walked you straight back to the guide, because the page navigated away on its own while the app still believed the guide was owed to you. The round trip took a moment, so what you saw was a button doing nothing.",
+            "Either button now leaves even when the server refuses to record it. Trapping somebody on a page whose whole purpose is letting them out was the wrong way to fail; when the answer cannot be saved, the guide simply offers itself once more at the next sign-in.",
+            "The password on the guide's email step is sent now. It was collected and quietly dropped, so a mail server that needs one could be set up from Settings → Email but never from the guide."
+          ]
+        },
+        {
           version: "3.0.1",
           label: "A setup guide on first sign-in, and folders you browse to",
           changes: [
