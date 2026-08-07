@@ -19,7 +19,6 @@ import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
 import { ThemePicker, type Theme } from "../shared/ThemePicker";
 import { ToggleSwitch } from "../shared/ToggleSwitch";
-import { navigate } from "../router";
 import { FolderPickerModal } from "../features/control/libraries/FolderPickerModal";
 import type { LibrarySettings, StorageRoot } from "../features/control/types";
 
@@ -60,7 +59,14 @@ const STEPS: { key: StepKey; title: string; note: string; icon: typeof HardDrive
 
 const APP_VERSION = packageInfo.version;
 
-export function WelcomePage({ user }: { user: PublicUser }) {
+export function WelcomePage({ user, onDone }: {
+  user: PublicUser;
+  /** Leaving is the App's business, not this page's: it holds the session, and the
+   *  session is what decides whether the guide opens. Navigating on our own sent us
+   *  to a Home that still believed the guide was pending and bounced us straight
+   *  back — a loop that looked exactly like a button doing nothing. */
+  onDone: () => void;
+}) {
   const [step, setStep] = useState<StepKey>("storage");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -161,7 +167,15 @@ export function WelcomePage({ user }: { user: PublicUser }) {
 
   const saveMail = () => run(async () => {
     if (!mail) return;
-    await api("/api/config/mail", { method: "PUT", body: JSON.stringify(mail) });
+    // `hasPassword` is a read-only flag the server sends; the password itself is only
+    // ever sent when it has been typed into, since blank means "keep the stored one".
+    const { hasPassword, ...settings } = mail;
+    const payload = await api<{ mail: MailSettings }>("/api/config/mail", {
+      method: "PUT",
+      body: JSON.stringify(password ? { ...settings, password } : settings)
+    });
+    setMail(payload.mail);
+    setPassword("");
     setMailSaved(true);
     setTestSent(false);
   }, "Unable to save the email settings");
@@ -190,11 +204,24 @@ export function WelcomePage({ user }: { user: PublicUser }) {
     }, "Unable to save the theme");
   };
 
-  /** Finish and Skip are the same write: the guide has been offered. */
-  const leave = () => run(async () => {
-    await api("/api/setup/onboarding/complete", { method: "POST", body: "{}" });
-    navigate("/");
-  }, "Unable to close the setup guide");
+  /** Finish and Skip are the same write: the guide has been offered.
+   *
+   *  Leaving happens either way. "Let me out" is the ask, and a server that cannot
+   *  record it must not turn the guide into a room with no door — the honest
+   *  consequence of a failed write is simply that the guide offers itself once more
+   *  on the next sign-in, which is what the unset flag already means. */
+  const leave = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/api/setup/onboarding/complete", { method: "POST", body: "{}" });
+    } catch {
+      /* the flag stays unset; the guide will ask again */
+    } finally {
+      setBusy(false);
+      onDone();
+    }
+  };
 
   // What a later step needs from an earlier one. Not a guess: a Recycle Bin folder must
   // sit inside a configured container, and an alert with no mail server is a promise the
