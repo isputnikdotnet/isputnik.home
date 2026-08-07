@@ -502,6 +502,18 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "3.0.4",
+          label: "See the copies, and say which ones stay",
+          changes: [
+            "A set of identical files shows the photographs now, not a list of paths. Click one to move it between keep and delete — the choice the scan could only guess at. Keep all of them, keep two of five, or keep none; one click changes one copy and leaves the rest alone. The full-size Compare view works the same way.",
+            "Keeping nothing is allowed, and it means what it says: the picture leaves your library rather than just its spare copies. The card tells you so, and the \"delete identical copies\" button skips such a set — that button promises every copy it removes has a survivor somewhere, and taking the last one belongs on the card where you can see the decision.",
+            "Copies hold their place when you click them. They used to jump to the front of the row when kept and to the back when not, and the card itself moved too, so the next click could land on a set you had never looked at.",
+            "A folder pair sits side by side again instead of one above the other, shrinking to fit where the card is narrow.",
+            "Comparing two folders is paged rather than building every row at once, which is what that view is for on the big folders. The panel also uses its full height now, and the second Close button at the bottom is gone — the one in the corner was always there.",
+            "On Settings → Overview, the database backup command no longer breaks across two lines mid-command, and the near-identical warning on the cleanup page is no longer cut off before it finishes telling you to look before deleting."
+          ]
+        },
+        {
           version: "3.0.3",
           label: "Clear out means clear out",
           changes: [
