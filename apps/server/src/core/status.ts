@@ -502,6 +502,16 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "3.0.5",
+          label: "A Recycle Bin you can search, and backups from the start",
+          changes: [
+            "The Recycle Bin has a search box, and it looks across names, folders and libraries — so \"that holiday one\" or \"it was in Downloads\" both find it. Sorting is a named menu now rather than an unlabelled icon, which is why nobody could find the five orderings that were already there.",
+            "You can also narrow the bin by how long its items are kept. The choices come from the items themselves rather than a fixed list, and each row is measured from its own dates — so a set kept for 180 days by a duplicate cleanup is told apart from one kept for 30 by hand, whatever the settings say today.",
+            "How long things are kept has moved into a Settings dialog on the page, and per page, order and retention into a view one. Items removed by a duplicate cleanup are now badged \"duplicate\" rather than \"cleanup\": what the file was, rather than which page took it.",
+            "The setup guide can turn on nightly backups. It sits beside the Recycle Bin step, because both are about getting something back after it has gone — and both are worth answering before there is anything to lose. As with every step there, it writes the same setting Maintenance → Backup does, so it can be changed or undone afterwards."
+          ]
+        },
+        {
           version: "3.0.4",
           label: "See the copies, and say which ones stay",
           changes: [
