@@ -30,6 +30,32 @@ Two notes the screen gives you, and what they mean:
 
 Once you submit, you're signed in and land on the Home page.
 
+## The setup guide
+
+The first time an administrator signs in, the app opens a short guide at **/welcome** —
+five steps, in the order they depend on each other:
+
+1. **Storage** — somewhere for the thumbnails the app generates, and at least one folder
+   your libraries are allowed to read. Nothing else works until these exist.
+2. **Recycle Bin** — one folder for deleted files, instead of a hidden `.trash` inside
+   every library. Locked until storage is done: the bin has to live inside a container
+   you have approved.
+3. **Email** — the SMTP details, and a test message to your own address.
+4. **Security alerts** — write to me when an account signs in from a network I haven't
+   seen before. Locked until email is set up, because an alert nobody receives reads
+   exactly like nothing having happened.
+5. **Appearance** — the theme the sign-in screen uses and new members start with.
+
+Every step saves through the same place its Control panel page does, so none of it is
+your only chance to answer. **Skip for now** is a real answer — it closes the guide for
+good rather than asking again at every sign-in — and **Settings → About** has a *Run the
+setup guide* button for whenever you want it back.
+
+Folders are browsed rather than typed. Both the Recycle Bin's folder and a library's have
+to be the path the *server* sees — in Docker that's the path inside the container, not the
+host path you know — and both have to already exist, so a typo can't quietly send files
+somewhere new.
+
 ## Signing in afterwards
 
 ![The sign-in screen](images/01-login.png)

@@ -1,11 +1,12 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { HardDrive, Plus } from "lucide-react";
+import { Folder, HardDrive, Plus } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
+import { FolderPickerModal } from "../libraries/FolderPickerModal";
 import type { LibrarySettings, StorageRoot } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 
@@ -25,6 +26,7 @@ export function StorageSection() {
   const [trashRootInput, setTrashRootInput] = useState("");
   const [editTrashRootOpen, setEditTrashRootOpen] = useState(false);
   const [savingTrashRoot, setSavingTrashRoot] = useState(false);
+  const [trashPickerOpen, setTrashPickerOpen] = useState(false);
   const [thumbnailPathInput, setThumbnailPathInput] = useState("");
   const [rootNameInput, setRootNameInput] = useState("");
   const [rootPathInput, setRootPathInput] = useState("");
@@ -327,9 +329,9 @@ export function StorageSection() {
           onSubmit={saveTrashRoot}
         >
           <p>
-            Choose an existing folder inside a Digital Library container, but <strong>not</strong>{" "}
+            Browse to a folder inside a Digital Library container, but <strong>not</strong>{" "}
             inside a library — anything in a library is scanned, so deleted files would be
-            catalogued straight back in. Leave it blank to keep using each library's own hidden{" "}
+            catalogued straight back in. Clear it to go back to each library's own hidden{" "}
             <code>.trash</code> folder.
           </p>
           <MessageBox tone="info" title="Best set before you create libraries">
@@ -343,7 +345,24 @@ export function StorageSection() {
             real copy of every byte, so deleting a large video, or a duplicate cleanup removing
             thousands of photos, will take much longer.
           </MessageBox>
-          <Field label="Recycle Bin folder" value={trashRootInput} onChange={setTrashRootInput} />
+          {/* Browsed, not typed. The path has to be the one the SERVER sees — under
+              Docker that is the container path, not the host path an admin knows — and it
+              has to already exist. Typing it wrong produced "that folder is missing or not
+              accessible", which is true and useless. The picker can only offer folders the
+              server can actually reach. */}
+          <div className="field source-folder-field">
+            <span>Recycle Bin folder</span>
+            <div className="source-folder-control">
+              <Folder size={19} aria-hidden="true" />
+              <span>{trashRootInput || "Each library's own .trash folder"}</span>
+              <Button variant="secondary" compact onClick={() => { setError(""); setTrashPickerOpen(true); }}>
+                Browse
+              </Button>
+              {trashRootInput && (
+                <Button variant="text" onClick={() => setTrashRootInput("")}>Clear</Button>
+              )}
+            </div>
+          </div>
           {error && <MessageBox tone="error" title="Unable to save the location">{error}</MessageBox>}
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => { setError(""); setEditTrashRootOpen(false); }} disabled={savingTrashRoot} autoFocus>
@@ -354,6 +373,21 @@ export function StorageSection() {
             </Button>
           </div>
         </Modal>
+      )}
+
+      {trashPickerOpen && (
+        <FolderPickerModal
+          title="Select the Recycle Bin folder"
+          intro="Choose a folder inside an approved container — one outside every library, since anything inside a library is scanned."
+          storageRoots={storageRoots}
+          confirmLabel="Use this folder"
+          onPick={({ absolutePath }) => {
+            setTrashRootInput(absolutePath);
+            setTrashPickerOpen(false);
+          }}
+          onClose={() => setTrashPickerOpen(false)}
+          onError={setError}
+        />
       )}
 
       {createStorageRootOpen && (

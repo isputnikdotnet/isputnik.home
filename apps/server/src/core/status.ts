@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "3.0.1",
+          label: "A setup guide on first sign-in, and folders you browse to",
+          changes: [
+            "A setup guide now opens the first time an administrator signs in: storage, the Recycle Bin location, email, sign-in alerts and the default theme, in the order they depend on each other. Two steps stay locked until the one they need is done — the bin has to live inside a container you have approved, and an alert with no mail server behind it reads as nothing having happened.",
+            "It writes through the same settings pages you would use by hand, so nothing in it is your only chance to answer something. Skipping closes it for good rather than asking again at every sign-in, and Settings → About opens it whenever you want it back.",
+            "Folders are browsed rather than typed now — the Recycle Bin location and a library source alike. Both have to be the path the server sees, which under Docker is the path inside the container rather than the host path you know, and both have to already exist. Getting either wrong produced a bare \"that folder is missing or not accessible\", which was true and no help at all; a picker can only offer folders the server can actually reach.",
+          ]
+        },
+        {
           version: "3.0.0",
           label: "One page for duplicates, a Recycle Bin you can place and time — and a fresh start",
           changes: [

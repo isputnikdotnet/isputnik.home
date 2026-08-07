@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { db, logActivity, publicUser, type User } from "../db.js";
 import { verifyDummyPassword, verifyPassword } from "../crypto.js";
 import { clearSession, currentUserPayload, issueSession, revokeCurrentSession } from "../auth.js";
+import { onboardingPending } from "./setup.js";
 import { parseBody, credentialsSchema, getUserByEmail } from "./shared.js";
 import { createMfaChallenge, sendMfaCodeEmail, setMfaChallengeCookie } from "./mfa-routes.js";
 import { isMailConfigured } from "./mail.js";
@@ -132,6 +133,9 @@ export async function authPlugin(app: FastifyInstance) {
   });
 
   app.get("/api/auth/me", { preHandler: app.authenticate }, async (request) => ({
-    user: currentUserPayload(request)
+    user: currentUserPayload(request),
+    // Ride along on the request the app already makes at startup rather than adding a
+    // second one to every page load. Admins only: nobody else can act on any of it.
+    onboardingPending: request.user!.role === "admin" && onboardingPending()
   }));
 }

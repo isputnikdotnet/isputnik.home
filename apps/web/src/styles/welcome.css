@@ -1,0 +1,201 @@
+/* ── Setup guide (/welcome) ─────────────────────────────────────────────────
+   The first administrator's guided pass over storage, email and the theme. A full
+   page rather than a modal: it is a place you can be sent to, leave, and come back
+   to, and every step it covers is also a Control panel page.
+
+   Shares the control panel's field, button and message styles — only the page shell
+   and its step rail are new. */
+
+.welcome-page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.welcome-head h1 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0 10px;
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
+/* Which version this install is, said once and where it is first useful: a screenshot
+   of this page in a bug report then carries its own version number. */
+.welcome-version {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.welcome-head p {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+/* Rail left, work right — the shape the cleanup wizard uses, so a second wizard in
+   this app reads as the same kind of thing. Collapses to a row above the body when
+   there isn't width for a column. */
+.welcome-shell {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.welcome-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: sticky;
+  top: 24px;
+}
+
+.welcome-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.welcome-step:hover { color: var(--ink); background: var(--surface-2, rgba(127, 127, 127, 0.08)); }
+
+.welcome-step.is-active {
+  color: var(--ink);
+  border-color: var(--line);
+  background: var(--surface-2, rgba(127, 127, 127, 0.1));
+}
+
+.welcome-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+
+.welcome-step.is-done .welcome-step-dot { color: var(--mint); border-color: var(--mint); }
+
+/* Reachable, but visibly not ready — the step still explains what it will be for. */
+.welcome-step.is-locked { opacity: 0.62; }
+.welcome-step.is-locked .welcome-step-dot { border-style: dashed; }
+
+.welcome-step-copy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.welcome-step-copy strong { font-size: 0.92rem; }
+.welcome-step-copy span { font-size: 0.76rem; }
+
+.welcome-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.welcome-body h2 { margin: 0; font-size: 1.25rem; }
+.welcome-body h3 { margin: 12px 0 0; font-size: 1rem; }
+.welcome-body p { margin: 0; line-height: 1.55; }
+
+/* A field with its own Save beside it: each answer here is written on its own, so
+   there is never a half-saved page to reason about. */
+.welcome-field-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.welcome-field-row .field { flex: 1 1 220px; min-width: 0; }
+
+.welcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+/* Prose, not a table cell — .datagrid-muted sets white-space: nowrap, which pushed
+   the card past its column the first time this page was built. */
+.welcome-note {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* The status chip sizes to its text rather than the card. */
+.welcome-status { display: flex; }
+.welcome-status .setting-status { max-width: none; text-align: left; }
+
+.welcome-toggle { display: flex; }
+
+.welcome-actions-inline { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.welcome-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.welcome-list span { color: var(--muted); overflow-wrap: anywhere; }
+
+.welcome-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.welcome-actions-spacer { flex: 1 1 auto; }
+
+@media (max-width: 860px) {
+  .welcome-page { padding: 28px 16px 48px; }
+
+  .welcome-shell { grid-template-columns: minmax(0, 1fr); }
+
+  /* Above the body rather than beside it, and horizontal — three steps fit a phone
+     across, and a sticky column would eat the screen. */
+  .welcome-rail {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .welcome-step { flex: 1 0 auto; }
+  .welcome-body { padding: 18px; }
+}
