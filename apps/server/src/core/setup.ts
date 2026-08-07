@@ -7,11 +7,57 @@ import { parseBody, setupSchema } from "./shared.js";
 import { getDefaultTheme } from "./app-config.js";
 import { noteSignInNetwork } from "./security.js";
 
+// Whether the first admin has been offered the setup guide yet.
+//
+// One flag for the INSTALL, not per user: the guide walks through storage, mail and
+// the default theme, all of which are install-wide. A second admin joining later has
+// nothing to set up, and being shown a wizard for settings someone else already chose
+// would be worse than showing nothing.
+const ONBOARDING_KEY = "onboarding_completed_at";
+
+export function onboardingPending(): boolean {
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(ONBOARDING_KEY) as
+    | { value: string }
+    | undefined;
+  return !row?.value;
+}
+
+/** Finishing and skipping both land here. Skipping is a real answer — an admin who
+ *  wants to look around first should not be asked again on every sign-in — and the
+ *  guide stays reachable at /welcome for whenever they do want it. */
+export function completeOnboarding(userId: string): void {
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_by, updated_at)
+    VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at
+  `).run(ONBOARDING_KEY, userId);
+}
+
 export async function setupPlugin(app: FastifyInstance) {
   app.get("/api/setup/status", async () => ({
     requiresSetup: !hasUsers(),
     defaultTheme: getDefaultTheme()
   }));
+
+  // Deliberately NOT on /api/setup/status, which is public: whether an install has
+  // been configured yet is not something to tell an unauthenticated caller.
+  app.get("/api/setup/onboarding", { preHandler: app.requireAdmin }, async () => ({
+    pending: onboardingPending()
+  }));
+
+  app.post("/api/setup/onboarding/complete", { preHandler: app.requireAdmin }, async (request, reply) => {
+    completeOnboarding(request.user!.id);
+    logActivity({
+      event: "setup.onboarding_completed",
+      actorUserId: request.user!.id,
+      targetType: "setting",
+      targetId: "onboarding",
+      detail: "Finished or skipped the setup guide.",
+      ipAddress: request.ip
+    });
+    reply.send({ pending: false });
+  });
 
   app.post("/api/setup/admin", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     if (hasUsers()) {

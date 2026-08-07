@@ -8,6 +8,7 @@ import { clearPrivateRuntimeCaches } from "../pwa/cache";
 import { Shell } from "./Shell";
 import { useRoute, navigate } from "../router";
 import { InstallPage } from "../pages/InstallPage";
+import { WelcomePage } from "../pages/WelcomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { InvitePage } from "../pages/InvitePage";
 import { HomePage } from "../pages/HomePage";
@@ -56,13 +57,15 @@ function cachedDefaultTheme(): Theme {
 interface SessionState {
   loading: boolean;
   requiresSetup: boolean;
+  /** First admin, guide not yet offered. See core/setup.ts. */
+  onboardingPending: boolean;
   user: PublicUser | null;
   defaultTheme: Theme;
 }
 
 type SessionCheck =
   | { reachable: false }
-  | { reachable: true; requiresSetup: boolean; user: PublicUser | null; defaultTheme: Theme };
+  | { reachable: true; requiresSetup: boolean; user: PublicUser | null; defaultTheme: Theme; onboardingPending?: boolean };
 
 // Probe the server with a hard timeout so a dead/slow network can never hang the
 // app. Distinguishes "unreachable" (offline — keep the cached identity) from
@@ -80,8 +83,8 @@ async function checkSession(): Promise<SessionCheck> {
     const meRes = await fetch("/api/auth/me", { credentials: "include", signal: controller.signal });
     if (meRes.status === 401) return { reachable: true, requiresSetup: false, user: null, defaultTheme };
     if (!meRes.ok) return { reachable: false };
-    const me = (await meRes.json()) as { user: PublicUser | null };
-    return { reachable: true, requiresSetup: false, user: me.user ?? null, defaultTheme };
+    const me = (await meRes.json()) as { user: PublicUser | null; onboardingPending?: boolean };
+    return { reachable: true, requiresSetup: false, user: me.user ?? null, defaultTheme, onboardingPending: me.onboardingPending };
   } catch {
     return { reachable: false }; // network error or timeout/abort
   } finally {
@@ -94,6 +97,7 @@ export function App() {
   const [session, setSession] = useState<SessionState>({
     loading: true,
     requiresSetup: false,
+    onboardingPending: false,
     user: null,
     defaultTheme: cachedDefaultTheme()
   });
@@ -125,7 +129,7 @@ export function App() {
         await clearPrivateRuntimeCaches().catch(() => {});
       }
       cacheCurrentUser(result.user);
-      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: result.user, defaultTheme: result.defaultTheme }));
+      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: result.user, defaultTheme: result.defaultTheme, onboardingPending: Boolean(result.onboardingPending) }));
     } else {
       // Server reachable but not authenticated — a genuine sign-out / expiry.
       await clearPrivateRuntimeCaches().catch(() => {});
@@ -189,6 +193,14 @@ export function App() {
       return;
     }
 
+    // The first administrator has never seen the setup guide. Send them there once —
+    // from the landing page only, so a bookmark straight to a library still works and
+    // a page they deliberately opened is never taken away from them.
+    if (session.onboardingPending && route.name === "home") {
+      navigate("/welcome");
+      return;
+    }
+
     if (session.user && ["control", "controlCategoryEditor"].includes(route.name) && session.user.role !== "admin") {
       navigate("/");
     }
@@ -204,6 +216,12 @@ export function App() {
 
   if (session.loading) {
     return <Shell><p className="status">Loading isputnik.home...</p></Shell>;
+  }
+
+  if (route.name === "welcome") {
+    return session.user
+      ? <WelcomePage user={session.user} />
+      : <Shell><p className="status">Preparing sign in...</p></Shell>;
   }
 
   if (route.name === "install") {

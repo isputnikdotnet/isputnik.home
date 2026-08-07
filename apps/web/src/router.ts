@@ -179,6 +179,7 @@ const CONTROL_SECTION_BY_PATH = new Map<string, ControlSection>([
 
 export type Route =
   | { name: "install" }
+  | { name: "welcome" }
   | { name: "login" }
   | { name: "home" }
   | { name: "libraryFeed"; mode: "recent" | "continue" }
@@ -241,6 +242,10 @@ export function getRoute(): Route {
 
   if (path === "/install") {
     return { name: "install" };
+  }
+
+  if (path === "/welcome") {
+    return { name: "welcome" };
   }
 
   if (path === "/login") {
