@@ -104,7 +104,7 @@ export function StatusSection() {
               </div>
               <p className="muted status-db-path">{dbInfo.path}</p>
               <p className="muted status-db-hint">
-                To back up, copy the database file with its <code>-wal</code> and <code>-shm</code> companions while the server is idle, or run <code>sqlite3 isputnik.sqlite .backup backup.sqlite</code> for a safe online backup.
+                To back up, copy the database file with its <code>-wal</code> and <code>-shm</code> companions while the server is idle, or run <code className="status-db-command">sqlite3 isputnik.sqlite .backup backup.sqlite</code> for a safe online backup.
               </p>
             </section>
           )}
