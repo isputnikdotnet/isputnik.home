@@ -318,3 +318,16 @@ export const galleryFolderHref = (folder: SnapshotFolder): string => {
 
 export const photoCountLabel = (count: number): string =>
   `${count} photo${count === 1 ? "" : "s"}`;
+
+/** A copy's own name. Every path in a photo set ends in the same filename often enough
+ *  that the folder is what tells them apart — but the name still leads, because it is
+ *  what the set is called. */
+export const fileNameOf = (path: string): string => path.split("/").pop() || path;
+
+/** The folder holding a copy, as a path inside its library. Empty when the copy sits in
+ *  no subfolder at all; the caller names that place, since the word for it belongs to
+ *  the UI rather than to this file. */
+export const folderOfPath = (path: string): string => {
+  const cut = path.lastIndexOf("/");
+  return cut === -1 ? "" : path.slice(0, cut);
+};

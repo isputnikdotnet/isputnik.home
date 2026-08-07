@@ -238,12 +238,10 @@ export function DuplicateViewer({
             : `Copy ${index + 1} of ${members.length} — use ← and → to step through them`}
         </p>
       </div>
-
-      {/* Outside the scrolling body, in its own row: in a short window the body
-          scrolls, and an action row inside it would scroll out of reach. */}
-      <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose}>Close</Button>
-      </div>
+      {/* No Close button down here. The panel header carries one, and this is a
+          look-at-it surface rather than a form: there is nothing to submit, so a
+          second dismissal at the far end of a full-screen comparison is one more
+          thing to read past. Escape and the backdrop still close it too. */}
     </Modal>
   );
 }

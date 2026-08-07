@@ -37,8 +37,8 @@ import { CleanupResultCard } from "./CleanupResultCard";
 import {
   EMPTY_PAYLOAD, EMPTY_RESULTS, REVIEW_FILTERS, RESULT_SECTIONS, SECTION_HEADINGS, folderLabel,
   keeperFolders, sectionQuery, typeFilters,
-  type JobsPayload, type MemberCheck, type ResultCheck, type ResultsPage, type SnapshotResult,
-  type StaleReason
+  type DuplicateJob, type JobsPayload, type MemberCheck, type ResultCheck, type ResultsPage,
+  type SnapshotResult, type StaleReason
 } from "./cleanup-types";
 
 export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUser }) {
@@ -184,6 +184,46 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
     } catch (err) {
       setActionError(err instanceof Error ? err.message : whenFailed);
       return false;
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  /** Move one copy between keep and delete, and patch the card where it stands.
+   *
+   *  Everything else on this page reloads after it acts, which is right when a card
+   *  leaves the list. This one stays, and reloading would MOVE it: reclaimable bytes are
+   *  part of the results ordering, so the set someone just clicked slides to wherever
+   *  its new total belongs while the scroll position stays put — and the next click
+   *  lands on a different set. So the reply carries just this result, and it is swapped
+   *  in at its own index. The list re-sorts on the next real load, not under the hand
+   *  that is working it.
+   */
+  const setMemberRole = async (
+    result: SnapshotResult, memberId: string, role: "keep" | "delete"
+  ) => {
+    if (!job) return;
+    setBusyId(result.id);
+    setActionError("");
+    try {
+      const params = new URLSearchParams(resultQuery());
+      const answer = await api<{
+        result: SnapshotResult | null; sweep: ResultsPage["sweep"]; job: DuplicateJob;
+      }>(
+        `/api/library/gallery/duplicate-jobs/${job.id}/results/${result.id}/members/${memberId}/role?${params}`,
+        { method: "POST", body: JSON.stringify({ role }) }
+      );
+      setResults((current) => ({
+        ...current,
+        results: current.results.map((row) =>
+          (row.id === result.id && answer.result ? answer.result : row)),
+        sweep: answer.sweep
+      }));
+      setPayload((current) => ({ ...current, activeJob: answer.job }));
+    } catch (err) {
+      setActionError(err instanceof Error
+        ? err.message
+        : role === "keep" ? "Unable to keep that copy" : "Unable to mark that copy for deletion");
     } finally {
       setBusyId("");
     }
@@ -340,7 +380,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
       {grouped.map((group) => (
         <div key={group.section.key}>
           <h2 className="dup-tier-heading">{SECTION_HEADINGS[group.section.key].title}</h2>
-          <p className="datagrid-muted dup-tier-note">{SECTION_HEADINGS[group.section.key].note}</p>
+          <p className="dup-tier-note">{SECTION_HEADINGS[group.section.key].note}</p>
           <div className="dup-sets">
             {group.items.map((result) => (
               <CleanupResultCard
@@ -357,7 +397,11 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
                     { mark: result.reviewStatus === "skipped" ? "unreviewed" : "skipped" }
                   ),
                   onDismiss: () => { setActionError(""); setDismissing(result); },
-                  onDelete: () => { setActionError(""); setConfirm(result); }
+                  onDelete: () => { setActionError(""); setConfirm(result); },
+                  // Not confirmed: it changes what a later Delete would take, and
+                  // changes nothing about the photos themselves. The confirm belongs on
+                  // the deletion, which already has one.
+                  onSetRole: (memberId, role) => void setMemberRole(result, memberId, role)
                 }}
               />
             ))}

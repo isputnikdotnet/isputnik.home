@@ -1190,6 +1190,10 @@ export interface ResultFilter {
   tier?: ResultTier;
   review?: "unreviewed" | "reviewed" | "skipped";
   libraryId?: string;
+  /** One result by id, for reading back a single card after it changed. Not something
+   *  the page's filter bar offers — it exists so an edit can answer with the row it
+   *  touched instead of a whole re-sorted page. */
+  resultId?: string;
 }
 
 // A result is 'near' when any member sits off its keeper. Written once, used by the
@@ -1204,6 +1208,7 @@ function filterSql(jobId: string, filter: ResultFilter): { where: string; args: 
   const clauses = ["r.job_id = ?"];
   const args: unknown[] = [jobId];
 
+  if (filter.resultId) { clauses.push("r.id = ?"); args.push(filter.resultId); }
   if (filter.type) { clauses.push("r.result_type = ?"); args.push(filter.type); }
   if (filter.tier) { clauses.push(filter.tier === "near" ? NEAR_EXISTS : `NOT ${NEAR_EXISTS}`); }
   if (filter.review) { clauses.push("r.review_status = ?"); args.push(filter.review); }
@@ -1394,13 +1399,23 @@ export function listJobResults(
  *  about a lot of photos" — so one press emptying four folders is not a faster way to
  *  do that work, it is a different and much larger act wearing the same button. The
  *  older folder pages have never offered one either. A folder cleanup therefore shows
- *  no sweep at all, which is the honest answer rather than a missing feature. */
+ *  no sweep at all, which is the honest answer rather than a missing feature.
+ *
+ *  And a THIRD, for the same reason as the first: the set must still keep something.
+ *  A person may mark every copy of a set for deletion, and then removing them is not
+ *  clearing redundancy — it is taking a photograph out of the library. That is a fine
+ *  thing to ask for and a terrible thing to fold into a button labelled "delete N
+ *  identical copies", whose whole promise is that each one has a survivor. Those sets
+ *  are left for the card, where the decision is visible one at a time. */
 function sweepScope(jobId: string, filter: ResultFilter): { where: string; args: unknown[] } {
   const scope = filterSql(jobId, { ...filter, type: "photo_set", tier: "exact" });
   return {
     where: `${scope.where} AND r.status = 'active' AND EXISTS (
       SELECT 1 FROM duplicate_job_result_members m
       WHERE m.result_id = r.id AND m.role = 'delete' AND m.status NOT IN ('deleted', 'skipped')
+    ) AND EXISTS (
+      SELECT 1 FROM duplicate_job_result_members m
+      WHERE m.result_id = r.id AND m.role IN ('keep', 'protected')
     )`,
     args: scope.args
   };

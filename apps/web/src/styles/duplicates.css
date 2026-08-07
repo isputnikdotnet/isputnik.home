@@ -210,8 +210,8 @@
     flex: 1 1 150px;
   }
 
-  .dup-copies .dup-copy {
-    flex-basis: 176px;
+  .dup-copies {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   }
 }
 
@@ -228,7 +228,20 @@
 }
 
 .dup-tier-heading { margin: 16px 0 4px; font-size: 0.95rem; }
-.dup-tier-note { margin: 0 0 8px; font-size: 0.8rem; }
+
+/* A section's standing explanation — prose, not a table value, so it carries its own
+   muted colour rather than borrowing .datagrid-muted's. That class also sets
+   white-space: nowrap, which held this paragraph on one 1355px line inside an 801px
+   column and cut the longest of them — the near-identical warning — off mid-sentence,
+   losing "open them before deleting anything". Same trap as .dup-note above. */
+.dup-tier-note {
+  margin: 0 0 8px;
+  max-width: 90ch;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: normal;
+}
 
 .dup-group {
   border: 1px solid var(--line);
@@ -239,11 +252,12 @@
   box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 18%, transparent);
 }
 .dup-group-actions { display: flex; align-items: center; gap: 10px; }
-/* The tile is a plain box; the pick button inside it carries the click target, so
-   the badge and info control can sit on top without nesting buttons. */
+/* A plain box, and `position: relative` is load-bearing: the badge is absolutely
+   placed over the thumbnail's corner, so without it every badge on the page escapes
+   to the nearest positioned ancestor and stacks there. Sized by the grid, not by
+   `flex-basis` — this container is a grid, where flex properties do nothing. */
 .dup-copies .dup-copy {
   position: relative;
-  flex: 0 0 190px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -251,7 +265,6 @@
   overflow: hidden;
   background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
 }
-.dup-copies .dup-copy:hover { border-color: color-mix(in srgb, var(--success) 58%, var(--line)); }
 .dup-copies .dup-copy.is-keep {
   border-color: color-mix(in srgb, var(--success) 64%, var(--line));
   background:
@@ -549,9 +562,26 @@
    One scrolling surface holding both columns rather than two panes: row N on the left
    has to stay opposite row N on the right, and two independently scrolling lists can't
    promise that. The grid does it by construction. */
+/* Header, the files, the pager. .metadata-modal's default is `auto auto minmax(0,1fr)`,
+   which put the file list in an AUTO row and left the flexible one empty underneath —
+   327px of dead space in a 680px panel, and a body that grew with its content instead
+   of scrolling inside it, so a long pair was clipped by the surface's overflow:hidden
+   rather than scrolled. The list takes the flexible row now and the pager sits in a
+   fixed one below it, which collapses to nothing when there is only one page. */
+.metadata-modal.dup-compare-modal {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
 .dup-compare-modal .dup-compare-body {
   min-height: 0;
   overflow-y: auto;
+}
+
+.dup-compare-pager {
+  margin-top: 0;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
 }
 
 .dup-compare-grid {
@@ -878,34 +908,88 @@
   }
 }
 
-/* One copy of a photo set, as a row: what happens to it, where it is, whose
-   library it is in. Folder answers get tiles; single files get a list, because a
-   set of eight copies as eight tiles is a wall. */
-.dup-member-list {
+/* The copies of a photo set, as tiles.
+   This was a list of paths, on the reasoning that a set of eight copies as eight
+   tiles is a wall. The pictures are back because the paths answer the wrong
+   question: they say which copy is which, and only the picture says whether the
+   copies are the same photograph — which is the whole of the near-identical tier.
+   The wall is answered by SIZE instead, small tiles rather than no tiles.
+
+   Fixed-width columns, not `1fr`: with a fraction a pair of copies would stretch
+   one thumbnail across half the card. Same reasoning as .trash-grid. */
+.dup-copies {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 152px);
+  gap: 10px;
+  align-items: start;
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
-.dup-member-row {
+/* The picture is the control that moves a copy between keep and delete, so the frame
+   is written to be identical whether it renders as a button or as a plain span — a
+   tile must not change shape when a cleanup is handed to somebody else. The reset is
+   explicit because .text-button brings its own padding, border and colour. */
+.dup-copy-thumb {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+  color: var(--muted);
+}
+.dup-copy-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+button.dup-copy-thumb { cursor: pointer; }
+/* Feedback on the PICTURE, not on the frame behind it: the image covers the frame
+   completely, so a background change would never be seen. */
+button.dup-copy-thumb:hover:not(:disabled) img { opacity: 0.72; }
+button.dup-copy-thumb:disabled { cursor: default; }
+button.dup-copy-thumb:focus-visible {
+  outline: 2px solid var(--accent, #c8a24a);
+  outline-offset: -2px;
+}
+.dup-copy-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 9px 9px;
+}
+/* Wraps, but only twice: copies usually share a filename and are told apart by the
+   folder below, so a 90-character name earns two lines and no more — past that it
+   only pushes its tile out of step with the rest of the row. Full name on hover. */
+.dup-copy-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+/* Each locates the copy on one line: the folder is what tells apart copies whose
+   filenames are identical, which is most of them. Truncated rather than wrapped so
+   tiles in a row stay in step; the full value is on the tooltip. */
+.dup-copy-where {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  gap: 5px;
   min-width: 0;
+  font-size: 0.74rem;
+  color: var(--muted);
 }
-.dup-member-row.is-keep { border-color: var(--ok, #2e7d32); }
-.dup-member-row.is-trash { border-color: var(--danger, #c62828); }
-.dup-member-path {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-family: var(--mono, ui-monospace, monospace);
-  font-size: 0.85rem;
+.dup-copy-where svg { flex: 0 0 auto; opacity: 0.8; }
+.dup-copy-where > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── A duplicate-folder set, as a card ──────────────────────────────
@@ -1643,9 +1727,39 @@
   min-height: 92px;
 }
 
+/* Side by side, always. The card makes one comparison — "these photos are also in
+   that folder" — and a pair stacked one above the other reads as a list of two
+   unrelated folders instead.
+
+   They were fixed at 218px and allowed to WRAP, which looks fine until you notice
+   the decision column is sized as a fraction of the card, not of the window: on a
+   normal desktop it lands near 390px, the pair needs about 490px, and the second
+   tile drops onto its own row. The row now never wraps and the tiles shrink to fit
+   instead — 218px where there is room, smaller where there is not. Long names and
+   paths already truncate inside them.
+
+   They shrink proportionally rather than to identical widths: the arrow shares the
+   second tile's wrapper, so that side carries ~32px more basis and ends a handful of
+   pixels narrower (8px at a 390px column). Reserving a matching slot on the first
+   tile would even it out at the cost of a hardcoded number tracking both the arrow's
+   width and the row gap — not worth it for a difference this size.
+
+   A phone still stacks them (the 720px block below), where side by side would leave
+   two columns too narrow to read. */
 .dup-cleanup-folder-card .dup-set-folders {
   align-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  /* Load-bearing. The decision column is a grid with justify-items: end, so this row
+     is shrink-to-fit and would simply size to its own max-content and hang out over
+     the edge of the card — nowrap without this trades stacking for overflow. Capped
+     to the column, the shrink below is what actually happens instead. */
+  max-width: 100%;
+}
+
+.dup-cleanup-folder-card .dup-set-folder-wrap,
+.dup-cleanup-folder-card .dup-set-folder {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .dup-cleanup-folder-card .dup-set-folder {
