@@ -502,6 +502,15 @@ export async function statusPlugin(app: FastifyInstance) {
       frontend: "React + TypeScript",
       versionUpdates: [
         {
+          version: "3.0.3",
+          label: "Clear out means clear out",
+          changes: [
+            "A folder you marked \"clear out\" is no longer kept. It was being named as the safe home for other folders — \"delete these, the copies are in OneDrive\" about the very folder you had asked to empty — and on a real library that was half the results. Clearing a folder now decides the direction: its copies are the ones offered for removal.",
+            "Two things were wrong underneath. The instruction only broke ties when choosing which copy survives, so where a cleared folder was the ONLY other copy it was chosen anyway; it is now ruled out entirely, and a folder covered only by a folder being cleared is simply not called redundant. And folders were claimed for removal deepest-first, so a shallow folder like OneDrive lost every race to the dated folders it duplicated and ended up as their survivor. Cleared folders now go first.",
+            "A folder holding photos that exist nowhere else still cannot be removed whole — it is offered as a partial overlap instead, so its shared copies go and the ones only it has stay. Re-scan an existing cleanup to pick this up; the results it already holds were worked out under the old rule."
+          ]
+        },
+        {
           version: "3.0.2",
           label: "The setup guide lets you leave",
           changes: [
