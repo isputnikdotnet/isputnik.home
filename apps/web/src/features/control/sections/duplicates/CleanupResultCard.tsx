@@ -5,18 +5,19 @@
 // every sentence.
 import { useState, type ReactNode } from "react";
 import {
-  ArrowRight, CircleCheck, Columns2, ExternalLink, FolderOpen, FolderTree, HardDrive, Images,
-  Trash2, TriangleAlert
+  ArrowRight, CircleCheck, Columns2, ExternalLink, Folder, FolderOpen, FolderTree, HardDrive,
+  ImageOff, Images, Trash2, TriangleAlert
 } from "lucide-react";
 import { formatBytes } from "../../../../shared/utils";
 import { Button } from "../../../../shared/Button";
-import { FolderStrip } from "./shared";
+import { FolderStrip, TOP_LEVEL, TOP_LEVEL_HINT } from "./shared";
 import { DuplicateViewer, type ViewerMember } from "./DuplicateViewer";
 import { FolderCompare } from "./FolderCompare";
 import { CertaintyBadge } from "./CertaintyBadge";
 import {
-  doomedFolder, folderLabel, folderLocation, galleryFolderHref, keeperFolders, photoCountLabel,
-  type SnapshotFolder, type SnapshotResult
+  doomedFolder, fileNameOf, folderLabel, folderLocation, folderOfPath, galleryFolderHref,
+  keeperFolders, photoCountLabel,
+  type SnapshotFolder, type SnapshotMember, type SnapshotResult
 } from "./cleanup-types";
 
 function CleanupFolderTile({
@@ -87,6 +88,9 @@ export interface CleanupResultActions {
   onSkip: () => void;
   onDismiss: () => void;
   onDelete: () => void;
+  /** Move one copy of a photo set between keep and delete — the scan's guess, overruled.
+   *  Photo sets only; a folder card's offer is about the folder, not its files. */
+  onSetRole: (memberId: string, role: "keep" | "delete") => void;
 }
 
 function ReviewButtons({
@@ -141,9 +145,13 @@ function ReviewButtons({
 }
 
 /** The copies of a set, as the viewer wants them. A member whose photo has since gone
- *  has nothing to show, so it is left out rather than rendered as a broken frame. */
-const viewerMembersOf = (result: SnapshotResult): ViewerMember[] =>
-  result.members
+ *  has nothing to show, so it is left out rather than rendered as a broken frame.
+ *
+ *  Takes the members rather than the result so it is handed the SAME stable order the
+ *  tiles use: the viewer holds left/right positions in state, and a list that reordered
+ *  under a toggle would swap the pane you were looking at. */
+const viewerMembersOf = (members: SnapshotMember[]): ViewerMember[] =>
+  members
     .filter((member) => member.itemId !== null)
     .map((member) => ({
       itemId: member.itemId!,
@@ -369,6 +377,80 @@ function FolderSetCard({
   );
 }
 
+/** One copy of a photo set, picture first.
+ *
+ *  The path says WHICH copy this is; only the picture says whether the copies are the
+ *  same photograph — which is the entire question in the near-identical tier, and the
+ *  one a list of filenames cannot answer. The tile is deliberately small: this card
+ *  used to be a list precisely because a seven-copy set as seven big tiles is a wall.
+ *
+ *  The picture is the control: clicking it moves this copy between keep and delete,
+ *  which is the decision the scan only guessed at. "Compare" opens the copies full size
+ *  for anyone who wants a closer look before choosing. */
+function CopyTile({ member, showSize, busy, onToggle }: {
+  member: SnapshotMember;
+  showSize: boolean;
+  busy: boolean;
+  /** Absent when this copy's fate is not open to change — a cleanup someone else owns,
+   *  a protected library, or a copy already in the Recycle Bin. Then the tile is a
+   *  plain frame rather than a disabled button, which would promise an action that
+   *  isn't merely unavailable but does not exist. */
+  onToggle?: () => void;
+}) {
+  const doomed = member.role === "delete";
+  // The grid thumbnail, not the web-sized preview: a card shows a dozen of these and
+  // the preview is sized for the viewer's full-screen panes.
+  const src = member.coverUrl ?? member.previewUrl;
+  const folder = folderOfPath(member.path);
+  const badge = member.role === "keep" ? "Keep" : member.role === "protected" ? "Protected" : "Delete";
+  // alt="" — the filename is written underneath, and the picture itself is not
+  // describable here. A copy whose photo has gone shows the empty frame rather than a
+  // broken image: the snapshot outlives what it describes.
+  const picture = src
+    ? <img src={src} alt="" loading="lazy" />
+    : <ImageOff size={22} aria-hidden="true" />;
+
+  return (
+    <li className={`dup-copy${doomed ? " is-trash" : " is-keep"}`}>
+      {onToggle ? (
+        // Labelled by what the click DOES, not by the state it is in: "Keep IMG_1109
+        // instead" is unambiguous where a pressed/unpressed toggle over two words that
+        // both mean an outcome is not.
+        <Button
+          variant="text"
+          className="dup-copy-thumb"
+          disabled={busy}
+          aria-label={`${doomed ? "Keep" : "Delete"} ${fileNameOf(member.path)} instead`}
+          title={doomed
+            ? "Marked for deletion — click to keep it instead"
+            : "Marked to keep — click to delete it instead"}
+          onClick={onToggle}
+        >
+          {picture}
+        </Button>
+      ) : (
+        <span className="dup-copy-thumb is-static">{picture}</span>
+      )}
+      {/* Readable, not aria-hidden like the folder tiles' badge: there, "Delete this"
+          on the button says what happens. Here the badge is the ONLY thing that says
+          which of these copies is the one leaving. */}
+      <span className="dup-copy-badge">{badge}</span>
+      <span className="dup-copy-info">
+        <strong className="dup-copy-name" title={member.path}>{fileNameOf(member.path)}</strong>
+        <span className="dup-copy-where" title={folder || TOP_LEVEL_HINT}>
+          <Folder size={11} aria-hidden="true" />
+          <span>{folder || TOP_LEVEL}</span>
+        </span>
+        <span className="dup-copy-where" title={`In the library “${member.libraryName}”`}>
+          <Images size={11} aria-hidden="true" />
+          <span>{member.libraryName}</span>
+        </span>
+        {showSize && <span className="dup-copy-where">{formatBytes(member.size ?? 0)}</span>}
+      </span>
+    </li>
+  );
+}
+
 function PhotoSetCard({
   result, canWork, actions
 }: {
@@ -376,17 +458,40 @@ function PhotoSetCard({
   canWork: boolean;
   actions: CleanupResultActions;
 }) {
-  const keep = result.members.find((member) => member.role === "keep");
-  const going = result.members.filter((member) => member.role !== "keep");
+  // Ordered by PATH, and deliberately not by role.
+  //
+  // Kept copies used to lead, which meant a tile jumped to the front of the row the
+  // instant you clicked it and to the back when you changed your mind — so the copy you
+  // had just decided about was never where you left it, and on a seven-copy set the
+  // whole row reshuffled under the cursor. A path never changes, so a tile now holds its
+  // place for the life of the card and only its badge moves.
+  const ordered = [...result.members].sort((a, b) => a.path.localeCompare(b.path));
+  const keeps = result.members.filter((member) => member.role === "keep");
+  // The set's name, from its first copy rather than from whichever copy is kept — the
+  // heading has no business changing because a badge did.
+  const titleMember = ordered[0];
   const near = result.tier === "near";
   const [viewing, setViewing] = useState(false);
-  const viewable = viewerMembersOf(result);
+  const viewable = viewerMembersOf(ordered);
+
+  /** Whether this copy's fate is still open. Protection belongs to the library and a
+   *  copy already in the Recycle Bin is past deciding. Every other copy is free to move
+   *  either way, in any combination — one click changes one photo and nothing else. */
+  const togglable = (member: SnapshotMember) =>
+    canWork && member.role !== "protected" && member.status !== "deleted";
+
+  // Nothing kept. Allowed — a set of copies of something nobody wants is a real answer
+  // — but it is no longer "remove the spares": the picture itself leaves the library.
+  // Said in the card's own voice, because the Delete button beside it still reads
+  // "Delete copies" and a person is entitled to know this one takes the last one too.
+  const keepsNothing = keeps.length === 0
+    && result.members.some((member) => member.role === "delete" && member.status !== "deleted");
 
   return (
     <div className="dup-set">
       <div className="dup-set-head">
         <div className="dup-set-summary">
-          <h3 className="dup-set-title">{keep?.path.split("/").pop()}</h3>
+          <h3 className="dup-set-title">{titleMember && fileNameOf(titleMember.path)}</h3>
           <p className="dup-set-meta datagrid-muted">
             <span><Images size={14} aria-hidden="true" /> {result.members.length} copies</span>
             <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(result.reclaimableBytes)}</span>
@@ -399,6 +504,16 @@ function PhotoSetCard({
             <p className="dup-set-explain dup-set-near">
               <TriangleAlert size={13} aria-hidden="true" />
               <span>These only look alike. They may be two different shots — check before deleting.</span>
+            </p>
+          )}
+          {keepsNothing && (
+            <p className="dup-set-explain dup-set-near">
+              <TriangleAlert size={13} aria-hidden="true" />
+              <span>
+                Nothing here is kept, so this removes the picture from your library, not
+                just its spare copies. {result.members.length === 1 ? "The copy goes" : "All copies go"} to
+                the Recycle Bin, where {result.members.length === 1 ? "it can" : "they can"} still be restored.
+              </span>
             </p>
           )}
           {result.keeperReason && (
@@ -421,32 +536,26 @@ function PhotoSetCard({
           </div>
         )}
       </div>
-      <div className="dup-set-body">
-        <ul className="dup-member-list">
-          {/* On a near set the file sizes are the visible difference between the copies
-              — which is the downscaled one, which is the original — so they are worth
-              the column. In an identical set every size is the same by definition and
-              printing them would be noise. */}
-          {keep && (
-            <li className="dup-member-row is-keep">
-              <span className="dup-copy-badge" aria-hidden="true">Keep</span>
-              <span className="dup-member-path">{keep.path}</span>
-              {near && <span className="datagrid-muted">{formatBytes(keep.size ?? 0)}</span>}
-              <span className="datagrid-muted">{keep.libraryName}</span>
-            </li>
-          )}
-          {going.map((member) => (
-            <li className={`dup-member-row ${member.role === "protected" ? "is-keep" : "is-trash"}`} key={member.id}>
-              <span className="dup-copy-badge" aria-hidden="true">
-                {member.role === "protected" ? "Protected" : "Delete"}
-              </span>
-              <span className="dup-member-path">{member.path}</span>
-              {near && <span className="datagrid-muted">{formatBytes(member.size ?? 0)}</span>}
-              <span className="datagrid-muted">{member.libraryName}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {/* Deliberately NOT wrapped in .dup-set-body: that is the folder card's two-column
+          body (strip beside folders), and it pinned this content into a 270px column
+          with half the card standing empty. */}
+      <ul className="dup-copies">
+        {/* On a near set the file sizes are the visible difference between the copies —
+            which is the downscaled one, which is the original — so each tile carries
+            one. In an identical set every size is the same by definition and printing
+            them would be noise. */}
+        {ordered.map((member) => (
+          <CopyTile
+            key={member.id}
+            member={member}
+            showSize={near}
+            busy={actions.busy}
+            onToggle={togglable(member)
+              ? () => actions.onSetRole(member.id, member.role === "delete" ? "keep" : "delete")
+              : undefined}
+          />
+        ))}
+      </ul>
 
       {viewing && (
         <DuplicateViewer
@@ -454,12 +563,18 @@ function PhotoSetCard({
             ? `${viewable.length} near-identical copies — check them before deleting`
             : `${viewable.length} copies of the same photo`}
           members={viewable}
-          // The scan settled which copy survives, so this shows the answer rather than
-          // offering to change it. Skip or "Not the same" on the card are the ways to
-          // disagree with it.
-          readOnly
+          // Full size is where a near-identical pair is actually settled, so the panes
+          // toggle the same way the tiles do rather than showing an answer you have to
+          // close the panel to argue with. Read-only only when the cleanup is somebody
+          // else's — then there is no decision here to make.
+          readOnly={!canWork}
+          busy={actions.busy}
           markOf={(member) =>
             result.members.find((row) => row.itemId === member.itemId)?.role === "delete" ? "trash" : "keep"}
+          onToggleMark={(member) => {
+            const row = result.members.find((entry) => entry.itemId === member.itemId);
+            if (row && togglable(row)) actions.onSetRole(row.id, row.role === "delete" ? "keep" : "delete");
+          }}
           onClose={() => setViewing(false)}
         />
       )}

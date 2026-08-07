@@ -124,11 +124,17 @@ export function checkResult(jobId: string, resultId: string): ResultCheck | null
   // A doomed photo is only safe to remove while the copy that survives it is still
   // there and still itself. Checked explicitly, because "my file is fine" says
   // nothing about the file it was promised to hand its tags to.
+  //
+  // A NULL keeper is not a broken promise: it is a set where the person kept nothing,
+  // so no copy was ever promised to survive this one. That is the one case where a
+  // doomed row with no keeper is exactly right, and treating it as stale would make a
+  // deliberate answer un-actionable.
   for (const check of checks) {
     if (check.stale || check.role !== "delete") continue;
     const member = byId.get(check.memberId)!;
     if (member.status === "deleted") continue;
-    const keeper = member.keeper_member_id ? checks.find((other) => other.memberId === member.keeper_member_id) : null;
+    if (member.keeper_member_id === null) continue;
+    const keeper = checks.find((other) => other.memberId === member.keeper_member_id);
     if (!keeper || keeper.stale) check.stale = "missing";
   }
 
@@ -253,7 +259,10 @@ export function resolveJobResult(
 
   for (const member of doomed) {
     const keeper = member.keeper_member_id ? byId.get(member.keeper_member_id) : undefined;
-    if (!member.item_id || !keeper?.item_id) {
+    // A keeper that was RECORDED and cannot be found is a broken snapshot and stops
+    // this copy. A keeper that was never recorded is the "keep nothing" answer, which
+    // is allowed — there is simply nobody to inherit, so the hand-over is skipped.
+    if (!member.item_id || (member.keeper_member_id !== null && !keeper?.item_id)) {
       failed.push({ path: member.path, error: "No surviving copy is recorded for this photo." });
       markMember.run("error", member.id);
       continue;
@@ -266,7 +275,9 @@ export function resolveJobResult(
     // on the other. A near-identical copy is a DIFFERENT image — resized, re-cropped,
     // re-compressed — and its boxes are normalised to its own frame, so moving them
     // would land rectangles on the wrong part of the keeper.
-    absorbDuplicateMetadata(keeper.item_id, [member.item_id], { moveFaces: member.distance === 0 });
+    if (keeper?.item_id) {
+      absorbDuplicateMetadata(keeper.item_id, [member.item_id], { moveFaces: member.distance === 0 });
+    }
     try {
       trashBook(member.item_id, userId, { source: "duplicate_cleanup" });
       deletedItemIds.push(member.item_id);

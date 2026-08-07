@@ -8,15 +8,20 @@
 // Review only. The scan settled which side keeps, and disagreeing with it is what Skip
 // and "Not the same" on the card are for — an action surface here would have to
 // re-implement the revalidation that makes deleting safe.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Folder, ImageOff, Images } from "lucide-react";
 import { Modal } from "../../../../shared/Modal";
-import { Button } from "../../../../shared/Button";
+import { Pager } from "../../../../shared/Pager";
 import { SelectMenu } from "../../../../shared/SelectMenu";
 import { formatBytes } from "../../../../shared/utils";
 import { folderLabel, type SnapshotFolder, type SnapshotMember, type SnapshotResult } from "./cleanup-types";
 
 const fileName = (path: string): string => path.split("/").pop() || path;
+
+/** Rows per page. Deliberately larger than the results list's 25 — a row here is one
+ *  line holding two thumbnails, and the work is reading down them rather than deciding
+ *  on each. */
+const COMPARE_PER_PAGE = 50;
 
 const dimensions = (member: SnapshotMember): string =>
   member.width && member.height ? `${member.width} × ${member.height}` : "";
@@ -101,6 +106,23 @@ export function FolderCompare({ result, onClose }: { result: SnapshotResult; onC
 
   const pairs = rows.filter((row) => row.keep && row.going).length;
 
+  // This view exists for the big folders, and a thousand-file pair meant a thousand
+  // rows — two thumbnails each — built in one go. Paged instead, so the panel opens
+  // at the same speed whatever the folders hold. Bigger than the results page's 25:
+  // these rows are one line each and the job here is scanning, not deciding.
+  const [page, setPage] = useState(1);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const totalPages = Math.max(1, Math.ceil(rows.length / COMPARE_PER_PAGE));
+  // Clamped rather than corrected in state: switching to a shorter folder while on a
+  // high page would otherwise land on an empty list until something reset it.
+  const current = Math.min(page, totalPages);
+  const shown = rows.slice((current - 1) * COMPARE_PER_PAGE, current * COMPARE_PER_PAGE);
+
+  // A new folder is a new list; staying on page 7 of it means nothing.
+  useEffect(() => { setPage(1); }, [goingId]);
+  // Turning a page puts you at the top of it, not partway down the middle of the last.
+  useEffect(() => { bodyRef.current?.scrollTo({ top: 0 }); }, [current]);
+
   return (
     <Modal
       variant="panel"
@@ -117,14 +139,14 @@ export function FolderCompare({ result, onClose }: { result: SnapshotResult; onC
         />
       ) : undefined}
     >
-      <div className="dup-compare-body">
+      <div className="dup-compare-body" ref={bodyRef}>
         {/* One scrolling surface holding both columns, not two panes side by side:
             row N on the left has to stay opposite row N on the right, and two
             independently scrolling lists cannot promise that. */}
         <div className="dup-compare-grid">
           <FolderHead folder={keepFolder} side="keep" />
           <FolderHead folder={going} side="going" />
-          {rows.map((row) => (
+          {shown.map((row) => (
             <div className="dup-compare-row" key={row.key}>
               <Cell member={row.keep} side="keep" />
               <Cell member={row.going} side="going" />
@@ -136,9 +158,21 @@ export function FolderCompare({ result, onClose }: { result: SnapshotResult; onC
         )}
       </div>
 
-      <div className="modal-actions">
-        <Button variant="secondary" onClick={onClose}>Close</Button>
-      </div>
+      {/* Its own row of the panel, outside the scrolling body: the pager is how you
+          leave this page of files, and one that scrolled away with them would have to
+          be scrolled back to. */}
+      {rows.length > COMPARE_PER_PAGE && (
+        <div className="dup-pager-row dup-compare-pager">
+          <span className="datagrid-muted">
+            Showing {(current - 1) * COMPARE_PER_PAGE + 1}–
+            {Math.min(current * COMPARE_PER_PAGE, rows.length)} of {rows.length}
+          </span>
+          <Pager page={current} totalPages={totalPages} onChange={setPage} label="Compared file pages" />
+        </div>
+      )}
+      {/* Same as the copy viewer: the panel header's close is the only one. Nothing
+          here is submitted, so a second Close at the bottom of a long file list is
+          just further to scroll. */}
     </Modal>
   );
 }

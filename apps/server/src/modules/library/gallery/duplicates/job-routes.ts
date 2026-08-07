@@ -35,7 +35,7 @@ import {
 import {
   countJobResults, listJobResults, startJobScan, sweepPreview, type ResultFilter
 } from "./job-scan.js";
-import { applyPreferences, dismissResult, markResult } from "./job-review.js";
+import { applyPreferences, dismissResult, markResult, setMemberRole, type RoleRefusal } from "./job-review.js";
 import { checkResult, resolveJobResult, sweepJobResults } from "./job-resolve.js";
 import { processDuplicateScanQueue } from "./items.js";
 
@@ -271,6 +271,71 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
     if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
     reply.send(outcome.job);
   });
+
+  // Overrule the scan about ONE copy: keep this one after all, or let that one go.
+  //
+  // The only part of a snapshot a person edits directly. Everything else that changes a
+  // keeper goes through apply-preferences, which re-runs the scan — right for an
+  // instruction the scan can act on, wrong here, because a re-run would compute the
+  // same keeper again and discard the disagreement.
+  const roleSchema = z.object({ role: z.enum(["keep", "delete"]) });
+
+  // Each refusal names the copy's situation, since each has a different remedy. Every
+  // one of them is "this copy was never yours to decide" or "your page is stale" —
+  // there is deliberately no refusal for the SHAPE of the answer. Keeping all of them,
+  // one of them or none of them are all things a person may mean.
+  const ROLE_REFUSALS: Record<RoleRefusal, { code: number; error: string }> = {
+    not_a_photo_set: {
+      code: 409,
+      error: "This card is about whole folders, so single copies can't be picked out of it."
+    },
+    no_such_member: { code: 404, error: "That copy is no longer part of this set." },
+    member_protected: {
+      code: 409,
+      error: "That copy is in a protected library, so it was never going to be deleted."
+    },
+    member_gone: { code: 409, error: "That copy has already been moved to the Recycle Bin." }
+  };
+
+  app.post(
+    "/api/library/gallery/duplicate-jobs/:id/results/:resultId/members/:memberId/role",
+    { preHandler: app.requireAdmin },
+    async (request, reply) => {
+      const { id, resultId, memberId } = request.params as { id: string; resultId: string; memberId: string };
+      const parsed = parseBody(roleSchema, request.body ?? {});
+      if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+
+      const outcome = setMemberRole(id, request.user!.id, resultId, memberId, parsed.data.role);
+      if (!outcome.ok) {
+        const own = ROLE_REFUSALS[outcome.refused as RoleRefusal];
+        if (own) { reply.code(own.code).send({ error: own.error }); return; }
+        refuse(reply, outcome.refused as JobRefusal, "detail" in outcome ? outcome.detail : undefined);
+        return;
+      }
+
+      // Answers with the ONE card that changed, not the page.
+      //
+      // Reclaimable bytes are part of the results ordering, so re-reading the page here
+      // would re-sort it: the card someone just clicked slides off to wherever its new
+      // total puts it, the page scrolls nowhere, and a different set is suddenly under
+      // the cursor. The client patches this row in place instead. The job totals and the
+      // sweep figure come along because both are on screen and both just moved.
+      const scope = parseBody(resultsSchema, request.query ?? {});
+      const filter: ResultFilter = scope.error ? {} : {
+        search: scope.data.q,
+        type: scope.data.type,
+        tier: scope.data.tier,
+        review: scope.data.review,
+        libraryId: scope.data.library || undefined
+      };
+      reply.send({
+        member: outcome.job,
+        result: listJobResults(id, 1, 0, { resultId })[0] ?? null,
+        sweep: sweepPreview(id, filter),
+        job: getJob(id)
+      });
+    }
+  );
 
   // "These are not duplicates" — the standing record every future scan honours. A
   // different statement from the mark above, and the page says so.
