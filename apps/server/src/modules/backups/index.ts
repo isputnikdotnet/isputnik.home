@@ -276,17 +276,16 @@ export async function backupsPlugin(app: FastifyInstance) {
   app.post("/api/backups", { preHandler: app.requireAdmin }, async (request, reply) => {
     try {
       const backup = await runBackup(request.user!.id, "manual");
-      reply.code(201).send({ backup });
+      return reply.code(201).send({ backup });
     } catch (err) {
-      reply.code(500).send({ error: err instanceof Error ? err.message : "Backup failed" });
+      return reply.code(500).send({ error: err instanceof Error ? err.message : "Backup failed" });
     }
   });
 
   app.patch("/api/backups/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(settingsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid backup settings", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid backup settings", details: parsed.error });
     }
     saveSettings(parsed.data, request.user!.id);
     rescheduleBackups();
@@ -298,15 +297,14 @@ export async function backupsPlugin(app: FastifyInstance) {
       detail: `Backup schedule ${parsed.data.enabled ? `enabled at ${parsed.data.time}` : "disabled"}, keep ${parsed.data.retention}, covers ${parsed.data.includeCovers ? "on" : "off"}.`,
       ipAddress: request.ip
     });
-    reply.send({ settings: parsed.data });
+    return reply.send({ settings: parsed.data });
   });
 
   app.get("/api/backups/:name/download", { preHandler: app.requireAdmin }, async (request, reply) => {
     const name = (request.params as { name: string }).name;
     const filePath = resolveBackupPath(name);
     if (!filePath || !fs.existsSync(filePath)) {
-      reply.code(404).send({ error: "Backup not found" });
-      return;
+      return reply.code(404).send({ error: "Backup not found" });
     }
     const stat = fs.statSync(filePath);
     logActivity({
@@ -333,8 +331,7 @@ export async function backupsPlugin(app: FastifyInstance) {
     const name = (request.params as { name: string }).name;
     const filePath = resolveBackupPath(name);
     if (!filePath || !fs.existsSync(filePath)) {
-      reply.code(404).send({ error: "Backup not found" });
-      return;
+      return reply.code(404).send({ error: "Backup not found" });
     }
     fs.unlinkSync(filePath);
     logActivity({
@@ -345,7 +342,7 @@ export async function backupsPlugin(app: FastifyInstance) {
       detail: `Deleted backup "${name}".`,
       ipAddress: request.ip
     });
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   // Restore: extract covers back into the cache immediately (static files) and
@@ -354,8 +351,7 @@ export async function backupsPlugin(app: FastifyInstance) {
     const name = (request.params as { name: string }).name;
     const filePath = resolveBackupPath(name);
     if (!filePath || !fs.existsSync(filePath)) {
-      reply.code(404).send({ error: "Backup not found" });
-      return;
+      return reply.code(404).send({ error: "Backup not found" });
     }
 
     const stagedDb = `${config.dbPath}.restore`;
@@ -370,8 +366,7 @@ export async function backupsPlugin(app: FastifyInstance) {
         const entries = zip.getEntries();
         const dbEntry = entries.find((e) => !e.isDirectory && (e.entryName === "database.sqlite" || e.entryName.endsWith("/database.sqlite")));
         if (!dbEntry) {
-          reply.code(400).send({ error: "Backup is missing its database." });
-          return;
+          return reply.code(400).send({ error: "Backup is missing its database." });
         }
         // Write DB to a temp file, validate, then promote to the staging path.
         const tmp = `${config.dbPath}.restore.tmp`;
@@ -380,8 +375,7 @@ export async function backupsPlugin(app: FastifyInstance) {
           assertValidSqlite(tmp);
         } catch {
           fs.rmSync(tmp, { force: true });
-          reply.code(400).send({ error: "Backup database is not a valid SQLite file." });
-          return;
+          return reply.code(400).send({ error: "Backup database is not a valid SQLite file." });
         }
         fs.renameSync(tmp, stagedDb);
 
@@ -402,8 +396,7 @@ export async function backupsPlugin(app: FastifyInstance) {
         }
       }
     } catch (err) {
-      reply.code(500).send({ error: err instanceof Error ? err.message : "Restore failed" });
-      return;
+      return reply.code(500).send({ error: err instanceof Error ? err.message : "Restore failed" });
     }
 
     logActivity({
@@ -414,7 +407,7 @@ export async function backupsPlugin(app: FastifyInstance) {
       detail: `Staged restore from "${name}"${coversRestored > 0 ? `, restored ${coversRestored} cover file(s)` : ""}; database applies on next restart.`,
       ipAddress: request.ip
     });
-    reply.send({ staged: true, coversRestored });
+    return reply.send({ staged: true, coversRestored });
   });
 
   // Upload a backup file (.zip full backup, or .sqlite database-only) from the admin's
@@ -430,8 +423,7 @@ export async function backupsPlugin(app: FastifyInstance) {
       received = await receiveUpload(request, { accept: ["zip", "sqlite"], maxBytes: null }, config.backupPath);
     } catch (err) {
       const status = err instanceof UploadError ? err.statusCode : 400;
-      reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
-      return;
+      return reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
     }
 
     // Reject anything that isn't a real isputnik backup before it joins the list.
@@ -449,8 +441,7 @@ export async function backupsPlugin(app: FastifyInstance) {
       }
     } catch (err) {
       fs.rmSync(received.tmpPath, { force: true });
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Not a valid backup file." });
-      return;
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Not a valid backup file." });
     }
 
     const name = uniqueBackupName(received.extension as "zip" | "sqlite");
@@ -459,8 +450,7 @@ export async function backupsPlugin(app: FastifyInstance) {
       fs.renameSync(received.tmpPath, destination);
     } catch (err) {
       fs.rmSync(received.tmpPath, { force: true });
-      reply.code(500).send({ error: err instanceof Error ? err.message : "Could not store the uploaded backup." });
-      return;
+      return reply.code(500).send({ error: err instanceof Error ? err.message : "Could not store the uploaded backup." });
     }
 
     const stat = fs.statSync(destination);
@@ -472,7 +462,7 @@ export async function backupsPlugin(app: FastifyInstance) {
       detail: `Uploaded backup "${name}" (${stat.size} bytes) from "${received.filename}".`,
       ipAddress: request.ip
     });
-    reply.code(201).send({
+    return reply.code(201).send({
       backup: {
         name,
         sizeBytes: stat.size,

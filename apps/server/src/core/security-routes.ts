@@ -74,8 +74,7 @@ export async function securityRoutes(app: FastifyInstance) {
   app.patch("/api/security/policy", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(policySchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid thresholds", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid thresholds", details: parsed.error });
     }
     // Turning the new-network alert on seeds the known networks from sign-in
     // history first, so devices already in use don't each raise an alert.
@@ -88,14 +87,13 @@ export async function securityRoutes(app: FastifyInstance) {
       detail: "Updated brute-force protection thresholds.",
       ipAddress: request.ip
     });
-    reply.send({ policy: parsed.data });
+    return reply.send({ policy: parsed.data });
   });
 
   app.patch("/api/security/password-policy", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(passwordPolicySchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid password policy", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid password policy", details: parsed.error });
     }
     setPasswordPolicy(parsed.data, request.user!.id);
     logActivity({
@@ -104,18 +102,16 @@ export async function securityRoutes(app: FastifyInstance) {
       detail: "Updated the password policy.",
       ipAddress: request.ip
     });
-    reply.send({ passwordPolicy: parsed.data });
+    return reply.send({ passwordPolicy: parsed.data });
   });
 
   app.post("/api/security/trusted-networks", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(trustedSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid network", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid network", details: parsed.error });
     }
     if (!isValidCidr(parsed.data.cidr)) {
-      reply.code(400).send({ error: "Enter a valid IP address or CIDR range (e.g. 192.168.1.0/24)." });
-      return;
+      return reply.code(400).send({ error: "Enter a valid IP address or CIDR range (e.g. 192.168.1.0/24)." });
     }
     try {
       const id = addTrustedNetwork(parsed.data.cidr, parsed.data.label?.length ? parsed.data.label : null, request.user!.id);
@@ -125,17 +121,16 @@ export async function securityRoutes(app: FastifyInstance) {
         detail: `Added trusted network ${parsed.data.cidr}.`,
         ipAddress: request.ip
       });
-      reply.code(201).send({ id });
+      return reply.code(201).send({ id });
     } catch {
-      reply.code(409).send({ error: "That network is already trusted." });
+      return reply.code(409).send({ error: "That network is already trusted." });
     }
   });
 
   app.delete("/api/security/trusted-networks/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     if (!removeTrustedNetwork(id)) {
-      reply.code(404).send({ error: "Trusted network not found" });
-      return;
+      return reply.code(404).send({ error: "Trusted network not found" });
     }
     logActivity({
       event: "security.trusted_network_removed",
@@ -143,19 +138,17 @@ export async function securityRoutes(app: FastifyInstance) {
       detail: "Removed a trusted network.",
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   app.post("/api/security/blocked-ips", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(blockSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid IP address", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid IP address", details: parsed.error });
     }
     // A block targets a single host — reject ranges (the store keys on exact IP).
     if (parsed.data.ip.includes("/") || !isValidCidr(parsed.data.ip)) {
-      reply.code(400).send({ error: "Enter a single valid IP address." });
-      return;
+      return reply.code(400).send({ error: "Enter a single valid IP address." });
     }
     blockIp(parsed.data.ip, {
       reason: parsed.data.reason?.length ? parsed.data.reason : "Blocked by an administrator",
@@ -168,14 +161,13 @@ export async function securityRoutes(app: FastifyInstance) {
       detail: `Blocked IP ${parsed.data.ip}.`,
       ipAddress: request.ip
     });
-    reply.code(201).send({ ok: true });
+    return reply.code(201).send({ ok: true });
   });
 
   app.delete("/api/security/blocked-ips/:ip", { preHandler: app.requireAdmin }, async (request, reply) => {
     const ip = (request.params as { ip: string }).ip;
     if (!unblockIp(ip)) {
-      reply.code(404).send({ error: "Blocked IP not found" });
-      return;
+      return reply.code(404).send({ error: "Blocked IP not found" });
     }
     logActivity({
       event: "security.ip_unblocked",
@@ -183,6 +175,6 @@ export async function securityRoutes(app: FastifyInstance) {
       detail: `Unblocked IP ${ip}.`,
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 }

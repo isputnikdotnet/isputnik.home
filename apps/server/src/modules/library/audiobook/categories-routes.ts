@@ -139,8 +139,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
   app.post("/api/library/manage/categories", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(categoryCreateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid category", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid category", details: parsed.error });
     }
     const categoryId = nanoid(16);
     const key = uniqueCategoryKey(parsed.data.name);
@@ -154,7 +153,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
       detail: `Created category "${parsed.data.name}".`,
       ipAddress: request.ip
     });
-    reply.code(201).send({
+    return reply.code(201).send({
       category: categoryResponse({
         id: categoryId,
         key,
@@ -178,13 +177,11 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const existing = db.prepare("SELECT id FROM categories WHERE id = ?").get(id);
     if (!existing) {
-      reply.code(404).send({ error: "Category not found" });
-      return;
+      return reply.code(404).send({ error: "Category not found" });
     }
     const parsed = parseBody(categoryUpdateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid category", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid category", details: parsed.error });
     }
     const updates: string[] = [];
     const values: (string | number | null)[] = [];
@@ -194,36 +191,32 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     if (updates.length > 0) {
       db.prepare(`UPDATE categories SET ${updates.join(", ")} WHERE id = ?`).run(...values, id);
     }
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
   app.put("/api/library/manage/categories/:id/image", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const category = db.prepare("SELECT id FROM categories WHERE id = ?").get(id);
     if (!category) {
-      reply.code(404).send({ error: "Category not found" });
-      return;
+      return reply.code(404).send({ error: "Category not found" });
     }
     const contentType = request.headers["content-type"]?.split(";")[0]?.toLowerCase();
     if (!contentType || !["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
-      reply.code(415).send({ error: "Upload a JPEG, PNG, or WebP image." });
-      return;
+      return reply.code(415).send({ error: "Upload a JPEG, PNG, or WebP image." });
     }
     const body = request.body;
     if (!Buffer.isBuffer(body) || body.byteLength === 0) {
-      reply.code(400).send({ error: "Image is required." });
-      return;
+      return reply.code(400).send({ error: "Image is required." });
     }
     if (body.byteLength > 10 * 1024 * 1024) {
-      reply.code(400).send({ error: "Image is too large." });
-      return;
+      return reply.code(400).send({ error: "Image is too large." });
     }
     try {
       const storageKey = await writeCategoryImage(id, body);
       db.prepare("UPDATE categories SET image_storage_key = ? WHERE id = ?").run(storageKey, id);
-      reply.send({ updated: true, imageUrl: `${imageUrl(storageKey)}?v=${Date.now()}` });
+      return reply.send({ updated: true, imageUrl: `${imageUrl(storageKey)}?v=${Date.now()}` });
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to save image" });
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to save image" });
     }
   });
 
@@ -231,14 +224,13 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const row = db.prepare("SELECT image_storage_key FROM categories WHERE id = ?").get(id) as { image_storage_key: string | null } | undefined;
     if (!row) {
-      reply.code(404).send({ error: "Category not found" });
-      return;
+      return reply.code(404).send({ error: "Category not found" });
     }
     if (row.image_storage_key && !isBuiltinCategoryImageKey(row.image_storage_key)) {
       try { fs.rmSync(thumbnailAbsolutePath(row.image_storage_key), { force: true }); } catch { /* ignore */ }
     }
     db.prepare("UPDATE categories SET image_storage_key = NULL WHERE id = ?").run(id);
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   app.delete("/api/library/manage/categories/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -246,17 +238,14 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     const category = db.prepare("SELECT id, key, name, image_storage_key FROM categories WHERE id = ?")
       .get(id) as { id: string; key: string; name: string; image_storage_key: string | null } | undefined;
     if (!category) {
-      reply.code(404).send({ error: "Category not found" });
-      return;
+      return reply.code(404).send({ error: "Category not found" });
     }
     if (category.key === "general_other") {
-      reply.code(400).send({ error: "General / Other cannot be deleted." });
-      return;
+      return reply.code(400).send({ error: "General / Other cannot be deleted." });
     }
     const fallback = db.prepare("SELECT id FROM categories WHERE key = 'general_other'").get() as { id: string } | undefined;
     if (!fallback) {
-      reply.code(500).send({ error: "Fallback category is missing." });
-      return;
+      return reply.code(500).send({ error: "Fallback category is missing." });
     }
     let movedBooks = 0;
     db.transaction(() => {
@@ -277,7 +266,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
       detail: `Deleted category "${category.name}" and moved ${movedBooks} book(s) to General / Other.`,
       ipAddress: request.ip
     });
-    reply.send({ deleted: true, movedBooks });
+    return reply.send({ deleted: true, movedBooks });
   });
 
   app.get("/api/library/manage/aliases", { preHandler: app.requireAdmin }, async () => {
@@ -305,23 +294,19 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
   app.post("/api/library/manage/aliases", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(aliasCreateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid mapping", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid mapping", details: parsed.error });
     }
     const keyword = normalizeText(parsed.data.keyword);
     if (!keyword) {
-      reply.code(400).send({ error: "Keyword is empty after normalization." });
-      return;
+      return reply.code(400).send({ error: "Keyword is empty after normalization." });
     }
     const category = db.prepare("SELECT id FROM categories WHERE id = ?").get(parsed.data.categoryId);
     if (!category) {
-      reply.code(400).send({ error: "Category not found." });
-      return;
+      return reply.code(400).send({ error: "Category not found." });
     }
     const existing = db.prepare("SELECT id FROM category_aliases WHERE keyword = ?").get(keyword);
     if (existing) {
-      reply.code(409).send({ error: `A mapping for "${keyword}" already exists.` });
-      return;
+      return reply.code(409).send({ error: `A mapping for "${keyword}" already exists.` });
     }
     const aliasId = nanoid(16);
     db.prepare("INSERT INTO category_aliases (id, keyword, category_id, priority) VALUES (?, ?, ?, ?)")
@@ -332,7 +317,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
       detail: `Mapped "${keyword}" to a category.`,
       ipAddress: request.ip
     });
-    reply.code(201).send({ alias: { id: aliasId, keyword } });
+    return reply.code(201).send({ alias: { id: aliasId, keyword } });
   });
 
   const aliasUpdateSchema = z.object({
@@ -345,43 +330,40 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const existing = db.prepare("SELECT id FROM category_aliases WHERE id = ?").get(id);
     if (!existing) {
-      reply.code(404).send({ error: "Mapping not found" });
-      return;
+      return reply.code(404).send({ error: "Mapping not found" });
     }
     const parsed = parseBody(aliasUpdateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid mapping", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid mapping", details: parsed.error });
     }
     const updates: string[] = [];
     const values: (string | number)[] = [];
     if (parsed.data.keyword !== undefined) {
       const keyword = normalizeText(parsed.data.keyword);
-      if (!keyword) { reply.code(400).send({ error: "Keyword is empty after normalization." }); return; }
+      if (!keyword) { return reply.code(400).send({ error: "Keyword is empty after normalization." }); }
       const clash = db.prepare("SELECT id FROM category_aliases WHERE keyword = ? AND id != ?").get(keyword, id);
-      if (clash) { reply.code(409).send({ error: `A mapping for "${keyword}" already exists.` }); return; }
+      if (clash) { return reply.code(409).send({ error: `A mapping for "${keyword}" already exists.` }); }
       updates.push("keyword = ?"); values.push(keyword);
     }
     if (parsed.data.categoryId !== undefined) {
       const category = db.prepare("SELECT id FROM categories WHERE id = ?").get(parsed.data.categoryId);
-      if (!category) { reply.code(400).send({ error: "Category not found." }); return; }
+      if (!category) { return reply.code(400).send({ error: "Category not found." }); }
       updates.push("category_id = ?"); values.push(parsed.data.categoryId);
     }
     if (parsed.data.priority !== undefined) { updates.push("priority = ?"); values.push(parsed.data.priority); }
     if (updates.length > 0) {
       db.prepare(`UPDATE category_aliases SET ${updates.join(", ")} WHERE id = ?`).run(...values, id);
     }
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
   app.delete("/api/library/manage/aliases/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const result = db.prepare("DELETE FROM category_aliases WHERE id = ?").run(id);
     if (result.changes === 0) {
-      reply.code(404).send({ error: "Mapping not found" });
-      return;
+      return reply.code(404).send({ error: "Mapping not found" });
     }
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   app.post("/api/library/manage/rematch", { preHandler: app.requireAdmin }, async (request) => {
@@ -432,23 +414,20 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
   app.post("/api/library/manage/tags", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(tagNameSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid tag name", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid tag name", details: parsed.error });
     }
 
     const displayName = parsed.data.displayName.trim();
     const key = normalizeText(displayName);
     if (!key) {
-      reply.code(400).send({ error: "Tag name must contain letters or numbers." });
-      return;
+      return reply.code(400).send({ error: "Tag name must contain letters or numbers." });
     }
 
     const id = nanoid();
     const result = db.prepare("INSERT OR IGNORE INTO tags (id, key, display_name) VALUES (?, ?, ?)")
       .run(id, key, displayName);
     if (result.changes === 0) {
-      reply.code(409).send({ error: "Tag already exists." });
-      return;
+      return reply.code(409).send({ error: "Tag already exists." });
     }
 
     logActivity({
@@ -468,21 +447,18 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     const existing = db.prepare("SELECT id, display_name FROM tags WHERE id = ?")
       .get(id) as { id: string; display_name: string } | undefined;
     if (!existing) {
-      reply.code(404).send({ error: "Tag not found" });
-      return;
+      return reply.code(404).send({ error: "Tag not found" });
     }
 
     const parsed = parseBody(tagNameSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid tag name", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid tag name", details: parsed.error });
     }
 
     const displayName = parsed.data.displayName.trim();
     const newKey = normalizeText(displayName);
     if (!newKey) {
-      reply.code(400).send({ error: "Tag name must contain letters or numbers." });
-      return;
+      return reply.code(400).send({ error: "Tag name must contain letters or numbers." });
     }
 
     // If another tag already uses this key, merge into it: move this tag's book
@@ -531,8 +507,7 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
     const existing = db.prepare("SELECT id, display_name FROM tags WHERE id = ?")
       .get(id) as { id: string; display_name: string } | undefined;
     if (!existing) {
-      reply.code(404).send({ error: "Tag not found" });
-      return;
+      return reply.code(404).send({ error: "Tag not found" });
     }
 
     db.transaction(() => {

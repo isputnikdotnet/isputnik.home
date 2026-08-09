@@ -33,37 +33,37 @@ export async function scanRulesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/libraries/:id/scan-rules", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    if (!findLibrary(id)) { reply.code(404).send({ error: "Library not found" }); return; }
-    reply.send({ rules: listScanRules(id) });
+    if (!findLibrary(id)) { return reply.code(404).send({ error: "Library not found" }); }
+    return reply.send({ rules: listScanRules(id) });
   });
 
   app.post("/api/library/libraries/:id/scan-rules", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    if (!findLibrary(id)) { reply.code(404).send({ error: "Library not found" }); return; }
+    if (!findLibrary(id)) { return reply.code(404).send({ error: "Library not found" }); }
     const parsed = parseBody(ruleBodySchema, request.body);
-    if (parsed.error) { reply.code(400).send({ error: "Invalid scan rule", details: parsed.error }); return; }
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid scan rule", details: parsed.error }); }
     const result = createScanRule(id, parsed.data);
-    if (isScanRuleError(result)) { reply.code(400).send(result); return; }
-    reply.send({ rule: result });
+    if (isScanRuleError(result)) { return reply.code(400).send(result); }
+    return reply.send({ rule: result });
   });
 
   app.patch("/api/library/libraries/:id/scan-rules/:ruleId", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id, ruleId } = request.params as { id: string; ruleId: string };
     const existing = getScanRule(ruleId);
-    if (!existing || existing.libraryId !== id) { reply.code(404).send({ error: "Scan rule not found" }); return; }
+    if (!existing || existing.libraryId !== id) { return reply.code(404).send({ error: "Scan rule not found" }); }
     const parsed = parseBody(ruleBodySchema, request.body);
-    if (parsed.error) { reply.code(400).send({ error: "Invalid scan rule", details: parsed.error }); return; }
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid scan rule", details: parsed.error }); }
     const result = updateScanRule(ruleId, parsed.data);
-    if (isScanRuleError(result)) { reply.code(400).send(result); return; }
-    reply.send({ rule: result });
+    if (isScanRuleError(result)) { return reply.code(400).send(result); }
+    return reply.send({ rule: result });
   });
 
   app.delete("/api/library/libraries/:id/scan-rules/:ruleId", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id, ruleId } = request.params as { id: string; ruleId: string };
     const existing = getScanRule(ruleId);
-    if (!existing || existing.libraryId !== id) { reply.code(404).send({ error: "Scan rule not found" }); return; }
+    if (!existing || existing.libraryId !== id) { return reply.code(404).send({ error: "Scan rule not found" }); }
     deleteScanRule(ruleId);
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   // Browse subfolders under the library source so the rule editor can pick rule
@@ -71,7 +71,7 @@ export async function scanRulesPlugin(app: FastifyInstance) {
   app.get("/api/library/libraries/:id/folders", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const library = db.prepare("SELECT id, source_path FROM libraries WHERE id = ?").get(id) as { id: string; source_path: string } | undefined;
-    if (!library) { reply.code(404).send({ error: "Library not found" }); return; }
+    if (!library) { return reply.code(404).send({ error: "Library not found" }); }
     const requested = typeof (request.query as { path?: string }).path === "string" ? (request.query as { path?: string }).path! : "";
     try {
       const root = validateLibrarySource(library.source_path);
@@ -91,9 +91,9 @@ export async function scanRulesPlugin(app: FastifyInstance) {
         .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }));
       const currentRelative = normaliseRelativePath(path.relative(root, currentPath));
       const parent = currentPath === root ? null : normaliseRelativePath(path.relative(root, path.dirname(currentPath)));
-      reply.send({ path: currentRelative, parent, folders });
+      return reply.send({ path: currentRelative, parent, folders });
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to browse folders" });
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to browse folders" });
     }
   });
 
@@ -101,17 +101,16 @@ export async function scanRulesPlugin(app: FastifyInstance) {
   app.post("/api/library/libraries/:id/scan-rules/preview", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const library = findLibrary(id);
-    if (!library) { reply.code(404).send({ error: "Library not found" }); return; }
+    if (!library) { return reply.code(404).send({ error: "Library not found" }); }
     if (library.type !== "ebook") {
-      reply.code(400).send({ error: "Preview is currently available for ebook libraries only." });
-      return;
+      return reply.code(400).send({ error: "Preview is currently available for ebook libraries only." });
     }
     const parsed = parseBody(previewSchema, request.body);
-    if (parsed.error) { reply.code(400).send({ error: "Invalid preview request", details: parsed.error }); return; }
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid preview request", details: parsed.error }); }
     try {
-      reply.send({ rows: previewEbookRulePattern(id, parsed.data.paths, parsed.data.pattern, 50) });
+      return reply.send({ rows: previewEbookRulePattern(id, parsed.data.paths, parsed.data.pattern, 50) });
     } catch (err) {
-      reply.code(502).send({ error: err instanceof Error ? err.message : "Preview failed" });
+      return reply.code(502).send({ error: err instanceof Error ? err.message : "Preview failed" });
     }
   });
 }

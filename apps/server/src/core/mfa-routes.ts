@@ -319,22 +319,18 @@ export async function mfaRoutes(app: FastifyInstance) {
   app.post("/api/profile/mfa/setup", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(passwordGateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Enter your current password", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Enter your current password", details: parsed.error });
     }
     const user = request.user!;
     const method = parsed.data.method ?? "totp";
     if (user.mfa_enabled) {
-      reply.code(409).send({ error: "Two-factor authentication is already on. Turn it off first to re-enroll." });
-      return;
+      return reply.code(409).send({ error: "Two-factor authentication is already on. Turn it off first to re-enroll." });
     }
     if (method === "email" && !isMailConfigured()) {
-      reply.code(409).send({ error: "This server can't send email yet. An administrator has to set up email first." });
-      return;
+      return reply.code(409).send({ error: "This server can't send email yet. An administrator has to set up email first." });
     }
     if (!(await verifyPassword(parsed.data.currentPassword, user.password_hash))) {
-      reply.code(403).send({ error: "Your current password is incorrect." });
-      return;
+      return reply.code(403).send({ error: "Your current password is incorrect." });
     }
 
     const setup = beginMfaSetup(user.id, method);
@@ -345,34 +341,30 @@ export async function mfaRoutes(app: FastifyInstance) {
         // Nothing is enabled yet, so a delivery failure just ends the attempt —
         // but don't leave a pending email enrollment the user can't complete.
         resetMfa(user.id);
-        reply.code(502).send({ error: "We couldn't send the code. Check the email settings and try again." });
-        return;
+        return reply.code(502).send({ error: "We couldn't send the code. Check the email settings and try again." });
       }
-      reply.send({ method: "email", sentTo: maskEmail(setup.email), expiresInMinutes: EMAIL_CODE_MINUTES });
-      return;
+      return reply.send({ method: "email", sentTo: maskEmail(setup.email), expiresInMinutes: EMAIL_CODE_MINUTES });
     }
 
     const qrDataUrl = await totpQrDataUrl(setup.secret, user.email);
-    reply.send({ method: "totp", secret: setup.secret, otpauthUri: setup.otpauthUri, qrDataUrl });
+    return reply.send({ method: "totp", secret: setup.secret, otpauthUri: setup.otpauthUri, qrDataUrl });
   });
 
   // Step 2 of enrollment: confirm a code, switch MFA on, reveal backup codes once.
   app.post("/api/profile/mfa/enable", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(codeSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Enter the 6-digit code", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Enter the 6-digit code", details: parsed.error });
     }
     const method = getMfaMethod(request.user!.id);
     const codes = activateMfa(request.user!.id, parsed.data.token);
     if (!codes) {
-      reply.code(400).send({
+      return reply.code(400).send({
         error:
           method === "email"
             ? "That code didn't match, or it expired. Start again to get a fresh one."
             : "That code didn't match. Make sure the clock is right, then enter a fresh code."
       });
-      return;
     }
     alertMfaEnabled(request.user!.email, request.ip, method);
     logActivity({
@@ -386,18 +378,16 @@ export async function mfaRoutes(app: FastifyInstance) {
           : "Turned on two-factor authentication (authenticator app).",
       ipAddress: request.ip
     });
-    reply.send({ backupCodes: codes });
+    return reply.send({ backupCodes: codes });
   });
 
   app.post("/api/profile/mfa/disable", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(passwordGateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Enter your current password", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Enter your current password", details: parsed.error });
     }
     if (!(await verifyPassword(parsed.data.currentPassword, request.user!.password_hash))) {
-      reply.code(403).send({ error: "Your current password is incorrect." });
-      return;
+      return reply.code(403).send({ error: "Your current password is incorrect." });
     }
     resetMfa(request.user!.id);
     alertMfaDisabled(request.user!.email, false);
@@ -409,22 +399,19 @@ export async function mfaRoutes(app: FastifyInstance) {
       detail: "Turned off two-factor authentication.",
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   app.post("/api/profile/mfa/backup-codes", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(passwordGateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Enter your current password", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Enter your current password", details: parsed.error });
     }
     if (!request.user!.mfa_enabled) {
-      reply.code(409).send({ error: "Two-factor authentication isn't on." });
-      return;
+      return reply.code(409).send({ error: "Two-factor authentication isn't on." });
     }
     if (!(await verifyPassword(parsed.data.currentPassword, request.user!.password_hash))) {
-      reply.code(403).send({ error: "Your current password is incorrect." });
-      return;
+      return reply.code(403).send({ error: "Your current password is incorrect." });
     }
     const codes = regenerateBackupCodes(request.user!.id);
     alertMfaBackupCodesRegenerated(request.user!.email, request.ip);
@@ -436,7 +423,7 @@ export async function mfaRoutes(app: FastifyInstance) {
       detail: "Regenerated two-factor backup codes.",
       ipAddress: request.ip
     });
-    reply.send({ backupCodes: codes });
+    return reply.send({ backupCodes: codes });
   });
 
   // Email method only: send a replacement code when the first didn't arrive.
@@ -450,34 +437,30 @@ export async function mfaRoutes(app: FastifyInstance) {
       const challenge = challengeId ? resolveMfaChallenge(challengeId) : null;
       if (!challenge) {
         clearMfaChallengeCookie(reply);
-        reply.code(401).send({ error: "Your sign-in expired. Enter your password again." });
-        return;
+        return reply.code(401).send({ error: "Your sign-in expired. Enter your password again." });
       }
 
       const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1").get(
         challenge.user_id
       ) as User | undefined;
       if (!user || !user.mfa_enabled || user.mfa_method !== "email") {
-        reply.code(409).send({ error: "This sign-in doesn't use emailed codes." });
-        return;
+        return reply.code(409).send({ error: "This sign-in doesn't use emailed codes." });
       }
 
       const outcome = rotateEmailCode(challenge.id);
       if (!outcome.ok) {
-        reply.code(429).send({
+        return reply.code(429).send({
           error:
             outcome.reason === "cooldown"
               ? `Wait ${EMAIL_CODE_RESEND_SECONDS} seconds before asking for another code.`
               : "No more codes for this sign-in. Enter your password again to start over."
         });
-        return;
       }
 
       try {
         await sendMfaCodeEmail(user.email, outcome.code, "login");
       } catch {
-        reply.code(502).send({ error: "We couldn't send the code. Use a backup code, or ask your administrator." });
-        return;
+        return reply.code(502).send({ error: "We couldn't send the code. Use a backup code, or ask your administrator." });
       }
       logActivity({
         event: "auth.mfa_code_resent",
@@ -486,7 +469,7 @@ export async function mfaRoutes(app: FastifyInstance) {
         detail: "Resent a two-factor code by email.",
         ipAddress: request.ip
       });
-      reply.send({ sentTo: maskEmail(user.email) });
+      return reply.send({ sentTo: maskEmail(user.email) });
     }
   );
 
@@ -498,20 +481,17 @@ export async function mfaRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const challengeId = request.cookies[MFA_COOKIE];
       if (!challengeId) {
-        reply.code(401).send({ error: "No sign-in is in progress. Start again." });
-        return;
+        return reply.code(401).send({ error: "No sign-in is in progress. Start again." });
       }
       const challenge = resolveMfaChallenge(challengeId);
       if (!challenge) {
         clearMfaChallengeCookie(reply);
-        reply.code(401).send({ error: "Your sign-in expired. Enter your password again." });
-        return;
+        return reply.code(401).send({ error: "Your sign-in expired. Enter your password again." });
       }
 
       const parsed = parseBody(codeSchema, request.body);
       if (parsed.error) {
-        reply.code(400).send({ error: "Enter your 6-digit code or a backup code", details: parsed.error });
-        return;
+        return reply.code(400).send({ error: "Enter your 6-digit code or a backup code", details: parsed.error });
       }
 
       const user = db
@@ -522,8 +502,7 @@ export async function mfaRoutes(app: FastifyInstance) {
       if (!user || !user.mfa_enabled || !ready) {
         clearMfaChallenge(challengeId);
         clearMfaChallengeCookie(reply);
-        reply.code(401).send({ error: "Enter your password again." });
-        return;
+        return reply.code(401).send({ error: "Enter your password again." });
       }
 
       let ok = false;
@@ -564,17 +543,14 @@ export async function mfaRoutes(app: FastifyInstance) {
             alertAccountLocked(user.email, request.ip);
             clearMfaChallenge(challengeId);
             clearMfaChallengeCookie(reply);
-            reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes." });
-            return;
+            return reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes." });
           }
         }
         if (attempts >= MFA_MAX_ATTEMPTS) {
           clearMfaChallengeCookie(reply);
-          reply.code(401).send({ error: "Too many attempts. Enter your password again." });
-        } else {
-          reply.code(401).send({ error: "Invalid code" });
+          return reply.code(401).send({ error: "Too many attempts. Enter your password again." });
         }
-        return;
+        return reply.code(401).send({ error: "Invalid code" });
       }
 
       clearMfaChallenge(challengeId);
@@ -592,7 +568,7 @@ export async function mfaRoutes(app: FastifyInstance) {
         detail: "Completed two-factor sign-in.",
         ipAddress: request.ip
       });
-      reply.send({ user: publicUser(user) });
+      return reply.send({ user: publicUser(user) });
     }
   );
 }

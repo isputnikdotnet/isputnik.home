@@ -61,8 +61,7 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
     const user = request.user!;
     const library = getLibraryForBook(bookId);
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
     const rows = db.prepare(`
@@ -72,7 +71,7 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
       ORDER BY item_position_seconds IS NULL, item_position_seconds, datetime(created_at)
     `).all(bookId, user.id) as BookmarkRow[];
 
-    reply.send({ bookmarks: rows.map(publicBookmark) });
+    return reply.send({ bookmarks: rows.map(publicBookmark) });
   });
 
   app.post("/api/library/books/:id/bookmarks", { preHandler: app.authenticate }, async (request, reply) => {
@@ -80,14 +79,12 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
     const user = request.user!;
     const library = getLibraryForBook(bookId);
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
     const parsed = parseBody(createSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid bookmark", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid bookmark", details: parsed.error });
     }
 
     const { fileId, positionSeconds, label, note } = parsed.data;
@@ -95,8 +92,7 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
       SELECT id FROM audio_files WHERE id = ? AND item_id = ? AND status = 'available'
     `).get(fileId, bookId);
     if (!file) {
-      reply.code(404).send({ error: "Audio file not found" });
-      return;
+      return reply.code(404).send({ error: "Audio file not found" });
     }
 
     const id = nanoid(16);
@@ -110,7 +106,7 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
       FROM audio_bookmarks WHERE id = ?
     `).get(id) as BookmarkRow;
 
-    reply.code(201).send({ bookmark: publicBookmark(row) });
+    return reply.code(201).send({ bookmark: publicBookmark(row) });
   });
 
   app.patch("/api/library/books/:id/bookmarks/:bookmarkId", { preHandler: app.authenticate }, async (request, reply) => {
@@ -121,14 +117,12 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
       SELECT id FROM audio_bookmarks WHERE id = ? AND item_id = ? AND user_id = ?
     `).get(bookmarkId, bookId, user.id);
     if (!existing) {
-      reply.code(404).send({ error: "Bookmark not found" });
-      return;
+      return reply.code(404).send({ error: "Bookmark not found" });
     }
 
     const parsed = parseBody(updateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid bookmark", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid bookmark", details: parsed.error });
     }
 
     const updates: string[] = [];
@@ -153,7 +147,7 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
       FROM audio_bookmarks WHERE id = ?
     `).get(bookmarkId) as BookmarkRow;
 
-    reply.send({ bookmark: publicBookmark(row) });
+    return reply.send({ bookmark: publicBookmark(row) });
   });
 
   app.delete("/api/library/books/:id/bookmarks/:bookmarkId", { preHandler: app.authenticate }, async (request, reply) => {
@@ -165,10 +159,9 @@ export async function audiobookBookmarksPlugin(app: FastifyInstance) {
     `).run(bookmarkId, bookId, user.id);
 
     if (result.changes === 0) {
-      reply.code(404).send({ error: "Bookmark not found" });
-      return;
+      return reply.code(404).send({ error: "Bookmark not found" });
     }
 
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 }

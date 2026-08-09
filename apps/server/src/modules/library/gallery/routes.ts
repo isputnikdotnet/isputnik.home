@@ -122,19 +122,17 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery-libraries", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(coreLibraryCreateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid gallery library details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid gallery library details", details: parsed.error });
     }
 
     const result = createLibraryRecord({ type: "gallery", data: parsed.data, userId: request.user!.id, ip: request.ip });
     if ("error" in result) {
-      reply.code(result.status).send({ error: result.error });
-      return;
+      return reply.code(result.status).send({ error: result.error });
     }
 
     const jobId = enqueueGalleryScan(result.libraryId);
     void processGalleryScanQueue();
-    reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_GALLERY_LIBRARY" } });
+    return reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_GALLERY_LIBRARY" } });
   });
 
   app.get("/api/library/gallery-libraries", { preHandler: app.authenticate }, async (request) => {
@@ -149,18 +147,16 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const parsed = parseBody(coreLibraryUpdateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid library details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid library details", details: parsed.error });
     }
 
     const result = updateLibraryRecord({ type: "gallery", id, data: parsed.data, userId: request.user!.id, ip: request.ip });
     if ("error" in result) {
-      reply.code(result.status).send({ error: result.error });
-      return;
+      return reply.code(result.status).send({ error: result.error });
     }
 
     const updated = db.prepare(GALLERY_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as LibraryListRow;
-    reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
+    return reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
   });
 
   app.delete("/api/library/gallery-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -168,8 +164,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
       .get(id) as { id: string; name: string } | undefined;
     if (!exists) {
-      reply.code(404).send({ error: "Gallery library not found" });
-      return;
+      return reply.code(404).send({ error: "Gallery library not found" });
     }
 
     db.transaction(() => {
@@ -189,7 +184,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       detail: `Deleted gallery library "${exists.name}". Source files on disk were not removed; generated thumbnails were deleted.`,
       ipAddress: request.ip
     });
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   const rescanOptionsSchema = z.object({
@@ -203,14 +198,12 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const exists = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'gallery'")
       .get(id) as { id: string; source_path: string } | undefined;
     if (!exists) {
-      reply.code(404).send({ error: "Gallery library not found" });
-      return;
+      return reply.code(404).send({ error: "Gallery library not found" });
     }
 
     const parsed = parseBody(rescanOptionsSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
     }
 
     let root: string;
@@ -218,8 +211,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       root = validateLibrarySource(exists.source_path);
     } catch (err) {
       if (err instanceof LibrarySourceError) {
-        reply.code(422).send({ error: err.message });
-        return;
+        return reply.code(422).send({ error: err.message });
       }
       throw err;
     }
@@ -231,8 +223,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       try {
         relativePathWithinRoot(root, folder);
       } catch {
-        reply.code(400).send({ error: "That folder is not inside this library." });
-        return;
+        return reply.code(400).send({ error: "That folder is not inside this library." });
       }
     }
 
@@ -246,7 +237,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       detail: folder ? `Queued a gallery rescan of "${folder}".` : "Queued a gallery library rescan.",
       ipAddress: request.ip
     });
-    reply.send({ job: { id: jobId, type: "SCAN_GALLERY_LIBRARY" } });
+    return reply.send({ job: { id: jobId, type: "SCAN_GALLERY_LIBRARY" } });
   });
 
   // Upload photos/videos: every file in the multipart request becomes its OWN asset
@@ -261,22 +252,19 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       "SELECT id, name, source_path, settings_json, policy_json FROM libraries WHERE id = ? AND type = 'gallery'"
     ).get(libraryId) as { id: string; name: string; source_path: string; settings_json: string; policy_json: string } | undefined;
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
-      reply.code(404).send({ error: "Gallery library not found" });
-      return;
+      return reply.code(404).send({ error: "Gallery library not found" });
     }
 
     const policy = parsePolicy(library.policy_json);
     if (!can(user, { objectType: "library", objectId: library.id, policy }, "upload")) {
-      reply.code(403).send({ error: "Uploading is not allowed in this library." });
-      return;
+      return reply.code(403).send({ error: "Uploading is not allowed in this library." });
     }
 
     let root: string;
     try {
       root = validateLibrarySource(library.source_path);
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
-      return;
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
     }
 
     const settings = normalizeLibrarySettings("gallery", library.settings_json);
@@ -294,8 +282,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     } catch (err) {
       fs.rmSync(stagingDir, { recursive: true, force: true });
       const status = err instanceof UploadError ? err.statusCode : 400;
-      reply.code(status).send({ error: friendlyStorageError(err, "Upload failed") });
-      return;
+      return reply.code(status).send({ error: friendlyStorageError(err, "Upload failed") });
     }
 
     // Each file moves into a dated subfolder (YYYY/YYYY-MM-DD by capture date) under the
@@ -316,15 +303,13 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
         if (assetId) { createdIds.push(assetId); totalBytes += file.sizeBytes; }
       }
     } catch (err) {
-      reply.code(500).send({ error: friendlyStorageError(err, "Could not store the uploaded files.") });
-      return;
+      return reply.code(500).send({ error: friendlyStorageError(err, "Could not store the uploaded files.") });
     } finally {
       fs.rmSync(stagingDir, { recursive: true, force: true });
     }
 
     if (createdIds.length === 0) {
-      reply.code(400).send({ error: "No photos or videos were added from the upload." });
-      return;
+      return reply.code(400).send({ error: "No photos or videos were added from the upload." });
     }
 
     logActivity({
@@ -338,7 +323,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
 
     // `itemIds` lets a caller act on what it just uploaded — the family tree
     // attaches them to a person or event straight after the upload.
-    reply.code(201).send({ uploaded: createdIds.length, itemIds: createdIds });
+    return reply.code(201).send({ uploaded: createdIds.length, itemIds: createdIds });
   });
 
   // ── Browse: Timeline (by date) and Folders (by on-disk structure) ──
@@ -369,12 +354,11 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/timeline", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(timelineSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid timeline query", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid timeline query", details: parsed.error });
     }
     const p = parsed.data;
     const libIds = resolveGalleryScopeLibraryIds(request.user!, p.scope ?? "all", p.libraryId);
-    reply.send(queryGalleryTimeline(request.user!.id, libIds, {
+    return reply.send(queryGalleryTimeline(request.user!.id, libIds, {
       q: p.q ?? "", kinds: p.kinds ?? [],
       filters: { ...EMPTY_GALLERY_FILTERS, ...p.filters },
       sort: p.sort ?? "taken",
@@ -391,7 +375,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   const retentionSchema = z.object({ retentionDays: z.number().int().min(0).max(3650) });
   app.patch("/api/library/gallery/missing/retention", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(retentionSchema, request.body);
-    if (parsed.error) { reply.code(400).send({ error: "Invalid retention", details: parsed.error }); return; }
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid retention", details: parsed.error }); }
     const retentionDays = setMissingRetentionDays(parsed.data.retentionDays, request.user!.id);
     logActivity({
       event: "library.gallery.missing_retention",
@@ -401,7 +385,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       detail: retentionDays === 0 ? "Missing-photo auto-purge disabled." : `Missing-photo auto-purge set to ${retentionDays} days.`,
       ipAddress: request.ip
     });
-    reply.send({ retentionDays });
+    return reply.send({ retentionDays });
   });
 
   // Purge every tombstone past the grace window right now (the scheduled job on demand).
@@ -413,10 +397,9 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   app.delete("/api/library/gallery/missing/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     if (!purgeMissingGalleryPhoto(id, request.user!.id)) {
-      reply.code(404).send({ error: "No such missing photo." });
-      return;
+      return reply.code(404).send({ error: "No such missing photo." });
     }
-    reply.send({ purged: true });
+    return reply.send({ purged: true });
   });
 
   app.get("/api/library/gallery/folders", { preHandler: app.authenticate }, async (request) => {
@@ -469,11 +452,10 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/assets/lookup", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(lookupSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid item ids", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid item ids", details: parsed.error });
     }
     const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
-    reply.send({ assets: getGalleryAssets(request.user!.id, libIds, parsed.data.itemIds) });
+    return reply.send({ assets: getGalleryAssets(request.user!.id, libIds, parsed.data.itemIds) });
   });
 
   app.get("/api/library/gallery/facets", { preHandler: app.authenticate }, async (request) => {
@@ -507,10 +489,9 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       }
     }
     if (!asset) {
-      reply.code(404).send({ error: "Asset not found" });
-      return;
+      return reply.code(404).send({ error: "Asset not found" });
     }
-    reply.send({ asset });
+    return reply.send({ asset });
   });
 
   // Manual metadata edit: title/caption, description, date taken, tags, location.
@@ -529,14 +510,12 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const user = request.user!;
     const lib = getLibraryForBook(id);
     if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to edit this item." });
-      return;
+      return reply.code(403).send({ error: "Write access required to edit this item." });
     }
 
     const parsed = parseBody(editSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid details", details: parsed.error });
     }
 
     const ok = updateGalleryAsset(id, {
@@ -547,8 +526,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       gps: parsed.data.gps
     });
     if (!ok) {
-      reply.code(404).send({ error: "Asset not found" });
-      return;
+      return reply.code(404).send({ error: "Asset not found" });
     }
 
     logActivity({
@@ -560,7 +538,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
+    return reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
   });
 
   // Place lookup behind the location picker's search box. Rate-limited well below
@@ -572,13 +550,12 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     async (request, reply) => {
       const q = ((request.query as { q?: string }).q ?? "").trim();
       if (q.length < 2 || q.length > 200) {
-        reply.code(400).send({ error: "Type at least two characters to search for a place." });
-        return;
+        return reply.code(400).send({ error: "Type at least two characters to search for a place." });
       }
       try {
-        reply.send({ results: await searchPlaces(q) });
+        return reply.send({ results: await searchPlaces(q) });
       } catch (err) {
-        reply.code(502).send({ error: err instanceof Error ? err.message : "The place lookup failed." });
+        return reply.code(502).send({ error: err instanceof Error ? err.message : "The place lookup failed." });
       }
     }
   );
@@ -607,8 +584,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/assets/bulk-place-time", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(bulkPlaceTimeSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid details", details: parsed.error });
     }
 
     const user = request.user!;
@@ -645,7 +621,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       });
     }
 
-    reply.send({ updated, forbidden, noDate });
+    return reply.send({ updated, forbidden, noDate });
   });
 
   // Rotate a photo 90° clockwise/counter-clockwise. Stores the angle and bakes it
@@ -657,20 +633,17 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     const user = request.user!;
     const lib = getLibraryForBook(id);
     if (!lib || lib.type !== "gallery" || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to edit this item." });
-      return;
+      return reply.code(403).send({ error: "Write access required to edit this item." });
     }
 
     const parsed = parseBody(rotateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid rotation", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid rotation", details: parsed.error });
     }
 
     const result = await rotateGalleryAsset(id, parsed.data.direction);
     if (!result.ok) {
-      reply.code(result.status).send({ error: result.error });
-      return;
+      return reply.code(result.status).send({ error: result.error });
     }
 
     logActivity({
@@ -682,6 +655,6 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
+    return reply.send({ updated: true, asset: getGalleryAsset(user.id, [lib.id], id) });
   });
 }

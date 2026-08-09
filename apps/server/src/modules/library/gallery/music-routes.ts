@@ -39,16 +39,14 @@ export async function galleryMusicRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/music", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     if (!canAddMusic(user)) {
-      reply.code(403).send({ error: "You need write access to a gallery library to add music." });
-      return;
+      return reply.code(403).send({ error: "You need write access to a gallery library to add music." });
     }
     let received;
     try {
       received = await receiveUpload(request, { accept: MUSIC_UPLOAD_EXTENSIONS, maxBytes: MUSIC_MAX_BYTES }, musicTempDir());
     } catch (err) {
-      if (err instanceof UploadError) { reply.code(err.statusCode).send({ error: err.message }); return; }
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Upload failed." });
-      return;
+      if (err instanceof UploadError) { return reply.code(err.statusCode).send({ error: err.message }); }
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Upload failed." });
     }
     const track = await createUserTrack(user, received.tmpPath, received.filename, received.extension);
     logActivity({
@@ -59,15 +57,15 @@ export async function galleryMusicRoutesPlugin(app: FastifyInstance) {
       detail: `Uploaded slideshow music "${track.title}".`,
       ipAddress: request.ip
     });
-    reply.code(201).send({ track });
+    return reply.code(201).send({ track });
   });
 
   app.delete("/api/library/gallery/music/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const result = deleteMusicTrack((request.params as { id: string }).id, request.user!);
-    if (result === "notfound") { reply.code(404).send({ error: "Track not found" }); return; }
-    if (result === "builtin") { reply.code(403).send({ error: "Built-in tracks can't be deleted." }); return; }
-    if (result === "forbidden") { reply.code(403).send({ error: "Only the uploader or an admin can delete this track." }); return; }
-    reply.send({ deleted: true });
+    if (result === "notfound") { return reply.code(404).send({ error: "Track not found" }); }
+    if (result === "builtin") { return reply.code(403).send({ error: "Built-in tracks can't be deleted." }); }
+    if (result === "forbidden") { return reply.code(403).send({ error: "Only the uploader or an admin can delete this track." }); }
+    return reply.send({ deleted: true });
   });
 
   // Stream a track (range-aware) so the preview <audio> can loop and seek.

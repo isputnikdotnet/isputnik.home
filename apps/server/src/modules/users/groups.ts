@@ -58,8 +58,7 @@ export async function groupsPlugin(app: FastifyInstance) {
   app.post("/api/groups", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(groupSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid group details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid group details", details: parsed.error });
     }
 
     const id = nanoid(16);
@@ -67,8 +66,7 @@ export async function groupsPlugin(app: FastifyInstance) {
       db.prepare("INSERT INTO user_groups (id, name, created_by) VALUES (?, ?, ?)")
         .run(id, parsed.data.name, request.user!.id);
     } catch {
-      reply.code(409).send({ error: "A group with that name already exists." });
-      return;
+      return reply.code(409).send({ error: "A group with that name already exists." });
     }
 
     logActivity({
@@ -80,22 +78,20 @@ export async function groupsPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.code(201).send({ group: { id, name: parsed.data.name, createdAt: new Date().toISOString(), memberCount: 0, libraryCount: 0 } });
+    return reply.code(201).send({ group: { id, name: parsed.data.name, createdAt: new Date().toISOString(), memberCount: 0, libraryCount: 0 } });
   });
 
   app.delete("/api/groups/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const group = db.prepare("SELECT id, name FROM user_groups WHERE id = ?").get(id) as { id: string; name: string } | undefined;
     if (!group) {
-      reply.code(404).send({ error: "Group not found" });
-      return;
+      return reply.code(404).send({ error: "Group not found" });
     }
 
     const inUse = db.prepare("SELECT COUNT(*) AS count FROM libraries WHERE owner_id = ? AND owner_type = 'group'")
       .get(id) as { count: number };
     if (inUse.count > 0) {
-      reply.code(409).send({ error: "This group owns one or more libraries. Reassign them before deleting the group." });
-      return;
+      return reply.code(409).send({ error: "This group owns one or more libraries. Reassign them before deleting the group." });
     }
 
     db.transaction(() => {
@@ -111,15 +107,14 @@ export async function groupsPlugin(app: FastifyInstance) {
       detail: `Deleted group "${group.name}".`,
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   app.get("/api/groups/:id/members", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const group = db.prepare("SELECT id, name FROM user_groups WHERE id = ?").get(id) as { id: string; name: string } | undefined;
     if (!group) {
-      reply.code(404).send({ error: "Group not found" });
-      return;
+      return reply.code(404).send({ error: "Group not found" });
     }
 
     const members = db.prepare(`
@@ -145,40 +140,35 @@ export async function groupsPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const parsed = parseBody(memberSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid member details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid member details", details: parsed.error });
     }
 
     const group = db.prepare("SELECT id FROM user_groups WHERE id = ?").get(id);
     if (!group) {
-      reply.code(404).send({ error: "Group not found" });
-      return;
+      return reply.code(404).send({ error: "Group not found" });
     }
 
     const user = db.prepare("SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1").get(parsed.data.userId);
     if (!user) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     try {
       db.prepare("INSERT INTO group_members (group_id, user_id) VALUES (?, ?)")
         .run(id, parsed.data.userId);
     } catch {
-      reply.code(409).send({ error: "User is already a member of this group." });
-      return;
+      return reply.code(409).send({ error: "User is already a member of this group." });
     }
 
-    reply.code(201).send({ ok: true });
+    return reply.code(201).send({ ok: true });
   });
 
   app.delete("/api/groups/:id/members/:userId", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id, userId } = request.params as { id: string; userId: string };
     const deleted = db.prepare("DELETE FROM group_members WHERE group_id = ? AND user_id = ?").run(id, userId);
     if (deleted.changes === 0) {
-      reply.code(404).send({ error: "Member not found" });
-      return;
+      return reply.code(404).send({ error: "Member not found" });
     }
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 }

@@ -14,8 +14,7 @@ export async function authPlugin(app: FastifyInstance) {
   app.post("/api/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const parsed = parseBody(credentialsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid login details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid login details", details: parsed.error });
     }
 
     const email = parsed.data.email;
@@ -28,8 +27,7 @@ export async function authPlugin(app: FastifyInstance) {
         detail: `Sign-in refused for ${email}: account temporarily locked after repeated failures.`,
         ipAddress: request.ip
       });
-      reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes." });
-      return;
+      return reply.code(429).send({ error: "Too many failed attempts. Please try again in a few minutes." });
     }
 
     const user = getUserByEmail(email);
@@ -59,8 +57,7 @@ export async function authPlugin(app: FastifyInstance) {
         if (maybeAutoBlockIp(request.ip)) alertIpAutoBlocked(request.ip);
         if (isAccountLocked(email)) alertAccountLocked(email, request.ip);
       }
-      reply.code(401).send({ error: "Invalid email or password" });
-      return;
+      return reply.code(401).send({ error: "Invalid email or password" });
     }
 
     const authed = user!; // ok === true implies the user exists and is active
@@ -97,12 +94,11 @@ export async function authPlugin(app: FastifyInstance) {
         detail: "Password accepted; awaiting a two-factor code.",
         ipAddress: request.ip
       });
-      reply.send({
+      return reply.send({
         mfaRequired: true,
         method: authed.mfa_method,
         ...(byEmail ? { emailSent, sentTo: maskEmail(authed.email) } : {})
       });
-      return;
     }
 
     issueSession(reply, authed.id, request);
@@ -115,7 +111,7 @@ export async function authPlugin(app: FastifyInstance) {
       detail: authed.mfa_enabled && trusted ? "Signed in (two-factor skipped on a trusted network)." : "Signed in.",
       ipAddress: request.ip
     });
-    reply.send({ user: publicUser(authed) });
+    return reply.send({ user: publicUser(authed) });
   });
 
   app.post("/api/auth/logout", { preHandler: app.authenticate }, async (request, reply) => {
@@ -129,7 +125,7 @@ export async function authPlugin(app: FastifyInstance) {
     });
     revokeCurrentSession(request);
     clearSession(reply);
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   app.get("/api/auth/me", { preHandler: app.authenticate }, async (request) => ({

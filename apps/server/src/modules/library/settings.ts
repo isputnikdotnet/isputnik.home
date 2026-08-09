@@ -48,16 +48,14 @@ export async function librarySettingsPlugin(app: FastifyInstance) {
   app.patch("/api/library/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(librarySettingsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid library settings", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid library settings", details: parsed.error });
     }
 
     let thumbnailPath: string;
     try {
       thumbnailPath = validateThumbnailPath(parsed.data.thumbnailPath);
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Thumbnail path is not writable." });
-      return;
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Thumbnail path is not writable." });
     }
 
     db.prepare(`
@@ -78,7 +76,7 @@ export async function librarySettingsPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.send({
+    return reply.send({
       settings: {
         thumbnailPath,
         thumbnailPathReady: true,

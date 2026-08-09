@@ -49,7 +49,7 @@ export function registerCsrf(app: FastifyInstance): void {
     const header = request.headers[CSRF_HEADER];
     const provided = Array.isArray(header) ? header[0] : header;
     if (!provided || provided !== token) {
-      reply.code(403).send({ error: "Invalid or missing CSRF token. Reload the page and try again." });
+      return reply.code(403).send({ error: "Invalid or missing CSRF token. Reload the page and try again." });
     }
   });
 }

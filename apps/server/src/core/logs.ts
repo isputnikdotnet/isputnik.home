@@ -42,8 +42,7 @@ export async function logsPlugin(app: FastifyInstance) {
   app.get("/api/logs", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(logQuerySchema, request.query);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid log query", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid log query", details: parsed.error });
     }
 
     const query = parsed.data.q ?? "";
@@ -176,8 +175,7 @@ export async function logsPlugin(app: FastifyInstance) {
   app.delete("/api/logs", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(logCleanupSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid log cleanup period", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid log cleanup period", details: parsed.error });
     }
 
     const result = db.prepare(`
@@ -195,6 +193,6 @@ export async function logsPlugin(app: FastifyInstance) {
       });
     }
 
-    reply.send({ deleted: result.changes, olderThanDays: parsed.data.olderThanDays });
+    return reply.send({ deleted: result.changes, olderThanDays: parsed.data.olderThanDays });
   });
 }

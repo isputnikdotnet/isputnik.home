@@ -27,8 +27,7 @@ export async function profilePlugin(app: FastifyInstance) {
   app.patch("/api/profile", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(profileSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid profile details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid profile details", details: parsed.error });
     }
 
     db.prepare(`
@@ -52,7 +51,7 @@ export async function profilePlugin(app: FastifyInstance) {
       detail: "Updated profile settings.",
       ipAddress: request.ip
     });
-    reply.send({ user: selfUser(user) });
+    return reply.send({ user: selfUser(user) });
   });
 
   // Self-service password change: the caller must prove their current password.
@@ -61,19 +60,16 @@ export async function profilePlugin(app: FastifyInstance) {
   app.patch("/api/profile/password", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(passwordSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid password", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid password", details: parsed.error });
     }
 
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(request.user!.id) as User | undefined;
     if (!user) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     if (!(await verifyPassword(parsed.data.currentPassword, user.password_hash))) {
-      reply.code(403).send({ error: "Your current password is incorrect." });
-      return;
+      return reply.code(403).send({ error: "Your current password is incorrect." });
     }
 
     const passwordHash = await hashPassword(parsed.data.newPassword);
@@ -98,7 +94,7 @@ export async function profilePlugin(app: FastifyInstance) {
       detail: "Changed their account password.",
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   // Self-service email change: the email is the login identity, so the caller must
@@ -107,42 +103,36 @@ export async function profilePlugin(app: FastifyInstance) {
   app.patch("/api/profile/email", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(emailSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid email", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid email", details: parsed.error });
     }
 
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(request.user!.id) as User | undefined;
     if (!user) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     if (!(await verifyPassword(parsed.data.currentPassword, user.password_hash))) {
-      reply.code(403).send({ error: "Your current password is incorrect." });
-      return;
+      return reply.code(403).send({ error: "Your current password is incorrect." });
     }
 
     // No-op when it already matches (emails are stored lower-cased) — succeed quietly
     // rather than write a misleading "changed email" log entry.
     if (parsed.data.newEmail === user.email.toLowerCase()) {
-      reply.send({ user: selfUser(user) });
-      return;
+      return reply.send({ user: selfUser(user) });
     }
 
     // The email UNIQUE index spans every row (including soft-deleted users), so check
     // against all of them and return a friendly conflict instead of a raw constraint.
     const taken = db.prepare("SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id <> ?").get(parsed.data.newEmail, user.id);
     if (taken) {
-      reply.code(409).send({ error: "That email address is already in use." });
-      return;
+      return reply.code(409).send({ error: "That email address is already in use." });
     }
 
     try {
       db.prepare("UPDATE users SET email = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
         .run(parsed.data.newEmail, user.id);
     } catch {
-      reply.code(409).send({ error: "That email address is already in use." });
-      return;
+      return reply.code(409).send({ error: "That email address is already in use." });
     }
 
     const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id) as User;
@@ -155,6 +145,6 @@ export async function profilePlugin(app: FastifyInstance) {
       detail: `Changed their account email to ${parsed.data.newEmail}.`,
       ipAddress: request.ip
     });
-    reply.send({ user: selfUser(updated) });
+    return reply.send({ user: selfUser(updated) });
   });
 }

@@ -124,8 +124,7 @@ export async function apiTokensPlugin(app: FastifyInstance) {
   app.post("/api/account/tokens", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createTokenSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid token details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid token details", details: parsed.error });
     }
 
     const user = request.user!;
@@ -144,7 +143,7 @@ export async function apiTokensPlugin(app: FastifyInstance) {
     // The catalog URL embeds the token in the path (one-paste, every client). The
     // same token also works as the Basic-auth password against the plain /opds URL.
     const origin = requestOrigin(request);
-    reply.code(201).send({
+    return reply.code(201).send({
       id,
       token: raw,
       catalogUrl: `${origin}/opds/${raw}`,
@@ -156,8 +155,7 @@ export async function apiTokensPlugin(app: FastifyInstance) {
   app.delete("/api/account/tokens/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     if (!revokeApiToken(request.user!.id, id)) {
-      reply.code(404).send({ error: "Token not found" });
-      return;
+      return reply.code(404).send({ error: "Token not found" });
     }
     logActivity({
       event: "account.opds_token_revoked",
@@ -167,6 +165,6 @@ export async function apiTokensPlugin(app: FastifyInstance) {
       detail: "Revoked an OPDS reader token.",
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 }

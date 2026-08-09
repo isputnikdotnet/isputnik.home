@@ -66,8 +66,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/ebook-libraries", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(coreLibraryCreateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid ebook library details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid ebook library details", details: parsed.error });
     }
 
     const result = createLibraryRecord({
@@ -77,14 +76,13 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       ip: request.ip
     });
     if ("error" in result) {
-      reply.code(result.status).send({ error: result.error });
-      return;
+      return reply.code(result.status).send({ error: result.error });
     }
 
     const jobId = enqueueEbookScan(result.libraryId);
     void processEbookScanQueue();
 
-    reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_EBOOK_LIBRARY" } });
+    return reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_EBOOK_LIBRARY" } });
   });
 
   app.get("/api/library/ebook-libraries", { preHandler: app.authenticate }, async (request) => {
@@ -101,8 +99,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
 
     const parsed = parseBody(coreLibraryUpdateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid library details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid library details", details: parsed.error });
     }
 
     const result = updateLibraryRecord({
@@ -113,12 +110,11 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       ip: request.ip
     });
     if ("error" in result) {
-      reply.code(result.status).send({ error: result.error });
-      return;
+      return reply.code(result.status).send({ error: result.error });
     }
 
     const updated = db.prepare(EBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as LibraryListRow;
-    reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
+    return reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
   });
 
   app.get("/api/library/ebook-libraries/:id/books", { preHandler: app.authenticate }, async (request, reply) => {
@@ -127,8 +123,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     const library = db.prepare("SELECT id FROM libraries WHERE id = ? AND type = 'ebook'")
       .get(id) as { id: string } | undefined;
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
-      reply.code(404).send({ error: "Ebook library not found" });
-      return;
+      return reply.code(404).send({ error: "Ebook library not found" });
     }
 
     const rows = db.prepare(`
@@ -227,22 +222,19 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       "SELECT id, name, source_path, settings_json, policy_json FROM libraries WHERE id = ? AND type = 'ebook'"
     ).get(libraryId) as { id: string; name: string; source_path: string; settings_json: string; policy_json: string } | undefined;
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
-      reply.code(404).send({ error: "Ebook library not found" });
-      return;
+      return reply.code(404).send({ error: "Ebook library not found" });
     }
 
     const policy = parsePolicy(library.policy_json);
     if (!can(user, { objectType: "library", objectId: library.id, policy }, "upload")) {
-      reply.code(403).send({ error: "Uploading is not allowed in this library." });
-      return;
+      return reply.code(403).send({ error: "Uploading is not allowed in this library." });
     }
 
     let root: string;
     try {
       root = validateLibrarySource(library.source_path);
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
-      return;
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
     }
 
     const settings = normalizeLibrarySettings("ebook", library.settings_json);
@@ -260,8 +252,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     } catch (err) {
       fs.rmSync(stagingDir, { recursive: true, force: true });
       const status = err instanceof UploadError ? err.statusCode : 400;
-      reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
-      return;
+      return reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
     }
 
     // Each file moves into the library root under a unique name, then is cataloged
@@ -279,15 +270,13 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
         if (bookId) { createdIds.push(bookId); totalBytes += file.sizeBytes; }
       }
     } catch (err) {
-      reply.code(500).send({ error: err instanceof Error ? err.message : "Could not store the uploaded files." });
-      return;
+      return reply.code(500).send({ error: err instanceof Error ? err.message : "Could not store the uploaded files." });
     } finally {
       fs.rmSync(stagingDir, { recursive: true, force: true });
     }
 
     if (createdIds.length === 0) {
-      reply.code(400).send({ error: "No ebooks were added from the upload." });
-      return;
+      return reply.code(400).send({ error: "No ebooks were added from the upload." });
     }
 
     logActivity({
@@ -299,7 +288,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.code(201).send({ uploaded: createdIds.length });
+    return reply.code(201).send({ uploaded: createdIds.length });
   });
 
   // Paged, server-side searched/sorted/filtered ebook catalog (mirrors the
@@ -323,13 +312,12 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/ebooks/catalog", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(ebookCatalogSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid catalog query", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid catalog query", details: parsed.error });
     }
     const p = parsed.data;
     const f = p.filters ?? {};
     const libIds = resolveEbookScopeLibraryIds(request.user!, p.scope ?? "all", p.libraryId);
-    reply.send(queryEbookCatalog(request.user!.id, libIds, {
+    return reply.send(queryEbookCatalog(request.user!.id, libIds, {
       q: p.q ?? "",
       sort: p.sort ?? "title",
       limit: p.limit ?? 48,
@@ -368,14 +356,12 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     const exists = db.prepare("SELECT id, source_path FROM libraries WHERE id = ? AND type = 'ebook'")
       .get(id) as { id: string; source_path: string } | undefined;
     if (!exists) {
-      reply.code(404).send({ error: "Ebook library not found" });
-      return;
+      return reply.code(404).send({ error: "Ebook library not found" });
     }
 
     const parsed = parseBody(rescanOptionsSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
     }
 
     // Catch a missing/inaccessible source folder now, so the user gets an immediate
@@ -384,8 +370,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       validateLibrarySource(exists.source_path);
     } catch (err) {
       if (err instanceof LibrarySourceError) {
-        reply.code(422).send({ error: err.message });
-        return;
+        return reply.code(422).send({ error: err.message });
       }
       throw err;
     }
@@ -400,7 +385,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       detail: "Queued an ebook library rescan.",
       ipAddress: request.ip
     });
-    reply.send({ job: { id: jobId, type: "SCAN_EBOOK_LIBRARY" } });
+    return reply.send({ job: { id: jobId, type: "SCAN_EBOOK_LIBRARY" } });
   });
 
   app.delete("/api/library/ebook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -408,8 +393,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'ebook'")
       .get(id) as { id: string; name: string } | undefined;
     if (!exists) {
-      reply.code(404).send({ error: "Ebook library not found" });
-      return;
+      return reply.code(404).send({ error: "Ebook library not found" });
     }
 
     db.transaction(() => {
@@ -429,6 +413,6 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       detail: `Deleted ebook library "${exists.name}". Source files on disk were not removed; generated thumbnails were deleted.`,
       ipAddress: request.ip
     });
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 }

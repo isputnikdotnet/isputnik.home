@@ -142,7 +142,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
       byCollection.set(item.collection_id, list);
     }
 
-    reply.send({
+    return reply.send({
       collections: collections.map((collection) => {
         const members = byCollection.get(collection.id) ?? [];
         const coverUrls = members
@@ -171,14 +171,13 @@ export async function collectionsPlugin(app: FastifyInstance) {
     const user = request.user!;
     const parsed = parseBody(createSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid collection", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid collection", details: parsed.error });
     }
     const id = nanoid(16);
     db.prepare("INSERT INTO collections (id, user_id, name, description) VALUES (?, ?, ?, ?)")
       .run(id, user.id, parsed.data.name, parsed.data.description ?? null);
     const collection = ownedCollection(id, user.id)!;
-    reply.code(201).send({
+    return reply.code(201).send({
       collection: {
         id: collection.id,
         name: collection.name,
@@ -197,8 +196,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const collection = ownedCollection(id, user.id);
     if (!collection) {
-      reply.code(404).send({ error: "Collection not found" });
-      return;
+      return reply.code(404).send({ error: "Collection not found" });
     }
     const items = db.prepare(
       "SELECT id, entity_type, entity_id, position, added_at FROM collection_items WHERE collection_id = ? ORDER BY position ASC"
@@ -207,7 +205,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
       items.map((item) => ({ entityType: item.entity_type, entityId: item.entity_id })),
       user
     );
-    reply.send({
+    return reply.send({
       collection: {
         id: collection.id,
         name: collection.name,
@@ -224,13 +222,11 @@ export async function collectionsPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const collection = ownedCollection(id, user.id);
     if (!collection) {
-      reply.code(404).send({ error: "Collection not found" });
-      return;
+      return reply.code(404).send({ error: "Collection not found" });
     }
     const parsed = parseBody(updateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid collection", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid collection", details: parsed.error });
     }
     db.prepare(`
       UPDATE collections SET
@@ -245,7 +241,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
       id
     );
     const updated = ownedCollection(id, user.id)!;
-    reply.send({
+    return reply.send({
       collection: {
         id: updated.id,
         name: updated.name,
@@ -261,11 +257,10 @@ export async function collectionsPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const collection = ownedCollection(id, user.id);
     if (!collection) {
-      reply.code(404).send({ error: "Collection not found" });
-      return;
+      return reply.code(404).send({ error: "Collection not found" });
     }
     db.prepare("DELETE FROM collections WHERE id = ?").run(id); // items cascade
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   // Append an item. Rejects entities the caller can't actually access, so a
@@ -275,20 +270,17 @@ export async function collectionsPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const collection = ownedCollection(id, user.id);
     if (!collection) {
-      reply.code(404).send({ error: "Collection not found" });
-      return;
+      return reply.code(404).send({ error: "Collection not found" });
     }
     const parsed = parseBody(addItemSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid item", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid item", details: parsed.error });
     }
     const { entityType, entityId } = parsed.data;
 
     const hydrated = hydrateEntities([{ entityType, entityId }], user);
     if (!hydrated.get(`${entityType}:${entityId}`)?.available) {
-      reply.code(404).send({ error: "Item not found" });
-      return;
+      return reply.code(404).send({ error: "Item not found" });
     }
 
     const existing = db.prepare(
@@ -307,7 +299,7 @@ export async function collectionsPlugin(app: FastifyInstance) {
       })();
     }
 
-    reply.send({ added: true });
+    return reply.send({ added: true });
   });
 
   // Batch append (the gallery multi-select bar): one request however many
@@ -317,15 +309,13 @@ export async function collectionsPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const collection = ownedCollection(id, user.id);
     if (!collection) {
-      reply.code(404).send({ error: "Collection not found" });
-      return;
+      return reply.code(404).send({ error: "Collection not found" });
     }
     const parsed = parseBody(addItemsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid items", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid items", details: parsed.error });
     }
-    reply.send(appendCollectionItems(id, user, parsed.data.entityType, parsed.data.entityIds));
+    return reply.send(appendCollectionItems(id, user, parsed.data.entityType, parsed.data.entityIds));
   });
 
   app.delete("/api/collections/:id/items/:itemId", { preHandler: app.authenticate }, async (request, reply) => {
@@ -333,14 +323,13 @@ export async function collectionsPlugin(app: FastifyInstance) {
     const { id, itemId } = request.params as { id: string; itemId: string };
     const collection = ownedCollection(id, user.id);
     if (!collection) {
-      reply.code(404).send({ error: "Collection not found" });
-      return;
+      return reply.code(404).send({ error: "Collection not found" });
     }
     db.transaction(() => {
       db.prepare("DELETE FROM collection_items WHERE id = ? AND collection_id = ?").run(itemId, id);
       db.prepare("UPDATE collections SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(id);
     })();
-    reply.send({ removed: true });
+    return reply.send({ removed: true });
   });
 
   // Persist a new order. Items not named keep their relative order after the
@@ -350,13 +339,11 @@ export async function collectionsPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const collection = ownedCollection(id, user.id);
     if (!collection) {
-      reply.code(404).send({ error: "Collection not found" });
-      return;
+      return reply.code(404).send({ error: "Collection not found" });
     }
     const parsed = parseBody(reorderSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid order", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid order", details: parsed.error });
     }
     const owned = new Set(
       (db.prepare("SELECT id FROM collection_items WHERE collection_id = ?").all(id) as { id: string }[])
@@ -370,6 +357,6 @@ export async function collectionsPlugin(app: FastifyInstance) {
       }
       db.prepare("UPDATE collections SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(id);
     })();
-    reply.send({ reordered: true });
+    return reply.send({ reordered: true });
   });
 }

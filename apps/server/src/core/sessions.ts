@@ -62,13 +62,11 @@ export async function sessionsPlugin(app: FastifyInstance) {
       user_id: string;
     } | undefined;
     if (!session) {
-      reply.code(404).send({ error: "Session not found" });
-      return;
+      return reply.code(404).send({ error: "Session not found" });
     }
 
     if (session.token_hash === currentSessionHash(request)) {
-      reply.code(409).send({ error: "Use sign out to end your current session" });
-      return;
+      return reply.code(409).send({ error: "Use sign out to end your current session" });
     }
 
     db.prepare("UPDATE sessions SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(id);
@@ -80,6 +78,6 @@ export async function sessionsPlugin(app: FastifyInstance) {
       detail: "Revoked an active session.",
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 }

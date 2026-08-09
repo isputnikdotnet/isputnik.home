@@ -65,10 +65,9 @@ function registerLibrarySeriesRoutes(app: FastifyInstance, type: "audiobook" | "
     const user = request.user!;
     const library = getAccessibleLibrary(id, user.id, user.role, type);
     if (!library) {
-      reply.code(404).send({ error: notFound });
-      return;
+      return reply.code(404).send({ error: notFound });
     }
-    reply.send({ series: listSeriesForLibrary(id) });
+    return reply.send({ series: listSeriesForLibrary(id) });
   });
 
   app.post(`/api/library/${type}-libraries/:id/series`, { preHandler: app.authenticate }, async (request, reply) => {
@@ -76,8 +75,7 @@ function registerLibrarySeriesRoutes(app: FastifyInstance, type: "audiobook" | "
     const user = request.user!;
     const library = getAccessibleLibrary(id, user.id, user.role, type);
     if (!library || !canUserCurateLibrary(library, user.id, user.role)) {
-      reply.code(403).send({ error: "Curator access required to manage series." });
-      return;
+      return reply.code(403).send({ error: "Curator access required to manage series." });
     }
 
     const parsed = parseBody(z.object({
@@ -85,14 +83,12 @@ function registerLibrarySeriesRoutes(app: FastifyInstance, type: "audiobook" | "
       description: z.string().trim().max(10000).nullable().optional()
     }), request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Series name is required." });
-      return;
+      return reply.code(400).send({ error: "Series name is required." });
     }
 
     const existing = db.prepare("SELECT id FROM series WHERE library_id = ? AND name = ?").get(id, parsed.data.name);
     if (existing) {
-      reply.code(409).send({ error: "A series with this name already exists in this library." });
-      return;
+      return reply.code(409).send({ error: "A series with this name already exists in this library." });
     }
 
     const seriesId = nanoid(16);
@@ -100,7 +96,7 @@ function registerLibrarySeriesRoutes(app: FastifyInstance, type: "audiobook" | "
       seriesId, id, parsed.data.name, sortTitle(parsed.data.name), parsed.data.description ?? null
     );
 
-    reply.code(201).send({ series: { id: seriesId, name: parsed.data.name, bookCount: 0, coverUrl: null } });
+    return reply.code(201).send({ series: { id: seriesId, name: parsed.data.name, bookCount: 0, coverUrl: null } });
   });
 }
 
@@ -111,8 +107,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const user = request.user!;
     const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
     if (!library) {
-      reply.code(404).send({ error: "Audiobook library not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook library not found" });
     }
 
     const rows = db.prepare(`
@@ -124,7 +119,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       ORDER BY people.name COLLATE NOCASE
     `).all(id) as { name: string }[];
 
-    reply.send({ people: rows.map((r) => r.name) });
+    return reply.send({ people: rows.map((r) => r.name) });
   });
 
 
@@ -146,8 +141,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     `).get(id) as { id: string; name: string; description: string | null; cover_storage_key: string | null; library_id: string; library_name: string } | undefined;
 
     if (!row) {
-      reply.code(404).send({ error: "Series not found" });
-      return;
+      return reply.code(404).send({ error: "Series not found" });
     }
 
     // A series id maps 1:1 to its library, so the `/series/:id*` routes resolve
@@ -155,8 +149,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     // That's what lets ebook-library series reuse these routes.
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib) {
-      reply.code(404).send({ error: "Series not found" });
-      return;
+      return reply.code(404).send({ error: "Series not found" });
     }
 
     const books = db.prepare(`
@@ -177,7 +170,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       ORDER BY series_items.position ASC, title COLLATE NOCASE
     `).all(id) as { id: string; series_position: number | null; title: string; cover_storage_key: string | null; author_names: string | null }[];
 
-    reply.send({
+    return reply.send({
       series: {
         id: row.id,
         name: row.name,
@@ -203,14 +196,12 @@ export function registerSeriesRoutes(app: FastifyInstance) {
 
     const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
     if (!row) {
-      reply.code(404).send({ error: "Series not found" });
-      return;
+      return reply.code(404).send({ error: "Series not found" });
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Curator access required to manage series." });
-      return;
+      return reply.code(403).send({ error: "Curator access required to manage series." });
     }
 
     const parsed = parseBody(z.object({
@@ -218,15 +209,14 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       description: z.string().trim().max(10000).nullable().optional()
     }), request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Series name is required." });
-      return;
+      return reply.code(400).send({ error: "Series name is required." });
     }
 
     db.prepare("UPDATE series SET name = ?, sort_name = ?, description = ? WHERE id = ?").run(
       parsed.data.name, sortTitle(parsed.data.name), parsed.data.description ?? null, id
     );
 
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
 
@@ -236,14 +226,12 @@ export function registerSeriesRoutes(app: FastifyInstance) {
 
     const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
     if (!row) {
-      reply.code(404).send({ error: "Series not found" });
-      return;
+      return reply.code(404).send({ error: "Series not found" });
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Curator access required to manage series." });
-      return;
+      return reply.code(403).send({ error: "Curator access required to manage series." });
     }
 
     const parsed = parseBody(
@@ -251,8 +239,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       request.body
     );
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid books list." });
-      return;
+      return reply.code(400).send({ error: "Invalid books list." });
     }
 
     // Auto-append: new books get positions after the series' current highest,
@@ -287,7 +274,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       }
     })();
 
-    reply.send({ added, skipped });
+    return reply.send({ added, skipped });
   });
 
 
@@ -297,37 +284,32 @@ export function registerSeriesRoutes(app: FastifyInstance) {
 
     const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
     if (!row) {
-      reply.code(404).send({ error: "Series not found" });
-      return;
+      return reply.code(404).send({ error: "Series not found" });
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Curator access required to change covers." });
-      return;
+      return reply.code(403).send({ error: "Curator access required to change covers." });
     }
 
     const contentType = request.headers["content-type"]?.split(";")[0]?.toLowerCase();
     if (!contentType || !["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
-      reply.code(415).send({ error: "Upload a JPEG, PNG, or WebP image." });
-      return;
+      return reply.code(415).send({ error: "Upload a JPEG, PNG, or WebP image." });
     }
     const body = request.body;
     if (!Buffer.isBuffer(body) || body.byteLength === 0) {
-      reply.code(400).send({ error: "Image is required." });
-      return;
+      return reply.code(400).send({ error: "Image is required." });
     }
     if (body.byteLength > 10 * 1024 * 1024) {
-      reply.code(400).send({ error: "Image is too large." });
-      return;
+      return reply.code(400).send({ error: "Image is too large." });
     }
 
     try {
       const storageKey = await writeSeriesCover(row.library_id, id, body);
       db.prepare("UPDATE series SET cover_storage_key = ? WHERE id = ?").run(storageKey, id);
-      reply.send({ updated: true, coverUrl: `/api/library/covers/${storageKey}?v=${Date.now()}` });
+      return reply.send({ updated: true, coverUrl: `/api/library/covers/${storageKey}?v=${Date.now()}` });
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to save cover" });
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to save cover" });
     }
   });
 
@@ -339,21 +321,19 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     const row = db.prepare("SELECT id, library_id, cover_storage_key FROM series WHERE id = ?")
       .get(id) as { id: string; library_id: string; cover_storage_key: string | null } | undefined;
     if (!row) {
-      reply.code(404).send({ error: "Series not found" });
-      return;
+      return reply.code(404).send({ error: "Series not found" });
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Curator access required to change covers." });
-      return;
+      return reply.code(403).send({ error: "Curator access required to change covers." });
     }
 
     if (row.cover_storage_key) {
       try { fs.rmSync(thumbnailAbsolutePath(row.cover_storage_key), { force: true }); } catch { /* ignore */ }
     }
     db.prepare("UPDATE series SET cover_storage_key = NULL WHERE id = ?").run(id);
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
 
@@ -363,14 +343,12 @@ export function registerSeriesRoutes(app: FastifyInstance) {
 
     const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
     if (!row) {
-      reply.code(404).send({ error: "Series not found" });
-      return;
+      return reply.code(404).send({ error: "Series not found" });
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Curator access required to manage series." });
-      return;
+      return reply.code(403).send({ error: "Curator access required to manage series." });
     }
 
     db.transaction(() => {
@@ -379,7 +357,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       db.prepare("DELETE FROM series WHERE id = ?").run(id);
     })();
 
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
 
@@ -389,14 +367,12 @@ export function registerSeriesRoutes(app: FastifyInstance) {
 
     const row = db.prepare("SELECT id, library_id FROM series WHERE id = ?").get(id) as { id: string; library_id: string } | undefined;
     if (!row) {
-      reply.code(404).send({ error: "Series not found" });
-      return;
+      return reply.code(404).send({ error: "Series not found" });
     }
 
     const lib = getAccessibleLibrary(row.library_id, user.id, user.role);
     if (!lib || !canUserCurateLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Curator access required to manage series." });
-      return;
+      return reply.code(403).send({ error: "Curator access required to manage series." });
     }
 
     const parsed = parseBody(
@@ -404,8 +380,7 @@ export function registerSeriesRoutes(app: FastifyInstance) {
       request.body
     );
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid books list." });
-      return;
+      return reply.code(400).send({ error: "Invalid books list." });
     }
 
     const newBookIds = new Set(parsed.data.books.map((b) => b.bookId));
@@ -426,6 +401,6 @@ export function registerSeriesRoutes(app: FastifyInstance) {
     })();
 
     void newBookIds;
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 }

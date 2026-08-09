@@ -87,8 +87,7 @@ export function registerTagRoutes(app: FastifyInstance) {
     const tag = db.prepare("SELECT id, display_name FROM tags WHERE key = ?")
       .get(normalizeText(name)) as { id: string; display_name: string } | undefined;
     if (!tag) {
-      reply.code(404).send({ error: "Tag not found" });
-      return;
+      return reply.code(404).send({ error: "Tag not found" });
     }
 
     const books = crossTypeBooksByFilter(
@@ -109,7 +108,7 @@ export function registerTagRoutes(app: FastifyInstance) {
       ORDER BY datetime(gallery_details.taken_at) DESC, library_items.id DESC
     `).all(user.id, tag.id, ...galleryIds) as GalleryAssetRow[]).map(mapAsset);
 
-    reply.send({
+    return reply.send({
       tag: { name: tag.display_name, books, photos, people: listFamilyPersonsByTag(tag.id) }
     });
   });

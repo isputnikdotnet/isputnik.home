@@ -52,13 +52,12 @@ export function registerCategoryRoutes(app: FastifyInstance) {
     const category = db.prepare("SELECT id, key, name, icon, image_storage_key FROM categories WHERE key = ?")
       .get(key) as CategoryRow | undefined;
     if (!category) {
-      reply.code(404).send({ error: "Category not found" });
-      return;
+      return reply.code(404).send({ error: "Category not found" });
     }
 
     const books = crossTypeBooksByFilter(user.id, bookLibraryIds(user), "EXISTS (SELECT 1 FROM item_categories WHERE item_categories.item_id = library_items.id AND item_categories.is_primary = 1 AND item_categories.category_id = ?)", [category.id]);
 
-    reply.send({
+    return reply.send({
       category: {
         key: category.key,
         name: category.name,

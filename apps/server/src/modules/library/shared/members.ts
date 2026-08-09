@@ -37,8 +37,7 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
     const user = request.user!;
     const library = loadManageable(id, user.id, user.role);
     if (!library) {
-      reply.code(403).send({ error: "You don't have permission to manage this library's members." });
-      return;
+      return reply.code(403).send({ error: "You don't have permission to manage this library's members." });
     }
 
     // Exclude the Everyone grant — that's the library's public baseline, shown/managed
@@ -72,7 +71,7 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
       missing: number;
     }[];
 
-    reply.send({
+    return reply.send({
       members: rows.map((row) => ({
         subjectType: row.subject_type,
         subjectId: row.subject_id,
@@ -90,28 +89,24 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
     const user = request.user!;
     const library = loadManageable(id, user.id, user.role);
     if (!library) {
-      reply.code(403).send({ error: "You don't have permission to manage this library's members." });
-      return;
+      return reply.code(403).send({ error: "You don't have permission to manage this library's members." });
     }
 
     const parsed = parseBody(grantSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid role grant", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid role grant", details: parsed.error });
     }
     const { subjectType, subjectId, role } = parsed.data;
 
     if (subjectType === "user") {
       const exists = db.prepare("SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1").get(subjectId);
       if (!exists) {
-        reply.code(404).send({ error: "User not found." });
-        return;
+        return reply.code(404).send({ error: "User not found." });
       }
     } else {
       const exists = db.prepare("SELECT id FROM user_groups WHERE id = ?").get(subjectId);
       if (!exists) {
-        reply.code(404).send({ error: "Group not found." });
-        return;
+        return reply.code(404).send({ error: "Group not found." });
       }
     }
 
@@ -131,7 +126,7 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.code(201).send({ granted: true });
+    return reply.code(201).send({ granted: true });
   });
 
   app.delete("/api/library/libraries/:id/members/:subjectType/:subjectId", { preHandler: app.authenticate }, async (request, reply) => {
@@ -139,20 +134,17 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
     const user = request.user!;
     const library = loadManageable(id, user.id, user.role);
     if (!library) {
-      reply.code(403).send({ error: "You don't have permission to manage this library's members." });
-      return;
+      return reply.code(403).send({ error: "You don't have permission to manage this library's members." });
     }
     if (subjectType !== "user" && subjectType !== "group") {
-      reply.code(400).send({ error: "Invalid subject type." });
-      return;
+      return reply.code(400).send({ error: "Invalid subject type." });
     }
 
     const result = db.prepare(
       "DELETE FROM assignments WHERE object_type = 'library' AND object_id = ? AND subject_type = ? AND subject_id = ?"
     ).run(id, subjectType, subjectId);
     if (result.changes === 0) {
-      reply.code(404).send({ error: "Grant not found." });
-      return;
+      return reply.code(404).send({ error: "Grant not found." });
     }
 
     logActivity({
@@ -164,7 +156,7 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.send({ revoked: true });
+    return reply.send({ revoked: true });
   });
 
   // Take ownership — admin-only escape hatch for a private library the admin can't
@@ -175,8 +167,7 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
     const user = request.user!;
     const library = db.prepare("SELECT id, name FROM libraries WHERE id = ?").get(id) as LibraryRow | undefined;
     if (!library) {
-      reply.code(404).send({ error: "Library not found" });
-      return;
+      return reply.code(404).send({ error: "Library not found" });
     }
 
     db.prepare(`
@@ -194,6 +185,6 @@ export async function libraryMembersPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 }

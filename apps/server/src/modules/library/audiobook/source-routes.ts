@@ -60,28 +60,24 @@ export function registerSourceRoutes(app: FastifyInstance) {
       "SELECT id, name, source_path, settings_json, policy_json FROM libraries WHERE id = ? AND type = 'audiobook'"
     ).get(libraryId) as UploadLibraryRow | undefined;
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
-      reply.code(404).send({ error: "Audiobook library not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook library not found" });
     }
 
     const policy = parsePolicy(library.policy_json);
     if (!can(user, { objectType: "library", objectId: library.id, policy }, "upload")) {
-      reply.code(403).send({ error: "Uploading is not allowed in this library." });
-      return;
+      return reply.code(403).send({ error: "Uploading is not allowed in this library." });
     }
 
     let root: string;
     try {
       root = validateLibrarySource(library.source_path);
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
-      return;
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Library source folder is unavailable." });
     }
 
     const requestedFolder = sanitizeFolderName((request.query as { folder?: string }).folder);
     if (requestedFolder && fs.existsSync(path.join(root, requestedFolder))) {
-      reply.code(409).send({ error: `An audiobook folder named "${requestedFolder}" already exists in this library.` });
-      return;
+      return reply.code(409).send({ error: `An audiobook folder named "${requestedFolder}" already exists in this library.` });
     }
 
     const settings = normalizeLibrarySettings("audiobook", library.settings_json);
@@ -102,8 +98,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
     } catch (err) {
       fs.rmSync(stagingDir, { recursive: true, force: true });
       const status = err instanceof UploadError ? err.statusCode : 400;
-      reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
-      return;
+      return reply.code(status).send({ error: err instanceof Error ? err.message : "Upload failed" });
     }
 
     // Companions alone make no book — there must be something to listen to.
@@ -111,8 +106,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
     const firstAudio = received.find((file) => audioExtensions.has(file.extension));
     if (!firstAudio) {
       fs.rmSync(stagingDir, { recursive: true, force: true });
-      reply.code(400).send({ error: `Include at least one audio file (${settings.scan_extensions.map((ext) => `.${ext}`).join(", ")}).` });
-      return;
+      return reply.code(400).send({ error: `Include at least one audio file (${settings.scan_extensions.map((ext) => `.${ext}`).join(", ")}).` });
     }
 
     let folderPath: string;
@@ -146,8 +140,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
     } catch (err) {
       fs.rmSync(stagingDir, { recursive: true, force: true });
       const status = err instanceof UploadError ? err.statusCode : 500;
-      reply.code(status).send({ error: err instanceof Error ? err.message : "Could not store the uploaded files." });
-      return;
+      return reply.code(status).send({ error: err instanceof Error ? err.message : "Could not store the uploaded files." });
     }
 
     // Catalog the new folder: revive a previous row for this path if one exists
@@ -171,8 +164,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
     } catch (err) {
       // Files are safely in place; a library rescan will pick the folder up.
       const message = err instanceof Error ? err.message : "Scan failed";
-      reply.code(500).send({ error: `Files were uploaded, but scanning failed (${message}). Rescan the library to finish adding the book.` });
-      return;
+      return reply.code(500).send({ error: `Files were uploaded, but scanning failed (${message}). Rescan the library to finish adding the book.` });
     }
 
     const totalBytes = received.reduce((total, file) => total + file.sizeBytes, 0);
@@ -185,6 +177,6 @@ export function registerSourceRoutes(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.code(201).send({ book: getAudiobookBookDetail(bookId), uploadedFiles: received.length });
+    return reply.code(201).send({ book: getAudiobookBookDetail(bookId), uploadedFiles: received.length });
   });
 }

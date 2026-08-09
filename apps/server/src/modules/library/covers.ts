@@ -42,18 +42,17 @@ export async function coversPlugin(app: FastifyInstance) {
         const etag = `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
         reply.header("Cache-Control", "private, no-cache").header("ETag", etag);
         if (request.headers["if-none-match"] === etag) {
-          reply.code(304).send();
-          return;
+          return reply.code(304).send();
         }
       }
 
       const cover = await fs.readFile(absolutePath);
-      reply
+      return reply
         .type(mimeTypeForCover(storageKey))
         .header("Content-Length", cover.byteLength)
         .send(cover);
     } catch {
-      reply.code(404).send({ error: "Cover not found" });
+      return reply.code(404).send({ error: "Cover not found" });
     }
   });
 }

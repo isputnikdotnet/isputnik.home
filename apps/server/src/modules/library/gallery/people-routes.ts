@@ -59,10 +59,9 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     // Hidden people 404 for non-admins, mirroring the list's includeHidden gate.
     const result = getGalleryPersonPhotos(request.user!.id, libIds, personId, limit, offset, request.user!.role === "admin");
     if (!result) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
-    reply.send(result);
+    return reply.send(result);
   });
 
   // ── Manage people ──
@@ -71,13 +70,11 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
 
   app.post("/api/library/gallery/people", { preHandler: app.authenticate }, async (request, reply) => {
     if (!canWriteAnyGallery(request.user!)) {
-      reply.code(403).send({ error: "Write access to a gallery library is required." });
-      return;
+      return reply.code(403).send({ error: "Write access to a gallery library is required." });
     }
     const parsed = parseBody(createSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid person name", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid person name", details: parsed.error });
     }
     const person = createGalleryPerson(parsed.data.name);
     logActivity({
@@ -88,7 +85,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       detail: `Created person "${person.name}".`,
       ipAddress: request.ip
     });
-    reply.code(201).send({ person });
+    return reply.code(201).send({ person });
   });
 
   const updateSchema = z.object({
@@ -98,34 +95,29 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
 
   app.patch("/api/library/gallery/people/:id", { preHandler: app.authenticate }, async (request, reply) => {
     if (!canWriteAnyGallery(request.user!)) {
-      reply.code(403).send({ error: "Write access to a gallery library is required." });
-      return;
+      return reply.code(403).send({ error: "Write access to a gallery library is required." });
     }
     const personId = (request.params as { id: string }).id;
     const parsed = parseBody(updateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid changes", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid changes", details: parsed.error });
     }
     if (!getGalleryPersonRow(personId)) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
     if (parsed.data.name != null) renameGalleryPerson(personId, parsed.data.name);
     if (parsed.data.hidden != null) setGalleryPersonHidden(personId, parsed.data.hidden);
-    reply.send({ person: getGalleryPersonRow(personId) });
+    return reply.send({ person: getGalleryPersonRow(personId) });
   });
 
   app.delete("/api/library/gallery/people/:id", { preHandler: app.authenticate }, async (request, reply) => {
     if (!canWriteAnyGallery(request.user!)) {
-      reply.code(403).send({ error: "Write access to a gallery library is required." });
-      return;
+      return reply.code(403).send({ error: "Write access to a gallery library is required." });
     }
     const personId = (request.params as { id: string }).id;
     const person = getGalleryPersonRow(personId);
     if (!person) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
     deleteGalleryPerson(personId);
     logActivity({
@@ -136,7 +128,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       detail: `Deleted person "${person.name}". Tagged photos were kept (untagged).`,
       ipAddress: request.ip
     });
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   // ── Tag / untag a photo ──
@@ -159,13 +151,11 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     const assetId = (request.params as { id: string }).id;
     const lib = requireAssetWrite(request, assetId);
     if (!lib) {
-      reply.code(403).send({ error: "Write access required to tag people in this item." });
-      return;
+      return reply.code(403).send({ error: "Write access required to tag people in this item." });
     }
     const parsed = parseBody(tagSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid tag", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid tag", details: parsed.error });
     }
 
     // Tagging by name links to an existing same-named person (case-insensitive) and
@@ -183,8 +173,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       }
     }
     if (!personId || !tagAssetPerson(assetId, personId)) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
 
     logActivity({
@@ -197,19 +186,18 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     });
 
     const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
-    reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) });
+    return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) });
   });
 
   app.delete("/api/library/gallery/assets/:id/people/:personId", { preHandler: app.authenticate }, async (request, reply) => {
     const { id: assetId, personId } = request.params as { id: string; personId: string };
     const lib = requireAssetWrite(request, assetId);
     if (!lib) {
-      reply.code(403).send({ error: "Write access required to tag people in this item." });
-      return;
+      return reply.code(403).send({ error: "Write access required to tag people in this item." });
     }
     untagAssetPerson(assetId, personId);
     const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
-    reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) });
+    return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) });
   });
 
   // Merge person :id into :intoId (move faces, delete the source). Used to fold two
@@ -218,20 +206,17 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
 
   app.post("/api/library/gallery/people/:id/merge", { preHandler: app.authenticate }, async (request, reply) => {
     if (!canWriteAnyGallery(request.user!)) {
-      reply.code(403).send({ error: "Write access to a gallery library is required." });
-      return;
+      return reply.code(403).send({ error: "Write access to a gallery library is required." });
     }
     const sourceId = (request.params as { id: string }).id;
     const parsed = parseBody(mergeSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid merge", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid merge", details: parsed.error });
     }
     if (!mergeGalleryPeople(sourceId, parsed.data.intoId)) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
-    reply.send({ merged: true });
+    return reply.send({ merged: true });
   });
 
   // Move SOME of :id's photos to another person — the fix for a cluster that swept
@@ -245,21 +230,18 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
 
   app.post("/api/library/gallery/people/:id/reassign", { preHandler: app.authenticate }, async (request, reply) => {
     if (!canWriteAnyGallery(request.user!)) {
-      reply.code(403).send({ error: "Write access to a gallery library is required." });
-      return;
+      return reply.code(403).send({ error: "Write access to a gallery library is required." });
     }
     const sourceId = (request.params as { id: string }).id;
     const parsed = parseBody(reassignSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid move", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid move", details: parsed.error });
     }
     // Each photo is re-tagged individually, so each needs write access to its own
     // library — a viewer must not curate people in a library they can only read.
     const denied = parsed.data.itemIds.find((itemId) => !requireAssetWrite(request, itemId));
     if (denied) {
-      reply.code(403).send({ error: "Write access is required for every photo being moved." });
-      return;
+      return reply.code(403).send({ error: "Write access is required for every photo being moved." });
     }
 
     let targetId = parsed.data.intoId ?? null;
@@ -275,14 +257,12 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       }
     }
     if (!targetId) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
 
     const moved = reassignPersonPhotos(sourceId, targetId, parsed.data.itemIds);
     if (moved == null) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
 
     logActivity({
@@ -294,7 +274,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.send({ moved, targetId });
+    return reply.send({ moved, targetId });
   });
 
   // ── Face recognition (admin): per-library enablement + the detection pass ──
@@ -353,8 +333,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   app.patch("/api/library/gallery/faces/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(faceSettingsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid settings", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid settings", details: parsed.error });
     }
     if (parsed.data.threshold != null) setFaceThreshold(parsed.data.threshold, request.user!.id);
     if (parsed.data.groupingStrength != null) setFaceGroupingK(parsed.data.groupingStrength, request.user!.id);
@@ -363,8 +342,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       const lib = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
         .get(parsed.data.libraryId) as { id: string; name: string } | undefined;
       if (!lib) {
-        reply.code(404).send({ error: "Gallery library not found" });
-        return;
+        return reply.code(404).send({ error: "Gallery library not found" });
       }
       setFaceRecognitionEnabledForLibrary(lib.id, parsed.data.enabled, request.user!.id);
       // Turning a library on kicks off an initial scan of its not-yet-processed photos,
@@ -383,7 +361,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       });
     }
 
-    reply.send({ threshold: faceThreshold(), groupingStrength: faceGroupingK(), libraries: faceLibraryStatus() });
+    return reply.send({ threshold: faceThreshold(), groupingStrength: faceGroupingK(), libraries: faceLibraryStatus() });
   });
 
   // Clustering-health diagnostic (admin): how many people are probably the same person
@@ -407,7 +385,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       detail: "Queued a face re-clustering.",
       ipAddress: request.ip
     });
-    reply.send({ job: jobId });
+    return reply.send({ job: jobId });
   });
 
   // Queue a face scan. With a libraryId, scans just that library (must be enabled);
@@ -421,24 +399,20 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/faces/scan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(scanSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid scan request", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid scan request", details: parsed.error });
     }
     if (parsed.data.libraryId) {
       if (!faceRecognitionEnabledForLibrary(parsed.data.libraryId)) {
-        reply.code(409).send({ error: "Enable face recognition for this library before scanning." });
-        return;
+        return reply.code(409).send({ error: "Enable face recognition for this library before scanning." });
       }
     } else if (enabledFaceLibraryIds().length === 0) {
-      reply.code(409).send({ error: "Enable face recognition for a library before scanning." });
-      return;
+      return reply.code(409).send({ error: "Enable face recognition for a library before scanning." });
     }
     // One face scan at a time: if a scan is already running or queued, don't stack a
     // second (its batches would just wait behind the first and confuse the Tasks view).
     const running = activeFaceScan();
     if (running) {
-      reply.code(409).send({ error: "A face scan is already in progress. Wait for it to finish before starting another.", scan: running });
-      return;
+      return reply.code(409).send({ error: "A face scan is already in progress. Wait for it to finish before starting another.", scan: running });
     }
     const ids = parsed.data.libraryId ? [parsed.data.libraryId] : enabledFaceLibraryIds();
     // Both paths pre-queue numbered batches. A forced rescan first drops the scan
@@ -457,7 +431,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       detail: `Queued a${parsed.data.force ? " full" : "n incremental"} face scan for ${ids.length} gallery librar${ids.length === 1 ? "y" : "ies"}.`,
       ipAddress: request.ip
     });
-    reply.send({ jobs: jobs.length, scan: activeFaceScan() });
+    return reply.send({ jobs: jobs.length, scan: activeFaceScan() });
   });
 
   // Wipe all face-recognition data for one gallery library (faces, scan markers,
@@ -467,14 +441,12 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   app.delete("/api/library/gallery/faces/data", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(clearSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid request", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error });
     }
     const lib = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'gallery'")
       .get(parsed.data.libraryId) as { id: string; name: string } | undefined;
     if (!lib) {
-      reply.code(404).send({ error: "Gallery library not found" });
-      return;
+      return reply.code(404).send({ error: "Gallery library not found" });
     }
     const removed = await clearLibraryFaceData(lib.id);
     logActivity({
@@ -485,6 +457,6 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       detail: `Removed face data for "${lib.name}" (${removed.faces} faces across ${removed.photos} photos).`,
       ipAddress: request.ip
     });
-    reply.send({ ...removed, threshold: faceThreshold(), groupingStrength: faceGroupingK(), libraries: faceLibraryStatus() });
+    return reply.send({ ...removed, threshold: faceThreshold(), groupingStrength: faceGroupingK(), libraries: faceLibraryStatus() });
   });
 }
