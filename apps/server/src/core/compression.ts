@@ -6,26 +6,26 @@ import { brotliCompressSync, gzipSync, constants as zlib } from "node:zlib";
 // WHY THIS IS HAND-ROLLED AND SYNCHRONOUS
 //
 // @fastify/compress was the obvious choice and it silently truncated responses.
-// Its onSend hook returns a stream, and 847 handlers in this codebase are of the
-// form:
+// Its onSend hook is asynchronous, and 878 handlers here were of the form:
 //
 //     app.get("/x", async (request, reply) => { reply.send(payload); });
 //
 // Fastify requires an async handler that calls reply.send() to also `return
 // reply` — otherwise the handler's promise resolves to undefined while the send
-// is still in flight, and Fastify finalises the response over the top of it. The
-// client gets 200, `content-encoding: br`, `content-length: 0`, and an empty
-// body. Nothing warns; the response just arrives empty.
+// is still in flight. With an async onSend hook that either answers 200 with
+// `content-encoding: br`, `content-length: 0` and an empty body, or throws
+// ERR_HTTP_HEADERS_SENT and takes the process down. Nothing warns either way.
 //
-// That is a latent bug in those handlers, not in the library, but it only shows
-// once any asynchronous onSend hook exists — and it shows on every response over
-// the threshold, which is most of the interesting ones. Fixing it properly means
-// touching 847 call sites across 45 files, several of them behind send-helpers,
-// in the middle of a performance pass. Worth doing; not worth doing blind.
+// Those call sites have since been fixed and are held that way by
+// test/reply-send-contract.test.ts, so the original blocker is gone: moving back
+// to @fastify/compress is now a real option. It is not done here only because
+// this works, is covered, and carries no dependency — and because the numbers
+// below say the streaming an async hook buys you is not worth much at these
+// payload sizes.
 //
-// So compression happens synchronously instead. The whole send completes in the
-// same tick as reply.send(), before the handler's promise resolves, so there is
-// nothing for Fastify to race. Measured on this machine, brotli quality 4:
+// Compression happens synchronously: the whole send completes in the same tick
+// as reply.send(), before the handler's promise resolves, so there is nothing to
+// race even if a handler regresses. Measured here, brotli quality 4:
 //
 //     122 KB -> 0.6 ms      618 KB -> 1.9 ms      2.5 MB -> 8.7 ms
 //

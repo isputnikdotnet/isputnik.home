@@ -690,12 +690,10 @@ export async function maintenancePlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const job = db.prepare("SELECT id, type, status, payload FROM jobs WHERE id = ?").get(id) as { id: string; type: string; status: string; payload: string } | undefined;
     if (!job) {
-      reply.code(404).send({ error: "Task not found" });
-      return;
+      return reply.code(404).send({ error: "Task not found" });
     }
     if (job.status !== "pending" && job.status !== "running") {
-      reply.code(409).send({ error: "Task is not active" });
-      return;
+      return reply.code(409).send({ error: "Task is not active" });
     }
     db.prepare(`
       UPDATE jobs
@@ -721,7 +719,7 @@ export async function maintenancePlugin(app: FastifyInstance) {
         `).run(p.slideshowId);
       }
     } catch { /* ignore */ }
-    reply.send({ cancelled: true });
+    return reply.send({ cancelled: true });
   });
 
   app.get("/api/scheduled-jobs", { preHandler: app.requireAdmin }, async () => {
@@ -732,30 +730,26 @@ export async function maintenancePlugin(app: FastifyInstance) {
     const key = (request.params as { key: string }).key;
     const parsed = parseBody(configSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid scheduled job settings", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid scheduled job settings", details: parsed.error });
     }
     const { enabled, ...schedule } = parsed.data;
     const job = configureScheduledJob(key, enabled, schedule, request.user!.id, request.ip);
     if (!job) {
-      reply.code(404).send({ error: "Unknown scheduled job" });
-      return;
+      return reply.code(404).send({ error: "Unknown scheduled job" });
     }
-    reply.send({ job });
+    return reply.send({ job });
   });
 
   app.post("/api/scheduled-jobs/:key/run", { preHandler: app.requireAdmin }, async (request, reply) => {
     const key = (request.params as { key: string }).key;
     const { result: job, taskIds } = withNewTaskIds(() => runScheduledJob(key, request.user!.id, "manual"));
     if (!job) {
-      reply.code(404).send({ error: "Unknown scheduled job" });
-      return;
+      return reply.code(404).send({ error: "Unknown scheduled job" });
     }
     if (job.lastStatus === "error") {
-      reply.code(500).send({ error: job.lastMessage ?? "Job failed", job, taskIds });
-      return;
+      return reply.code(500).send({ error: job.lastMessage ?? "Job failed", job, taskIds });
     }
-    reply.send({ job, taskIds });
+    return reply.send({ job, taskIds });
   });
 
   // Just the statuses of named tasks — what the Scheduled jobs page polls while a

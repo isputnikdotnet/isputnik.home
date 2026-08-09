@@ -148,8 +148,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   app.get("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
-      reply.code(400).send({ error: "Name is required" });
-      return;
+      return reply.code(400).send({ error: "Name is required" });
     }
 
     const row = db.prepare(`
@@ -157,7 +156,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       FROM people WHERE name = ? LIMIT 1
     `).get(name) as AuthorRow | undefined;
 
-    reply.send({
+    return reply.send({
       person: row
         ? { name: row.name, sortName: row.sort_name, bio: row.bio, photoUrl: photoUrl(row.cover_storage_key) }
         : null
@@ -179,7 +178,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     for (const row of rows) {
       photos[row.name] ??= `/api/library/covers/${row.cover_storage_key}`;
     }
-    reply.send({ photos });
+    return reply.send({ photos });
   });
 
   // The unified person page's data: everything this person made, across types
@@ -187,35 +186,32 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   app.get("/api/library/people/by-name/items", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
-      reply.code(400).send({ error: "Name is required" });
-      return;
+      return reply.code(400).send({ error: "Name is required" });
     }
-    reply.send({ items: listPersonItems(name, request.user!.id, request.user!.role) });
+    return reply.send({ items: listPersonItems(name, request.user!.id, request.user!.role) });
   });
 
   // Flat list of every person name (global) — feeds the merge picker on the
   // person page, which no longer derives candidates from a bulk book load.
   app.get("/api/library/people/names", { preHandler: app.authenticate }, async (_request, reply) => {
     const rows = db.prepare("SELECT name FROM people ORDER BY name COLLATE NOCASE").all() as { name: string }[];
-    reply.send({ names: rows.map((row) => row.name) });
+    return reply.send({ names: rows.map((row) => row.name) });
   });
 
   // The unified Authors browse: every author across types, with per-type counts.
   app.get("/api/library/people/authors", { preHandler: app.authenticate }, async (request, reply) => {
-    reply.send({ authors: listAuthors(request.user!.id, request.user!.role) });
+    return reply.send({ authors: listAuthors(request.user!.id, request.user!.role) });
   });
 
   app.patch("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
-      reply.code(400).send({ error: "Name is required" });
-      return;
+      return reply.code(400).send({ error: "Name is required" });
     }
 
     const parsed = parseBody(personProfileSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid profile data", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid profile data", details: parsed.error });
     }
 
     db.prepare("UPDATE people SET name = COALESCE(?, name), bio = ?, sort_name = ? WHERE name = ?").run(
@@ -225,7 +221,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       name
     );
 
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
   // Look the person up online (Wikipedia, then Open Library) and fill their
@@ -233,14 +229,12 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   app.post("/api/library/people/by-name/enrich", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
-      reply.code(400).send({ error: "Name is required" });
-      return;
+      return reply.code(400).send({ error: "Name is required" });
     }
 
     const exists = db.prepare("SELECT 1 FROM people WHERE name = ? LIMIT 1").get(name);
     if (!exists) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
 
     try {
@@ -250,7 +244,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
         FROM people WHERE name = ? LIMIT 1
       `).get(name) as AuthorRow | undefined;
 
-      reply.send({
+      return reply.send({
         found: Boolean(result),
         updatedBio,
         updatedPhoto,
@@ -260,7 +254,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
           : null
       });
     } catch {
-      reply.code(502).send({ error: "Online lookup failed. Check the server's internet access and try again." });
+      return reply.code(502).send({ error: "Online lookup failed. Check the server's internet access and try again." });
     }
   });
 
@@ -271,8 +265,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     const q = request.query as { name?: string; url?: string };
     const name = String(q.name ?? "").trim();
     if (!name) {
-      reply.code(400).send({ error: "Name is required" });
-      return;
+      return reply.code(400).send({ error: "Name is required" });
     }
 
     const url = q.url?.trim();
@@ -280,10 +273,10 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       const candidate = url
         ? await lookupPersonByUrl(url)
         : await lookupPersonInfo(name, personLookupLanguages(name));
-      reply.send({ candidate });
+      return reply.send({ candidate });
     } catch (err) {
       const status = err instanceof MetadataLinkError ? err.status : 502;
-      reply.code(status).send({ error: err instanceof Error ? err.message : "Online lookup failed" });
+      return reply.code(status).send({ error: err instanceof Error ? err.message : "Online lookup failed" });
     }
   });
 
@@ -294,21 +287,18 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   app.post("/api/library/people", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createPersonSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid person data", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid person data", details: parsed.error });
     }
     const { name, libraryId, bio, sortName } = parsed.data;
 
     const lib = getAccessibleLibrary(libraryId, request.user!.id, request.user!.role, "audiobook");
     if (!lib || !canUserWriteLibrary(lib, request.user!.id, request.user!.role)) {
-      reply.code(403).send({ error: "Write access to the library is required to add people." });
-      return;
+      return reply.code(403).send({ error: "Write access to the library is required to add people." });
     }
 
     const existing = db.prepare("SELECT id FROM people WHERE name = ?").get(name);
     if (existing) {
-      reply.code(409).send({ error: "A person with that name already exists." });
-      return;
+      return reply.code(409).send({ error: "A person with that name already exists." });
     }
 
     const resolvedSortName = sortName?.trim() || sortTitle(name);
@@ -324,7 +314,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.send({ person: { name, sortName: resolvedSortName, bio: bio?.trim() || null, photoUrl: null } });
+    return reply.send({ person: { name, sortName: resolvedSortName, bio: bio?.trim() || null, photoUrl: null } });
   });
 
   // Photo candidates the user can pick from (Wikipedia per language, Open
@@ -332,21 +322,19 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   app.get("/api/library/people/by-name/photo-candidates", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
-      reply.code(400).send({ error: "Name is required" });
-      return;
+      return reply.code(400).send({ error: "Name is required" });
     }
 
     const exists = db.prepare("SELECT 1 FROM people WHERE name = ? LIMIT 1").get(name);
     if (!exists) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
 
     try {
       const candidates = await lookupPersonPhotoCandidates(name, personLookupLanguages(name));
-      reply.send({ candidates });
+      return reply.send({ candidates });
     } catch {
-      reply.code(502).send({ error: "Online lookup failed. Check the server's internet access and try again." });
+      return reply.code(502).send({ error: "Online lookup failed. Check the server's internet access and try again." });
     }
   });
 
@@ -356,31 +344,28 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   app.post("/api/library/people/by-name/photo-from-url", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
-      reply.code(400).send({ error: "Name is required" });
-      return;
+      return reply.code(400).send({ error: "Name is required" });
     }
 
     const parsed = parseBody(z.object({ url: z.string().trim().url().max(2000) }), request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid photo URL", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid photo URL", details: parsed.error });
     }
 
     const rows = db.prepare(
       "SELECT id, image_storage_key AS cover_storage_key FROM people WHERE name = ?"
     ).all(name) as { id: string; cover_storage_key: string | null }[];
     if (rows.length === 0) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
 
     try {
       const storageKey = await writePersonPhoto(rows[0].id, parsed.data.url);
       db.prepare("UPDATE people SET image_storage_key = ? WHERE name = ?").run(storageKey, name);
       removeStoredPhotos(rows.map((row) => row.cover_storage_key).filter((key) => key !== storageKey));
-      reply.send({ updated: true, photoUrl: `/api/library/covers/${storageKey}` });
+      return reply.send({ updated: true, photoUrl: `/api/library/covers/${storageKey}` });
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to download the photo." });
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to download the photo." });
     }
   });
 
@@ -394,19 +379,16 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       request.body
     );
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid merge data", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid merge data", details: parsed.error });
     }
     const { from, into } = parsed.data;
     if (from.toLowerCase() === into.toLowerCase()) {
-      reply.code(400).send({ error: "Choose a different person to merge into." });
-      return;
+      return reply.code(400).send({ error: "Choose a different person to merge into." });
     }
 
     const sourceExists = db.prepare("SELECT 1 FROM people WHERE name = ? LIMIT 1").get(from);
     if (!sourceExists) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
 
     db.transaction(() => {
@@ -451,30 +433,26 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
       detail: `Merged "${from}" into "${into}".`,
       ipAddress: request.ip
     });
-    reply.send({ merged: true, into });
+    return reply.send({ merged: true, into });
   });
 
   app.put("/api/library/people/by-name/photo", { preHandler: app.authenticate }, async (request, reply) => {
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
-      reply.code(400).send({ error: "Name is required" });
-      return;
+      return reply.code(400).send({ error: "Name is required" });
     }
 
     const contentType = request.headers["content-type"]?.split(";")[0]?.toLowerCase();
     if (!contentType || !["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
-      reply.code(415).send({ error: "Upload a JPEG, PNG, or WebP image." });
-      return;
+      return reply.code(415).send({ error: "Upload a JPEG, PNG, or WebP image." });
     }
 
     const body = request.body;
     if (!Buffer.isBuffer(body) || body.byteLength === 0) {
-      reply.code(400).send({ error: "Photo is required." });
-      return;
+      return reply.code(400).send({ error: "Photo is required." });
     }
     if (body.byteLength > 10 * 1024 * 1024) {
-      reply.code(400).send({ error: "Photo is too large (max 10 MB)." });
-      return;
+      return reply.code(400).send({ error: "Photo is too large (max 10 MB)." });
     }
 
     const authorRows = db.prepare(
@@ -482,8 +460,7 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     ).all(name) as { id: string; cover_storage_key: string | null }[];
 
     if (authorRows.length === 0) {
-      reply.code(404).send({ error: "Person not found" });
-      return;
+      return reply.code(404).send({ error: "Person not found" });
     }
 
     const ext = contentType === "image/png" ? ".png" : contentType === "image/webp" ? ".webp" : ".jpg";
@@ -496,6 +473,6 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     db.prepare("UPDATE people SET image_storage_key = ? WHERE name = ?").run(storageKey, name);
     removeStoredPhotos(authorRows.map((row) => row.cover_storage_key).filter((key) => key !== storageKey));
 
-    reply.send({ updated: true, photoUrl: `/api/library/covers/${storageKey}` });
+    return reply.send({ updated: true, photoUrl: `/api/library/covers/${storageKey}` });
   });
 }

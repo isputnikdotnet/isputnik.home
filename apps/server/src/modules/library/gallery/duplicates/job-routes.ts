@@ -11,7 +11,7 @@
 //
 // Nothing here deletes a photo. The scan (phase 2) and the removal (phase 4) are
 // separate; this is the job's own paperwork.
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { logActivity } from "../../../../db.js";
 import { parseBody } from "../../../../core/shared.js";
@@ -60,10 +60,13 @@ const REFUSALS: Record<JobRefusal, { code: number; error: string }> = {
 // The detail is appended to the message rather than left in a field of its own. A
 // scan that broke on something specific — a column, a file, a library — used to
 // answer with a generic sentence and hide the useful half where nothing showed it.
-function refuse(reply: { code: (n: number) => { send: (body: unknown) => void } }, refused: JobRefusal, detail?: string) {
+// Returns the reply so a handler can `return refuse(...)`: an async handler that
+// answers has to hand the reply back to Fastify, and delegating the send to a
+// helper does not change that. See core/compression.ts.
+function refuse(reply: FastifyReply, refused: JobRefusal, detail?: string) {
   const answer = REFUSALS[refused];
   const spoken = detail && refused === "scan_failed" ? `${answer.error} ${detail}` : answer.error;
-  reply.code(answer.code).send({ error: spoken, detail: detail ?? null });
+  return reply.code(answer.code).send({ error: spoken, detail: detail ?? null });
 }
 
 /** The page-level payload: the active job (whoever owns it), what the wizard may
@@ -83,12 +86,12 @@ function jobsPayload(userId: string) {
 }
 
 const send = (
-  reply: { send: (body: unknown) => void; code: (n: number) => { send: (body: unknown) => void } },
+  reply: FastifyReply,
   outcome: JobOutcome<DuplicateJob | { id: string }>,
   userId: string
 ) => {
-  if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
-  reply.send(jobsPayload(userId));
+  if (!outcome.ok) return refuse(reply, outcome.refused, outcome.detail);
+  return reply.send(jobsPayload(userId));
 };
 
 const scopeSchema = z.object({
@@ -112,7 +115,7 @@ const preferencesSchema = z.object({
 
 export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/duplicate-jobs", { preHandler: app.requireAdmin }, async (request, reply) => {
-    reply.send(jobsPayload(request.user!.id));
+    return reply.send(jobsPayload(request.user!.id));
   });
 
   // The vocabulary for a job's folder instructions. Static path, so it is matched before
@@ -122,24 +125,24 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
 
   app.get("/api/library/gallery/duplicate-jobs/folder-options", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(folderOptionsSchema, request.query);
-    if (parsed.error) { reply.send({ folders: [] }); return; }
+    if (parsed.error) { return reply.send({ folders: [] }); }
     const ids = parsed.data.libraryIds.split(",").map((id) => id.trim()).filter(Boolean).slice(0, 200);
-    reply.send({ folders: jobFolderOptions(ids) });
+    return reply.send({ folders: jobFolderOptions(ids) });
   });
 
   app.get("/api/library/gallery/duplicate-jobs/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const job = getJob(id);
-    if (!job) { refuse(reply, "not_found"); return; }
-    reply.send({ job, isOwner: job.ownerUserId === request.user!.id });
+    if (!job) { return refuse(reply, "not_found"); }
+    return reply.send({ job, isOwner: job.ownerUserId === request.user!.id });
   });
 
   app.post("/api/library/gallery/duplicate-jobs", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(createSchema, request.body ?? {});
-    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
 
     const outcome = createJob({ ownerUserId: request.user!.id, ...parsed.data });
-    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
+    if (!outcome.ok) { return refuse(reply, outcome.refused, outcome.detail); }
 
     logActivity({
       event: "library.gallery.duplicate_job_created",
@@ -149,21 +152,21 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       detail: `Started a duplicate cleanup over ${outcome.job.libraries.length} photo librar${outcome.job.libraries.length === 1 ? "y" : "ies"}.`,
       ipAddress: request.ip
     });
-    reply.code(201).send(jobsPayload(request.user!.id));
+    return reply.code(201).send(jobsPayload(request.user!.id));
   });
 
   app.patch("/api/library/gallery/duplicate-jobs/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = parseBody(scopeSchema, request.body ?? {});
-    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
-    send(reply, updateJobScope(id, request.user!.id, parsed.data), request.user!.id);
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
+    return send(reply, updateJobScope(id, request.user!.id, parsed.data), request.user!.id);
   });
 
   app.post("/api/library/gallery/duplicate-jobs/:id/preferences", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = parseBody(preferencesSchema, request.body ?? {});
-    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
-    send(reply, setJobFolderPreferences(id, request.user!.id, parsed.data.folders), request.user!.id);
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
+    return send(reply, setJobFolderPreferences(id, request.user!.id, parsed.data.folders), request.user!.id);
   });
 
   // Start the job's scan and answer at once, with the job left in 'scanning'.
@@ -176,7 +179,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/duplicate-jobs/:id/scan", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const outcome = startJobScan(id, request.user!.id);
-    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
+    if (!outcome.ok) { return refuse(reply, outcome.refused, outcome.detail); }
     logActivity({
       event: "library.gallery.duplicate_job_scanned",
       actorUserId: request.user!.id,
@@ -186,7 +189,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     void processDuplicateScanQueue().catch(() => { /* logged per-job */ });
-    reply.send(jobsPayload(request.user!.id));
+    return reply.send(jobsPayload(request.user!.id));
   });
 
   // One page of the snapshot. Anyone who may see the job may read its results; only
@@ -203,9 +206,9 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/duplicate-jobs/:id/results", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const job = getJob(id);
-    if (!job) { refuse(reply, "not_found"); return; }
+    if (!job) { return refuse(reply, "not_found"); }
     const parsed = parseBody(resultsSchema, request.query ?? {});
-    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
 
     const filter: ResultFilter = {
       search: parsed.data.q,
@@ -220,7 +223,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
     // can't strand the view past its end.
     const pages = Math.max(1, Math.ceil(total / perPage));
     const page = Math.min(parsed.data.page ?? 1, pages);
-    reply.send({
+    return reply.send({
       results: listJobResults(id, perPage, (page - 1) * perPage, filter),
       total,
       allResults: countJobResults(id),
@@ -239,7 +242,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/duplicate-jobs/:id/results/sweep", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = parseBody(resultsSchema, request.query ?? {});
-    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
 
     const outcome = sweepJobResults(id, request.user!.id, {
       search: parsed.data.q,
@@ -248,7 +251,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       review: parsed.data.review,
       libraryId: parsed.data.library || undefined
     });
-    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
+    if (!outcome.ok) { return refuse(reply, outcome.refused, outcome.detail); }
 
     logActivity({
       event: "library.gallery.duplicate_job_swept",
@@ -258,7 +261,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       detail: `Duplicate cleanup sweep: moved ${outcome.job.deleted} identical cop${outcome.job.deleted === 1 ? "y" : "ies"} to the Recycle Bin across ${outcome.job.results} set${outcome.job.results === 1 ? "" : "s"}.`,
       ipAddress: request.ip
     });
-    reply.send({ ...outcome.job, ...jobsPayload(request.user!.id) });
+    return reply.send({ ...outcome.job, ...jobsPayload(request.user!.id) });
   });
 
   // "Not in this cleanup" — a note on the job, not a decision about the photos.
@@ -266,10 +269,10 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/duplicate-jobs/:id/results/:resultId/mark", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id, resultId } = request.params as { id: string; resultId: string };
     const parsed = parseBody(markSchema, request.body ?? {});
-    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
     const outcome = markResult(id, request.user!.id, resultId, parsed.data.mark);
-    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
-    reply.send(outcome.job);
+    if (!outcome.ok) { return refuse(reply, outcome.refused, outcome.detail); }
+    return reply.send(outcome.job);
   });
 
   // Overrule the scan about ONE copy: keep this one after all, or let that one go.
@@ -303,14 +306,13 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
     async (request, reply) => {
       const { id, resultId, memberId } = request.params as { id: string; resultId: string; memberId: string };
       const parsed = parseBody(roleSchema, request.body ?? {});
-      if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+      if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
 
       const outcome = setMemberRole(id, request.user!.id, resultId, memberId, parsed.data.role);
       if (!outcome.ok) {
         const own = ROLE_REFUSALS[outcome.refused as RoleRefusal];
-        if (own) { reply.code(own.code).send({ error: own.error }); return; }
-        refuse(reply, outcome.refused as JobRefusal, "detail" in outcome ? outcome.detail : undefined);
-        return;
+        if (own) { return reply.code(own.code).send({ error: own.error }); }
+        return refuse(reply, outcome.refused as JobRefusal, "detail" in outcome ? outcome.detail : undefined);
       }
 
       // Answers with the ONE card that changed, not the page.
@@ -328,7 +330,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
         review: scope.data.review,
         libraryId: scope.data.library || undefined
       };
-      reply.send({
+      return reply.send({
         member: outcome.job,
         result: listJobResults(id, 1, 0, { resultId })[0] ?? null,
         sweep: sweepPreview(id, filter),
@@ -342,7 +344,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/duplicate-jobs/:id/results/:resultId/dismiss", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id, resultId } = request.params as { id: string; resultId: string };
     const outcome = dismissResult(id, request.user!.id, resultId);
-    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
+    if (!outcome.ok) { return refuse(reply, outcome.refused, outcome.detail); }
     logActivity({
       event: "library.gallery.duplicate_job_dismissed",
       actorUserId: request.user!.id,
@@ -351,7 +353,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       detail: "Marked a duplicate cleanup result as not duplicates; future scans won't pair them again.",
       ipAddress: request.ip
     });
-    reply.send(outcome.job);
+    return reply.send(outcome.job);
   });
 
   // What the snapshot promised, against the library as it stands. Safe to call at
@@ -360,8 +362,8 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/duplicate-jobs/:id/results/:resultId/check", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id, resultId } = request.params as { id: string; resultId: string };
     const outcome = checkResult(id, resultId);
-    if (!outcome) { refuse(reply, "not_found"); return; }
-    reply.send(outcome);
+    if (!outcome) { return refuse(reply, "not_found"); }
+    return reply.send(outcome);
   });
 
   // Delete one result's doomed copies. All-or-nothing on the re-check: if anything
@@ -371,20 +373,17 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
     const outcome = resolveJobResult(id, request.user!.id, resultId);
     if (!outcome.ok) {
       if (outcome.refused === "stale") {
-        reply.code(409).send({
+        return reply.code(409).send({
           error: "Some of these photos have changed since the scan, so nothing was deleted. Re-scan and look again.",
           check: outcome.check
         });
-        return;
       }
       if (outcome.refused === "nothing_to_do") {
-        reply.code(409).send({ error: "There is nothing left to remove here." });
-        return;
+        return reply.code(409).send({ error: "There is nothing left to remove here." });
       }
-      refuse(reply, outcome.refused, "detail" in outcome ? outcome.detail : undefined);
-      return;
+      return refuse(reply, outcome.refused, "detail" in outcome ? outcome.detail : undefined);
     }
-    reply.send({ ...outcome.job, job: getJob(id) });
+    return reply.send({ ...outcome.job, job: getJob(id) });
   });
 
   // Recompute the job's results under its current folder instructions. Review marks
@@ -392,14 +391,14 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/duplicate-jobs/:id/apply-preferences", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const outcome = applyPreferences(id, request.user!.id);
-    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
-    reply.send(jobsPayload(request.user!.id));
+    if (!outcome.ok) { return refuse(reply, outcome.refused, outcome.detail); }
+    return reply.send(jobsPayload(request.user!.id));
   });
 
   app.post("/api/library/gallery/duplicate-jobs/:id/complete", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const outcome = completeJob(id, request.user!.id, request.user!.role === "admin");
-    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
+    if (!outcome.ok) { return refuse(reply, outcome.refused, outcome.detail); }
     logActivity({
       event: "library.gallery.duplicate_job_completed",
       actorUserId: request.user!.id,
@@ -408,16 +407,16 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       detail: `Finished a duplicate cleanup: ${outcome.job.totals.deleted} copies removed.`,
       ipAddress: request.ip
     });
-    reply.send(jobsPayload(request.user!.id));
+    return reply.send(jobsPayload(request.user!.id));
   });
 
   const cancelSchema = z.object({ reason: z.string().max(500).nullish() });
   app.post("/api/library/gallery/duplicate-jobs/:id/cancel", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = parseBody(cancelSchema, request.body ?? {});
-    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
     const outcome = cancelJob(id, request.user!.id, request.user!.role === "admin", parsed.data.reason ?? undefined);
-    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
+    if (!outcome.ok) { return refuse(reply, outcome.refused, outcome.detail); }
     logActivity({
       event: "library.gallery.duplicate_job_cancelled",
       actorUserId: request.user!.id,
@@ -426,16 +425,16 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       detail: "Cancelled a duplicate cleanup. Photos already removed stay in the Recycle Bin.",
       ipAddress: request.ip
     });
-    reply.send(jobsPayload(request.user!.id));
+    return reply.send(jobsPayload(request.user!.id));
   });
 
   const reassignSchema = z.object({ userId: z.string().min(1).max(64) });
   app.post("/api/library/gallery/duplicate-jobs/:id/reassign", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = parseBody(reassignSchema, request.body ?? {});
-    if (parsed.error) { reply.code(400).send({ error: "Invalid request", details: parsed.error }); return; }
+    if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
     const outcome = reassignJob(id, parsed.data.userId, request.user!.id);
-    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
+    if (!outcome.ok) { return refuse(reply, outcome.refused, outcome.detail); }
     logActivity({
       event: "library.gallery.duplicate_job_reassigned",
       actorUserId: request.user!.id,
@@ -444,7 +443,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       detail: `Handed a duplicate cleanup to ${outcome.job.ownerName}.`,
       ipAddress: request.ip
     });
-    reply.send(jobsPayload(request.user!.id));
+    return reply.send(jobsPayload(request.user!.id));
   });
 
   // Removes the job's own paperwork. Photos already in the Recycle Bin stay there —
@@ -453,7 +452,7 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   app.delete("/api/library/gallery/duplicate-jobs/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const outcome = deleteJob(id, request.user!.id, request.user!.role === "admin");
-    if (!outcome.ok) { refuse(reply, outcome.refused, outcome.detail); return; }
+    if (!outcome.ok) { return refuse(reply, outcome.refused, outcome.detail); }
     logActivity({
       event: "library.gallery.duplicate_job_deleted",
       actorUserId: request.user!.id,
@@ -462,6 +461,6 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       detail: "Deleted a duplicate cleanup job and its results. Files already moved to the Recycle Bin are unaffected.",
       ipAddress: request.ip
     });
-    reply.send(jobsPayload(request.user!.id));
+    return reply.send(jobsPayload(request.user!.id));
   });
 }

@@ -73,12 +73,10 @@ export function registerTrashRoutes(app: FastifyInstance) {
 
     const lib = getLibraryForBook(id);
     if (!lib) {
-      reply.code(404).send({ error: "Item not found" });
-      return;
+      return reply.code(404).send({ error: "Item not found" });
     }
     if (!can(user, { objectType: "library", objectId: lib.id, policy: parsePolicy(lib.policy_json) }, "delete")) {
-      reply.code(403).send({ error: "Deleting items is not allowed in this library." });
-      return;
+      return reply.code(403).send({ error: "Deleting items is not allowed in this library." });
     }
 
     try {
@@ -91,10 +89,10 @@ export function registerTrashRoutes(app: FastifyInstance) {
         detail: `Moved ${lib.type} "${result.title}" (${result.fileCount} file${result.fileCount === 1 ? "" : "s"}) to the Recycle Bin from library "${result.libraryName}".`,
         ipAddress: request.ip
       });
-      reply.send({ trashed: true });
+      return reply.send({ trashed: true });
     } catch (err) {
       const status = err instanceof TrashError ? err.statusCode : 500;
-      reply.code(status).send({ error: err instanceof Error ? err.message : "Could not move the item to the Recycle Bin." });
+      return reply.code(status).send({ error: err instanceof Error ? err.message : "Could not move the item to the Recycle Bin." });
     }
   });
 
@@ -107,8 +105,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
   app.post("/api/library/books/bulk-delete", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(bulkDeleteSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid bulk delete", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid bulk delete", details: parsed.error });
     }
 
     const user = request.user!;
@@ -144,11 +141,10 @@ export function registerTrashRoutes(app: FastifyInstance) {
     }
 
     if (deleted === 0 && forbidden > 0 && failed === 0) {
-      reply.code(403).send({ error: "Deleting items is not allowed in the selected libraries." });
-      return;
+      return reply.code(403).send({ error: "Deleting items is not allowed in the selected libraries." });
     }
 
-    reply.send({ deleted, forbidden, missing, failed, ...(failure ? { error: failure } : {}) });
+    return reply.send({ deleted, forbidden, missing, failed, ...(failure ? { error: failure } : {}) });
   });
 
   // The bin — items the caller can manage (admins see all, including orphans).
@@ -179,7 +175,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
       }
     }
 
-    reply.send({
+    return reply.send({
       items: visible.map(serializeTrashedItem),
       retentionDays: getTrashRetentionDays(),
       // null = duplicate cleanup follows the bin's own clock. The page needs the
@@ -200,8 +196,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
   app.put("/api/library/trash/retention", { preHandler: [app.authenticate, app.requireAdmin] }, async (request, reply) => {
     const parsed = parseBody(retentionSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid retention", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid retention", details: parsed.error });
     }
     const user = request.user!;
     const changes: string[] = [];
@@ -232,7 +227,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
       });
     }
 
-    reply.send({
+    return reply.send({
       retentionDays: getTrashRetentionDays(),
       cleanupRetentionDays: getCleanupRetentionDays()
     });
@@ -243,12 +238,10 @@ export function registerTrashRoutes(app: FastifyInstance) {
     const user = request.user!;
     const item = db.prepare("SELECT * FROM trashed_items WHERE id = ?").get(id) as TrashedItem | undefined;
     if (!item) {
-      reply.code(404).send({ error: "Item not found" });
-      return;
+      return reply.code(404).send({ error: "Item not found" });
     }
     if (!canManageTrashItem(user, item)) {
-      reply.code(403).send({ error: "You don't have permission to restore this item." });
-      return;
+      return reply.code(403).send({ error: "You don't have permission to restore this item." });
     }
 
     try {
@@ -261,10 +254,10 @@ export function registerTrashRoutes(app: FastifyInstance) {
         detail: `Restored ${item.library_type} "${result.title}" from the Recycle Bin to library "${result.libraryName}".`,
         ipAddress: request.ip
       });
-      reply.send({ restored: true });
+      return reply.send({ restored: true });
     } catch (err) {
       const status = err instanceof TrashError ? err.statusCode : 500;
-      reply.code(status).send({ error: err instanceof Error ? err.message : "Could not restore the item." });
+      return reply.code(status).send({ error: err instanceof Error ? err.message : "Could not restore the item." });
     }
   });
 
@@ -281,8 +274,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
   app.post("/api/library/trash/restore-all", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(restoreAllSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid request", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error });
     }
     const user = request.user!;
     const libraryId = parsed.data.libraryId;
@@ -333,7 +325,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
 
     // 200 even with failures: the work that succeeded really did happen, and the
     // client renders the shortfall rather than treating the whole call as an error.
-    reply.send({ restored, forbidden, failed: failures.length, failures: failures.slice(0, 5) });
+    return reply.send({ restored, forbidden, failed: failures.length, failures: failures.slice(0, 5) });
   });
 
   app.delete("/api/library/trash/:id", { preHandler: app.authenticate }, async (request, reply) => {
@@ -341,12 +333,10 @@ export function registerTrashRoutes(app: FastifyInstance) {
     const user = request.user!;
     const item = db.prepare("SELECT * FROM trashed_items WHERE id = ?").get(id) as TrashedItem | undefined;
     if (!item) {
-      reply.code(404).send({ error: "Item not found" });
-      return;
+      return reply.code(404).send({ error: "Item not found" });
     }
     if (!canManageTrashItem(user, item)) {
-      reply.code(403).send({ error: "You don't have permission to delete this item." });
-      return;
+      return reply.code(403).send({ error: "You don't have permission to delete this item." });
     }
 
     purgeTrashedItem(id);
@@ -358,7 +348,7 @@ export function registerTrashRoutes(app: FastifyInstance) {
       detail: `Permanently deleted ${item.library_type} "${item.title}" (${item.file_count} file${item.file_count === 1 ? "" : "s"}) from the Recycle Bin, including its files on disk.`,
       ipAddress: request.ip
     });
-    reply.send({ purged: true });
+    return reply.send({ purged: true });
   });
 
   const emptySchema = z.object({ libraryId: z.string().trim().min(1).optional() });
@@ -368,20 +358,17 @@ export function registerTrashRoutes(app: FastifyInstance) {
   app.post("/api/library/trash/empty", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(emptySchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid request", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error });
     }
     const user = request.user!;
     const libraryId = parsed.data.libraryId;
 
     if (libraryId) {
       if (!canManageTrashItem(user, { library_id: libraryId })) {
-        reply.code(403).send({ error: "You don't have permission to empty this library's items." });
-        return;
+        return reply.code(403).send({ error: "You don't have permission to empty this library's items." });
       }
     } else if (!isServerAdmin(user)) {
-      reply.code(403).send({ error: "Only an administrator can empty the entire Recycle Bin." });
-      return;
+      return reply.code(403).send({ error: "Only an administrator can empty the entire Recycle Bin." });
     }
 
     const purged = emptyTrash(libraryId);
@@ -393,6 +380,6 @@ export function registerTrashRoutes(app: FastifyInstance) {
       detail: `Emptied the Recycle Bin${libraryId ? " for one library" : ""} — permanently deleted ${purged} item${purged === 1 ? "" : "s"} and their files on disk.`,
       ipAddress: request.ip
     });
-    reply.send({ purged });
+    return reply.send({ purged });
   });
 }

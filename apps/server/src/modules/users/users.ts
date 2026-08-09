@@ -64,14 +64,12 @@ export async function usersPlugin(app: FastifyInstance) {
   app.post("/api/users", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(createUserSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid account details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid account details", details: parsed.error });
     }
 
     const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(parsed.data.email);
     if (existing) {
-      reply.code(409).send({ error: "An account with this email already exists" });
-      return;
+      return reply.code(409).send({ error: "An account with this email already exists" });
     }
 
     const userId = nanoid(16);
@@ -93,32 +91,28 @@ export async function usersPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     if (parsed.data.role === "admin") alertNewAdmin(parsed.data.email, `admin ${request.user!.display_name}`);
-    reply.code(201).send({ user: { ...publicUser(user), activeSessions: 0 } });
+    return reply.code(201).send({ user: { ...publicUser(user), activeSessions: 0 } });
   });
 
   app.patch("/api/users/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const parsed = parseBody(updateUserSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid account details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid account details", details: parsed.error });
     }
 
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
     if (!user) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     const duplicate = db.prepare("SELECT id FROM users WHERE email = ? AND id <> ?").get(parsed.data.email, id);
     if (duplicate) {
-      reply.code(409).send({ error: "Another account already uses this email" });
-      return;
+      return reply.code(409).send({ error: "Another account already uses this email" });
     }
 
     if (parsed.data.role !== user.role && (user.protected_from_delete || id === request.user!.id)) {
-      reply.code(409).send({ error: "This administrator role cannot be changed here" });
-      return;
+      return reply.code(409).send({ error: "This administrator role cannot be changed here" });
     }
 
     db.prepare(`
@@ -139,26 +133,23 @@ export async function usersPlugin(app: FastifyInstance) {
       alertNewAdmin(parsed.data.email, `admin ${request.user!.display_name}`);
     }
     const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as User;
-    reply.send({ user: publicUser(updated) });
+    return reply.send({ user: publicUser(updated) });
   });
 
   app.patch("/api/users/:id/role", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const parsed = parseBody(roleSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid account role", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid account role", details: parsed.error });
     }
 
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
     if (!user) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     if (user.protected_from_delete || id === request.user!.id) {
-      reply.code(409).send({ error: "This administrator role cannot be changed here" });
-      return;
+      return reply.code(409).send({ error: "This administrator role cannot be changed here" });
     }
 
     db.prepare("UPDATE users SET role = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(parsed.data.role, id);
@@ -174,21 +165,19 @@ export async function usersPlugin(app: FastifyInstance) {
       alertNewAdmin(user.email, `admin ${request.user!.display_name}`);
     }
     const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as User;
-    reply.send({ user: publicUser(updated) });
+    return reply.send({ user: publicUser(updated) });
   });
 
   app.patch("/api/users/:id/password", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const parsed = parseBody(passwordSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid password", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid password", details: parsed.error });
     }
 
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
     if (!user) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
@@ -213,7 +202,7 @@ export async function usersPlugin(app: FastifyInstance) {
       detail: `Changed password for ${user.display_name}.`,
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   // Rescue a member locked out of their second factor (lost authenticator, or an
@@ -223,8 +212,7 @@ export async function usersPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
     if (!user) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     resetMfa(id);
@@ -237,7 +225,7 @@ export async function usersPlugin(app: FastifyInstance) {
       detail: `Reset two-factor authentication for ${user.display_name}.`,
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   // Admin rescue: clear a brute-force sign-in lockout so the user can try again
@@ -247,8 +235,7 @@ export async function usersPlugin(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
     if (!user) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     const cleared = clearAccountLockout(user.email);
@@ -260,25 +247,22 @@ export async function usersPlugin(app: FastifyInstance) {
       detail: `Cleared the sign-in lockout for ${user.display_name}.`,
       ipAddress: request.ip
     });
-    reply.send({ ok: true, cleared });
+    return reply.send({ ok: true, cleared });
   });
 
   app.delete("/api/users/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
     if (!user) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     if (user.protected_from_delete) {
-      reply.code(409).send({ error: "This protected setup admin cannot be deleted" });
-      return;
+      return reply.code(409).send({ error: "This protected setup admin cannot be deleted" });
     }
 
     if (user.id === request.user!.id) {
-      reply.code(409).send({ error: "You cannot deactivate your current account" });
-      return;
+      return reply.code(409).send({ error: "You cannot deactivate your current account" });
     }
 
     db.transaction(() => {
@@ -294,6 +278,6 @@ export async function usersPlugin(app: FastifyInstance) {
       detail: `Deactivated ${user.display_name}'s account.`,
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 }

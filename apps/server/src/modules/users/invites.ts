@@ -29,8 +29,7 @@ export async function invitesPlugin(app: FastifyInstance) {
   app.post("/api/invites", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(inviteSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid invite details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid invite details", details: parsed.error });
     }
 
     const token = nanoid(36);
@@ -51,7 +50,7 @@ export async function invitesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.code(201).send({
+    return reply.code(201).send({
       invite: {
         id: inviteId,
         role: parsed.data.role,
@@ -105,8 +104,7 @@ export async function invitesPlugin(app: FastifyInstance) {
     `).run(id);
 
     if (result.changes === 0) {
-      reply.code(404).send({ error: "Invite link not found" });
-      return;
+      return reply.code(404).send({ error: "Invite link not found" });
     }
 
     logActivity({
@@ -117,7 +115,7 @@ export async function invitesPlugin(app: FastifyInstance) {
       detail: "Revoked an invite link.",
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   app.get("/api/invites/:token", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
@@ -132,19 +130,17 @@ export async function invitesPlugin(app: FastifyInstance) {
     `).get(sha256(token)) as { id: string; role: Role; expires_at: string } | undefined;
 
     if (!invite) {
-      reply.code(404).send({ error: "Invite is invalid or expired" });
-      return;
+      return reply.code(404).send({ error: "Invite is invalid or expired" });
     }
 
-    reply.send({ invite: { id: invite.id, role: invite.role, expiresAt: invite.expires_at } });
+    return reply.send({ invite: { id: invite.id, role: invite.role, expiresAt: invite.expires_at } });
   });
 
   app.post("/api/invites/:token/accept", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (request, reply) => {
     const token = (request.params as { token: string }).token;
     const parsed = parseBody(setupSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid account details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid account details", details: parsed.error });
     }
 
     const invite = db.prepare(`
@@ -157,13 +153,11 @@ export async function invitesPlugin(app: FastifyInstance) {
     `).get(sha256(token)) as { id: string; role: Role } | undefined;
 
     if (!invite) {
-      reply.code(404).send({ error: "Invite is invalid or expired" });
-      return;
+      return reply.code(404).send({ error: "Invite is invalid or expired" });
     }
 
     if (getUserByEmail(parsed.data.email)) {
-      reply.code(409).send({ error: "An account with this email already exists" });
-      return;
+      return reply.code(409).send({ error: "An account with this email already exists" });
     }
 
     const userId = nanoid(16);
@@ -190,6 +184,6 @@ export async function invitesPlugin(app: FastifyInstance) {
       detail: "Accepted an invite and created an account.",
       ipAddress: request.ip
     });
-    reply.code(201).send({ user: publicUser(user) });
+    return reply.code(201).send({ user: publicUser(user) });
   });
 }

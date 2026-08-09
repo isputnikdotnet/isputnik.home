@@ -30,8 +30,7 @@ export async function mailPlugin(app: FastifyInstance) {
   app.put("/api/config/mail", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(mailSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid email settings", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid email settings", details: parsed.error });
     }
 
     const current = getMailSettings();
@@ -63,20 +62,18 @@ export async function mailPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.send({ mail: publicMail(next), configured: isMailConfigured(next) });
+    return reply.send({ mail: publicMail(next), configured: isMailConfigured(next) });
   });
 
   // Sends a test message to the admin's own account email, proving the SMTP path.
   app.post("/api/config/mail/test", { preHandler: app.requireAdmin }, async (request, reply) => {
     if (!isMailConfigured()) {
-      reply.code(400).send({ error: "Configure and save email settings first." });
-      return;
+      return reply.code(400).send({ error: "Configure and save email settings first." });
     }
     try {
       await sendTestEmail(request.user!.email);
     } catch (err) {
-      reply.code(502).send({ error: err instanceof Error ? err.message : "Unable to send test email." });
-      return;
+      return reply.code(502).send({ error: err instanceof Error ? err.message : "Unable to send test email." });
     }
     logActivity({
       event: "config.mail_test",
@@ -86,6 +83,6 @@ export async function mailPlugin(app: FastifyInstance) {
       detail: `Sent a test email to ${request.user!.email}.`,
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 }

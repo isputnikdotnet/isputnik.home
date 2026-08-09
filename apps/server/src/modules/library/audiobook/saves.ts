@@ -63,10 +63,9 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
     const user = request.user!;
     const library = getLibraryForBook(bookId);
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
-    reply.send({ save: currentSave(bookId, user.id) });
+    return reply.send({ save: currentSave(bookId, user.id) });
   });
 
   app.put("/api/library/books/:id/save", { preHandler: app.authenticate }, async (request, reply) => {
@@ -74,14 +73,12 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
     const user = request.user!;
     const library = getLibraryForBook(bookId);
     if (!library || !canUserAccessLibrary(library, user.id, user.role)) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
     const parsed = parseBody(saveSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid save", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid save", details: parsed.error });
     }
 
     db.prepare(`
@@ -92,14 +89,14 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(nanoid(16), user.id, bookId, parsed.data.note ?? null);
 
-    reply.send({ save: currentSave(bookId, user.id) });
+    return reply.send({ save: currentSave(bookId, user.id) });
   });
 
   app.delete("/api/library/books/:id/save", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
     const user = request.user!;
     db.prepare("DELETE FROM item_saves WHERE item_id = ? AND user_id = ?").run(bookId, user.id);
-    reply.send({ save: { saved: false, note: null } });
+    return reply.send({ save: { saved: false, note: null } });
   });
 
   // Bulk favorite — the multi-select bar sends every selected id in one request
@@ -112,10 +109,9 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
   app.post("/api/library/books/bulk-save", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(bulkSaveSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid favorites request", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid favorites request", details: parsed.error });
     }
-    reply.send(bulkSaveItems(request.user!, parsed.data.bookIds));
+    return reply.send(bulkSaveItems(request.user!, parsed.data.bookIds));
   });
 
   app.get("/api/library/saved", { preHandler: app.authenticate }, async (request, reply) => {
@@ -125,8 +121,7 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
     // across them. Gallery rows carry no authors and link to the lightbox.
     const libIds = [...bookLibraryIds(user), ...accessibleLibraryIds(user.id, user.role, "gallery")];
     if (libIds.length === 0) {
-      reply.send({ books: [] });
-      return;
+      return reply.send({ books: [] });
     }
     const inLibs = libIds.map(() => "?").join(", ");
 
@@ -151,7 +146,7 @@ export async function audiobookSavesPlugin(app: FastifyInstance) {
       ORDER BY datetime(item_saves.updated_at) DESC
     `).all(user.id, ...libIds) as SavedBookRow[];
 
-    reply.send({
+    return reply.send({
       books: rows.map((row) => ({
         id: row.id,
         kind: row.kind,

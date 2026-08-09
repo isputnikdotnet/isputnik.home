@@ -56,14 +56,12 @@ export async function storagePlugin(app: FastifyInstance) {
   app.put("/api/storage/trash-root", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(trashRootSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid Recycle Bin location", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid Recycle Bin location", details: parsed.error });
     }
     if (!binIsEmpty()) {
-      reply.code(409).send({
+      return reply.code(409).send({
         error: "The Recycle Bin still holds items. Restore or permanently delete them first, then change the location — moving it now would leave those files behind."
       });
-      return;
     }
 
     const wanted = parsed.data.path?.trim() ? parsed.data.path.trim() : null;
@@ -72,9 +70,8 @@ export async function storagePlugin(app: FastifyInstance) {
       try {
         resolved = validateTrashRootPath(wanted);
       } catch (err) {
-        reply.code(err instanceof TrashError ? err.statusCode : 400)
+        return reply.code(err instanceof TrashError ? err.statusCode : 400)
           .send({ error: err instanceof Error ? err.message : "Invalid Recycle Bin location" });
-        return;
       }
     }
 
@@ -89,7 +86,7 @@ export async function storagePlugin(app: FastifyInstance) {
         : "Recycle Bin location reset to each library's own .trash folder.",
       ipAddress: request.ip
     });
-    reply.send({ path: resolved });
+    return reply.send({ path: resolved });
   });
 
   app.get("/api/storage/roots", { preHandler: app.requireAdmin }, async () => {
@@ -110,16 +107,14 @@ export async function storagePlugin(app: FastifyInstance) {
   app.post("/api/storage/roots", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(storageRootSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid storage container details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid storage container details", details: parsed.error });
     }
 
     let rootPath: string;
     try {
       rootPath = validateStorageRootPath(parsed.data.path);
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Invalid storage container path" });
-      return;
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Invalid storage container path" });
     }
 
     const id = nanoid(16);
@@ -129,8 +124,7 @@ export async function storagePlugin(app: FastifyInstance) {
         VALUES (?, ?, ?, ?)
       `).run(id, parsed.data.name, rootPath, request.user!.id);
     } catch {
-      reply.code(409).send({ error: "A storage container already uses that path." });
-      return;
+      return reply.code(409).send({ error: "A storage container already uses that path." });
     }
 
     logActivity({
@@ -142,7 +136,7 @@ export async function storagePlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.code(201).send({ root: { id, name: parsed.data.name, path: rootPath, libraryCount: 0 } });
+    return reply.code(201).send({ root: { id, name: parsed.data.name, path: rootPath, libraryCount: 0 } });
   });
 
   app.delete("/api/storage/roots/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -154,8 +148,7 @@ export async function storagePlugin(app: FastifyInstance) {
     } | undefined;
 
     if (!root) {
-      reply.code(404).send({ error: "Storage container not found" });
-      return;
+      return reply.code(404).send({ error: "Storage container not found" });
     }
 
     const inUse = db.prepare(`
@@ -166,8 +159,7 @@ export async function storagePlugin(app: FastifyInstance) {
     `).get(root.path, `${root.path}${path.sep}%`) as { count: number };
 
     if (inUse.count > 0) {
-      reply.code(409).send({ error: "This storage container is already used by a library." });
-      return;
+      return reply.code(409).send({ error: "This storage container is already used by a library." });
     }
 
     db.prepare("DELETE FROM storage_roots WHERE id = ?").run(id);
@@ -179,15 +171,14 @@ export async function storagePlugin(app: FastifyInstance) {
       detail: `Deleted Digital Library storage container "${root.name}".`,
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   app.get("/api/storage/roots/:id/browse", { preHandler: app.requireAdmin }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const parsed = parseBody(browseQuerySchema, request.query);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid browse path", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid browse path", details: parsed.error });
     }
 
     const root = db.prepare("SELECT id, name, path FROM storage_roots WHERE id = ?").get(id) as {
@@ -196,8 +187,7 @@ export async function storagePlugin(app: FastifyInstance) {
       path: string;
     } | undefined;
     if (!root) {
-      reply.code(404).send({ error: "Storage container not found" });
-      return;
+      return reply.code(404).send({ error: "Storage container not found" });
     }
 
     try {
@@ -234,7 +224,7 @@ export async function storagePlugin(app: FastifyInstance) {
         entries
       };
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to browse storage container" });
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to browse storage container" });
     }
   });
 }

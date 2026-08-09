@@ -56,19 +56,17 @@ export async function setupPlugin(app: FastifyInstance) {
       detail: "Finished or skipped the setup guide.",
       ipAddress: request.ip
     });
-    reply.send({ pending: false });
+    return reply.send({ pending: false });
   });
 
   app.post("/api/setup/admin", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     if (hasUsers()) {
-      reply.code(409).send({ error: "Setup has already been completed" });
-      return;
+      return reply.code(409).send({ error: "Setup has already been completed" });
     }
 
     const parsed = parseBody(setupSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid setup details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid setup details", details: parsed.error });
     }
 
     const userId = nanoid(16);
@@ -92,6 +90,6 @@ export async function setupPlugin(app: FastifyInstance) {
       detail: "Created the setup administrator account.",
       ipAddress: request.ip
     });
-    reply.code(201).send({ user: publicUser(user) });
+    return reply.code(201).send({ user: publicUser(user) });
   });
 }

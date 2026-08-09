@@ -16,8 +16,7 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const book = getAudiobookBookDetail(id);
     if (!book) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
     const query = request.query as { q?: string; author?: string; provider?: string };
@@ -25,12 +24,10 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const author = query.author?.trim() ?? "";
     const provider = (query.provider || "all") as MetadataProvider | "all";
     if (!["all", "itunes", "openlibrary", "fantlab", "librivox", "audible"].includes(provider)) {
-      reply.code(400).send({ error: "Unsupported metadata provider" });
-      return;
+      return reply.code(400).send({ error: "Unsupported metadata provider" });
     }
     if (!searchQuery) {
-      reply.code(400).send({ error: "Search query is required" });
-      return;
+      return reply.code(400).send({ error: "Search query is required" });
     }
 
     const input = { query: searchQuery, author, limit: 8 };
@@ -38,9 +35,9 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       const candidates = provider === "all"
         ? await searchAllMetadataProviders(input)
         : await searchMetadataProvider(provider, input);
-      reply.send({ candidates });
+      return reply.send({ candidates });
     } catch (err) {
-      reply.code(502).send({ error: err instanceof Error ? err.message : "Metadata provider search failed" });
+      return reply.code(502).send({ error: err instanceof Error ? err.message : "Metadata provider search failed" });
     }
   });
 
@@ -49,24 +46,22 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const book = getAudiobookBookDetail(id);
     if (!book) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
     const url = (request.query as { url?: string }).url?.trim();
     if (!url) {
-      reply.code(400).send({ error: "A book link is required" });
-      return;
+      return reply.code(400).send({ error: "A book link is required" });
     }
 
     try {
       const candidates = await fetchMetadataFromUrl(url);
-      reply.send({ candidates });
+      return reply.send({ candidates });
     } catch (err) {
       // MetadataLinkError = a bad/unsupported link (user-fixable); anything else
       // is a provider fetch/parse failure.
       const status = err instanceof MetadataLinkError ? err.status : 502;
-      reply.code(status).send({ error: err instanceof Error ? err.message : "Unable to read metadata from that link" });
+      return reply.code(status).send({ error: err instanceof Error ? err.message : "Unable to read metadata from that link" });
     }
   });
 
@@ -76,14 +71,12 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const user = request.user!;
     const lib = getLibraryForBook(id);
     if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to edit metadata." });
-      return;
+      return reply.code(403).send({ error: "Write access required to edit metadata." });
     }
 
     const parsed = parseBody(metadataMatchSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid metadata match", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid metadata match", details: parsed.error });
     }
 
     try {
@@ -94,13 +87,12 @@ export function registerMetadataRoutes(app: FastifyInstance) {
         parsed.data.updateCover ?? true
       );
       if (!book) {
-        reply.code(404).send({ error: "Audiobook not found" });
-        return;
+        return reply.code(404).send({ error: "Audiobook not found" });
       }
 
-      reply.send({ updated: true, book });
+      return reply.send({ updated: true, book });
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to apply metadata" });
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to apply metadata" });
     }
   });
 
@@ -110,14 +102,12 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const user = request.user!;
     const lib = getLibraryForBook(id);
     if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to edit metadata." });
-      return;
+      return reply.code(403).send({ error: "Write access required to edit metadata." });
     }
 
     const parsed = parseBody(manualMetadataSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid metadata details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid metadata details", details: parsed.error });
     }
 
     const book = updateManualMetadata(id, {
@@ -127,11 +117,10 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       tags: parsed.data.tags ?? []
     });
     if (!book) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
-    reply.send({ updated: true, book });
+    return reply.send({ updated: true, book });
   });
 
 
@@ -139,8 +128,7 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const context = getBookCoverFolder(id);
     if (!context) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
     const candidates = fs.readdirSync(context.folderPath, { withFileTypes: true })
@@ -158,7 +146,7 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       })
       .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }));
 
-    reply.send({ covers: candidates });
+    return reply.send({ covers: candidates });
   });
 
 
@@ -167,12 +155,11 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const relativePath = String((request.query as { path?: string }).path ?? "");
     const filePath = coverFilePathFromRelative(id, relativePath);
     if (!filePath) {
-      reply.code(404).send({ error: "Cover file not found" });
-      return;
+      return reply.code(404).send({ error: "Cover file not found" });
     }
 
     const buffer = await fs.promises.readFile(filePath);
-    reply
+    return reply
       .type(imageMimeType(filePath))
       .header("Content-Length", buffer.byteLength)
       .header("Cache-Control", "private, max-age=300")
@@ -185,28 +172,25 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const user = request.user!;
     const lib = getLibraryForBook(id);
     if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to change covers." });
-      return;
+      return reply.code(403).send({ error: "Write access required to change covers." });
     }
 
     const parsed = parseBody(coverSourceSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid cover selection", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid cover selection", details: parsed.error });
     }
 
     const filePath = coverFilePathFromRelative(id, parsed.data.relativePath);
     if (!filePath) {
-      reply.code(404).send({ error: "Cover file not found" });
-      return;
+      return reply.code(404).send({ error: "Cover file not found" });
     }
 
     try {
       const coverStorageKey = await writeCoverImages(lib.id, id, filePath);
       const book = updateBookCover(id, coverStorageKey);
-      reply.send({ updated: true, book });
+      return reply.send({ updated: true, book });
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to apply cover" });
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to apply cover" });
     }
   });
 
@@ -216,14 +200,12 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const user = request.user!;
     const lib = getLibraryForBook(id);
     if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to change covers." });
-      return;
+      return reply.code(403).send({ error: "Write access required to change covers." });
     }
 
     const parsed = parseBody(coverFromUrlSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid cover link", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid cover link", details: parsed.error });
     }
 
     try {
@@ -232,9 +214,9 @@ export function registerMetadataRoutes(app: FastifyInstance) {
       const image = await downloadImage(parsed.data.url);
       const coverStorageKey = await writeCoverImages(lib.id, id, image);
       const book = updateBookCover(id, coverStorageKey);
-      reply.send({ updated: true, book });
+      return reply.send({ updated: true, book });
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to download that cover" });
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to download that cover" });
     }
   });
 
@@ -244,38 +226,33 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const user = request.user!;
     const lib = getLibraryForBook(id);
     if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to change covers." });
-      return;
+      return reply.code(403).send({ error: "Write access required to change covers." });
     }
 
     const existing = db.prepare("SELECT id FROM library_items WHERE id = ? AND deleted_at IS NULL").get(id);
     if (!existing) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
     const contentType = request.headers["content-type"]?.split(";")[0]?.toLowerCase();
     if (!contentType || !["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
-      reply.code(415).send({ error: "Upload a JPEG, PNG, or WebP image." });
-      return;
+      return reply.code(415).send({ error: "Upload a JPEG, PNG, or WebP image." });
     }
 
     const body = request.body;
     if (!Buffer.isBuffer(body) || body.byteLength === 0) {
-      reply.code(400).send({ error: "Cover image is required." });
-      return;
+      return reply.code(400).send({ error: "Cover image is required." });
     }
     if (body.byteLength > 10 * 1024 * 1024) {
-      reply.code(400).send({ error: "Cover image is too large." });
-      return;
+      return reply.code(400).send({ error: "Cover image is too large." });
     }
 
     try {
       const coverStorageKey = await writeCoverImages(lib.id, id, body);
       const book = updateBookCover(id, coverStorageKey);
-      reply.send({ updated: true, book });
+      return reply.send({ updated: true, book });
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to upload cover" });
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Unable to upload cover" });
     }
   });
 
@@ -285,14 +262,12 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     const user = request.user!;
     const lib = getLibraryForBook(id);
     if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to reset metadata." });
-      return;
+      return reply.code(403).send({ error: "Write access required to reset metadata." });
     }
 
     const existing = db.prepare("SELECT id FROM library_items WHERE id = ? AND deleted_at IS NULL").get(id);
     if (!existing) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
     db.prepare("UPDATE item_metadata SET source = 'scan', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id = ?").run(id);
@@ -304,6 +279,6 @@ export function registerMetadataRoutes(app: FastifyInstance) {
     }
 
     const book = getAudiobookBookDetail(id);
-    reply.send({ reset: true, book });
+    return reply.send({ reset: true, book });
   });
 }

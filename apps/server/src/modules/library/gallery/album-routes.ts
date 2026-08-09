@@ -67,8 +67,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/albums", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid album details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid album details", details: parsed.error });
     }
     const album = createAlbum(request.user!, parsed.data.name, parsed.data.description ?? null);
     logActivity({
@@ -79,7 +78,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
       detail: `Created gallery album "${album.name}".`,
       ipAddress: request.ip
     });
-    reply.code(201).send({
+    return reply.code(201).send({
       album: {
         id: album.id,
         name: album.name,
@@ -98,8 +97,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     const album = getAlbum((request.params as { id: string }).id);
     const user = request.user!;
     if (!album) {
-      reply.code(404).send({ error: "Album not found" });
-      return;
+      return reply.code(404).send({ error: "Album not found" });
     }
     const qp = request.query as { limit?: string; offset?: string };
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
@@ -109,10 +107,9 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     // The zero-visible rule from the list applies here too: a member who can't
     // see any of the album's items shouldn't learn it exists via deep link.
     if (total === 0 && !canEditAlbum(album, user)) {
-      reply.code(404).send({ error: "Album not found" });
-      return;
+      return reply.code(404).send({ error: "Album not found" });
     }
-    reply.send({
+    return reply.send({
       album: {
         id: album.id,
         name: album.name,
@@ -136,7 +133,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     const albumId = (request.params as { id: string }).id;
     const user = request.user!;
     const meta = loadAlbumShareMeta(albumId);
-    if (!meta) { reply.code(404).send({ error: "Album not found" }); return; }
+    if (!meta) { return reply.code(404).send({ error: "Album not found" }); }
 
     // Whose curate rights vouch for the photos: the owner/admin previewing sees it
     // with their own; a recipient sees it through the share creator's.
@@ -153,10 +150,10 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
         creator = db.prepare("SELECT id, role FROM users WHERE id = ?").get(share.created_by) as { id: string; role: string } | undefined ?? null;
       }
     }
-    if (!creator) { reply.code(404).send({ error: "Album not found" }); return; }
+    if (!creator) { return reply.code(404).send({ error: "Album not found" }); }
 
     const items = loadAlbumShareItems(albumId, meta.sort_mode, curatableGalleryLibraryIds(creator));
-    reply.send({
+    return reply.send({
       album: { id: albumId, name: meta.name },
       items: items.map((row) => ({
         id: row.id,
@@ -238,23 +235,21 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
   app.patch("/api/library/gallery/albums/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const album = editableAlbum((request.params as { id: string }).id, user, reply);
-    if (!album) return;
+    if (!album) return reply;
     const parsed = parseBody(updateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid album details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid album details", details: parsed.error });
     }
     if (!updateAlbum(album.id, parsed.data)) {
-      reply.code(400).send({ error: "The cover must be a photo inside the album." });
-      return;
+      return reply.code(400).send({ error: "The cover must be a photo inside the album." });
     }
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
   app.delete("/api/library/gallery/albums/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const album = editableAlbum((request.params as { id: string }).id, user, reply);
-    if (!album) return;
+    if (!album) return reply;
     deleteAlbum(album.id);
     // Live album shares reference the album by id with no FK, so drop them here or
     // they'd linger as dead links / phantom "Shared with me" tiles.
@@ -267,20 +262,19 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
       detail: `Deleted gallery album "${album.name}". The photos themselves were not affected.`,
       ipAddress: request.ip
     });
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   app.post("/api/library/gallery/albums/:id/items", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const album = editableAlbum((request.params as { id: string }).id, user, reply);
-    if (!album) return;
+    if (!album) return reply;
     const parsed = parseBody(itemsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid items", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid items", details: parsed.error });
     }
     const libIds = new Set(resolveGalleryScopeLibraryIds(user, "all"));
-    reply.send(addAlbumItems(album.id, libIds, parsed.data.itemIds));
+    return reply.send(addAlbumItems(album.id, libIds, parsed.data.itemIds));
   });
 
   // Batch remove (detach only — the photos stay in the gallery). A body on
@@ -288,12 +282,11 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/albums/:id/items/remove", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const album = editableAlbum((request.params as { id: string }).id, user, reply);
-    if (!album) return;
+    if (!album) return reply;
     const parsed = parseBody(itemsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid items", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid items", details: parsed.error });
     }
-    reply.send({ removed: removeAlbumItems(album.id, parsed.data.itemIds) });
+    return reply.send({ removed: removeAlbumItems(album.id, parsed.data.itemIds) });
   });
 }

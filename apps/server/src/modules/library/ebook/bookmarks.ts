@@ -53,13 +53,11 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
     const bookId = (request.params as { id: string }).id;
     const documentId = ((request.query as { documentId?: string }).documentId ?? "").trim();
     if (!documentId) {
-      reply.code(400).send({ error: "Document id is required" });
-      return;
+      return reply.code(400).send({ error: "Document id is required" });
     }
     const user = request.user!;
     if (!getReadableDocument(bookId, documentId, user)) {
-      reply.code(404).send({ error: "Document not found" });
-      return;
+      return reply.code(404).send({ error: "Document not found" });
     }
 
     const rows = db.prepare(`
@@ -69,20 +67,18 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
       ORDER BY percent_complete IS NULL, percent_complete, datetime(created_at)
     `).all(bookId, documentId, user.id) as EbookBookmarkRow[];
 
-    reply.send({ bookmarks: rows.map(publicEbookBookmark) });
+    return reply.send({ bookmarks: rows.map(publicEbookBookmark) });
   });
 
   app.post("/api/library/books/:id/ebook-bookmarks", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
     const parsed = parseBody(createSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid bookmark", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid bookmark", details: parsed.error });
     }
     const user = request.user!;
     if (!getReadableDocument(bookId, parsed.data.documentId, user)) {
-      reply.code(404).send({ error: "Document not found" });
-      return;
+      return reply.code(404).send({ error: "Document not found" });
     }
 
     const id = nanoid(16);
@@ -105,7 +101,7 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
       FROM reading_bookmarks WHERE id = ?
     `).get(id) as EbookBookmarkRow;
 
-    reply.code(201).send({ bookmark: publicEbookBookmark(row) });
+    return reply.code(201).send({ bookmark: publicEbookBookmark(row) });
   });
 
   app.patch("/api/library/books/:id/ebook-bookmarks/:bookmarkId", { preHandler: app.authenticate }, async (request, reply) => {
@@ -116,14 +112,12 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
       SELECT id FROM reading_bookmarks WHERE id = ? AND item_id = ? AND user_id = ?
     `).get(bookmarkId, bookId, user.id);
     if (!existing) {
-      reply.code(404).send({ error: "Bookmark not found" });
-      return;
+      return reply.code(404).send({ error: "Bookmark not found" });
     }
 
     const parsed = parseBody(updateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid bookmark", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid bookmark", details: parsed.error });
     }
 
     const updates: string[] = [];
@@ -148,7 +142,7 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
       FROM reading_bookmarks WHERE id = ?
     `).get(bookmarkId) as EbookBookmarkRow;
 
-    reply.send({ bookmark: publicEbookBookmark(row) });
+    return reply.send({ bookmark: publicEbookBookmark(row) });
   });
 
   app.delete("/api/library/books/:id/ebook-bookmarks/:bookmarkId", { preHandler: app.authenticate }, async (request, reply) => {
@@ -160,10 +154,9 @@ export async function ebookBookmarksPlugin(app: FastifyInstance) {
     `).run(bookmarkId, bookId, user.id);
 
     if (result.changes === 0) {
-      reply.code(404).send({ error: "Bookmark not found" });
-      return;
+      return reply.code(404).send({ error: "Bookmark not found" });
     }
 
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 }

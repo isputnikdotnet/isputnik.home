@@ -39,8 +39,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
   app.decorate("authenticate", async (request: FastifyRequest, reply: FastifyReply) => {
     const token = request.cookies[cookieName];
     if (!token) {
-      reply.code(401).send({ error: "Not authenticated" });
-      return;
+      return reply.code(401).send({ error: "Not authenticated" });
     }
 
     const tokenHash = sha256(token);
@@ -57,8 +56,9 @@ export async function registerAuthDecorators(app: FastifyInstance) {
 
     if (!row) {
       clearSession(reply);
-      reply.code(401).send({ error: "Not authenticated" });
-      return;
+      // Returning the reply, not just sending it, for the same reason every
+      // handler does — see core/compression.ts.
+      return reply.code(401).send({ error: "Not authenticated" });
     }
 
     db.prepare("UPDATE sessions SET last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE token_hash = ?").run(tokenHash);
@@ -72,7 +72,7 @@ export async function registerAuthDecorators(app: FastifyInstance) {
     }
 
     if (request.user?.role !== "admin") {
-      reply.code(403).send({ error: "Admin access required" });
+      return reply.code(403).send({ error: "Admin access required" });
     }
   });
 }

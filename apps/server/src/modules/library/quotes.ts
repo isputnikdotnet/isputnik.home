@@ -143,15 +143,14 @@ export function registerQuoteRoutes(app: FastifyInstance) {
         || userHasItemShare(mediaKind(row.library_type!), row.item_id, user.id);
     };
 
-    reply.send({ quotes: rows.filter(canSee).map(publicQuote) });
+    return reply.send({ quotes: rows.filter(canSee).map(publicQuote) });
   });
 
   app.post("/api/library/quotes", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const parsed = parseBody(createSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid quote", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid quote", details: parsed.error });
     }
     const data = parsed.data;
 
@@ -159,14 +158,12 @@ export function registerQuoteRoutes(app: FastifyInstance) {
     if (data.itemId) {
       if (data.documentId) {
         if (!getReadableDocument(data.itemId, data.documentId, user)) {
-          reply.code(404).send({ error: "Document not found" });
-          return;
+          return reply.code(404).send({ error: "Document not found" });
         }
       } else {
         const library = getLibraryForBook(data.itemId);
         if (!library || !canUserAccessBook(data.itemId, library, user.id, user.role, mediaKind(library.type))) {
-          reply.code(404).send({ error: "Book not found" });
-          return;
+          return reply.code(404).send({ error: "Book not found" });
         }
       }
     }
@@ -210,7 +207,7 @@ export function registerQuoteRoutes(app: FastifyInstance) {
       data.percentComplete ?? null
     );
 
-    reply.code(201).send({ quote: publicQuote(fetchQuote(id)!) });
+    return reply.code(201).send({ quote: publicQuote(fetchQuote(id)!) });
   });
 
   app.patch("/api/library/quotes/:id", { preHandler: app.authenticate }, async (request, reply) => {
@@ -219,14 +216,12 @@ export function registerQuoteRoutes(app: FastifyInstance) {
 
     const existing = db.prepare("SELECT id FROM quotes WHERE id = ? AND user_id = ?").get(quoteId, user.id);
     if (!existing) {
-      reply.code(404).send({ error: "Quote not found" });
-      return;
+      return reply.code(404).send({ error: "Quote not found" });
     }
 
     const parsed = parseBody(updateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid quote", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid quote", details: parsed.error });
     }
 
     const updates: string[] = [];
@@ -248,7 +243,7 @@ export function registerQuoteRoutes(app: FastifyInstance) {
       `).run(...values, quoteId);
     }
 
-    reply.send({ quote: publicQuote(fetchQuote(quoteId)!) });
+    return reply.send({ quote: publicQuote(fetchQuote(quoteId)!) });
   });
 
   app.delete("/api/library/quotes/:id", { preHandler: app.authenticate }, async (request, reply) => {
@@ -256,9 +251,8 @@ export function registerQuoteRoutes(app: FastifyInstance) {
     const quoteId = (request.params as { id: string }).id;
     const result = db.prepare("DELETE FROM quotes WHERE id = ? AND user_id = ?").run(quoteId, user.id);
     if (result.changes === 0) {
-      reply.code(404).send({ error: "Quote not found" });
-      return;
+      return reply.code(404).send({ error: "Quote not found" });
     }
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 }

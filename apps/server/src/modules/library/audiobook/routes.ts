@@ -31,8 +31,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/audiobook-libraries", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(coreLibraryCreateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid audiobook library details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid audiobook library details", details: parsed.error });
     }
 
     const result = createLibraryRecord({
@@ -46,14 +45,13 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       }
     });
     if ("error" in result) {
-      reply.code(result.status).send({ error: result.error });
-      return;
+      return reply.code(result.status).send({ error: result.error });
     }
 
     const jobId = enqueueAudiobookScan(result.libraryId);
     void processAudiobookScanQueue();
 
-    reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_AUDIOBOOK_LIBRARY" } });
+    return reply.code(201).send({ library: { id: result.libraryId }, job: { id: jobId, type: "SCAN_AUDIOBOOK_LIBRARY" } });
   });
 
   app.get("/api/library/audiobook-libraries", { preHandler: app.authenticate }, async (request) => {
@@ -77,8 +75,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
 
     const parsed = parseBody(coreLibraryUpdateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid library details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid library details", details: parsed.error });
     }
 
     const result = updateLibraryRecord({
@@ -89,13 +86,12 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       ip: request.ip
     });
     if ("error" in result) {
-      reply.code(result.status).send({ error: result.error });
-      return;
+      return reply.code(result.status).send({ error: result.error });
     }
 
     const updated = db.prepare(AUDIOBOOK_LIBRARY_LIST_SQL.replace("%WHERE%", "AND libraries.id = ?")).get(id) as AudiobookLibraryRow;
 
-    reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
+    return reply.send({ library: publicLibrary(updated, true, libraryCapabilities(updated, request.user!.id, request.user!.role)) });
   });
 
   app.delete("/api/library/audiobook-libraries/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -103,8 +99,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     const exists = db.prepare("SELECT id, name FROM libraries WHERE id = ? AND type = 'audiobook'")
       .get(id) as { id: string; name: string } | undefined;
     if (!exists) {
-      reply.code(404).send({ error: "Audiobook library not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook library not found" });
     }
 
     db.transaction(() => {
@@ -132,7 +127,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   const rescanOptionsSchema = z.object({
@@ -149,14 +144,12 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
     const exists = db.prepare("SELECT id, name, source_path FROM libraries WHERE id = ? AND type = 'audiobook'")
       .get(id) as { id: string; name: string; source_path: string } | undefined;
     if (!exists) {
-      reply.code(404).send({ error: "Audiobook library not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook library not found" });
     }
 
     const parsed = parseBody(rescanOptionsSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
     }
 
     // Catch a missing/inaccessible source folder now, so the user gets an immediate
@@ -165,8 +158,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       validateLibrarySource(exists.source_path);
     } catch (err) {
       if (err instanceof LibrarySourceError) {
-        reply.code(422).send({ error: err.message });
-        return;
+        return reply.code(422).send({ error: err.message });
       }
       throw err;
     }
@@ -185,7 +177,7 @@ export async function audiobookRoutesPlugin(app: FastifyInstance) {
       detail: `Queued scan for audiobook library "${exists.name}"${detailParts.length ? ` (${detailParts.join(", ")})` : ""}.`,
       ipAddress: request.ip
     });
-    reply.code(202).send({ job: { id: jobId, type: "SCAN_AUDIOBOOK_LIBRARY" } });
+    return reply.code(202).send({ job: { id: jobId, type: "SCAN_AUDIOBOOK_LIBRARY" } });
   });
 
 }

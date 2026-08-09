@@ -150,12 +150,11 @@ async function opdsAuth(request: FastifyRequest, reply: FastifyReply): Promise<v
     // expired one is a reader app that hasn't been updated yet — annoying, but
     // not something that should block the household's address.
     if (raw && isUnknownApiToken(raw)) flagAbusiveRequest(request);
-    reply
+    return reply
       .code(401)
       .header("WWW-Authenticate", 'Basic realm="isputnik OPDS", charset="UTF-8"')
       .type("text/plain")
       .send("OPDS authentication required");
-    return;
   }
 
   request.opdsUser = user;
@@ -364,11 +363,11 @@ async function coverHandler(request: FastifyRequest, reply: FastifyReply): Promi
   try {
     const absolutePath = thumbnailAbsolutePath(key);
     const data = await fsp.readFile(absolutePath);
-    reply.type(COVER_MIME[path.extname(key).toLowerCase()] ?? "application/octet-stream")
+    return reply.type(COVER_MIME[path.extname(key).toLowerCase()] ?? "application/octet-stream")
       .header("Cache-Control", "private, max-age=3600")
       .send(data);
   } catch {
-    reply.code(404).type("text/plain").send("Cover not found");
+    return reply.code(404).type("text/plain").send("Cover not found");
   }
 }
 

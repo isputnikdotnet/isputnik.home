@@ -131,6 +131,6 @@ export function registerBookmarkRoutes(app: FastifyInstance) {
       (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
     );
 
-    reply.send({ bookmarks });
+    return reply.send({ bookmarks });
   });
 }

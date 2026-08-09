@@ -147,19 +147,16 @@ export function registerWorkRoutes(app: FastifyInstance) {
   app.post("/api/library/works", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(groupSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid edition group", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid edition group", details: parsed.error });
     }
 
     const user = request.user!;
     const itemIds = Array.from(new Set(parsed.data.itemIds));
     if (itemIds.length < 2) {
-      reply.code(400).send({ error: "Select at least two editions to group." });
-      return;
+      return reply.code(400).send({ error: "Select at least two editions to group." });
     }
     if (!itemIds.includes(parsed.data.primaryItemId)) {
-      reply.code(400).send({ error: "The primary edition must be one of the selected books." });
-      return;
+      return reply.code(400).send({ error: "The primary edition must be one of the selected books." });
     }
 
     // Resolve each item's library + type, enforcing write access on every one.
@@ -167,12 +164,10 @@ export function registerWorkRoutes(app: FastifyInstance) {
     for (const id of itemIds) {
       const lib = getLibraryForBook(id);
       if (!lib) {
-        reply.code(404).send({ error: "One of the selected books was not found." });
-        return;
+        return reply.code(404).send({ error: "One of the selected books was not found." });
       }
       if (!canUserWriteLibrary(lib, user.id, user.role)) {
-        reply.code(403).send({ error: "Write access is required on every selected book's library." });
-        return;
+        return reply.code(403).send({ error: "Write access is required on every selected book's library." });
       }
       items.push({ id, type: lib.type });
     }
@@ -182,8 +177,7 @@ export function registerWorkRoutes(app: FastifyInstance) {
       `SELECT item_id FROM work_items WHERE item_id IN (${itemIds.map(() => "?").join(", ")})`
     ).all(...itemIds) as { item_id: string }[];
     if (taken.length > 0) {
-      reply.code(409).send({ error: "One or more of these books is already part of an edition group." });
-      return;
+      return reply.code(409).send({ error: "One or more of these books is already part of an edition group." });
     }
 
     // One primary per media type: the chosen item leads its own type; any other
@@ -212,17 +206,16 @@ export function registerWorkRoutes(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.code(201).send({ work: { id: workId }, count: items.length });
+    return reply.code(201).send({ work: { id: workId }, count: items.length });
   });
 
   // A work with its member editions — feeds the detail-page editions switcher.
   app.get("/api/library/works/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const work = getWorkEditions((request.params as { id: string }).id, request.user!);
     if (!work) {
-      reply.code(404).send({ error: "Work not found" });
-      return;
+      return reply.code(404).send({ error: "Work not found" });
     }
-    reply.send({ work });
+    return reply.send({ work });
   });
 
   // Set which edition leads the group (per media type). Write access on the chosen
@@ -231,25 +224,22 @@ export function registerWorkRoutes(app: FastifyInstance) {
     const workId = (request.params as { id: string }).id;
     const parsed = parseBody(setPrimarySchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid request", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error });
     }
     const user = request.user!;
     const itemId = parsed.data.primaryItemId;
 
     const member = db.prepare("SELECT item_id FROM work_items WHERE work_id = ? AND item_id = ?").get(workId, itemId);
     if (!member) {
-      reply.code(404).send({ error: "That edition is not part of this group." });
-      return;
+      return reply.code(404).send({ error: "That edition is not part of this group." });
     }
     const lib = getLibraryForBook(itemId);
     if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access is required to change the primary edition." });
-      return;
+      return reply.code(403).send({ error: "Write access is required to change the primary edition." });
     }
 
     setPrimaryEdition(workId, itemId, lib.type);
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
   // Remove one edition from a work. A work needs >= 2 editions, so the last
@@ -260,15 +250,13 @@ export function registerWorkRoutes(app: FastifyInstance) {
 
     const member = db.prepare("SELECT item_id FROM work_items WHERE work_id = ? AND item_id = ?").get(workId, itemId);
     if (!member) {
-      reply.code(404).send({ error: "That edition is not part of this group." });
-      return;
+      return reply.code(404).send({ error: "That edition is not part of this group." });
     }
     const lib = getLibraryForBook(itemId);
     if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access is required to ungroup editions." });
-      return;
+      return reply.code(403).send({ error: "Write access is required to ungroup editions." });
     }
 
-    reply.send({ removed: true, ...removeEdition(workId, itemId) });
+    return reply.send({ removed: true, ...removeEdition(workId, itemId) });
   });
 }

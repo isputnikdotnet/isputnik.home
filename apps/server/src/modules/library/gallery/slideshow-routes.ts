@@ -123,13 +123,11 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
   app.patch("/api/library/gallery/slideshows/settings", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(settingsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid movie settings", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid movie settings", details: parsed.error });
     }
     const libraryId = parsed.data.renderLibraryId;
     if (libraryId && !db.prepare("SELECT 1 FROM libraries WHERE id = ? AND type = 'gallery'").get(libraryId)) {
-      reply.code(400).send({ error: "That gallery library no longer exists." });
-      return;
+      return reply.code(400).send({ error: "That gallery library no longer exists." });
     }
     setRenderLibraryId(libraryId, request.user!.id);
     logActivity({
@@ -140,14 +138,13 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       detail: libraryId ? `Set the default slideshow-movie library.` : `Turned off saving slideshow movies to a library.`,
       ipAddress: request.ip
     });
-    reply.send({ renderLibraryId: getRenderLibraryId() });
+    return reply.send({ renderLibraryId: getRenderLibraryId() });
   });
 
   app.post("/api/library/gallery/slideshows", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid slideshow details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid slideshow details", details: parsed.error });
     }
     const user = request.user!;
     const slideshow = createSlideshow(user, parsed.data.name, { kind: parsed.data.sourceKind, ref: parsed.data.sourceRef });
@@ -164,7 +161,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       detail: `Created gallery slideshow "${slideshow.name}"${added > 0 ? ` with ${added} photo${added === 1 ? "" : "s"}` : ""}.`,
       ipAddress: request.ip
     });
-    reply.code(201).send({ slideshow: summarize(slideshow, added, null, true) });
+    return reply.code(201).send({ slideshow: summarize(slideshow, added, null, true) });
   });
 
   // Slideshow detail: metadata + one page of the viewer's visible items in order.
@@ -172,8 +169,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     const slideshow = getSlideshow((request.params as { id: string }).id);
     const user = request.user!;
     if (!slideshow) {
-      reply.code(404).send({ error: "Slideshow not found" });
-      return;
+      return reply.code(404).send({ error: "Slideshow not found" });
     }
     const qp = request.query as { limit?: string; offset?: string };
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "200", 10) || 200, 1), 500);
@@ -182,10 +178,9 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     const { assets, total } = getSlideshowItems(user.id, libIds, slideshow, limit, offset);
     // A member who can't see any of the items shouldn't learn the slideshow exists.
     if (total === 0 && !canEditSlideshow(slideshow, user)) {
-      reply.code(404).send({ error: "Slideshow not found" });
-      return;
+      return reply.code(404).send({ error: "Slideshow not found" });
     }
-    reply.send({
+    return reply.send({
       slideshow: {
         id: slideshow.id,
         name: slideshow.name,
@@ -207,15 +202,13 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
   app.post("/api/library/gallery/slideshows/:id/render", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const slideshow = editable((request.params as { id: string }).id, user, reply);
-    if (!slideshow) return;
+    if (!slideshow) return reply;
     if (slideshow.render_status === "queued" || slideshow.render_status === "rendering") {
-      reply.send({ renderStatus: slideshow.render_status }); // already in flight — idempotent
-      return;
+      return reply.send({ renderStatus: slideshow.render_status });
     }
     const hasPhotos = getSlideshowItems(user.id, resolveGalleryScopeLibraryIds(user, "all"), slideshow, 1, 0).total > 0;
     if (!hasPhotos) {
-      reply.code(400).send({ error: "Add at least one photo before rendering a movie." });
-      return;
+      return reply.code(400).send({ error: "Add at least one photo before rendering a movie." });
     }
     enqueueSlideshowRender(slideshow, user.id);
     logActivity({
@@ -226,7 +219,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       detail: `Started rendering a movie of slideshow "${slideshow.name}".`,
       ipAddress: request.ip
     });
-    reply.code(202).send({ renderStatus: "queued" });
+    return reply.code(202).send({ renderStatus: "queued" });
   });
 
   // Stream the rendered MP4 (range-aware, so a browser <video> can seek). ?download
@@ -301,10 +294,9 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
   app.delete("/api/library/gallery/slideshows/:id/movie", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const slideshow = editable((request.params as { id: string }).id, user, reply);
-    if (!slideshow) return;
+    if (!slideshow) return reply;
     if (slideshow.render_status === "queued" || slideshow.render_status === "rendering") {
-      reply.code(409).send({ error: "A render is in progress. Cancel it from the Tasks page first." });
-      return;
+      return reply.code(409).send({ error: "A render is in progress. Cancel it from the Tasks page first." });
     }
     deleteSlideshowRender(slideshow);
     logActivity({
@@ -315,31 +307,29 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       detail: `Deleted the rendered movie of slideshow "${slideshow.name}".`,
       ipAddress: request.ip
     });
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   app.patch("/api/library/gallery/slideshows/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const slideshow = editable((request.params as { id: string }).id, user, reply);
-    if (!slideshow) return;
+    if (!slideshow) return reply;
     const parsed = parseBody(updateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid slideshow details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid slideshow details", details: parsed.error });
     }
     // A non-null music id must name a real track (any track — music is gallery-wide).
     if (parsed.data.musicTrackId && !getMusicTrack(parsed.data.musicTrackId)) {
-      reply.code(400).send({ error: "That music track no longer exists." });
-      return;
+      return reply.code(400).send({ error: "That music track no longer exists." });
     }
     updateSlideshow(slideshow.id, parsed.data);
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
   app.delete("/api/library/gallery/slideshows/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const slideshow = editable((request.params as { id: string }).id, user, reply);
-    if (!slideshow) return;
+    if (!slideshow) return reply;
     // Reclaim the rendered movie file (the DB row cascades; the file doesn't).
     if (slideshow.output_storage_key) {
       try { fs.rmSync(thumbnailAbsolutePath(slideshow.output_storage_key), { force: true }); } catch { /* best-effort */ }
@@ -353,46 +343,43 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       detail: `Deleted gallery slideshow "${slideshow.name}". The photos themselves were not affected.`,
       ipAddress: request.ip
     });
-    reply.send({ deleted: true });
+    return reply.send({ deleted: true });
   });
 
   app.post("/api/library/gallery/slideshows/:id/items", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const slideshow = editable((request.params as { id: string }).id, user, reply);
-    if (!slideshow) return;
+    if (!slideshow) return reply;
     const parsed = parseBody(itemsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid items", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid items", details: parsed.error });
     }
     const libIds = new Set(resolveGalleryScopeLibraryIds(user, "all"));
-    reply.send(addSlideshowItems(slideshow.id, libIds, parsed.data.itemIds));
+    return reply.send(addSlideshowItems(slideshow.id, libIds, parsed.data.itemIds));
   });
 
   // Batch remove (detach only — the photos stay in the gallery). POST like the add.
   app.post("/api/library/gallery/slideshows/:id/items/remove", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const slideshow = editable((request.params as { id: string }).id, user, reply);
-    if (!slideshow) return;
+    if (!slideshow) return reply;
     const parsed = parseBody(itemsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid items", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid items", details: parsed.error });
     }
-    reply.send({ removed: removeSlideshowItems(slideshow.id, parsed.data.itemIds) });
+    return reply.send({ removed: removeSlideshowItems(slideshow.id, parsed.data.itemIds) });
   });
 
   // Reorder: the body is the full desired order of item ids (the editor's drag).
   app.post("/api/library/gallery/slideshows/:id/reorder", { preHandler: app.authenticate }, async (request, reply) => {
     const user = request.user!;
     const slideshow = editable((request.params as { id: string }).id, user, reply);
-    if (!slideshow) return;
+    if (!slideshow) return reply;
     const parsed = parseBody(reorderSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid order", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid order", details: parsed.error });
     }
     reorderSlideshowItems(slideshow.id, parsed.data.itemIds);
-    reply.send({ reordered: true });
+    return reply.send({ reordered: true });
   });
 }

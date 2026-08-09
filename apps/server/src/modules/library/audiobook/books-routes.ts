@@ -30,8 +30,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     const user = request.user!;
     const library = getAccessibleLibrary(id, user.id, user.role, "audiobook");
     if (!library) {
-      reply.code(404).send({ error: "Audiobook library not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook library not found" });
     }
 
     const books = db.prepare(`
@@ -70,13 +69,12 @@ export function registerBookRoutes(app: FastifyInstance) {
   app.post("/api/library/audiobooks/catalog", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(catalogSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid catalog query", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid catalog query", details: parsed.error });
     }
     const p = parsed.data;
     const f = p.filters ?? {};
     const libIds = resolveScopeLibraryIds(request.user!, p.scope ?? "all", p.libraryId);
-    reply.send(queryCatalog(request.user!.id, libIds, {
+    return reply.send(queryCatalog(request.user!.id, libIds, {
       q: p.q ?? "",
       sort: p.sort ?? "title",
       limit: p.limit ?? 48,
@@ -107,14 +105,12 @@ export function registerBookRoutes(app: FastifyInstance) {
   app.post("/api/library/books/bulk-metadata", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(bulkMetadataSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid bulk metadata", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid bulk metadata", details: parsed.error });
     }
 
     const hasField = BULK_METADATA_FIELDS.some((field) => parsed.data[field] !== undefined);
     if (!hasField) {
-      reply.code(400).send({ error: "Provide at least one field to overwrite." });
-      return;
+      return reply.code(400).send({ error: "Provide at least one field to overwrite." });
     }
 
     const user = request.user!;
@@ -129,11 +125,10 @@ export function registerBookRoutes(app: FastifyInstance) {
     }
 
     if (updated === 0 && forbidden > 0) {
-      reply.code(403).send({ error: "Write access required to edit the selected books." });
-      return;
+      return reply.code(403).send({ error: "Write access required to edit the selected books." });
     }
 
-    reply.send({ updated, forbidden, missing });
+    return reply.send({ updated, forbidden, missing });
   });
 
   app.get("/api/library/books/:id", { preHandler: app.authenticate }, async (request, reply) => {
@@ -144,20 +139,18 @@ export function registerBookRoutes(app: FastifyInstance) {
     // fetches were previously open to any signed-in user.
     const lib = getLibraryForBook(id);
     if (!lib || !canUserAccessBook(id, lib, user.id, user.role, mediaKind(lib.type))) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
     const book = getAudiobookBookDetail(id);
     if (!book) {
-      reply.code(404).send({ error: "Audiobook not found" });
-      return;
+      return reply.code(404).send({ error: "Audiobook not found" });
     }
 
     // Capability flags so the client can gate edit/download/share affordances.
     // Sharing requires the curate capability (see shares.ts); server still enforces.
     const caps = libraryCapabilities(lib, user.id, user.role);
-    reply.send({
+    return reply.send({
       book,
       capabilities: {
         canEdit: caps.canEdit,
@@ -179,8 +172,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const result = await sendBookToEreader(id, request.user!);
     if (!result.ok) {
-      reply.code(result.status).send({ error: result.error });
-      return;
+      return reply.code(result.status).send({ error: result.error });
     }
     logActivity({
       event: "library.sent_to_ereader",
@@ -190,7 +182,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       detail: `Sent "${result.title}" to e-reader (${request.user!.ereader_email}).`,
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
 
@@ -209,7 +201,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       completed_at: string | null;
     } | undefined;
 
-    reply.send({
+    return reply.send({
       progress: row
         ? {
             fileId: row.current_file_id,
@@ -225,13 +217,11 @@ export function registerBookRoutes(app: FastifyInstance) {
     const bookId = (request.params as { id: string }).id;
     const documentId = ((request.query as { documentId?: string }).documentId ?? "").trim();
     if (!documentId) {
-      reply.code(400).send({ error: "Document id is required" });
-      return;
+      return reply.code(400).send({ error: "Document id is required" });
     }
     const user = request.user!;
     if (!getReadableDocument(bookId, documentId, user)) {
-      reply.code(404).send({ error: "Document not found" });
-      return;
+      return reply.code(404).send({ error: "Document not found" });
     }
 
     const row = db.prepare(`
@@ -247,7 +237,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       completed_at: string | null;
     } | undefined;
 
-    reply.send({
+    return reply.send({
       progress: row
         ? {
             documentId: row.document_id,
@@ -265,14 +255,12 @@ export function registerBookRoutes(app: FastifyInstance) {
     const bookId = (request.params as { id: string }).id;
     const parsed = parseBody(readingProgressSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid reading progress update", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid reading progress update", details: parsed.error });
     }
 
     const user = request.user!;
     if (!getReadableDocument(bookId, parsed.data.documentId, user)) {
-      reply.code(404).send({ error: "Document not found" });
-      return;
+      return reply.code(404).send({ error: "Document not found" });
     }
 
     const percentComplete = parsed.data.percentComplete ?? null;
@@ -288,24 +276,22 @@ export function registerBookRoutes(app: FastifyInstance) {
         completed_at = CASE WHEN excluded.completed_at IS NOT NULL THEN excluded.completed_at ELSE reading_progress.completed_at END
     `).run(nanoid(16), user.id, bookId, parsed.data.documentId, parsed.data.cfi, percentComplete, parsed.data.label ?? null, completedAt);
 
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
   app.delete("/api/library/books/:id/reading-progress", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
     const documentId = ((request.query as { documentId?: string }).documentId ?? "").trim();
     if (!documentId) {
-      reply.code(400).send({ error: "Document id is required" });
-      return;
+      return reply.code(400).send({ error: "Document id is required" });
     }
     const user = request.user!;
     if (!getReadableDocument(bookId, documentId, user)) {
-      reply.code(404).send({ error: "Document not found" });
-      return;
+      return reply.code(404).send({ error: "Document not found" });
     }
     db.prepare("DELETE FROM reading_progress WHERE item_id = ? AND document_id = ? AND user_id = ?")
       .run(bookId, documentId, user.id);
-    reply.send({ reset: true });
+    return reply.send({ reset: true });
   });
 
   // Mark an ebook finished without opening it. Mirrors /progress/complete for
@@ -316,13 +302,11 @@ export function registerBookRoutes(app: FastifyInstance) {
     const bookId = (request.params as { id: string }).id;
     const documentId = ((request.body as { documentId?: string } | undefined)?.documentId ?? "").trim();
     if (!documentId) {
-      reply.code(400).send({ error: "Document id is required" });
-      return;
+      return reply.code(400).send({ error: "Document id is required" });
     }
     const user = request.user!;
     if (!getReadableDocument(bookId, documentId, user)) {
-      reply.code(404).send({ error: "Document not found" });
-      return;
+      return reply.code(404).send({ error: "Document not found" });
     }
     db.prepare(`
       INSERT INTO reading_progress (id, user_id, item_id, document_id, location, percent_complete, updated_at, completed_at)
@@ -332,7 +316,7 @@ export function registerBookRoutes(app: FastifyInstance) {
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
         completed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(nanoid(16), user.id, bookId, documentId);
-    reply.send({ completed: true });
+    return reply.send({ completed: true });
   });
 
 
@@ -341,8 +325,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     const userId = request.user!.id;
     const parsed = parseBody(progressUpdateSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid progress update", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid progress update", details: parsed.error });
     }
 
     const { fileId, positionSeconds } = parsed.data;
@@ -363,8 +346,7 @@ export function registerBookRoutes(app: FastifyInstance) {
         AND status = 'available'
     `).get(fileId, bookId) as { id: string; duration_seconds: number | null } | undefined;
     if (!currentFile) {
-      reply.code(404).send({ error: "Audio file not found" });
-      return;
+      return reply.code(404).send({ error: "Audio file not found" });
     }
 
     const totalDuration = (db.prepare("SELECT duration_seconds FROM audiobook_details WHERE item_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
@@ -441,7 +423,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       );
     }
 
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
 
@@ -458,8 +440,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     `).get(bookId) as { id: string; duration_seconds: number | null } | undefined;
 
     if (!file) {
-      reply.code(404).send({ error: "No audio files available" });
-      return;
+      return reply.code(404).send({ error: "No audio files available" });
     }
 
     const totalDuration = (db.prepare("SELECT duration_seconds FROM audiobook_details WHERE item_id = ?").get(bookId) as { duration_seconds: number | null } | undefined)?.duration_seconds ?? null;
@@ -497,7 +478,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       `).run(userId, bookId, bookId);
     }
 
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
 
@@ -506,7 +487,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     const userId = request.user!.id;
     db.prepare("DELETE FROM playback_progress WHERE item_id = ? AND user_id = ?").run(bookId, userId);
     db.prepare("DELETE FROM track_progress WHERE item_id = ? AND user_id = ?").run(bookId, userId);
-    reply.send({ reset: true });
+    return reply.send({ reset: true });
   });
 
 
@@ -520,7 +501,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       FROM track_progress
       WHERE user_id = ? AND item_id = ?
     `).all(userId, bookId) as { file_id: string; position_seconds: number; completed_at: string | null }[];
-    reply.send({
+    return reply.send({
       tracks: rows.map((row) => ({
         fileId: row.file_id,
         positionSeconds: row.position_seconds,
@@ -537,8 +518,7 @@ export function registerBookRoutes(app: FastifyInstance) {
     const userId = request.user!.id;
     const parsed = parseBody(trackPlayedSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid track update", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid track update", details: parsed.error });
     }
 
     const file = db.prepare(`
@@ -547,8 +527,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       WHERE id = ? AND item_id = ? AND status = 'available'
     `).get(fileId, bookId) as { duration_seconds: number | null } | undefined;
     if (!file) {
-      reply.code(404).send({ error: "Audio file not found" });
-      return;
+      return reply.code(404).send({ error: "Audio file not found" });
     }
 
     if (parsed.data.played) {
@@ -565,7 +544,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       db.prepare("DELETE FROM track_progress WHERE user_id = ? AND file_id = ?").run(userId, fileId);
     }
 
-    reply.send({ updated: true });
+    return reply.send({ updated: true });
   });
 
 
@@ -583,29 +562,25 @@ export function registerBookRoutes(app: FastifyInstance) {
     const user = request.user!;
     const lib = getLibraryForBook(id);
     if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
-      reply.code(403).send({ error: "Write access required to rescan." });
-      return;
+      return reply.code(403).send({ error: "Write access required to rescan." });
     }
 
     const parsed = parseBody(rescanBookSchema, request.body ?? {});
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid rescan options", details: parsed.error });
     }
 
     let result: string | null;
     try {
       result = await rescanSingleBook(id, parsed.data);
     } catch (err) {
-      reply.code(400).send({ error: err instanceof Error ? err.message : "Rescan failed" });
-      return;
+      return reply.code(400).send({ error: err instanceof Error ? err.message : "Rescan failed" });
     }
     if (!result) {
-      reply.code(404).send({ error: "Audiobook folder not found or has no audio files." });
-      return;
+      return reply.code(404).send({ error: "Audiobook folder not found or has no audio files." });
     }
 
     const book = getAudiobookBookDetail(id);
-    reply.send({ rescanned: true, book });
+    return reply.send({ rescanned: true, book });
   });
 }

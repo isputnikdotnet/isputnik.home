@@ -25,8 +25,7 @@ export async function appConfigPlugin(app: FastifyInstance) {
   app.patch("/api/config", { preHandler: app.requireAdmin }, async (request, reply) => {
     const parsed = parseBody(configSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid configuration", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid configuration", details: parsed.error });
     }
 
     db.prepare(`
@@ -47,6 +46,6 @@ export async function appConfigPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.send({ config: { defaultTheme: parsed.data.defaultTheme } });
+    return reply.send({ config: { defaultTheme: parsed.data.defaultTheme } });
   });
 }

@@ -519,17 +519,17 @@ function galleryMultiShareMediaItem(link: ResolvedShareLink, itemId: string) {
 }
 
 // Serve a stored thumbnail (cover/preview) by storage key for guest routes.
-async function sendThumbnail(reply: FastifyReply, storageKey: string): Promise<void> {
+async function sendThumbnail(reply: FastifyReply, storageKey: string): Promise<FastifyReply> {
   try {
     const absolutePath = thumbnailAbsolutePath(storageKey);
     const bytes = await fsp.readFile(absolutePath);
-    reply
+    return reply
       .type(coverMimeByExt[path.extname(storageKey).toLowerCase()] ?? "application/octet-stream")
       .header("Content-Length", bytes.byteLength)
       .header("Cache-Control", "public, max-age=3600")
       .send(bytes);
   } catch {
-    reply.code(404).send({ error: "Image not found" });
+    return reply.code(404).send({ error: "Image not found" });
   }
 }
 
@@ -575,13 +575,12 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.post("/api/shares", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createLinkSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid share details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid share details", details: parsed.error });
     }
 
     const user = request.user!;
     const result = getShareableBook(parsed.data.bookId, user.id, user.role);
-    if (denyIfNotShareable(result, reply)) return;
+    if (denyIfNotShareable(result, reply)) return reply;
     const module = mediaKind((result as { library: LibraryAccessRow }).library.type);
 
     const token = nanoid(36);
@@ -605,7 +604,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     // wrong port behind a dev proxy), so the link follows whichever domain they
     // arrived through. Falls back to config.appUrl. Same helper as invite links.
     const base = requestOrigin(request);
-    reply.code(201).send({
+    return reply.code(201).send({
       share: {
         id: shareId,
         label: parsed.data.label ?? null,
@@ -621,8 +620,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.post("/api/shares/set", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createSetLinkSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid share details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid share details", details: parsed.error });
     }
 
     const user = request.user!;
@@ -632,8 +630,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       label: parsed.data.label ?? null
     });
     if (!result) {
-      reply.code(403).send({ error: "Curator access required to share these photos." });
-      return;
+      return reply.code(403).send({ error: "Curator access required to share these photos." });
     }
 
     logActivity({
@@ -646,7 +643,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     });
 
     const base = requestOrigin(request);
-    reply.code(201).send({
+    return reply.code(201).send({
       share: {
         id: result.shareId,
         label: parsed.data.label ?? null,
@@ -705,8 +702,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.post("/api/shares/album", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createAlbumLinkSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid share details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid share details", details: parsed.error });
     }
     const user = request.user!;
     const result = createGalleryAlbumShare(user, {
@@ -714,9 +710,9 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       expiresInDays: parsed.data.expiresInDays ?? 30,
       label: parsed.data.label ?? null
     });
-    if (result === "not_found") { reply.code(404).send({ error: "Album not found" }); return; }
-    if (result === "forbidden") { reply.code(403).send({ error: "Only the album's creator or an admin can share it." }); return; }
-    if (result === "empty") { reply.code(403).send({ error: "There are no photos in this album you can share." }); return; }
+    if (result === "not_found") { return reply.code(404).send({ error: "Album not found" }); }
+    if (result === "forbidden") { return reply.code(403).send({ error: "Only the album's creator or an admin can share it." }); }
+    if (result === "empty") { return reply.code(403).send({ error: "There are no photos in this album you can share." }); }
 
     logActivity({
       event: "share.created",
@@ -728,7 +724,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     });
 
     const base = requestOrigin(request);
-    reply.code(201).send({
+    return reply.code(201).send({
       share: {
         id: result.shareId,
         label: parsed.data.label ?? null,
@@ -782,21 +778,19 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.post("/api/shares/album/user", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(albumUserShareSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid share details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid share details", details: parsed.error });
     }
     const user = request.user!;
     if (parsed.data.userId === user.id) {
-      reply.code(400).send({ error: "You already have access to this album" });
-      return;
+      return reply.code(400).send({ error: "You already have access to this album" });
     }
     const meta = albumEditableBy(user, parsed.data.albumId);
-    if (meta === "not_found") { reply.code(404).send({ error: "Album not found" }); return; }
-    if (meta === "forbidden") { reply.code(403).send({ error: "Only the album's creator or an admin can share it." }); return; }
+    if (meta === "not_found") { return reply.code(404).send({ error: "Album not found" }); }
+    if (meta === "forbidden") { return reply.code(403).send({ error: "Only the album's creator or an admin can share it." }); }
     const target = db.prepare(
       "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
     ).get(parsed.data.userId) as { id: string } | undefined;
-    if (!target) { reply.code(404).send({ error: "User not found" }); return; }
+    if (!target) { return reply.code(404).send({ error: "User not found" }); }
 
     const expiresAt = parsed.data.expiresInDays ? addDays(parsed.data.expiresInDays).toISOString() : null;
     db.prepare(`
@@ -816,7 +810,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       detail: `Shared gallery album "${meta.name}" with a user.`,
       ipAddress: request.ip
     });
-    reply.code(201).send({ ok: true });
+    return reply.code(201).send({ ok: true });
   });
 
   // Recipients of an album — the People list for the album-share dialog. Only the
@@ -824,8 +818,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.post("/api/shares/album/recipients", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(albumRecipientsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid request", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error });
     }
     const user = request.user!;
     const scope = user.role === "admin" ? "" : "AND shares.created_by = ?";
@@ -837,7 +830,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       WHERE shares.module = 'gallery_album' AND shares.resource_id = ? AND shares.revoked_at IS NULL ${scope}
       ORDER BY users.display_name COLLATE NOCASE
     `).all(...params) as { user_id: string; display_name: string; email: string; expires_at: string | null }[];
-    reply.send({
+    return reply.send({
       recipients: rows.map((row) => ({
         userId: row.user_id,
         displayName: row.display_name,
@@ -851,8 +844,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.post("/api/shares/album/user/revoke", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(albumSelectionSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid request", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error });
     }
     const user = request.user!;
     const scope = user.role === "admin" ? "" : "AND created_by = ?";
@@ -871,7 +863,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       detail: "Revoked a user's access to a shared album.",
       ipAddress: request.ip
     });
-    reply.send({ revoked: result.changes });
+    return reply.send({ revoked: result.changes });
   });
 
   // Share a selection of gallery items *with a registered user* (the set dialog's
@@ -881,27 +873,23 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.post("/api/shares/set/user", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(setUserShareSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid share details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid share details", details: parsed.error });
     }
 
     const user = request.user!;
     if (parsed.data.userId === user.id) {
-      reply.code(400).send({ error: "You already have access to these photos" });
-      return;
+      return reply.code(400).send({ error: "You already have access to these photos" });
     }
     const target = db.prepare(
       "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
     ).get(parsed.data.userId) as { id: string } | undefined;
     if (!target) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     const { included, skipped } = shareableGalleryItems(user, parsed.data.itemIds);
     if (included.length === 0) {
-      reply.code(403).send({ error: "Curator access required to share these photos." });
-      return;
+      return reply.code(403).send({ error: "Curator access required to share these photos." });
     }
 
     const expiresAt = parsed.data.expiresInDays ? addDays(parsed.data.expiresInDays).toISOString() : null;
@@ -926,7 +914,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.code(201).send({ granted: included.length, skipped });
+    return reply.code(201).send({ granted: included.length, skipped });
   });
 
   // Recipients of a gallery selection — the People list for the set dialog. Only
@@ -936,14 +924,12 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.post("/api/shares/set/recipients", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(setRecipientsSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid request", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error });
     }
     const user = request.user!;
     const { included } = shareableGalleryItems(user, parsed.data.itemIds);
     if (included.length === 0) {
-      reply.send({ recipients: [] });
-      return;
+      return reply.send({ recipients: [] });
     }
     const rows = db.prepare(`
       SELECT shares.user_id, users.display_name, users.email,
@@ -965,7 +951,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       min_expires: string | null;
       never_expiring: number;
     }[];
-    reply.send({
+    return reply.send({
       recipients: rows.map((row) => ({
         userId: row.user_id,
         displayName: row.display_name,
@@ -982,8 +968,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.post("/api/shares/set/user/revoke", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(setSelectionSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid request", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid request", details: parsed.error });
     }
     const user = request.user!;
     const ids = [...new Set(parsed.data.itemIds)];
@@ -1004,7 +989,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       detail: `Revoked a user's access to ${result.changes} shared gallery item${result.changes === 1 ? "" : "s"}.`,
       ipAddress: request.ip
     });
-    reply.send({ revoked: result.changes });
+    return reply.send({ revoked: result.changes });
   });
 
   app.get("/api/shares", { preHandler: app.authenticate }, async (request) => {
@@ -1136,8 +1121,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     `).run(...params);
 
     if (result.changes === 0) {
-      reply.code(404).send({ error: "Share link not found" });
-      return;
+      return reply.code(404).send({ error: "Share link not found" });
     }
 
     logActivity({
@@ -1148,7 +1132,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       detail: "Revoked a guest share link.",
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   // --- Owner: user-to-user shares -----------------------------------------
@@ -1169,25 +1153,22 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   app.post("/api/shares/user", { preHandler: app.authenticate }, async (request, reply) => {
     const parsed = parseBody(createUserShareSchema, request.body);
     if (parsed.error) {
-      reply.code(400).send({ error: "Invalid share details", details: parsed.error });
-      return;
+      return reply.code(400).send({ error: "Invalid share details", details: parsed.error });
     }
 
     const user = request.user!;
     if (parsed.data.userId === user.id) {
-      reply.code(400).send({ error: "You already have access to this book" });
-      return;
+      return reply.code(400).send({ error: "You already have access to this book" });
     }
     const result = getShareableBook(parsed.data.bookId, user.id, user.role);
-    if (denyIfNotShareable(result, reply)) return;
+    if (denyIfNotShareable(result, reply)) return reply;
     const module = mediaKind((result as { library: LibraryAccessRow }).library.type);
 
     const target = db.prepare(
       "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1"
     ).get(parsed.data.userId) as { id: string } | undefined;
     if (!target) {
-      reply.code(404).send({ error: "User not found" });
-      return;
+      return reply.code(404).send({ error: "User not found" });
     }
 
     const shareId = nanoid(16);
@@ -1210,18 +1191,17 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    reply.code(201).send({ ok: true });
+    return reply.code(201).send({ ok: true });
   });
 
   app.get("/api/shares/user", { preHandler: app.authenticate }, async (request, reply) => {
     const query = request.query as { bookId?: string };
     if (!query.bookId) {
-      reply.code(400).send({ error: "bookId is required" });
-      return;
+      return reply.code(400).send({ error: "bookId is required" });
     }
     const user = request.user!;
     const result = getShareableBook(query.bookId, user.id, user.role);
-    if (denyIfNotShareable(result, reply)) return;
+    if (denyIfNotShareable(result, reply)) return reply;
     const module = mediaKind((result as { library: LibraryAccessRow }).library.type);
 
     const rows = db.prepare(`
@@ -1263,8 +1243,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     `).run(...params);
 
     if (result.changes === 0) {
-      reply.code(404).send({ error: "Share not found" });
-      return;
+      return reply.code(404).send({ error: "Share not found" });
     }
 
     logActivity({
@@ -1275,7 +1254,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       detail: "Revoked a user share.",
       ipAddress: request.ip
     });
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   // Items shared *to* the calling user, across every book type. `type` lets the
@@ -1415,7 +1394,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         detail: `Opened a shared ${kindWord}${resourceName ? ` "${resourceName}"` : ""} (${setItems.length} item${setItems.length === 1 ? "" : "s"}).`,
         ipAddress: request.ip
       });
-      reply.send({
+      return reply.send({
         type: "gallery_set",
         share: { label: meta.label, expiresAt: meta.expires_at, sharedBy: meta.shared_by },
         items: setItems.map((row) => ({
@@ -1434,7 +1413,6 @@ export async function librarySharesPlugin(app: FastifyInstance) {
           downloadUrl: `/api/share/${rawToken}/items/${row.id}/download`
         }))
       });
-      return;
     }
 
     const resolved = resolveOr404(request, reply);
@@ -1464,10 +1442,9 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     if (module === "gallery") {
       const gal = loadShareGalleryAsset(link.resource_id);
       if (!gal) {
-        reply.code(404).send({ error: "Share not found or expired" });
-        return;
+        return reply.code(404).send({ error: "Share not found or expired" });
       }
-      reply.send({
+      return reply.send({
         type: "gallery",
         share,
         asset: {
@@ -1480,21 +1457,18 @@ export async function librarySharesPlugin(app: FastifyInstance) {
           durationSeconds: gal.duration_seconds
         }
       });
-      return;
     }
 
     if (module === "ebook") {
       const doc = loadShareDocument(link.resource_id);
       if (!doc) {
-        reply.code(404).send({ error: "Share not found or expired" });
-        return;
+        return reply.code(404).send({ error: "Share not found or expired" });
       }
-      reply.send({
+      return reply.send({
         type: "ebook",
         share,
         book: { title, authors, description: item.description, coverUrl, format: doc.format }
       });
-      return;
     }
 
     // Audiobook: chapter/track list + narrators + total duration for the player.
@@ -1519,7 +1493,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       duration_seconds: number | null;
     }[];
 
-    reply.send({
+    return reply.send({
       type: "audiobook",
       share,
       book: {
@@ -1544,19 +1518,18 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     if (!resolved) return;
     const { item } = resolved;
     if (!item.cover_storage_key) {
-      reply.code(404).send({ error: "Cover not found" });
-      return;
+      return reply.code(404).send({ error: "Cover not found" });
     }
     try {
       const absolutePath = thumbnailAbsolutePath(item.cover_storage_key);
       const cover = await fsp.readFile(absolutePath);
-      reply
+      return reply
         .type(coverMimeByExt[path.extname(item.cover_storage_key).toLowerCase()] ?? "application/octet-stream")
         .header("Content-Length", cover.byteLength)
         .header("Cache-Control", "public, max-age=3600")
         .send(cover);
     } catch {
-      reply.code(404).send({ error: "Cover not found" });
+      return reply.code(404).send({ error: "Cover not found" });
     }
   });
 
@@ -1583,10 +1556,9 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     const resolved = resolveSetItem(request, reply);
     if (!resolved) return;
     if (!resolved.item.cover_storage_key) {
-      reply.code(404).send({ error: "Cover not found" });
-      return;
+      return reply.code(404).send({ error: "Cover not found" });
     }
-    await sendThumbnail(reply, resolved.item.cover_storage_key);
+    return sendThumbnail(reply, resolved.item.cover_storage_key);
   });
 
   // Larger render for the viewer overlay; falls back to the grid thumbnail.
@@ -1595,10 +1567,9 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     if (!resolved) return;
     const key = resolved.item.preview_storage_key ?? resolved.item.cover_storage_key;
     if (!key) {
-      reply.code(404).send({ error: "Preview not found" });
-      return;
+      return reply.code(404).send({ error: "Preview not found" });
     }
-    await sendThumbnail(reply, key);
+    return sendThumbnail(reply, key);
   });
 
   app.get("/api/share/:token/items/:itemId/file", SHARE_MEDIA_LIMIT, (request, reply) => {
