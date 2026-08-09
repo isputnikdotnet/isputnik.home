@@ -14,6 +14,7 @@
     "typecheck": "npm run typecheck --workspace apps/server && npm run typecheck --workspace apps/web",
     "check:ui": "node scripts/check-ui-conventions.mjs",
     "fetch:face-model": "node scripts/fetch-face-model.mjs",
+    "optimize:images": "node scripts/optimize-static-images.mjs",
     "test": "npm run test --workspace apps/server",
     "docs:shots": "node scripts/doc-screenshots.mjs"
   },
