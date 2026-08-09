@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
 import type {
-  GalleryAsset, GallerySlideshow, GallerySlideshowDetail, SlideshowTransition
+  GalleryAsset, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition
 } from "./types";
 import type { GalleryStatus } from "./useGalleryAlbums";
+
+interface SlideshowDeps extends GalleryStatus {
+  /** The default-movie-library setting is an admin-only read/write. */
+  isAdmin: boolean;
+}
 
 /**
  * Everything the Slideshows view is: its list, the open slideshow, the render
@@ -14,7 +19,7 @@ import type { GalleryStatus } from "./useGalleryAlbums";
  * deliberately each other's reflection, and a reader who has understood one
  * should not have to re-learn the other.
  */
-export function useGallerySlideshows({ setLoading, setError, setNotice }: GalleryStatus) {
+export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin }: SlideshowDeps) {
   const [slideshows, setSlideshows] = useState<GallerySlideshow[]>([]);
   const [selectedSlideshow, setSelectedSlideshow] = useState<GallerySlideshowDetail | null>(null);
   const [slideshowAssets, setSlideshowAssets] = useState<GalleryAsset[]>([]);
@@ -30,6 +35,26 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
   // Confirm + delete the open slideshow's rendered movie.
   const [movieDeleteOpen, setMovieDeleteOpen] = useState(false);
   const [movieDeleteBusy, setMovieDeleteBusy] = useState(false);
+  // Global "default movie library" (admin): where rendered movies are auto-saved.
+  const [slideshowSettings, setSlideshowSettings] = useState<GallerySlideshowSettings | null>(null);
+
+  const loadSlideshowSettings = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      setSlideshowSettings(await api<GallerySlideshowSettings>("/api/library/gallery/slideshows/settings"));
+    } catch { /* non-admins / errors just hide the control */ }
+  }, [isAdmin]);
+
+  // Set (or clear, with "") the default movie library. Optimistic; reloads on any error.
+  const setRenderLibrary = useCallback(async (libraryId: string) => {
+    const next = libraryId || null;
+    setSlideshowSettings((prev) => (prev ? { ...prev, renderLibraryId: next } : prev));
+    try {
+      await api("/api/library/gallery/slideshows/settings", { method: "PATCH", body: JSON.stringify({ renderLibraryId: next }) });
+    } catch {
+      void loadSlideshowSettings();
+    }
+  }, [loadSlideshowSettings]);
 
   // Slideshows list + one slideshow's items (paged like albums, but in
   // presentation order). A larger page keeps a whole slideshow in one request.
@@ -201,6 +226,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice }: Galler
     browseOpen, setBrowseOpen,
     movieDeleteOpen, setMovieDeleteOpen,
     movieDeleteBusy, setMovieDeleteBusy,
+    slideshowSettings, loadSlideshowSettings, setRenderLibrary,
     loadSlideshows, openSlideshow, patchSlideshow,
     renderSlideshowMovie, deleteSlideshowMovie, reorderSlideshow,
     removeFromSlideshow, createSlideshowSubmit, confirmDeleteSlideshow
