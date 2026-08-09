@@ -1,0 +1,832 @@
+/* The create-library wizard: step rail, per-step panels and its footer. */
+
+/* ── Create-library wizard ──────────────────────────────────────── */
+
+.wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.wizard-steps::-webkit-scrollbar {
+  display: none;
+}
+
+.wizard-step {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 730;
+  white-space: nowrap;
+}
+
+.wizard-step:not(:last-child)::after {
+  content: "";
+  display: block;
+  width: clamp(30px, 4vw, 54px);
+  height: 1px;
+  margin-left: 8px;
+  background: var(--line);
+}
+
+.wizard-step.active {
+  color: var(--ink);
+}
+
+.wizard-step.done {
+  color: var(--ink);
+}
+
+.wizard-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--muted);
+  background: var(--hover);
+  border: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.wizard-step.active .wizard-step-dot {
+  color: #ffffff;
+  background: var(--control-primary-button, var(--mint));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--control-primary-button, var(--mint)) 24%, transparent);
+}
+
+.wizard-step.done .wizard-step-dot {
+  color: #ffffff;
+  background: var(--control-primary-button, var(--mint));
+}
+
+/* Completed steps become a button so users can jump straight back. */
+.wizard-step-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wizard-step-jump:hover .wizard-step-label,
+.wizard-step-jump:focus-visible .wizard-step-label {
+  text-decoration: underline;
+}
+
+.create-library-modal.library-type-wizard .wizard-steps {
+  gap: 12px;
+}
+
+.create-library-modal.library-type-wizard .wizard-step {
+  gap: 10px;
+  font-size: 0.96rem;
+}
+
+.create-library-modal.library-type-wizard .wizard-step:not(:last-child)::after {
+  width: clamp(34px, 5vw, 62px);
+  margin-left: 10px;
+}
+
+.create-library-modal.library-type-wizard .wizard-step-dot {
+  width: 36px;
+  height: 36px;
+  font-size: 0.98rem;
+}
+
+.library-type-step {
+  display: grid;
+  gap: 18px;
+}
+
+.library-type-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.library-type-copy h3 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2vw, 1.62rem);
+  line-height: 1.15;
+}
+
+.library-type-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.library-type-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.library-type-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  min-height: 92px;
+  width: 100%;
+  padding: 16px 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface-raised);
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+
+.library-type-option:hover {
+  border-color: color-mix(in srgb, var(--control-primary-button, var(--mint)) 42%, var(--line));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 4%, var(--surface-raised));
+}
+
+.library-type-option.selected {
+  border-color: var(--control-primary-button, var(--mint));
+  box-shadow: 0 0 0 1px var(--control-primary-button, var(--mint));
+}
+
+.library-type-choice-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 12%, transparent);
+}
+
+.library-type-option-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.library-type-option-copy strong {
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.library-type-option-copy small {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.library-type-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: max-content;
+}
+
+.library-type-selected {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--control-primary-button, var(--mint));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--control-primary-button, var(--mint)) 24%, transparent);
+}
+
+.library-details-step {
+  display: grid;
+  gap: 22px;
+}
+
+.library-details-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.library-details-copy h3 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2vw, 1.65rem);
+  line-height: 1.15;
+}
+
+.library-details-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.library-details-step > .field {
+  gap: 10px;
+}
+
+.library-details-step > .field > span:first-child {
+  color: var(--ink);
+  font-weight: 760;
+}
+
+.library-details-step > .field input,
+.library-details-step > .field select {
+  min-height: 54px;
+  font-size: 0.98rem;
+}
+
+.source-folder-control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 5px 8px 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: var(--field);
+}
+
+.source-folder-control > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-folder-control svg {
+  color: var(--muted);
+}
+
+.source-folder-control .secondary-button.compact-button {
+  min-height: 42px;
+  padding: 0 16px;
+}
+
+.library-visibility-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.library-visibility-card.text-button {
+  display: grid;
+  grid-template-columns: 22px 28px minmax(0, 1fr);
+  justify-content: stretch;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface-raised);
+  text-align: left;
+  text-decoration: none;
+}
+
+.library-visibility-card.text-button:hover,
+.library-visibility-card.text-button:focus-visible {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--control-primary-button, var(--mint)) 42%, var(--line));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 4%, var(--surface-raised));
+  outline: 0;
+}
+
+.library-visibility-card.selected {
+  border-color: var(--control-primary-button, var(--mint));
+  box-shadow: 0 0 0 1px var(--control-primary-button, var(--mint));
+}
+
+.library-visibility-radio {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-raised);
+}
+
+.library-visibility-card.selected .library-visibility-radio {
+  border: 7px solid var(--control-primary-button, var(--mint));
+}
+
+.library-visibility-card svg {
+  color: var(--muted);
+}
+
+.library-visibility-card.selected svg {
+  color: var(--control-primary-button, var(--mint));
+}
+
+.library-visibility-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.library-visibility-copy strong {
+  font-size: 0.98rem;
+  line-height: 1.15;
+}
+
+.library-visibility-copy small {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.25;
+}
+
+.library-advanced-options.text-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface-raised);
+  text-align: left;
+  text-decoration: none;
+}
+
+.library-advanced-options.text-button:hover,
+.library-advanced-options.text-button:focus-visible {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--control-primary-button, var(--mint)) 36%, var(--line));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 4%, var(--surface-raised));
+  outline: 0;
+}
+
+.library-advanced-options > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.library-advanced-options svg {
+  color: var(--muted);
+}
+
+.library-advanced-options[aria-expanded="true"] {
+  border-color: var(--control-primary-button, var(--mint));
+  box-shadow: 0 0 0 1px var(--control-primary-button, var(--mint));
+}
+
+.library-advanced-options[aria-expanded="true"] > svg:last-child {
+  transform: rotate(180deg);
+}
+
+.library-review-step {
+  display: grid;
+  gap: 22px;
+}
+
+.library-review-card {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.library-review-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.library-review-card-head > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.library-review-card-head > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.86rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.library-review-card dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 10px 18px;
+  margin: 0;
+  padding: 16px;
+}
+
+.library-review-card dl > div {
+  display: contents;
+}
+
+.library-review-card dt {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.library-review-card dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.library-advanced-inline {
+  position: absolute;
+  z-index: 6;
+  left: 0;
+  right: 0;
+  top: clamp(126px, 22vh, 172px);
+  bottom: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border: 1px solid var(--line);
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 14px 14px 8px 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 -18px 42px color-mix(in srgb, var(--shadow) 80%, transparent);
+  overflow: hidden;
+  animation: library-advanced-expand 0.18s ease-out;
+}
+
+@keyframes library-advanced-expand {
+  from {
+    opacity: 0.96;
+    transform: translateY(42px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.library-advanced-inline .modal-tabs {
+  padding: 10px 18px 0;
+}
+
+.library-advanced-content {
+  min-height: 0;
+  max-height: none;
+  padding: 18px;
+}
+
+.library-advanced-tab {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.library-advanced-footer {
+  display: grid;
+  gap: 12px;
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+
+.library-advanced-footer .modal-actions {
+  margin: 0;
+}
+
+.folder-picker-modal {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 680px);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.folder-picker-modal > p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.folder-picker-browser {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.folder-picker-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.folder-picker-head > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.folder-picker-head span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
+.folder-picker-list {
+  display: grid;
+  gap: 4px;
+  max-height: min(42vh, 300px);
+  overflow: auto;
+}
+
+.folder-picker-row.text-button {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  justify-content: stretch;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--ink);
+  background: transparent;
+  font-weight: 650;
+  text-align: left;
+  text-decoration: none;
+}
+
+.folder-picker-row.text-button:hover,
+.folder-picker-row.text-button:focus-visible {
+  color: var(--ink);
+  background: var(--hover);
+  outline: 0;
+}
+
+.folder-picker-row svg {
+  color: var(--control-primary-button, var(--mint));
+}
+
+.folder-picker-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-access-list {
+  display: grid;
+  gap: 10px;
+}
+
+.library-access-row {
+  display: grid;
+  grid-template-columns: 70px minmax(220px, 1fr) minmax(280px, 0.9fr);
+  align-items: center;
+  gap: 24px;
+  min-height: 118px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.library-access-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 11%, transparent);
+}
+
+.library-access-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.library-access-copy strong {
+  font-size: 1.06rem;
+  line-height: 1.15;
+}
+
+.library-access-copy small {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.library-access-control {
+  min-width: 0;
+}
+
+.library-access-control select {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  border-radius: 8px;
+}
+
+@media (max-width: 820px) {
+  .create-library-modal.library-create-wizard {
+    padding: 22px;
+  }
+
+  .create-library-modal.library-type-wizard {
+    padding: 22px 22px 0;
+  }
+
+  .create-library-modal.library-details-wizard.library-advanced-open {
+    min-height: calc(100vh - 40px);
+  }
+
+  .library-advanced-inline {
+    top: 104px;
+  }
+
+  .create-library-modal.library-type-wizard .modal-title-row {
+    padding-bottom: 18px;
+  }
+
+  .create-library-modal.library-type-wizard .modal-title-icon {
+    width: 58px;
+    height: 58px;
+  }
+
+  .create-library-modal.library-type-wizard .modal-title-row h2 {
+    font-size: 1.55rem;
+  }
+
+  .create-library-modal.library-type-wizard .modal-title-action .secondary-button {
+    min-height: 52px;
+    padding: 0 18px;
+  }
+
+  .create-library-modal.library-type-wizard .wizard-step {
+    font-size: 0.98rem;
+  }
+
+  .create-library-modal.library-type-wizard .wizard-step-dot {
+    width: 34px;
+    height: 34px;
+  }
+
+  .library-type-grid,
+  .library-visibility-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .library-type-option {
+    min-height: 132px;
+    padding: 20px;
+  }
+
+  .create-library-modal.library-create-wizard .modal-actions {
+    bottom: -22px;
+    margin: 0 -22px -22px;
+    padding: 18px 22px 10px;
+  }
+
+  .create-library-modal.library-type-wizard .modal-actions {
+    bottom: 0;
+    margin: auto -22px 0;
+    padding: 18px 22px 16px;
+  }
+
+  .create-library-modal.library-type-wizard .modal-actions .primary-button {
+    min-height: 58px;
+  }
+
+  .library-access-row {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 16px;
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .library-access-icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .library-access-control {
+    grid-column: 1 / -1;
+  }
+
+  .library-review-card dl {
+    grid-template-columns: 1fr;
+    gap: 4px 0;
+  }
+
+  .library-review-card dl > div {
+    display: grid;
+    gap: 3px;
+  }
+}
+
+@media (max-width: 560px) {
+  .modal-title-row {
+    align-items: flex-start;
+  }
+
+  .create-library-modal.library-type-wizard .modal-title-row {
+    flex-wrap: wrap;
+  }
+
+  .create-library-modal.library-type-wizard .modal-title-action {
+    margin-left: auto;
+  }
+
+  .library-type-option {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 14px;
+    min-height: 124px;
+  }
+
+  .library-type-choice-icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .library-type-choice-icon svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .library-type-status {
+    grid-column: 2;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .library-type-selected {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.create-group-modal,
+.create-tag-modal {
+  display: grid;
+  gap: 16px;
+}
+
+/* Edit library — tabbed panel (variant="panel" surface), like the metadata editor.
+   Fixed height so the modal stays one size across tabs; the tab body scrolls when a
+   tab's content is taller. Scoped with .metadata-modal to outrank the surface defaults. */
+.metadata-modal.edit-library-panel {
+  width: min(calc(100vw - 32px), 720px);
+  height: min(780px, calc(100vh - 40px));
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.edit-library-content {
+  align-content: start;
+}
+
+.edit-library-footer {
+  display: grid;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+}
+
+.edit-library-footer .modal-actions {
+  margin: 0;
+}
+
+.library-members-modal {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 760px);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+

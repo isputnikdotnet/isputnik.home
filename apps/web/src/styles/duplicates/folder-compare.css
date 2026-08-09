@@ -1,0 +1,126 @@
+/* FolderCompare — two folders side by side. */
+
+/* ── Two folders, side by side ──────────────────────────────────────
+   One scrolling surface holding both columns rather than two panes: row N on the left
+   has to stay opposite row N on the right, and two independently scrolling lists can't
+   promise that. The grid does it by construction. */
+/* Header, the files, the pager. .metadata-modal's default is `auto auto minmax(0,1fr)`,
+   which put the file list in an AUTO row and left the flexible one empty underneath —
+   327px of dead space in a 680px panel, and a body that grew with its content instead
+   of scrolling inside it, so a long pair was clipped by the surface's overflow:hidden
+   rather than scrolled. The list takes the flexible row now and the pager sits in a
+   fixed one below it, which collapses to nothing when there is only one page. */
+.metadata-modal.dup-compare-modal {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.dup-compare-modal .dup-compare-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.dup-compare-pager {
+  margin-top: 0;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
+}
+
+.dup-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  align-items: start;
+}
+
+/* The folder headings stay put while the photos scroll under them — on a folder of a
+   thousand files, "which column am I looking at" is the question that gets lost. */
+.dup-compare-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  font-size: 0.84rem;
+}
+.dup-compare-head.is-keep { border-color: color-mix(in srgb, var(--mint) 45%, var(--line)); }
+.dup-compare-head.is-going { border-color: color-mix(in srgb, var(--rose) 45%, var(--line)); }
+
+.dup-compare-badge {
+  justify-self: start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dup-compare-head.is-keep .dup-compare-badge {
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 16%, transparent);
+}
+.dup-compare-head.is-going .dup-compare-badge {
+  color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 16%, transparent);
+}
+.dup-compare-head-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dup-compare-head-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A row spans both columns so the two cells share a baseline whatever their contents. */
+.dup-compare-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.dup-compare-cell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 70%, transparent);
+  border: 1px solid var(--line);
+}
+.dup-compare-cell.is-keep { border-left: 3px solid var(--mint); }
+.dup-compare-cell.is-going { border-left: 3px solid var(--rose); }
+.dup-compare-cell.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  border-left-width: 1px;
+  font-size: 0.82rem;
+  min-height: 64px;
+}
+
+.dup-compare-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--field);
+}
+.dup-compare-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dup-compare-missing { color: var(--muted); }
+
+.dup-compare-facts { display: grid; gap: 2px; min-width: 0; font-size: 0.84rem; }
+.dup-compare-facts strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 720px) {
+  /* Below this the two columns are too narrow to compare anything, so the pair
+     stacks — still adjacent, just vertically. */
+  .dup-compare-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .dup-compare-grid { grid-template-columns: minmax(0, 1fr); }
+  .dup-compare-head { position: static; }
+}
+

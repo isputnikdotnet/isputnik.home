@@ -1,0 +1,312 @@
+/* CertaintyBadge — how sure a result is. */
+
+/* ── How sure a result is ────────────────────────────────────────────
+   Two chips, because they answer different questions. The match chip is always there;
+   the keeper chip appears only when the choice needs a caveat, since a badge on every
+   card teaches people to ignore badges. */
+.dup-certainty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 4px;
+}
+
+.dup-certainty-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: default;
+}
+
+/* Quiet on purpose. "Identical" is the common case and the one needing no thought, so
+   it reads as a receipt rather than a warning. */
+.dup-certainty-chip.is-certain {
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 12%, transparent);
+}
+.dup-certainty-chip.is-likely {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 13%, transparent);
+}
+/* The one that has to stop someone: these may not be the same picture at all. */
+.dup-certainty-chip.is-unsure {
+  color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 13%, transparent);
+  border-color: color-mix(in srgb, var(--rose) 35%, transparent);
+}
+.dup-certainty-chip.is-keeper {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--line) 45%, transparent);
+  font-weight: 600;
+}
+
+/* A near-identical set says so on the card, not only under its heading. Amber rather
+   than red: nothing is wrong, but the copies are not interchangeable and the sentence
+   has to carry more weight than the muted lines around it. */
+.dup-set-near {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--amber);
+}
+
+.dup-set-near svg { flex: 0 0 auto; transform: translateY(1px); }
+
+/* The fingerprint pass, while it runs. Sits between the job's header and its metrics,
+   because it is about the job as a whole rather than about any one number in it. */
+.dup-job-scan {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.dup-job-scan p { margin: 0; font-size: 0.84rem; }
+
+.dup-job-scan-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 55%, transparent);
+  overflow: hidden;
+}
+
+.dup-job-scan-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mint);
+  /* The pass reports in whole percent, so the bar would otherwise step. Nothing here
+     loops or pulses: a bar that animates while the number is unchanged looks like
+     progress that isn't happening. */
+  transition: width 400ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dup-job-scan-fill { transition: none; }
+}
+
+.dup-job-metric {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 72%, transparent);
+}
+
+.dup-job-metric-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  color: var(--accent, #6336f5);
+  background: color-mix(in srgb, #eee7ff 72%, transparent);
+}
+
+.dup-job-metric-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: var(--ink);
+}
+
+.dup-job-metric-copy strong {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.96rem;
+  line-height: 1.1;
+}
+
+.dup-job-metric-copy small {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.dup-job-metric.is-strong .dup-job-metric-copy strong {
+  font-size: 1.12rem;
+}
+
+/* A warning inside the card spans it rather than squeezing beside the buttons. */
+.dup-job-card > .message-box { min-width: 0; }
+
+@media (max-width: 1320px) {
+  .dup-job-title-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dup-job-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 860px) {
+  .dup-cleanup-top {
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .dup-cleanup-hero {
+    min-height: 0;
+    padding-bottom: 20px;
+  }
+
+  .dup-cleanup-hero-main {
+    gap: 20px;
+    margin-top: 26px;
+  }
+
+  .dup-cleanup-hero-icon {
+    flex-basis: 92px;
+    width: 92px;
+    height: 92px;
+  }
+
+  .dup-cleanup-hero-copy h1 {
+    font-size: 2.45rem;
+  }
+
+  .dup-cleanup-hero-copy > p {
+    font-size: 1rem;
+  }
+
+  .dup-job-title-row,
+  .dup-job-card-empty {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dup-job-actions {
+    grid-column: auto;
+    padding-left: 0;
+  }
+
+  .dup-job-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .dup-cleanup-hero-main {
+    display: grid;
+  }
+
+  .dup-cleanup-hero-copy h1 {
+    font-size: 2.1rem;
+  }
+
+  .dup-cleanup-experiment-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dup-job-card {
+    padding: 20px;
+  }
+
+  .dup-job-actions .secondary-button.compact,
+  .dup-job-actions .primary-button.compact {
+    min-height: 44px;
+    padding-inline: 18px;
+    font-size: 0.86rem;
+  }
+
+  .dup-job-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The copies of a photo set, as tiles.
+   This was a list of paths, on the reasoning that a set of eight copies as eight
+   tiles is a wall. The pictures are back because the paths answer the wrong
+   question: they say which copy is which, and only the picture says whether the
+   copies are the same photograph — which is the whole of the near-identical tier.
+   The wall is answered by SIZE instead, small tiles rather than no tiles.
+
+   Fixed-width columns, not `1fr`: with a fraction a pair of copies would stretch
+   one thumbnail across half the card. Same reasoning as .trash-grid. */
+.dup-copies {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 152px);
+  gap: 10px;
+  align-items: start;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* The picture is the control that moves a copy between keep and delete, so the frame
+   is written to be identical whether it renders as a button or as a plain span — a
+   tile must not change shape when a cleanup is handed to somebody else. The reset is
+   explicit because .text-button brings its own padding, border and colour. */
+.dup-copy-thumb {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+  color: var(--muted);
+}
+.dup-copy-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+button.dup-copy-thumb { cursor: pointer; }
+/* Feedback on the PICTURE, not on the frame behind it: the image covers the frame
+   completely, so a background change would never be seen. */
+button.dup-copy-thumb:hover:not(:disabled) img { opacity: 0.72; }
+button.dup-copy-thumb:disabled { cursor: default; }
+button.dup-copy-thumb:focus-visible {
+  outline: 2px solid var(--accent, #c8a24a);
+  outline-offset: -2px;
+}
+.dup-copy-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 9px 9px;
+}
+/* Wraps, but only twice: copies usually share a filename and are told apart by the
+   folder below, so a 90-character name earns two lines and no more — past that it
+   only pushes its tile out of step with the rest of the row. Full name on hover. */
+.dup-copy-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+/* Each locates the copy on one line: the folder is what tells apart copies whose
+   filenames are identical, which is most of them. Truncated rather than wrapped so
+   tiles in a row stay in step; the full value is on the tooltip. */
+.dup-copy-where {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.dup-copy-where svg { flex: 0 0 auto; opacity: 0.8; }
+.dup-copy-where > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

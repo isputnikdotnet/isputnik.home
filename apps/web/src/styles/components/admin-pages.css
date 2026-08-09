@@ -1,0 +1,557 @@
+/* The unified Libraries page, the profile page header, and the shared chrome
+   of the admin management pages. */
+
+/* ── Unified Libraries page ─────────────────────────────────────── */
+
+.library-section-head {
+  align-items: flex-start;
+}
+
+.section-description {
+  margin: 0;
+  color: var(--muted);
+}
+
+.library-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.library-type-filter {
+  width: min(100%, 230px);
+}
+
+.library-search {
+  width: min(100%, 340px);
+}
+
+.library-table-wrap {
+  overflow-x: hidden;
+}
+
+.library-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.library-table th,
+.library-table td {
+  overflow: hidden;
+  padding: 8px 10px;
+  text-overflow: ellipsis;
+}
+
+.library-table th:nth-child(1) { width: 32%; }
+.library-table th:nth-child(2) { width: 15%; }
+.library-table th:nth-child(3) { width: 11%; }
+.library-table th:nth-child(4) { width: 9%; }
+.library-table th:nth-child(5) { width: 11%; }
+.library-table th:nth-child(6) { width: 22%; }
+
+.library-table .row-actions {
+  gap: 6px;
+}
+
+.library-table .col-actions {
+  overflow: visible;
+}
+
+.library-table .icon-button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 8px;
+}
+
+/* Empty placeholder filling the leading action slot for library types without a
+   scan-rules / face action, so the shared icons stay column-aligned across rows. */
+.library-table .library-action-spacer {
+  display: inline-block;
+  width: 34px;
+  height: 34px;
+}
+
+.library-table .secondary-button.compact-button {
+  min-height: 34px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+/* ── Profile page header ────────────────────────────────────────── */
+
+.user-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.user-page-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  color: var(--control-primary-button, var(--blue));
+  background: color-mix(in srgb, var(--control-primary-button, var(--blue)) 10%, transparent);
+}
+
+.user-heading-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.user-controls-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.user-search {
+  width: min(100%, 340px);
+}
+
+.user-form-modal {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 520px);
+}
+
+.user-table-wrap {
+  overflow-x: hidden;
+}
+
+.user-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.user-table th,
+.user-table td {
+  overflow: hidden;
+  padding: 8px 10px;
+  text-overflow: ellipsis;
+}
+
+.user-table th:nth-child(1) { width: 39%; }
+.user-table th:nth-child(2) { width: 12%; }
+.user-table th:nth-child(3) { width: 13%; }
+.user-table th:nth-child(4) { width: 18%; }
+.user-table th:nth-child(5) { width: 18%; }
+
+.user-table .row-actions {
+  gap: 6px;
+}
+
+.user-table .col-actions {
+  overflow: visible;
+}
+
+.user-table .icon-button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 8px;
+}
+
+.user-account-cell {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.user-avatar-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.user-name-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* ── Unified admin management pages ─────────────────────────────── */
+
+.admin-section-head {
+  align-items: flex-start;
+}
+
+/* Header actions level with the page title rather than pinned to the top of the
+   block — with an icon, an eyebrow and a description above and below it, top
+   alignment leaves them floating beside the eyebrow. */
+.admin-section-head.control-head-compact {
+  align-items: center;
+}
+
+/* The head is `flex-wrap: wrap`, and a wrapping flex line BREAKS before it
+   shrinks: a one-line description is wider than the row, so the actions dropped
+   to their own line no matter how they were aligned. A small flex-basis lets the
+   title block share the row and wrap its own text instead. */
+.admin-section-head.control-head-compact .admin-title-wrap {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+/* Smaller than a page's primary action: these are upkeep controls sitting beside
+   a title, not the thing you came to the page to press. */
+.control-head-actions .primary-button,
+.control-head-actions .secondary-button,
+.control-head-actions .danger-button {
+  min-height: 34px;
+  padding: 0 12px;
+  gap: 6px;
+  font-size: 0.82rem;
+}
+
+.control-head-actions .refresh-button {
+  min-width: 104px;
+}
+
+.admin-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-page-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 10%, transparent);
+}
+
+/* Blue accent for the pages that used to carry the .user-page-icon styling. */
+.admin-page-icon.blue,
+.admin-page-icon.groups {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.admin-page-icon.sessions {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.admin-page-icon.invites {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+}
+
+.admin-page-icon.storage {
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 10%, transparent);
+}
+
+.admin-page-icon.logs {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.admin-page-icon.duplicates {
+  color: #7c3aed;
+  background: color-mix(in srgb, #7c3aed 14%, transparent);
+}
+
+.admin-heading-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-controls-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.admin-search {
+  width: min(100%, 340px);
+}
+
+.admin-table-wrap {
+  overflow-x: hidden;
+}
+
+.admin-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.admin-table th,
+.admin-table td {
+  overflow: hidden;
+  padding: 8px 10px;
+  text-overflow: ellipsis;
+}
+
+.admin-table .row-actions {
+  gap: 6px;
+}
+
+.admin-table .col-actions {
+  overflow: visible;
+}
+
+.admin-table .icon-button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 8px;
+}
+
+.admin-table .secondary-button.compact-button {
+  min-height: 34px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.admin-name-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.session-device-cell {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.group-table th:nth-child(1) { width: 45%; }
+.group-table th:nth-child(2) { width: 14%; }
+.group-table th:nth-child(3) { width: 14%; }
+.group-table th:nth-child(4) { width: 27%; }
+
+.session-table th:nth-child(1) { width: 27%; }
+.session-table th:nth-child(2) { width: 31%; }
+.session-table th:nth-child(3) { width: 15%; }
+.session-table th:nth-child(4) { width: 15%; }
+.session-table th:nth-child(5) { width: 12%; }
+
+.invite-table th:nth-child(1) { width: 37%; }
+.invite-table th:nth-child(2) { width: 12%; }
+.invite-table th:nth-child(3) { width: 18%; }
+.invite-table th:nth-child(4) { width: 21%; }
+.invite-table th:nth-child(5) { width: 12%; }
+
+.library-name-cell {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.library-type-icon,
+.library-folder-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--mint);
+  background: var(--active);
+}
+
+.library-type-icon.ebook,
+.library-folder-icon.ebook {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.library-name-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.library-name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.library-name-line strong {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-name-copy small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-info-button.icon-button.compact-button {
+  flex: 0 0 auto;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.library-info-button.icon-button:hover {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.library-access-cell {
+  display: inline-flex;
+  justify-content: flex-start;
+}
+
+.library-type-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-info-modal {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 720px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.library-info-modal h2 {
+  margin: 0;
+}
+
+.library-info-hero {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.library-info-hero > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.library-info-hero strong {
+  overflow: hidden;
+  font-size: 1.02rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-info-hero > div span {
+  color: var(--muted);
+}
+
+.library-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.library-info-section {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.library-info-section h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.library-info-list {
+  display: grid;
+  margin: 0;
+}
+
+.library-info-list > div {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.library-info-list dt {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.library-info-list dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.library-info-list code {
+  display: block;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.library-info-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.library-info-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: var(--mint);
+  background: var(--active);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+

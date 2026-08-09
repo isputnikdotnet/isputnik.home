@@ -1,0 +1,115 @@
+/* CleanupJobCard — a running or finished job, summarised. */
+
+/* ── The cleanup job's own summary card ─────────────────────────────
+   What is being worked on, who owns it, and how far it has got. */
+.dup-job-card {
+  display: grid;
+  gap: 24px;
+  margin: 0;
+  padding: 30px;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--shadow) 13%, transparent);
+}
+
+.dup-job-card-empty {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+/* Prose in a card, as opposed to a value in a table column.
+   .datagrid-muted looks like the right class — muted, small — but it carries
+   white-space: nowrap, which is correct in a datagrid cell and wrong in a sentence.
+   In the empty-state card the text then refused to wrap inside its 1fr column and
+   ran underneath the "Start a cleanup" button sitting in the auto one. */
+.dup-note {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Belt and braces for the same card: anything prose-shaped in here wraps, whatever
+   class it was given. */
+.dup-job-card-body p { white-space: normal; }
+
+.dup-job-title-row {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  min-width: 0;
+}
+
+.dup-job-card-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border: 1px solid color-mix(in srgb, var(--line) 64%, transparent);
+  border-radius: 8px;
+  color: var(--accent, #6336f5);
+  background: color-mix(in srgb, #eee7ff 80%, var(--surface-raised));
+}
+
+.dup-job-card-body {
+  min-width: 0;
+}
+
+.dup-job-card-body h2 {
+  margin: 3px 0 7px;
+  color: var(--ink);
+  font-size: 1.26rem;
+  line-height: 1.2;
+}
+
+.dup-job-card-body p {
+  margin: 0 0 4px;
+}
+
+.dup-job-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 14px;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.dup-job-actions .secondary-button.compact,
+.dup-job-actions .primary-button.compact {
+  min-height: 56px;
+  padding-inline: 28px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 780;
+}
+
+.dup-job-actions .primary-button.dup-job-scan-action {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--accent, #6336f5) 82%, transparent);
+  background: linear-gradient(135deg, #7c3aed, #5f2eea);
+  box-shadow: 0 12px 24px color-mix(in srgb, #6336f5 28%, transparent);
+}
+
+.dup-job-actions .primary-button.dup-job-scan-action:hover:not(:disabled),
+.dup-job-actions .primary-button.dup-job-scan-action:focus-visible {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--accent, #6336f5) 92%, transparent);
+  background: linear-gradient(135deg, #8652ff, #6336f5);
+}
+
+.dup-job-owner-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dup-job-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+}
+
