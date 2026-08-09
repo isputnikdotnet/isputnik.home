@@ -55,20 +55,11 @@
   color: currentColor;
 }
 
-.ft-person-mark-branch,
 .ft-person-mark-body {
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.ft-person-mark-branch {
-  stroke-width: 2.8;
-  opacity: 0.42;
-}
-
-.ft-person-mark-body {
   stroke-width: 4;
 }
 
@@ -76,12 +67,6 @@
   fill: color-mix(in srgb, currentColor 24%, var(--surface-raised, var(--surface)));
   stroke: currentColor;
   stroke-width: 3;
-}
-
-.ft-person-mark-node {
-  fill: color-mix(in srgb, currentColor 20%, var(--field));
-  stroke: currentColor;
-  stroke-width: 2.5;
 }
 
 /* ── People grid ── */

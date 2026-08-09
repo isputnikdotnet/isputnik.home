@@ -1,6 +1,19 @@
 import { useState } from "react";
 import type { FamilyPerson } from "./types";
 
+// One person: a head and a pair of shoulders, and nothing else.
+//
+// It used to draw a small family tree behind the figure — a bar with parent
+// nodes above, a stem with child nodes below — and at the sizes it is actually
+// used the two collided rather than combined. The head landed on the parents'
+// bar and merged with their nodes into a row of three circles; the children's
+// stem came up through the shoulders; the child nodes sat on the ends of the
+// arc. It read as two icons stacked, not one mark.
+//
+// Neither place it is used wanted the tree anyway. As an avatar fallback it
+// stands for one unnamed person. On the empty Family Tree page the surrounding
+// card already draws the branches and the four waiting relatives, and the only
+// thing on offer there is "Add person" — so the badge says person.
 export function FamilyPersonMark({ className = "" }: { className?: string }) {
   return (
     <svg
@@ -9,13 +22,8 @@ export function FamilyPersonMark({ className = "" }: { className?: string }) {
       role="presentation"
       focusable="false"
     >
-      <path className="ft-person-mark-branch" d="M32 11v9M20 20h24M20 20v7M44 20v7M32 44v8M22 52h20" />
-      <circle className="ft-person-mark-node" cx={20} cy={30} r={4.2} />
-      <circle className="ft-person-mark-node" cx={44} cy={30} r={4.2} />
-      <circle className="ft-person-mark-head" cx={32} cy={26} r={8.4} />
-      <path className="ft-person-mark-body" d="M17.5 49.5c1.7-8 7-12.2 14.5-12.2s12.8 4.2 14.5 12.2" />
-      <circle className="ft-person-mark-node" cx={22} cy={52} r={3.6} />
-      <circle className="ft-person-mark-node" cx={42} cy={52} r={3.6} />
+      <circle className="ft-person-mark-head" cx={32} cy={24} r={9} />
+      <path className="ft-person-mark-body" d="M16 50c2-9.5 8-14.5 16-14.5s14 5 16 14.5" />
     </svg>
   );
 }
