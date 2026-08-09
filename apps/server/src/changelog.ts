@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.0.7",
+    label: "One drawing on the empty family tree, not two",
+    changes: [
+      "The badge on the Family Tree page, before anyone has been added, is a single figure again. A small tree was being drawn behind it, and at that size the two ran into one another rather than combining: the head sat on the branch above and merged with the dots either side of it into a row of circles, and the line below came up through the shoulders. The page already draws the branches and the waiting relatives around the badge, so the badge is simply the person it is asking you to add."
+    ]
+  },
+  {
     version: "3.0.6",
     label: "Opens faster, and stops sending things you never see",
     changes: [
