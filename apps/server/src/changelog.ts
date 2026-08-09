@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.0.6",
+    label: "Opens faster, and stops sending things you never see",
+    changes: [
+      "Signing in used to download the whole application first — the control panel, the family tree, the gallery and the reader — before it could draw the password field. Each screen now arrives when you first open it and is kept from then on, so the opening page is about a third of what it was to fetch. Nothing looks different; there is simply much less of it before anything appears.",
+      "The pictures the app ships with are a fiftieth of the size. The category artwork was full-size photographs being drawn into a space the size of a postage stamp, and there were sixty-nine megabytes of that sort of thing altogether, now three and a half. Nine background scenes that no screen has referred to for some time are gone as well. The artwork on screen is unchanged — this is the same pictures, stored sensibly.",
+      "Everything the server sends as text is compressed on the way out: catalogue pages, settings, the status figures. On a phone away from the house, or a home network busy with a scan, that is typically twenty to thirty times fewer bytes for the same page.",
+      "The What's new list you are reading no longer arrives in full every time you open About. Two hundred releases had accumulated, and all of them were fetched to show you the handful at the top; now the newest ten come with the page and the rest follow when you ask for them.",
+      "Beneath all of that, a good deal of housekeeping with nothing to show for itself: the largest files in the project split up by subject, rules that no longer style anything removed, and the beginnings of a test suite for the interface to sit alongside the one the server already had. None of it changes what the app does, and all of it makes the next change safer to make."
+    ]
+  },
+  {
     version: "3.0.5",
     label: "A Recycle Bin you can search, and backups from the start",
     changes: [
