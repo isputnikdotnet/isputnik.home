@@ -162,6 +162,15 @@
   padding-left: 28px;
 }
 
+/* "Show earlier versions" — the tail of the changelog is paged in on demand, so
+   this sits at the bottom of the scroll frame, aligned with the entries above
+   it rather than with the frame's edge. */
+.version-updates-more {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 2px 28px;
+}
+
 .version-timeline::before {
   content: "";
   position: absolute;

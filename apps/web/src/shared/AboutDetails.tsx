@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Info, Heart, Scale } from "lucide-react";
+import { api } from "../api";
 import { Button } from "./Button";
+import { MessageBox } from "./MessageBox";
 import { AboutCredits } from "./AboutCredits";
 
 // The AGPL asks that everyone using the app over a network be told where to get
@@ -8,6 +10,12 @@ import { AboutCredits } from "./AboutCredits";
 // any signed-in user, not just admins in the control panel.
 const SOURCE_URL = "https://github.com/isputnikdotnet/isputnik.home";
 const LICENSE_URL = "https://www.gnu.org/licenses/agpl-3.0.html";
+
+export interface VersionUpdate {
+  version: string;
+  label: string;
+  changes: string[];
+}
 
 export interface AboutInfo {
   name: string;
@@ -17,12 +25,14 @@ export interface AboutInfo {
   database: string;
   server: string;
   frontend: string;
-  versionUpdates: {
-    version: string;
-    label: string;
-    changes: string[];
-  }[];
+  /** The newest releases only — see versionUpdatesTotal and /api/about/changelog. */
+  versionUpdates: VersionUpdate[];
+  versionUpdatesTotal: number;
 }
+
+/** Releases fetched per press of "Show earlier versions". Must not exceed the
+ *  server's per-request cap (core/status.ts). */
+const CHANGELOG_PAGE = 25;
 
 type AboutTab = "about" | "credits";
 
@@ -33,6 +43,29 @@ const ABOUT_TABS: { key: AboutTab; label: string; icon: typeof Info }[] = [
 
 export function AboutDetails({ about }: { about: AboutInfo }) {
   const [tab, setTab] = useState<AboutTab>("about");
+  // The release history runs to hundreds of entries, so /api/about sends only
+  // the newest few and the rest arrive a page at a time from here.
+  const [earlier, setEarlier] = useState<VersionUpdate[]>([]);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const [earlierError, setEarlierError] = useState("");
+  const updates = [...about.versionUpdates, ...earlier];
+  const remaining = about.versionUpdatesTotal - updates.length;
+
+  const loadEarlier = async () => {
+    setLoadingEarlier(true);
+    setEarlierError("");
+    try {
+      const payload = await api<{ versionUpdates: VersionUpdate[] }>(
+        `/api/about/changelog?offset=${updates.length}&limit=${CHANGELOG_PAGE}`
+      );
+      setEarlier((current) => [...current, ...payload.versionUpdates]);
+    } catch {
+      setEarlierError("Could not load earlier versions. Check your connection and try again.");
+    } finally {
+      setLoadingEarlier(false);
+    }
+  };
+
   const stack = [
     { label: "Runtime", value: about.runtime },
     { label: "Database", value: about.database },
@@ -100,7 +133,7 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
           <p className="version-updates-eyebrow">What's new</p>
           <div className="version-timeline-frame">
             <div className="version-timeline">
-              {about.versionUpdates.map((update, index) => (
+              {updates.map((update, index) => (
                 <article
                   className={`version-update${index === 0 ? " version-update-current" : ""}`}
                   key={update.version}
@@ -118,6 +151,16 @@ export function AboutDetails({ about }: { about: AboutInfo }) {
                 </article>
               ))}
             </div>
+            {/* Inside the scroll frame, so it meets the reader at the end of the
+                list rather than sitting below a box that still looks scrollable. */}
+            {earlierError && <MessageBox tone="error" title="Unable to load">{earlierError}</MessageBox>}
+            {remaining > 0 && (
+              <div className="version-updates-more">
+                <Button variant="secondary" onClick={loadEarlier} disabled={loadingEarlier}>
+                  {loadingEarlier ? "Loading earlier versions…" : `Show earlier versions (${remaining})`}
+                </Button>
+              </div>
+            )}
           </div>
         </section>
       </div>
