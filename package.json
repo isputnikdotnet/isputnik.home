@@ -15,8 +15,10 @@
     "check:ui": "node scripts/check-ui-conventions.mjs",
     "fetch:face-model": "node scripts/fetch-face-model.mjs",
     "optimize:images": "node scripts/optimize-static-images.mjs",
-    "test": "npm run test --workspace apps/server",
-    "docs:shots": "node scripts/doc-screenshots.mjs"
+    "test": "npm run test --workspace apps/server && npm run test --workspace apps/web",
+    "docs:shots": "node scripts/doc-screenshots.mjs",
+    "test:server": "npm run test --workspace apps/server",
+    "test:web": "npm run test --workspace apps/web"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
