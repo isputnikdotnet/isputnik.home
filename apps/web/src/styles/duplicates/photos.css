@@ -11,14 +11,6 @@
   margin-bottom: 14px;
 }
 
-.dup-photo-head-actions .select-menu-trigger.secondary-button,
-.dup-photo-head-actions .secondary-button.compact-button {
-  min-height: 46px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--shadow) 18%, transparent);
-}
-
 .dup-toolbar > .secondary-button.compact,
 .dup-toolbar > .danger-button.compact,
 .dup-toolbar .select-menu-trigger.secondary-button {
@@ -103,98 +95,7 @@
   color: inherit;
 }
 
-.dup-delete-icon.icon-button.danger:not(:disabled) {
-  color: var(--rose);
-  border-color: color-mix(in srgb, var(--rose) 58%, var(--line));
-  background: color-mix(in srgb, var(--rose) 7%, var(--icon-control-bg));
-}
-
-.dup-delete-icon.icon-button.danger:hover:not(:disabled),
-.dup-delete-icon.icon-button.danger:focus-visible {
-  color: var(--rose);
-  border-color: color-mix(in srgb, var(--rose) 74%, var(--line));
-  background: color-mix(in srgb, var(--rose) 13%, var(--icon-control-bg));
-}
-
-.dup-toolbar-controls .dup-per-page .select-menu-trigger {
-  min-height: 40px;
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-
-.dup-photo-toolbar > .secondary-button.compact-button {
-  min-height: 46px;
-  padding-inline: 16px;
-}
-
-.dup-photo-toolbar .dup-toolbar-controls {
-  gap: 18px;
-  margin-left: 0;
-}
-
-.dup-photo-toolbar .select-menu-trigger.secondary-button {
-  min-height: 46px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  padding-inline: 16px 12px;
-}
-
-.dup-photo-toolbar .select-menu-trigger > span {
-  overflow: hidden;
-  min-width: 0;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dup-photo-sort-menu .select-menu-trigger::before,
-.dup-photo-page-menu .select-menu-trigger::before {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.dup-photo-sort-menu .select-menu-trigger::before {
-  content: "Sort by";
-}
-
-.dup-photo-page-menu .select-menu-trigger::before {
-  content: "Photos per page";
-}
-
-@media (max-width: 1120px) {
-  .dup-photo-head-actions {
-    justify-content: flex-start;
-    flex-basis: 100%;
-  }
-
-  .dup-photo-toolbar {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .dup-photo-toolbar .dup-toolbar-controls {
-    flex-wrap: wrap;
-  }
-}
-
 @media (max-width: 640px) {
-  .dup-photo-head-actions,
-  .dup-photo-toolbar .dup-toolbar-controls {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
-  }
-
-  .dup-photo-head-actions .select-menu,
-  .dup-photo-head-actions .secondary-button,
-  .dup-photo-toolbar .select-menu,
-  .dup-photo-toolbar > .secondary-button {
-    width: 100%;
-  }
-
-  .dup-group-head {
-    align-items: stretch;
-  }
 
   .dup-group-actions {
     width: 100%;

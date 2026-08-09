@@ -190,47 +190,12 @@
   min-height: 0;
   padding-block: 0 38px;
 }
-
-.ft-profile-card,
 .ft-profile-section {
   border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
   border-radius: 12px;
   background: color-mix(in srgb, var(--surface-raised, var(--surface)) 86%, transparent);
   box-shadow: 0 14px 36px color-mix(in srgb, var(--shadow) 42%, transparent);
   backdrop-filter: blur(18px);
-}
-
-.ft-profile-card {
-  overflow: hidden;
-  border-radius: 0 0 12px 12px;
-}
-
-.ft-profile-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 18px 0;
-  margin-bottom: 0;
-}
-
-.ft-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ft-profile-header {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 28px;
-  align-items: center;
-  padding: 20px 28px 24px;
-}
-
-.ft-profile-avatar-wrap {
-  position: relative;
-  width: max-content;
 }
 
 .ft-portrait-button.icon-button {
@@ -323,78 +288,6 @@
   backdrop-filter: none;
 }
 
-.ft-person-detail-tab-panel .ft-section-head {
-  margin-bottom: 16px;
-}
-
-.ft-profile-headline h1 {
-  margin: 0 0 6px;
-  font-size: clamp(1.8rem, 3vw, 2.4rem);
-  line-height: 1.06;
-}
-
-.ft-profile-sub {
-  margin: 0;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.ft-profile-facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(150px, 1fr));
-  gap: 14px 18px;
-  margin-top: 20px;
-}
-
-.ft-profile-fact {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  gap: 9px;
-  align-items: start;
-  min-width: 0;
-  color: var(--muted);
-}
-
-.ft-profile-fact svg {
-  margin-top: 1px;
-  color: var(--blue);
-}
-
-.ft-profile-fact strong,
-.ft-profile-fact small {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ft-profile-fact strong {
-  color: var(--ink);
-  font-size: 0.88rem;
-}
-
-.ft-profile-fact small {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 0.78rem;
-}
-
-.ft-profile-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.ft-profile-side-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-  min-width: 146px;
-}
-
 .ft-profile-bio {
   max-width: 78ch;
   white-space: pre-wrap;
@@ -412,20 +305,6 @@
   scroll-margin-top: 18px;
   width: min(calc(100% - 36px), var(--ft-detail-section-max));
   margin-inline: auto;
-}
-
-.ft-section-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-
-.ft-section-head h2 {
-  margin: 0;
-  font-size: 1.05rem;
 }
 
 .ft-family-grid {
@@ -541,83 +420,6 @@
 .ft-relation-card-wrap:hover .ft-relation-card-actions,
 .ft-relation-card-actions:focus-within {
   opacity: 1;
-}
-
-.ft-relation-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-
-.ft-relation-label {
-  min-width: 110px;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.ft-union-block {
-  border-left: 2px solid var(--line);
-  padding-left: 14px;
-  margin: 12px 0;
-}
-
-.ft-children-row {
-  margin-left: 8px;
-}
-
-.ft-chip-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.ft-chip-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.ft-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px 4px 4px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink);
-  text-decoration: none;
-  font-size: 0.88rem;
-}
-
-.ft-chip:hover {
-  border-color: var(--gold);
-}
-
-.ft-chip-relation {
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-
-.ft-chip-remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.ft-chip-remove:hover {
-  color: var(--rose, #e05d6f);
-  background: var(--field);
 }
 
 /* Photo wall: reuse the gallery grid tiles, add a remove control per tile. */
@@ -2090,49 +1892,12 @@
 
 /* ── Mobile ── */
 
-@media (max-width: 1050px) {
-  .ft-profile-header {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .ft-profile-side-actions {
-    grid-column: 2;
-    flex-direction: row;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
-
-}
-
 @media (max-width: 740px) {
   .ft-form-grid {
     grid-template-columns: 1fr;
   }
-
-  .ft-profile-header {
-    grid-template-columns: 1fr;
-    justify-items: start;
-    gap: 16px;
-    padding: 18px;
-  }
-
-  .ft-profile-top {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .ft-profile-facts,
   .ft-family-grid {
     grid-template-columns: 1fr;
-  }
-
-  .ft-profile-side-actions {
-    grid-column: auto;
-    width: 100%;
-  }
-
-  .ft-relation-label {
-    min-width: 100%;
   }
 
   .ft-tree-search .ft-picker-search {

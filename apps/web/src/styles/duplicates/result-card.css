@@ -167,7 +167,6 @@
   text-align: left;
 }
 .dup-set-name-row svg { flex: 0 0 auto; color: var(--accent, #c8a24a); }
-.dup-set-name-btn:hover .dup-set-folder-name { text-decoration: underline; }
 
 /* Search takes what the two menus leave, as on any list page. */
 .dup-folder-search { flex: 1 1 220px; min-width: 0; }
@@ -222,22 +221,6 @@
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.dup-folder-sort-menu .select-menu-trigger::before,
-.dup-folder-page-menu .select-menu-trigger::before {
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.dup-folder-sort-menu .select-menu-trigger::before {
-  content: "Sort by:";
-}
-
-.dup-folder-page-menu .select-menu-trigger::before {
-  content: "Per page:";
 }
 
 .dup-sets {
@@ -313,10 +296,6 @@
   box-shadow: 0 10px 26px color-mix(in srgb, var(--shadow) 18%, transparent);
 }
 
-.dup-set-folder:not(:has(.dup-set-action)) {
-  min-height: 136px;
-}
-
 .dup-set-folder.is-keep {
   border-color: color-mix(in srgb, var(--success) 64%, var(--line));
   background:
@@ -390,19 +369,6 @@
   line-height: 1.45;
 }
 
-.dup-set-keep-action.secondary-button {
-  color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 54%, var(--line));
-  background: color-mix(in srgb, var(--success) 5%, transparent);
-}
-
-.dup-set-keep-action.secondary-button:hover:not(:disabled),
-.dup-set-keep-action.secondary-button:focus-visible {
-  color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 72%, var(--line));
-  background: color-mix(in srgb, var(--success) 12%, transparent);
-}
-
 @media (max-width: 1200px) {
   .dup-set-body {
     grid-template-columns: minmax(0, 1fr);
@@ -430,11 +396,6 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto;
     margin-left: 0;
-  }
-
-  .dup-folder-sort-menu,
-  .dup-folder-page-menu {
-    width: 100%;
   }
 
   .dup-set {
@@ -584,20 +545,6 @@
   font-weight: 700;
 }
 
-.dup-folder-dismiss-action.text-button {
-  justify-self: start;
-  min-height: 30px;
-  padding: 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-}
-
-.dup-folder-dismiss-action.text-button:hover:not(:disabled),
-.dup-folder-dismiss-action.text-button:focus-visible {
-  color: var(--ink);
-  text-decoration: underline;
-}
-
 .dup-folder-card .dup-set-folders {
   justify-content: flex-end;
   align-items: center;
@@ -674,15 +621,6 @@
   white-space: normal;
 }
 
-.dup-folder-card .dup-set-action {
-  margin-top: auto;
-}
-
-.dup-folder-card .dup-set-keep-action.secondary-button:disabled {
-  cursor: default;
-  opacity: 1;
-}
-
 .dup-set-delete-action.secondary-button.danger {
   color: var(--rose);
   border-color: color-mix(in srgb, var(--rose) 38%, var(--line));
@@ -694,27 +632,6 @@
   color: var(--rose);
   border-color: color-mix(in srgb, var(--rose) 68%, var(--line));
   background: color-mix(in srgb, var(--rose) 10%, transparent);
-}
-
-.dup-folder-page-card .dup-set-folders {
-  flex-wrap: wrap;
-}
-
-.dup-folder-page-card .dup-set-folder {
-  min-height: 158px;
-}
-
-.dup-folder-page-card .dup-set-folder-top {
-  margin-bottom: 6px;
-}
-
-.dup-folder-page-card .dup-set-open {
-  color: color-mix(in srgb, var(--muted) 82%, var(--accent, #6336f5));
-}
-
-.dup-folder-page-card .dup-set-open:hover,
-.dup-folder-page-card .dup-set-open:focus-visible {
-  color: var(--accent, #6336f5);
 }
 
 /* The cleanup job result page uses the same readable folder cards, with the job's

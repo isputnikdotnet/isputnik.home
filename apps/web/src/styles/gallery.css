@@ -1713,14 +1713,6 @@
   border-radius: 10px;
 }
 
-.gallery-face-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
 .gallery-face-hint { font-size: 0.84rem; }
 
 /* Face-recognition settings popup: a per-library on/off list with rescan. */

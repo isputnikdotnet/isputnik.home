@@ -31,21 +31,16 @@
   min-width: 0;
   width: auto;
 }
-.dup-folder-tools .dup-folder-sort { flex: 0 0 auto; }
 
 /* Wider than a card dialog and deliberately not tall: the folder list scrolls, so
    height beyond a screenful buys nothing and costs the page underneath. */
 /* Both classes land on the same element, so this beats .confirm-modal's 420px
    without depending on which stylesheet loads last. */
-.confirm-modal.dup-filters-modal { width: min(680px, 95vw); }
-.dup-filters-modal .dup-folder-picker-tall { max-height: min(38vh, 300px); }
 /* DIRECT children only. These were matching the search box and sort control in the
    folder tools row below, which sit side by side — at 100% each they overlapped and
    the search field disappeared underneath. */
 .dup-filter-field > select,
 .dup-filter-field > input[type="search"] { width: 100%; }
-.dup-tier-choice.is-on { border-color: var(--accent, #c8a24a); box-shadow: inset 0 0 0 1px var(--accent, #c8a24a); }
-.dup-tier-choice .datagrid-muted { font-size: 0.74rem; }
 
 /* A toolbar control holding a filter or a saved preference, so it reads as "on"
    rather than as one more icon. */

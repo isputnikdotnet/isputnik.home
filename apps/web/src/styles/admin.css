@@ -996,16 +996,6 @@
   .trash-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
 
-.trash-table .col-actions {
-  white-space: nowrap;
-}
-
-.trash-table .col-actions .icon-button {
-  min-width: 32px;
-  min-height: 32px;
-  padding: 6px;
-}
-
 /* ── Tasks ──────────────────────────────────────────────────────── */
 
 .task-idle-note {

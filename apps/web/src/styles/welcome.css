@@ -146,8 +146,6 @@
 }
 
 /* The status chip sizes to its text rather than the card. */
-.welcome-status { display: flex; }
-.welcome-status .setting-status { max-width: none; text-align: left; }
 
 .welcome-toggle { display: flex; }
 
