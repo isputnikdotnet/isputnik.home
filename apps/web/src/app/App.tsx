@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { api, type PublicUser } from "../api";
 import { cacheCurrentUser, clearCachedUser, getCachedUser } from "../offline/downloads";
 import { flushProgressQueue } from "../offline/progress";
@@ -7,44 +7,53 @@ import { flushBookmarkQueue } from "../offline/bookmarks";
 import { clearPrivateRuntimeCaches } from "../pwa/cache";
 import { Shell } from "./Shell";
 import { useRoute, navigate } from "../router";
+
+// Eager: the shell, the ways in, and the page you land on. Everything on the
+// critical path from a cold open to a usable Home stays in the entry chunk —
+// splitting these would only add a round trip to first paint.
 import { InstallPage } from "../pages/InstallPage";
-import { WelcomePage } from "../pages/WelcomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { InvitePage } from "../pages/InvitePage";
 import { HomePage } from "../pages/HomePage";
-import { ProfilePage } from "../pages/ProfilePage";
-import { AboutPage } from "../pages/AboutPage";
-import { HelpPage } from "../pages/HelpPage";
-import { GuidePage } from "../pages/GuidePage";
-import { AudiobooksPage } from "../features/audiobooks/AudiobooksPage";
-import { AudiobookBookPage } from "../features/audiobooks/BookDetailPage";
-import { MyListPage } from "../features/library/MyListPage";
-import { BookmarksPage } from "../features/library/BookmarksPage";
-import { QuotesPage } from "../features/library/QuotesPage";
-import { DownloadsPage } from "../features/library/DownloadsPage";
-import { SharedWithMePage } from "../features/library/SharedWithMePage";
-import { EbooksPage } from "../features/audiobooks/EbooksPage";
-import { GalleryPage } from "../features/gallery/GalleryPage";
-import { FamilyTreePage } from "../features/familytree/FamilyTreePage";
-import { FamilyPeoplePage } from "../features/familytree/FamilyPeoplePage";
-import { FamilyFamiliesPage } from "../features/familytree/FamilyFamiliesPage";
-import { FamilyPersonPage } from "../features/familytree/FamilyPersonPage";
-import { FamilyPersonPhotosPage } from "../features/familytree/FamilyPersonPhotosPage";
-import { LibraryFeedPage } from "../features/library/LibraryFeedPage";
-import { CollectionsPage } from "../features/collections/CollectionsPage";
-import { CollectionDetailPage } from "../features/collections/CollectionDetailPage";
-import { SharePage } from "../pages/SharePage";
-import { PlayerPage } from "../features/audiobooks/PlayerPage";
-import { NarratorListPage } from "../features/audiobooks/NarratorListPage";
-import { PersonPage } from "../features/audiobooks/PersonPage";
-import { AuthorListPage } from "../features/audiobooks/AuthorListPage";
-import { SeriesListPage } from "../features/audiobooks/SeriesListPage";
-import { SeriesDetailPage } from "../features/audiobooks/SeriesDetailPage";
-import { CategoryListPage } from "../features/audiobooks/CategoryListPage";
-import { CategoryDetailPage } from "../features/audiobooks/CategoryDetailPage";
-import { TagDetailPage } from "../features/audiobooks/TagDetailPage";
-import { TagListPage } from "../features/audiobooks/TagListPage";
-import { ControlPanelPage } from "../features/control/ControlPanelPage";
+
+// Lazy: every other route. Before this, one bundle carried the whole app — the
+// login screen downloaded the control panel, the family tree, the gallery and
+// the reader before it could draw a password field. Each route now arrives when
+// it is first opened and is cached from then on.
+const WelcomePage = lazy(() => import("../pages/WelcomePage").then((m) => ({ default: m.WelcomePage })));
+const ProfilePage = lazy(() => import("../pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
+const AboutPage = lazy(() => import("../pages/AboutPage").then((m) => ({ default: m.AboutPage })));
+const HelpPage = lazy(() => import("../pages/HelpPage").then((m) => ({ default: m.HelpPage })));
+const GuidePage = lazy(() => import("../pages/GuidePage").then((m) => ({ default: m.GuidePage })));
+const SharePage = lazy(() => import("../pages/SharePage").then((m) => ({ default: m.SharePage })));
+const AudiobooksPage = lazy(() => import("../features/audiobooks/AudiobooksPage").then((m) => ({ default: m.AudiobooksPage })));
+const AudiobookBookPage = lazy(() => import("../features/audiobooks/BookDetailPage").then((m) => ({ default: m.AudiobookBookPage })));
+const EbooksPage = lazy(() => import("../features/audiobooks/EbooksPage").then((m) => ({ default: m.EbooksPage })));
+const PlayerPage = lazy(() => import("../features/audiobooks/PlayerPage").then((m) => ({ default: m.PlayerPage })));
+const NarratorListPage = lazy(() => import("../features/audiobooks/NarratorListPage").then((m) => ({ default: m.NarratorListPage })));
+const PersonPage = lazy(() => import("../features/audiobooks/PersonPage").then((m) => ({ default: m.PersonPage })));
+const AuthorListPage = lazy(() => import("../features/audiobooks/AuthorListPage").then((m) => ({ default: m.AuthorListPage })));
+const SeriesListPage = lazy(() => import("../features/audiobooks/SeriesListPage").then((m) => ({ default: m.SeriesListPage })));
+const SeriesDetailPage = lazy(() => import("../features/audiobooks/SeriesDetailPage").then((m) => ({ default: m.SeriesDetailPage })));
+const CategoryListPage = lazy(() => import("../features/audiobooks/CategoryListPage").then((m) => ({ default: m.CategoryListPage })));
+const CategoryDetailPage = lazy(() => import("../features/audiobooks/CategoryDetailPage").then((m) => ({ default: m.CategoryDetailPage })));
+const TagListPage = lazy(() => import("../features/audiobooks/TagListPage").then((m) => ({ default: m.TagListPage })));
+const TagDetailPage = lazy(() => import("../features/audiobooks/TagDetailPage").then((m) => ({ default: m.TagDetailPage })));
+const MyListPage = lazy(() => import("../features/library/MyListPage").then((m) => ({ default: m.MyListPage })));
+const BookmarksPage = lazy(() => import("../features/library/BookmarksPage").then((m) => ({ default: m.BookmarksPage })));
+const QuotesPage = lazy(() => import("../features/library/QuotesPage").then((m) => ({ default: m.QuotesPage })));
+const DownloadsPage = lazy(() => import("../features/library/DownloadsPage").then((m) => ({ default: m.DownloadsPage })));
+const SharedWithMePage = lazy(() => import("../features/library/SharedWithMePage").then((m) => ({ default: m.SharedWithMePage })));
+const LibraryFeedPage = lazy(() => import("../features/library/LibraryFeedPage").then((m) => ({ default: m.LibraryFeedPage })));
+const CollectionsPage = lazy(() => import("../features/collections/CollectionsPage").then((m) => ({ default: m.CollectionsPage })));
+const CollectionDetailPage = lazy(() => import("../features/collections/CollectionDetailPage").then((m) => ({ default: m.CollectionDetailPage })));
+const GalleryPage = lazy(() => import("../features/gallery/GalleryPage").then((m) => ({ default: m.GalleryPage })));
+const FamilyTreePage = lazy(() => import("../features/familytree/FamilyTreePage").then((m) => ({ default: m.FamilyTreePage })));
+const FamilyPeoplePage = lazy(() => import("../features/familytree/FamilyPeoplePage").then((m) => ({ default: m.FamilyPeoplePage })));
+const FamilyFamiliesPage = lazy(() => import("../features/familytree/FamilyFamiliesPage").then((m) => ({ default: m.FamilyFamiliesPage })));
+const FamilyPersonPage = lazy(() => import("../features/familytree/FamilyPersonPage").then((m) => ({ default: m.FamilyPersonPage })));
+const FamilyPersonPhotosPage = lazy(() => import("../features/familytree/FamilyPersonPhotosPage").then((m) => ({ default: m.FamilyPersonPhotosPage })));
+const ControlPanelPage = lazy(() => import("../features/control/ControlPanelPage").then((m) => ({ default: m.ControlPanelPage })));
 
 type Theme = PublicUser["theme"];
 
@@ -218,226 +227,240 @@ export function App() {
     return <Shell><p className="status">Loading isputnik.home...</p></Shell>;
   }
 
-  if (route.name === "welcome") {
-    return session.user
-      ? (
-        <WelcomePage
+  // Every route below the entry chunk is lazy, so one boundary sits above the
+  // whole table rather than one per branch. The fallback is the same Shell line
+  // the session check uses above, so a chunk fetch looks like the app still
+  // starting up rather than a blank frame.
+  return (
+    <Suspense fallback={<Shell><p className="status">Loading isputnik.home...</p></Shell>}>
+      {page()}
+    </Suspense>
+  );
+
+  // Hoisted so the boundary above reads first; the route table is unchanged and
+  // closes over the session state and handlers declared earlier in App().
+  function page() {
+    if (route.name === "welcome") {
+      return session.user
+        ? (
+          <WelcomePage
+            user={session.user}
+            // Clear the flag HERE, in the state the redirect reads, before leaving —
+            // otherwise Home sends us straight back to the guide we just closed.
+            onDone={() => {
+              setSession((current) => ({ ...current, onboardingPending: false }));
+              navigate("/");
+            }}
+          />
+        )
+        : <Shell><p className="status">Preparing sign in...</p></Shell>;
+    }
+
+    if (route.name === "install") {
+      return <InstallPage onSignedIn={refreshSession} />;
+    }
+
+    if (route.name === "invite") {
+      return <InvitePage token={route.token} onSignedIn={refreshSession} />;
+    }
+
+    // Guest share — viewable without an account.
+    if (route.name === "share") {
+      return <SharePage token={route.token} />;
+    }
+
+    if (route.name === "login") {
+      return <LoginPage onSignedIn={refreshSession} />;
+    }
+
+    if (!session.user) {
+      return <Shell><p className="status">Preparing sign in...</p></Shell>;
+    }
+
+    if (route.name === "control") {
+      return session.user.role === "admin"
+        ? <ControlPanelPage section={route.section} user={session.user} logout={logout} />
+        : <HomePage user={session.user} logout={logout} />;
+    }
+
+    if (route.name === "controlCategoryEditor") {
+      return session.user.role === "admin"
+        ? <ControlPanelPage section="categories" categoryId={route.categoryId} user={session.user} logout={logout} />
+        : <HomePage user={session.user} logout={logout} />;
+    }
+
+    if (route.name === "profile") {
+      return (
+        <ProfilePage
+          tab={route.tab}
           user={session.user}
-          // Clear the flag HERE, in the state the redirect reads, before leaving —
-          // otherwise Home sends us straight back to the guide we just closed.
-          onDone={() => {
-            setSession((current) => ({ ...current, onboardingPending: false }));
-            navigate("/");
-          }}
+          logout={logout}
+          onUpdated={(user) => setSession((current) => ({ ...current, user }))}
         />
-      )
-      : <Shell><p className="status">Preparing sign in...</p></Shell>;
-  }
+      );
+    }
 
-  if (route.name === "install") {
-    return <InstallPage onSignedIn={refreshSession} />;
-  }
+    if (route.name === "about") {
+      return <AboutPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "invite") {
-    return <InvitePage token={route.token} onSignedIn={refreshSession} />;
-  }
+    if (route.name === "help") {
+      return <HelpPage user={session.user} logout={logout} />;
+    }
 
-  // Guest share — viewable without an account.
-  if (route.name === "share") {
-    return <SharePage token={route.token} />;
-  }
+    if (route.name === "guide") {
+      return <GuidePage slug={route.slug} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "login") {
-    return <LoginPage onSignedIn={refreshSession} />;
-  }
+    if (route.name === "audiobooks") {
+      return <AudiobooksPage user={session.user} logout={logout} />;
+    }
 
-  if (!session.user) {
-    return <Shell><p className="status">Preparing sign in...</p></Shell>;
-  }
+    if (route.name === "favorites") {
+      return <MyListPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "control") {
-    return session.user.role === "admin"
-      ? <ControlPanelPage section={route.section} user={session.user} logout={logout} />
-      : <HomePage user={session.user} logout={logout} />;
-  }
+    if (route.name === "bookmarks") {
+      return <BookmarksPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "controlCategoryEditor") {
-    return session.user.role === "admin"
-      ? <ControlPanelPage section="categories" categoryId={route.categoryId} user={session.user} logout={logout} />
-      : <HomePage user={session.user} logout={logout} />;
-  }
+    if (route.name === "quotes") {
+      return <QuotesPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "profile") {
-    return (
-      <ProfilePage
-        tab={route.tab}
-        user={session.user}
-        logout={logout}
-        onUpdated={(user) => setSession((current) => ({ ...current, user }))}
-      />
-    );
-  }
+    if (route.name === "downloads") {
+      return <DownloadsPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "about") {
-    return <AboutPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "sharedWithMe") {
+      return <SharedWithMePage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "help") {
-    return <HelpPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "audiobookBook") {
+      return <AudiobookBookPage id={route.id} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "guide") {
-    return <GuidePage slug={route.slug} user={session.user} logout={logout} />;
-  }
+    if (route.name === "audiobookPlayer") {
+      return <PlayerPage id={route.id} />;
+    }
 
-  if (route.name === "audiobooks") {
-    return <AudiobooksPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "ebooks") {
+      return <EbooksPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "favorites") {
-    return <MyListPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "gallery") {
+      return <GalleryPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "bookmarks") {
-    return <BookmarksPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "galleryMemories") {
+      return <GalleryPage user={session.user} logout={logout} initialView="memories" />;
+    }
 
-  if (route.name === "quotes") {
-    return <QuotesPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "galleryAsset") {
+      return <GalleryPage user={session.user} logout={logout} initialAssetId={route.id} />;
+    }
 
-  if (route.name === "downloads") {
-    return <DownloadsPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "galleryFolder") {
+      return (
+        <GalleryPage
+          user={session.user}
+          logout={logout}
+          initialFolder={route.folder}
+          initialLibraryId={route.libraryId}
+        />
+      );
+    }
 
-  if (route.name === "sharedWithMe") {
-    return <SharedWithMePage user={session.user} logout={logout} />;
-  }
+    // Family tree — everyone signed in can view; edit affordances appear only for
+    // admins inside the pages (the server enforces regardless).
+    if (route.name === "familyTree") {
+      return <FamilyTreePage user={session.user} logout={logout} focusId={route.focusId ?? null} />;
+    }
 
-  if (route.name === "audiobookBook") {
-    return <AudiobookBookPage id={route.id} user={session.user} logout={logout} />;
-  }
+    if (route.name === "familyPeople") {
+      return <FamilyPeoplePage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "audiobookPlayer") {
-    return <PlayerPage id={route.id} />;
-  }
+    if (route.name === "familyFamilies") {
+      return <FamilyFamiliesPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "ebooks") {
-    return <EbooksPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "familyPerson") {
+      return <FamilyPersonPage id={route.id} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "gallery") {
-    return <GalleryPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "familyPersonPhotos") {
+      return <FamilyPersonPhotosPage id={route.id} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "galleryMemories") {
-    return <GalleryPage user={session.user} logout={logout} initialView="memories" />;
-  }
+    if (route.name === "libraryFeed") {
+      return <LibraryFeedPage mode={route.mode} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "galleryAsset") {
-    return <GalleryPage user={session.user} logout={logout} initialAssetId={route.id} />;
-  }
+    if (route.name === "collections") {
+      return <CollectionsPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "galleryFolder") {
-    return (
-      <GalleryPage
-        user={session.user}
-        logout={logout}
-        initialFolder={route.folder}
-        initialLibraryId={route.libraryId}
-      />
-    );
-  }
+    if (route.name === "collectionDetail") {
+      return <CollectionDetailPage id={route.id} user={session.user} logout={logout} />;
+    }
 
-  // Family tree — everyone signed in can view; edit affordances appear only for
-  // admins inside the pages (the server enforces regardless).
-  if (route.name === "familyTree") {
-    return <FamilyTreePage user={session.user} logout={logout} focusId={route.focusId ?? null} />;
-  }
+    if (route.name === "ebookBook") {
+      return <AudiobookBookPage id={route.id} user={session.user} logout={logout} active="ebooks" backTo="/ebooks" />;
+    }
 
-  if (route.name === "familyPeople") {
-    return <FamilyPeoplePage user={session.user} logout={logout} />;
-  }
+    if (route.name === "authors") {
+      return <AuthorListPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "familyFamilies") {
-    return <FamilyFamiliesPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "ebookAuthorDetail") {
+      return <PersonPage personName={route.personName} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "familyPerson") {
-    return <FamilyPersonPage id={route.id} user={session.user} logout={logout} />;
-  }
+    if (route.name === "ebookSeries") {
+      return <SeriesListPage kind="ebook" user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "familyPersonPhotos") {
-    return <FamilyPersonPhotosPage id={route.id} user={session.user} logout={logout} />;
-  }
+    if (route.name === "ebookSeriesDetail") {
+      return <SeriesDetailPage seriesId={route.seriesId} kind="ebook" user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "libraryFeed") {
-    return <LibraryFeedPage mode={route.mode} user={session.user} logout={logout} />;
-  }
+    if (route.name === "personDetail" || route.name === "audiobookAuthorDetail") {
+      return <PersonPage personName={route.personName} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "collections") {
-    return <CollectionsPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "audiobookNarrators") {
+      return <NarratorListPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "collectionDetail") {
-    return <CollectionDetailPage id={route.id} user={session.user} logout={logout} />;
-  }
+    if (route.name === "audiobookNarratorDetail") {
+      return <PersonPage personName={route.personName} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "ebookBook") {
-    return <AudiobookBookPage id={route.id} user={session.user} logout={logout} active="ebooks" backTo="/ebooks" />;
-  }
+    if (route.name === "audiobookSeries") {
+      return <SeriesListPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "authors") {
-    return <AuthorListPage user={session.user} logout={logout} />;
-  }
+    if (route.name === "audiobookSeriesDetail") {
+      return <SeriesDetailPage seriesId={route.seriesId} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "ebookAuthorDetail") {
-    return <PersonPage personName={route.personName} user={session.user} logout={logout} />;
-  }
+    if (route.name === "categories") {
+      return <CategoryListPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "ebookSeries") {
-    return <SeriesListPage kind="ebook" user={session.user} logout={logout} />;
-  }
+    if (route.name === "categoryDetail") {
+      return <CategoryDetailPage categoryKey={route.categoryKey} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "ebookSeriesDetail") {
-    return <SeriesDetailPage seriesId={route.seriesId} kind="ebook" user={session.user} logout={logout} />;
-  }
+    if (route.name === "tags") {
+      return <TagListPage user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "personDetail" || route.name === "audiobookAuthorDetail") {
-    return <PersonPage personName={route.personName} user={session.user} logout={logout} />;
-  }
+    if (route.name === "tagDetail") {
+      return <TagDetailPage tagName={route.tagName} user={session.user} logout={logout} />;
+    }
 
-  if (route.name === "audiobookNarrators") {
-    return <NarratorListPage user={session.user} logout={logout} />;
+    return <HomePage user={session.user} logout={logout} />;
   }
-
-  if (route.name === "audiobookNarratorDetail") {
-    return <PersonPage personName={route.personName} user={session.user} logout={logout} />;
-  }
-
-  if (route.name === "audiobookSeries") {
-    return <SeriesListPage user={session.user} logout={logout} />;
-  }
-
-  if (route.name === "audiobookSeriesDetail") {
-    return <SeriesDetailPage seriesId={route.seriesId} user={session.user} logout={logout} />;
-  }
-
-  if (route.name === "categories") {
-    return <CategoryListPage user={session.user} logout={logout} />;
-  }
-
-  if (route.name === "categoryDetail") {
-    return <CategoryDetailPage categoryKey={route.categoryKey} user={session.user} logout={logout} />;
-  }
-
-  if (route.name === "tags") {
-    return <TagListPage user={session.user} logout={logout} />;
-  }
-
-  if (route.name === "tagDetail") {
-    return <TagDetailPage tagName={route.tagName} user={session.user} logout={logout} />;
-  }
-
-  return <HomePage user={session.user} logout={logout} />;
 }
