@@ -63,19 +63,19 @@
 }
 
 .sputnik-scene::before {
-  background-image: url("../assets/backgrounds/retro-space-sputnik-scene-v1.png");
+  background-image: url("../assets/backgrounds/retro-space-sputnik-scene-v1.webp");
 }
 
 .control-scene::before {
-  background-image: url("../assets/backgrounds/retro-space-background-v1.png");
+  background-image: url("../assets/backgrounds/retro-space-background-v1.webp");
 }
 
 :root[data-theme="expanse"] .sputnik-scene::before {
-  background-image: url("../assets/backgrounds/expanse-belt-station-v1.png");
+  background-image: url("../assets/backgrounds/expanse-belt-station-v1.webp");
 }
 
 :root[data-theme="expanse"] .control-scene::before {
-  background-image: url("../assets/backgrounds/expanse-mars-drydock-v1.png");
+  background-image: url("../assets/backgrounds/expanse-mars-drydock-v1.webp");
 }
 
 .control-panel {

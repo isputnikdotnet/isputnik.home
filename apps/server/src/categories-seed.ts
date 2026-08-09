@@ -23,31 +23,38 @@ export function isBuiltinCategoryImageKey(value: string | null): value is string
   return !!value && value.startsWith(BUILTIN_CATEGORY_IMAGE_PREFIX);
 }
 
+// The key names the art, not a file: the extension is decided here, at the point
+// the URL is built. Installs seeded before the art moved from PNG to WebP still
+// hold "...-v1.png" in categories.image_storage_key, and the key is only ever
+// prefix-tested (never compared to a seed value), so stripping any extension and
+// appending the current one serves both without a migration.
 export function builtinCategoryImageUrl(value: string) {
-  return `/Assets/categories/${value.slice(BUILTIN_CATEGORY_IMAGE_PREFIX.length)}`;
+  const name = value.slice(BUILTIN_CATEGORY_IMAGE_PREFIX.length).replace(/\.(png|jpe?g|webp)$/i, "");
+  return `/Assets/categories/${name}.webp`;
 }
 
-function builtinCategoryImage(fileName: string) {
-  return `${BUILTIN_CATEGORY_IMAGE_PREFIX}${fileName}`;
+/** @param name art file's base name, no extension — see builtinCategoryImageUrl. */
+function builtinCategoryImage(name: string) {
+  return `${BUILTIN_CATEGORY_IMAGE_PREFIX}${name}`;
 }
 
 export const CATEGORY_SEED: CategorySeed[] = [
-  { key: "fiction", name: "General Fiction", sortOrder: 1, icon: "book-open", defaultImageStorageKey: builtinCategoryImage("fiction-v1.png") },
-  { key: "classics_literary", name: "Classics & Literary", sortOrder: 2, icon: "drama", defaultImageStorageKey: builtinCategoryImage("classics-literary-v1.png") },
-  { key: "adventure_action", name: "Adventure & Action", sortOrder: 3, icon: "compass", defaultImageStorageKey: builtinCategoryImage("adventure-action-v1.png") },
-  { key: "mystery_thriller", name: "Mystery & Thriller", sortOrder: 4, icon: "search", defaultImageStorageKey: builtinCategoryImage("mystery-thriller-v1.png") },
-  { key: "scifi_fantasy", name: "Sci-Fi & Fantasy", sortOrder: 5, icon: "rocket", defaultImageStorageKey: builtinCategoryImage("scifi-fantasy-v1.png") },
-  { key: "horror_supernatural", name: "Horror & Supernatural", sortOrder: 6, icon: "ghost", defaultImageStorageKey: builtinCategoryImage("horror-supernatural-v1.png") },
-  { key: "romance", name: "Romance", sortOrder: 7, icon: "heart", defaultImageStorageKey: builtinCategoryImage("romance-v1.png") },
-  { key: "humor_satire", name: "Humor & Satire", sortOrder: 8, icon: "laugh", defaultImageStorageKey: builtinCategoryImage("humor-satire-v1.png") },
-  { key: "biographies_memoirs", name: "Biographies & Memoirs", sortOrder: 9, icon: "mic", defaultImageStorageKey: builtinCategoryImage("biographies-memoirs-v1.png") },
-  { key: "history", name: "History", sortOrder: 10, icon: "landmark", defaultImageStorageKey: builtinCategoryImage("history-v1.png") },
+  { key: "fiction", name: "General Fiction", sortOrder: 1, icon: "book-open", defaultImageStorageKey: builtinCategoryImage("fiction-v1") },
+  { key: "classics_literary", name: "Classics & Literary", sortOrder: 2, icon: "drama", defaultImageStorageKey: builtinCategoryImage("classics-literary-v1") },
+  { key: "adventure_action", name: "Adventure & Action", sortOrder: 3, icon: "compass", defaultImageStorageKey: builtinCategoryImage("adventure-action-v1") },
+  { key: "mystery_thriller", name: "Mystery & Thriller", sortOrder: 4, icon: "search", defaultImageStorageKey: builtinCategoryImage("mystery-thriller-v1") },
+  { key: "scifi_fantasy", name: "Sci-Fi & Fantasy", sortOrder: 5, icon: "rocket", defaultImageStorageKey: builtinCategoryImage("scifi-fantasy-v1") },
+  { key: "horror_supernatural", name: "Horror & Supernatural", sortOrder: 6, icon: "ghost", defaultImageStorageKey: builtinCategoryImage("horror-supernatural-v1") },
+  { key: "romance", name: "Romance", sortOrder: 7, icon: "heart", defaultImageStorageKey: builtinCategoryImage("romance-v1") },
+  { key: "humor_satire", name: "Humor & Satire", sortOrder: 8, icon: "laugh", defaultImageStorageKey: builtinCategoryImage("humor-satire-v1") },
+  { key: "biographies_memoirs", name: "Biographies & Memoirs", sortOrder: 9, icon: "mic", defaultImageStorageKey: builtinCategoryImage("biographies-memoirs-v1") },
+  { key: "history", name: "History", sortOrder: 10, icon: "landmark", defaultImageStorageKey: builtinCategoryImage("history-v1") },
   { key: "true_crime", name: "True Crime", sortOrder: 11, icon: "fingerprint" },
-  { key: "science_culture", name: "Science & Culture", sortOrder: 12, icon: "flask-conical", defaultImageStorageKey: builtinCategoryImage("science-culture-v1.png") },
+  { key: "science_culture", name: "Science & Culture", sortOrder: 12, icon: "flask-conical", defaultImageStorageKey: builtinCategoryImage("science-culture-v1") },
   { key: "religion_spirituality", name: "Religion & Spirituality", sortOrder: 13, icon: "church" },
-  { key: "selfhelp_business", name: "Self-Help & Business", sortOrder: 14, icon: "briefcase", defaultImageStorageKey: builtinCategoryImage("selfhelp-business-v1.png") },
-  { key: "kids_teens", name: "Kids & Teens", sortOrder: 15, icon: "baby", defaultImageStorageKey: builtinCategoryImage("kids-teens-v1.png") },
-  { key: "general_other", name: "General / Other", sortOrder: 99, icon: "layout-grid", defaultImageStorageKey: builtinCategoryImage("general-other-v1.png") }
+  { key: "selfhelp_business", name: "Self-Help & Business", sortOrder: 14, icon: "briefcase", defaultImageStorageKey: builtinCategoryImage("selfhelp-business-v1") },
+  { key: "kids_teens", name: "Kids & Teens", sortOrder: 15, icon: "baby", defaultImageStorageKey: builtinCategoryImage("kids-teens-v1") },
+  { key: "general_other", name: "General / Other", sortOrder: 99, icon: "layout-grid", defaultImageStorageKey: builtinCategoryImage("general-other-v1") }
 ];
 
 // Priorities: kids/teens wins over everything (a children's book stays a children's
