@@ -24,7 +24,26 @@ export default defineConfig({
   // output dir is `assets` (lowercase); on case-insensitive filesystems the two
   // merge into one folder whose on-disk name wins, breaking case-sensitive static
   // servers that then 404 the hashed bundles. Use a distinct name to avoid it.
-  build: { assetsDir: "static" },
+  build: {
+    assetsDir: "static",
+    // Routes are lazy (see app/App.tsx), which left the bundler emitting a chunk
+    // per shared leaf — fifty-odd files under 2 KB, most of them a single lucide
+    // icon used by two routes. That is request overhead, not code splitting, and
+    // it lands hardest on the LAN/HTTP-1.1 deployments this app is built for.
+    // Group the shared vendor code by library instead: one icon chunk and one
+    // React chunk, both cached across every route. Leaflet and marked are left
+    // alone — they are already isolated behind their own dynamic imports.
+    rolldownOptions: {
+      output: {
+        advancedChunks: {
+          groups: [
+            { name: "icons", test: /node_modules[\\/]lucide-react[\\/]/ },
+            { name: "react", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ }
+          ]
+        }
+      }
+    }
+  },
   // Docs ship in the repo and change with the code, so a Help link has to point at
   // the ref THIS build came from — otherwise a 2.1.0 install reads 2.3.x guides
   // describing features it doesn't have. CI passes the tag or branch it built
