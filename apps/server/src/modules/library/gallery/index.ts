@@ -14,8 +14,11 @@ import { startTranscodeWorker } from "./transcode.js";
 import { galleryStreamPlugin } from "./stream.js";
 import { startGalleryScanWorker } from "./scanner.js";
 import { startFaceScanWorker } from "./faces/scanner.js";
+import { registerGalleryStats } from "./stats.js";
 
 export async function galleryPlugin(app: FastifyInstance) {
+  registerGalleryStats();
+
   await app.register(galleryRoutesPlugin);
   await app.register(galleryPeopleRoutesPlugin);
   await app.register(galleryAlbumRoutesPlugin);
