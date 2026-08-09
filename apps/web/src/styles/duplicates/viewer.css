@@ -1,0 +1,207 @@
+/* The filters box and DuplicateViewer — the set viewer at the bottom. */
+
+/* ── The filters box ────────────────────────────────────────────────
+   Four ways of narrowing the page, stacked in the order you'd reason in. */
+.dup-filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dup-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.dup-filter-label { font-size: 0.82rem; font-weight: 600; }
+/* On its own tab the folder list is the only thing there, so it can have the height
+   the dialog allows rather than the slice it got when four fields shared one column. */
+.dup-folder-picker-tall { max-height: min(58vh, 460px); }
+
+/* Find-a-folder and its ordering, on one line above the list. The search takes the
+   row and the order is a single icon button — there are only two orders, and a
+   dropdown for two options cost the search box its width. */
+.dup-folder-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.dup-folder-tools input[type="search"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+.dup-folder-tools .dup-folder-sort { flex: 0 0 auto; }
+
+/* Wider than a card dialog and deliberately not tall: the folder list scrolls, so
+   height beyond a screenful buys nothing and costs the page underneath. */
+/* Both classes land on the same element, so this beats .confirm-modal's 420px
+   without depending on which stylesheet loads last. */
+.confirm-modal.dup-filters-modal { width: min(680px, 95vw); }
+.dup-filters-modal .dup-folder-picker-tall { max-height: min(38vh, 300px); }
+/* DIRECT children only. These were matching the search box and sort control in the
+   folder tools row below, which sit side by side — at 100% each they overlapped and
+   the search field disappeared underneath. */
+.dup-filter-field > select,
+.dup-filter-field > input[type="search"] { width: 100%; }
+.dup-tier-choice.is-on { border-color: var(--accent, #c8a24a); box-shadow: inset 0 0 0 1px var(--accent, #c8a24a); }
+.dup-tier-choice .datagrid-muted { font-size: 0.74rem; }
+
+/* A toolbar control holding a filter or a saved preference, so it reads as "on"
+   rather than as one more icon. */
+.dup-toolbar-controls .is-active {
+  border-color: var(--accent, #c8a24a);
+  color: var(--accent, #c8a24a);
+}
+
+/* ── Duplicate set viewer ───────────────────────────────────────── */
+
+/* The panel surface is a fixed-height three-row grid; this viewer is header, one
+   scrolling body, and a pinned action row, sizing to its content up to the viewport. */
+.dup-view-modal {
+  width: min(1180px, 96vw);
+  height: auto;
+  min-height: 0;
+  max-height: calc(100vh - 48px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.dup-view-header { padding: 16px 22px 0; }
+
+.dup-view-body {
+  overflow: auto;
+  padding: 16px 22px 0;
+}
+
+/* modal-actions brings its own margin-top; this is the surrounding inset only. */
+.dup-view-modal > .modal-actions { padding: 0 22px 20px; }
+
+.dup-view-single {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dup-view-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dup-view-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.dup-view-pane.is-keep {
+  border-color: color-mix(in srgb, var(--success) 64%, var(--line));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success) 42%, transparent);
+}
+
+/* A fixed stage keeps both sides the same size, so a difference in the pictures
+   reads as a difference in the pictures — not in how they happen to be laid out.
+   It is also the mark control, so the two-class selectors override the text
+   Button's inline defaults, as the copy tiles do. */
+.dup-view-pane .dup-view-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: min(58vh, 520px);
+  padding: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+}
+.dup-view-pane .dup-view-stage:hover:not(:disabled) { background: var(--hover); }
+/* The read-only stage is a plain frame, not a button: no hover, no pointer, nothing
+   that suggests clicking the picture would do something. */
+.dup-view-pane .dup-view-stage.is-static:hover { background: var(--surface-2, rgba(127, 127, 127, 0.12)); }
+.dup-view-stage img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.dup-view-missing { color: var(--muted); }
+
+.dup-view-chip {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--rose);
+}
+.dup-view-pane.is-keep .dup-view-chip { background: var(--success); color: #ffffff; }
+
+.dup-view-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 0.84rem;
+}
+.dup-view-meta > strong { overflow-wrap: anywhere; }
+
+.dup-view-where {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted);
+}
+.dup-view-where svg { flex: 0 0 auto; opacity: 0.8; }
+.dup-view-where > span { overflow-wrap: anywhere; }
+
+.dup-view-original {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--mint);
+  font-size: 0.82rem;
+}
+
+.dup-view-single .dup-view-pane { flex: 1 1 auto; min-width: 0; }
+.dup-view-step { flex: 0 0 auto; min-width: 40px; min-height: 40px; }
+
+.dup-view-pickers {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.dup-view-pickers label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+.dup-view-pickers select { max-width: 260px; min-height: 38px; }
+
+.dup-view-status { margin: 12px 0 0; font-size: 0.82rem; }
+
+@media (max-width: 740px) {
+  /* Two panes side by side leave neither readable at this width. */
+  .dup-view-compare { grid-template-columns: minmax(0, 1fr); }
+  .dup-view-stage { height: min(38vh, 300px); }
+}
+
+@media (max-width: 740px) {
+  /* Narrow screens have too little width for fixed tiles to tile neatly. */
+  .dup-copies { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); }
+}
+

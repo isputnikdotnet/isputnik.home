@@ -1,0 +1,798 @@
+/* Form field, progress ring, buttons, toggle, select menu, choice group,
+   message box and modals — the pieces shared/ exports and every page uses. */
+
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+/* Circular progress indicator (shared/ProgressRing) — episode list + player chapters. */
+.progress-ring {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  line-height: 0;
+}
+
+.progress-ring svg {
+  display: block;
+}
+
+.progress-ring-track {
+  stroke: var(--line);
+}
+
+.progress-ring-arc {
+  stroke: var(--mint);
+}
+
+.progress-ring-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.progress-ring.complete .progress-ring-center {
+  color: var(--mint);
+}
+
+.progress-ring.indeterminate svg {
+  animation: progress-ring-spin 1s linear infinite;
+}
+
+@keyframes progress-ring-spin {
+  to { transform: rotate(360deg); }
+}
+
+.progress-ring-button {
+  display: inline-flex;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  color: inherit;
+}
+
+.progress-ring-button:hover .progress-ring-track {
+  stroke: var(--muted);
+}
+
+.field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.field > span:first-child {
+  color: var(--muted);
+}
+
+.field input,
+.field textarea,
+.invite-box input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--field);
+}
+
+/* Selects already carry this chrome from base.css; a field only stretches them. */
+.field select {
+  width: 100%;
+}
+
+.field input:focus,
+.field textarea:focus,
+.invite-box input:focus {
+  border-color: var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 110px;
+  line-height: 1.45;
+}
+
+.field-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.field-input-wrap.has-reveal input {
+  padding-right: 44px;
+}
+
+.field-reveal {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.field-reveal:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.field-reveal:focus-visible,
+.modal-close:focus-visible {
+  outline: 3px solid var(--icon-control-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────── */
+
+.primary-button,
+.secondary-button,
+.danger-button,
+.icon-button,
+.text-button,
+.primary-button,
+.secondary-button,
+.danger-button,
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* A link styled as a button is still a link: kill the underline, and let its
+   icon take the button's text colour rather than any ambient link/icon tint. */
+a.primary-button,
+a.secondary-button,
+a.danger-button,
+a.text-button,
+a.icon-button {
+  text-decoration: none;
+}
+
+a.primary-button svg,
+a.secondary-button svg,
+a.danger-button svg,
+a.icon-button svg {
+  color: inherit;
+}
+
+.primary-button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 7px;
+  color: #031116;
+  background: var(--gold);
+  font-weight: 760;
+}
+
+:root[data-theme="plain-light"] .primary-button:not(.danger) {
+  color: #ffffff;
+  background: #7c3aed;
+}
+
+:root[data-theme="plain-light"] .primary-button:not(.danger):hover:not(:disabled),
+:root[data-theme="plain-light"] .primary-button:not(.danger):focus-visible {
+  background: #6d28d9;
+}
+
+/* Mint-accented variant of the primary button, for actions that should read as
+   distinct from the default gold call-to-action (e.g. bulk "Add to series"). */
+.primary-button.accent-mint {
+  color: #03110f;
+  background: var(--mint);
+}
+
+.primary-button.accent-mint:hover:not(:disabled),
+.primary-button.accent-mint:focus-visible {
+  background: color-mix(in srgb, var(--mint) 86%, #000);
+}
+
+:root[data-theme="plain-light"] .primary-button.accent-mint:not(.danger) {
+  color: #03110f;
+  background: var(--mint);
+}
+
+:root[data-theme="plain-light"] .primary-button.accent-mint:not(.danger):hover:not(:disabled),
+:root[data-theme="plain-light"] .primary-button.accent-mint:not(.danger):focus-visible {
+  background: color-mix(in srgb, var(--mint) 86%, #000);
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.secondary-button,
+.danger-button {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 7px;
+  font-weight: 700;
+}
+
+.secondary-button {
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+.secondary-button.danger:not(:disabled) {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 44%, var(--line));
+  background: color-mix(in srgb, var(--rose) 6%, transparent);
+}
+
+.secondary-button.danger:hover:not(:disabled),
+.secondary-button.danger:focus-visible {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 70%, var(--line));
+  background: color-mix(in srgb, var(--rose) 12%, transparent);
+}
+
+.danger-button {
+  border: 0;
+  color: #fff;
+  background: #b23b52;
+}
+
+.secondary-button:disabled,
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.text-button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--rose);
+  background: transparent;
+  font-weight: 750;
+}
+
+.text-button:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
+  opacity: 0.65;
+}
+
+.text-button.danger:not(:disabled) {
+  color: var(--rose);
+}
+
+.text-button.danger:not(:disabled):hover {
+  text-decoration: underline;
+}
+
+.compact-button {
+  min-height: 42px;
+}
+
+
+/* ── Toggle switch ──────────────────────────────────────────────── */
+
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle-switch-track {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--active);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.toggle-switch-track.is-on {
+  border-color: transparent;
+  background: var(--gold);
+}
+
+.toggle-switch-track:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.toggle-switch-track:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.toggle-switch-knob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  transform: translateY(-50%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: left 0.15s ease;
+}
+
+.toggle-switch-track.is-on .toggle-switch-knob {
+  left: 23px;
+}
+
+.toggle-switch-label {
+  font-size: 0.9rem;
+  color: inherit;
+}
+
+/* ── Select menu ────────────────────────────────────────────────── */
+
+.select-menu {
+  position: relative;
+  width: fit-content;
+}
+
+.select-menu-trigger.secondary-button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  justify-content: stretch;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: var(--field);
+}
+
+.select-menu-trigger > span:nth-child(2) {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-menu-trigger-icon,
+.select-menu-trigger svg,
+.select-menu-option-icon {
+  color: var(--control-primary-button, var(--mint));
+}
+
+.select-menu-popover {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  gap: 2px;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 16px 36px var(--shadow);
+}
+
+.select-menu-option.text-button {
+  display: grid;
+  grid-template-columns: 24px 22px minmax(0, 1fr);
+  justify-content: stretch;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+  text-decoration: none;
+}
+
+.select-menu-option.text-button:hover,
+.select-menu-option.text-button:focus-visible {
+  color: var(--ink);
+  background: var(--hover);
+  outline: 0;
+}
+
+.select-menu-option.text-button.active {
+  color: var(--control-primary-button, var(--mint));
+  background: var(--active);
+}
+
+.select-menu-check {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: #ffffff;
+  background: transparent;
+}
+
+.select-menu-option.active .select-menu-check {
+  background: var(--control-primary-button, var(--mint));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--control-primary-button, var(--mint)) 20%, transparent);
+}
+
+.select-menu-option-icon {
+  display: grid;
+  place-items: center;
+}
+
+/* No option in this menu carries an icon, so drop the icon column — leaving it in
+   strands the label in a 22px cell and clips it. */
+.select-menu-option.text-button.no-icon {
+  grid-template-columns: 24px minmax(0, 1fr);
+}
+
+/* ActionMenu variant: one-shot actions, so no check column. */
+.action-menu-option.text-button {
+  grid-template-columns: 22px minmax(0, 1fr);
+}
+
+.action-menu-option.text-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select-menu-option > span:last-child {
+  overflow: hidden;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Choice group (shared/ChoiceGroup) ──────────────────────────── */
+
+.choice-group {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice-group > legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.choice {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  cursor: pointer;
+  user-select: none;
+}
+
+.choice:has(.choice-icon) {
+  grid-template-columns: 18px 34px minmax(0, 1fr);
+}
+
+.choice.is-selected {
+  border-color: var(--control-primary-button, var(--mint));
+  box-shadow: 0 0 0 1px var(--control-primary-button, var(--mint));
+}
+
+.choice.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.choice input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--control-primary-button, var(--mint));
+  cursor: inherit;
+}
+
+.choice-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 12%, transparent);
+}
+
+.choice-body {
+  display: grid;
+  gap: 3px;
+}
+
+.choice-label {
+  font-size: 0.95rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.choice-description,
+.choice-note {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.choice-note {
+  font-style: italic;
+}
+
+/* ── Message box ────────────────────────────────────────────────── */
+
+.message-box {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid;
+  border-radius: 8px;
+  font-size: 0.94rem;
+}
+
+.message-box svg {
+  margin-top: 2px;
+}
+
+.message-box strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.message-box p {
+  margin: 0;
+  color: inherit;
+}
+
+/* Call to action under a notice whose fix is one click away. */
+.message-box-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.message-box code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.9em;
+}
+
+.message-box.info {
+  color: var(--blue);
+  border-color: color-mix(in srgb, var(--blue) 32%, transparent);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.message-box.warning {
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 32%, transparent);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+}
+
+.message-box.error {
+  color: var(--rose);
+  border-color: rgba(255, 126, 145, 0.3);
+  background: rgba(178, 59, 82, 0.14);
+}
+
+.message-box.success {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.status {
+  margin: 34px 0 0;
+}
+
+/* ── Modals ─────────────────────────────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 12, 21, 0.64);
+}
+
+.confirm-modal {
+  width: min(100%, 420px);
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 22px 52px var(--shadow);
+}
+
+.confirm-modal h2 {
+  font-size: 1.25rem;
+}
+
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.modal-title-heading {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.modal-title-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.modal-title-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--control-primary-button, var(--mint)) 11%, transparent);
+}
+
+.modal-title-row h2 {
+  margin: 0;
+}
+
+.modal-subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.modal-title-action {
+  flex-shrink: 0;
+}
+
+.confirm-modal p {
+  margin: 12px 0 24px;
+  color: var(--muted);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  /* Always separate the action row from the body above it. Forms that end in a
+     field (no trailing margin) would otherwise let the buttons hug the input;
+     where the body already ends in a <p> (e.g. ConfirmDialog) this collapses
+     against its 24px bottom margin, so the gap stays a consistent 24px. */
+  margin-top: 24px;
+}
+
+/* Rescan holds the full scan-sources editor (rows with descriptions + reorder
+   controls), so it needs the same room as the edit dialog — not the narrow
+   confirm-card default that leaves the source rows cramped. */
+.confirm-modal.rescan-modal {
+  width: min(100%, 620px);
+}
+
+/* The rescan modal ends in form fields (checkbox + encoding select), so the
+   action row needs breathing room — otherwise "Start rescan" hugs the dropdown. */
+.rescan-modal .modal-actions {
+  margin-top: 20px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.modal-close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.modal-tabs {
+  display: flex;
+  padding: 8px 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-tab {
+  padding: 8px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.modal-tab:hover {
+  color: var(--ink);
+}
+
+.modal-tab.active {
+  color: var(--mint);
+  border-bottom-color: var(--mint);
+}
+
+.modal-tab-content {
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+

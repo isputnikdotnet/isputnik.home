@@ -1,0 +1,428 @@
+/* Upload size cards, the shared FileUpload dropzone, and the library
+   scan/upload editors. */
+
+/* ── Upload size radio cards ─────────────────────────────────────── */
+
+.upload-size-options {
+  display: grid;
+  gap: 10px;
+}
+
+.upload-size-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  cursor: pointer;
+  user-select: none;
+}
+
+.upload-size-card.selected {
+  border-color: var(--control-primary-button, var(--mint));
+  box-shadow: 0 0 0 1px var(--control-primary-button, var(--mint));
+}
+
+.upload-size-card.upload-size-card-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upload-size-card input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--control-primary-button, var(--mint));
+  cursor: pointer;
+}
+
+.upload-size-card-body {
+  display: grid;
+  gap: 3px;
+}
+
+.upload-size-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-size-card strong {
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.upload-size-card small {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.upload-size-recommended {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 14%, transparent);
+}
+
+.upload-size-infinity {
+  color: var(--control-primary-button, var(--mint));
+  display: flex;
+  align-items: center;
+}
+
+.upload-size-custom-section {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.upload-size-custom-section.selected {
+  border-color: var(--control-primary-button, var(--mint));
+  box-shadow: 0 0 0 1px var(--control-primary-button, var(--mint));
+}
+
+.upload-size-custom-section.upload-size-card-disabled {
+  opacity: 0.6;
+}
+
+.upload-size-custom-head {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  padding: 16px 18px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.upload-size-custom-head input[type="radio"] {
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--control-primary-button, var(--mint));
+  cursor: pointer;
+}
+
+.upload-size-custom-inputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px 16px 54px;
+}
+
+/* Shared FileUpload (shared/FileUpload.tsx) — dropzone + streaming progress. */
+.file-upload {
+  display: grid;
+  gap: 14px;
+}
+
+.file-dropzone {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.file-dropzone.dragging {
+  border-color: var(--control-primary-button, var(--mint));
+  background: color-mix(in srgb, var(--mint) 8%, var(--surface-raised));
+}
+
+.file-dropzone-icon {
+  color: var(--control-primary-button, var(--mint));
+  display: flex;
+}
+
+.file-dropzone-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.file-dropzone-hint {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+}
+
+.file-dropzone-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.file-upload-active {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+
+.file-upload-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.file-upload-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-upload-pct {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.file-upload-track {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 22%, transparent);
+  overflow: hidden;
+}
+
+.file-upload-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--control-primary-button, var(--mint));
+  transition: width 0.15s ease;
+}
+
+.file-upload-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Upload dialogs are a touch wider than the confirm default, and the Close
+   button needs room below the dropzone instead of hugging it. */
+.confirm-modal.backup-upload-modal {
+  width: min(100%, 480px);
+}
+
+.confirm-modal.book-upload-modal {
+  width: min(100%, 540px);
+}
+
+.backup-upload-modal .modal-actions,
+.book-upload-modal .modal-actions {
+  margin-top: 22px;
+}
+
+.upload-size-custom-inputs label {
+  color: var(--muted);
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.upload-size-custom-inputs input {
+  width: 110px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.upload-size-custom-inputs input:focus {
+  border-color: var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
+.upload-size-custom-inputs input:disabled {
+  opacity: 0.55;
+}
+
+.upload-size-custom-inputs select {
+  min-height: 40px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  opacity: 0.55;
+}
+
+/* ── Library scan/upload editors ───────────────────────────────── */
+
+.extension-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.extension-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.extension-chip button {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.extension-chip button:hover {
+  color: inherit;
+}
+
+.extension-add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.extension-add-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.scan-sources-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.scan-source-table {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.scan-source-row {
+  display: grid;
+  grid-template-columns: 22px 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.scan-source-row:last-child {
+  border-bottom: 0;
+}
+
+.scan-source-row.scan-source-dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.scan-source-row.scan-source-drag-over {
+  border-top: 2px solid var(--control-primary-button, var(--mint));
+}
+
+.scan-source-row.disabled .scan-source-copy {
+  opacity: 0.55;
+}
+
+.scan-source-row.disabled .scan-source-icon {
+  opacity: 0.45;
+}
+
+.scan-source-check {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--control-primary-button, var(--mint));
+  cursor: pointer;
+}
+
+.scan-source-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.scan-source-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.scan-source-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.scan-source-copy strong {
+  font-size: 0.92rem;
+}
+
+.scan-source-copy small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.scan-source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 14%, transparent);
+}
+
+.scan-source-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.scan-source-grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  opacity: 0.5;
+  cursor: grab;
+}
+
+.scan-source-row.scan-source-dragging .scan-source-grip {
+  cursor: grabbing;
+}
+
+.create-invite-modal .created-invite {
+  margin: 18px 0 22px;
+}
+
+.create-invite-modal .message-box {
+  margin-bottom: 22px;
+}
+

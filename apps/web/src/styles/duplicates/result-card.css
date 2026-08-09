@@ -1,0 +1,899 @@
+/* CleanupResultCard — a duplicate-folder set, as a card. */
+
+/* ── A duplicate-folder set, as a card ──────────────────────────────
+   Numbered, with what the folders hold, then a strip of the pictures themselves and
+   the folders side by side. The strip is the fastest way to recognise which holiday
+   this is; the cards carry everything needed to choose between the copies. */
+.dup-sets { display: flex; flex-direction: column; gap: 12px; }
+
+.dup-set {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px 16px;
+}
+.dup-set-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.dup-set-summary {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.dup-set-title { margin: 0; font-size: 1rem; }
+.dup-set-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 3px 0 0;
+  font-size: 0.8rem;
+}
+.dup-set-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.dup-set-meta svg { opacity: 0.8; }
+.dup-set-explain {
+  max-width: 760px;
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+/* Strip left, folders right — they wrap under each other when the panel is narrow. */
+.dup-set-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.dup-set-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.dup-set-strip img {
+  width: 62px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 7px;
+  display: block;
+}
+.dup-set-strip-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 7px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.1));
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.dup-set-folders {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  flex: 1 1 340px;
+  flex-wrap: wrap;
+}
+/* FIXED-size cards, like the copy tiles above them: a pair of folders reads as two
+   equal boxes whatever their paths run to, and never stretches across the panel. The
+   wraps still stretch vertically so both cards in a row share a height. */
+.dup-set-folder-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.dup-set-arrow { flex: 0 0 auto; color: var(--muted); align-self: center; }
+
+.dup-set-folder {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 250px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+/* The two outcomes read at a glance, and never look alike. Tinted over the raised
+   surface, firmly enough that the card is green or red rather than white with a
+   coloured edge. */
+.dup-set-folder.is-keep {
+  border-color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 16%, var(--surface-raised));
+}
+.dup-set-folder.is-trash {
+  border-color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 14%, var(--surface-raised));
+}
+/* The badges carry the same colours as the copy tiles on Duplicate photos: mint for
+   the copy that stays, rose for the one that goes. Needed here explicitly — the
+   mint rule above is scoped to .dup-copy tiles and never reached these. */
+.dup-set-folder.is-keep .dup-set-badge { background: var(--mint); color: var(--canvas); }
+.dup-set-folder.is-trash .dup-set-badge { background: var(--rose); color: #fff; }
+
+.dup-set-folder-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* In the flow rather than floating over a thumbnail, as on the copy tiles. */
+.dup-set-badge { position: static; }
+.dup-set-open { color: var(--muted); display: inline-flex; }
+.dup-set-open:hover { color: var(--ink); }
+
+.dup-set-folder-name { font-size: 0.9rem; overflow-wrap: anywhere; }
+/* Each line leads with a small icon saying what KIND of fact it is — a path, a
+   library — so three lines of grey text don't have to be read in order to be told
+   apart. The icon holds the left edge while a long path wraps beside it, rather than
+   sitting in the flow and letting the second line start under the glyph. */
+.dup-set-path,
+.dup-set-line {
+  color: var(--muted);
+  font-size: 0.74rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+.dup-set-path > svg,
+.dup-set-line > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  opacity: 0.75;
+}
+.dup-set-path > span,
+.dup-set-line > span { min-width: 0; overflow-wrap: anywhere; }
+
+/* Said only when the kept folder ENCLOSES the one going, where its own photo count
+   already includes what is about to leave — italic so it reads as a caveat about the
+   line above rather than another fact of the same kind. */
+.dup-set-note { font-style: italic; }
+
+/* Folder icon + name on one line. As a BUTTON (the swap-keeper affordance on a
+   non-keeper card) it sheds the text-button chrome so both cards read identically —
+   the hover underline is the only tell. */
+.dup-set-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  text-align: left;
+}
+.dup-set-name-row svg { flex: 0 0 auto; color: var(--accent, #c8a24a); }
+.dup-set-name-btn:hover .dup-set-folder-name { text-decoration: underline; }
+
+/* Search takes what the two menus leave, as on any list page. */
+.dup-folder-search { flex: 1 1 220px; min-width: 0; }
+
+.dup-folder-toolbar {
+  gap: 14px;
+  margin: 20px 0 24px;
+}
+
+.dup-cleanup-toolbar {
+  margin: 28px 0 0;
+}
+
+.dup-folder-toolbar > .secondary-button.compact,
+.dup-folder-toolbar .search-field,
+.dup-folder-toolbar .select-menu-trigger.secondary-button,
+.dup-folder-toolbar .icon-button {
+  min-height: 46px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--shadow) 22%, transparent);
+}
+
+.dup-folder-toolbar > .secondary-button.compact {
+  padding-inline: 18px;
+  font-size: 0.78rem;
+}
+
+.dup-folder-toolbar .search-field {
+  flex: 1 1 300px;
+  width: auto;
+  max-width: none;
+}
+
+.dup-folder-toolbar .dup-toolbar-controls {
+  gap: 12px;
+}
+
+.dup-cleanup-toolbar .dup-toolbar-controls {
+  justify-content: flex-end;
+  min-width: 130px;
+}
+
+.dup-folder-toolbar .select-menu-trigger.secondary-button {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding-inline: 16px 12px;
+}
+
+.dup-folder-toolbar .select-menu-trigger > span {
+  overflow: hidden;
+  min-width: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dup-folder-sort-menu .select-menu-trigger::before,
+.dup-folder-page-menu .select-menu-trigger::before {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.dup-folder-sort-menu .select-menu-trigger::before {
+  content: "Sort by:";
+}
+
+.dup-folder-page-menu .select-menu-trigger::before {
+  content: "Per page:";
+}
+
+.dup-sets {
+  gap: 18px;
+}
+
+.dup-set {
+  padding: 22px 24px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--shadow) 24%, transparent);
+}
+
+.dup-set-head {
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.dup-set-title {
+  font-size: 1.08rem;
+  line-height: 1.2;
+}
+
+.dup-set-meta {
+  gap: 6px 24px;
+  margin-top: 9px;
+  font-size: 0.86rem;
+}
+
+.dup-set-body {
+  display: grid;
+  grid-template-columns: minmax(270px, 0.8fr) minmax(520px, 1.35fr);
+  gap: 28px;
+  align-items: center;
+}
+
+.dup-set-strip {
+  gap: 8px;
+  overflow: hidden;
+}
+
+.dup-set-strip img,
+.dup-set-strip-empty {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 76px;
+  border-radius: 7px;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--shadow) 22%, transparent);
+}
+
+.dup-set-folders {
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: nowrap;
+}
+
+.dup-set-folder-wrap {
+  gap: 14px;
+}
+
+.dup-set-arrow {
+  width: 24px;
+  height: 24px;
+  color: color-mix(in srgb, var(--muted) 82%, transparent);
+}
+
+.dup-set-folder {
+  width: 240px;
+  min-height: 168px;
+  gap: 5px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--shadow) 18%, transparent);
+}
+
+.dup-set-folder:not(:has(.dup-set-action)) {
+  min-height: 136px;
+}
+
+.dup-set-folder.is-keep {
+  border-color: color-mix(in srgb, var(--success) 64%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--success) 13%, transparent), transparent 72%),
+    color-mix(in srgb, var(--surface-raised) 92%, transparent);
+}
+
+.dup-set-folder.is-trash {
+  border-color: color-mix(in srgb, var(--rose) 64%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--rose) 10%, transparent), transparent 72%),
+    color-mix(in srgb, var(--surface-raised) 92%, transparent);
+}
+
+.dup-set-folder.is-keep .dup-set-badge {
+  color: #ffffff;
+  background: var(--success);
+}
+
+.dup-set-folder.is-trash .dup-set-badge {
+  color: #ffffff;
+  background: var(--rose);
+}
+
+.dup-set-folder-top {
+  min-height: 22px;
+  margin-bottom: 3px;
+}
+
+.dup-set-badge {
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 0.58rem;
+}
+
+.dup-set-open {
+  opacity: 0.68;
+}
+
+.dup-set-open:hover,
+.dup-set-open:focus-visible {
+  opacity: 1;
+}
+
+.dup-set-name-row {
+  gap: 9px;
+  margin-top: 2px;
+}
+
+.dup-set-name-row svg {
+  width: 25px;
+  height: 25px;
+  color: #7c3aed;
+}
+
+.dup-set-folder-name {
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.dup-set-path {
+  margin-top: -2px;
+  font-weight: 650;
+}
+
+.dup-set-path,
+.dup-set-line {
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.dup-set-keep-action.secondary-button {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 54%, var(--line));
+  background: color-mix(in srgb, var(--success) 5%, transparent);
+}
+
+.dup-set-keep-action.secondary-button:hover:not(:disabled),
+.dup-set-keep-action.secondary-button:focus-visible {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 72%, var(--line));
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+@media (max-width: 1200px) {
+  .dup-set-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dup-set-folders {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .dup-folder-toolbar {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .dup-folder-toolbar .search-field,
+  .dup-folder-toolbar .dup-toolbar-controls,
+  .dup-folder-toolbar .select-menu {
+    width: 100%;
+  }
+
+  .dup-folder-toolbar .dup-toolbar-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto;
+    margin-left: 0;
+  }
+
+  .dup-folder-sort-menu,
+  .dup-folder-page-menu {
+    width: 100%;
+  }
+
+  .dup-set {
+    padding: 18px;
+  }
+
+  .dup-set-strip {
+    flex-wrap: wrap;
+  }
+
+  .dup-set-folders {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dup-set-folder-wrap {
+    display: grid;
+    justify-items: stretch;
+  }
+
+  .dup-set-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+
+  .dup-set-folder {
+    width: 100%;
+  }
+}
+
+/* Folder result cards: the mockup reads left-to-right as set summary, preview strip,
+   keeper, arrow, deletion candidate. Duplicate folders and cleanup jobs both reuse
+   this shape so folder decisions feel the same in either workflow. */
+.dup-folder-card {
+  display: grid;
+  grid-template-columns: minmax(340px, 0.96fr) minmax(490px, 1.18fr);
+  align-items: center;
+  gap: 28px;
+  min-height: 260px;
+  padding: 28px 30px;
+}
+
+.dup-folder-card-main {
+  display: grid;
+  align-content: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.dup-folder-card-decision {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  align-content: start;
+  justify-items: end;
+  gap: 24px;
+  min-width: 0;
+}
+
+/* Was a fixed three-column grid, which broke the moment Compare made it four. Flex
+   with equal-growing children keeps them the same width at any count and wraps rather
+   than pushing the last one off the card. */
+.dup-folder-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  width: min(100%, 620px);
+  justify-self: end;
+}
+
+.dup-folder-card-actions > * { flex: 1 1 104px; }
+
+.dup-folder-card-actions .secondary-button.compact-button {
+  justify-content: center;
+  min-height: 40px;
+  padding-inline: 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 780;
+}
+
+.dup-folder-card-actions .dup-set-delete-action.secondary-button.danger {
+  color: var(--rose);
+}
+
+.dup-folder-card .dup-set-head {
+  display: block;
+  margin: 0;
+}
+
+.dup-folder-card .dup-set-summary {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+}
+
+.dup-folder-card .dup-set-title {
+  font-size: 1.32rem;
+  line-height: 1.2;
+}
+
+.dup-folder-card .dup-set-meta {
+  gap: 8px 26px;
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.dup-folder-card .dup-set-explain {
+  margin: 0;
+  white-space: normal;
+}
+
+.dup-folder-card .dup-set-strip {
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+
+.dup-folder-card .dup-set-strip img,
+.dup-folder-card .dup-set-strip-empty,
+.dup-set-strip-more {
+  flex: 0 0 58px;
+  width: 58px;
+  height: 86px;
+  border-radius: 8px;
+}
+
+.dup-folder-card .dup-set-strip img,
+.dup-folder-card .dup-set-strip-empty {
+  object-fit: cover;
+}
+
+.dup-set-strip-more {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  color: color-mix(in srgb, var(--muted) 90%, var(--ink));
+  background: color-mix(in srgb, var(--line) 34%, transparent);
+  font-size: 0.96rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.dup-set-strip-more small {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.dup-folder-dismiss-action.text-button {
+  justify-self: start;
+  min-height: 30px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.dup-folder-dismiss-action.text-button:hover:not(:disabled),
+.dup-folder-dismiss-action.text-button:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.dup-folder-card .dup-set-folders {
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.dup-folder-card .dup-set-folder-wrap {
+  gap: 14px;
+}
+
+.dup-folder-card .dup-set-folder {
+  width: 218px;
+  min-height: 206px;
+  padding: 15px 16px;
+}
+
+.dup-folder-card .dup-set-folder-top {
+  min-height: 24px;
+  margin: 0 0 4px;
+}
+
+.dup-folder-card .dup-set-badge {
+  padding: 4px 8px;
+  font-size: 0.58rem;
+}
+
+.dup-folder-card .dup-set-name-row {
+  margin-top: 0;
+}
+
+.dup-folder-card .dup-set-name-row svg {
+  width: 30px;
+  height: 30px;
+}
+
+.dup-folder-card .dup-set-folder-name {
+  font-size: 1rem;
+}
+
+.dup-folder-card .dup-set-path,
+.dup-folder-card .dup-set-line {
+  display: block;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+.dup-folder-card .dup-set-path {
+  margin-top: -1px;
+  font-weight: 700;
+}
+
+.dup-folder-card .dup-set-path > svg {
+  display: none;
+}
+
+.dup-folder-card .dup-set-path > span,
+.dup-folder-card .dup-set-line > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dup-folder-card .dup-set-note {
+  display: -webkit-box;
+  margin-top: 3px;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+}
+
+.dup-folder-card .dup-set-action {
+  margin-top: auto;
+}
+
+.dup-folder-card .dup-set-keep-action.secondary-button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.dup-set-delete-action.secondary-button.danger {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 38%, var(--line));
+  background: color-mix(in srgb, var(--rose) 4%, transparent);
+}
+
+.dup-set-delete-action.secondary-button.danger:hover:not(:disabled),
+.dup-set-delete-action.secondary-button.danger:focus-visible {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 68%, var(--line));
+  background: color-mix(in srgb, var(--rose) 10%, transparent);
+}
+
+.dup-folder-page-card .dup-set-folders {
+  flex-wrap: wrap;
+}
+
+.dup-folder-page-card .dup-set-folder {
+  min-height: 158px;
+}
+
+.dup-folder-page-card .dup-set-folder-top {
+  margin-bottom: 6px;
+}
+
+.dup-folder-page-card .dup-set-open {
+  color: color-mix(in srgb, var(--muted) 82%, var(--accent, #6336f5));
+}
+
+.dup-folder-page-card .dup-set-open:hover,
+.dup-folder-page-card .dup-set-open:focus-visible {
+  color: var(--accent, #6336f5);
+}
+
+/* The cleanup job result page uses the same readable folder cards, with the job's
+   review actions as a single row above the folder pair. */
+/* The decision column may shrink. It used to be minmax(490px, …), which with the 340px
+   summary beside it demanded 830px before gaps — more than the card gets at an ordinary
+   window width, so the column overflowed the card and clipped whatever sat furthest
+   right. The actions row inside wraps instead. */
+.dup-cleanup-folder-card {
+  grid-template-columns: minmax(320px, 0.96fr) minmax(0, 1.18fr);
+}
+
+.dup-cleanup-folder-card .dup-set-summary {
+  max-width: 470px;
+}
+
+.dup-cleanup-folder-card .dup-set-strip {
+  min-height: 92px;
+}
+
+/* Side by side, always. The card makes one comparison — "these photos are also in
+   that folder" — and a pair stacked one above the other reads as a list of two
+   unrelated folders instead.
+
+   They were fixed at 218px and allowed to WRAP, which looks fine until you notice
+   the decision column is sized as a fraction of the card, not of the window: on a
+   normal desktop it lands near 390px, the pair needs about 490px, and the second
+   tile drops onto its own row. The row now never wraps and the tiles shrink to fit
+   instead — 218px where there is room, smaller where there is not. Long names and
+   paths already truncate inside them.
+
+   They shrink proportionally rather than to identical widths: the arrow shares the
+   second tile's wrapper, so that side carries ~32px more basis and ends a handful of
+   pixels narrower (8px at a 390px column). Reserving a matching slot on the first
+   tile would even it out at the cost of a hardcoded number tracking both the arrow's
+   width and the row gap — not worth it for a difference this size.
+
+   A phone still stacks them (the 720px block below), where side by side would leave
+   two columns too narrow to read. */
+.dup-cleanup-folder-card .dup-set-folders {
+  align-content: center;
+  flex-wrap: nowrap;
+  /* Load-bearing. The decision column is a grid with justify-items: end, so this row
+     is shrink-to-fit and would simply size to its own max-content and hang out over
+     the edge of the card — nowrap without this trades stacking for overflow. Capped
+     to the column, the shrink below is what actually happens instead. */
+  max-width: 100%;
+}
+
+.dup-cleanup-folder-card .dup-set-folder-wrap,
+.dup-cleanup-folder-card .dup-set-folder {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.dup-cleanup-folder-card .dup-set-folder {
+  min-height: 158px;
+}
+
+/* A cleanup card carries a lot of small facts, and at the folder page's sizes they
+   shouted. Dialled down together so the hierarchy holds: the folder name still
+   leads, the sentence under it still reads as prose, and the meta row no longer
+   competes with either. */
+.dup-cleanup-folder-card .dup-set-title {
+  font-size: 1.08rem;
+}
+
+.dup-cleanup-folder-card .dup-set-meta {
+  gap: 6px 18px;
+  font-size: 0.78rem;
+}
+
+.dup-cleanup-folder-card .dup-set-explain {
+  font-size: 0.76rem;
+}
+
+.dup-cleanup-folder-card .dup-set-folder-name {
+  font-size: 0.86rem;
+}
+
+.dup-cleanup-folder-card .dup-set-name-row svg {
+  width: 19px;
+  height: 19px;
+}
+
+.dup-cleanup-folder-card .dup-set-path,
+.dup-cleanup-folder-card .dup-set-line {
+  font-size: 0.72rem;
+}
+
+/* Each meta line is icon-then-text on ONE line, the icon holding the left edge.
+   These undo the .dup-folder-card block above, which lays the same lines out as
+   plain blocks and hides the path's icon — with `display: block` the inline glyph
+   takes a line of its own and the block text lands underneath it, so a tile that
+   should read as four short facts reads as eight half-lines. Equal specificity, so
+   these must come after that block, and must restore `display` explicitly: setting
+   only flex-wrap on a block box changes nothing. */
+.dup-cleanup-folder-card .dup-set-path,
+.dup-cleanup-folder-card .dup-set-line {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.dup-cleanup-folder-card .dup-set-path > svg,
+.dup-cleanup-folder-card .dup-set-line > svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  margin-top: 3px;
+  opacity: 0.75;
+}
+
+/* A long path stays on its line and ends in an ellipsis rather than growing the
+   tile; the full value is on the element's title. min-width:0 is what lets a flex
+   child shrink below its content and actually truncate. */
+.dup-cleanup-folder-card .dup-set-path > span,
+.dup-cleanup-folder-card .dup-set-line > span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1220px) {
+  .dup-folder-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .dup-folder-card .dup-set-folders {
+    justify-content: flex-start;
+  }
+
+  .dup-folder-card-decision {
+    justify-items: start;
+  }
+}
+
+@media (max-width: 720px) {
+  .dup-folder-card {
+    min-height: 0;
+    padding: 20px;
+  }
+
+  .dup-folder-card .dup-set-strip {
+    flex-wrap: wrap;
+  }
+
+  .dup-folder-card .dup-set-folders {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dup-folder-card-decision,
+  .dup-folder-card-actions {
+    justify-items: stretch;
+    width: 100%;
+  }
+
+  .dup-folder-card-actions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .dup-folder-card .dup-set-folder-wrap {
+    display: grid;
+  }
+
+  .dup-folder-card .dup-set-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+
+  .dup-folder-card .dup-set-folder {
+    width: 100%;
+  }
+}
+

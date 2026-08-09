@@ -1,0 +1,295 @@
+/* The Duplicate photos page: scope bar, toolbar and result groups. */
+
+/* ── Duplicate photos ───────────────────────────────────────────── */
+
+/* Scope on the left, the three actions on the right. */
+.dup-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.dup-photo-head-actions .select-menu-trigger.secondary-button,
+.dup-photo-head-actions .secondary-button.compact-button {
+  min-height: 46px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--shadow) 18%, transparent);
+}
+
+.dup-toolbar > .secondary-button.compact,
+.dup-toolbar > .danger-button.compact,
+.dup-toolbar .select-menu-trigger.secondary-button {
+  font-size: 0.78rem;
+}
+
+.dup-toolbar .audiobook-library-tab {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+}
+
+.dup-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* One size for all three, matching the scope tab's height. */
+.dup-toolbar-controls .icon-button {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+/* `compact` swaps the sort trigger for an icon but leaves the wrapper at its
+   250px-wide browse-page size, so each caller collapses it — same fix the gallery
+   album bar makes at gallery.css:419. */
+.dup-toolbar-controls .audiobook-sort-control.compact {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: none;
+  gap: 0;
+  width: 40px;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.dup-toolbar-controls .audiobook-sort-control.compact:hover {
+  background: var(--hover);
+}
+
+.dup-toolbar-controls .audiobook-sort-trigger {
+  width: 40px;
+  height: 40px;
+  min-width: 0;
+  justify-content: center;
+  padding: 0;
+}
+
+/* This page shows a lot of small decisions at once, so the per-set buttons sit at
+   the admin-table size (32px) rather than the 42px `compact` default. */
+.dup-group-actions .compact-button {
+  min-height: 32px;
+  padding: 0 10px;
+  gap: 6px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.dup-delete-action.secondary-button.danger:not(:disabled) {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 58%, var(--line));
+  background: color-mix(in srgb, var(--rose) 7%, transparent);
+}
+
+.dup-delete-action.secondary-button.danger:hover:not(:disabled),
+.dup-delete-action.secondary-button.danger:focus-visible {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 74%, var(--line));
+  background: color-mix(in srgb, var(--rose) 13%, transparent);
+}
+
+.dup-delete-action svg {
+  color: inherit;
+}
+
+.dup-delete-icon.icon-button.danger:not(:disabled) {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 58%, var(--line));
+  background: color-mix(in srgb, var(--rose) 7%, var(--icon-control-bg));
+}
+
+.dup-delete-icon.icon-button.danger:hover:not(:disabled),
+.dup-delete-icon.icon-button.danger:focus-visible {
+  color: var(--rose);
+  border-color: color-mix(in srgb, var(--rose) 74%, var(--line));
+  background: color-mix(in srgb, var(--rose) 13%, var(--icon-control-bg));
+}
+
+.dup-toolbar-controls .dup-per-page .select-menu-trigger {
+  min-height: 40px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.dup-photo-toolbar > .secondary-button.compact-button {
+  min-height: 46px;
+  padding-inline: 16px;
+}
+
+.dup-photo-toolbar .dup-toolbar-controls {
+  gap: 18px;
+  margin-left: 0;
+}
+
+.dup-photo-toolbar .select-menu-trigger.secondary-button {
+  min-height: 46px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding-inline: 16px 12px;
+}
+
+.dup-photo-toolbar .select-menu-trigger > span {
+  overflow: hidden;
+  min-width: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dup-photo-sort-menu .select-menu-trigger::before,
+.dup-photo-page-menu .select-menu-trigger::before {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dup-photo-sort-menu .select-menu-trigger::before {
+  content: "Sort by";
+}
+
+.dup-photo-page-menu .select-menu-trigger::before {
+  content: "Photos per page";
+}
+
+@media (max-width: 1120px) {
+  .dup-photo-head-actions {
+    justify-content: flex-start;
+    flex-basis: 100%;
+  }
+
+  .dup-photo-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dup-photo-toolbar .dup-toolbar-controls {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .dup-photo-head-actions,
+  .dup-photo-toolbar .dup-toolbar-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .dup-photo-head-actions .select-menu,
+  .dup-photo-head-actions .secondary-button,
+  .dup-photo-toolbar .select-menu,
+  .dup-photo-toolbar > .secondary-button {
+    width: 100%;
+  }
+
+  .dup-group-head {
+    align-items: stretch;
+  }
+
+  .dup-group-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .dup-group-actions .secondary-button {
+    flex: 1 1 150px;
+  }
+
+  .dup-copies {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  }
+}
+
+/* Count on the left, page controls on the right — the same split the list header
+   above it uses. */
+.dup-pager-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  font-size: 0.84rem;
+}
+
+.dup-tier-heading { margin: 16px 0 4px; font-size: 0.95rem; }
+
+/* A section's standing explanation — prose, not a table value, so it carries its own
+   muted colour rather than borrowing .datagrid-muted's. That class also sets
+   white-space: nowrap, which held this paragraph on one 1355px line inside an 801px
+   column and cut the longest of them — the near-identical warning — off mid-sentence,
+   losing "open them before deleting anything". Same trap as .dup-note above. */
+.dup-tier-note {
+  margin: 0 0 8px;
+  max-width: 90ch;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.dup-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 18%, transparent);
+}
+.dup-group-actions { display: flex; align-items: center; gap: 10px; }
+/* A plain box, and `position: relative` is load-bearing: the badge is absolutely
+   placed over the thumbnail's corner, so without it every badge on the page escapes
+   to the nearest positioned ancestor and stacks there. Sized by the grid, not by
+   `flex-basis` — this container is a grid, where flex properties do nothing. */
+.dup-copies .dup-copy {
+  position: relative;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  min-width: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+}
+.dup-copies .dup-copy.is-keep {
+  border-color: color-mix(in srgb, var(--success) 64%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--success) 10%, transparent), transparent 68%),
+    color-mix(in srgb, var(--surface-raised) 68%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success) 54%, var(--line));
+}
+/* Marked for deletion: dimmed so a set reads at a glance, without hiding the
+   picture you're deciding about. */
+.dup-copies .dup-copy.is-trash .dup-copy-thumb { opacity: 0.45; }
+.dup-copies .dup-copy.is-trash .dup-copy-name { color: var(--muted); }
+
+/* Sits over the thumbnail's top-left corner, as on the mockup. */
+.dup-copy-badge {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--rose);
+  pointer-events: none;
+}
+.dup-copy.is-keep .dup-copy-badge { background: var(--success); color: #ffffff; }
+
+/* One line each: these locate the copy, and a wrapped folder path would push the
+   tiles out of step the way the filename deliberately may. */
+.dup-copy.is-trash .dup-copy-where { opacity: 0.75; }
+

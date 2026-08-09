@@ -1,0 +1,562 @@
+/* Datagrid, status and count badges, the people combobox, the suggest
+   input, the media-kind badge, and the control-panel search palette. */
+
+/* ── Datagrid ───────────────────────────────────────────────────── */
+
+.datagrid-wrap {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+.datagrid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.datagrid thead tr {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.datagrid th {
+  padding: 9px 14px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* A sortable heading: the whole label is the control, and the chevron shows on the
+   column currently doing the sorting. Inherits the th's uppercase/letter-spaced
+   type so a sortable column reads no louder than a fixed one. */
+.datagrid-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.datagrid-sort:hover {
+  color: var(--ink);
+}
+
+.datagrid-sort:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.datagrid th.col-num .datagrid-sort {
+  /* Right-aligned column: the chevron belongs on the outside edge. */
+  flex-direction: row-reverse;
+}
+
+.datagrid th.col-num,
+.datagrid td.col-num {
+  text-align: right;
+}
+
+.datagrid th.col-actions,
+.datagrid td.col-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.datagrid tbody tr {
+  border-bottom: 1px solid var(--line);
+  transition: background 0.1s;
+}
+
+.datagrid tbody tr:last-child {
+  border-bottom: none;
+}
+
+.datagrid tbody tr:hover {
+  background: var(--hover);
+}
+
+.datagrid td {
+  padding: 11px 14px;
+  vertical-align: middle;
+}
+
+.datagrid-primary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.datagrid-primary strong {
+  font-weight: 600;
+}
+
+.datagrid-primary small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.datagrid-muted {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ── Status badge ───────────────────────────────────────────────── */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 100px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.status-badge::before {
+  content: '';
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-badge.idle {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.status-badge.public {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+}
+
+.status-badge.private {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+}
+
+.status-badge.admin,
+.status-badge.protected {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.status-badge.member {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.status-badge.current {
+  color: var(--mint);
+  background: var(--active);
+}
+
+.status-badge.locked {
+  color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 16%, transparent);
+}
+
+.status-badge.manager {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.status-badge.active {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+}
+
+.status-badge.expired {
+  color: var(--muted);
+  background: var(--active);
+}
+
+.status-badge.used {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.status-badge.scanning {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.status-badge.error {
+  color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 18%, transparent);
+}
+
+.status-badge.pending {
+  color: var(--muted);
+  background: var(--active);
+}
+
+.status-badge.running {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.status-badge.completed {
+  color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 18%, transparent);
+}
+
+.status-badge.failed {
+  color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 18%, transparent);
+}
+
+.status-badge.stuck {
+  color: var(--rose);
+  background: color-mix(in srgb, var(--rose) 18%, transparent);
+  animation: pulse-badge 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.job-error-toggle {
+  all: unset;
+  cursor: pointer;
+  color: var(--rose);
+  font-size: 0.82rem;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.job-error-toggle:hover {
+  color: var(--ink);
+}
+
+.job-error-detail {
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--active);
+  border-radius: 6px;
+  font-size: 0.76rem;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* Task-history result/error cell: let a long result wrap to multiple lines within
+   a bounded width instead of forcing one overflowing line that distorts the row.
+   Top-align so the short Started/Duration cells sit against the first line. Placed
+   after .job-error-toggle so its `all: unset` can't reset these on the error button. */
+.task-result-cell {
+  vertical-align: top;
+}
+.task-result-text {
+  display: inline-block;
+  max-width: 460px;
+  white-space: normal;      /* override .datagrid-muted's nowrap */
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+/* ── Count badge ────────────────────────────────────────────────── */
+
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--active);
+  color: var(--mint);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.management-empty {
+  margin: 0;
+  padding: 36px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── People combobox ────────────────────────────────────────────── */
+
+.people-combobox {
+  position: relative;
+}
+
+.people-combobox-input-area {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  cursor: text;
+}
+
+.people-combobox-input-area:focus-within {
+  border-color: var(--mint);
+  outline: 3px solid color-mix(in srgb, var(--mint) 28%, transparent);
+}
+
+.people-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 10px;
+  border-radius: 100px;
+  background: var(--active);
+  color: var(--mint);
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.people-chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+.people-chip button:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.people-combobox-input-area input {
+  flex: 1;
+  min-width: 80px;
+  min-height: unset;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  background: transparent;
+  font-size: inherit;
+}
+
+.people-combobox-dropdown {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 210px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.people-combobox-option {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+
+.people-combobox-option:hover,
+.people-combobox-option:focus {
+  background: var(--hover);
+}
+
+.people-combobox-option-new {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── Suggest input (single-value with dropdown) ─────────────────── */
+
+.suggest-input {
+  position: relative;
+}
+
+.suggest-input input {
+  width: 100%;
+}
+
+/* ── Media-type badge (shared/MediaKindBadge) ───────────────────────
+   Global audiobook-vs-ebook indicator for surfaces that mix both types
+   (home rows, the cross-type feed, category detail). A solid type-coloured pill
+   with a lighter ring and white text/icon, so it reads on any cover art. */
+.media-kind-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border: 1.5px solid transparent;
+  border-radius: 9px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: #fff;
+}
+
+/* Icon + text variant gets a touch more horizontal padding. */
+.media-kind-badge.labeled {
+  padding: 5px 9px 5px 7px;
+}
+
+.media-kind-badge.audiobook {
+  background: #21456e;
+  border-color: #6ea2d6;
+}
+
+.media-kind-badge.ebook {
+  background: #234d30;
+  border-color: #5da76d;
+}
+
+.media-kind-badge.gallery {
+  background: #553a6b;
+  border-color: #a585c6;
+}
+
+/* Pinned to the top-right of a cover/thumbnail. */
+.media-kind-badge.overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+}
+
+
+/* ── Control-panel search palette ───────────────────────────────────────────
+   Ctrl/⌘+K from anywhere in the control panel. Renders inside shared/Modal's
+   card surface, so only the box and the result rows are styled here. */
+
+.control-search-modal {
+  width: min(560px, 92vw);
+  max-height: min(70vh, 640px);
+  display: flex;
+  flex-direction: column;
+}
+
+.control-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+.control-search-box:focus-within {
+  border-color: color-mix(in srgb, var(--mint) 55%, var(--border));
+}
+
+.control-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.98rem;
+}
+
+.control-search-input:focus {
+  outline: none;
+}
+
+.control-search-results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 12px;
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
+.control-search-hint,
+.control-search-empty {
+  margin: 0 0 4px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.control-search-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.control-search-result.is-active {
+  background: var(--active);
+}
+
+.control-search-result-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.control-search-result-copy strong {
+  font-size: 0.94rem;
+  font-weight: 620;
+}
+
+.control-search-result-copy small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
