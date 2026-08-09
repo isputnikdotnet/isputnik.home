@@ -13,6 +13,7 @@ import type { SortKey } from "../audiobooks/BookFilter";
 import { AssetTile, PersonAvatar, type LightboxSource } from "./AssetTile";
 import { useGalleryAlbums } from "./useGalleryAlbums";
 import { useGallerySlideshows } from "./useGallerySlideshows";
+import { useGalleryPeople } from "./useGalleryPeople";
 import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
 import { GalleryFaceSettingsModal } from "./GalleryFaceSettingsModal";
@@ -108,6 +109,7 @@ export function GalleryPage({
   const [libraries, setLibraries] = useState<GalleryLibrary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
+  const isAdmin = user.role === "admin";
   // Declared up here with error/loading because the view hooks below report into
   // all three — one loading flag, one error box, one notice line for the page.
   const [notice, setNotice] = useState("");
@@ -152,6 +154,11 @@ export function GalleryPage({
   // The Albums and Slideshows views own their own state and loaders. Destructured
   // back into the names the rest of this file already uses, so the seam is the
   // state and not a rewrite of the markup.
+  // Above the view hooks because People is scope-filtered and takes this.
+  const scopeParams = useCallback(() => (
+    scopeId === "all" ? { scope: "all" as const } : { scope: "library" as const, libraryId: scopeId }
+  ), [scopeId]);
+
   const status = { setLoading, setError, setNotice };
   const {
     albums, setAlbums, selectedAlbum, setSelectedAlbum, albumAssets, setAlbumAssets,
@@ -171,10 +178,23 @@ export function GalleryPage({
     slideshowDeleteOpen, setSlideshowDeleteOpen, slideshowBusy,
     bulkSlideshowOpen, setBulkSlideshowOpen, browseOpen, setBrowseOpen,
     movieDeleteOpen, setMovieDeleteOpen, movieDeleteBusy,
+    slideshowSettings, loadSlideshowSettings, setRenderLibrary,
     loadSlideshows, openSlideshow, patchSlideshow, renderSlideshowMovie,
     deleteSlideshowMovie, reorderSlideshow, removeFromSlideshow,
     createSlideshowSubmit, confirmDeleteSlideshow
-  } = useGallerySlideshows(status);
+  } = useGallerySlideshows({ ...status, isAdmin });
+  const {
+    people, selectedPerson, setSelectedPerson, personAssets, personTotal,
+    faceSettings, faceModalOpen, setFaceModalOpen,
+    renameValue, setRenameValue, mergeOpen, setMergeOpen,
+    personDeleteOpen, setPersonDeleteOpen, personPick, setPersonPick,
+    moveNewName, setMoveNewName, movingPhotos,
+    showSmallGroups, setShowSmallGroups,
+    visiblePeople, setVisiblePeople, visibleSmall, setVisibleSmall,
+    anyFaceEnabled, loadPeople, openPerson, loadFaceSettings, submitRename,
+    confirmMerge, removeFromPerson, togglePersonPick, movePickedPhotos,
+    confirmDeletePerson
+  } = useGalleryPeople({ ...status, scopeParams, isAdmin });
 
   // The open album's overflow (…) menu. Menu placement stays here with the other
   // popovers and their shared outside-click handling.
@@ -195,31 +215,6 @@ export function GalleryPage({
   // the Map tab is offered at all; `mapPoints` are the markers for the active scope/kind.
   const [mapPoints, setMapPoints] = useState<GalleryMapPoint[]>([]);
   const mapCount = facets?.withGps ?? 0;
-
-  // People state. The People view shows person chips; picking one drills into that
-  // person's photos (`personAssets`), which open in the lightbox like any other list.
-  const [people, setPeople] = useState<GalleryPerson[]>([]);
-  const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string } | null>(null);
-  const [personAssets, setPersonAssets] = useState<GalleryAsset[]>([]);
-  const [personTotal, setPersonTotal] = useState(0);
-  // Face recognition (admin): per-library settings + the settings popup.
-  const [faceSettings, setFaceSettings] = useState<GalleryFaceSettings | null>(null);
-  // Global "default movie library" (admin): where rendered slideshow movies are auto-saved.
-  const [slideshowSettings, setSlideshowSettings] = useState<GallerySlideshowSettings | null>(null);
-  const [faceModalOpen, setFaceModalOpen] = useState(false);
-  // Inline rename of the open person.
-  const [renameValue, setRenameValue] = useState<string | null>(null);
-  const [mergeOpen, setMergeOpen] = useState(false);
-  const [personDeleteOpen, setPersonDeleteOpen] = useState(false);
-  // Picking individual photos out of the open person, to move them to someone else
-  // — the fix for a cluster that swept in a stranger (a whole-cluster merge can't).
-  const [personPick, setPersonPick] = useState<Set<string> | null>(null);
-  const [moveNewName, setMoveNewName] = useState<string | null>(null);
-  const [movingPhotos, setMovingPhotos] = useState(false);
-  const [showSmallGroups, setShowSmallGroups] = useState(false);
-  // How many cards each section of the People grid currently renders (paged).
-  const [visiblePeople, setVisiblePeople] = useState(PEOPLE_PAGE);
-  const [visibleSmall, setVisibleSmall] = useState(PEOPLE_PAGE);
 
   const isMobile = useIsMobile();
 
@@ -258,10 +253,6 @@ export function GalleryPage({
   const [shareIds, setShareIds] = useState<string[] | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState("");
-
-  const scopeParams = useCallback(() => (
-    scopeId === "all" ? { scope: "all" as const } : { scope: "library" as const, libraryId: scopeId }
-  ), [scopeId]);
 
   const loadLibraries = useCallback(async () => {
     try {
@@ -364,155 +355,7 @@ export function GalleryPage({
     }
   }, [scopeParams, filters.kinds]);
 
-  const loadPeople = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    setVisiblePeople(PEOPLE_PAGE);
-    setVisibleSmall(PEOPLE_PAGE);
-    try {
-      const params = new URLSearchParams(scopeParams() as Record<string, string>);
-      const payload = await api<{ people: GalleryPerson[] }>(`/api/library/gallery/people?${params}`);
-      setPeople(payload.people);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load people");
-    } finally {
-      setLoading(false);
-    }
-  }, [scopeParams]);
-
-  // Drill into one person's photos (opened from a person chip). Paged like the
-  // timeline: offset 0 replaces the grid, later offsets append. A person can have
-  // thousands of photos, so we never try to pull them all in one request — that
-  // both hid photos past the server's page cap and flooded the thumbnail route.
-  const openPerson = useCallback(async (person: { id: string; name: string }, offset = 0) => {
-    setLoading(true);
-    setError("");
-    setSelectedPerson(person);
-    try {
-      const payload = await api<{ assets: GalleryAsset[]; total: number }>(
-        `/api/library/gallery/people/${person.id}?limit=${PAGE_SIZE}&offset=${offset}`
-      );
-      setPersonAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
-      setPersonTotal(payload.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load this person's photos");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const isAdmin = user.role === "admin";
   const canCuratePeople = libraries.some((library) => library.canWrite);
-
-  const loadFaceSettings = useCallback(async () => {
-    if (!isAdmin) return;
-    try {
-      setFaceSettings(await api<GalleryFaceSettings>("/api/library/gallery/faces/settings"));
-    } catch { /* non-admins / errors just hide the controls */ }
-  }, [isAdmin]);
-
-  const loadSlideshowSettings = useCallback(async () => {
-    if (!isAdmin) return;
-    try {
-      setSlideshowSettings(await api<GallerySlideshowSettings>("/api/library/gallery/slideshows/settings"));
-    } catch { /* non-admins / errors just hide the control */ }
-  }, [isAdmin]);
-
-  // Set (or clear, with "") the default movie library. Optimistic; reloads on any error.
-  const setRenderLibrary = useCallback(async (libraryId: string) => {
-    const next = libraryId || null;
-    setSlideshowSettings((prev) => (prev ? { ...prev, renderLibraryId: next } : prev));
-    try {
-      await api("/api/library/gallery/slideshows/settings", { method: "PATCH", body: JSON.stringify({ renderLibraryId: next }) });
-    } catch {
-      void loadSlideshowSettings();
-    }
-  }, [loadSlideshowSettings]);
-
-  const anyFaceEnabled = (faceSettings?.libraries ?? []).some((library) => library.enabled);
-
-  const submitRename = useCallback(async () => {
-    if (!selectedPerson || renameValue == null) return;
-    const name = renameValue.trim();
-    if (!name) return;
-    try {
-      await api(`/api/library/gallery/people/${selectedPerson.id}`, { method: "PATCH", body: JSON.stringify({ name }) });
-      setSelectedPerson({ ...selectedPerson, name });
-      setRenameValue(null);
-      void loadPeople();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to rename");
-    }
-  }, [selectedPerson, renameValue, loadPeople]);
-
-  const confirmMerge = useCallback(async (targetId: string) => {
-    if (!selectedPerson) return;
-    try {
-      await api(`/api/library/gallery/people/${selectedPerson.id}/merge`, { method: "POST", body: JSON.stringify({ intoId: targetId }) });
-      setMergeOpen(false);
-      setSelectedPerson(null);
-      void loadPeople();
-      setNotice("People merged.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to merge");
-    }
-  }, [selectedPerson, loadPeople]);
-
-  // Detach one photo from the open person (a mismatched auto-cluster member, or a
-  // manual tag). Drops it from the grid optimistically and refreshes counts.
-  const removeFromPerson = useCallback(async (assetId: string) => {
-    if (!selectedPerson) return;
-    try {
-      await api(`/api/library/gallery/assets/${assetId}/people/${selectedPerson.id}`, { method: "DELETE" });
-      setPersonAssets((prev) => prev.filter((a) => a.id !== assetId));
-      setPersonTotal((n) => Math.max(0, n - 1));
-      void loadPeople();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove the photo");
-    }
-  }, [selectedPerson, loadPeople]);
-
-  // Leaving (or switching) the open person drops any half-made selection, so it
-  // can't be applied to the wrong cluster later.
-  useEffect(() => { setPersonPick(null); setMoveNewName(null); }, [selectedPerson?.id]);
-
-  // Move the picked photos to another person (existing, or a name to create). The
-  // moved photos leave this person's grid; both people's counts change, so the
-  // people list reloads.
-  const movePickedPhotos = useCallback(async (target: { intoId: string } | { name: string }) => {
-    if (!selectedPerson || !personPick || personPick.size === 0) return;
-    const itemIds = [...personPick];
-    setMovingPhotos(true);
-    setError("");
-    try {
-      const payload = await api<{ moved: number }>(
-        `/api/library/gallery/people/${selectedPerson.id}/reassign`,
-        { method: "POST", body: JSON.stringify({ itemIds, ...target }) }
-      );
-      setPersonAssets((prev) => prev.filter((a) => !personPick.has(a.id)));
-      setPersonTotal((n) => Math.max(0, n - payload.moved));
-      setPersonPick(null);
-      setMoveNewName(null);
-      void loadPeople();
-      setNotice(`${payload.moved} ${payload.moved === 1 ? "photo" : "photos"} moved.`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to move the photos");
-    } finally {
-      setMovingPhotos(false);
-    }
-  }, [selectedPerson, personPick, loadPeople]);
-
-  const confirmDeletePerson = useCallback(async () => {
-    if (!selectedPerson) return;
-    try {
-      await api(`/api/library/gallery/people/${selectedPerson.id}`, { method: "DELETE" });
-      setPersonDeleteOpen(false);
-      setSelectedPerson(null);
-      void loadPeople();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete");
-    }
-  }, [selectedPerson, loadPeople]);
 
   // Facets for the current scope: the filter-panel option lists plus the geotagged
   // count that decides whether the Map tab appears.
@@ -842,15 +685,6 @@ export function GalleryPage({
   };
 
   // Toggle one photo in the "move these to someone else" picker on a person.
-  const togglePersonPick = (assetId: string) => {
-    setPersonPick((prev) => {
-      if (!prev) return prev;
-      const next = new Set(prev);
-      if (next.has(assetId)) next.delete(assetId); else next.add(assetId);
-      return next;
-    });
-  };
-
   const exitSelection = () => {
     setSelectionMode(false);
     setSelectedIds(new Set());
