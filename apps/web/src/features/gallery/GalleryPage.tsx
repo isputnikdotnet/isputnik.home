@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, LibraryBig, ListMusic, MapPin, MapPinned, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, UserRound, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, LibraryBig, ListMusic, MapPin, MapPinned, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
@@ -10,6 +10,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiobooks/AudiobooksPage";
 import { useIsMobile } from "../../shared/useIsMobile";
 import type { SortKey } from "../audiobooks/BookFilter";
+import { AssetTile, PersonAvatar, type LightboxSource } from "./AssetTile";
 import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
 import { GalleryFaceSettingsModal } from "./GalleryFaceSettingsModal";
@@ -84,83 +85,6 @@ function dayLabel(takenAt: string | null): string {
   const d = new Date(takenAt);
   if (Number.isNaN(d.getTime())) return "Undated";
   return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-}
-
-function AssetTile({
-  asset,
-  onOpen,
-  selectionMode,
-  selected,
-  onToggleSelect,
-  onRemove,
-  removeTitle = "Not this person — remove from here"
-}: {
-  asset: GalleryAsset;
-  onOpen: () => void;
-  selectionMode: boolean;
-  selected: boolean;
-  onToggleSelect: () => void;
-  // When set (person page / album detail), a corner button detaches this photo
-  // from the containing set. removeTitle names what it detaches from.
-  onRemove?: () => void;
-  removeTitle?: string;
-}) {
-  const tile = (
-    <button
-      type="button"
-      className={`gallery-tile${selectionMode ? " selectable" : ""}${selected ? " selected" : ""}`}
-      onClick={selectionMode ? onToggleSelect : onOpen}
-      aria-pressed={selectionMode ? selected : undefined}
-      aria-label={selectionMode ? `Select ${asset.title}` : `Open ${asset.title}`}
-    >
-      {asset.coverUrl ? (
-        <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} />
-      ) : (
-        <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
-      )}
-      {asset.saved && !selectionMode && <Heart size={14} className="gallery-fav-dot" fill="currentColor" aria-hidden="true" />}
-      {asset.kind === "video" && (
-        asset.playable === false ? (
-          <span className="gallery-video-badge unplayable" title="Can’t play in browser — download to view">
-            <Download size={11} aria-hidden="true" />Video
-          </span>
-        ) : (
-          <span className="gallery-video-badge"><Play size={11} aria-hidden="true" />Video</span>
-        )
-      )}
-      {/* Only a selected tile gets the check overlay — unselected tiles stay
-          clean rather than all sprouting empty circles in selection mode. */}
-      {selectionMode && selected && (
-        <span className="gallery-tile-check" aria-hidden="true">
-          <CheckCircle2 size={22} />
-        </span>
-      )}
-    </button>
-  );
-  if (!onRemove) return tile;
-  return (
-    <div className="gallery-tile-wrap">
-      {tile}
-      <button
-        type="button"
-        className="gallery-tile-remove"
-        onClick={(event) => { event.stopPropagation(); onRemove(); }}
-        aria-label={`Remove ${asset.title}`}
-        title={removeTitle}
-      >
-        <X size={14} aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
-
-// A person's avatar with a graceful fallback: if the crop can't load (a missing file,
-// or a request that got rate-limited), show the placeholder icon instead of the
-// browser's broken-image glyph.
-function PersonAvatar({ url }: { url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  if (!url || failed) return <UserRound size={28} aria-hidden="true" />;
-  return <img src={url} alt="" loading="lazy" onError={() => setFailed(true)} />;
 }
 
 export function GalleryPage({
@@ -314,7 +238,7 @@ export function GalleryPage({
   const viewMenuRef = useRef<HTMLDivElement>(null);
 
   // Lightbox: which array + index is open. A deep-linked asset opens standalone.
-  const [lightbox, setLightbox] = useState<{ source: "timeline" | "folder" | "single" | "person" | "memory" | "album" | "slideshow"; index: number; autoPlay?: boolean } | null>(null);
+  const [lightbox, setLightbox] = useState<{ source: LightboxSource; index: number; autoPlay?: boolean } | null>(null);
   const [singleAsset, setSingleAsset] = useState<GalleryAsset | null>(null);
 
   // Upload (source-writing, policy-gated): the modal is offered when any library
@@ -1175,6 +1099,16 @@ export function GalleryPage({
     });
   };
 
+  // Toggle one photo in the "move these to someone else" picker on a person.
+  const togglePersonPick = (assetId: string) => {
+    setPersonPick((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev);
+      if (next.has(assetId)) next.delete(assetId); else next.add(assetId);
+      return next;
+    });
+  };
+
   const exitSelection = () => {
     setSelectionMode(false);
     setSelectedIds(new Set());
@@ -1821,12 +1755,7 @@ export function GalleryPage({
                         onOpen={() => setLightbox({ source: "person", index })}
                         selectionMode={personPick != null}
                         selected={personPick?.has(asset.id) ?? false}
-                        onToggleSelect={() => setPersonPick((prev) => {
-                          if (!prev) return prev;
-                          const next = new Set(prev);
-                          if (next.has(asset.id)) next.delete(asset.id); else next.add(asset.id);
-                          return next;
-                        })}
+                        onToggleSelect={() => togglePersonPick(asset.id)}
                         onRemove={canCuratePeople && !personPick ? () => void removeFromPerson(asset.id) : undefined}
                       />
                     ))}
