@@ -1,6 +1,4 @@
-import { constants as zlibConstants } from "node:zlib";
 import fastify from "fastify";
-import compress from "@fastify/compress";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
@@ -13,6 +11,7 @@ import { isIpBlocked, isTrustedIp, hasForwardedHeader, getTrustProxyHops, noteFo
 import { flagAbusiveRequest } from "./core/security-alerts.js";
 import { isProbePath } from "./core/probes.js";
 import { registerCsrf } from "./core/csrf.js";
+import { registerCompression } from "./core/compression.js";
 import { corePlugin } from "./core/index.js";
 import { usersPlugin } from "./modules/users/index.js";
 import { backupsPlugin } from "./modules/backups/index.js";
@@ -108,30 +107,13 @@ await app.register(helmet, {
   }
 });
 await app.register(cookie);
-// Compress JSON/text responses. The catalog, status and About payloads are the
-// large ones — /api/about alone is a few hundred KB of changelog — and over a
-// LAN or a phone on mobile data that is the difference between instant and not.
-//
-// Three deliberate settings:
-//  - Only compressible types (mime-db's `compressible` flag, the plugin default)
-//    are touched, so already-compressed bytes — covers, thumbnails, audio, video,
-//    zip backups — pass through untouched rather than burning CPU for nothing.
-//    The streaming routes hijack the reply anyway (reply.hijack + pipe to raw),
-//    which bypasses onSend hooks entirely, so they never reach this plugin.
-//  - Brotli at quality 4 rather than zlib's default 11. Eleven is tuned for
-//    compress-once static assets; on a per-request payload it costs far more CPU
-//    than it saves bytes, and this server shares a box with ffmpeg and face
-//    inference. Four is about gzip's speed with a better ratio.
-//  - A 1 KB floor: below that the framing overhead outweighs the saving.
+// Compress JSON and text responses. Synchronous, and hand-rolled rather than
+// @fastify/compress, for a reason worth reading before changing it — see the
+// comment at the top of core/compression.ts.
 //
 // No BREACH exposure: the CSRF token is carried in a cookie (a header, which is
 // not compressed), never reflected in a response body.
-await app.register(compress, {
-  global: true,
-  threshold: 1024,
-  encodings: ["br", "gzip", "deflate"],
-  brotliOptions: { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 4 } }
-});
+registerCompression(app);
 // Global per-client-IP rate limit, registered before the route plugins so it
 // covers every endpoint (browsing, covers, range-request streaming). The ceiling
 // is deliberately generous — high enough that a household never hits it under
