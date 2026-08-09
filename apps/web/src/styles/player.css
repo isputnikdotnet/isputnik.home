@@ -638,15 +638,6 @@
     0 12px 32px rgba(0, 0, 0, 0.22);
 }
 
-.popup-cover-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--mint) 10%, var(--surface));
-  color: var(--muted);
-  border: 1px solid color-mix(in srgb, var(--mint) 18%, transparent);
-}
-
 .popup-title {
   margin: 6px 0 0;
   font-size: 1.05rem;
@@ -1126,12 +1117,6 @@
   border-color: color-mix(in srgb, var(--mint) 45%, transparent);
   background: color-mix(in srgb, var(--mint) 10%, transparent);
   color: var(--mint);
-}
-
-.player-popup-aux-value {
-  font-size: 1rem;
-  font-weight: 900;
-  line-height: 1;
 }
 
 .player-popup-aux-label {

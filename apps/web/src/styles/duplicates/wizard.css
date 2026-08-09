@@ -657,13 +657,6 @@
 /* Three states per folder — keep here / no preference / clear out. A segmented row
    rather than a dropdown: all three readable at once is the point, since the two ends
    are opposites and picking the wrong one is the mistake worth designing against. */
-.dup-folder-choice.dup-folder-modes {
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  cursor: default;
-  flex-wrap: wrap;
-}
 .dup-mode-group {
   display: inline-flex;
   flex: 0 0 auto;

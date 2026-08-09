@@ -18,7 +18,7 @@ install → offline → theme-picker → responsive
 | `base.css` | Global resets and typography |
 | `auth.css` | Login / register split-screen (pre-auth) |
 | `layout.css` | App shell — header, sidebar rail, page grid, Control Center panel |
-| `components.css` | Shared UI — fields, buttons, message boxes, modals, datagrid, badges |
+| `components.css` | Shared UI — fields, buttons, message boxes, modals, datagrid, badges. A barrel over `components/` (see below) |
 | `home.css` | Home dashboard — Continue / Recently added feeds |
 | `player.css` | Audio player widget |
 | `library-browse.css` | Main audiobook catalog / landing + shared browse toolbar (split from `library.css`) |
@@ -31,7 +31,7 @@ install → offline → theme-picker → responsive
 | `ebook-reader.css` | Immersive EPUB reader (foliate-js) — full-screen, own light/sepia/dark theme |
 | `metadata-modal.css` | Metadata lookup modal + cover-picker tab (split from `library.css`) |
 | `admin.css` | Control Center — the shell and every page except the duplicate ones |
-| `duplicates.css` | Duplicate cleanup (split from `admin.css`; also carried the two duplicate pages it replaced) |
+| `duplicates.css` | Duplicate cleanup (split from `admin.css`; also carried the two duplicate pages it replaced). A barrel over `duplicates/` (see below) |
 | `about.css` | About page and version timeline |
 | `share.css` | Public guest share page (no app shell) |
 | `filter.css` | Filter button + popup + active-filter chips for the audiobook grid |
@@ -39,6 +39,43 @@ install → offline → theme-picker → responsive
 | `offline.css` | Offline / downloaded-books UI |
 | `theme-picker.css` | Theme picker page (theme selection grid) |
 | `responsive.css` | Media-query overrides (no new classes) |
+
+### The two barrels
+
+`components.css` and `duplicates.css` were the largest files here (3,708 and 2,791
+lines). Each is now a list of `@import`s over a folder of topic files. The
+filename and its position in the order above are unchanged, nothing moved between
+parts, and the parts are imported in their original order — so the concatenated
+cascade is exactly what it was. That matters more than it looks: 109 selectors in
+this set are declared in more than one file, and `responsive.css` has to stay
+last, so order decides the winner between two rules of equal specificity.
+
+**Add a rule to the part it belongs to. A new part goes at the END of its barrel**
+unless it genuinely has to out-rank something above it.
+
+| `components/` | Contents |
+|---|---|
+| `primitives.css` | Form field, progress ring, buttons, toggle, select menu, choice group, message box, modals |
+| `layout.css` | Section/layout helpers, row-action groups, search field, invite box |
+| `admin-pages.css` | Unified Libraries page, profile page header, shared admin-page chrome |
+| `library-wizard.css` | Create-library wizard — step rail, per-step panels, footer |
+| `member-access.css` | Public/private banner, grant-access row, members-with-access list |
+| `upload.css` | Upload size cards, `shared/FileUpload` dropzone, library scan/upload editors |
+| `data-display.css` | Datagrid, status & count badges, people combobox, suggest input, media-kind badge, control-panel search palette |
+
+`duplicates/` mirrors `features/control/sections/duplicates/`, where the markup
+already lives in nine files:
+
+| `duplicates/` | Component |
+|---|---|
+| `photos.css` | The Duplicate photos page |
+| `cleanup-panel.css` | `DuplicateCleanupSection` |
+| `job-card.css` | `CleanupJobCard` |
+| `folder-compare.css` | `FolderCompare` |
+| `certainty.css` | `CertaintyBadge` |
+| `result-card.css` | `CleanupResultCard` |
+| `wizard.css` | `CleanupWizard` |
+| `viewer.css` | Filters box + `DuplicateViewer` |
 
 > **Coverage:** the detailed per-class sections below were written for the original
 > foundational stylesheets (`tokens`, `base`, `auth`, `layout`, `components`,

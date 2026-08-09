@@ -711,11 +711,6 @@ a.home-overview-card:focus-visible {
   background: color-mix(in srgb, var(--home-blue) 18%, transparent);
 }
 
-.home-overview-icon.amber {
-  color: var(--home-amber);
-  background: color-mix(in srgb, var(--home-amber) 18%, transparent);
-}
-
 .home-overview-icon.rose {
   color: var(--home-rose);
   background: color-mix(in srgb, var(--home-rose) 18%, transparent);

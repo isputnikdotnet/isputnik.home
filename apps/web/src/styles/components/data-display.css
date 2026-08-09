@@ -35,34 +35,6 @@
 /* A sortable heading: the whole label is the control, and the chevron shows on the
    column currently doing the sorting. Inherits the th's uppercase/letter-spaced
    type so a sortable column reads no louder than a fixed one. */
-.datagrid-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-}
-
-.datagrid-sort:hover {
-  color: var(--ink);
-}
-
-.datagrid-sort:focus-visible {
-  outline: 2px solid var(--mint);
-  outline-offset: 3px;
-  border-radius: 3px;
-}
-
-.datagrid th.col-num .datagrid-sort {
-  /* Right-aligned column: the chevron belongs on the outside edge. */
-  flex-direction: row-reverse;
-}
 
 .datagrid th.col-num,
 .datagrid td.col-num {
@@ -463,7 +435,6 @@
   z-index: 2;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
 }
-
 
 /* ── Control-panel search palette ───────────────────────────────────────────
    Ctrl/⌘+K from anywhere in the control panel. Renders inside shared/Modal's
