@@ -9,7 +9,11 @@ and `apps/web` (React + Vite PWA).
   `docs/users/` isn't listed on the in-app Help page, or vice versa
 - `npm run docs:shots` — regenerate the screenshots in `docs/users/images` (needs
   `npm run dev` running and an admin account; pass name fragments to do a subset)
-- `npm test` — server test suite (Vitest, in-memory SQLite; tests in `apps/server/test/`)
+- `npm test` — both suites. `npm run test:server` (Vitest, in-memory SQLite; tests in
+  `apps/server/test/`) and `npm run test:web` (Vitest + jsdom + Testing Library; tests
+  in `apps/web/test/`, typechecked with the source). Never run `npx vitest` from the
+  repo root — it misses `DB_PATH=:memory:` and the server suite will wipe the dev
+  database; use the scripts, or `npx vitest --root apps/server`.
 
 ## Repo-root files — do not delete
 

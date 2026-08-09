@@ -16,5 +16,9 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src"]
+  // Tests are typechecked with the source, not left to fail at runtime: a test
+  // written against a prop shape the component does not have should be a
+  // compile error, not a puzzling assertion failure. The web build stage runs a
+  // full `npm ci`, so the test dependencies are present when this is checked.
+  "include": ["src", "test", "vitest.config.ts"]
 }
