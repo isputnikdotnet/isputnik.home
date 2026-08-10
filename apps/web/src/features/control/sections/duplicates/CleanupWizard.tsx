@@ -22,6 +22,7 @@ import { api } from "../../../../api";
 import { MessageBox } from "../../../../shared/MessageBox";
 import { Button } from "../../../../shared/Button";
 import { ChoiceGroup, type Choice } from "../../../../shared/ChoiceGroup";
+import { InfoHint } from "../../../../shared/InfoHint";
 import { Modal } from "../../../../shared/Modal";
 import { ToggleSwitch } from "../../../../shared/ToggleSwitch";
 import type { DuplicateJob, DuplicateKind, LibraryOption, MediaKind } from "./cleanup-types";
@@ -171,9 +172,19 @@ export function CleanupWizard({
   }, [step, chosen.join(",")]);
 
   const needle = folderQuery.trim().toLowerCase();
-  const shownFolders = useMemo(() => folderOptions.filter((option) => !needle
-    || option.folderPath.toLowerCase().includes(needle)
-    || option.libraryName.toLowerCase().includes(needle)), [folderOptions, needle]);
+  // Biggest folders first. An instruction on a folder of four photos is worth
+  // almost nothing and there are hundreds of those; the handful holding thousands
+  // are where a "keep this one" actually decides anything, so they go where they
+  // will be seen rather than wherever the path sorted them.
+  const shownFolders = useMemo(() => folderOptions
+    .filter((option) => !needle
+      || option.folderPath.toLowerCase().includes(needle)
+      || option.libraryName.toLowerCase().includes(needle))
+    .slice()
+    .sort((a, b) => b.photoCount - a.photoCount
+      || a.libraryName.localeCompare(b.libraryName)
+      || a.folderPath.localeCompare(b.folderPath)),
+  [folderOptions, needle]);
   const instructionCount = Object.keys(preferences).length;
   const current = STEPS[step - 1];
 
@@ -400,22 +411,25 @@ export function CleanupWizard({
                 <p>{current.blurb}</p>
               </div>
 
-              <MessageBox tone="info" title="These belong to this cleanup">
-                Nothing is inherited and nothing is shared: what you set here shapes this
-                cleanup and no other. Clearing a folder out never empties it — a photo with no
-                copy anywhere else is nobody's duplicate, and a set whose copies are all in
-                cleared folders still keeps one.
-              </MessageBox>
-
               <section className="cleanup-wizard-section">
                 <h4>
                   Folders in the chosen libraries
+                  {/* Read once, then in the way. It answers "does this affect other
+                      cleanups" and "will Clear empty the folder" — both worth having
+                      to hand, neither worth a standing paragraph above the list. */}
+                  <InfoHint label="About folder instructions">
+                    Nothing is inherited and nothing is shared: what you set here shapes this
+                    cleanup and no other. Clearing a folder out never empties it — a photo with no
+                    copy anywhere else is nobody's duplicate, and a set whose copies are all in
+                    cleared folders still keeps one.
+                  </InfoHint>
                   {instructionCount > 0 && (
                     <span className="count-badge">
                       {instructionCount} instruction{instructionCount === 1 ? "" : "s"}
                     </span>
                   )}
                 </h4>
+                <p className="datagrid-muted dup-folder-hint">Biggest folders first.</p>
 
                 {folderOptions.length > 0 && (
                   <div className="dup-folder-tools">

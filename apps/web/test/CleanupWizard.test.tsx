@@ -123,6 +123,80 @@ describe("cleanup wizard steps", () => {
   });
 });
 
+describe("folder instructions", () => {
+  const FOLDERS = [
+    { libraryId: "Family", libraryName: "Family", folderPath: "/odds-and-ends", photoCount: 4, isProtected: false },
+    { libraryId: "Family", libraryName: "Family", folderPath: "/holidays", photoCount: 4210, isProtected: false },
+    { libraryId: "Family", libraryName: "Family", folderPath: "/phone-dump", photoCount: 380, isProtected: false }
+  ];
+
+  const openInstructions = async (user: ReturnType<typeof userEvent.setup>) => {
+    mockApi.mockResolvedValue({ folders: FOLDERS } as never);
+    mount();
+    await user.click(next());
+    await user.click(next());
+  };
+
+  it("puts the biggest folders first, where an instruction is worth giving", async () => {
+    const user = userEvent.setup();
+    await openInstructions(user);
+
+    const names = [...document.querySelectorAll(".dup-folder-choice-body strong")].map((el) => el.textContent);
+    expect(names).toEqual(["/holidays", "/phone-dump", "/odds-and-ends"]);
+  });
+
+  it("keeps that order while a search narrows the list", async () => {
+    const user = userEvent.setup();
+    await openInstructions(user);
+    await user.type(screen.getByLabelText("Find a folder in this list"), "o");
+
+    const names = [...document.querySelectorAll(".dup-folder-choice-body strong")].map((el) => el.textContent);
+    expect(names).toEqual(["/holidays", "/phone-dump", "/odds-and-ends"]);
+  });
+
+  it("keeps the explanation behind the info button until it is asked for", async () => {
+    const user = userEvent.setup();
+    await openInstructions(user);
+
+    expect(screen.queryByText(/Nothing is inherited/)).not.toBeInTheDocument();
+
+    const hint = screen.getByRole("button", { name: "About folder instructions" });
+    expect(hint).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(hint);
+    expect(screen.getByText(/Nothing is inherited/)).toBeInTheDocument();
+    expect(hint).toHaveAttribute("aria-expanded", "true");
+
+    // Clicking it a second time puts it away again.
+    await user.click(hint);
+    expect(screen.queryByText(/Nothing is inherited/)).not.toBeInTheDocument();
+  });
+
+  it("shows the explanation on hover too, and takes it back when the pointer leaves", async () => {
+    const user = userEvent.setup();
+    await openInstructions(user);
+
+    await user.hover(screen.getByRole("button", { name: "About folder instructions" }));
+    expect(screen.getByText(/Nothing is inherited/)).toBeInTheDocument();
+
+    await user.unhover(screen.getByRole("button", { name: "About folder instructions" }));
+    expect(screen.queryByText(/Nothing is inherited/)).not.toBeInTheDocument();
+  });
+
+  it("does not snatch a pinned explanation away when the pointer leaves", async () => {
+    const user = userEvent.setup();
+    await openInstructions(user);
+
+    const hint = screen.getByRole("button", { name: "About folder instructions" });
+    await user.click(hint);
+    await user.unhover(hint);
+    expect(screen.getByText(/Nothing is inherited/)).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByText(/Nothing is inherited/)).not.toBeInTheDocument();
+  });
+});
+
 describe("library rows", () => {
   it("gives every library a padlock cell, open or shut", () => {
     mount();
