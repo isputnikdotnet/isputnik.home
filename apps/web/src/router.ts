@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 
 // Every leaf destination in the control panel — one value per tab. The six nav
 // groups they hang off are described in features/control/nav.ts.
@@ -540,11 +540,16 @@ export function followRoute(event: React.MouseEvent<HTMLAnchorElement>, path: st
   navigate(path);
 }
 
+// Route changes go through startTransition so React keeps the page you are on
+// rendered while the next one's lazy chunk arrives, instead of tearing it down
+// and falling to the Suspense boundary above the route table. That fallback is
+// the auth Shell, so without this every navigation to a not-yet-loaded route
+// flashed the sign-in chrome for as long as the chunk took to fetch.
 export function useRoute() {
   const [route, setRoute] = useState(getRoute);
 
   useEffect(() => {
-    const onPop = () => setRoute(getRoute());
+    const onPop = () => startTransition(() => setRoute(getRoute()));
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
