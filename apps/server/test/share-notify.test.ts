@@ -5,8 +5,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import fastify, { type FastifyInstance } from "fastify";
 
-// Mock only the transport; getMailSettings/userNotificationsEnabled stay real and
-// read the in-memory app_settings, which is the guard every notification goes through.
+// Mock only the transport; isMailConfigured and shareNotificationsEnabled stay real
+// and read the in-memory app_settings, which is the guard every notification passes.
 vi.mock("../src/core/mail.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/core/mail.js")>();
   return { ...actual, sendMail: vi.fn(async () => {}) };
@@ -23,7 +23,7 @@ let app: FastifyInstance;
 // queue drain before asserting.
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-function configureMail(userNotifications = true): void {
+function configureMail(): void {
   db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('mail_settings', ?)").run(
     JSON.stringify({
       host: "smtp.test",
@@ -32,9 +32,15 @@ function configureMail(userNotifications = true): void {
       username: "",
       password: "",
       fromAddress: "home@test.local",
-      fromName: "Home",
-      userNotifications
+      fromName: "Home"
     })
+  );
+}
+
+// Consent lives apart from the relay, and is off until switched on.
+function setShareNotifications(on: boolean): void {
+  db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('notification_settings', ?)").run(
+    JSON.stringify({ shareNotifications: on })
   );
 }
 
@@ -68,6 +74,7 @@ beforeEach(async () => {
   resetDb();
   vi.clearAllMocks();
   configureMail();
+  setShareNotifications(true);
 
   makeUser("sharer");
   makeUser("friend");
@@ -204,8 +211,8 @@ describe("share notifications", () => {
     expect(sendMail).not.toHaveBeenCalled();
   });
 
-  it("sends nothing when the admin has switched user notifications off", async () => {
-    configureMail(false);
+  it("sends nothing when share notifications are off — which is how they ship", async () => {
+    setShareNotifications(false);
     await post("/api/shares/user", { bookId: "book-1", userId: "friend" });
     await post("/api/shares/set/user", { itemIds: ["photo-1"], userId: "friend" });
     await post("/api/shares/album/user", { albumId: "alb-1", userId: "friend" });
@@ -215,6 +222,13 @@ describe("share notifications", () => {
 
   it("sends nothing when SMTP isn't configured at all", async () => {
     db.prepare("DELETE FROM app_settings WHERE key = 'mail_settings'").run();
+    await post("/api/shares/user", { bookId: "book-1", userId: "friend" });
+    await flush();
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("stays silent on a fresh install, where nothing has been switched on", async () => {
+    db.prepare("DELETE FROM app_settings WHERE key = 'notification_settings'").run();
     await post("/api/shares/user", { bookId: "book-1", userId: "friend" });
     await flush();
     expect(sendMail).not.toHaveBeenCalled();

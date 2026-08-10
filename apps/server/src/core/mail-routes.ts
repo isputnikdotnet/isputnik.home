@@ -12,15 +12,25 @@ const mailSchema = z.object({
   // Omitted/blank on save = keep the stored password; never echoed back to the client.
   password: z.string().max(1024).optional(),
   fromAddress: z.union([z.literal(""), z.string().trim().email().max(254)]),
-  fromName: z.string().trim().max(120),
-  // Optional so a client that predates the toggle can't switch it by omission.
-  userNotifications: z.boolean().optional()
+  fromName: z.string().trim().max(120)
 });
 
 // Strip the secret before it leaves the server; report only whether one is stored.
+//
+// Built field by field rather than by spreading everything-but-password: the blob
+// on disk can hold keys this version no longer knows about — userNotifications
+// lived here before it moved to notification_settings — and a spread would serve
+// them back to the browser as though they still meant something.
 function publicMail(settings: MailSettings) {
-  const { password, ...rest } = settings;
-  return { ...rest, hasPassword: Boolean(password) };
+  return {
+    host: settings.host,
+    port: settings.port,
+    secure: settings.secure,
+    username: settings.username,
+    fromAddress: settings.fromAddress,
+    fromName: settings.fromName,
+    hasPassword: Boolean(settings.password)
+  };
 }
 
 export async function mailPlugin(app: FastifyInstance) {
@@ -43,8 +53,7 @@ export async function mailPlugin(app: FastifyInstance) {
       username: parsed.data.username,
       password: parsed.data.password ? parsed.data.password : current.password,
       fromAddress: parsed.data.fromAddress,
-      fromName: parsed.data.fromName,
-      userNotifications: parsed.data.userNotifications ?? current.userNotifications
+      fromName: parsed.data.fromName
     };
 
     db.prepare(`
@@ -61,9 +70,7 @@ export async function mailPlugin(app: FastifyInstance) {
       actorUserId: request.user!.id,
       targetType: "setting",
       targetId: MAIL_SETTINGS_KEY,
-      detail:
-        `Updated email settings (host ${next.host || "—"}, from ${next.fromAddress || "—"}, ` +
-        `user notifications ${next.userNotifications ? "on" : "off"}).`,
+      detail: `Updated email settings (host ${next.host || "—"}, from ${next.fromAddress || "—"}).`,
       ipAddress: request.ip
     });
 

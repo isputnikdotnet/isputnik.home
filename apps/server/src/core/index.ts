@@ -8,6 +8,7 @@ import { logsPlugin } from "./logs.js";
 import { statusPlugin } from "./status.js";
 import { appConfigPlugin } from "./app-config.js";
 import { mailPlugin } from "./mail-routes.js";
+import { notificationsPlugin } from "./notification-routes.js";
 import { securityRoutes } from "./security-routes.js";
 import { securityTxtPlugin } from "./security-txt.js";
 
@@ -15,6 +16,7 @@ export async function corePlugin(app: FastifyInstance) {
   await app.register(setupPlugin);
   await app.register(appConfigPlugin);
   await app.register(mailPlugin);
+  await app.register(notificationsPlugin);
   await app.register(authPlugin);
   await app.register(mfaRoutes);
   await app.register(sessionsPlugin);

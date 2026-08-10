@@ -1,6 +1,8 @@
 import path from "node:path";
 import { db } from "../../../db.js";
-import { sendMail, userNotificationsEnabled } from "../../../core/mail.js";
+import { sendMail } from "../../../core/mail.js";
+import { renderEmail, type EmailBlock, type EmailContent } from "../../../core/email-template.js";
+import { shareNotificationsEnabled } from "../../../core/notifications.js";
 import type { MediaModule } from "./library-types.js";
 
 // Tells a recipient, by email, that something was just shared with them — the one
@@ -11,8 +13,9 @@ import type { MediaModule } from "./library-types.js";
 // that triggered it.
 //
 // Two gates, both deliberate:
-//   • userNotificationsEnabled() — the admin's Control panel → Settings → Email
-//     toggle, on top of "is SMTP even configured".
+//   • shareNotificationsEnabled() — the admin's Control panel → Settings →
+//     Notifications toggle, on top of "is SMTP even configured". Off by default:
+//     nobody's household starts sending mail because of an upgrade.
 //   • newlySharedResources() — a grant is an upsert (re-sharing refreshes the
 //     expiry instead of erroring), so without this, opening the share dialog and
 //     pressing Share again would mail the recipient a second time about access
@@ -100,7 +103,9 @@ function clip(value: string, max = 90): string {
 interface Message {
   subject: string;
   lead: string;
-  detail: string[];
+  /** The thing itself, called out; empty when there is no single name for it. */
+  named: string | null;
+  extra: string | null;
 }
 
 function compose(thing: SharedThing, sharer: string): Message | null {
@@ -108,15 +113,18 @@ function compose(thing: SharedThing, sharer: string): Message | null {
     return {
       subject: `${sharer} shared the album "${clip(thing.name)}" with you`,
       lead: `${sharer} shared a photo album with you on iSputnik.`,
-      detail: [thing.name, "", "It stays up to date — photos added to the album later show up for you too."]
+      named: thing.name,
+      extra: "It stays up to date — photos added to the album later show up for you too."
     };
   }
   if (thing.kind === "photos") {
     const many = thing.count !== 1;
+    const what = many ? `${thing.count} photos` : "a photo";
     return {
-      subject: `${sharer} shared ${many ? `${thing.count} photos` : "a photo"} with you`,
-      lead: `${sharer} shared ${many ? `${thing.count} photos` : "a photo"} with you on iSputnik.`,
-      detail: []
+      subject: `${sharer} shared ${what} with you`,
+      lead: `${sharer} shared ${what} with you on iSputnik.`,
+      named: null,
+      extra: null
     };
   }
   const facts = itemFacts(thing.itemId);
@@ -125,13 +133,15 @@ function compose(thing: SharedThing, sharer: string): Message | null {
   return {
     subject: `${sharer} shared "${clip(facts.title)}" with you`,
     lead: `${sharer} shared ${noun} with you on iSputnik.`,
-    detail: [facts.title]
+    named: facts.title,
+    extra: null
   };
 }
 
-async function deliver(to: string, subject: string, lines: string[]): Promise<void> {
+async function deliver(to: string, subject: string, content: EmailContent): Promise<void> {
   try {
-    await sendMail({ to, subject, text: `${lines.join("\n")}\n\n${FOOTER}` });
+    const { html, text } = renderEmail(content);
+    await sendMail({ to, subject, text, html });
   } catch {
     // Best-effort: a share must succeed whether or not the mail goes out.
   }
@@ -146,24 +156,29 @@ export function notifyShareGranted(opts: {
   expiresAt: string | null;
   thing: SharedThing;
 }): void {
-  if (!userNotificationsEnabled()) return;
+  if (!shareNotificationsEnabled()) return;
   const recipient = loadRecipient(opts.recipientId);
   if (!recipient?.email) return;
 
   const message = compose(opts.thing, displayName(opts.sharedById));
   if (!message) return;
 
-  const lines = [
-    `Hello ${recipient.display_name},`,
-    "",
-    message.lead,
-    ...(message.detail.length > 0 ? ["", ...message.detail] : []),
-    "",
-    `Open it under "Shared with me": ${opts.origin}/shared`
+  const blocks: EmailBlock[] = [
+    { kind: "text", text: `Hello ${recipient.display_name},` },
+    { kind: "text", text: message.lead }
   ];
+  if (message.named) blocks.push({ kind: "subject", text: message.named });
+  if (message.extra) blocks.push({ kind: "text", text: message.extra });
+  blocks.push({ kind: "button", label: "Open Shared with me", url: `${opts.origin}/shared` });
   if (opts.expiresAt) {
-    lines.push("", `Your access expires on ${opts.expiresAt.slice(0, 10)}.`);
+    blocks.push({ kind: "note", text: `Your access expires on ${opts.expiresAt.slice(0, 10)}.` });
   }
+  blocks.push({ kind: "note", text: "Signing in to your own account is still what opens it — this message carries no files." });
 
-  void deliver(recipient.email, message.subject, lines);
+  void deliver(recipient.email, message.subject, {
+    title: message.subject,
+    preheader: message.lead,
+    blocks,
+    footnote: FOOTER
+  });
 }
