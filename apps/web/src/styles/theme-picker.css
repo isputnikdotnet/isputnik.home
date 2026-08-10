@@ -120,17 +120,27 @@
   max-width: 520px;
 }
 
-.mail-secure {
+.mail-check {
   display: flex;
-  align-items: center;
+  /* flex-start, not center: these labels wrap to two or three lines and the box
+     belongs beside the first one. */
+  align-items: flex-start;
   gap: 9px;
   color: var(--muted);
   font-size: 0.9rem;
+  line-height: 1.45;
   cursor: pointer;
 }
 
-.mail-secure input {
+.mail-check input {
   flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+/* Groups a policy toggle away from the SMTP fields above it. */
+.mail-subhead {
+  margin: 8px 0 -4px;
+  font-size: 0.95rem;
 }
 
 .mail-actions {

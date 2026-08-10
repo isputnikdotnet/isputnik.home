@@ -193,6 +193,7 @@ The owner shares an item with a **specific registered user**, who then accesses 
 | **Who can share** | Requires the `curate` capability on the item's library (Curator / Library Admin / owner / app-admin) — see [`library-sharing.md`](library-sharing.md#interaction-with-item-level-shares). Mere view/download access is not enough to re-share. |
 | **Expiry** | Optional — may be permanent (`expires_at = NULL`) since access is gated to a real account; revocable any time via `revoked_at`. |
 | **Logging** | `share.granted` / `share.revoked`. Ongoing access is ordinary authenticated activity, already covered by existing logs. |
+| **Notification** | The recipient is emailed once, when the grant is genuinely *new* — a refreshed expiry is not news. Best-effort and gated on the admin's **Settings → Email → User notifications** toggle (`mail_settings.userNotifications`). Guest links notify nobody: there is no account behind them. See `share-notify.ts`. |
 
 **Schema** — uses the `shares` table as defined above, with `module = 'audiobook'` + `resource_id = <bookId>` and `user_id = <recipient>`. No new columns.
 
@@ -221,6 +222,7 @@ What actually shipped for audiobooks, and where it lives.
 
 - `share-access.ts` ([`apps/server/src/modules/library/shared/`](../apps/server/src/modules/library/shared/share-access.ts)) — the resolver: `resolveShareLink(token)`, `userHasItemShare(module, resourceId, userId)`, plus cleanup helpers `deleteSharesForResource(module, resourceId)` and `deleteSharesForLibrary(module, libraryId)`.
 - `shares.ts` ([`apps/server/src/modules/library/shared/`](../apps/server/src/modules/library/shared/shares.ts)) — **one cross-type plugin** for all share routes (owner + public), registered in `library/index.ts`. Owner routes derive the module from the book's library type; the public `/api/share/:token*` routes dispatch on the resolved link's module so a single set of routes serves every book type.
+- `share-notify.ts` ([`apps/server/src/modules/library/shared/`](../apps/server/src/modules/library/shared/share-notify.ts)) — the recipient's email. `newlySharedResources(module, resourceIds, userId)` is called by each of the three grant routes **before** their upsert (afterwards a refresh is indistinguishable from a new grant), and `notifyShareGranted(…)` is fire-and-forget on top of `core/mail.ts`'s `userNotificationsEnabled()`. A selection is one message, not one per photo.
 - `library-access.ts` gained `canUserAccessBook(…, module)` / `canUserDownloadBook(…, module)` = library access **OR** an active user share *in that module*. The `module` is passed by every caller (derived via `mediaKind`) so an ebook share never resolves against an audiobook check, or vice versa. Wired into `stream.ts` (audio) and `document-stream.ts` (PDF/EPUB, module derived from the row's library type).
 - Tables `shares` and `share_links` are created in `db.ts` via `CREATE TABLE IF NOT EXISTS` (no migration needed); `permission` stays `'read'` for both types.
 

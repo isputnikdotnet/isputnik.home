@@ -1,7 +1,7 @@
 # Setting up email
 
-The server can send mail, but it doesn't have to. Nothing breaks without it —
-three features simply stay unavailable.
+The server can send mail, but it doesn't have to. Nothing breaks without it — a
+handful of features simply stay unavailable.
 
 Everything here lives in **Control panel → Settings → Email**, and it's admin-only.
 
@@ -11,6 +11,7 @@ Everything here lives in **Control panel → Settings → Email**, and it's admi
 |---|---|---|
 | **Two-factor codes** | Lets people choose "Email" as their second factor and receive a 6-digit code per sign-in | The Email option is hidden. An authenticator app still works, and is the stronger choice anyway — see [Two-factor authentication](two-factor-authentication.md) |
 | **Security alerts** | Warns you about locked accounts, auto-blocked addresses, a new admin, two-factor being turned off, repeated wrong codes, and sign-ins from a network an account has never used | The events are still recorded in the activity log — nobody is told about them as they happen |
+| **Share notifications** | Tells someone that a photo, book, or album was shared with them, and links them to **Shared with me** | Sharing still works — the recipient finds it the next time they open the app |
 | **Send to e-reader** | Mails an ebook to a Kindle or Kobo address | The button explains that mail isn't set up |
 
 Account owners also get told when their own login email, password, or two-factor
@@ -65,6 +66,31 @@ folders swallow, mail claiming to be from an address the sender has no right to.
 Only **host**, **port** and **from address** are strictly required. Until all three
 are filled in and saved, email counts as not configured and the features above stay
 switched off.
+
+## User notifications
+
+Below the SMTP fields is a single checkbox, on by default:
+
+> **Email people when a photo, book, or album is shared with them.**
+
+This is the only mail the server sends to ordinary members about someone else's
+action, so it gets its own switch. It fires when a share is granted **to an
+account** — from the **People** tab of any share dialog, or the bulk share on a
+photo selection. Guest links send nothing: there is no account behind them, only a
+URL you pass on yourself.
+
+The message names who shared, what they shared, when access expires if it does, and
+links to **Shared with me**. It carries no photo and no file — someone reading the
+mail still has to sign in.
+
+Re-sharing something a person already has doesn't mail them again. Sharing thirty
+photos at once is one message, not thirty. Add ten more photos later and they're
+told about the ten.
+
+Turn it off and sharing keeps working exactly as before — the recipient just finds
+the new items on their own. The rest of the mail on this page (codes, security
+alerts, **Send to e-reader**) is unaffected either way: those are either asked for
+or too important to make optional.
 
 ## Save, then test
 

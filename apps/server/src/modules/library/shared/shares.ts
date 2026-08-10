@@ -13,6 +13,7 @@ import { pathIsInside } from "./storage-roots.js";
 import { thumbnailAbsolutePath } from "./thumbnail.js";
 import { canUserAccessLibrary, canUserCurateLibrary, getLibraryForBook, type LibraryAccessRow } from "./library-access.js";
 import { resolveShareLink, type ResolvedShareLink } from "./share-access.js";
+import { newlySharedResources, notifyShareGranted } from "./share-notify.js";
 import { parseRangeHeader } from "./document-stream.js";
 import { mediaKind, type MediaModule } from "./library-types.js";
 
@@ -793,6 +794,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     if (!target) { return reply.code(404).send({ error: "User not found" }); }
 
     const expiresAt = parsed.data.expiresInDays ? addDays(parsed.data.expiresInDays).toISOString() : null;
+    const isNew = newlySharedResources("gallery_album", [parsed.data.albumId], parsed.data.userId).length > 0;
     db.prepare(`
       INSERT INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at)
       VALUES (?, 'gallery_album', ?, ?, 'read', ?, ?)
@@ -810,6 +812,15 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       detail: `Shared gallery album "${meta.name}" with a user.`,
       ipAddress: request.ip
     });
+    if (isNew) {
+      notifyShareGranted({
+        recipientId: parsed.data.userId,
+        sharedById: user.id,
+        origin: requestOrigin(request),
+        expiresAt,
+        thing: { kind: "album", name: meta.name }
+      });
+    }
     return reply.code(201).send({ ok: true });
   });
 
@@ -893,6 +904,9 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     }
 
     const expiresAt = parsed.data.expiresInDays ? addDays(parsed.data.expiresInDays).toISOString() : null;
+    // Re-sharing a selection that overlaps one already sent should only announce
+    // the part that's actually new — and stay silent when none of it is.
+    const fresh = newlySharedResources("gallery", included, parsed.data.userId);
     const insert = db.prepare(`
       INSERT INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at)
       VALUES (?, 'gallery', ?, ?, 'read', ?, ?)
@@ -913,6 +927,18 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       detail: `Shared ${included.length} gallery item${included.length === 1 ? "" : "s"} with a user.`,
       ipAddress: request.ip
     });
+    if (fresh.length > 0) {
+      notifyShareGranted({
+        recipientId: parsed.data.userId,
+        sharedById: user.id,
+        origin: requestOrigin(request),
+        expiresAt,
+        // One photo shared on its own reads better named than counted.
+        thing: fresh.length === 1
+          ? { kind: "item", module: "gallery", itemId: fresh[0] }
+          : { kind: "photos", count: fresh.length }
+      });
+    }
 
     return reply.code(201).send({ granted: included.length, skipped });
   });
@@ -1173,6 +1199,9 @@ export async function librarySharesPlugin(app: FastifyInstance) {
 
     const shareId = nanoid(16);
     const expiresAt = parsed.data.expiresInDays ? addDays(parsed.data.expiresInDays).toISOString() : null;
+    // Checked before the upsert: afterwards a refreshed grant is indistinguishable
+    // from a new one, and only a new one is worth an email.
+    const isNew = newlySharedResources(module, [parsed.data.bookId], parsed.data.userId).length > 0;
     db.prepare(`
       INSERT INTO shares (id, module, resource_id, user_id, permission, created_by, expires_at)
       VALUES (?, ?, ?, ?, 'read', ?, ?)
@@ -1190,6 +1219,15 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       detail: `Shared an ${module} with a user.`,
       ipAddress: request.ip
     });
+    if (isNew) {
+      notifyShareGranted({
+        recipientId: parsed.data.userId,
+        sharedById: user.id,
+        origin: requestOrigin(request),
+        expiresAt,
+        thing: { kind: "item", module, itemId: parsed.data.bookId }
+      });
+    }
 
     return reply.code(201).send({ ok: true });
   });

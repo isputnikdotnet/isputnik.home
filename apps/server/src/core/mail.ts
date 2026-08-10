@@ -19,6 +19,10 @@ export interface MailSettings {
   password: string;
   fromAddress: string;
   fromName: string;
+  // Whether the server may email ordinary members about things that happened to
+  // them (today: something was shared with them). Off leaves only the mail the
+  // account owner asked for or must see — codes, security alerts, e-reader sends.
+  userNotifications: boolean;
 }
 
 const EMPTY: MailSettings = {
@@ -28,7 +32,8 @@ const EMPTY: MailSettings = {
   username: "",
   password: "",
   fromAddress: "",
-  fromName: ""
+  fromName: "",
+  userNotifications: true
 };
 
 export function getMailSettings(): MailSettings {
@@ -46,6 +51,13 @@ export function getMailSettings(): MailSettings {
 // Enough to attempt delivery: a host to connect to and a from-address to send as.
 export function isMailConfigured(settings: MailSettings = getMailSettings()): boolean {
   return Boolean(settings.host && settings.port && settings.fromAddress);
+}
+
+// The gate every member-facing notification checks: mail has to work AND the
+// admin has to have left notifications on. Kept here so a feature that notifies
+// asks one question rather than two, and so "off" is impossible to forget.
+export function userNotificationsEnabled(settings: MailSettings = getMailSettings()): boolean {
+  return settings.userNotifications && isMailConfigured(settings);
 }
 
 function createTransport(settings: MailSettings) {
