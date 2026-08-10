@@ -252,6 +252,74 @@
 
 /* ── Count badge ────────────────────────────────────────────────── */
 
+/* ── Info hint ──────────────────────────────────────────────────────
+   A small "i" beside a heading whose explanation appears on hover, focus or a
+   click. The panel is absolutely positioned so revealing it never reflows the
+   heading it hangs off — text that shoves the page down as the pointer crosses
+   it is worse than no text. */
+.info-hint {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.info-hint-button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.info-hint-button:hover,
+.info-hint-button.is-open {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.info-hint-button:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 1px;
+}
+
+.info-hint-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: -6px;
+  z-index: 30;
+  width: max(260px, 30vw);
+  max-width: 420px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--muted);
+  background: var(--surface);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  font-size: 0.84rem;
+  font-weight: 400;
+  line-height: 1.5;
+  /* Headings that host one are bold and tight; the panel is prose. */
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: normal;
+}
+
+/* Near the right-hand edge of a panel-width modal the popover would otherwise
+   run off it. */
+@media (max-width: 620px) {
+  .info-hint-panel {
+    left: auto;
+    right: -6px;
+    width: min(280px, 78vw);
+  }
+}
+
 .count-badge {
   display: inline-flex;
   align-items: center;

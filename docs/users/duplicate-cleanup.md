@@ -59,7 +59,9 @@ And photos, videos, or both — a handful of videos can be worth more space than
 photos.
 
 **3 — Folder instructions.** Optional, and the only place in the wizard that touches which
-copy survives. Every folder in the libraries you picked is listed, and each can be set to:
+copy survives. Every folder in the libraries you picked is listed, biggest first — an
+instruction on a folder of four photos decides almost nothing, and there are usually
+hundreds of those, so the ones worth your attention are at the top. Each can be set to:
 
 - **Keep** — when copies of a photo are in several places, the one here is the one to keep.
 - **—** — no instruction; the usual rules decide.
@@ -80,6 +82,10 @@ remove.
 
 The instructions belong to this cleanup. They start from whatever is saved for the install
 and are this job's from then on, so changing them here leaves other cleanups alone.
+
+The **i** beside the heading says the same two things — that these are this cleanup's
+alone, and that Clear never empties anything. Hover it or select it to read it; it is
+there for the first time through and out of the way after that.
 
 **4 — Summary.** Review and run. Once the scan runs, these answers are locked: everything it found
 was worked out under them. To compare something else, finish this cleanup and start
