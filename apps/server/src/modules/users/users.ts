@@ -7,6 +7,7 @@ import { currentSessionHash } from "../../auth.js";
 import { getDefaultTheme } from "../../core/app-config.js";
 import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { resetMfa } from "../../core/mfa-routes.js";
+import { clearPasskeys } from "../../core/webauthn.js";
 import { isAccountLocked, clearAccountLockout } from "../../core/security.js";
 import { alertNewAdmin, alertMfaDisabled, alertPasswordChanged } from "../../core/security-alerts.js";
 
@@ -33,6 +34,7 @@ const passwordSchema = z.object({
 
 interface UserListRow extends User {
   active_sessions: number;
+  passkey_count: number;
 }
 
 export async function usersPlugin(app: FastifyInstance) {
@@ -40,7 +42,10 @@ export async function usersPlugin(app: FastifyInstance) {
     const users = db.prepare(`
       SELECT
         users.*,
-        COUNT(sessions.id) AS active_sessions
+        COUNT(sessions.id) AS active_sessions,
+        -- Counted as a subquery, not a second LEFT JOIN: joining two one-to-many
+        -- tables at once multiplies the rows and would inflate both tallies.
+        (SELECT COUNT(*) FROM webauthn_credentials WHERE webauthn_credentials.user_id = users.id) AS passkey_count
       FROM users
       LEFT JOIN sessions ON sessions.user_id = users.id
         AND sessions.revoked_at IS NULL
@@ -56,6 +61,7 @@ export async function usersPlugin(app: FastifyInstance) {
         activeSessions: user.active_sessions,
         mfaEnabled: Boolean(user.mfa_enabled),
         mfaMethod: user.mfa_method,
+        passkeyCount: user.passkey_count,
         locked: isAccountLocked(user.email)
       }))
     };
@@ -226,6 +232,29 @@ export async function usersPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     return reply.send({ ok: true });
+  });
+
+  // The passkey counterpart of the MFA rescue above: a member who lost every device
+  // holding a passkey has stale credentials they can never use or remove. Clearing
+  // them costs nothing — password + two-factor is untouched and still gets them in,
+  // and they can enrol a new device afterwards.
+  app.post("/api/users/:id/passkeys/reset", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
+    if (!user) {
+      return reply.code(404).send({ error: "User not found" });
+    }
+
+    const cleared = clearPasskeys(id);
+    logActivity({
+      event: "user.passkeys_reset",
+      actorUserId: request.user!.id,
+      targetType: "user",
+      targetId: id,
+      detail: `Removed ${cleared} passkey${cleared === 1 ? "" : "s"} for ${user.display_name}.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ ok: true, cleared });
   });
 
   // Admin rescue: clear a brute-force sign-in lockout so the user can try again

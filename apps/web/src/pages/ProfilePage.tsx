@@ -12,6 +12,7 @@ import { InstallCard } from "../pwa/InstallCard";
 import { ChangeEmailSection } from "../features/profile/ChangeEmailSection";
 import { ChangePasswordSection } from "../features/profile/ChangePasswordSection";
 import { MfaSection } from "../features/profile/MfaSection";
+import { PasskeysSection } from "../features/profile/PasskeysSection";
 import { SharedLinksSection } from "../features/profile/SharedLinksSection";
 
 const PROFILE_TABS: { key: ProfileTab; label: string; icon: LucideIcon }[] = [
@@ -177,6 +178,8 @@ export function ProfilePage({
             hidden={activeTab !== "security"}
           >
             <ChangePasswordSection />
+
+            <PasskeysSection />
 
             <MfaSection />
           </div>

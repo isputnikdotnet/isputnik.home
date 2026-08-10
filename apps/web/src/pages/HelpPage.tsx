@@ -1,5 +1,5 @@
 import {
-  BookOpen, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, LibraryBig,
+  BookOpen, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, KeyRound, LibraryBig,
   Mail, Rocket, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 import type { PublicUser } from "../api";
@@ -106,6 +106,14 @@ const HELP_SECTIONS: HelpSection[] = [
         description:
           "Your name and sign-in email, themes, the e-reader address, and where favorites, bookmarks, quotes and collections live.",
         href: guide("your-account.md"),
+        external: false
+      },
+      {
+        icon: KeyRound,
+        title: "Passkeys",
+        description:
+          "Sign in with a fingerprint, face or PIN instead of a password — and why no one-time code is needed.",
+        href: guide("passkeys.md"),
         external: false
       },
       {

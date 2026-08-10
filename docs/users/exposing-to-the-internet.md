@@ -65,6 +65,9 @@ one adding the header.
 
 - **Turn on two-factor authentication** for admin accounts, and encourage everyone
   to use it — see [Two-factor authentication](two-factor-authentication.md).
+- **Tell everyone about passkeys** ([guide](passkeys.md)). Once the steps above are
+  done they switch on by themselves: passkeys need exactly this setup — HTTPS at a
+  real hostname — and they're both quicker and harder to phish than a password.
 - **Set up email** ([guide](email.md)) so the server can tell you about locked
   accounts, blocked addresses, and sign-ins from networks it hasn't seen. On an
   internet-facing install this is how you find out something is being tried.

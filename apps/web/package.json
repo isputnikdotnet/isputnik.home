@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
     "@vitejs/plugin-react": "^6.0.2",
     "idb": "^7.1.1",
     "leaflet": "^1.9.4",

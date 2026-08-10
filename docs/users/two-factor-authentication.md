@@ -7,6 +7,11 @@ they can't get into your account without that code.
 It's optional, but recommended — especially if your library is reachable from the
 internet.
 
+> If your library is reached over HTTPS at a domain name, look at
+> [passkeys](passkeys.md) first. A passkey signs you in with a fingerprint or face
+> and counts as both factors at once, so there's no code to type. Two-factor is
+> still worth having as the fallback for when you're signing in with your password.
+
 ## Choose how you get your codes
 
 You pick one of two methods when you turn 2FA on.
