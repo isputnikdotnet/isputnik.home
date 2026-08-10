@@ -7,6 +7,7 @@ import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody } from "./shared.js";
 import { isMailConfigured, sendMail } from "./mail.js";
+import { renderEmail } from "./email-template.js";
 import {
   alertAccountLocked,
   alertIpAutoBlocked,
@@ -278,24 +279,29 @@ export function clearMfaChallengeCookie(reply: FastifyReply): void {
 // fire-and-forget helpers in security-alerts.ts — a code the user is waiting for
 // must either be sent or reported as failed.
 export async function sendMfaCodeEmail(to: string, code: string, purpose: ChallengePurpose): Promise<void> {
-  const heading =
-    purpose === "enroll"
-      ? "Enter this code to finish turning on two-factor authentication by email:"
-      : "Enter this code to finish signing in to iSputnik:";
-  await sendMail({
-    to,
-    subject: `${code} is your iSputnik code`,
-    text: [
-      heading,
-      "",
-      `    ${code}`,
-      "",
-      `It expires in ${EMAIL_CODE_MINUTES} minutes and can be used once.`,
-      "",
-      "If you didn't try to sign in, someone else knows your password — change it now",
-      "and tell your server's administrator."
-    ].join("\n")
+  const { html, text } = renderEmail({
+    title: purpose === "enroll" ? "Finish turning on two-factor authentication" : "Your sign-in code",
+    // The code leads the preview line as well as the subject: on a phone, the
+    // notification is often the only place it needs to be read.
+    preheader: `${code} — expires in ${EMAIL_CODE_MINUTES} minutes.`,
+    blocks: [
+      {
+        kind: "text",
+        text: purpose === "enroll"
+          ? "Enter this code to confirm this address and finish setting up two-factor authentication by email."
+          : "Enter this code to finish signing in to iSputnik."
+      },
+      { kind: "code", code, caption: `Expires in ${EMAIL_CODE_MINUTES} minutes, and works once.` },
+      {
+        kind: "note",
+        text: purpose === "enroll"
+          ? "If you didn't set this up, someone else is in your account — change your password now and tell your server's administrator."
+          : "If you didn't try to sign in, someone else knows your password — change it now and tell your server's administrator."
+      }
+    ],
+    footnote: "Nobody at iSputnik will ever ask you for this code."
   });
+  await sendMail({ to, subject: `${code} is your iSputnik code`, text, html });
 }
 
 // ── Routes ───────────────────────────────────────────────────────────────────

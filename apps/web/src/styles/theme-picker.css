@@ -143,6 +143,32 @@
   font-size: 0.95rem;
 }
 
+/* A group of notification switches. The <fieldset> earns its keep here: it can be
+   disabled as a unit, which is how the whole tab goes read-only when there is no
+   mail server to send through. Stripped of the browser's border and padding — the
+   grouping is the legend's job, not a box's. */
+.notify-fieldset {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.notify-fieldset > .mail-subhead {
+  padding: 0;
+  margin: 0;
+}
+
+.notify-fieldset:disabled {
+  opacity: 0.55;
+}
+
+/* The label is the whole target, so it has to stop looking clickable too. */
+.notify-fieldset:disabled .mail-check {
+  cursor: default;
+}
+
 .mail-actions {
   display: flex;
   gap: 10px;

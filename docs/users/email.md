@@ -11,7 +11,7 @@ Everything here lives in **Control panel → Settings → Email**, and it's admi
 |---|---|---|
 | **Two-factor codes** | Lets people choose "Email" as their second factor and receive a 6-digit code per sign-in | The Email option is hidden. An authenticator app still works, and is the stronger choice anyway — see [Two-factor authentication](two-factor-authentication.md) |
 | **Security alerts** | Warns you about locked accounts, auto-blocked addresses, a new admin, two-factor being turned off, repeated wrong codes, and sign-ins from a network an account has never used | The events are still recorded in the activity log — nobody is told about them as they happen |
-| **Share notifications** | Tells someone that a photo, book, or album was shared with them, and links them to **Shared with me** | Sharing still works — the recipient finds it the next time they open the app |
+| **Share notifications** | Tells someone that a photo, book, or album was shared with them, and links them to **Shared with me**. Off until switched on, under **Settings → Notifications** | Sharing still works — the recipient finds it the next time they open the app |
 | **Send to e-reader** | Mails an ebook to a Kindle or Kobo address | The button explains that mail isn't set up |
 
 Account owners also get told when their own login email, password, or two-factor
@@ -67,17 +67,20 @@ Only **host**, **port** and **from address** are strictly required. Until all th
 are filled in and saved, email counts as not configured and the features above stay
 switched off.
 
-## User notifications
+## Notifications
 
-Below the SMTP fields is a single checkbox, on by default:
+This page is the relay — whether mail *can* leave. What the app is allowed to send
+through it lives on the **Notifications** tab beside it, because setting up SMTP
+for two-factor codes is not the same as agreeing to email the household about
+everyday activity.
 
-> **Email people when a photo, book, or album is shared with them.**
+There is one switch there today, off until you turn it on:
 
-This is the only mail the server sends to ordinary members about someone else's
-action, so it gets its own switch. It fires when a share is granted **to an
-account** — from the **People** tab of any share dialog, or the bulk share on a
-photo selection. Guest links send nothing: there is no account behind them, only a
-URL you pass on yourself.
+> **Email someone when a photo, book, or album is shared with them.**
+
+It fires when a share is granted **to an account** — from the **People** tab of any
+share dialog, or the bulk share on a photo selection. Guest links send nothing:
+there is no account behind them, only a URL you pass on yourself.
 
 The message names who shared, what they shared, when access expires if it does, and
 links to **Shared with me**. It carries no photo and no file — someone reading the
@@ -87,10 +90,10 @@ Re-sharing something a person already has doesn't mail them again. Sharing thirt
 photos at once is one message, not thirty. Add ten more photos later and they're
 told about the ten.
 
-Turn it off and sharing keeps working exactly as before — the recipient just finds
-the new items on their own. The rest of the mail on this page (codes, security
-alerts, **Send to e-reader**) is unaffected either way: those are either asked for
-or too important to make optional.
+Until this page is filled in, that tab is greyed out: there is nowhere to send
+from, so there is nothing to decide. Codes, security alerts and **Send to e-reader**
+are never affected by it either way — those are either asked for or too important
+to make optional.
 
 ## Save, then test
 

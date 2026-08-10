@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { db } from "../db.js";
+import { renderEmail } from "./email-template.js";
 
 // Platform mail infrastructure: SMTP settings storage + a thin nodemailer wrapper.
 // Lives in core because it carries no product knowledge — like logging/status. The
@@ -19,10 +20,6 @@ export interface MailSettings {
   password: string;
   fromAddress: string;
   fromName: string;
-  // Whether the server may email ordinary members about things that happened to
-  // them (today: something was shared with them). Off leaves only the mail the
-  // account owner asked for or must see — codes, security alerts, e-reader sends.
-  userNotifications: boolean;
 }
 
 const EMPTY: MailSettings = {
@@ -32,8 +29,7 @@ const EMPTY: MailSettings = {
   username: "",
   password: "",
   fromAddress: "",
-  fromName: "",
-  userNotifications: true
+  fromName: ""
 };
 
 export function getMailSettings(): MailSettings {
@@ -51,13 +47,6 @@ export function getMailSettings(): MailSettings {
 // Enough to attempt delivery: a host to connect to and a from-address to send as.
 export function isMailConfigured(settings: MailSettings = getMailSettings()): boolean {
   return Boolean(settings.host && settings.port && settings.fromAddress);
-}
-
-// The gate every member-facing notification checks: mail has to work AND the
-// admin has to have left notifications on. Kept here so a feature that notifies
-// asks one question rather than two, and so "off" is impossible to forget.
-export function userNotificationsEnabled(settings: MailSettings = getMailSettings()): boolean {
-  return settings.userNotifications && isMailConfigured(settings);
 }
 
 function createTransport(settings: MailSettings) {
@@ -79,26 +68,37 @@ function fromHeader(settings: MailSettings): string {
 export interface OutgoingMail {
   to: string;
   subject: string;
+  /** Always required: the alternative for text-only clients, and the fallback
+   *  when a reader refuses HTML. Build both from core/email-template.ts rather
+   *  than writing them separately, so they cannot say different things. */
   text: string;
+  html?: string;
   attachments?: { filename: string; content: Buffer; contentType?: string }[];
 }
 
 export async function sendMail(mail: OutgoingMail): Promise<void> {
   const settings = getMailSettings();
   if (!isMailConfigured(settings)) throw new Error("Email is not configured.");
+  // Both parts go out as multipart/alternative; the client picks. Sending HTML
+  // with no text part is what gets a message scored as spam.
   await createTransport(settings).sendMail({
     from: fromHeader(settings),
     to: mail.to,
     subject: mail.subject,
     text: mail.text,
+    html: mail.html,
     attachments: mail.attachments
   });
 }
 
 export async function sendTestEmail(to: string): Promise<void> {
-  await sendMail({
-    to,
-    subject: "iSputnik test email",
-    text: "This is a test email from your iSputnik server. If you received it, your SMTP settings are working."
+  const { html, text } = renderEmail({
+    title: "Your email settings work",
+    preheader: "A test message from your iSputnik server.",
+    blocks: [
+      { kind: "text", text: "This is a test message from your iSputnik server. Receiving it means the SMTP settings you saved are correct and the server can send mail." },
+      { kind: "note", text: "Nothing else was changed. You can close the Email settings page." }
+    ]
   });
+  await sendMail({ to, subject: "iSputnik test email", text, html });
 }

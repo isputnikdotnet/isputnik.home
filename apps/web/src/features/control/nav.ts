@@ -117,6 +117,7 @@ export const CONTROL_GROUPS: ControlGroupDef[] = [
     tabs: [
       { section: "appearance", label: "Appearance" },
       { section: "email", label: "Email" },
+      { section: "notifications", label: "Notifications" },
       { section: "readerAccess", label: "Reader access" },
       { section: "about", label: "About" }
     ]

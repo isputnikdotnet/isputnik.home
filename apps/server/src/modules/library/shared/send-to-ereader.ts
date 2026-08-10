@@ -111,6 +111,10 @@ export async function sendBookToEreader(bookId: string, user: User): Promise<Sen
   }
 
   try {
+    // Deliberately plain, unlike every other message the server sends. This one
+    // is not read by a person: Amazon's and Kobo's ingestion services take the
+    // attachment and discard the body, and a branded HTML wrapper would only be
+    // one more thing for them to parse and reject.
     await sendMail({
       to,
       subject: doc.title,

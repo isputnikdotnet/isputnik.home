@@ -31,6 +31,7 @@ import { MissingPhotosSection } from "./sections/MissingPhotosSection";
 import { DuplicateCleanupSection } from "./sections/duplicates/DuplicateCleanupSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { MailSection } from "./sections/MailSection";
+import { NotificationsSection } from "./sections/NotificationsSection";
 import { OpdsAccessSection } from "./sections/OpdsAccessSection";
 import { SecuritySection } from "./sections/SecuritySection";
 import { RecycleBinSection } from "./sections/RecycleBinSection";
@@ -114,6 +115,7 @@ function ControlSectionBody({
 
     case "appearance":      return <AppearanceSection />;
     case "email":           return <MailSection />;
+    case "notifications":   return <NotificationsSection />;
     case "readerAccess":    return <OpdsAccessSection />;
     case "about":           return <AboutSection />;
   }

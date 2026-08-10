@@ -54,7 +54,8 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   duplicateCleanup: "duplicate cleanup job wizard clean up duplicates saved job resume come back later owner one at a time keep clean folder rules review delete copies reclaim space scan libraries duplicate photos duplicate folders copies identical phash near-identical free space imported twice same folder twice keep photos in preferred folder already stored elsewhere contained copied into itself overlapping shared some photos partial copy",
 
   appearance: "theme default look colours colors dark light branding",
-  email: "smtp mail relay server port tls starttls password sender from test notifications notify shared with me",
+  email: "smtp mail relay server port tls starttls password sender from test",
+  notifications: "notify email alerts members shared with me sharing switch on off opt in",
   readerAccess: "opds catalog token koreader thorium moon+ reader ereader e-reader basic auth device",
   about: "version credits licences licenses changelog release notes what's new"
 };
@@ -80,9 +81,9 @@ const SETTING_ENTRIES: { title: string; section: ControlSection; keywords: strin
   { title: "OPDS reader tokens", section: "readerAccess", keywords: "create token catalog link qr device" },
   { title: "Two-factor & security alerts delivery", section: "email", keywords: "mfa totp codes alert emails" },
   {
-    title: "User notifications",
-    section: "email",
-    keywords: "notify members when a photo book album is shared with them turn off disable share notification recipient"
+    title: "Share notifications",
+    section: "notifications",
+    keywords: "notify members when a photo book album is shared with them turn on enable share notification recipient"
   }
 ];
 
