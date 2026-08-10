@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.1.0",
+    label: "Sign in with a fingerprint, and mail that looks like it came from somewhere",
+    changes: [
+      "You can sign in with a passkey — your fingerprint, your face, or the PIN you unlock your phone with — instead of typing a password. Add one under Profile, then Security, and from then on the sign-in screen has a button that asks your device instead of asking you. There is no email to type: your phone already knows which account it holds. Nothing about the passkey leaves the device, so there is no password to steal, and it only works on the real address of your library, so a convincing fake page cannot borrow it. If you use two-factor, a passkey does not ask for a code on top: your device checked it was you before it would sign anything, which is the same two things the code was there to establish. Your password and your codes carry on working exactly as before, and they are how you get back in if you lose every device. Passkeys need the library to be reached over https at a domain name — on a home network reached by its address on the network, browsers do not allow them at all, and the panel says so rather than offering a button that could not work.",
+      "An administrator can remove someone's passkeys from the control panel, under Members, for the case where every device that held one is gone. It leaves their password and two-factor untouched; they sign in the old way and add a new one.",
+      "Every email the server sends has been rewritten to one house style — sign-in codes, security alerts, the note that something was shared with you, a book sent to your e-reader. Each is now written once and sent as both a formatted message and a plain-text one, so what arrives in a mail app that refuses formatting says the same thing rather than something that drifted apart from it years ago. They carry no images loaded from the server, which means nothing to load and nothing that reports back when you open them.",
+      "The switch for whether the server may email members about routine goings-on has moved out of the email settings and into a Notifications page of its own, under Settings. Whether mail can be sent and whether it should be are different questions, and an administrator who set up a mail server so that security alerts would arrive had not thereby agreed to email five family members about everyday activity. Everything on the new page starts off, and the page explains itself where there is no mail server to send through.",
+      "In the duplicate cleanup wizard, the folders you can leave instructions on are listed biggest first. An instruction on a folder of four photos settles almost nothing and there are usually hundreds of those, while the handful holding thousands are where choosing which copy to keep actually decides something — so those are at the top now instead of wherever the folder path happened to put them. The paragraph that used to sit above the list, explaining that instructions belong to this cleanup alone and that Clear never empties a folder, is now an i beside the heading: there to read the first time through, out of the way afterwards."
+    ]
+  },
+  {
     version: "3.0.8",
     label: "Told when something is shared with you, and an A to Z for the authors",
     changes: [
