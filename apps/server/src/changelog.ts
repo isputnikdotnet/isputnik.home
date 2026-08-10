@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.0.8",
+    label: "Told when something is shared with you, and an A to Z for the authors",
+    changes: [
+      "When someone shares a photo, a book or an album with you, you are sent an email about it. Until now it simply appeared under Shared with me and you found it whenever you next happened to look, which in a quiet week could be never. The message says who shared what, and when your access runs out if it ever does. It carries no photo and no file, so it is still your account that opens them. Sharing thirty photos at once is one message rather than thirty, and sharing something again with someone who already has it says nothing at all. An administrator can switch the whole thing off under Settings, then Email.",
+      "The Authors page has an A to Z along the top, and a choice between filing people by their first name or their last. Choosing Last name puts Ursula K. Le Guin under G and orders the page by surname. Letters nobody is filed under go quiet rather than disappearing, so the row does not shuffle about underneath you as you narrow things down, and there is a library filter too where you have more than one.",
+      "Moving between pages no longer flashes the sign-in screen at you. Each page is fetched the first time you open it, and while that was happening the app drew the same background it uses to ask for your password — for a fraction of a second, but often enough to look as though you had been signed out. The page you are on now stays put until the next one is ready. Reloading is the same story: the app appears straight away rather than passing through the sign-in scene on its way.",
+      "The list of users in the control panel no longer slides sideways. The five buttons at the end of each row needed more room than the column had, so they hung over the edge and dragged a scrollbar in with them, and the date each person joined was being cut off part-way through for the same reason. On a narrower window the list now sets a column aside at a time rather than becoming something you scroll.",
+      "In the duplicate cleanup wizard the library switches line up in a straight column. A padlock appeared only on libraries the app may just read, and simply having one nudged everything on that row out of step with the rows above it. Every library shows one now: closed where files can only be compared, open where they can be cleaned. The wizard is four steps rather than three as well, with what to compare on a page of its own instead of sharing the first one with the library list."
+    ]
+  },
+  {
     version: "3.0.7",
     label: "One drawing on the empty family tree, not two",
     changes: [
