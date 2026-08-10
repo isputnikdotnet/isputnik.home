@@ -112,12 +112,24 @@ export function listPersonItems(name: string, userId: string, userRole: string):
   }));
 }
 
-export type AuthorSummary = { name: string; audiobookCount: number; ebookCount: number };
+export type AuthorSummary = {
+  name: string;
+  // The curated "file under" form, when someone has set one on the person's
+  // profile. Usually "Surname, First" — the Authors browse reads the surname off
+  // it for its last-name index rather than guessing from `name`.
+  sortName: string | null;
+  audiobookCount: number;
+  ebookCount: number;
+  libraryIds: string[];
+};
+
+export type AuthorLibrary = { id: string; name: string; type: string };
 
 // Every person credited as an author, across all accessible libraries, with how
-// many audiobooks vs ebooks they have — drives the unified Authors list and its
-// All / Audiobooks / Ebooks filter. Same global-people + access-filter shape as
-// listPersonItems; narrators are intentionally excluded (audiobook-only role).
+// many audiobooks vs ebooks they have and which libraries they appear in —
+// drives the unified Authors list and its media-type, library, and A–Z filters.
+// Same global-people + access-filter shape as listPersonItems; narrators are
+// intentionally excluded (audiobook-only role).
 export function listAuthors(userId: string, userRole: string): AuthorSummary[] {
   const libraryIds = [...accessibleLibraryIds(userId, userRole)];
   if (libraryIds.length === 0) return [];
@@ -126,8 +138,10 @@ export function listAuthors(userId: string, userRole: string): AuthorSummary[] {
   const rows = db.prepare(`
     SELECT
       p.name AS name,
+      p.sort_name AS sort_name,
       SUM(CASE WHEN li.type = 'audiobook' THEN 1 ELSE 0 END) AS audiobook_count,
-      SUM(CASE WHEN li.type = 'ebook' THEN 1 ELSE 0 END) AS ebook_count
+      SUM(CASE WHEN li.type = 'ebook' THEN 1 ELSE 0 END) AS ebook_count,
+      GROUP_CONCAT(DISTINCT li.library_id) AS library_ids
     FROM people p
     JOIN item_people ip   ON ip.person_id = p.id AND ip.role = 'author'
     JOIN library_items li ON li.id = ip.item_id
@@ -135,13 +149,41 @@ export function listAuthors(userId: string, userRole: string): AuthorSummary[] {
       AND li.library_id IN (${placeholders})
     GROUP BY p.id
     ORDER BY p.sort_name COLLATE NOCASE, p.name COLLATE NOCASE
-  `).all(...libraryIds) as { name: string; audiobook_count: number; ebook_count: number }[];
+  `).all(...libraryIds) as {
+    name: string;
+    sort_name: string | null;
+    audiobook_count: number;
+    ebook_count: number;
+    library_ids: string | null;
+  }[];
 
   return rows.map((row) => ({
     name: row.name,
+    sortName: row.sort_name,
     audiobookCount: row.audiobook_count,
-    ebookCount: row.ebook_count
+    ebookCount: row.ebook_count,
+    // GROUP_CONCAT has no separator argument in the DISTINCT form, so it is
+    // always a plain comma — library ids are nanoids and never contain one.
+    libraryIds: row.library_ids ? row.library_ids.split(",").filter(Boolean) : []
   }));
+}
+
+// The libraries the list above can be filtered by: accessible, and actually
+// holding something with an author on it. Anything else would be a picker entry
+// that can only ever return nothing.
+export function listAuthorLibraries(userId: string, userRole: string): AuthorLibrary[] {
+  const libraryIds = [...accessibleLibraryIds(userId, userRole)];
+  if (libraryIds.length === 0) return [];
+
+  const placeholders = libraryIds.map(() => "?").join(", ");
+  return db.prepare(`
+    SELECT DISTINCT l.id AS id, l.name AS name, l.type AS type
+    FROM libraries l
+    JOIN library_items li ON li.library_id = l.id AND li.deleted_at IS NULL
+    JOIN item_people ip   ON ip.item_id = li.id AND ip.role = 'author'
+    WHERE l.id IN (${placeholders})
+    ORDER BY l.name COLLATE NOCASE
+  `).all(...libraryIds) as AuthorLibrary[];
 }
 
 export async function audiobookPeoplePlugin(app: FastifyInstance) {
@@ -198,9 +240,15 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     return reply.send({ names: rows.map((row) => row.name) });
   });
 
-  // The unified Authors browse: every author across types, with per-type counts.
+  // The unified Authors browse: every author across types, with per-type counts,
+  // and the libraries its filter can offer. Both come from one request because
+  // the page can't render its toolbar until it has the pair.
   app.get("/api/library/people/authors", { preHandler: app.authenticate }, async (request, reply) => {
-    return reply.send({ authors: listAuthors(request.user!.id, request.user!.role) });
+    const user = request.user!;
+    return reply.send({
+      authors: listAuthors(user.id, user.role),
+      libraries: listAuthorLibraries(user.id, user.role)
+    });
   });
 
   app.patch("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {

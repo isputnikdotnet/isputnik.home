@@ -96,6 +96,49 @@
   opacity: 0.7;
 }
 
+/* ── A–Z strip (Authors browse) ─────────────────────────────────────
+   Twenty-eight targets in one line, so it borrows the kind-toggle's pill
+   language but drops the enclosing capsule: a pill around a whole alphabet
+   reads as a container, not a control. Letters with nobody behind them stay
+   in place and go quiet — a row that reflowed as you filtered would move the
+   letter out from under the pointer. */
+.alpha-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 0 0 18px;
+}
+
+.alpha-filter button {
+  min-width: 30px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.13s ease, color 0.13s ease, border-color 0.13s ease;
+}
+
+.alpha-filter button:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.alpha-filter button:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.alpha-filter button.is-active {
+  border-color: transparent;
+  background: var(--mint);
+  color: var(--canvas);
+}
+
 /* ── Tag browse (global Tags page) ──────────────────────────────────
    A searchable cloud of tag chips with usage counts. */
 .tag-cloud {
