@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft, ArrowRight, Briefcase, Check, Cloud, File, FolderOpen, HardDrive,
-  Image as ImageIcon, Lock, RefreshCw, ShieldCheck, Smartphone, UserRound, Video
+  Image as ImageIcon, Lock, LockOpen, RefreshCw, ShieldCheck, Smartphone, UserRound, Video
 } from "lucide-react";
 import { api } from "../../../../api";
 import { MessageBox } from "../../../../shared/MessageBox";
@@ -82,6 +82,38 @@ const MODES: { value: PreferenceMode | ""; short: string; hint: string }[] = [
   { value: "clear", short: "Clear", hint: "Keep the copies elsewhere and let this folder's go" }
 ];
 
+// One entry per step, and the only place their order and count is written down —
+// the rail, the "Step n of m" line and the footer all read it. What to compare
+// used to share the first step with the library picker, which made that step three
+// questions long and this one no question at all; they are separate decisions and
+// the second one is easier to answer once the libraries are settled.
+const STEPS: { title: string; note: string; heading: string; blurb: string }[] = [
+  {
+    title: "Libraries",
+    note: "What the scan looks at",
+    heading: "Select libraries",
+    blurb: "Choose which gallery libraries this duplicate cleanup job compares."
+  },
+  {
+    title: "Content type",
+    note: "What counts as a duplicate",
+    heading: "Content type",
+    blurb: "Decide what the scan compares — whole folders or single files, and which media."
+  },
+  {
+    title: "Folder instructions",
+    note: "Which copies to favour",
+    heading: "Folder instructions",
+    blurb: "Optional. Say in advance which folder a photo should be kept in when copies of it turn up in several — the scan then follows that instead of guessing."
+  },
+  {
+    title: "Summary",
+    note: "Review and run",
+    heading: "Summary",
+    blurb: "Review your selections before starting the duplicate cleanup scan."
+  }
+];
+
 export function CleanupWizard({
   libraries, job, ownerName, onClose, onSaved
 }: {
@@ -91,7 +123,7 @@ export function CleanupWizard({
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
-  const [step, setStep] = useState(Math.min(job?.currentStep ?? 1, 3));
+  const [step, setStep] = useState(Math.min(job?.currentStep ?? 1, STEPS.length));
   const [chosen, setChosen] = useState<string[]>(
     job ? job.libraries.filter((library) => library.included).map((library) => library.libraryId)
       : libraries.filter((library) => !library.isProtected).map((library) => library.id)
@@ -126,7 +158,7 @@ export function CleanupWizard({
   // Fetched for the libraries actually chosen, when that step is reached — a folder in a
   // library the job never looks at is an instruction that can only confuse.
   useEffect(() => {
-    if (step !== 2 || chosen.length === 0) return;
+    if (step !== 3 || chosen.length === 0) return;
     let live = true;
     setFoldersLoading(true);
     api<{ folders: FolderOption[] }>(
@@ -143,7 +175,7 @@ export function CleanupWizard({
     || option.folderPath.toLowerCase().includes(needle)
     || option.libraryName.toLowerCase().includes(needle)), [folderOptions, needle]);
   const instructionCount = Object.keys(preferences).length;
-  const stepName = step === 1 ? "Select what to scan" : step === 2 ? "Folder instructions" : "Review and run";
+  const current = STEPS[step - 1];
 
   const cleanupTypeChoices: Choice<DuplicateKind>[] = [
     {
@@ -230,7 +262,7 @@ export function CleanupWizard({
     <Modal
       variant="panel"
       title={job ? "Change duplicate cleanup job" : "Create duplicate cleanup job"}
-      subtitle={`Step ${step} of 3 · ${stepName}`}
+      subtitle={`Step ${step} of ${STEPS.length} · ${current.heading}`}
       icon={<FolderOpen size={30} />}
       className="cleanup-wizard-modal"
       headerClassName="cleanup-wizard-header"
@@ -239,21 +271,18 @@ export function CleanupWizard({
     >
       <div className="cleanup-wizard-shell">
         <aside className="cleanup-wizard-rail" aria-label="Duplicate cleanup steps">
-          {[
-            { value: 1, title: "Scan setup", note: "Libraries, cleanup type, media" },
-            { value: 2, title: "Folder instructions", note: "Which copies to favour" },
-            { value: 3, title: "Summary", note: "Review and run" }
-          ].map((item) => {
-            const done = step > item.value;
-            const active = step === item.value;
+          {STEPS.map((item, index) => {
+            const value = index + 1;
+            const done = step > value;
+            const active = step === value;
             return (
               <div
                 className={`cleanup-step${active ? " is-active" : ""}${done ? " is-done" : ""}`}
                 aria-current={active ? "step" : undefined}
-                key={item.value}
+                key={item.title}
               >
                 <span className="cleanup-step-dot" aria-hidden="true">
-                  {done ? <Check size={14} /> : item.value}
+                  {done ? <Check size={14} /> : value}
                 </span>
                 <span className="cleanup-step-copy">
                   <strong>{item.title}</strong>
@@ -270,12 +299,11 @@ export function CleanupWizard({
           {step === 1 && (
             <div className="cleanup-wizard-page">
               <div className="cleanup-wizard-intro">
-                <h3>Select what to scan</h3>
-                <p>Choose libraries, cleanup type, and media type for this duplicate cleanup job.</p>
+                <h3>{current.heading}</h3>
+                <p>{current.blurb}</p>
               </div>
 
               <section className="cleanup-wizard-section">
-                <h4>1. Select libraries</h4>
                 {libraries.length === 0 ? (
                   <MessageBox tone="warning" title="No gallery libraries">
                     Create a gallery library before starting a duplicate cleanup job.
@@ -305,11 +333,21 @@ export function CleanupWizard({
                             ariaLabel={`${included ? "Exclude" : "Include"} ${library.name}`}
                             className="cleanup-library-toggle"
                           />
-                          {library.isProtected && (
-                            <span className="cleanup-library-lock" title="This library is protected from cleanup actions">
-                              <Lock size={15} aria-hidden="true" />
-                            </span>
-                          )}
+                          {/* Both states draw something. A cell that renders for
+                              some rows and not others is what knocked the toggles
+                              out of line: each row is its own grid, so an absent
+                              last child gave that row's flexible name column the
+                              slack and shifted everything after it left. */}
+                          <span
+                            className={`cleanup-library-lock${library.isProtected ? " is-locked" : ""}`}
+                            title={library.isProtected
+                              ? "External: files here can be compared but never removed"
+                              : "Internal: files here can be cleaned up"}
+                          >
+                            {library.isProtected
+                              ? <Lock size={15} aria-hidden="true" />
+                              : <LockOpen size={15} aria-hidden="true" />}
+                          </span>
                         </div>
                       );
                     })}
@@ -321,10 +359,19 @@ export function CleanupWizard({
                   </MessageBox>
                 )}
               </section>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="cleanup-wizard-page">
+              <div className="cleanup-wizard-intro">
+                <h3>{current.heading}</h3>
+                <p>{current.blurb}</p>
+              </div>
 
               <section className="cleanup-wizard-section">
                 <ChoiceGroup
-                  legend="2. Cleanup type"
+                  legend="Cleanup type"
                   className="cleanup-choice-grid"
                   value={duplicateType}
                   onChange={setDuplicateType}
@@ -335,7 +382,7 @@ export function CleanupWizard({
 
               <section className="cleanup-wizard-section">
                 <ChoiceGroup
-                  legend="3. Media type"
+                  legend="Media type"
                   className="cleanup-choice-grid"
                   value={mediaType}
                   onChange={setMediaType}
@@ -346,14 +393,11 @@ export function CleanupWizard({
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="cleanup-wizard-page">
               <div className="cleanup-wizard-intro">
-                <h3>Folder instructions</h3>
-                <p>
-                  Optional. Say in advance which folder a photo should be kept in when copies
-                  of it turn up in several — the scan then follows that instead of guessing.
-                </p>
+                <h3>{current.heading}</h3>
+                <p>{current.blurb}</p>
               </div>
 
               <MessageBox tone="info" title="These belong to this cleanup">
@@ -448,16 +492,16 @@ export function CleanupWizard({
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="cleanup-summary-layout">
               <div className="cleanup-summary-main">
                 <div className="cleanup-wizard-intro">
-                  <h3>Summary</h3>
-                  <p>Review your selections before starting the duplicate cleanup scan.</p>
+                  <h3>{current.heading}</h3>
+                  <p>{current.blurb}</p>
                 </div>
 
                 <section className="cleanup-summary-card">
-                  <h4>1. Selected libraries</h4>
+                  <h4>Selected libraries</h4>
                   <div className="cleanup-summary-libraries">
                     {chosenLibraries.map((library) => (
                       <div className="cleanup-summary-library" key={library.id}>
@@ -489,7 +533,7 @@ export function CleanupWizard({
                 </section>
 
                 <section className="cleanup-summary-card cleanup-summary-choice">
-                  <h4>2. Cleanup type</h4>
+                  <h4>Cleanup type</h4>
                   <div>
                     <span className="cleanup-summary-icon">
                       {duplicateType === "files"
@@ -504,7 +548,7 @@ export function CleanupWizard({
                 </section>
 
                 <section className="cleanup-summary-card cleanup-summary-choice">
-                  <h4>3. Media type</h4>
+                  <h4>Media type</h4>
                   <div>
                     <span className="cleanup-summary-icon">
                       {mediaType === "video" ? (
@@ -568,7 +612,7 @@ export function CleanupWizard({
         )}
         <Button variant="secondary" disabled={saving} onClick={onClose}>Cancel</Button>
         <span className="cleanup-wizard-action-spacer" aria-hidden="true" />
-        {step < 3 ? (
+        {step < STEPS.length ? (
           <Button
             variant="primary"
             disabled={saving || chosen.length === 0}

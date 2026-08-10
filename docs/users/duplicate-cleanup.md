@@ -33,29 +33,32 @@ Finishing or cancelling a cleanup frees the slot for the next one.
 
 ## Starting one
 
-**Start a cleanup** opens a three-step wizard.
+**Start a cleanup** opens a four-step wizard.
 
-**1 — Scan setup.** Which libraries, then what to look for.
+**1 — Libraries.** What the scan looks at.
 
 Copies are only ever found *inside* the libraries you tick, and only ever removed from
 there. Ticking one library compares its photos with each other; ticking several also finds
 the same photo sitting in two of them.
 
-Libraries the app may only read — external ones, and any with deleting turned off — show a
-padlock. They are still worth including: a copy kept in one counts as somewhere the photo
-survives, so the copies elsewhere can go. Nothing in them is ever offered for deletion, and
-no folder instruction can change that.
+Every library shows a padlock at the end of its row. A closed one — external libraries, and
+any with deleting turned off — means the app may only read it; an open one means files
+there can be cleaned up. Read-only libraries are still worth including: a copy kept in one
+counts as somewhere the photo survives, so the copies elsewhere can go. Nothing in them is
+ever offered for deletion, and no folder instruction can change that.
 
-Then whole folders **or** single files — one or the other, not both. They are different
-jobs of work: clearing folders is a few decisions about a great many photos, and going
-through single copies is a great many decisions about a few. Mixed into one list, neither
-gets done, and every folder you clear reshuffles the single-file half underneath it. Run a
+**2 — Content type.** What counts as a duplicate.
+
+Whole folders **or** single files — one or the other, not both. They are different jobs of
+work: clearing folders is a few decisions about a great many photos, and going through
+single copies is a great many decisions about a few. Mixed into one list, neither gets
+done, and every folder you clear reshuffles the single-file half underneath it. Run a
 folder cleanup first; what it leaves behind is what a file cleanup is for.
 
 And photos, videos, or both — a handful of videos can be worth more space than a thousand
 photos.
 
-**2 — Folder instructions.** Optional, and the only place in the wizard that touches which
+**3 — Folder instructions.** Optional, and the only place in the wizard that touches which
 copy survives. Every folder in the libraries you picked is listed, and each can be set to:
 
 - **Keep** — when copies of a photo are in several places, the one here is the one to keep.
@@ -78,7 +81,7 @@ remove.
 The instructions belong to this cleanup. They start from whatever is saved for the install
 and are this job's from then on, so changing them here leaves other cleanups alone.
 
-**3 — Review and run.** Once the scan runs, these answers are locked: everything it found
+**4 — Summary.** Review and run. Once the scan runs, these answers are locked: everything it found
 was worked out under them. To compare something else, finish this cleanup and start
 another.
 

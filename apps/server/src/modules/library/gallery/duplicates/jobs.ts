@@ -485,7 +485,7 @@ export function updateJobScope(id: string, userId: string, input: UpdateScopeInp
     const patch: Record<string, unknown> = {};
     if (input.duplicateType) patch.duplicate_type = input.duplicateType;
     if (input.mediaType) patch.media_type = input.mediaType;
-    if (input.currentStep !== undefined) patch.current_step = Math.min(Math.max(input.currentStep, 1), 3);
+    if (input.currentStep !== undefined) patch.current_step = Math.min(Math.max(input.currentStep, 1), 4);
     touch(id, patch);
   })();
 

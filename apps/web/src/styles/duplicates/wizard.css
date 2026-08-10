@@ -179,9 +179,13 @@
    for some rows and not others shifts every column after it, which knocked the
    toggle out of line on protected libraries. Trailing it costs nothing — the column
    collapses to zero on rows without one, and stays aligned on rows with one. */
+/* Each row is its own grid, not a shared one, so an `auto` track is measured per
+   row — two rows with different content get different column positions. Only the
+   name column flexes; everything after it is a fixed track, which is what makes
+   the badges, toggles and locks form straight columns down the list. */
 .cleanup-library-row {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto 54px auto;
+  grid-template-columns: 42px minmax(0, 1fr) 84px 54px 20px;
   align-items: center;
   gap: 12px;
   min-height: 62px;
@@ -253,10 +257,17 @@
   background: color-mix(in srgb, var(--blue) 11%, transparent);
 }
 
+/* Drawn for every library, open or shut, so the column is never half a column.
+   Unlocked is the quiet default — it says "nothing unusual here" — and only the
+   locked state is worth colouring. */
 .cleanup-library-lock {
   display: grid;
   place-items: center;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+.cleanup-library-lock.is-locked {
+  color: var(--blue);
 }
 
 .cleanup-library-toggle {

@@ -98,7 +98,9 @@ const scopeSchema = z.object({
   libraryIds: z.array(z.string().min(1).max(64)).max(200).optional(),
   duplicateType: z.enum(["folders", "files"]).optional(),
   mediaType: z.enum(["photo", "video", "both"]).optional(),
-  currentStep: z.number().int().min(1).max(3).optional()
+  // Where a half-finished draft reopens. The wizard has four steps: libraries,
+  // what to compare, folder instructions, summary.
+  currentStep: z.number().int().min(1).max(4).optional()
 });
 
 const createSchema = scopeSchema.extend({
