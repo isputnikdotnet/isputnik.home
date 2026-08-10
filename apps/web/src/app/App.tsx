@@ -5,7 +5,7 @@ import { flushProgressQueue } from "../offline/progress";
 import { flushQuoteQueue } from "../offline/quotes";
 import { flushBookmarkQueue } from "../offline/bookmarks";
 import { clearPrivateRuntimeCaches } from "../pwa/cache";
-import { Shell } from "./Shell";
+import { AppLoading, Shell } from "./Shell";
 import { useRoute, navigate } from "../router";
 
 // Eager: the shell, the ways in, and the page you land on. Everything on the
@@ -103,12 +103,21 @@ async function checkSession(): Promise<SessionCheck> {
 
 export function App() {
   const route = useRoute();
-  const [session, setSession] = useState<SessionState>({
-    loading: true,
-    requiresSetup: false,
-    onboardingPending: false,
-    user: null,
-    defaultTheme: cachedDefaultTheme()
+  // Seeded from the cached identity rather than starting blank, so a reload
+  // paints the app on its first frame. Starting at loading:true meant every
+  // refresh showed the sign-in scene until the effect below ran — one frame, but
+  // an alarming one, and it also flashed the wrong theme on the way past.
+  // refreshSession still runs and still falls to the login screen if the server
+  // says the session is gone; this only decides what is on screen until it answers.
+  const [session, setSession] = useState<SessionState>(() => {
+    const cached = getCachedUser();
+    return {
+      loading: !cached,
+      requiresSetup: false,
+      onboardingPending: false,
+      user: cached,
+      defaultTheme: cachedDefaultTheme()
+    };
   });
 
   const refreshSession = useCallback(async () => {
@@ -228,14 +237,17 @@ export function App() {
   }
 
   // Every route below the entry chunk is lazy, so one boundary sits above the
-  // whole table rather than one per branch. The fallback is the same Shell line
-  // the session check uses above, so a chunk fetch looks like the app still
-  // starting up rather than a blank frame.
-  return (
-    <Suspense fallback={<Shell><p className="status">Loading isputnik.home...</p></Shell>}>
-      {page()}
-    </Suspense>
-  );
+  // whole table rather than one per branch. Navigation itself no longer reaches
+  // this fallback — useRoute switches routes in a transition, which holds the
+  // current page on screen until the next one's chunk lands. What is left is the
+  // cold open straight into a lazy route, and there the screen depends on who is
+  // waiting: someone signed in gets a bare surface, because the alternative is
+  // being shown the sign-in scene by an app they are already signed in to.
+  const loading = session.user
+    ? <AppLoading><p className="status">Loading isputnik.home...</p></AppLoading>
+    : <Shell><p className="status">Loading isputnik.home...</p></Shell>;
+
+  return <Suspense fallback={loading}>{page()}</Suspense>;
 
   // Hoisted so the boundary above reads first; the route table is unchanged and
   // closes over the session state and handlers declared earlier in App().

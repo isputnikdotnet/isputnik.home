@@ -1,5 +1,18 @@
 import React from "react";
 
+// A holding screen for someone who is already signed in. Shell below is the
+// sign-in scene — hero, orbits, brand panel — so using it to say "loading" tells
+// a signed-in user they have been signed out. This says nothing at all instead,
+// on the app's own background, which is what a page that is about to appear
+// should look like.
+export function AppLoading({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="app-loading">
+      {children}
+    </main>
+  );
+}
+
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="app-shell">

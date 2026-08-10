@@ -115,6 +115,18 @@
   --auth-orbit-c: rgba(31, 41, 55, 0.1);
 }
 
+/* The holding screen for a signed-in user (AppLoading). Deliberately the plain
+   app canvas and nothing else: it exists so a route that is still loading looks
+   like an empty page rather than like being signed out. */
+.app-loading {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  color: var(--muted);
+  background: var(--canvas);
+}
+
 .app-shell {
   position: relative;
   display: grid;
