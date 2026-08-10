@@ -70,11 +70,21 @@ interface SessionState {
   onboardingPending: boolean;
   user: PublicUser | null;
   defaultTheme: Theme;
+  /** Whether this install can offer passkeys at all — false on a plain-http LAN
+   *  deployment, where the browser has no WebAuthn to call. See core/webauthn.ts. */
+  passkeysAvailable: boolean;
 }
 
 type SessionCheck =
   | { reachable: false }
-  | { reachable: true; requiresSetup: boolean; user: PublicUser | null; defaultTheme: Theme; onboardingPending?: boolean };
+  | {
+      reachable: true;
+      requiresSetup: boolean;
+      user: PublicUser | null;
+      defaultTheme: Theme;
+      passkeysAvailable: boolean;
+      onboardingPending?: boolean;
+    };
 
 // Probe the server with a hard timeout so a dead/slow network can never hang the
 // app. Distinguishes "unreachable" (offline — keep the cached identity) from
@@ -85,15 +95,27 @@ async function checkSession(): Promise<SessionCheck> {
   try {
     const setupRes = await fetch("/api/setup/status", { credentials: "include", signal: controller.signal });
     if (!setupRes.ok) return { reachable: false };
-    const setup = (await setupRes.json()) as { requiresSetup: boolean; defaultTheme?: Theme };
+    const setup = (await setupRes.json()) as {
+      requiresSetup: boolean;
+      defaultTheme?: Theme;
+      passkeysAvailable?: boolean;
+    };
     const defaultTheme = setup.defaultTheme ?? "dark";
-    if (setup.requiresSetup) return { reachable: true, requiresSetup: true, user: null, defaultTheme };
+    const passkeysAvailable = Boolean(setup.passkeysAvailable);
+    if (setup.requiresSetup) return { reachable: true, requiresSetup: true, user: null, defaultTheme, passkeysAvailable };
 
     const meRes = await fetch("/api/auth/me", { credentials: "include", signal: controller.signal });
-    if (meRes.status === 401) return { reachable: true, requiresSetup: false, user: null, defaultTheme };
+    if (meRes.status === 401) return { reachable: true, requiresSetup: false, user: null, defaultTheme, passkeysAvailable };
     if (!meRes.ok) return { reachable: false };
     const me = (await meRes.json()) as { user: PublicUser | null; onboardingPending?: boolean };
-    return { reachable: true, requiresSetup: false, user: me.user ?? null, defaultTheme, onboardingPending: me.onboardingPending };
+    return {
+      reachable: true,
+      requiresSetup: false,
+      user: me.user ?? null,
+      defaultTheme,
+      passkeysAvailable,
+      onboardingPending: me.onboardingPending
+    };
   } catch {
     return { reachable: false }; // network error or timeout/abort
   } finally {
@@ -116,7 +138,10 @@ export function App() {
       requiresSetup: false,
       onboardingPending: false,
       user: cached,
-      defaultTheme: cachedDefaultTheme()
+      defaultTheme: cachedDefaultTheme(),
+      // Not cached: it is cheap to learn and wrong to guess. Until the server
+      // answers the sign-in screen simply doesn't offer the passkey button.
+      passkeysAvailable: false
     };
   });
 
@@ -139,7 +164,7 @@ export function App() {
     if (result.requiresSetup) {
       await clearPrivateRuntimeCaches().catch(() => {});
       clearCachedUser();
-      setSession((s) => ({ ...s, loading: false, requiresSetup: true, user: null, defaultTheme: result.defaultTheme }));
+      setSession((s) => ({ ...s, loading: false, requiresSetup: true, user: null, defaultTheme: result.defaultTheme, passkeysAvailable: result.passkeysAvailable }));
       return;
     }
     if (result.user) {
@@ -147,12 +172,12 @@ export function App() {
         await clearPrivateRuntimeCaches().catch(() => {});
       }
       cacheCurrentUser(result.user);
-      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: result.user, defaultTheme: result.defaultTheme, onboardingPending: Boolean(result.onboardingPending) }));
+      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: result.user, defaultTheme: result.defaultTheme, passkeysAvailable: result.passkeysAvailable, onboardingPending: Boolean(result.onboardingPending) }));
     } else {
       // Server reachable but not authenticated — a genuine sign-out / expiry.
       await clearPrivateRuntimeCaches().catch(() => {});
       clearCachedUser();
-      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: null, defaultTheme: result.defaultTheme }));
+      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: null, defaultTheme: result.defaultTheme, passkeysAvailable: result.passkeysAvailable }));
     }
   }, []);
 
@@ -282,7 +307,7 @@ export function App() {
     }
 
     if (route.name === "login") {
-      return <LoginPage onSignedIn={refreshSession} />;
+      return <LoginPage onSignedIn={refreshSession} passkeysAvailable={session.passkeysAvailable} />;
     }
 
     if (!session.user) {

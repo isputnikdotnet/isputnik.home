@@ -3,6 +3,9 @@ import type { PublicUser } from "../../api";
 export interface ManagedUser extends PublicUser {
   activeSessions: number;
   locked: boolean;
+  /** How many passkeys the account has registered. Zero disables the clear action —
+   *  there is nothing to rescue them from. */
+  passkeyCount: number;
 }
 
 export interface ManagedInvite {

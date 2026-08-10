@@ -621,6 +621,68 @@
   display: flex;
 }
 
+/* ── Passkeys ───────────────────────────────────────────────────── */
+
+/* Same card as the two-factor panel below — they sit next to each other on the
+   Security tab and reading as one family is the point. */
+.passkeys-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.passkeys-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.passkeys-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.passkeys-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.passkey-list {
+  display: grid;
+  gap: 8px;
+}
+
+.passkey-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.passkey-icon {
+  display: flex;
+  color: var(--muted);
+}
+
+/* min-width:0 so a long device name truncates instead of stretching the row. */
+.passkey-meta {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.passkey-meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Two-factor authentication ──────────────────────────────────── */
 
 .mfa-section {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
-import { KeyRound, LockOpen, Pencil, Plus, Search, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
+import { Fingerprint, KeyRound, LockOpen, Pencil, Plus, Search, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
 import { api, type PublicUser } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -50,6 +50,9 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
   const [pendingMfaReset, setPendingMfaReset] = useState<ManagedUser | null>(null);
   const [resettingMfa, setResettingMfa] = useState(false);
+
+  const [pendingPasskeyReset, setPendingPasskeyReset] = useState<ManagedUser | null>(null);
+  const [resettingPasskeys, setResettingPasskeys] = useState(false);
 
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
 
@@ -199,6 +202,22 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     }
   };
 
+  const resetPasskeys = async () => {
+    if (!pendingPasskeyReset) return;
+
+    setResettingPasskeys(true);
+    setModalError("");
+    try {
+      await api(`/api/users/${pendingPasskeyReset.id}/passkeys/reset`, { method: "POST" });
+      setPendingPasskeyReset(null);
+      await loadUsers();
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : "Unable to remove passkeys");
+    } finally {
+      setResettingPasskeys(false);
+    }
+  };
+
   const unlockUser = async (account: ManagedUser) => {
     setUnlockingId(account.id);
     setError("");
@@ -331,6 +350,22 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                           }}
                         >
                           <ShieldOff size={15} />
+                        </Button>
+                        <Button
+                          variant="icon"
+                          title={
+                            account.passkeyCount > 0
+                              ? `Remove ${account.passkeyCount} passkey${account.passkeyCount === 1 ? "" : "s"}`
+                              : "This user has no passkeys"
+                          }
+                          aria-label={`Remove passkeys for ${account.displayName}`}
+                          disabled={account.passkeyCount === 0}
+                          onClick={() => {
+                            setModalError("");
+                            setPendingPasskeyReset(account);
+                          }}
+                        >
+                          <Fingerprint size={15} />
                         </Button>
                         <Button
                           variant="icon"
@@ -508,6 +543,27 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
             {pendingMfaReset.mfaMethod === "email" ? " the emailed-code setting" : " their authenticator"}.
           </p>
           <p><strong>They'll sign in with just their password until they set it up again.</strong></p>
+        </ConfirmDialog>
+      )}
+
+      {pendingPasskeyReset && (
+        <ConfirmDialog
+          title={`Remove passkeys for "${pendingPasskeyReset.displayName}"?`}
+          confirmLabel="Remove passkeys"
+          busyLabel="Removing…"
+          confirmIcon={<Fingerprint size={15} />}
+          danger
+          rich
+          busy={resettingPasskeys}
+          error={modalError}
+          onConfirm={resetPasskeys}
+          onCancel={() => setPendingPasskeyReset(null)}
+        >
+          <p>
+            This removes all {pendingPasskeyReset.passkeyCount} of their passkeys — for when they've lost every device
+            that held one.
+          </p>
+          <p><strong>Their password and two-factor sign-in still work, and they can add a new passkey afterwards.</strong></p>
         </ConfirmDialog>
       )}
     </>

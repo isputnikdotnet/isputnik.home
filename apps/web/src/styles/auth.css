@@ -1,3 +1,56 @@
+/* ── Passkey sign-in ────────────────────────────────────────────── */
+
+.login-passkey {
+  display: grid;
+  gap: 14px;
+}
+
+/* Deliberately not the primary button: the password form below is still the path
+   everyone can take, and this shouldn't shout over it. */
+.passkey-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.passkey-button:hover:not(:disabled) {
+  border-color: var(--accent, var(--line));
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.passkey-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* A rule with the word sitting in the middle of it. */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
 .login-qr {
   display: flex;
   flex-direction: column;

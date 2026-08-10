@@ -79,6 +79,44 @@ CREATE TABLE IF NOT EXISTS mfa_challenges (
   last_sent_at  TEXT
 );
 
+-- Passkeys (WebAuthn). A registered credential is a public key the browser signs
+-- challenges with; the private half never leaves the user's device or keychain, so
+-- unlike a password or a TOTP secret there is nothing here worth stealing.
+-- `credential_id` and `public_key` are base64url, the encoding simplewebauthn hands
+-- back. `counter` is the authenticator's use count for clone detection — synced
+-- iCloud/Google passkeys always report 0, so only a DECREASE from a non-zero stored
+-- value means anything (see core/webauthn.ts).
+-- `backed_up` records whether the credential syncs: a device-bound key is lost with
+-- the device, which is worth telling the user before it happens.
+CREATE TABLE IF NOT EXISTS webauthn_credentials (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  credential_id  TEXT NOT NULL UNIQUE,
+  public_key     TEXT NOT NULL,
+  counter        INTEGER NOT NULL DEFAULT 0,
+  transports     TEXT,
+  backed_up      INTEGER NOT NULL DEFAULT 0 CHECK (backed_up IN (0, 1)),
+  label          TEXT,
+  created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  last_used_at   TEXT,
+  last_ip        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user ON webauthn_credentials (user_id);
+
+-- The random challenge a passkey ceremony signs, held server-side for the seconds
+-- it takes the user to touch their sensor. Same short-lived shape as
+-- mfa_challenges. `user_id` is NULL for a sign-in: passkeys here are discoverable,
+-- so the browser names the account and the challenge is opened before we know who
+-- is knocking.
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT REFERENCES users(id) ON DELETE CASCADE,
+  purpose     TEXT NOT NULL DEFAULT 'login' CHECK (purpose IN ('login', 'register')),
+  challenge   TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  expires_at  TEXT NOT NULL
+);
+
 -- Brute-force defense & source-IP access control.
 -- Every sign-in attempt, used to derive per-account lockout and per-IP auto-block.
 -- Rows with a NULL email are anonymous abuse hits (scanner probe paths, unknown

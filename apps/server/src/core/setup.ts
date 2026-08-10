@@ -6,6 +6,7 @@ import { issueSession } from "../auth.js";
 import { parseBody, setupSchema } from "./shared.js";
 import { getDefaultTheme } from "./app-config.js";
 import { noteSignInNetwork } from "./security.js";
+import { passkeysAvailable } from "./webauthn.js";
 
 // Whether the first admin has been offered the setup guide yet.
 //
@@ -37,7 +38,12 @@ export function completeOnboarding(userId: string): void {
 export async function setupPlugin(app: FastifyInstance) {
   app.get("/api/setup/status", async () => ({
     requiresSetup: !hasUsers(),
-    defaultTheme: getDefaultTheme()
+    defaultTheme: getDefaultTheme(),
+    // Rides along on the call the app already makes before rendering, so the sign-in
+    // screen knows whether to offer the passkey button without a second request.
+    // Safe to say publicly: it only restates whether this install is reached over
+    // HTTPS at a domain, which the caller can see from its own address bar.
+    passkeysAvailable: passkeysAvailable()
   }));
 
   // Deliberately NOT on /api/setup/status, which is public: whether an install has
