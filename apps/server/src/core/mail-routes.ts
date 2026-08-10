@@ -12,7 +12,9 @@ const mailSchema = z.object({
   // Omitted/blank on save = keep the stored password; never echoed back to the client.
   password: z.string().max(1024).optional(),
   fromAddress: z.union([z.literal(""), z.string().trim().email().max(254)]),
-  fromName: z.string().trim().max(120)
+  fromName: z.string().trim().max(120),
+  // Optional so a client that predates the toggle can't switch it by omission.
+  userNotifications: z.boolean().optional()
 });
 
 // Strip the secret before it leaves the server; report only whether one is stored.
@@ -41,7 +43,8 @@ export async function mailPlugin(app: FastifyInstance) {
       username: parsed.data.username,
       password: parsed.data.password ? parsed.data.password : current.password,
       fromAddress: parsed.data.fromAddress,
-      fromName: parsed.data.fromName
+      fromName: parsed.data.fromName,
+      userNotifications: parsed.data.userNotifications ?? current.userNotifications
     };
 
     db.prepare(`
@@ -58,7 +61,9 @@ export async function mailPlugin(app: FastifyInstance) {
       actorUserId: request.user!.id,
       targetType: "setting",
       targetId: MAIL_SETTINGS_KEY,
-      detail: `Updated email settings (host ${next.host || "—"}, from ${next.fromAddress || "—"}).`,
+      detail:
+        `Updated email settings (host ${next.host || "—"}, from ${next.fromAddress || "—"}, ` +
+        `user notifications ${next.userNotifications ? "on" : "off"}).`,
       ipAddress: request.ip
     });
 

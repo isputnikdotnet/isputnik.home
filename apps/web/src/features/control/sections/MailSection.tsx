@@ -14,6 +14,7 @@ interface MailDto {
   fromAddress: string;
   fromName: string;
   hasPassword: boolean;
+  userNotifications: boolean;
 }
 
 // Admin SMTP settings for outgoing mail (powers "Send to e-reader"). The password
@@ -31,6 +32,7 @@ export function MailSection() {
   const [hasPassword, setHasPassword] = useState(false);
   const [fromAddress, setFromAddress] = useState("");
   const [fromName, setFromName] = useState("");
+  const [userNotifications, setUserNotifications] = useState(true);
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -48,6 +50,7 @@ export function MailSection() {
     setFromAddress(mail.fromAddress);
     setFromName(mail.fromName);
     setHasPassword(mail.hasPassword);
+    setUserNotifications(mail.userNotifications);
     setPassword("");
   };
 
@@ -72,7 +75,8 @@ export function MailSection() {
         secure,
         username: username.trim(),
         fromAddress: fromAddress.trim(),
-        fromName: fromName.trim()
+        fromName: fromName.trim(),
+        userNotifications
       };
       // Only send the password when the admin typed a new one — blank keeps the stored value.
       if (password) body.password = password;
@@ -109,7 +113,7 @@ export function MailSection() {
         section="email"
         icon={<Mail size={30} />}
         iconClassName="blue"
-        description="Outgoing mail for two-factor codes, security alerts, and “Send to e-reader”."
+        description="Outgoing mail for two-factor codes, security alerts, share notifications, and “Send to e-reader”."
       />
 
       <section className="config-block">
@@ -128,7 +132,7 @@ export function MailSection() {
             <Field label="SMTP host" value={host} onChange={setHost} placeholder="smtp.example.com" autoComplete="off" required={false} />
             <Field label="Port" value={port} onChange={setPort} type="number" placeholder="587" autoComplete="off" required={false} />
 
-            <label className="mail-secure">
+            <label className="mail-check">
               <input type="checkbox" checked={secure} onChange={(event) => setSecure(event.target.checked)} />
               <span>Use implicit TLS (port 465). Leave off for STARTTLS on 587.</span>
             </label>
@@ -146,6 +150,19 @@ export function MailSection() {
 
             <Field label="From address" value={fromAddress} onChange={setFromAddress} type="email" placeholder="library@example.com" autoComplete="off" required={false} />
             <Field label="From name" value={fromName} onChange={setFromName} placeholder="iSputnik Library" autoComplete="off" required={false} />
+
+            <h3 className="mail-subhead">User notifications</h3>
+            <label className="mail-check">
+              <input
+                type="checkbox"
+                checked={userNotifications}
+                onChange={(event) => setUserNotifications(event.target.checked)}
+              />
+              <span>
+                Email people when a photo, book, or album is shared with them. Turn this off to keep outgoing mail
+                to sign-in codes, security alerts, and “Send to e-reader”.
+              </span>
+            </label>
 
             {saveError && <MessageBox tone="error" title="Unable to save">{saveError}</MessageBox>}
             {saved && <MessageBox tone="success" title="Saved">Email settings updated.</MessageBox>}
