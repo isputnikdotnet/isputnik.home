@@ -121,12 +121,12 @@
   width: min(100%, 520px);
 }
 
-.user-table-wrap {
-  overflow-x: hidden;
-}
-
 .user-table {
-  min-width: 0;
+  /* The floor below which the columns stop shrinking and the wrapper scrolls
+     instead: 314px of fixed columns in the narrowest tier (Role + Actions) plus
+     enough for a name to still be a name. Reached only on a phone, or a desktop
+     window narrow enough to be a phone with a sidebar. */
+  min-width: 440px;
   table-layout: fixed;
 }
 
@@ -137,11 +137,17 @@
   text-overflow: ellipsis;
 }
 
-.user-table th:nth-child(1) { width: 39%; }
-.user-table th:nth-child(2) { width: 12%; }
-.user-table th:nth-child(3) { width: 13%; }
-.user-table th:nth-child(4) { width: 18%; }
-.user-table th:nth-child(5) { width: 18%; }
+/* Actions is five 34px icon buttons with 6px gaps — 214px including the cell's
+   padding, and no percentage can know that: at 1280px the old 18% handed it
+   149px and the buttons spilled out, putting the whole grid in a horizontal
+   scroll. So the columns whose content has a fixed intrinsic width are sized in
+   px and User takes whatever is left. responsive.css drops Created, then
+   Sessions, as the region narrows, rather than crushing User to nothing. */
+.user-table th:nth-child(1) { width: auto; }
+.user-table th:nth-child(2) { width: 100px; }
+.user-table th:nth-child(3) { width: 108px; }
+.user-table th:nth-child(4) { width: 164px; }
+.user-table th:nth-child(5) { width: 214px; }
 
 .user-table .row-actions {
   gap: 6px;

@@ -31,6 +31,37 @@
   }
 }
 
+/* Users grid. Its Actions column is pinned at 214px by five icon buttons (see
+   admin-pages.css), so the region runs out of room for User long before the
+   window looks narrow. Drop a column per tier instead of letting the row spill:
+   Created first — the least load-bearing — then Sessions. No width overrides
+   go with them: the base rules leave User on `auto`, so it simply absorbs
+   whatever a hidden column gives back, at every tier including the phone. */
+@media (max-width: 1240px) {
+  .user-table th:nth-child(4),
+  .user-table td:nth-child(4) {
+    display: none;
+  }
+}
+
+@media (min-width: 741px) and (max-width: 1040px) {
+  .user-table th:nth-child(3),
+  .user-table td:nth-child(3) {
+    display: none;
+  }
+
+  /* Once User is down to its last hundred-odd pixels the 36px avatar is costing
+     a third of the name. It's a generic glyph, identical on every row — the
+     first thing that should go. */
+  .user-account-cell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-avatar-icon {
+    display: none;
+  }
+}
+
 @media (max-width: 740px) {
   .app-shell {
     display: flex;
@@ -343,16 +374,6 @@
   .invite-table th:nth-child(3) { width: 22%; }
   .invite-table th:nth-child(5) { width: 13%; }
 
-  .user-table th:nth-child(4),
-  .user-table td:nth-child(4) {
-    display: none;
-  }
-
-  .user-table th:nth-child(1) { width: 49%; }
-  .user-table th:nth-child(2) { width: 15%; }
-  .user-table th:nth-child(3) { width: 14%; }
-  .user-table th:nth-child(5) { width: 22%; }
-
   .library-table th:nth-child(2),
   .library-table td:nth-child(2),
   .library-table th:nth-child(5),
@@ -462,6 +483,14 @@
     display: none;
   }
 
+  .user-account-cell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-avatar-icon {
+    display: none;
+  }
+
   .group-table th:nth-child(2),
   .group-table td:nth-child(2),
   .session-table th:nth-child(3),
@@ -481,10 +510,6 @@
   .invite-table th:nth-child(1) { width: 61%; }
   .invite-table th:nth-child(2) { width: 21%; }
   .invite-table th:nth-child(5) { width: 18%; }
-
-  .user-table th:nth-child(1) { width: 58%; }
-  .user-table th:nth-child(2) { width: 18%; }
-  .user-table th:nth-child(5) { width: 24%; }
 
   .library-table th:nth-child(1) { width: 56%; }
   .library-table th:nth-child(3) { width: 18%; }

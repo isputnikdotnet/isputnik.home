@@ -260,7 +260,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
           {users.length === 0 ? "No users configured." : "No users match this search."}
         </p>
       ) : (
-        <div className="datagrid-wrap user-table-wrap">
+        <div className="datagrid-wrap">
           <table className="datagrid user-table">
             <thead>
               <tr>
