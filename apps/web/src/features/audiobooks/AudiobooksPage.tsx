@@ -10,6 +10,8 @@ import { EditMetadataModal } from "./EditMetadataModal";
 import { DEFAULT_COVERS } from "./covers";
 import { PeopleCombobox } from "./PeopleCombobox";
 import { followRoute, navigate } from "../../router";
+import { SectionNav } from "../../shared/SectionNav";
+import { AUDIOBOOK_NAV_ITEMS } from "./sectionNavItems";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { CatalogRowMobile } from "./CatalogRowMobile";
 import { listDownloads } from "../../offline/downloads";
@@ -27,45 +29,6 @@ type AudiobookViewMode = "grid" | "list";
 
 export function formatCount(value: number) {
   return new Intl.NumberFormat().format(value);
-}
-
-export function AudiobookTabs({
-  active,
-  includeBooks = true
-}: {
-  active: "books" | "authors" | "narrators" | "series" | "categories";
-  includeBooks?: boolean;
-}) {
-  const tabs = [
-    { id: "books", label: "All Libraries", href: "/audiobooks", icon: BookOpen },
-    { id: "authors", label: "Authors", href: "/authors", icon: UserRound },
-    { id: "narrators", label: "Narrators", href: "/audiobooks/narrators", icon: Mic2 },
-    { id: "series", label: "Series", href: "/audiobooks/series", icon: Library },
-    { id: "categories", label: "Categories", href: "/categories", icon: Shapes }
-  ] as const;
-  const visibleTabs = includeBooks ? tabs : tabs.filter((tab) => tab.id !== "books");
-
-  return (
-    <nav className="audiobook-page-tabs" aria-label="Audiobook views">
-      {visibleTabs.map((tab) => {
-        const Icon = tab.icon;
-        return (
-          <a
-            key={tab.id}
-            className={active === tab.id ? "active" : ""}
-            href={tab.href}
-            onClick={(event) => {
-              event.preventDefault();
-              navigate(tab.href);
-            }}
-          >
-            <Icon size={19} aria-hidden="true" />
-            <span>{tab.label}</span>
-          </a>
-        );
-      })}
-    </nav>
-  );
 }
 
 export function AudiobookPageHeader({
@@ -1318,7 +1281,12 @@ export function AudiobooksPage({
   const error = librariesError || cat.error || editLoadError;
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell
+      active="audiobooks"
+      user={user}
+      logout={logout}
+      sideNav={<SectionNav ariaLabel="Audiobooks" groupLabel="Audiobooks" items={AUDIOBOOK_NAV_ITEMS} activeKey="books" />}
+    >
       <section className="audiobook-main-page">
         <AudiobookPageHeader
           title="Audiobooks"
@@ -1418,7 +1386,7 @@ export function AudiobooksPage({
                     document.body
                   )}
                 </div>
-                {isMobile ? (
+                {isMobile && (
                   <div className="audiobook-library-shortcuts">
                     <button
                       ref={browseTriggerRef}
@@ -1461,8 +1429,6 @@ export function AudiobooksPage({
                       document.body
                     )}
                   </div>
-                ) : (
-                  <AudiobookTabs active="books" includeBooks={false} />
                 )}
               </div>
             </div>

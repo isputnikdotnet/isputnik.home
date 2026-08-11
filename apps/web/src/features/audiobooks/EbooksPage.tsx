@@ -4,6 +4,8 @@ import { BookMarked, BookOpen, Check, CheckCheck, CheckCircle2, CheckSquare, Che
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
+import { SectionNav } from "../../shared/SectionNav";
+import { EBOOK_NAV_ITEMS } from "./sectionNavItems";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { CatalogRowMobile } from "./CatalogRowMobile";
 import { DEFAULT_COVERS } from "./covers";
@@ -670,7 +672,12 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
   const error = librariesError || cat.error || editLoadError;
 
   return (
-    <DashboardShell active="ebooks" user={user} logout={logout}>
+    <DashboardShell
+      active="ebooks"
+      user={user}
+      logout={logout}
+      sideNav={<SectionNav ariaLabel="Ebooks" groupLabel="Ebooks" items={EBOOK_NAV_ITEMS} activeKey="books" />}
+    >
       <section className="audiobook-main-page">
         <AudiobookPageHeader
           title="Ebooks"
@@ -770,7 +777,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                     document.body
                   )}
                 </div>
-                {isMobile ? (
+                {isMobile && (
                   <div className="audiobook-library-shortcuts">
                     <button
                       ref={browseTriggerRef}
@@ -809,30 +816,6 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                       document.body
                     )}
                   </div>
-                ) : (
-                  <nav className="audiobook-page-tabs" aria-label="Ebook views">
-                    <a
-                      href="/authors"
-                      onClick={(event) => { event.preventDefault(); navigate("/authors"); }}
-                    >
-                      <UserRound size={19} aria-hidden="true" />
-                      <span>Authors</span>
-                    </a>
-                    <a
-                      href="/ebooks/series"
-                      onClick={(event) => { event.preventDefault(); navigate("/ebooks/series"); }}
-                    >
-                      <Library size={19} aria-hidden="true" />
-                      <span>Series</span>
-                    </a>
-                    <a
-                      href="/categories"
-                      onClick={(event) => { event.preventDefault(); navigate("/categories"); }}
-                    >
-                      <Shapes size={19} aria-hidden="true" />
-                      <span>Categories</span>
-                    </a>
-                  </nav>
                 )}
               </div>
             </div>

@@ -6,6 +6,8 @@ import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
+import { SectionNav } from "../../shared/SectionNav";
+import { AUDIOBOOK_NAV_ITEMS } from "./sectionNavItems";
 import type { AudiobookBook, AudiobookLibrary } from "./types";
 
 // Narrators are an audiobook-only credit, so this list stays per-section (unlike
@@ -88,7 +90,12 @@ export function NarratorListPage({
   };
 
   return (
-    <DashboardShell active="audiobooks" user={user} logout={logout}>
+    <DashboardShell
+      active="audiobooks"
+      user={user}
+      logout={logout}
+      sideNav={<SectionNav ariaLabel="Audiobooks" groupLabel="Audiobooks" items={AUDIOBOOK_NAV_ITEMS} activeKey="narrators" />}
+    >
       <section className="audiobook-main-page">
         <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
           <ArrowLeft size={18} aria-hidden="true" />

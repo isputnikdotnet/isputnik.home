@@ -5,7 +5,6 @@ import {
   Home,
   ListMusic,
   Quote,
-  UserRound,
   UsersRound
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -43,11 +42,6 @@ export function UserAreaNav({ active }: { active: UserAreaSection }) {
   return (
     <nav className="home-control-nav" aria-label="User pages">
       <UserNavLink icon={Home} label="Home" href="/" active={false} />
-
-      <div className="home-control-group">
-        <p>Account</p>
-        <UserNavLink icon={UserRound} label="Profile" href="/profile" active={active === "profile"} />
-      </div>
 
       <div className="home-control-group">
         <p>My Library</p>
