@@ -4,8 +4,10 @@ import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { SectionNav } from "../../shared/SectionNav";
 import { SelectMenu } from "../../shared/SelectMenu";
 import { AudiobookPageHeader } from "./AudiobooksPage";
+import { sectionFromQuery } from "./sectionNavItems";
 
 type KindFilter = "all" | "audiobook" | "ebook";
 type NameOrder = "first" | "last";
@@ -73,6 +75,7 @@ export function AuthorListPage({
   const [libraryFilter, setLibraryFilter] = useState("all");
   const [nameOrder, setNameOrder] = useState<NameOrder>("first");
   const [letter, setLetter] = useState("");
+  const section = sectionFromQuery();
 
   useEffect(() => {
     api<{ authors: AuthorSummary[]; libraries: AuthorLibrary[] }>("/api/library/people/authors")
@@ -144,7 +147,19 @@ export function AuthorListPage({
   ];
 
   return (
-    <DashboardShell active="authors" user={user} logout={logout}>
+    <DashboardShell
+      active={section?.active ?? "authors"}
+      user={user}
+      logout={logout}
+      sideNav={section && (
+        <SectionNav
+          ariaLabel={section.active === "ebooks" ? "Ebooks" : "Audiobooks"}
+          groupLabel={section.active === "ebooks" ? "Ebooks" : "Audiobooks"}
+          items={section.items}
+          activeKey="authors"
+        />
+      )}
+    >
       <section className="audiobook-main-page">
         <AudiobookPageHeader
           title="Authors"

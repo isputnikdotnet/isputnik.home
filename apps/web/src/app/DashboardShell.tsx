@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   Bookmark,
   BookOpen,
@@ -33,22 +34,22 @@ const APP_VERSION = packageInfo.version;
 // The control panel's landing page — Overview › System.
 const CONTROL_HOME = controlHref("status");
 
-type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "family" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
+export type DashboardActive = "home" | "audiobooks" | "ebooks" | "gallery" | "family" | "authors" | "categories" | "tags" | "about" | "help" | "control" | "user";
 
-interface FooterAction {
+interface AboutMenuLink {
   href: string;
   icon: LucideIcon;
-  title: string;
-  aria: string;
+  label: string;
   external?: boolean;
   activeKey?: DashboardActive;
 }
 
-// About / Report-a-bug / Help — the icon row shared by every nav footer.
-const FOOTER_ACTIONS: FooterAction[] = [
-  { href: "/about", icon: Info, title: "About", aria: "About this app", activeKey: "about" },
-  { href: REPO_ISSUES_URL, icon: Bug, title: "Report a bug", aria: "Report a bug on GitHub", external: true },
-  { href: "/help", icon: HelpCircle, title: "Help", aria: "Help and guides", activeKey: "help" }
+// Info / Help / Bugs — reached from the "About" item at the end of the primary
+// nav, rather than as their own icon row in the footer.
+const ABOUT_MENU_LINKS: AboutMenuLink[] = [
+  { href: "/about", icon: Info, label: "Info", activeKey: "about" },
+  { href: "/help", icon: HelpCircle, label: "Help", activeKey: "help" },
+  { href: REPO_ISSUES_URL, icon: Bug, label: "Bugs", external: true }
 ];
 
 interface MainNavItem {
@@ -273,16 +274,36 @@ export function DashboardShell({
 }) {
   const isControlPanel = active === "control";
   const isUserArea = active === "user";
-  const hasSectionNav = isControlPanel || isUserArea;
-  // User-area pages (Profile, Favorites, Downloads, …) drop their top section
-  // nav on phones and rely on the bottom tab bar instead — its Profile sheet
-  // exposes every user-area destination. The control panel keeps its top nav.
-  const mobileTabBar = isUserArea;
+  // Media sections (Gallery, Ebooks, Audiobooks, Family Tree, …) opt into a
+  // contextual nav the same way Control/Profile do: by handing in `sideNav`.
+  const hasSectionNav = isControlPanel || isUserArea || sideNav != null;
+  // User-area pages (Profile, Favorites, Downloads, …) and section-nav media
+  // pages drop their top section nav on phones and rely on the bottom tab bar
+  // instead — its Media/Profile sheets expose every destination either way.
+  // The control panel is the one exception: dense enough that it keeps its own
+  // horizontal top nav on phones instead.
+  const mobileTabBar = isUserArea || (hasSectionNav && !isControlPanel);
   const mainClasses = `home-main app-dashboard-main scene-page ${isControlPanel ? "control-scene" : "sputnik-scene"}`;
-  const settingsHref = user.role === "admin" && !hasSectionNav ? CONTROL_HOME : "/profile";
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  // The About menu is portaled to <body> (see the render below) rather than
+  // absolutely positioned in place — .home-primary-nav scrolls once it's long
+  // enough to need it (overflow-y: auto), which would clip an in-place dropdown.
+  const [aboutMenuOpen, setAboutMenuOpen] = useState(false);
+  const [aboutMenuPos, setAboutMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const aboutTriggerRef = useRef<HTMLButtonElement>(null);
+  const aboutMenuRef = useRef<HTMLDivElement>(null);
   const currentPath = window.location.pathname;
+
+  const toggleAboutMenu = () => {
+    setAboutMenuOpen((open) => {
+      if (!open && aboutTriggerRef.current) {
+        const rect = aboutTriggerRef.current.getBoundingClientRect();
+        setAboutMenuPos({ top: rect.bottom + 7, left: rect.left, width: rect.width });
+      }
+      return !open;
+    });
+  };
 
   useEffect(() => {
     if (!userMenuOpen) {
@@ -308,10 +329,131 @@ export function DashboardShell({
     };
   }, [userMenuOpen]);
 
+  useEffect(() => {
+    if (!aboutMenuOpen) {
+      return;
+    }
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (aboutTriggerRef.current?.contains(target)) return;
+      if (aboutMenuRef.current?.contains(target)) return;
+      setAboutMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setAboutMenuOpen(false);
+      }
+    };
+    // The menu's fixed position is computed once, on open — if the sidebar
+    // scrolls or the window resizes it would drift from its trigger, so close
+    // it instead (same as the library/sort menus elsewhere in the app).
+    const dismiss = () => setAboutMenuOpen(false);
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
+  }, [aboutMenuOpen]);
+
   return (
     <main className={`home-dashboard-shell app-dashboard-shell${isControlPanel ? " home-control-shell" : ""}${isUserArea ? " home-user-shell" : ""}${mobileTabBar ? " home-mobile-tabbar-shell" : ""}`}>
       <aside className="home-sidebar" aria-label={isControlPanel ? "Control panel navigation" : isUserArea ? "User navigation" : "App navigation"}>
-        {!hasSectionNav && (
+        {hasSectionNav && sideNav ? (
+          <div className="home-control-nav-wrap">{sideNav}</div>
+        ) : (
+          <nav className="home-primary-nav" aria-label="Primary">
+            {mainNavItems(active).map((item) => (
+              <DashboardNavLink item={item} key={item.label} />
+            ))}
+
+            <button
+              ref={aboutTriggerRef}
+              className={`home-nav-link${aboutMenuOpen || active === "about" || active === "help" ? " is-active" : ""}`}
+              type="button"
+              onClick={toggleAboutMenu}
+              aria-haspopup="menu"
+              aria-expanded={aboutMenuOpen}
+            >
+              <Info size={21} aria-hidden="true" />
+              <span>About</span>
+              <ChevronDown className="home-user-chevron" size={16} aria-hidden="true" />
+            </button>
+          </nav>
+        )}
+
+        {aboutMenuOpen && aboutMenuPos && createPortal(
+          <div
+            ref={aboutMenuRef}
+            className="home-primary-menu"
+            role="menu"
+            aria-label="About menu"
+            style={{ position: "fixed", top: aboutMenuPos.top, left: aboutMenuPos.left, minWidth: aboutMenuPos.width }}
+          >
+            {ABOUT_MENU_LINKS.map((item) => {
+              const Icon = item.icon;
+              const isActiveLink = item.activeKey !== undefined && active === item.activeKey;
+              return item.external ? (
+                <a
+                  className="home-user-menu-link"
+                  href={item.href}
+                  key={item.label}
+                  role="menuitem"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setAboutMenuOpen(false)}
+                >
+                  <Icon size={19} aria-hidden="true" />
+                  <span>{item.label}</span>
+                </a>
+              ) : (
+                <a
+                  className={`home-user-menu-link${isActiveLink ? " is-active" : ""}`}
+                  href={item.href}
+                  key={item.label}
+                  role="menuitem"
+                  onClick={(event) => {
+                    setAboutMenuOpen(false);
+                    followRoute(event, item.href);
+                  }}
+                >
+                  <Icon size={19} aria-hidden="true" />
+                  <span>{item.label}</span>
+                </a>
+              );
+            })}
+            <div className="home-primary-menu-meta">
+              <strong>v{APP_VERSION}</strong>
+              <span aria-hidden="true">&middot;</span>
+              <span>iSputnik.com</span>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* The standard footer every page shares: Settings (admins only), then a
+            Profile menu bundling the account's own pages and Logout — same two
+            destinations regardless of which nav (primary, control, user-area, or a
+            media section) sits above it. The menu opens upward: its trigger sits at
+            the bottom of the sidebar, so there's no room to drop down. */}
+        <div className="home-sidebar-bottom">
+          {user.role === "admin" && (
+            <a
+              className={`home-nav-link${currentPath === CONTROL_HOME || currentPath.startsWith("/control") ? " is-active" : ""}`}
+              href={CONTROL_HOME}
+              onClick={(event) => followRoute(event, CONTROL_HOME)}
+            >
+              <Settings size={21} aria-hidden="true" />
+              <span>Settings</span>
+            </a>
+          )}
+
           <div className="home-user-menu-wrap" ref={userMenuRef}>
             <button
               className={`home-user-link${userMenuOpen || currentPath === "/profile" ? " is-active" : ""}`}
@@ -325,13 +467,24 @@ export function DashboardShell({
               </span>
               <span className="home-user-copy">
                 <strong>{user.displayName}</strong>
-                <small>{user.email}</small>
               </span>
               <ChevronDown className="home-user-chevron" size={17} aria-hidden="true" />
             </button>
 
             {userMenuOpen && (
-              <div className="home-user-menu" role="menu" aria-label="User menu">
+              <div className="home-user-menu" role="menu" aria-label="Profile menu">
+                <a
+                  className={`home-user-menu-link${currentPath === "/profile" ? " is-active" : ""}`}
+                  href="/profile"
+                  role="menuitem"
+                  onClick={(event) => {
+                    setUserMenuOpen(false);
+                    followRoute(event, "/profile");
+                  }}
+                >
+                  <UserRound size={19} aria-hidden="true" />
+                  <span>Profile</span>
+                </a>
                 {userMenuLinks().map((item) => {
                   const Icon = item.icon;
                   return (
@@ -350,71 +503,22 @@ export function DashboardShell({
                     </a>
                   );
                 })}
-                <a
-                  className={`home-user-menu-link${currentPath === "/profile" ? " is-active" : ""}`}
-                  href="/profile"
+                <button
+                  className="home-user-menu-link home-logout-link"
+                  type="button"
                   role="menuitem"
-                  onClick={(event) => {
+                  onClick={() => {
                     setUserMenuOpen(false);
-                    followRoute(event, "/profile");
+                    void logout();
                   }}
                 >
-                  <UserRound size={19} aria-hidden="true" />
-                  <span>Profile</span>
-                </a>
+                  <LogOut size={19} aria-hidden="true" />
+                  <span>Logout</span>
+                </button>
               </div>
             )}
           </div>
-        )}
-
-        {hasSectionNav && sideNav ? (
-          <div className="home-control-nav-wrap">{sideNav}</div>
-        ) : (
-          <nav className="home-primary-nav" aria-label="Primary">
-            {mainNavItems(active).map((item) => (
-              <DashboardNavLink item={item} key={item.label} />
-            ))}
-          </nav>
-        )}
-
-        <div className="home-sidebar-bottom">
-          {!hasSectionNav && (
-            <a
-              className={`home-nav-link${currentPath === settingsHref ? " is-active" : ""}`}
-              href={settingsHref}
-              onClick={(event) => followRoute(event, settingsHref)}
-            >
-              <Settings size={21} aria-hidden="true" />
-              <span>Settings</span>
-            </a>
-          )}
-          <button className="home-nav-link home-logout-link" type="button" onClick={logout}>
-            <LogOut size={21} aria-hidden="true" />
-            <span>Logout</span>
-          </button>
         </div>
-
-        <footer className="home-footer">
-          <div className="home-footer-actions">
-            {FOOTER_ACTIONS.map(({ href, icon: Icon, title, aria, external, activeKey }) => {
-              const className = `home-footer-action${activeKey && active === activeKey ? " is-active" : ""}`;
-              return external ? (
-                <a className={className} key={title} href={href} target="_blank" rel="noreferrer" title={title} aria-label={aria}>
-                  <Icon size={18} aria-hidden="true" />
-                </a>
-              ) : (
-                <a className={className} key={title} href={href} onClick={(event) => followRoute(event, href)} title={title} aria-label={aria}>
-                  <Icon size={18} aria-hidden="true" />
-                </a>
-              );
-            })}
-          </div>
-          <div className="home-footer-meta">
-            <strong>v{APP_VERSION}</strong>
-            <span aria-hidden="true">&middot;</span>
-            <span>iSputnik.com</span>
-          </div>
-        </footer>
       </aside>
 
       <section className={mainClasses}>

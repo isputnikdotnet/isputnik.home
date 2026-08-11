@@ -4,8 +4,10 @@ import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { getReferrer, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
+import { SectionNav } from "../../shared/SectionNav";
 import { FeedTile } from "../library/FeedTile";
 import { CategoryIcon } from "./categoryIcons";
+import { sectionFromQuery } from "./sectionNavItems";
 import type { CategoryDetail } from "./types";
 
 type KindFilter = "all" | "audiobook" | "ebook";
@@ -23,6 +25,7 @@ export function CategoryDetailPage({
   const [error, setError] = useState("");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const backTo = getReferrer();
+  const section = sectionFromQuery();
 
   useEffect(() => {
     setError("");
@@ -43,9 +46,21 @@ export function CategoryDetailPage({
     : [];
 
   return (
-    <DashboardShell active="categories" user={user} logout={logout}>
+    <DashboardShell
+      active={section?.active ?? "categories"}
+      user={user}
+      logout={logout}
+      sideNav={section && (
+        <SectionNav
+          ariaLabel={section.active === "ebooks" ? "Ebooks" : "Audiobooks"}
+          groupLabel={section.active === "ebooks" ? "Ebooks" : "Audiobooks"}
+          items={section.items}
+          activeKey="categories"
+        />
+      )}
+    >
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/categories")}>
+        <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? (section ? `/categories?section=${section.active}` : "/categories"))}>
           <ArrowLeft size={17} aria-hidden="true" />
           <span>{backTo ? "Back" : "Back to categories"}</span>
         </button>

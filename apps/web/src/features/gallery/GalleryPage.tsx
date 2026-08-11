@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, LibraryBig, ListMusic, MapPin, MapPinned, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
 import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiobooks/AudiobooksPage";
 import { useIsMobile } from "../../shared/useIsMobile";
+import { SectionNav, type SectionNavItem } from "../../shared/SectionNav";
 import type { SortKey } from "../audiobooks/BookFilter";
 import { AssetTile, PersonAvatar, type LightboxSource } from "./AssetTile";
 import { useGalleryAlbums } from "./useGalleryAlbums";
@@ -820,8 +821,30 @@ export function GalleryPage({
             ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
             : folderSubtitle;
 
+  // Gallery's views are local state (view/setView), not separate routes — the
+  // same as the tab row and mobile Browse menu they replace, so each item
+  // preventDefault()s and flips state rather than navigating.
+  const galleryNavItems: SectionNavItem[] = [
+    { key: "timeline", label: "Timeline", href: "/gallery", icon: CalendarDays, onClick: (event) => { event.preventDefault(); setView("timeline"); } },
+    ...((memories?.groups.length ?? 0) > 0
+      ? [{ key: "memories", label: "Memories", href: "/gallery/memories", icon: Sparkles, onClick: (event: ReactMouseEvent<HTMLAnchorElement>) => { event.preventDefault(); setSearchText(""); setView("memories"); } }]
+      : []),
+    { key: "albums", label: "Albums", href: "/gallery", icon: Album, onClick: (event) => { event.preventDefault(); setSearchText(""); setView("albums"); } },
+    { key: "slideshows", label: "Slideshows", href: "/gallery", icon: Film, onClick: (event) => { event.preventDefault(); setSearchText(""); setView("slideshows"); } },
+    { key: "folder", label: "Folders", href: "/gallery", icon: FolderOpen, onClick: (event) => { event.preventDefault(); setSearchText(""); setView("folder"); } },
+    { key: "people", label: "People", href: "/gallery", icon: Users, onClick: (event) => { event.preventDefault(); setSearchText(""); setView("people"); } },
+    ...(mapCount > 0
+      ? [{ key: "map", label: "Map", href: "/gallery", icon: MapPin, onClick: (event: ReactMouseEvent<HTMLAnchorElement>) => { event.preventDefault(); setSearchText(""); setView("map"); } }]
+      : [])
+  ];
+
   return (
-    <DashboardShell active="gallery" user={user} logout={logout}>
+    <DashboardShell
+      active="gallery"
+      user={user}
+      logout={logout}
+      sideNav={<SectionNav ariaLabel="Gallery" groupLabel="Gallery" items={galleryNavItems} activeKey={view} />}
+    >
       <section className={`audiobook-main-page gallery-page${selectionMode ? " is-selecting" : ""}`}>
         <AudiobookPageHeader
           title="Gallery"
@@ -956,7 +979,7 @@ export function GalleryPage({
                   )}
                 </div>
 
-                {isMobile ? (
+                {isMobile && (
                   <div className="audiobook-library-shortcuts">
                     <button
                       ref={viewMenuTriggerRef}
@@ -1015,69 +1038,6 @@ export function GalleryPage({
                       document.body
                     )}
                   </div>
-                ) : (
-                  <nav className="audiobook-page-tabs" aria-label="Gallery views">
-                    <a
-                      href="/gallery"
-                      className={view === "timeline" ? "active" : ""}
-                      onClick={(event) => { event.preventDefault(); setView("timeline"); }}
-                    >
-                      <CalendarDays size={19} aria-hidden="true" />
-                      <span>Timeline</span>
-                    </a>
-                    {(memories?.groups.length ?? 0) > 0 && (
-                      <a
-                        href="/gallery/memories"
-                        className={view === "memories" ? "active" : ""}
-                        onClick={(event) => { event.preventDefault(); setSearchText(""); setView("memories"); }}
-                      >
-                        <Sparkles size={19} aria-hidden="true" />
-                        <span>Memories</span>
-                      </a>
-                    )}
-                    <a
-                      href="/gallery"
-                      className={view === "albums" ? "active" : ""}
-                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("albums"); }}
-                    >
-                      <Album size={19} aria-hidden="true" />
-                      <span>Albums</span>
-                    </a>
-                    <a
-                      href="/gallery"
-                      className={view === "slideshows" ? "active" : ""}
-                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("slideshows"); }}
-                    >
-                      <Film size={19} aria-hidden="true" />
-                      <span>Slideshows</span>
-                    </a>
-                    <a
-                      href="/gallery"
-                      className={view === "folder" ? "active" : ""}
-                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("folder"); }}
-                    >
-                      <FolderOpen size={19} aria-hidden="true" />
-                      <span>Folders</span>
-                    </a>
-                    <a
-                      href="/gallery"
-                      className={view === "people" ? "active" : ""}
-                      onClick={(event) => { event.preventDefault(); setSearchText(""); setView("people"); }}
-                    >
-                      <Users size={19} aria-hidden="true" />
-                      <span>People</span>
-                    </a>
-                    {mapCount > 0 && (
-                      <a
-                        href="/gallery"
-                        className={view === "map" ? "active" : ""}
-                        onClick={(event) => { event.preventDefault(); setSearchText(""); setView("map"); }}
-                      >
-                        <MapPin size={19} aria-hidden="true" />
-                        <span>Map</span>
-                      </a>
-                    )}
-                  </nav>
                 )}
               </div>
             </div>

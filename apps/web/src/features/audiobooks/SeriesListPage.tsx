@@ -6,6 +6,8 @@ import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
+import { SectionNav } from "../../shared/SectionNav";
+import { AUDIOBOOK_NAV_ITEMS, EBOOK_NAV_ITEMS } from "./sectionNavItems";
 import type { AudiobookLibrary, SeriesSummary } from "./types";
 
 export function SeriesListPage({
@@ -78,7 +80,19 @@ export function SeriesListPage({
   };
 
   return (
-    <DashboardShell active={kind === "ebook" ? "ebooks" : "audiobooks"} user={user} logout={logout}>
+    <DashboardShell
+      active={kind === "ebook" ? "ebooks" : "audiobooks"}
+      user={user}
+      logout={logout}
+      sideNav={
+        <SectionNav
+          ariaLabel={kind === "ebook" ? "Ebooks" : "Audiobooks"}
+          groupLabel={kind === "ebook" ? "Ebooks" : "Audiobooks"}
+          items={kind === "ebook" ? EBOOK_NAV_ITEMS : AUDIOBOOK_NAV_ITEMS}
+          activeKey="series"
+        />
+      }
+    >
       <section className="audiobook-main-page">
         <button className="audiobook-back-button" type="button" onClick={() => navigate(base)}>
           <ArrowLeft size={18} aria-hidden="true" />
