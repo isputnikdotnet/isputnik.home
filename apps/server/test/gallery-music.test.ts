@@ -10,7 +10,9 @@ import {
   getMusicTrack,
   listMusicTracks,
   musicTempDir,
-  removeBuiltinMusic
+  musicTitleExists,
+  removeBuiltinMusic,
+  titleFromFilename
 } from "../src/modules/library/gallery/music.js";
 import { createSlideshow, getSlideshow, updateSlideshow } from "../src/modules/library/gallery/slideshows.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
@@ -61,6 +63,41 @@ describe("music uploads", () => {
     const row = getMusicTrack(track.id)!;
     expect(row.uploaded_by).toBe("uploader");
     expect(fs.existsSync(path.join(store, row.storage_key))).toBe(true);
+  });
+});
+
+describe("duplicate names", () => {
+  it("recognises a title already in use, whatever the case", async () => {
+    await uploadFake(uploader, "Beach Day.mp3", "mp3");
+    expect(musicTitleExists("Beach Day")).toBe(true);
+    // The picker lists tracks by title, so two rows reading the same thing are
+    // indistinguishable however they were capitalised on disk.
+    expect(musicTitleExists("beach day")).toBe(true);
+    expect(musicTitleExists("BEACH DAY")).toBe(true);
+    expect(musicTitleExists("Beach Days")).toBe(false);
+  });
+
+  it("counts a different container as the same track", () => {
+    // "Sunset.mp3" and "Sunset.flac" both list as "Sunset" — the same name, and
+    // what the skip is there to prevent.
+    expect(titleFromFilename("Sunset.mp3")).toBe("Sunset");
+    expect(titleFromFilename("Sunset.flac")).toBe("Sunset");
+  });
+
+  it("says no when nothing has been uploaded", () => {
+    expect(musicTitleExists("Anything")).toBe(false);
+  });
+
+  it("ignores the leading path a folder upload carries", () => {
+    expect(titleFromFilename("beds/quiet/Sunset.mp3")).toBe("Sunset");
+  });
+
+  it("never yields an empty title", () => {
+    expect(titleFromFilename("")).toBe("Untitled track");
+    expect(titleFromFilename("   ")).toBe("Untitled track");
+    // A leading dot is a name, not an extension, as far as path.extname is
+    // concerned — so this keeps ".mp3" rather than falling back.
+    expect(titleFromFilename(".mp3")).toBe(".mp3");
   });
 });
 

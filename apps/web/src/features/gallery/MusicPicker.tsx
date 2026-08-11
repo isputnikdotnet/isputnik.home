@@ -27,6 +27,9 @@ export function MusicPicker({
 }) {
   const [tracks, setTracks] = useState<GalleryMusicTrack[] | null>(null);
   const [error, setError] = useState("");
+  // What was left out of an upload, and why — a skip is not a failure, so it says
+  // so beside the list rather than in the error box.
+  const [notice, setNotice] = useState("");
   const [uploading, setUploading] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -55,12 +58,16 @@ export function MusicPicker({
     void audio.play().then(() => setPreviewingId(track.id)).catch(() => setError("Couldn’t play this track."));
   };
 
-  const upload = async (file: File) => {
+  const upload = async (files: File[]) => {
+    if (files.length === 0) return;
     setUploading(true);
     setError("");
+    setNotice("");
     try {
+      // One request for the whole selection: the server streams each part, so a
+      // dozen beds cost one round trip rather than a dozen.
       const form = new FormData();
-      form.append("file", file);
+      for (const file of files) form.append("file", file);
       const token = csrfToken();
       const res = await fetch("/api/library/gallery/music", {
         method: "POST",
@@ -72,11 +79,22 @@ export function MusicPicker({
         const payload = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(payload.error || "Upload failed");
       }
-      const { track } = (await res.json()) as { track: GalleryMusicTrack };
+      const { tracks: added, skipped } = (await res.json()) as {
+        tracks: GalleryMusicTrack[];
+        skipped: string[];
+      };
       await load();
-      onSelect(track.id); // auto-select the just-uploaded track
+      // Auto-select what was just added, as a single upload always did. With
+      // several, the first is the sensible one to land on.
+      if (added.length > 0) onSelect(added[0].id);
+      if (skipped.length > 0) {
+        setNotice(
+          `Already here, so left alone: ${skipped.join(", ")}.` +
+            (added.length === 0 ? "" : ` ${added.length} added.`)
+        );
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to upload the track");
+      setError(err instanceof Error ? err.message : "Unable to upload the tracks");
     } finally {
       setUploading(false);
     }
@@ -124,16 +142,18 @@ export function MusicPicker({
     <Modal variant="panel" title="Slideshow music" icon={<Music size={20} />} className="music-picker-modal" onClose={onClose}>
       <div className="add-to-album-head">
         {error && <MessageBox tone="error" title="Music error">{error}</MessageBox>}
+        {notice && <MessageBox tone="info" title="Some tracks were already here">{notice}</MessageBox>}
         <div className="music-picker-actions">
           <button type="button" className="secondary-button compact-button" onClick={() => fileRef.current?.click()} disabled={uploading}>
-            <UploadCloud size={16} aria-hidden="true" /> {uploading ? "Uploading…" : "Upload track"}
+            <UploadCloud size={16} aria-hidden="true" /> {uploading ? "Uploading…" : "Upload tracks"}
           </button>
           <input
             ref={fileRef}
             type="file"
             accept="audio/*,.mp3,.m4a,.aac,.ogg,.oga,.opus,.wav,.flac"
+            multiple
             hidden
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ""; }}
+            onChange={(e) => { void upload(Array.from(e.target.files ?? [])); e.target.value = ""; }}
           />
         </div>
       </div>
