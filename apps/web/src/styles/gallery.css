@@ -1503,6 +1503,61 @@
 .slideshow-music-button:hover { background: var(--hover); }
 .slideshow-music-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ── Title card ───────────────────────────────────────────────────────────── */
+
+.metadata-modal.slideshow-title-modal { max-width: 720px; }
+.slideshow-title-body { display: flex; flex-direction: column; gap: 18px; }
+
+/* The preview is the point of the dialog, so it leads — at the movie's own 16:9,
+   on black, so a card WITH a black background still reads as a picture of one. */
+.slideshow-title-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #000;
+  overflow: hidden;
+}
+.slideshow-title-preview img { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* Dimmed rather than removed while a change is saving: the card that was there is
+   better company than an empty box. */
+.slideshow-title-preview img.is-loading { opacity: 0.45; transition: opacity 0.15s ease; }
+.slideshow-title-preview .management-empty { margin: 0; padding: 0 24px; text-align: center; }
+
+.slideshow-title-row { display: flex; align-items: center; gap: 12px; }
+.slideshow-title-row > span { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.slideshow-title-row small { color: var(--muted); font-size: 12px; }
+
+.slideshow-title-field { display: flex; flex-direction: column; gap: 8px; }
+.slideshow-title-field label { font-size: 13px; color: var(--muted); }
+.slideshow-title-field input[type="text"] { width: 100%; }
+.slideshow-title-field small { font-size: 12px; }
+
+/* One row of the slideshow's own photos, scrolled sideways — the dialog must not
+   grow with the length of the slideshow. */
+.slideshow-title-photos {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+.slideshow-title-photo {
+  flex: 0 0 auto;
+  width: 92px;
+  height: 62px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--field);
+  overflow: hidden;
+  cursor: pointer;
+}
+.slideshow-title-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.slideshow-title-photo.is-selected { border-color: var(--mint); }
+.slideshow-title-photo:disabled { cursor: default; opacity: 0.6; }
+
 /* ── Music picker ─────────────────────────────────────────────────────────── */
 
 .music-picker-actions { display: flex; }

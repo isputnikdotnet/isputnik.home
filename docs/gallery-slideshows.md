@@ -92,9 +92,36 @@ the slideshow to its previous state).
   left alone — a video decodes frame by frame, so its cost doesn't grow with the
   length of the slideshow.
 
-- **Title card**: every movie opens with a ~3s black card carrying the slideshow's
-  name and photo count, cross-fading into the first photo with the slideshow's own
-  transition.
+- **Title card**: unless it is switched off, a movie opens on a card carrying the
+  slideshow's name and photo count, cross-fading into the first photo with the
+  slideshow's own transition.
+
+  Everything about it is per-slideshow (the `title_*` columns, migration 33, edited
+  through the editor's **Title card** dialog): whether there is one at all, its
+  title and second line (photo count / a line of your own / nothing), how long it
+  holds (1–15s), and **what the words sit on** —
+
+  | Background | What it draws |
+  | --- | --- |
+  | `black` | The original card: white text on an opaque black frame. |
+  | `photo` | One of the slideshow's own slides, cover-cropped to the frame. |
+  | `blur` | The same slide, blurred (σ 24) — colour and mood, no competing subject. |
+  | `collage` | Up to 12 of its photos, spread evenly across the slideshow, tiled on a landscape-leaning grid. |
+
+  Anything but `black` is drawn under a 45% black scrim, and the glyphs carry a dark
+  outline — white text has to survive landing on a bright sky in a photo nobody chose
+  for its contrast. Only PHOTOS can be a background: sharp reads stills, and a video
+  frame would have to be decoded first, so a slideshow of nothing but videos falls
+  back to the black card. So does a chosen photo that has since left the slideshow —
+  it drops to the first slide, because the setting still means "a photo".
+
+  The defaults reproduce the fixed card 3.1.x drew, so an untouched slideshow renders
+  the same movie it always did.
+
+  The editor previews the card through `GET …/slideshows/:id/title-card.png`, which
+  runs the SAME code the render does (`slideshowTitleCardPreview`) and only scales the
+  result down. Choosing a background you cannot see is guesswork; this is a picture of
+  the actual first three seconds.
 
   **It is drawn before ffmpeg runs**, by `slideshow-title-card.ts`: the text becomes
   glyph outlines from the bundled DejaVu Sans (`apps/server/src/assets/fonts`, full

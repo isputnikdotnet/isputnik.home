@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
 import type {
-  GalleryAsset, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition
+  GalleryAsset, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowPatch
 } from "./types";
 import type { GalleryStatus } from "./useGalleryAlbums";
 
@@ -90,7 +90,7 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
 
   // Presentation settings (transition / seconds per photo). Optimistic: the child
   // renders from selectedSlideshow, so patch it locally, then persist.
-  const patchSlideshow = useCallback(async (slideshowId: string, fields: { name?: string; transition?: SlideshowTransition; slideSeconds?: number; transitionSeconds?: number; musicTrackId?: string | null }) => {
+  const patchSlideshow = useCallback(async (slideshowId: string, fields: SlideshowPatch) => {
     setSelectedSlideshow((prev) => (prev && prev.id === slideshowId ? { ...prev, ...fields } : prev));
     try {
       await api(`/api/library/gallery/slideshows/${slideshowId}`, { method: "PATCH", body: JSON.stringify(fields) });

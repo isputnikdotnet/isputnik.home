@@ -14,7 +14,10 @@ import {
   updateSlideshow,
   setSlideshowRenderState,
   setSlideshowMovieAsset,
-  getSlideshowRenderItems
+  getSlideshowRenderItems,
+  titleCardLines,
+  type SlideshowRow,
+  type SlideshowRenderItem
 } from "../src/modules/library/gallery/slideshows.js";
 import Database from "better-sqlite3";
 import { migrate } from "../src/db/migrate.js";
@@ -32,6 +35,7 @@ import {
   capabilitiesFrom,
   chunkSegments,
   titleCardSegment,
+  titleBackgroundFor,
   TITLE_CARD_SECONDS,
   RANDOM_XFADES,
   RENDER_JOB_TYPE,
@@ -329,6 +333,94 @@ describe("opening title card", () => {
     // First photo starts appearing only after the card's full 3 seconds.
     expect(args[args.indexOf("-filter_complex") + 1]).toContain("offset=3.000");
   });
+
+  it("holds for the slideshow's own title_seconds, within sane bounds", () => {
+    expect(titleCardSegment("/tmp/card.png", 8).dwell).toBe(8);
+    // A card can't be gone in a blink or outstay the movie, whatever is in the column.
+    expect(titleCardSegment("/tmp/card.png", 0).dwell).toBe(1);
+    expect(titleCardSegment("/tmp/card.png", 900).dwell).toBe(15);
+    expect(titleCardSegment("/tmp/card.png", Number.NaN).dwell).toBe(TITLE_CARD_SECONDS);
+  });
+});
+
+// What the card says and what it sits on, resolved from the slideshow's own settings.
+// Both are pure, so the movie and the editor's preview can never disagree.
+describe("title card settings", () => {
+  const lines = (fields: Partial<Parameters<typeof titleCardLines>[0]>, count = 3) =>
+    titleCardLines(
+      { name: "Summer", title_text: null, title_subtitle_mode: "count", title_subtitle: null, ...fields },
+      count
+    );
+
+  it("falls back to the slideshow's name, and counts the photos by default", () => {
+    expect(lines({})).toEqual({ title: "Summer", subtitle: "3 photos" });
+    expect(lines({}, 1)).toEqual({ title: "Summer", subtitle: "1 photo" });
+    expect(lines({ title_text: "  " })).toEqual({ title: "Summer", subtitle: "3 photos" });
+    expect(lines({ title_text: "Sicily" }).title).toBe("Sicily");
+  });
+
+  it("takes a line of its own, or none at all", () => {
+    expect(lines({ title_subtitle_mode: "custom", title_subtitle: "August 2026" }).subtitle).toBe("August 2026");
+    // 'custom' with nothing written in it is no subtitle, not an empty one.
+    expect(lines({ title_subtitle_mode: "custom", title_subtitle: null }).subtitle).toBeNull();
+    expect(lines({ title_subtitle_mode: "none" }).subtitle).toBeNull();
+  });
+
+  // The background can only be built from PHOTOS the render can read: sharp reads
+  // stills, and a video frame would have to be decoded first.
+  describe("what the words sit on", () => {
+    let root = "";
+    let items: SlideshowRenderItem[] = [];
+    const settings = (fields: Partial<SlideshowRow>): SlideshowRow =>
+      ({ title_background: "black", title_photo_item_id: null, ...fields } as SlideshowRow);
+
+    beforeEach(() => {
+      root = fs.mkdtempSync(path.join(os.tmpdir(), "title-bg-src-"));
+      // The background resolver goes through the same path-safety the render does, so
+      // the files have to sit inside a configured container to be reachable at all.
+      db.prepare("INSERT OR REPLACE INTO storage_roots (id, name, path, created_by) VALUES ('sr-title', 'test', ?, 'creator')")
+        .run(root);
+      db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .run(thumbnailPathSettingKey, fs.mkdtempSync(path.join(os.tmpdir(), "title-bg-thumbs-")));
+      for (const name of ["one.jpg", "two.jpg"]) fs.writeFileSync(path.join(root, name), "x");
+      items = [
+        { id: "i1", kind: "photo", relative_path: "one.jpg", source_path: root, dwell_seconds: null, duration_seconds: null, rotation: 90 },
+        { id: "i2", kind: "photo", relative_path: "two.jpg", source_path: root, dwell_seconds: null, duration_seconds: null, rotation: null },
+        { id: "v1", kind: "video", relative_path: "clip.mp4", source_path: root, dwell_seconds: null, duration_seconds: 8, rotation: null }
+      ];
+    });
+    afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
+
+    it("uses the chosen photo, carrying its rotation", () => {
+      expect(titleBackgroundFor(settings({ title_background: "photo", title_photo_item_id: "i1" }), items))
+        .toEqual({ kind: "photo", photo: { file: path.join(root, "one.jpg"), rotation: 90 } });
+    });
+
+    it("falls back to the first slide when the chosen photo has left the slideshow", () => {
+      // Still a photo card, just not that photo — the setting says "a photo".
+      expect(titleBackgroundFor(settings({ title_background: "blur", title_photo_item_id: "gone" }), items))
+        .toEqual({ kind: "blur", photo: { file: path.join(root, "one.jpg"), rotation: 90 } });
+    });
+
+    it("tiles every photo for a collage, and leaves the videos out", () => {
+      const background = titleBackgroundFor(settings({ title_background: "collage" }), items);
+      expect(background).toEqual({
+        kind: "collage",
+        photos: [
+          { file: path.join(root, "one.jpg"), rotation: 90 },
+          { file: path.join(root, "two.jpg"), rotation: 0 }
+        ]
+      });
+    });
+
+    it("goes back to black when there is no photo to use", () => {
+      const videosOnly = items.filter((item) => item.kind === "video");
+      expect(titleBackgroundFor(settings({ title_background: "collage" }), videosOnly)).toEqual({ kind: "black" });
+      expect(titleBackgroundFor(settings({ title_background: "photo" }), videosOnly)).toEqual({ kind: "black" });
+      // And 'black' never opens a file at all.
+      expect(titleBackgroundFor(settings({ title_background: "black" }), items)).toEqual({ kind: "black" });
+    });
+  });
 });
 
 // A long slideshow is rendered a dozen slides at a time and the batches joined, so
@@ -598,7 +690,9 @@ describe('schema baseline (3.0.0)', () => {
   it('builds a complete schema in one pass and stamps the current version', () => {
     const scratch = new Database(':memory:');
     migrate(scratch);
-    expect(scratch.pragma('user_version', { simple: true })).toBe(32);
+    // 33 = the baseline (32) plus the title-card columns, which schema.sql already
+    // builds for a fresh file — the migration is only for databases that predate them.
+    expect(scratch.pragma('user_version', { simple: true })).toBe(33);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -674,8 +768,34 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(32);
+    expect(current.pragma('user_version', { simple: true })).toBe(33);
     current.close();
+  });
+
+  // Migration 33 (title cards) is the first change to a RELEASED 3.x schema: new
+  // columns on a table an existing database already has, which schema.sql alone can
+  // never reach. This builds that older table by hand and checks the ALTERs land.
+  it('adds the title-card columns to a database that predates them', () => {
+    const old = new Database(':memory:');
+    old.exec('CREATE TABLE gallery_slideshows (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_by TEXT NOT NULL)');
+    old.prepare('INSERT INTO gallery_slideshows (id, name, created_by) VALUES (?, ?, ?)').run('s1', 'Holiday', 'u1');
+
+    migrate(old);
+
+    const columns = (old.pragma('table_info(gallery_slideshows)') as { name: string }[]).map((c) => c.name);
+    expect(columns).toEqual(expect.arrayContaining([
+      'title_enabled', 'title_text', 'title_subtitle_mode', 'title_subtitle',
+      'title_seconds', 'title_background', 'title_photo_item_id'
+    ]));
+    // The defaults are the card 3.1.x drew, so a slideshow made before this existed
+    // re-renders the same movie until someone changes something.
+    expect(old.prepare('SELECT * FROM gallery_slideshows WHERE id = ?').get('s1')).toMatchObject({
+      title_enabled: 1, title_text: null, title_subtitle_mode: 'count',
+      title_seconds: 3, title_background: 'black', title_photo_item_id: null
+    });
+    // Idempotent: a second pass must not try to add columns that are already there.
+    expect(() => migrate(old)).not.toThrow();
+    old.close();
   });
 });
 

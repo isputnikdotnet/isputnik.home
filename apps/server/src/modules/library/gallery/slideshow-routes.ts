@@ -19,14 +19,25 @@ import {
   reorderSlideshowItems,
   listSlideshows,
   getSlideshowItems,
+  getSlideshowRenderItems,
   summarize,
   type SlideshowRow
 } from "./slideshows.js";
 import { getMusicTrack, summarizeTrack } from "./music.js";
-import { enqueueSlideshowRender, renderProgressPercent, deleteSlideshowRender } from "./slideshow-render.js";
+import {
+  enqueueSlideshowRender,
+  renderProgressPercent,
+  deleteSlideshowRender,
+  presentRenderItems,
+  slideshowTitleCardPreview
+} from "./slideshow-render.js";
 import { parseRangeHeader } from "../shared/document-stream.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
 import fs from "node:fs";
+
+// How wide the title-card preview is drawn. The card itself is 1920 wide; this is a
+// dialog-sized look at it, not the frame the movie carries.
+const PREVIEW_WIDTH = 800;
 
 // Render state a detail response carries. `movieUrl` is present only when a movie is
 // ready; `percent` is the live encode progress while rendering.
@@ -68,8 +79,30 @@ const updateSchema = z.object({
   slideSeconds: z.number().min(1).max(30).optional(),
   transitionSeconds: z.number().min(0.5).max(5).optional(),
   // null clears the music; a string selects a track (validated below).
-  musicTrackId: z.string().trim().min(1).max(64).nullable().optional()
+  musicTrackId: z.string().trim().min(1).max(64).nullable().optional(),
+  // The movie's opening card. Every nullable field here means "back to the default":
+  // the slideshow's name, no custom subtitle, the first slide as the background photo.
+  titleEnabled: z.boolean().optional(),
+  titleText: z.string().trim().max(120).nullable().optional(),
+  titleSubtitleMode: z.enum(["count", "custom", "none"]).optional(),
+  titleSubtitle: z.string().trim().max(120).nullable().optional(),
+  titleSeconds: z.number().min(1).max(15).optional(),
+  titleBackground: z.enum(["black", "photo", "blur", "collage"]).optional(),
+  titlePhotoItemId: z.string().trim().min(1).max(64).nullable().optional()
 });
+
+// The title-card fields a detail response carries, in the same shape the PATCH takes.
+function titleFields(slideshow: SlideshowRow) {
+  return {
+    titleEnabled: slideshow.title_enabled === 1,
+    titleText: slideshow.title_text,
+    titleSubtitleMode: slideshow.title_subtitle_mode,
+    titleSubtitle: slideshow.title_subtitle,
+    titleSeconds: slideshow.title_seconds,
+    titleBackground: slideshow.title_background,
+    titlePhotoItemId: slideshow.title_photo_item_id
+  };
+}
 
 // The music fields a detail response carries, resolved from music_track_id. null
 // everywhere when the slideshow has no music (or the track was deleted).
@@ -189,6 +222,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         transitionSeconds: slideshow.transition_seconds,
         canEdit: canEditSlideshow(slideshow, user),
         updatedAt: slideshow.updated_at,
+        ...titleFields(slideshow),
         ...musicFields(slideshow.music_track_id),
         ...renderFields(slideshow)
       },
@@ -288,6 +322,28 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     }
   });
 
+  // The opening title card as it would be drawn, for the editor's preview. Rendered on
+  // demand from the SAME code the movie uses (slideshowTitleCardPreview), so choosing a
+  // background is not guesswork — but scaled down, since it is being looked at in a
+  // dialog rather than played at 1080p.
+  app.get("/api/library/gallery/slideshows/:id/title-card.png", { preHandler: app.authenticate }, async (request, reply) => {
+    const slideshow = getSlideshow((request.params as { id: string }).id);
+    const user = request.user!;
+    if (!slideshow) return reply.code(404).send({ error: "Slideshow not found" });
+    const libIds = resolveGalleryScopeLibraryIds(user, "all");
+    // Same visibility rule as the detail: no visible items, no slideshow.
+    if (getSlideshowItems(user.id, libIds, slideshow, 1, 0).total === 0 && !canEditSlideshow(slideshow, user)) {
+      return reply.code(404).send({ error: "Slideshow not found" });
+    }
+    const items = presentRenderItems(getSlideshowRenderItems(libIds, slideshow));
+    const png = await slideshowTitleCardPreview(slideshow, items, PREVIEW_WIDTH);
+    if (!png) return reply.code(503).send({ error: "The title card couldn't be drawn." });
+    return reply
+      .header("Content-Type", "image/png")
+      .header("Cache-Control", "private, no-cache")
+      .send(png);
+  });
+
   // Delete the rendered movie (editors only): removes the MP4 + any leftover temp files
   // and returns the slideshow to 'draft'. A copy already saved to a gallery library is
   // kept. Refused while a render is in flight — cancel it from the Tasks page first.
@@ -321,6 +377,13 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     // A non-null music id must name a real track (any track — music is gallery-wide).
     if (parsed.data.musicTrackId && !getMusicTrack(parsed.data.musicTrackId)) {
       return reply.code(400).send({ error: "That music track no longer exists." });
+    }
+    // The title card's background photo has to be one of this slideshow's own slides:
+    // the card is built from the slideshow, not from the whole gallery.
+    if (parsed.data.titlePhotoItemId
+      && !db.prepare("SELECT 1 FROM gallery_slideshow_items WHERE slideshow_id = ? AND item_id = ?")
+        .get(slideshow.id, parsed.data.titlePhotoItemId)) {
+      return reply.code(400).send({ error: "That photo isn't in this slideshow." });
     }
     updateSlideshow(slideshow.id, parsed.data);
     return reply.send({ updated: true });
