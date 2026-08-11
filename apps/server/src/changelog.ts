@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.2.0",
+    label: "Give the movie's opening card your own words and a photo behind them",
+    changes: [
+      "The card a slideshow movie opens on is yours to write. Until now it was one fixed thing — the slideshow's name and how many photos were in it, white on black, for three seconds — and there was nothing to change about it. Open a slideshow and you will find Title card beside Music: whether the movie opens on a card at all, what it says, what the second line says (the photo count as before, a line of your own such as a place and a month, or nothing), and how long it stays before the first photo arrives.",
+      "It no longer has to sit on black. The card can sit on one of the slideshow's own photos, on that photo blurred so it reads as colour and light rather than a picture competing with your title, or on a collage tiled from a dozen of them, taken from across the whole slideshow rather than off the front of it. Where you pick a single photo, every slide is offered as a thumbnail to choose from. Whatever is behind the words is darkened and the letters are given a dark edge, so a title still reads over a bright sky.",
+      "You are shown the card as you build it. The panel draws the real thing — the same picture the movie will open with, only smaller — and redraws it as you change anything, because choosing a background you cannot see is guesswork. Videos cannot be used behind a title: a photo is a picture already, while a film has to be unpacked to find one, so slideshows made only of videos keep the black card.",
+      "Slideshows you already have are untouched and will render exactly the movie they rendered before: every one of these settings starts out as the card the last version drew."
+    ]
+  },
+  {
     version: "3.1.2",
     label: "A limit of its own on the one address strangers can reach",
     changes: [
