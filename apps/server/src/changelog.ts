@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.1.1",
+    label: "Add a folder of slideshow music in one go",
+    changes: [
+      "Slideshow music takes several files at once. The picker used to accept one track per visit, so putting a handful of beds on the server meant opening the dialog, choosing, waiting, and starting again. Select as many as you like and they go up together. If a name is already in your list it is left alone rather than added a second time — the picker lists tracks by name, so a duplicate would be two rows you could not tell apart, and that holds whether the copy is spelled differently or is simply the same piece in another format. Nothing is refused for it: choosing a folder where three of five are already there adds the other two and tells you which it skipped.",
+      "The Recycle Bin's settings button no longer disappears when the bin is empty. It sat in the row of controls above the deleted items, and that row is only drawn when there is something to act on — so the one setting that is not about any particular item, how long things are kept, went with the last item you restored. It now sits beside the search box at the top of the page, where it stays put."
+    ]
+  },
+  {
     version: "3.1.0",
     label: "Sign in with a fingerprint, and mail that looks like it came from somewhere",
     changes: [
