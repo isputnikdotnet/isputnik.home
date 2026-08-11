@@ -34,11 +34,12 @@ import {
   getSlideshowRenderItems,
   setSlideshowRenderState,
   setSlideshowMovieAsset,
+  titleCardLines,
   type SlideshowRow,
   type SlideshowRenderItem
 } from "./slideshows.js";
 import { getMusicTrack, musicFileAbsolutePath } from "./music.js";
-import { renderTitleCardPng } from "./slideshow-title-card.js";
+import { renderTitleCardPng, titleCardPngBuffer, type TitleBackground, type TitlePhoto } from "./slideshow-title-card.js";
 import { resolveGalleryScopeLibraryIds } from "./catalog.js";
 import { getRenderLibraryId } from "./slideshow-settings.js";
 import { scanSingleGalleryFile } from "./scanner.js";
@@ -130,21 +131,90 @@ function totalDuration(dwells: number[], useXfade: boolean, transitionSec: numbe
 export const RANDOM_XFADES = ["fade", "dissolve", "slideleft", "slideright", "wipeleft", "wiperight", "circleopen", "smoothup"] as const;
 
 // ── Opening title card ───────────────────────────────────────────────────────
-// Every render opens on a ~3s black card carrying the slideshow's name, cross-fading
-// into the first photo with the slideshow's own transition.
+// Unless it is turned off, a render opens on a card carrying the slideshow's name,
+// cross-fading into the first photo with the slideshow's own transition. Its words,
+// its length and what it sits on are per-slideshow settings (the title_* columns);
+// the defaults are the card every 3.1.x movie opened with — the name over black for
+// three seconds, subtitled with the photo count.
 //
 // The card arrives as a finished PNG (slideshow-title-card.ts) and enters the graph
 // as an ordinary still — the same input shape as a photo. It used to be built inside
 // ffmpeg with drawtext, which is an optional filter the Linux build doesn't have, so
 // the card cost every Linux user their whole movie. A picture costs nobody anything.
 
-// How long the title card holds the screen before the first photo starts appearing.
-// The card is an ordinary still segment (see titleCardSegment), so it is padded and
-// cross-faded exactly like a photo — no special case anywhere in the graph.
+// The default length of the title card, and the fallback when a slideshow's own
+// title_seconds is missing or nonsense. The card is an ordinary still segment (see
+// titleCardSegment), so it is padded and cross-faded exactly like a photo — no
+// special case anywhere in the graph.
 export const TITLE_CARD_SECONDS = 3;
+const clampTitleSec = (value: number | undefined): number =>
+  Math.min(15, Math.max(1, Number.isFinite(value) ? (value as number) : TITLE_CARD_SECONDS));
 
-export function titleCardSegment(imageFile: string): Segment {
-  return { file: imageFile, dwell: TITLE_CARD_SECONDS, isVideo: false };
+export function titleCardSegment(imageFile: string, seconds: number = TITLE_CARD_SECONDS): Segment {
+  return { file: imageFile, dwell: clampTitleSec(seconds), isVideo: false };
+}
+
+// Absolute path of one render item's file, or null when its library root is unusable
+// or the path escapes it. Path-safety lives here so every caller gets it.
+export function renderItemAbsolutePath(item: Pick<SlideshowRenderItem, "source_path" | "relative_path">): string | null {
+  let root: string;
+  try { root = validateLibrarySource(item.source_path); } catch { return null; }
+  const abs = path.join(root, ...item.relative_path.split("/"));
+  return abs.startsWith(root) ? abs : null;
+}
+
+/** The items whose files are actually on disk, in order. */
+export function presentRenderItems(items: SlideshowRenderItem[]): SlideshowRenderItem[] {
+  return items.filter((item) => {
+    const abs = renderItemAbsolutePath(item);
+    return abs !== null && fs.existsSync(abs);
+  });
+}
+
+// What the card's background is built from. Only PHOTOS qualify: sharp reads stills,
+// and a video frame would have to be decoded first. A slideshow of nothing but videos
+// therefore falls back to the black card rather than failing.
+export function titleBackgroundFor(slideshow: SlideshowRow, items: SlideshowRenderItem[]): TitleBackground {
+  if (slideshow.title_background === "black") return { kind: "black" };
+  const photos = items
+    .filter((item) => item.kind === "photo")
+    .map((item) => ({ id: item.id, file: renderItemAbsolutePath(item), rotation: item.rotation ?? 0 }))
+    .filter((photo): photo is { id: string; file: string; rotation: number } => photo.file !== null);
+  if (photos.length === 0) return { kind: "black" };
+
+  if (slideshow.title_background === "collage") {
+    return { kind: "collage", photos: photos.map(({ file, rotation }): TitlePhoto => ({ file, rotation })) };
+  }
+  // A chosen photo that has since left the slideshow (or whose file is gone) falls
+  // back to the first slide rather than to black — the setting still means "a photo".
+  const chosen = photos.find((photo) => photo.id === slideshow.title_photo_item_id) ?? photos[0];
+  return { kind: slideshow.title_background, photo: { file: chosen.file, rotation: chosen.rotation } };
+}
+
+// Draw one slideshow's title card to `outPath`. Shared by the render and the editor's
+// preview so what you choose is exactly what the movie opens with. Returns false when
+// the card can't be drawn at all (see renderTitleCardPng).
+export async function renderSlideshowTitleCard(
+  slideshow: SlideshowRow,
+  items: SlideshowRenderItem[],
+  outPath: string
+): Promise<boolean> {
+  const { title, subtitle } = titleCardLines(slideshow, items.length);
+  return renderTitleCardPng(title, subtitle, outPath, titleBackgroundFor(slideshow, items));
+}
+
+// The same card as a PNG in memory, scaled down for the editor's preview. Null when
+// it can't be drawn — the editor then shows nothing rather than a broken image.
+export async function slideshowTitleCardPreview(
+  slideshow: SlideshowRow,
+  items: SlideshowRenderItem[],
+  width: number
+): Promise<Buffer | null> {
+  // The same slides the movie would carry — a long slideshow is capped, and a preview
+  // that counted the ones left out would promise a card the movie never draws.
+  const inMovie = items.slice(0, MAX_ITEMS);
+  const { title, subtitle } = titleCardLines(slideshow, inMovie.length);
+  return titleCardPngBuffer(title, subtitle, titleBackgroundFor(slideshow, inMovie), width);
 }
 
 export interface BuildOptions {
@@ -605,13 +675,7 @@ export async function renderSlideshow(
   if (items.length === 0) throw new Error("This slideshow has no photos or videos to render.");
 
   // Every source file must exist and stay inside its library root (path-safety).
-  const present: SlideshowRenderItem[] = [];
-  for (const item of items) {
-    let root: string;
-    try { root = validateLibrarySource(item.source_path); } catch { continue; }
-    const abs = path.join(root, ...item.relative_path.split("/"));
-    if (abs.startsWith(root) && fs.existsSync(abs)) present.push(item);
-  }
+  const present = presentRenderItems(items);
   if (present.length === 0) throw new Error("None of this slideshow's photo files are available on disk.");
 
   const segs = segmentsFor(present, slideshow.slide_seconds, slideshow.transition_seconds);
@@ -639,15 +703,18 @@ export async function renderSlideshow(
     console.warn("slideshow render: this ffmpeg build has no xfade filter — rendering with hard cuts between slides.");
   }
 
-  // Opening title card: the slideshow's name and a photo-count subline, drawn to a
-  // PNG here (no ffmpeg filter involved) and fed in as the first still. A card that
-  // can't be drawn costs the card, not the movie.
+  // Opening title card, as the slideshow's own title_* settings describe it, drawn to
+  // a PNG here (no ffmpeg filter involved) and fed in as the first still. A card that
+  // can't be drawn costs the card, not the movie. The count it can carry counts the
+  // slides that will actually be in the movie, not the whole slideshow.
   const titleFiles: string[] = [];
   let titleCard: Segment | null = null;
-  const cardFile = `${finalPath}.title-${nanoid(6)}.png`;
-  if (await renderTitleCardPng(slideshow.name, `${segs.length} photo${segs.length === 1 ? "" : "s"}`, cardFile)) {
-    titleFiles.push(cardFile);
-    titleCard = titleCardSegment(cardFile);
+  if (slideshow.title_enabled) {
+    const cardFile = `${finalPath}.title-${nanoid(6)}.png`;
+    if (await renderSlideshowTitleCard(slideshow, present.slice(0, segs.length), cardFile)) {
+      titleFiles.push(cardFile);
+      titleCard = titleCardSegment(cardFile, slideshow.title_seconds);
+    }
   }
 
   // Scale the photos to the movie's own size before ffmpeg opens any of them: a

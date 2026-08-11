@@ -1,14 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, Film, FolderOpen, GripVertical, Heart, Image as ImageIcon, Music, Play, RefreshCw, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Film, FolderOpen, GripVertical, Heart, Image as ImageIcon, Music, Play, RefreshCw, Trash2, Type, X } from "lucide-react";
 import { MusicPicker } from "./MusicPicker";
+import { SlideshowTitleCardModal } from "./SlideshowTitleCardModal";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { formatBytes } from "../../shared/utils";
-import type { GalleryAsset, GallerySlideshowDetail, SlideshowTransition } from "./types";
+import type { GalleryAsset, GallerySlideshowDetail, SlideshowPatch, SlideshowTransition } from "./types";
 import { faceFocusStyle } from "./types";
 
 // The presentation transitions offered in the editor, in display order. The live
 // preview (GalleryLightbox) honours these; the future MP4 render will too.
+// What the "Title card" button says the card is, without opening it. Deliberately the
+// two things a glance wants: what it sits on, and how long it holds.
+const TITLE_BACKGROUND_LABELS: Record<GallerySlideshowDetail["titleBackground"], string> = {
+  black: "Black",
+  photo: "Photo",
+  blur: "Blurred photo",
+  collage: "Collage"
+};
+
 const TRANSITIONS: { value: SlideshowTransition; label: string }[] = [
   { value: "crossfade", label: "Crossfade" },
   { value: "fade", label: "Fade" },
@@ -49,12 +59,13 @@ export function GallerySlideshowEditor({
   onLoadMore: () => void;
   onReorder: (orderedIds: string[]) => void;
   onRemove: (id: string) => void;
-  onPatch: (fields: { transition?: SlideshowTransition; slideSeconds?: number; transitionSeconds?: number; musicTrackId?: string | null }) => void;
+  onPatch: (fields: SlideshowPatch) => Promise<void> | void;
   onRender: () => void;
   onAddPhotos: () => void;
   onDeleteMovie: () => void;
 }) {
   const [musicOpen, setMusicOpen] = useState(false);
+  const [titleOpen, setTitleOpen] = useState(false);
   // Rendering is the heaviest thing this app asks of the machine it runs on, and it
   // is usually somebody's NAS. Nothing starts until this is answered.
   const [renderConfirm, setRenderConfirm] = useState(false);
@@ -80,7 +91,8 @@ export function GallerySlideshowEditor({
   // Roughly how long the finished movie runs: the title card, then a slide apiece.
   // Per-slide overrides and video clips make this approximate, which is why it's
   // only ever shown as "about".
-  const movieMinutes = Math.max(1, Math.round((3 + ordered.length * slideshow.slideSeconds) / 60));
+  const titleSeconds = slideshow.titleEnabled ? slideshow.titleSeconds : 0;
+  const movieMinutes = Math.max(1, Math.round((titleSeconds + ordered.length * slideshow.slideSeconds) / 60));
 
   // Per-slide seconds: local for a smooth slider, committed on release so a drag
   // isn't a burst of PATCHes.
@@ -202,6 +214,17 @@ export function GallerySlideshowEditor({
               <span>{slideshow.musicTitle ?? "Add music"}</span>
             </button>
           </div>
+          <div className="slideshow-setting">
+            <span className="slideshow-setting-label">Title card</span>
+            <button type="button" className="slideshow-music-button" onClick={() => setTitleOpen(true)}>
+              <Type size={15} aria-hidden="true" />
+              <span>
+                {slideshow.titleEnabled
+                  ? `${TITLE_BACKGROUND_LABELS[slideshow.titleBackground]} · ${slideshow.titleSeconds}s`
+                  : "Off"}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -210,6 +233,15 @@ export function GallerySlideshowEditor({
           selectedId={slideshow.musicTrackId}
           onSelect={(trackId) => { onPatch({ musicTrackId: trackId }); }}
           onClose={() => setMusicOpen(false)}
+        />
+      )}
+
+      {titleOpen && (
+        <SlideshowTitleCardModal
+          slideshow={slideshow}
+          assets={ordered}
+          onPatch={onPatch}
+          onClose={() => setTitleOpen(false)}
         />
       )}
 
@@ -295,7 +327,7 @@ export function GallerySlideshowEditor({
                   <Film size={15} aria-hidden="true" /> {slideshow.renderStatus === "failed" ? "Try again" : "Render movie"}
                 </button>
                 <span className="muted gallery-face-hint">
-                  Export a downloadable MP4 of your photos and videos, transitions{slideshow.musicTitle ? ", and music" : ""}. The movie opens with a title card showing the slideshow’s name. Rendering runs in the background and can take a few minutes for a large slideshow. Ken Burns exports as a crossfade, and Random varies the transition at every cut. When a default movie library is set, the finished movie is also saved to your gallery.
+                  Export a downloadable MP4 of your photos and videos, transitions{slideshow.musicTitle ? ", and music" : ""}. {slideshow.titleEnabled ? "The movie opens with the title card set above — its words, its length, and whether it sits on black, a photo, or a collage." : "There is no title card, so the movie opens straight on the first photo."} Rendering runs in the background and can take a few minutes for a large slideshow. Ken Burns exports as a crossfade, and Random varies the transition at every cut. When a default movie library is set, the finished movie is also saved to your gallery.
                 </span>
               </div>
             </div>

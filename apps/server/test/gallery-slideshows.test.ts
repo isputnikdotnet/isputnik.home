@@ -97,6 +97,39 @@ describe("slideshow presentation settings", () => {
     expect(after.transition).toBe("kenburns");
     expect(after.slide_seconds).toBe(6);
   });
+
+  // The title card's own settings. The defaults reproduce the card every movie opened
+  // with before they existed, so an untouched slideshow renders exactly as it did.
+  it("defaults the title card to the old fixed one, and saves every change to it", () => {
+    const slideshow = getSlideshow(createSlideshow(creator, "Summer").id)!;
+    expect(slideshow).toMatchObject({
+      title_enabled: 1, title_text: null, title_subtitle_mode: "count",
+      title_subtitle: null, title_seconds: 3, title_background: "black", title_photo_item_id: null
+    });
+
+    updateSlideshow(slideshow.id, {
+      titleEnabled: false, titleText: "Sicily", titleSubtitleMode: "custom", titleSubtitle: "August 2026",
+      titleSeconds: 6, titleBackground: "collage", titlePhotoItemId: a
+    });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({
+      title_enabled: 0, title_text: "Sicily", title_subtitle_mode: "custom",
+      title_subtitle: "August 2026", title_seconds: 6, title_background: "collage", title_photo_item_id: a
+    });
+
+    // Null on a nullable field means "back to the default"; leaving a field out means
+    // "don't touch it" — the two must not be the same thing.
+    updateSlideshow(slideshow.id, { titleText: null, titleSeconds: 4 });
+    expect(getSlideshow(slideshow.id)!).toMatchObject({
+      title_text: null, title_subtitle: "August 2026", title_seconds: 4, title_background: "collage"
+    });
+  });
+
+  it("marks a rendered movie out of date when the title card changes", () => {
+    const slideshow = createSlideshow(creator, "Summer");
+    db.prepare("UPDATE gallery_slideshows SET render_status = 'ready', render_stale = 0 WHERE id = ?").run(slideshow.id);
+    updateSlideshow(slideshow.id, { titleBackground: "blur" });
+    expect(getSlideshow(slideshow.id)!.render_stale).toBe(1);
+  });
 });
 
 describe("slideshow ordering", () => {

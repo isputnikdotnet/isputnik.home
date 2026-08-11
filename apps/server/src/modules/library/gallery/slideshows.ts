@@ -17,6 +17,13 @@ const inClause = (n: number) => Array(n).fill("?").join(", ");
 // classic film cut: fade out to black, then fade the next slide in.
 export type SlideshowTransition = "none" | "crossfade" | "fade" | "slide" | "kenburns" | "dipblack" | "random";
 
+// The opening card of the rendered movie. 'count' subtitles it with the photo count
+// (what every movie said before these settings existed), 'custom' with the user's own
+// line, 'none' with nothing. The background is black, one of the slideshow's own
+// photos (sharp or blurred), or a collage tiled from several of them.
+export type SlideshowSubtitleMode = "count" | "custom" | "none";
+export type SlideshowTitleBackground = "black" | "photo" | "blur" | "collage";
+
 export interface SlideshowRow {
   id: string;
   name: string;
@@ -26,6 +33,13 @@ export interface SlideshowRow {
   transition: SlideshowTransition;
   slide_seconds: number;
   transition_seconds: number;
+  title_enabled: number; // 1 = the movie opens on a title card
+  title_text: string | null; // NULL = the slideshow's name
+  title_subtitle_mode: SlideshowSubtitleMode;
+  title_subtitle: string | null;
+  title_seconds: number;
+  title_background: SlideshowTitleBackground;
+  title_photo_item_id: string | null;
   render_status: "draft" | "queued" | "rendering" | "ready" | "failed";
   render_stale: number; // 1 = a 'ready' movie predates the current settings/content
   render_job_id: string | null;
@@ -76,14 +90,28 @@ const touch = (slideshowId: string) => {
 
 // Changing any presentation setting marks a previously rendered movie out of date (it
 // stays visible until re-rendered). Harmless before anything is rendered.
-export function updateSlideshow(
-  slideshowId: string,
-  fields: { name?: string; transition?: SlideshowTransition; slideSeconds?: number; transitionSeconds?: number; musicTrackId?: string | null }
-): boolean {
+export interface SlideshowUpdate {
+  name?: string;
+  transition?: SlideshowTransition;
+  slideSeconds?: number;
+  transitionSeconds?: number;
+  musicTrackId?: string | null;
+  titleEnabled?: boolean;
+  titleText?: string | null;
+  titleSubtitleMode?: SlideshowSubtitleMode;
+  titleSubtitle?: string | null;
+  titleSeconds?: number;
+  titleBackground?: SlideshowTitleBackground;
+  titlePhotoItemId?: string | null;
+}
+
+export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): boolean {
   const slideshow = getSlideshow(slideshowId);
   if (!slideshow) return false;
   // musicTrackId is a nullable set: `undefined` = leave alone, `null` = clear the
-  // music, a value = set it (the route validates the track exists first).
+  // music, a value = set it (the route validates the track exists first). The
+  // nullable title fields follow the same shape — `null` there means "fall back to
+  // the default" (the slideshow's name, no subtitle line, the first slide).
   db.prepare(`
     UPDATE gallery_slideshows SET
       name = COALESCE(?, name),
@@ -91,6 +119,13 @@ export function updateSlideshow(
       slide_seconds = COALESCE(?, slide_seconds),
       transition_seconds = COALESCE(?, transition_seconds),
       music_track_id = CASE WHEN ? THEN ? ELSE music_track_id END,
+      title_enabled = COALESCE(?, title_enabled),
+      title_text = CASE WHEN ? THEN ? ELSE title_text END,
+      title_subtitle_mode = COALESCE(?, title_subtitle_mode),
+      title_subtitle = CASE WHEN ? THEN ? ELSE title_subtitle END,
+      title_seconds = COALESCE(?, title_seconds),
+      title_background = COALESCE(?, title_background),
+      title_photo_item_id = CASE WHEN ? THEN ? ELSE title_photo_item_id END,
       render_stale = CASE WHEN render_status = 'ready' THEN 1 ELSE render_stale END,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE id = ?
@@ -100,9 +135,32 @@ export function updateSlideshow(
     fields.slideSeconds ?? null,
     fields.transitionSeconds ?? null,
     fields.musicTrackId !== undefined ? 1 : 0, fields.musicTrackId ?? null,
+    fields.titleEnabled === undefined ? null : fields.titleEnabled ? 1 : 0,
+    fields.titleText !== undefined ? 1 : 0, fields.titleText ?? null,
+    fields.titleSubtitleMode ?? null,
+    fields.titleSubtitle !== undefined ? 1 : 0, fields.titleSubtitle ?? null,
+    fields.titleSeconds ?? null,
+    fields.titleBackground ?? null,
+    fields.titlePhotoItemId !== undefined ? 1 : 0, fields.titlePhotoItemId ?? null,
     slideshowId
   );
   return true;
+}
+
+// The card's two lines, as the render (and the editor's preview) will draw them.
+// `itemCount` is what a 'count' subtitle counts. Pure, so the preview and the movie
+// can never disagree about what the card says.
+export function titleCardLines(
+  slideshow: Pick<SlideshowRow, "name" | "title_text" | "title_subtitle_mode" | "title_subtitle">,
+  itemCount: number
+): { title: string; subtitle: string | null } {
+  const title = (slideshow.title_text ?? "").trim() || slideshow.name;
+  if (slideshow.title_subtitle_mode === "none") return { title, subtitle: null };
+  if (slideshow.title_subtitle_mode === "custom") {
+    const custom = (slideshow.title_subtitle ?? "").trim();
+    return { title, subtitle: custom || null };
+  }
+  return { title, subtitle: `${itemCount} photo${itemCount === 1 ? "" : "s"}` };
 }
 
 export function deleteSlideshow(slideshowId: string): boolean {

@@ -1660,7 +1660,7 @@ export function GalleryPage({
                       onLoadMore={() => void openSlideshow(selectedSlideshow.id, slideshowAssets.length)}
                       onReorder={(ids) => void reorderSlideshow(selectedSlideshow.id, ids)}
                       onRemove={(id) => void removeFromSlideshow(selectedSlideshow.id, id)}
-                      onPatch={(fields) => void patchSlideshow(selectedSlideshow.id, fields)}
+                      onPatch={(fields) => patchSlideshow(selectedSlideshow.id, fields)}
                       onRender={() => void renderSlideshowMovie(selectedSlideshow.id)}
                       onAddPhotos={() => setBrowseOpen(true)}
                       onDeleteMovie={() => setMovieDeleteOpen(true)}

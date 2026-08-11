@@ -106,6 +106,35 @@ export interface GalleryAlbumDetail {
 export type SlideshowTransition = "none" | "crossfade" | "fade" | "slide" | "kenburns" | "dipblack" | "random";
 export type SlideshowRenderStatus = "draft" | "queued" | "rendering" | "ready" | "failed";
 
+// The opening card of the rendered movie: what it says, how long it holds, and what
+// the words sit on — black, one of the slideshow's own photos (sharp or blurred), or
+// a collage tiled from several of them.
+export type SlideshowSubtitleMode = "count" | "custom" | "none";
+export type SlideshowTitleBackground = "black" | "photo" | "blur" | "collage";
+
+// The title-card settings, carried on the detail and taken by the PATCH. A null in a
+// nullable field means "back to the default": the slideshow's name, no custom
+// subtitle, the first slide as the background photo.
+export interface SlideshowTitleSettings {
+  titleEnabled: boolean;
+  titleText: string | null;
+  titleSubtitleMode: SlideshowSubtitleMode;
+  titleSubtitle: string | null;
+  titleSeconds: number;
+  titleBackground: SlideshowTitleBackground;
+  titlePhotoItemId: string | null;
+}
+
+// Everything the slideshow PATCH accepts. One type, so the editor, the hook and the
+// page can never drift over which fields exist.
+export interface SlideshowPatch extends Partial<SlideshowTitleSettings> {
+  name?: string;
+  transition?: SlideshowTransition;
+  slideSeconds?: number;
+  transitionSeconds?: number;
+  musicTrackId?: string | null;
+}
+
 // A gallery slideshow: an ordered photo set with presentation settings. itemCount/
 // coverUrl reflect only the viewer's accessible items; canEdit = creator or admin.
 // Music + MP4 render (renderStatus) arrive in later phases.
@@ -126,7 +155,7 @@ export interface GallerySlideshow {
 // The slideshow-detail header (items arrive with it / paged, in presentation order).
 // The music fields are resolved server-side from musicTrackId (all null when the
 // slideshow has no music or its track was deleted).
-export interface GallerySlideshowDetail {
+export interface GallerySlideshowDetail extends SlideshowTitleSettings {
   id: string;
   name: string;
   transition: SlideshowTransition;

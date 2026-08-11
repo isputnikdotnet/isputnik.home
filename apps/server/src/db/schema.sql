@@ -431,6 +431,21 @@ CREATE TABLE IF NOT EXISTS gallery_slideshows (
   -- Cross-fade length in seconds (0.5–5, route-validated); drives both the live
   -- player's playback animations and the rendered movie's xfade duration.
   transition_seconds REAL NOT NULL DEFAULT 2,
+  -- The opening title card of the rendered movie (slideshow-title-card.ts). Defaults
+  -- reproduce the card every earlier render made: the slideshow's name over black for
+  -- three seconds, with a photo-count subline.
+  title_enabled  INTEGER NOT NULL DEFAULT 1,       -- 0 = open straight on the first photo
+  title_text     TEXT,                             -- NULL = use the slideshow's name
+  title_subtitle_mode TEXT NOT NULL DEFAULT 'count'
+                   CHECK (title_subtitle_mode IN ('count', 'custom', 'none')),
+  title_subtitle TEXT,                             -- the line shown when mode = 'custom'
+  title_seconds  REAL NOT NULL DEFAULT 3,          -- how long the card holds the screen
+  -- What the words sit on. 'photo'/'blur' use title_photo_item_id (or the first slide
+  -- when it is NULL or no longer a member); 'collage' tiles a spread of the slideshow's
+  -- own photos. Anything but 'black' is darkened behind the text so it stays readable.
+  title_background TEXT NOT NULL DEFAULT 'black'
+                   CHECK (title_background IN ('black', 'photo', 'blur', 'collage')),
+  title_photo_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
   -- Render state of the LATEST MP4 export (Phase 4). 'draft' = never rendered.
   render_status  TEXT NOT NULL DEFAULT 'draft'
                    CHECK (render_status IN ('draft', 'queued', 'rendering', 'ready', 'failed')),
