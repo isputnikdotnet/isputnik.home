@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.1.2",
+    label: "A limit of its own on the one address strangers can reach",
+    changes: [
+      "The single address that answers without being signed in — the one the app asks, before anything else, whether the server is there and whether it has been set up yet — now has a request limit of its own. Everything else reachable without an account already had one; this was relying on the server-wide ceiling instead, which is a much larger number and shared with all your ordinary browsing. Nobody will notice the difference: the allowance is set well above what a houseful of open tabs asks for, and the app leans on that same address every few seconds to tell the difference between the server being down and your phone having no signal — which is what the little Offline marker is reading when it appears."
+    ]
+  },
+  {
     version: "3.1.1",
     label: "Add a folder of slideshow music in one go",
     changes: [
