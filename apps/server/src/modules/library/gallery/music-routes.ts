@@ -6,7 +6,7 @@ import fs from "node:fs";
 import type { FastifyInstance } from "fastify";
 import { db, logActivity } from "../../../db.js";
 import { canUserWriteLibrary } from "../shared/library-access.js";
-import { receiveUpload, UploadError } from "../../uploads/index.js";
+import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { parseRangeHeader } from "../shared/document-stream.js";
 import {
   listMusicTracks,
@@ -16,8 +16,11 @@ import {
   musicFileAbsolutePath,
   musicMimeForKey,
   musicTempDir,
+  musicTitleExists,
+  titleFromFilename,
   MUSIC_UPLOAD_EXTENSIONS,
-  MUSIC_MAX_BYTES
+  MUSIC_MAX_BYTES,
+  MUSIC_MAX_UPLOAD_FILES
 } from "./music.js";
 
 // A user may add music when they can write to any gallery library (music is a
@@ -43,21 +46,58 @@ export async function galleryMusicRoutesPlugin(app: FastifyInstance) {
     }
     let received;
     try {
-      received = await receiveUpload(request, { accept: MUSIC_UPLOAD_EXTENSIONS, maxBytes: MUSIC_MAX_BYTES }, musicTempDir());
+      received = await receiveUploadBatch(
+        request,
+        { accept: MUSIC_UPLOAD_EXTENSIONS, maxBytes: MUSIC_MAX_BYTES },
+        musicTempDir(),
+        MUSIC_MAX_UPLOAD_FILES
+      );
     } catch (err) {
       if (err instanceof UploadError) { return reply.code(err.statusCode).send({ error: err.message }); }
       return reply.code(400).send({ error: err instanceof Error ? err.message : "Upload failed." });
     }
-    const track = await createUserTrack(user, received.tmpPath, received.filename, received.extension);
-    logActivity({
-      event: "gallery.music.uploaded",
-      actorUserId: user.id,
-      targetType: "gallery_music",
-      targetId: track.id,
-      detail: `Uploaded slideshow music "${track.title}".`,
-      ipAddress: request.ip
-    });
-    return reply.code(201).send({ track });
+
+    // A track already here under this name is skipped rather than stored a second
+    // time: the picker lists tracks by title, so a duplicate would be two rows you
+    // cannot tell apart. Skipping is deliberately not an error — picking a folder
+    // of beds where three are already here should add the other two and say so,
+    // not refuse the lot.
+    const tracks = [];
+    const skipped: string[] = [];
+    const seen = new Set<string>();
+    for (const file of received) {
+      const title = titleFromFilename(file.filename);
+      const key = title.toLowerCase();
+      // `seen` catches duplicates WITHIN this selection too — two folders each
+      // holding "Sunset.mp3" would otherwise both pass the table check, since
+      // neither is committed yet when the other is examined.
+      if (seen.has(key) || musicTitleExists(title)) {
+        fs.rmSync(file.tmpPath, { force: true });
+        skipped.push(file.filename);
+        continue;
+      }
+      seen.add(key);
+      tracks.push(await createUserTrack(user, file.tmpPath, file.filename, file.extension));
+    }
+
+    if (tracks.length > 0) {
+      logActivity({
+        event: "gallery.music.uploaded",
+        actorUserId: user.id,
+        targetType: "gallery_music",
+        // One row for the batch, so adding twelve beds is one line in the log and
+        // not twelve. A single upload still names the track it was.
+        targetId: tracks.length === 1 ? tracks[0].id : null,
+        detail: tracks.length === 1
+          ? `Uploaded slideshow music "${tracks[0].title}".`
+          : `Uploaded ${tracks.length} slideshow music tracks.`,
+        ipAddress: request.ip
+      });
+    }
+
+    // 201 when something was created, 200 when every file was already here — the
+    // request succeeded either way, and the client tells the user which happened.
+    return reply.code(tracks.length > 0 ? 201 : 200).send({ tracks, skipped });
   });
 
   app.delete("/api/library/gallery/music/:id", { preHandler: app.authenticate }, async (request, reply) => {

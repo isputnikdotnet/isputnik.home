@@ -29,6 +29,9 @@ const MIME_BY_EXT: Record<string, string> = {
 };
 export const MUSIC_UPLOAD_EXTENSIONS = ["mp3", "m4a", "aac", "ogg", "oga", "opus", "wav", "flac", "weba", "webm"];
 export const MUSIC_MAX_BYTES = 25 * 1024 * 1024; // a slideshow bed, not an album
+// Bounds one multi-select. A slideshow needs one track; this is generous for
+// "add my whole beds folder" without letting a single request run away.
+export const MUSIC_MAX_UPLOAD_FILES = 20;
 
 export function musicMimeForKey(storageKey: string): string {
   return MIME_BY_EXT[path.extname(storageKey).toLowerCase()] ?? "application/octet-stream";
@@ -73,9 +76,20 @@ async function probeDurationSeconds(absPath: string): Promise<number | null> {
   }
 }
 
-function titleFromFilename(filename: string): string {
+// The name a track is listed under: the filename with its extension dropped. Two
+// uploads that reduce to the same title are the same track as far as anyone using
+// the picker is concerned, which is what makes this the right thing to dedupe on.
+export function titleFromFilename(filename: string): string {
   const base = path.basename(filename, path.extname(filename)).trim();
   return (base || "Untitled track").slice(0, 120);
+}
+
+/** Whether a track of this title is already here. Case-insensitive: "Beach Day"
+ *  and "beach day" are the same track to read, so they are the same to store. */
+export function musicTitleExists(title: string): boolean {
+  return Boolean(
+    db.prepare("SELECT 1 FROM gallery_music_tracks WHERE title = ? COLLATE NOCASE").get(title)
+  );
 }
 
 // Move a received upload temp file into the music bucket and record it. The temp file
