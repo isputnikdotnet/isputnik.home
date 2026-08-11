@@ -430,16 +430,33 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
         {/* Search rides in the header beside the title, as on Logs — it is what you
             reach for first, and it leaves the toolbar below to the controls that
             change the whole view. */}
-        <label className="search-field trash-search">
-          <Search size={17} aria-hidden="true" />
-          <span className="sr-only">Search deleted items by name, folder or library</span>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search the bin..."
-          />
-        </label>
+        <div className="row-actions control-head-actions">
+          <label className="search-field trash-search">
+            <Search size={17} aria-hidden="true" />
+            <span className="sr-only">Search deleted items by name, folder or library</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search the bin..."
+            />
+          </label>
+          {/* Settings live up here rather than in the toolbar below, which only
+              renders when the bin has something in it. The clocks are an install-wide
+              setting and the emptiest bin is exactly when you might want to change
+              them — an admin who has just tidied up should not have to delete
+              something to reach the retention days. */}
+          {isAdmin && (
+            <Button
+              variant="icon"
+              aria-label="Recycle Bin settings"
+              title="Recycle Bin settings"
+              onClick={() => { setSettingsError(""); setSettingsOpen(true); }}
+            >
+              <Settings2 size={18} aria-hidden="true" />
+            </Button>
+          )}
+        </div>
       </ControlSectionHead>
 
       {/* What's in the bin and what it's costing — the two numbers you come here for
@@ -510,18 +527,6 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
             >
               <SlidersHorizontal size={18} aria-hidden="true" />
             </Button>
-            {/* Admin only: the clocks are an install-wide setting, where everything
-                else in this row acts on what is in the bin today. */}
-            {isAdmin && (
-              <Button
-                variant="icon"
-                aria-label="Recycle Bin settings"
-                title="Recycle Bin settings"
-                onClick={() => { setSettingsError(""); setSettingsOpen(true); }}
-              >
-                <Settings2 size={18} aria-hidden="true" />
-              </Button>
-            )}
             {/* Restore before Empty: one puts things back, the other destroys them,
                 and the reversible one should not be the harder to reach. */}
             {visible.length > 0 && (
