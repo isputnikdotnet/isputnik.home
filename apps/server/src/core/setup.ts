@@ -36,7 +36,13 @@ export function completeOnboarding(userId: string): void {
 }
 
 export async function setupPlugin(app: FastifyInstance) {
-  app.get("/api/setup/status", async () => ({
+  // The one endpoint an unauthenticated caller can reach freely, so it carries a
+  // limit of its own rather than leaning on the global ceiling — the same treatment
+  // every other public route here gets. Generous because the installed app probes
+  // this every 6 seconds per open tab to tell "server down" from "no network"
+  // (pwa/useOnlineStatus.ts): 240/min leaves room for two dozen tabs behind one
+  // household address while still capping anyone hammering it.
+  app.get("/api/setup/status", { config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async () => ({
     requiresSetup: !hasUsers(),
     defaultTheme: getDefaultTheme(),
     // Rides along on the call the app already makes before rendering, so the sign-in
