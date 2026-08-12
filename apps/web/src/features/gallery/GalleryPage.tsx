@@ -894,53 +894,21 @@ export function GalleryPage({
           search={searchText}
           onSearchChange={setSearchText}
           searchPlaceholder="Search photos & videos..."
-          actions={
-            <>
-              <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} compact />
-              <AudiobookHeaderSort
-                value={sort as unknown as SortKey}
-                onChange={(value) => setSort(value as unknown as TimelineSort)}
-                options={SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
-                ariaLabel="Sort timeline"
-                compact
-              />
-              {uploadLibraries.length > 0 && !selectionMode && (
-                <button
-                  type="button"
-                  className="audiobook-page-action-icon"
-                  onClick={() => { setNotice(""); setUploadOpen(true); }}
-                  aria-label="Upload"
-                  title="Upload"
-                >
-                  <UploadCloud size={18} aria-hidden="true" />
-                </button>
-              )}
-              {!selectionMode && slideshow && slideshow.list.length > 1 && (
-                <button
-                  type="button"
-                  className="audiobook-page-action-icon"
-                  onClick={startSlideshow}
-                  aria-label="Play slideshow"
-                  title="Play slideshow"
-                >
-                  <Play size={18} aria-hidden="true" />
-                </button>
-              )}
-              {/* Selection is no longer delete-gated: favoriting and adding to a
-                  collection are for every member. Delete inside the bar still is. */}
-              {!selectionMode && view !== "map" && view !== "people" && view !== "albums" && view !== "slideshows" && (
-                <button
-                  type="button"
-                  className="audiobook-page-action-icon"
-                  onClick={() => { setNotice(""); setSelectionMode(true); }}
-                  aria-label="Select"
-                  title="Select"
-                >
-                  <SquareCheck size={18} aria-hidden="true" />
-                </button>
-              )}
-            </>
-          }
+          // Filter, sort, Play and Select moved down to the library row — they
+          // all act on whatever that row has scoped into view. Upload stays
+          // here: it puts photos into the library rather than choosing among
+          // them, and it is the one action that means the same in every view.
+          actions={uploadLibraries.length > 0 && !selectionMode && (
+            <button
+              type="button"
+              className="audiobook-page-action-icon"
+              onClick={() => { setNotice(""); setUploadOpen(true); }}
+              aria-label="Upload"
+              title="Upload"
+            >
+              <UploadCloud size={18} aria-hidden="true" />
+            </button>
+          )}
           primaryAction={primaryAction}
         />
 
@@ -1066,6 +1034,33 @@ export function GalleryPage({
                       document.body
                     )}
                   </div>
+                )}
+              </div>
+
+              {/* The controls that act on what the library picker beside them has
+                  scoped into view. Same compact squares as the header's — they
+                  keep its actions class and only opt out of its full width. */}
+              <div className="audiobook-page-actions audiobook-main-nav-tools">
+                <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} compact />
+                <AudiobookHeaderSort
+                  value={sort as unknown as SortKey}
+                  onChange={(value) => setSort(value as unknown as TimelineSort)}
+                  options={SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
+                  ariaLabel="Sort timeline"
+                  compact
+                />
+                {/* Selection is no longer delete-gated: favoriting and adding to a
+                    collection are for every member. Delete inside the bar still is. */}
+                {!selectionMode && view !== "map" && view !== "people" && view !== "albums" && view !== "slideshows" && (
+                  <button
+                    type="button"
+                    className="audiobook-page-action-icon"
+                    onClick={() => { setNotice(""); setSelectionMode(true); }}
+                    aria-label="Select"
+                    title="Select"
+                  >
+                    <SquareCheck size={18} aria-hidden="true" />
+                  </button>
                 )}
               </div>
             </div>

@@ -686,22 +686,13 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
           search={cat.search}
           onSearchChange={cat.setSearch}
           searchPlaceholder="Search ebooks..."
-          actions={
-            <>
-              <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} fields={EBOOK_FILTER_FIELDS} compact />
-              <AudiobookHeaderSort value={sort} onChange={setSort} options={EBOOK_SORT_OPTIONS} ariaLabel="Sort ebooks" compact />
-              {uploadLibraries.length > 0 && !selectionMode && (
-                <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setNotice(""); }} aria-label="Upload" title="Upload">
-                  <UploadCloud size={18} aria-hidden="true" />
-                </button>
-              )}
-              {!isMobile && (canEditScope || canDeleteScope) && !selectionMode && (
-                <button type="button" className="audiobook-page-action-icon" onClick={() => { setSelectionMode(true); setNotice(""); }} aria-label="Select" title="Select">
-                  <CheckSquare size={18} aria-hidden="true" />
-                </button>
-              )}
-            </>
-          }
+          // Filter, sort and Select live on the library row below, beside the
+          // scope they narrow. Upload stays here: it adds to the library.
+          actions={uploadLibraries.length > 0 && !selectionMode && (
+            <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setNotice(""); }} aria-label="Upload" title="Upload">
+              <UploadCloud size={18} aria-hidden="true" />
+            </button>
+          )}
         />
 
         {error && <MessageBox tone="error" title="Ebooks error">{error}</MessageBox>}
@@ -817,6 +808,19 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                       document.body
                     )}
                   </div>
+                )}
+              </div>
+
+              {/* The controls that narrow what the library picker beside them
+                  has scoped. Same compact squares as the header's — they keep
+                  its actions class and only opt out of its full width. */}
+              <div className="audiobook-page-actions audiobook-main-nav-tools">
+                <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} fields={EBOOK_FILTER_FIELDS} compact />
+                <AudiobookHeaderSort value={sort} onChange={setSort} options={EBOOK_SORT_OPTIONS} ariaLabel="Sort ebooks" compact />
+                {!isMobile && (canEditScope || canDeleteScope) && !selectionMode && (
+                  <button type="button" className="audiobook-page-action-icon" onClick={() => { setSelectionMode(true); setNotice(""); }} aria-label="Select" title="Select">
+                    <CheckSquare size={18} aria-hidden="true" />
+                  </button>
                 )}
               </div>
             </div>

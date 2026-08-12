@@ -258,13 +258,30 @@
   gap: 18px;
 }
 
+/* The library picker on the left, the controls that narrow it on the right —
+   filter, sort and Select, which used to sit up in the page header two rows
+   away from the scope they act on. Wraps rather than squeezing, so the tools
+   drop under the picker before either has to shrink. */
 .audiobook-main-nav-row {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
   box-shadow: var(--audiobook-soft-shadow);
+}
+
+/* Reuses the header's actions styling for the controls themselves — same
+   compact 44px squares — and only overrides its full-width stretch, since this
+   copy shares its line with the picker. */
+.audiobook-main-nav-tools.audiobook-page-actions {
+  width: auto;
+  flex: 0 0 auto;
+  gap: 8px;
 }
 
 .audiobook-page-tabs {
@@ -1121,8 +1138,10 @@
     gap: 14px;
   }
 
+  /* Still a flex row here — it is .audiobook-page-nav-row too, which stacks into
+     a grid at this width, and this one has its own two-sided layout to keep. */
   .audiobook-main-nav-row {
-    display: block;
+    display: flex;
   }
 
   .audiobook-page-actions .filter-button,
