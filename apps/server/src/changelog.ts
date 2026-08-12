@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.3.0",
+    label: "A menu of its own for each part of the library, and one header on every page",
+    changes: [
+      "Each part of the library keeps its own menu now. Open Audiobooks, Ebooks, the Gallery or the Family Tree and the list down the left becomes that section's: Authors, Series, Narrators and Categories under the book sections; Timeline, Memories, Albums, Slideshows, Folders, People and Map under the Gallery; the chart, everyone in it, and the family names they are grouped under, under the Family Tree. Home stays at the top of every one of them, with Settings and your profile at the foot, so nothing is further away than it was. The rows of tabs these pages used to carry across the top are gone — they said the same thing from a place that was competing with the search box and the filters beside it.",
+      "Every view in the Gallery is a page you can link to. Albums, Slideshows, Folders, People, the Map and Memories each have an address of their own, so one can be bookmarked, opened in a new tab, or sent to someone — and the browser's Back button steps between them the way it does everywhere else, instead of dropping you out of the Gallery altogether. Until now they were all the same address wearing different contents, which is why none of that worked.",
+      "Every browse page wears the same header. The search box used to change size and place depending on which page you were on — large and beside the title on the main Audiobooks and Ebooks pages, small and below it on Authors, Narrators and Series — and the button that creates something turned up in three different spots. It is one arrangement on all of them now: the page's name and count on the left, then search, filters, sort, and last the one Create button. Categories gained a search it never had, and the Gallery's views name themselves at the top of the page rather than all calling themselves Gallery.",
+      "Following a person out of a section and back no longer loses your place in it. Opening an author from the Ebooks list used to drop you into a page wearing the main menu, and coming back left you somewhere subtly different from where you started; the person's page now keeps the section's own menu, and Back returns you to the list you left.",
+      "The Family Tree has a menu of its own for the first time. Its three pages — the chart, everyone in it, and the family names — could already reach one another, but only through links tucked into each page's header with a \"Back to the tree\" above them. They are one list on the left now, and a person's profile and their photos keep it on screen instead of falling back to the main menu."
+    ]
+  },
+  {
     version: "3.2.0",
     label: "Give the movie's opening card your own words and a photo behind them",
     changes: [
