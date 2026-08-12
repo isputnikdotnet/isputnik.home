@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.3.3",
+    label: "A network that blocks the app now says so, instead of looking like a failed sign-in",
+    changes: [
+      "Sign in from an office, school, hotel or airport network and it can fail for a reason that has nothing to do with your password or your server. Those networks run a security gateway that inspects every request, and a home server's domain is usually filed as \"uncategorised\" — which some gateways block outright, answering the browser themselves with their own refusal page. The page still loads, because it comes from the browser's cache, and only the calls to the server are stopped, so the app looked broken and the sign-in looked wrong. It is recognised now: the sign-in screen says the network is blocking it and names the address to allow, and the small pill at the top reads \"Blocked by this network\" rather than \"Server not responding\". Nothing changes on the server — the request never reaches it. The new section at the end of the Exposing your library to the internet guide covers what to do about it, including how to get the domain reclassified.",
+      "A blocked request no longer hides what you have already downloaded. Downloaded books and photos are kept for exactly this, but a gateway's refusal used to read as the server saying no, and the app would show the refusal instead of the copy sitting on the device.",
+      "Every sign-in screen now shows which version it is running, under the panel — the sign-in form, the two-factor step, an invite, and first-run setup. When one device is behaving differently from another, this is the first thing worth comparing, and until now you had to sign in to find it."
+    ]
+  },
+  {
     version: "3.3.2",
     label: "A memory dated a couple of days out no longer goes missing",
     changes: [
