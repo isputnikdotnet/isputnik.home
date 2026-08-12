@@ -1,4 +1,4 @@
-import { RefreshCw, ServerOff, WifiOff } from "lucide-react";
+import { RefreshCw, ServerOff, ShieldAlert, WifiOff } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { useConnectionStatus } from "./useOnlineStatus";
 
@@ -22,12 +22,22 @@ export function PwaNotifications() {
     <>
       {connection !== "online" && (
         <div className="offline-status-banner" role="status" aria-live="polite">
-          {connection === "offline" ? (
+          {connection === "offline" && (
             <>
               <WifiOff size={14} aria-hidden="true" />
               <span>No internet connection</span>
             </>
-          ) : (
+          )}
+          {/* Not the server's doing: something on this network answered in its place.
+              Naming it here is the difference between "the app is broken" and one
+              call to whoever runs the Wi-Fi. */}
+          {connection === "blocked" && (
+            <>
+              <ShieldAlert size={14} aria-hidden="true" />
+              <span>Blocked by this network</span>
+            </>
+          )}
+          {connection === "unreachable" && (
             <>
               <ServerOff size={14} aria-hidden="true" />
               <span>Server not responding</span>

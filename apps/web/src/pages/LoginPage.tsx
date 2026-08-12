@@ -3,10 +3,11 @@ import { QRCodeSVG } from "qrcode.react";
 import { KeyRound } from "lucide-react";
 import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
-import { api, type MfaMethod } from "../api";
+import { api, NETWORK_BLOCK_MESSAGE, type MfaMethod } from "../api";
 import { Shell } from "../app/Shell";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
+import { useConnectionStatus } from "../pwa/useOnlineStatus";
 import { navigate } from "../router";
 
 export function LoginPage({
@@ -31,6 +32,12 @@ export function LoginPage({
   const [notice, setNotice] = useState("");
   const [resending, setResending] = useState(false);
   const [passkeyBusy, setPasskeyBusy] = useState(false);
+
+  // A filtered network is the one sign-in failure with nothing wrong on either end:
+  // the page loads from cache or CDN, then every API call is answered by the proxy.
+  // Without this the screen just says the sign-in failed, and the obvious suspects —
+  // the password, the browser, the server — are all innocent.
+  const blocked = useConnectionStatus() === "blocked";
 
   // Both halves have to hold: the server needs HTTPS at a domain, and the browser
   // needs WebAuthn — which it only exposes in a secure context anyway.
@@ -143,7 +150,11 @@ export function LoginPage({
           )}
           <Field label="Authentication code" value={code} onChange={setCode} autoComplete="one-time-code" />
           {notice && <MessageBox tone="info" title="Code sent">{notice}</MessageBox>}
-          {error && <MessageBox tone="error" title="Unable to verify">{error}</MessageBox>}
+          {blocked ? (
+            <MessageBox tone="warning" title="Blocked by your network">{NETWORK_BLOCK_MESSAGE}</MessageBox>
+          ) : (
+            error && <MessageBox tone="error" title="Unable to verify">{error}</MessageBox>
+          )}
           <button className="primary-button">Verify</button>
           {method === "email" && (
             <button type="button" className="text-button" onClick={resendCode} disabled={resending}>
@@ -181,7 +192,11 @@ export function LoginPage({
           minLength={8}
           autoComplete="current-password"
         />
-        {error && <MessageBox tone="error" title="Unable to sign in">{error}</MessageBox>}
+        {blocked ? (
+          <MessageBox tone="warning" title="Blocked by your network">{NETWORK_BLOCK_MESSAGE}</MessageBox>
+        ) : (
+          error && <MessageBox tone="error" title="Unable to sign in">{error}</MessageBox>
+        )}
         <button className="primary-button">Sign in</button>
 
         <div className="login-qr">

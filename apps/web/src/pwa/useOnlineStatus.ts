@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isBlockedByNetwork } from "../api";
 
 // `navigator.onLine` only reflects whether a network *interface* is up — not
 // whether the server is actually reachable. It routinely lags many seconds (or
@@ -11,14 +12,17 @@ const PROBE_URL = "/api/setup/status"; // public + lightweight + never served fr
 const PROBE_TIMEOUT_MS = 3000;
 const PROBE_INTERVAL_MS = 6000;
 
-async function serverReachable(): Promise<boolean> {
+type ProbeResult = "ok" | "blocked" | "failed";
+
+async function probeServer(): Promise<ProbeResult> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
   try {
     const res = await fetch(PROBE_URL, { cache: "no-store", signal: controller.signal });
-    return res.ok;
+    if (res.ok) return "ok";
+    return isBlockedByNetwork(res) ? "blocked" : "failed";
   } catch {
-    return false; // network error / timeout / abort
+    return "failed"; // network error / timeout / abort
   } finally {
     window.clearTimeout(timer);
   }
@@ -33,7 +37,8 @@ async function serverReachable(): Promise<boolean> {
 export type ConnectionStatus =
   | "online"       // server answered
   | "offline"      // this device has no network (navigator.onLine === false)
-  | "unreachable"; // device is online, but the server isn't answering
+  | "unreachable"  // device is online, but the server isn't answering
+  | "blocked";     // a proxy/filter on this network answered in the server's place
 
 // Consecutive failed probes before declaring the server unreachable. One miss is
 // often just a brief load spike (a scan, a restart); requiring two avoids flapping
@@ -51,9 +56,12 @@ export function useConnectionStatus(): ConnectionStatus {
       // Fast path: the OS already knows we're offline — no point probing (and it
       // avoids a failing request every interval while genuinely disconnected).
       if (!navigator.onLine) { failures = 0; if (alive) setStatus("offline"); return; }
-      const ok = await serverReachable();
+      const result = await probeServer();
       if (!alive) return;
-      if (ok) { failures = 0; setStatus("online"); return; }
+      if (result === "ok") { failures = 0; setStatus("online"); return; }
+      // A gateway block is a definite answer, not a slow one — say so on the first
+      // probe rather than making the user wait out the flap tolerance below.
+      if (result === "blocked") { failures = 0; setStatus("blocked"); return; }
       // Device has a network but the server didn't answer. Tolerate a single miss;
       // only flip to "unreachable" once it fails repeatedly.
       failures += 1;
@@ -84,7 +92,8 @@ export function useConnectionStatus(): ConnectionStatus {
 }
 
 // Boolean convenience for callers that only care whether the server is reachable
-// (e.g. gating offline-only UI). "offline" and "unreachable" both mean "not online".
+// (e.g. gating offline-only UI). "offline", "unreachable" and "blocked" all mean
+// "not online" — whatever the reason, the server's answers aren't arriving.
 export function useOnlineStatus(): boolean {
   return useConnectionStatus() === "online";
 }
