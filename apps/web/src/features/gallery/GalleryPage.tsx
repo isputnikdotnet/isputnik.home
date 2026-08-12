@@ -30,7 +30,7 @@ import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
 import { ShareAlbumModal } from "./ShareAlbumModal";
 import { Modal } from "../../shared/Modal";
-import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
+import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
 import { faceFocusStyle } from "./types";
 
 const PAGE_SIZE = 80;
@@ -85,8 +85,11 @@ function yearsAgo(year: number): string {
 }
 
 // Date heading for one year group in the Memories view — today's month/day
-// projected onto that year, phrased to match the precision tier.
-function memoryDateLabel(precision: GalleryMemories["precision"], year: number): string {
+// projected onto that year, phrased to match the precision tier. Takes the
+// GROUP's precision, not the row's: years widen independently, so a 1990 photo
+// dated two days off says "Around August 11, 1990" while the rest of the row
+// still says the day itself.
+function memoryDateLabel(precision: GalleryMemoryGroup["precision"], year: number): string {
   const now = new Date();
   if (precision === "month") {
     return new Date(year, now.getMonth(), 1).toLocaleDateString(undefined, { year: "numeric", month: "long" });
@@ -215,6 +218,27 @@ export function GalleryPage({
     confirmDeletePerson
   } = useGalleryPeople({ ...status, scopeParams, isAdmin });
 
+  // What the header's one search box means here — and whether it is offered at
+  // all. Timeline and Folders are a stream of photos, so the box searches the
+  // photos themselves (and Folders hands off to the Timeline, where results can
+  // be seen). The three list views are named things, so it filters that list by
+  // name, in memory. Memories is a fixed handful of anniversaries and the Map is
+  // everything at once — neither has anything to search, so neither shows a box.
+  //
+  // A list view with one of its things OPEN is showing that thing's photos, not
+  // the list, so its box goes too until you come back out.
+  const browsingPhotos = view === "timeline" || view === "folder";
+  const browsingNamedList =
+    (view === "albums" && !selectedAlbum)
+    || (view === "slideshows" && !selectedSlideshow)
+    || (view === "people" && !selectedPerson);
+  const hasSearch = browsingPhotos || browsingNamedList;
+  const searchPlaceholder = browsingPhotos
+    ? "Search photos & videos..."
+    : view === "albums" ? "Search albums..."
+      : view === "slideshows" ? "Search slideshows..."
+        : "Search people...";
+
   // The open album's overflow (…) menu. Menu placement stays here with the other
   // popovers and their shared outside-click handling.
   const [albumMenuOpen, setAlbumMenuOpen] = useState(false);
@@ -285,11 +309,15 @@ export function GalleryPage({
 
   useEffect(() => { void loadLibraries(); }, [loadLibraries]);
 
-  // Debounce the search box into the query that hits the API.
+  // Debounce the search box into the query that hits the API — but only where the
+  // box means "search the photos". On the list views the same box is a name
+  // filter applied in memory (see nameTerm below), and letting it reach `query`
+  // would refetch that list on every keystroke, since query is a dependency of
+  // the view loader.
   useEffect(() => {
-    const timer = window.setTimeout(() => setQuery(searchText.trim()), 250);
+    const timer = window.setTimeout(() => setQuery(browsingPhotos ? searchText.trim() : ""), 250);
     return () => window.clearTimeout(timer);
-  }, [searchText]);
+  }, [searchText, browsingPhotos]);
 
   // Searching/filtering is a timeline operation (folder view is structural); either
   // pulls the user into the timeline so results are visible.
@@ -297,11 +325,10 @@ export function GalleryPage({
     if ((query || activeGalleryFilterCount(filters) > 0) && view === "folder") goToView("timeline");
   }, [query, filters, view, goToView]);
 
-  // A term left in the box on the way out of the timeline would describe a filter
-  // no other view applies. The nav items used to clear it on the way through;
-  // they are plain links now, so the arriving view clears it instead.
+  // The box means something different in each view — photos here, album names
+  // there — so a term does not follow you between them. Cleared on every change
+  // of view, including back onto the timeline.
   useEffect(() => {
-    if (view === "timeline") return;
     setSearchText("");
     setQuery("");
   }, [view]);
@@ -834,16 +861,27 @@ export function GalleryPage({
         ? `${formatCount(folderSubtreeTotal)} ${folderSubtreeTotal === 1 ? "item" : "items"} in ${formatCount(folders.length)} ${folders.length === 1 ? "folder" : "folders"}`
         : `${folderCountLabel} here · ${formatCount(folderSubtreeTotal)} with subfolders`;
   const memoriesTotal = memories?.groups.reduce((sum, group) => sum + group.count, 0) ?? 0;
+
+  // The name filter the list views run on the box. Kept apart from `query` — the
+  // debounced term the timeline sends to the server — because these lists are
+  // already in memory and filter as you type.
+  const nameTerm = searchText.trim().toLowerCase();
+  const shownAlbums = nameTerm ? albums.filter((album) => album.name.toLowerCase().includes(nameTerm)) : albums;
+  const shownSlideshows = nameTerm ? slideshows.filter((show) => show.name.toLowerCase().includes(nameTerm)) : slideshows;
+  // An unnamed cluster has name "", so searching by name drops them — which is
+  // the point: you are looking for someone you have named.
+  const shownPeople = nameTerm ? people.filter((person) => person.name.toLowerCase().includes(nameTerm)) : people;
+
   const subtitle = view === "map"
     ? `${formatCount(mapPoints.length)} on the map`
     : view === "people"
-      ? (selectedPerson ? `${formatCount(personTotal)} ${personTotal === 1 ? "photo" : "photos"}` : `${formatCount(people.length)} ${people.length === 1 ? "person" : "people"}`)
+      ? (selectedPerson ? `${formatCount(personTotal)} ${personTotal === 1 ? "photo" : "photos"}` : `${formatCount(shownPeople.length)} ${shownPeople.length === 1 ? "person" : "people"}`)
       : view === "memories"
         ? `${formatCount(memoriesTotal)} ${memoriesTotal === 1 ? "photo" : "photos"} from past years`
         : view === "albums"
-          ? (selectedAlbum ? `${formatCount(albumTotal)} ${albumTotal === 1 ? "item" : "items"}` : `${formatCount(albums.length)} ${albums.length === 1 ? "album" : "albums"}`)
+          ? (selectedAlbum ? `${formatCount(albumTotal)} ${albumTotal === 1 ? "item" : "items"}` : `${formatCount(shownAlbums.length)} ${shownAlbums.length === 1 ? "album" : "albums"}`)
           : view === "slideshows"
-            ? (selectedSlideshow ? `${formatCount(slideshowTotal)} ${slideshowTotal === 1 ? "photo" : "photos"}` : `${formatCount(slideshows.length)} ${slideshows.length === 1 ? "slideshow" : "slideshows"}`)
+            ? (selectedSlideshow ? `${formatCount(slideshowTotal)} ${slideshowTotal === 1 ? "photo" : "photos"}` : `${formatCount(shownSlideshows.length)} ${shownSlideshows.length === 1 ? "slideshow" : "slideshows"}`)
           : view === "timeline"
             ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
             : folderSubtitle;
@@ -892,8 +930,8 @@ export function GalleryPage({
           title={VIEW_TITLES[view]}
           subtitle={subtitle}
           search={searchText}
-          onSearchChange={setSearchText}
-          searchPlaceholder="Search photos & videos..."
+          onSearchChange={hasSearch ? setSearchText : undefined}
+          searchPlaceholder={searchPlaceholder}
           // Filter, sort, Play and Select moved down to the library row — they
           // all act on whatever that row has scoped into view. Upload stays
           // here: it puts photos into the library rather than choosing among
@@ -1041,14 +1079,23 @@ export function GalleryPage({
                   scoped into view. Same compact squares as the header's — they
                   keep its actions class and only opt out of its full width. */}
               <div className="audiobook-page-actions audiobook-main-nav-tools">
-                <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} compact />
-                <AudiobookHeaderSort
-                  value={sort as unknown as SortKey}
-                  onChange={(value) => setSort(value as unknown as TimelineSort)}
-                  options={SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
-                  ariaLabel="Sort timeline"
-                  compact
-                />
+                {/* Filter and sort describe a set of photos — the people, camera,
+                    year and place a shot was taken, and the order to show them
+                    in. Only the two views that ARE a set of photos can answer
+                    that, so the other five don't offer controls that would sit
+                    there doing nothing. */}
+                {browsingPhotos && (
+                  <>
+                    <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} compact />
+                    <AudiobookHeaderSort
+                      value={sort as unknown as SortKey}
+                      onChange={(value) => setSort(value as unknown as TimelineSort)}
+                      options={SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
+                      ariaLabel="Sort timeline"
+                      compact
+                    />
+                  </>
+                )}
                 {/* Selection is no longer delete-gated: favoriting and adding to a
                     collection are for every member. Delete inside the bar still is. */}
                 {!selectionMode && view !== "map" && view !== "people" && view !== "albums" && view !== "slideshows" && (
@@ -1349,8 +1396,9 @@ export function GalleryPage({
                     // Keep named people and multi-photo groups up front; tuck unnamed
                     // single-photo groups into a collapsible "Small groups" section so a
                     // long tail of singletons doesn't bury the people that matter.
-                    const main = people.filter((p) => p.name || p.faceCount > 1);
-                    const small = people.filter((p) => !p.name && p.faceCount <= 1);
+                    // Off shownPeople, so the search box narrows both sections.
+                    const main = shownPeople.filter((p) => p.name || p.faceCount > 1);
+                    const small = shownPeople.filter((p) => !p.name && p.faceCount <= 1);
                     const card = (person: GalleryPerson) => (
                       <button key={person.id} type="button" className="gallery-person-card" onClick={() => void openPerson(person)}>
                         <span className="gallery-person-avatar">
@@ -1386,6 +1434,13 @@ export function GalleryPage({
                       </>
                     );
                   })()}
+                  {!loading && shownPeople.length === 0 && nameTerm && (
+                    <div className="empty-state library-empty">
+                      <Users size={48} aria-hidden="true" />
+                      <h2>No one matches</h2>
+                      <p className="muted">Unnamed groups have no name to search — clear the box to see them again.</p>
+                    </div>
+                  )}
                   {!loading && people.length === 0 && (
                     <div className="empty-state library-empty">
                       <Users size={48} aria-hidden="true" />
@@ -1553,9 +1608,9 @@ export function GalleryPage({
                     </span>
                   </div>
 
-                  {albums.length > 0 && (
+                  {shownAlbums.length > 0 && (
                     <div className="gallery-folder-grid">
-                      {albums.map((album) => (
+                      {shownAlbums.map((album) => (
                         <button key={album.id} type="button" className="gallery-folder-tile" onClick={() => { setAlbumAssets([]); setAlbumTotal(0); void openAlbum(album.id); }}>
                           <span className="gallery-folder-thumb">
                             {album.coverUrl ? <img src={album.coverUrl} alt="" loading="lazy" /> : <Album size={28} aria-hidden="true" />}
@@ -1564,6 +1619,12 @@ export function GalleryPage({
                           <small>{album.itemCount.toLocaleString()} {album.itemCount === 1 ? "item" : "items"}</small>
                         </button>
                       ))}
+                    </div>
+                  )}
+                  {!loading && albums.length > 0 && shownAlbums.length === 0 && (
+                    <div className="empty-state library-empty">
+                      <Album size={48} aria-hidden="true" />
+                      <h2>No albums match</h2>
                     </div>
                   )}
                   {!loading && albums.length === 0 && (
@@ -1672,9 +1733,9 @@ export function GalleryPage({
                     )}
                   </div>
 
-                  {slideshows.length > 0 && (
+                  {shownSlideshows.length > 0 && (
                     <div className="gallery-folder-grid">
-                      {slideshows.map((slideshow) => (
+                      {shownSlideshows.map((slideshow) => (
                         <button key={slideshow.id} type="button" className="gallery-folder-tile" onClick={() => { setSlideshowAssets([]); setSlideshowTotal(0); void openSlideshow(slideshow.id); }}>
                           <span className="gallery-folder-thumb">
                             {slideshow.coverUrl ? <img src={slideshow.coverUrl} alt="" loading="lazy" /> : <Film size={28} aria-hidden="true" />}
@@ -1688,7 +1749,10 @@ export function GalleryPage({
                     </div>
                   )}
 
-                  {memorySuggestions.length > 0 && (
+                  {/* Suggestions are slideshows you don't have yet, so they are
+                      not something a search of your own can match — they step
+                      aside while the box has a term in it. */}
+                  {memorySuggestions.length > 0 && !nameTerm && (
                     <section className="gallery-memory-suggestions" aria-label="Suggested slideshows">
                       <div className="gallery-memory-suggestions-head">
                         <h2>Suggested slideshows</h2>
@@ -1724,6 +1788,12 @@ export function GalleryPage({
                     </section>
                   )}
 
+                  {!loading && slideshows.length > 0 && shownSlideshows.length === 0 && (
+                    <div className="empty-state library-empty">
+                      <Film size={48} aria-hidden="true" />
+                      <h2>No slideshows match</h2>
+                    </div>
+                  )}
                   {!loading && slideshows.length === 0 && memorySuggestions.length === 0 && (
                     <div className="empty-state library-empty">
                       <Film size={48} aria-hidden="true" />
@@ -1755,7 +1825,7 @@ export function GalleryPage({
                             onClick={() => toggleDaySelect(ids)}
                             role="checkbox"
                             aria-checked={allSelected}
-                            aria-label={`Select all from ${memoryDateLabel(memories!.precision, group.year)}`}
+                            aria-label={`Select all from ${memoryDateLabel(group.precision, group.year)}`}
                             title={allSelected ? "Deselect these photos" : "Select these photos"}
                           >
                             {allSelected ? <CheckCircle2 size={18} /> : <Circle size={18} />}
@@ -1765,13 +1835,13 @@ export function GalleryPage({
                               type="button"
                               className="gallery-day-share"
                               onClick={() => setShareIds(ids)}
-                              aria-label={`Share photos from ${memoryDateLabel(memories!.precision, group.year)}`}
+                              aria-label={`Share photos from ${memoryDateLabel(group.precision, group.year)}`}
                               title="Share these photos"
                             >
                               Share
                             </button>
                           )}
-                          <h2>{memoryDateLabel(memories!.precision, group.year)}</h2>
+                          <h2>{memoryDateLabel(group.precision, group.year)}</h2>
                           <small>{yearsAgo(group.year)} · {group.count} {group.count === 1 ? "photo" : "photos"}</small>
                         </div>
                         <div className="gallery-grid">
