@@ -57,6 +57,10 @@ export function faceFocusStyle(asset: { faceFocus?: { x: number; y: number } | n
 export interface GalleryMemoryGroup {
   year: number;
   count: number;
+  /** How far THIS year had to widen to match — a year whose photos are dated a
+   *  day or two off still joins the row, and says so rather than claiming the
+   *  date the others share. */
+  precision: "day" | "near" | "month";
   items: GalleryAsset[];
 }
 

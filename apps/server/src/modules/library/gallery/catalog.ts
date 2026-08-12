@@ -483,15 +483,29 @@ export function galleryFacets(libIds: string[]) {
 }
 
 // Memories ("On this day"): past-year assets whose taken_at matches today's
-// month/day, grouped by year (newest year first). The match widens until it finds
-// something — exact day → ±3 days → same month — so the row is only empty when no
-// past-year asset is dated at all in this month. `precision` reports which tier
-// matched so the UI can label the row honestly. Assets without taken_at never
+// month/day, grouped by year (newest year first). Assets without taken_at never
 // match (substr on NULL yields NULL); the current year is excluded — today's
 // photos are not memories yet.
+//
+// Widening is decided PER YEAR, not once for the whole row. It used to be three
+// tiers tried in order — exact day, ±3 days, whole month — returning on the first
+// that produced any row at all, which quietly lost a year whose photos were dated
+// a day or two off whenever some other year matched exactly: tier one succeeded,
+// so the ±3-day tier that would have caught it never ran. A scanned photo dated
+// from its negative's sleeve rather than its EXIF is exactly that case, and those
+// are the oldest photos in a library — the ones most worth surfacing.
+//
+// So the day and ±3-day tiers are now one pass, and each year takes the narrowest
+// of the two it has anything in. Each group reports its own `precision` so a year
+// that had to widen can say so; the top-level one is the narrowest across the
+// groups, which is what titles the row. The whole-month tier stays a fallback for
+// the whole row, since a month-wide match is a different proposition from an
+// anniversary and is only worth offering when there is no anniversary at all.
 export interface GalleryMemoryGroup {
   year: number;
   count: number;
+  /** How far this year's match had to widen: exactly today, or within ±3 days. */
+  precision: GalleryMemoriesPrecision;
   items: ReturnType<typeof mapAsset>[];
 }
 
@@ -508,47 +522,94 @@ function monthDayWindow(today: string, span: number): string[] {
   return out;
 }
 
+type MemoryRow = AssetRow & { mem_year: string; mem_count: number; mem_exact: number };
+
 export function queryGalleryMemories(userId: string, libIds: string[], today: string, perYear: number): {
   precision: GalleryMemoriesPrecision;
   groups: GalleryMemoryGroup[];
 } {
   if (libIds.length === 0) return { precision: "day", groups: [] };
-  const tiers: { precision: GalleryMemoriesPrecision; clause: string; args: string[] }[] = [
-    { precision: "day", clause: "substr(gallery_details.taken_at, 6, 5) = ?", args: [today.slice(5, 10)] },
-    { precision: "near", clause: `substr(gallery_details.taken_at, 6, 5) IN (${inClause(7)})`, args: monthDayWindow(today, 3) },
-    { precision: "month", clause: "substr(gallery_details.taken_at, 6, 2) = ?", args: [today.slice(5, 7)] }
-  ];
-  for (const tier of tiers) {
-    // Per-year count + the first `perYear` items in one pass: window functions
-    // partitioned on the year prefix of taken_at, then a rank cut.
-    const rows = db.prepare(`
-      WITH matched AS (
-        SELECT ${ASSET_COLUMNS},
-          substr(gallery_details.taken_at, 1, 4) AS mem_year,
-          ROW_NUMBER() OVER (
-            PARTITION BY substr(gallery_details.taken_at, 1, 4)
-            ORDER BY datetime(gallery_details.taken_at), library_items.id
-          ) AS mem_rank,
-          COUNT(*) OVER (PARTITION BY substr(gallery_details.taken_at, 1, 4)) AS mem_count
-        ${ASSET_JOINS}
-        WHERE library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
-          AND substr(gallery_details.taken_at, 1, 4) < ?
-          AND ${tier.clause}
-      )
-      SELECT * FROM matched WHERE mem_rank <= ? ORDER BY mem_year DESC, mem_rank
-    `).all(userId, ...libIds, today.slice(0, 4), ...tier.args, perYear) as (AssetRow & { mem_year: string; mem_count: number })[];
-    if (rows.length === 0) continue;
+  const libIn = inClause(libIds.length);
+  const exactDay = today.slice(5, 10);
 
+  // Day and ±3 days in one pass. Ranking and counting partition on (year, exact)
+  // so each year carries a usable count for whichever of the two it ends up
+  // shown at, and the ordering puts a year's exact rows ahead of its near ones
+  // so the grouping below can simply take the first kind it sees.
+  const nearRows = db.prepare(`
+    WITH matched AS (
+      SELECT ${ASSET_COLUMNS},
+        substr(gallery_details.taken_at, 1, 4) AS mem_year,
+        CASE WHEN substr(gallery_details.taken_at, 6, 5) = ? THEN 1 ELSE 0 END AS mem_exact
+      ${ASSET_JOINS}
+      WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
+        AND substr(gallery_details.taken_at, 1, 4) < ?
+        AND substr(gallery_details.taken_at, 6, 5) IN (${inClause(7)})
+    ),
+    ranked AS (
+      SELECT *,
+        ROW_NUMBER() OVER (PARTITION BY mem_year, mem_exact ORDER BY datetime(taken_at), id) AS mem_rank,
+        COUNT(*) OVER (PARTITION BY mem_year, mem_exact) AS mem_count
+      FROM matched
+    )
+    SELECT * FROM ranked WHERE mem_rank <= ? ORDER BY mem_year DESC, mem_exact DESC, mem_rank
+  `).all(exactDay, userId, ...libIds, today.slice(0, 4), ...monthDayWindow(today, 3), perYear) as MemoryRow[];
+
+  if (nearRows.length > 0) {
     const groups: GalleryMemoryGroup[] = [];
-    for (const row of rows) {
+    const byYear = new Map<number, GalleryMemoryGroup>();
+    for (const row of nearRows) {
       const year = Number.parseInt(row.mem_year, 10);
-      const last = groups[groups.length - 1];
-      if (last && last.year === year) last.items.push(mapAsset(row));
-      else groups.push({ year, count: row.mem_count, items: [mapAsset(row)] });
+      const group = byYear.get(year);
+      if (!group) {
+        const fresh: GalleryMemoryGroup = {
+          year,
+          count: row.mem_count,
+          precision: row.mem_exact ? "day" : "near",
+          items: [mapAsset(row)]
+        };
+        byYear.set(year, fresh);
+        groups.push(fresh);
+        continue;
+      }
+      // Exact rows come first within a year, so a year that has any is already a
+      // "day" group and its looser neighbours are not part of the anniversary.
+      if (group.precision === "day" && !row.mem_exact) continue;
+      group.items.push(mapAsset(row));
     }
-    return { precision: tier.precision, groups };
+    // The row is titled by the best match in it: one year being a couple of days
+    // out does not stop the others from being on this day.
+    const precision = groups.some((group) => group.precision === "day") ? "day" : "near";
+    return { precision, groups };
   }
-  return { precision: "day", groups: [] };
+
+  // Nothing anywhere near today — offer the month instead, all years alike.
+  const monthRows = db.prepare(`
+    WITH matched AS (
+      SELECT ${ASSET_COLUMNS},
+        substr(gallery_details.taken_at, 1, 4) AS mem_year,
+        ROW_NUMBER() OVER (
+          PARTITION BY substr(gallery_details.taken_at, 1, 4)
+          ORDER BY datetime(gallery_details.taken_at), library_items.id
+        ) AS mem_rank,
+        COUNT(*) OVER (PARTITION BY substr(gallery_details.taken_at, 1, 4)) AS mem_count
+      ${ASSET_JOINS}
+      WHERE library_items.library_id IN (${libIn}) AND library_items.deleted_at IS NULL
+        AND substr(gallery_details.taken_at, 1, 4) < ?
+        AND substr(gallery_details.taken_at, 6, 2) = ?
+    )
+    SELECT * FROM matched WHERE mem_rank <= ? ORDER BY mem_year DESC, mem_rank
+  `).all(userId, ...libIds, today.slice(0, 4), today.slice(5, 7), perYear) as (AssetRow & { mem_year: string; mem_count: number })[];
+  if (monthRows.length === 0) return { precision: "day", groups: [] };
+
+  const groups: GalleryMemoryGroup[] = [];
+  for (const row of monthRows) {
+    const year = Number.parseInt(row.mem_year, 10);
+    const last = groups[groups.length - 1];
+    if (last && last.year === year) last.items.push(mapAsset(row));
+    else groups.push({ year, count: row.mem_count, precision: "month", items: [mapAsset(row)] });
+  }
+  return { precision: "month", groups };
 }
 
 interface MapPointRow {
