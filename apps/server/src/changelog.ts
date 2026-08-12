@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.3.2",
+    label: "A memory dated a couple of days out no longer goes missing",
+    changes: [
+      "Memories stops losing a year because its photos are dated a day or two off. It looked for photos taken on exactly today's date, and only if it found none in any year at all would it widen to within three days — so a single year matching the date exactly was enough to stop every other year from ever being looked for. The photos that suffer are the old ones: a scan carries the date written on the sleeve, or the day it was scanned, rather than the moment the shutter went. Every year is now judged on its own. A year with photos on the day shows those; a year that is merely close shows those and says \"Around August 11\" rather than claiming the day itself, and the row is still titled by its best match. On one library this turned an August 11 that had been showing 16 photos from a single year into 32 from three.",
+      "The Gallery's search box now appears only where it searches something. It sat on all seven views but worked on just the Timeline and Folders, so on Albums, Slideshows, People, Memories and the Map it quietly swallowed whatever you typed. It is gone from Memories and the Map, which have nothing to search, and on Albums, Slideshows and People it now filters that list by name as you type. Filter and Sort follow the same rule and appear only where there are photos for them to narrow. What you type no longer follows you from one view to the next, because the same box means a different thing in each."
+    ]
+  },
+  {
     version: "3.3.1",
     label: "Filter and sort moved down beside the library they narrow",
     changes: [
