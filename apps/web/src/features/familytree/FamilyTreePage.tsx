@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileUp, Search, Settings, UserRoundPlus, UsersRound } from "lucide-react";
+import { FileUp, Search, Settings, UserRoundPlus } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, navigate } from "../../router";
+import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { MessageBox } from "../../shared/MessageBox";
+import { SectionNav } from "../../shared/SectionNav";
+import { familyNavProps } from "./sectionNavItems";
 import { AddRelativeModal } from "./AddRelativeModal";
 import { defaultFocusId } from "./chart-layout";
 import { FamilyTreeChart } from "./FamilyTreeChart";
@@ -81,76 +84,69 @@ export function FamilyTreePage({
   const canAdd = tree?.access.canAdd ?? false;
 
   return (
-    <DashboardShell active="family" user={user} logout={logout}>
+    <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("chart")} />}>
       <section className="ft-tree-page">
-        <header className="ft-tree-header">
-          <div className="audiobook-page-title">
-            <h1>Family Tree</h1>
-            {tree && tree.persons.length > 0 && (
-              <p className="ft-tree-count">
-                <UsersRound size={17} aria-hidden="true" />
-                {tree.persons.length} {tree.persons.length === 1 ? "person" : "people"}
-              </p>
-            )}
-          </div>
-          <div className="ft-tree-header-actions">
-            <div className="ft-tree-search" ref={searchRef}>
-              <label className="ft-picker-search">
-                <Search size={17} aria-hidden="true" />
-                <span className="sr-only">Find a person</span>
-                <input
-                  type="search"
-                  value={search}
-                  placeholder="Find a person…"
-                  onChange={(event) => { setSearch(event.target.value); setSearchOpen(true); }}
-                  onFocus={() => setSearchOpen(true)}
-                />
-              </label>
-              {searchOpen && matches.length > 0 && (
-                <div className="ft-tree-search-results">
-                  {matches.map((person) => (
-                    <button key={person.id} type="button" className="ft-picker-row" onClick={() => jumpTo(person)}>
-                      <PersonAvatar person={person} size={30} />
-                      <span className="ft-picker-row-name">
-                        <strong>{person.name}</strong>
-                        {lifeYears(person) && <small>{lifeYears(person)}</small>}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {tree && tree.persons.length === 0 && (
-              <>
-                <a
-                  className="secondary-button compact-button ft-tree-header-link"
-                  href="/family/people"
-                  onClick={(event) => followRoute(event, "/family/people")}
+        {/* The standard page header, with the section's own search passed through
+            the actions slot rather than the search one: on the chart, finding
+            someone means re-centring the tree on them, not narrowing a grid, so
+            it is a typeahead with a results dropdown hanging off it.
+
+            Add person and Settings show here only while the tree is empty. Once
+            there is a chart they live on ITS toolbar, beside Home, Import and
+            Export — offering them in both places would be two of each. */}
+        <LibraryPageHeader
+          title="Family Tree"
+          subtitle={tree && tree.persons.length > 0
+            ? `${tree.persons.length} ${tree.persons.length === 1 ? "person" : "people"}`
+            : undefined}
+          actions={
+            <>
+              <div className="ft-tree-search" ref={searchRef}>
+                <label className="ft-picker-search">
+                  <Search size={17} aria-hidden="true" />
+                  <span className="sr-only">Find a person</span>
+                  <input
+                    type="search"
+                    value={search}
+                    placeholder="Find a person…"
+                    onChange={(event) => { setSearch(event.target.value); setSearchOpen(true); }}
+                    onFocus={() => setSearchOpen(true)}
+                  />
+                </label>
+                {searchOpen && matches.length > 0 && (
+                  <div className="ft-tree-search-results">
+                    {matches.map((person) => (
+                      <button key={person.id} type="button" className="ft-picker-row" onClick={() => jumpTo(person)}>
+                        <PersonAvatar person={person} size={30} />
+                        <span className="ft-picker-row-name">
+                          <strong>{person.name}</strong>
+                          {lifeYears(person) && <small>{lifeYears(person)}</small>}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {isAdmin && tree && tree.persons.length === 0 && (
+                <Button
+                  variant="icon"
+                  className="audiobook-page-action-icon"
+                  aria-label="Family tree settings"
+                  title="Family tree settings"
+                  onClick={() => setSettingsOpen(true)}
                 >
-                  <UsersRound size={16} aria-hidden="true" />
-                  <span>All people</span>
-                </a>
-                {isAdmin && (
-                  <Button
-                    variant="icon"
-                    className="ft-tree-header-icon"
-                    aria-label="Family tree settings"
-                    title="Family tree settings"
-                    onClick={() => setSettingsOpen(true)}
-                  >
-                    <Settings size={17} aria-hidden="true" />
-                  </Button>
-                )}
-                {canAdd && (
-                  <Button variant="primary" compact className="ft-tree-header-link" onClick={() => setAddOpen(true)}>
-                    <UserRoundPlus size={16} aria-hidden="true" />
-                    <span>Add person</span>
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-        </header>
+                  <Settings size={18} aria-hidden="true" />
+                </Button>
+              )}
+            </>
+          }
+          primaryAction={canAdd && tree && tree.persons.length === 0 && (
+            <Button variant="primary" onClick={() => setAddOpen(true)}>
+              <UserRoundPlus size={16} aria-hidden="true" />
+              <span>Add person</span>
+            </Button>
+          )}
+        />
 
         {error && <MessageBox tone="error" title="Unable to load the tree">{error}</MessageBox>}
 

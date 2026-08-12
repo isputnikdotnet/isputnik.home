@@ -4,7 +4,10 @@ import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute } from "../../router";
 import { Button } from "../../shared/Button";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { MessageBox } from "../../shared/MessageBox";
+import { SectionNav } from "../../shared/SectionNav";
+import { familyNavProps } from "./sectionNavItems";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { FamilyPersonProfile, FamilyPhoto } from "./types";
 import { faceFocusStyle } from "../gallery/types";
@@ -55,7 +58,7 @@ export function FamilyPersonPhotosPage({
   const back = `/family/people/${id}`;
 
   return (
-    <DashboardShell active="family" user={user} logout={logout}>
+    <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
       <section className="audiobook-main-page">
         <div className="book-detail-topbar">
           <a className="audiobook-back-button" href={back} onClick={(event) => followRoute(event, back)}>
@@ -64,10 +67,10 @@ export function FamilyPersonPhotosPage({
           </a>
         </div>
 
-        <div className="audiobook-page-title">
-          <h1>{person ? `Photos of ${person.name}` : "Photos"}</h1>
-          {total > 0 && <p className="ft-tree-count">{total} {total === 1 ? "photo" : "photos"}</p>}
-        </div>
+        <LibraryPageHeader
+          title={person ? `Photos of ${person.name}` : "Photos"}
+          subtitle={total > 0 ? `${total} ${total === 1 ? "photo" : "photos"}` : undefined}
+        />
 
         {error && <MessageBox tone="error" title="Unable to load photos">{error}</MessageBox>}
 

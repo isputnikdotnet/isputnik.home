@@ -1,18 +1,17 @@
 import { Home } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { MouseEvent } from "react";
 import { followRoute } from "../router";
 
+// Every item is a link to a real address, with no escape hatch for one that
+// isn't. Gallery's views were local state and were listed here behind an
+// onClick that swallowed the click; a nav that looks like links but isn't
+// breaks new-tab, middle-click and the browser's Back button, so the views
+// became routes (GALLERY_VIEW_PATHS) instead of the nav learning to lie.
 export interface SectionNavItem {
   key: string;
   label: string;
   href: string;
   icon: LucideIcon;
-  // A handful of sections (Gallery's Timeline/Albums/…) are views toggled by
-  // local state rather than separate routes — same as their existing tab rows,
-  // which already preventDefault() and flip state instead of navigating. When
-  // omitted, the link just follows `href` like every other section's items do.
-  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }
 
 // The contextual left nav a media section (Gallery, Ebooks, Audiobooks, Family
@@ -55,7 +54,7 @@ function SectionNavLink({ item, active }: { item: SectionNavItem; active: boolea
       className={`home-nav-link${active ? " is-active" : ""}`}
       href={item.href}
       aria-current={active ? "page" : undefined}
-      onClick={(event) => (item.onClick ? item.onClick(event) : followRoute(event, item.href))}
+      onClick={(event) => followRoute(event, item.href)}
     >
       <Icon size={21} aria-hidden="true" />
       <span>{item.label}</span>

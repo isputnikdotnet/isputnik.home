@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Search, UserPlus, UserRound } from "lucide-react";
+import { UserPlus, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SectionNav } from "../../shared/SectionNav";
-import { AUDIOBOOK_NAV_ITEMS } from "./sectionNavItems";
+import { bookSectionNav, sectionNavProps } from "./sectionNavItems";
 import type { AudiobookBook, AudiobookLibrary } from "./types";
 
 // Narrators are an audiobook-only credit, so this list stays per-section (unlike
@@ -94,41 +95,24 @@ export function NarratorListPage({
       active="audiobooks"
       user={user}
       logout={logout}
-      sideNav={<SectionNav ariaLabel="Audiobooks" groupLabel="Audiobooks" items={AUDIOBOOK_NAV_ITEMS} activeKey="narrators" />}
+      sideNav={<SectionNav {...sectionNavProps(bookSectionNav("audiobook"))} activeKey="narrators" />}
     >
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate("/audiobooks")}>
-          <ArrowLeft size={18} aria-hidden="true" />
-          <span>Back to audiobooks</span>
-        </button>
-
-        <div className="audiobook-page-title">
-          <h1>Narrators</h1>
-          <p>{filtered.length} {filtered.length === 1 ? "narrator" : "narrators"}</p>
-        </div>
+        <LibraryPageHeader
+          title="Narrators"
+          subtitle={`${filtered.length} ${filtered.length === 1 ? "narrator" : "narrators"}`}
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search narrators..."
+          primaryAction={canCreate && (
+            <Button variant="primary" onClick={openCreate}>
+              <UserPlus size={16} aria-hidden="true" />
+              <span>New narrator</span>
+            </Button>
+          )}
+        />
 
         {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
-
-        {libraries.length > 0 && (
-          <div className="audiobook-toolbar">
-            <label className="search-field">
-              <Search size={17} aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search narrators"
-                aria-label="Search narrators"
-              />
-            </label>
-            {canCreate && (
-              <Button variant="primary" onClick={openCreate}>
-                <UserPlus size={16} />
-                <span>New narrator</span>
-              </Button>
-            )}
-          </div>
-        )}
 
         {libraries.length === 0 ? (
           <div className="empty-state library-empty">

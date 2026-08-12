@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { ArrowDownUp, BookOpen, Check, CheckCheck, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, LibraryBig, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
@@ -22,6 +22,7 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { FileUpload } from "../../shared/FileUpload";
 import { formatDuration } from "../../shared/utils";
 import { Field } from "../../shared/Field";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import type { AudiobookBook, AudiobookBookDetail, AudiobookLibrary, CategorySummary, SeriesSummary } from "./types";
 
 
@@ -29,48 +30,6 @@ type AudiobookViewMode = "grid" | "list";
 
 export function formatCount(value: number) {
   return new Intl.NumberFormat().format(value);
-}
-
-export function AudiobookPageHeader({
-  title,
-  subtitle,
-  search,
-  onSearchChange,
-  searchPlaceholder,
-  actions
-}: {
-  title: string;
-  subtitle?: string;
-  search?: string;
-  onSearchChange?: (value: string) => void;
-  searchPlaceholder?: string;
-  actions?: ReactNode;
-}) {
-  return (
-    <header className="audiobook-page-header">
-      <div className="audiobook-page-title">
-        <h1>{title}</h1>
-        {subtitle && <p>{subtitle}</p>}
-      </div>
-      {(onSearchChange || actions) && (
-        <div className="audiobook-page-actions">
-          {onSearchChange && (
-            <label className="audiobook-page-search">
-              <span className="sr-only">{searchPlaceholder ?? "Search audiobooks"}</span>
-              <Search size={22} aria-hidden="true" />
-              <input
-                type="search"
-                value={search ?? ""}
-                onChange={(event) => onSearchChange(event.target.value)}
-                placeholder={searchPlaceholder ?? "Search audiobooks..."}
-              />
-            </label>
-          )}
-          {actions}
-        </div>
-      )}
-    </header>
-  );
 }
 
 export function AudiobookHeaderSort({
@@ -1288,7 +1247,7 @@ export function AudiobooksPage({
       sideNav={<SectionNav ariaLabel="Audiobooks" groupLabel="Audiobooks" items={AUDIOBOOK_NAV_ITEMS} activeKey="books" />}
     >
       <section className="audiobook-main-page">
-        <AudiobookPageHeader
+        <LibraryPageHeader
           title="Audiobooks"
           subtitle={`${formatCount(cat.total)} audiobooks • ${formatCount(cat.facets.authors.length)} authors • ${formatCount(cat.facets.narrators.length)} narrators`}
           search={cat.search}

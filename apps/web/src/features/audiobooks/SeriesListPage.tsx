@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, BookOpen, Plus, Search, X } from "lucide-react";
+import { BookOpen, Plus } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { SectionNav } from "../../shared/SectionNav";
-import { AUDIOBOOK_NAV_ITEMS, EBOOK_NAV_ITEMS } from "./sectionNavItems";
+import { bookSectionNav, sectionNavProps } from "./sectionNavItems";
 import type { AudiobookLibrary, SeriesSummary } from "./types";
 
 export function SeriesListPage({
@@ -84,48 +85,24 @@ export function SeriesListPage({
       active={kind === "ebook" ? "ebooks" : "audiobooks"}
       user={user}
       logout={logout}
-      sideNav={
-        <SectionNav
-          ariaLabel={kind === "ebook" ? "Ebooks" : "Audiobooks"}
-          groupLabel={kind === "ebook" ? "Ebooks" : "Audiobooks"}
-          items={kind === "ebook" ? EBOOK_NAV_ITEMS : AUDIOBOOK_NAV_ITEMS}
-          activeKey="series"
-        />
-      }
+      sideNav={<SectionNav {...sectionNavProps(bookSectionNav(kind))} activeKey="series" />}
     >
       <section className="audiobook-main-page">
-        <button className="audiobook-back-button" type="button" onClick={() => navigate(base)}>
-          <ArrowLeft size={18} aria-hidden="true" />
-          <span>Back to {mediaLabel}</span>
-        </button>
-
-        <div className="section-head">
-          <div className="audiobook-page-title">
-            <h1>Series</h1>
-            <p>{filteredSeries.length} series</p>
-          </div>
-          <button className="primary-button" onClick={openModal}>
-            <Plus size={16} />
-            <span>New Series</span>
-          </button>
-        </div>
+        <LibraryPageHeader
+          title="Series"
+          subtitle={`${filteredSeries.length} series`}
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search series..."
+          primaryAction={
+            <Button variant="primary" onClick={openModal}>
+              <Plus size={16} aria-hidden="true" />
+              <span>New series</span>
+            </Button>
+          }
+        />
 
         {error && <MessageBox tone="error" title="Series error">{error}</MessageBox>}
-
-        {allSeries.length > 0 && (
-          <div className="audiobook-toolbar">
-            <label className="search-field">
-              <Search size={17} aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search series"
-                aria-label="Search series"
-              />
-            </label>
-          </div>
-        )}
 
         {allSeries.length === 0 && !error ? (
           <div className="empty-state library-empty">

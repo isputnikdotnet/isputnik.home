@@ -386,15 +386,11 @@ export function App() {
     }
 
     if (route.name === "gallery") {
-      return <GalleryPage user={session.user} logout={logout} />;
-    }
-
-    if (route.name === "galleryMemories") {
-      return <GalleryPage user={session.user} logout={logout} initialView="memories" />;
+      return <GalleryPage user={session.user} logout={logout} view={route.view} />;
     }
 
     if (route.name === "galleryAsset") {
-      return <GalleryPage user={session.user} logout={logout} initialAssetId={route.id} />;
+      return <GalleryPage user={session.user} logout={logout} view="timeline" initialAssetId={route.id} />;
     }
 
     if (route.name === "galleryFolder") {
@@ -402,6 +398,7 @@ export function App() {
         <GalleryPage
           user={session.user}
           logout={logout}
+          view="folder"
           initialFolder={route.folder}
           initialLibraryId={route.libraryId}
         />

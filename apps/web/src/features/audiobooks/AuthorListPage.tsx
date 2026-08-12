@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Headphones, LibraryBig, Search, SortAsc, UserRound } from "lucide-react";
+import { BookOpen, Headphones, LibraryBig, SortAsc, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { MessageBox } from "../../shared/MessageBox";
 import { SectionNav } from "../../shared/SectionNav";
 import { SelectMenu } from "../../shared/SelectMenu";
-import { AudiobookPageHeader } from "./AudiobooksPage";
-import { sectionFromQuery } from "./sectionNavItems";
+import { sectionFromQuery, sectionNavProps } from "./sectionNavItems";
 
 type KindFilter = "all" | "audiobook" | "ebook";
 type NameOrder = "first" | "last";
@@ -146,61 +146,51 @@ export function AuthorListPage({
     ...libraries.map((lib) => ({ value: lib.id, label: lib.name }))
   ];
 
+  // Where an author's page returns to. Carrying the section along means the trip
+  // out to /people/:name and back doesn't drop the Ebooks/Audiobooks nav this
+  // list was reached under.
+  const backHref = `/authors${section ? `?section=${section.active}` : ""}`;
+
   return (
     <DashboardShell
       active={section?.active ?? "authors"}
       user={user}
       logout={logout}
-      sideNav={section && (
-        <SectionNav
-          ariaLabel={section.active === "ebooks" ? "Ebooks" : "Audiobooks"}
-          groupLabel={section.active === "ebooks" ? "Ebooks" : "Audiobooks"}
-          items={section.items}
-          activeKey="authors"
-        />
-      )}
+      sideNav={section && <SectionNav {...sectionNavProps(section)} activeKey="authors" />}
     >
       <section className="audiobook-main-page">
-        <AudiobookPageHeader
+        <LibraryPageHeader
           title="Authors"
           subtitle={`${shown.length} ${shown.length === 1 ? "author" : "authors"}`}
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search authors..."
+          actions={authors.length > 0 && (
+            <>
+              <SelectMenu
+                value={nameOrder}
+                label="Sort and index by"
+                triggerIcon={<SortAsc size={15} aria-hidden="true" />}
+                onChange={setNameOrder}
+                options={[
+                  { value: "first", label: "First name" },
+                  { value: "last", label: "Last name" }
+                ]}
+              />
+              {libraries.length > 1 && (
+                <SelectMenu
+                  value={libraryFilter}
+                  label="Library"
+                  triggerIcon={<LibraryBig size={15} aria-hidden="true" />}
+                  onChange={setLibraryFilter}
+                  options={libraryOptions}
+                />
+              )}
+            </>
+          )}
         />
 
         {error && <MessageBox tone="error" title="Authors error">{error}</MessageBox>}
-
-        {authors.length > 0 && (
-          <div className="audiobook-toolbar">
-            <label className="search-field">
-              <Search size={17} aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search authors"
-                aria-label="Search authors"
-              />
-            </label>
-            <SelectMenu
-              value={nameOrder}
-              label="Sort and index by"
-              triggerIcon={<SortAsc size={15} aria-hidden="true" />}
-              onChange={setNameOrder}
-              options={[
-                { value: "first", label: "First name" },
-                { value: "last", label: "Last name" }
-              ]}
-            />
-            {libraries.length > 1 && (
-              <SelectMenu
-                value={libraryFilter}
-                label="Library"
-                triggerIcon={<LibraryBig size={15} aria-hidden="true" />}
-                onChange={setLibraryFilter}
-                options={libraryOptions}
-              />
-            )}
-          </div>
-        )}
 
         {hasBothTypes && (
           <div className="kind-toggle" role="group" aria-label="Filter by media type">
@@ -251,7 +241,7 @@ export function AuthorListPage({
               <button
                 key={author.name}
                 className="person-card"
-                onClick={() => navigate(`/people/${encodeURIComponent(author.name)}?from=${encodeURIComponent("/authors")}`)}
+                onClick={() => navigate(`/people/${encodeURIComponent(author.name)}?from=${encodeURIComponent(backHref)}`)}
               >
                 <div className="person-avatar" aria-hidden="true">
                   {photos[author.name] ? <img src={photos[author.name]} alt="" /> : <UserRound size={26} />}

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Network, Settings, UserRoundPlus } from "lucide-react";
+import { Settings, UserRoundPlus } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
-import { AudiobookPageHeader } from "../audiobooks/AudiobooksPage";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
+import { SectionNav } from "../../shared/SectionNav";
+import { familyNavProps } from "./sectionNavItems";
 import { FamilyTreeSettingsModal } from "./FamilyTreeSettingsModal";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonEditModal } from "./PersonEditModal";
@@ -50,39 +52,34 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
   );
 
   return (
-    <DashboardShell active="family" user={user} logout={logout}>
+    <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
       <section className="audiobook-main-page">
-        <a className="audiobook-back-button" href="/family" onClick={(event) => followRoute(event, "/family")}>
-          <ArrowLeft size={18} aria-hidden="true" />
-          <span>Back to the tree</span>
-        </a>
-
-        <AudiobookPageHeader
-          title="Family members"
-          subtitle={`${persons.length} ${persons.length === 1 ? "person" : "people"}`}
+        {/* Families and the chart are one click away in the left nav now, so the
+            links that used to sit here — and the "Back to the tree" above them —
+            are gone; the header carries only what acts on this page. */}
+        <LibraryPageHeader
+          title="People"
+          subtitle={`${shown.length} ${shown.length === 1 ? "person" : "people"}`}
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search family members..."
-          actions={
-            <>
-              <a className="secondary-button compact-button" href="/family/families" onClick={(event) => followRoute(event, "/family/families")}>
-                <Network size={16} aria-hidden="true" />
-                Families
-              </a>
-              {isAdmin && (
-                <Button variant="secondary" compact onClick={() => setAccessOpen(true)}>
-                  <Settings size={16} aria-hidden="true" />
-                  Settings
-                </Button>
-              )}
-              {access?.canAdd && (
-                <Button variant="primary" compact onClick={() => setAddOpen(true)}>
-                  <UserRoundPlus size={16} aria-hidden="true" />
-                  Add person
-                </Button>
-              )}
-            </>
-          }
+          actions={isAdmin && (
+            <Button
+              variant="icon"
+              className="audiobook-page-action-icon"
+              aria-label="Family tree settings"
+              title="Family tree settings"
+              onClick={() => setAccessOpen(true)}
+            >
+              <Settings size={18} aria-hidden="true" />
+            </Button>
+          )}
+          primaryAction={access?.canAdd && (
+            <Button variant="primary" onClick={() => setAddOpen(true)}>
+              <UserRoundPlus size={16} aria-hidden="true" />
+              <span>Add person</span>
+            </Button>
+          )}
         />
 
         {error && <MessageBox tone="error" title="Unable to load family members">{error}</MessageBox>}

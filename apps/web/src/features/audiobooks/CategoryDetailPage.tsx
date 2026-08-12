@@ -7,7 +7,7 @@ import { MessageBox } from "../../shared/MessageBox";
 import { SectionNav } from "../../shared/SectionNav";
 import { FeedTile } from "../library/FeedTile";
 import { CategoryIcon } from "./categoryIcons";
-import { sectionFromQuery } from "./sectionNavItems";
+import { sectionFromQuery, sectionNavProps } from "./sectionNavItems";
 import type { CategoryDetail } from "./types";
 
 type KindFilter = "all" | "audiobook" | "ebook";
@@ -50,14 +50,7 @@ export function CategoryDetailPage({
       active={section?.active ?? "categories"}
       user={user}
       logout={logout}
-      sideNav={section && (
-        <SectionNav
-          ariaLabel={section.active === "ebooks" ? "Ebooks" : "Audiobooks"}
-          groupLabel={section.active === "ebooks" ? "Ebooks" : "Audiobooks"}
-          items={section.items}
-          activeKey="categories"
-        />
-      )}
+      sideNav={section && <SectionNav {...sectionNavProps(section)} activeKey="categories" />}
     >
       <section className="audiobook-main-page">
         <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? (section ? `/categories?section=${section.active}` : "/categories"))}>
