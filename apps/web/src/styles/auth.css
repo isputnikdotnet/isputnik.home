@@ -74,6 +74,15 @@
   color: var(--muted);
 }
 
+.auth-version {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  opacity: 0.75;
+}
+
 :root,
 :root[data-theme="dark"] {
   --auth-glow-primary: rgba(184, 90, 54, 0.28);
