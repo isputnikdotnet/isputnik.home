@@ -37,15 +37,49 @@ export class ApiError extends Error {
    *  so if the payload survives being turned into an Error. */
   body: unknown;
 
-  constructor(message: string, status: number, body?: unknown) {
+  /** This reply was written by something between the browser and the server — a
+   *  corporate proxy, a content filter, a captive portal — not by iSputnik. */
+  blockedByNetwork: boolean;
+
+  constructor(message: string, status: number, body?: unknown, blockedByNetwork = false) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.body = body;
+    this.blockedByNetwork = blockedByNetwork;
   }
 }
 
+// Statuses a security gateway hands back when it refuses to pass a request on:
+// 403 (blocked / caution page — what Zscaler returns for an uncategorised host),
+// 407 (proxy wants credentials), 451 (blocked for legal reasons), 511 (captive
+// portal wants a sign-in). Our own 403s — CSRF, permissions — are JSON, which is
+// what tells the two apart.
+const GATEWAY_STATUSES = [403, 407, 451, 511];
+
+/** Whether an /api reply came from a middlebox rather than from iSputnik. Every JSON
+ *  route answers in JSON even when it fails, so a gateway status carrying HTML (or no
+ *  content type at all) means someone else wrote this reply. Worth naming: a filtered
+ *  request looks exactly like a broken app from the inside — the sign-in call fails,
+ *  the server looks down — and the user can spend an evening blaming the wrong thing. */
+export function isBlockedByNetwork(response: Response): boolean {
+  if (response.ok) return false;
+  if (!GATEWAY_STATUSES.includes(response.status)) return false;
+  const type = response.headers.get("content-type") ?? "";
+  return !type.includes("json");
+}
+
+/** What to tell the user when {@link isBlockedByNetwork} says yes. */
+export const NETWORK_BLOCK_MESSAGE =
+  `Something on this network — a corporate proxy, a content filter, or a guest Wi-Fi portal — ` +
+  `answered instead of iSputnik. The server itself is fine. Ask whoever runs the network to allow ` +
+  `${window.location.host}, or try a different connection.`;
+
 export function isAccessOrMissingApiError(error: unknown): boolean {
+  // A gateway's 403 is not the server saying no — it never reached the server. Callers
+  // use this to decide whether an offline copy is still worth showing, and behind a
+  // filter it very much is.
+  if (error instanceof ApiError && error.blockedByNetwork) return false;
   return error instanceof ApiError && [401, 403, 404].includes(error.status);
 }
 
@@ -81,6 +115,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   });
 
   if (!response.ok) {
+    if (isBlockedByNetwork(response)) {
+      throw new ApiError(NETWORK_BLOCK_MESSAGE, response.status, undefined, true);
+    }
     const payload = (await response.json().catch(() => ({}))) as ApiErrorPayload;
     const fieldMessage = payload.details?.fieldErrors
       ? Object.entries(payload.details.fieldErrors)

@@ -87,6 +87,33 @@ one adding the header.
 [ ] Email configured, so security alerts actually reach you
 ```
 
+## When sign-in fails on someone else's network
+
+Office, school, hotel and airport networks often run a security gateway (Zscaler,
+Umbrella, a web filter, a guest Wi-Fi portal) that inspects every request. A brand
+new domain is usually filed as *uncategorised*, and some gateways block those
+outright — they answer the browser themselves with a **403 caution page** instead
+of passing the request to your server.
+
+That failure is confusing on purpose-built sites: the page itself often loads (from
+the browser cache or a CDN), and only the calls to `/api/…` are refused, so it looks
+like the app is broken or the password is wrong. iSputnik detects it now — a gateway
+status (403, 407, 451, 511) carrying a web page rather than the JSON the server
+always sends — and says **"Blocked by your network"** on the sign-in screen and in
+the status pill, instead of blaming the sign-in.
+
+If you see it:
+
+- Try the same address on a phone using mobile data. If it works there, the gateway
+  is the problem, not your server.
+- Ask whoever runs that network to allow your domain, or submit it for
+  recategorisation with the gateway vendor (Zscaler, Cisco Umbrella and the rest all
+  have a public "site review" form; most reclassify within a day or two).
+- A VPN back to your home network also sidesteps it, since the gateway then only
+  sees the VPN connection.
+
+There is nothing to change on the server — the request never reaches it.
+
 ## Note for maintainers
 
 Security headers are sent by `@fastify/helmet` (see `apps/server/src/index.ts`).
