@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.3.1",
+    label: "Filter and sort moved down beside the library they narrow",
+    changes: [
+      "On the main Audiobooks, Ebooks and Gallery pages, the filter, sort and Select buttons have left the row carrying the page title and joined the strip below it — the one holding the library picker. They narrow whatever that picker has chosen, and they were sitting a row away from it. Upload stayed where it was: it adds to a library rather than choosing among what is already in one. None of them do anything different, and on a phone the strip wraps so they sit under the picker rather than squeezing in beside it.",
+      "The Gallery's Play button has gone from that strip. Playing a set of photos is now offered where there is a set to play — inside an album, and on a saved slideshow — rather than from a button carried by every screen. It also means the Timeline, a folder and Memories no longer offer to play themselves; open an album or a slideshow to do that."
+    ]
+  },
+  {
     version: "3.3.0",
     label: "A menu of its own for each part of the library, and one header on every page",
     changes: [
