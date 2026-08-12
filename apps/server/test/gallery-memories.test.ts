@@ -46,6 +46,33 @@ describe("gallery memories", () => {
     expect(groups[1].items.map((i) => i.title)).toEqual(["b.jpg", "c.jpg"]);
   });
 
+  // The regression this pass fixed: widening used to be decided once for the
+  // whole row, so an exact match in any year stopped the ±3-day tier from ever
+  // running and a year dated a day or two off vanished. Scanned photos carrying
+  // an approximate date are exactly that case.
+  it("keeps a year that is a few days off even when another year matches exactly", async () => {
+    await ingestGalleryAsset("GAL", asset("exact-2024.jpg", "2024-07-05T10:00:00Z"), false);
+    await ingestGalleryAsset("GAL", asset("scan-1990.jpg", "1990-07-03T10:00:00Z"), false);
+
+    const { precision, groups } = queryGalleryMemories("u1", ["GAL"], TODAY, 60);
+    // The row is still titled by its best match…
+    expect(precision).toBe("day");
+    expect(groups.map((g) => g.year)).toEqual([2024, 1990]);
+    // …while each year says how close it actually is.
+    expect(groups.map((g) => g.precision)).toEqual(["day", "near"]);
+  });
+
+  it("prefers a year's exact-day photos over its nearby ones", async () => {
+    await ingestGalleryAsset("GAL", asset("on-the-day.jpg", "2022-07-05T10:00:00Z"), false);
+    await ingestGalleryAsset("GAL", asset("two-days-later.jpg", "2022-07-07T10:00:00Z"), false);
+
+    const { groups } = queryGalleryMemories("u1", ["GAL"], TODAY, 60);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].precision).toBe("day");
+    expect(groups[0].count).toBe(1);
+    expect(groups[0].items.map((i) => i.title)).toEqual(["on-the-day.jpg"]);
+  });
+
   it("widens to ±3 days when nothing matches the exact day", async () => {
     await ingestGalleryAsset("GAL", asset("close.jpg", "2022-07-07T10:00:00Z"), false);
     await ingestGalleryAsset("GAL", asset("far.jpg", "2022-07-20T10:00:00Z"), false);
