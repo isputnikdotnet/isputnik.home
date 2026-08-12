@@ -151,6 +151,21 @@
   background: transparent;
 }
 
+/* Menus and the one primary action a page may put in the header (Authors' sort /
+   library pickers, "New series", "New narrator"). Both default to shorter
+   controls elsewhere; here they take the same 44px height as the filter, sort
+   and icon buttons so the row reads as one set whichever page you are on. */
+.audiobook-page-actions .select-menu-trigger.secondary-button,
+.audiobook-page-actions > .primary-button {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+
 .audiobook-page-search {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

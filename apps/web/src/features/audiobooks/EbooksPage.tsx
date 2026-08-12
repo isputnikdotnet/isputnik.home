@@ -19,7 +19,8 @@ import { formatBytes, isFoliateFormat } from "../../shared/utils";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import { EbookReader } from "./reader/EbookReader";
-import { AddToSeriesModal, GroupAsEditionsModal, BulkEditModal, AudiobookPageHeader, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
+import { AddToSeriesModal, GroupAsEditionsModal, BulkEditModal, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { useMediaCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import {
   EBOOK_SORT_OPTIONS, FilterButton, FilterChips, activeFilterCount,
@@ -679,7 +680,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
       sideNav={<SectionNav ariaLabel="Ebooks" groupLabel="Ebooks" items={EBOOK_NAV_ITEMS} activeKey="books" />}
     >
       <section className="audiobook-main-page">
-        <AudiobookPageHeader
+        <LibraryPageHeader
           title="Ebooks"
           subtitle={`${formatCount(cat.total)} ebooks • ${formatCount(cat.facets.authors.length)} authors`}
           search={cat.search}

@@ -8,7 +8,7 @@ import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
 import { SectionNav } from "../../shared/SectionNav";
-import { AUDIOBOOK_NAV_ITEMS, EBOOK_NAV_ITEMS } from "./sectionNavItems";
+import { bookSectionNav, sectionNavProps } from "./sectionNavItems";
 import type { AudiobookBook, SeriesDetail } from "./types";
 
 interface EditableBook {
@@ -33,14 +33,7 @@ export function SeriesDetailPage({
   const mediaLabel = kind === "ebook" ? "ebooks" : "audiobooks";
   const base = `/${mediaLabel}`;
   const libPrefix = `/api/library/${kind}-libraries`;
-  const sideNav = (
-    <SectionNav
-      ariaLabel={kind === "ebook" ? "Ebooks" : "Audiobooks"}
-      groupLabel={kind === "ebook" ? "Ebooks" : "Audiobooks"}
-      items={kind === "ebook" ? EBOOK_NAV_ITEMS : AUDIOBOOK_NAV_ITEMS}
-      activeKey="series"
-    />
-  );
+  const sideNav = <SectionNav {...sectionNavProps(bookSectionNav(kind))} activeKey="series" />;
   const [series, setSeries] = useState<SeriesDetail | null>(null);
   const [books, setBooks] = useState<EditableBook[]>([]);
   const [libraryBooks, setLibraryBooks] = useState<AudiobookBook[]>([]);

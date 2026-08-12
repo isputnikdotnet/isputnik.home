@@ -149,6 +149,31 @@ const CONTROL_ALIASES: Record<string, ControlSection> = {
   "/control/about": "about"
 };
 
+// The gallery's browse views, under the same rule as the control panel's tabs:
+// every one is a real address. They were local `view` state until the left nav
+// started listing them, at which point items that looked like links but swallowed
+// the click became the wrong thing — nothing could be opened in a new tab, and
+// the browser's own Back stepped out of the gallery entirely rather than back to
+// the previous view.
+//
+// Folders keeps its own route below rather than a bare path here, because it
+// carries the folder being looked at; this table's entry is its root.
+export type GalleryView = "timeline" | "memories" | "albums" | "slideshows" | "folder" | "people" | "map";
+
+export const GALLERY_VIEW_PATHS: Record<GalleryView, string> = {
+  timeline: "/gallery",
+  memories: "/gallery/memories",
+  albums: "/gallery/albums",
+  slideshows: "/gallery/slideshows",
+  folder: "/gallery/folders",
+  people: "/gallery/people",
+  map: "/gallery/map"
+};
+
+export function galleryHref(view: GalleryView): string {
+  return GALLERY_VIEW_PATHS[view];
+}
+
 // Profile's panels, same rule as the control panel: each is a real address, so a
 // device, a two-factor setup, or a share audit can be linked to and returned to.
 export type ProfileTab = "account" | "security" | "shares" | "appearance" | "devices";
@@ -170,6 +195,15 @@ const PROFILE_TAB_BY_PATH = new Map<string, ProfileTab>([
   ["/theme", "appearance" as ProfileTab],
   ...Object.entries(PROFILE_PATHS).map(([tab, path]) => [path, tab as ProfileTab] as const)
 ]);
+
+// Folders is the one gallery view whose address isn't just a path — it is matched
+// by its own regex in getRoute — so it is left out of the lookup rather than
+// claiming the bare "/gallery/folders" ahead of it. The regex covers that too.
+const GALLERY_VIEW_BY_PATH = new Map<string, GalleryView>(
+  Object.entries(GALLERY_VIEW_PATHS)
+    .filter(([view]) => view !== "folder")
+    .map(([view, path]) => [path, view as GalleryView] as const)
+);
 
 // Aliases first, canonical paths second: a later entry wins, so a stale alias can
 // never shadow the page that actually owns the address.
@@ -193,8 +227,7 @@ export type Route =
   | { name: "audiobookPlayer"; id: string }
   | { name: "ebooks" }
   | { name: "ebookBook"; id: string }
-  | { name: "gallery" }
-  | { name: "galleryMemories" }
+  | { name: "gallery"; view: GalleryView }
   | { name: "galleryAsset"; id: string }
   | { name: "galleryFolder"; folder: string; libraryId: string | null }
   | { name: "familyTree"; focusId?: string }
@@ -261,14 +294,12 @@ export function getRoute(): Route {
     return { name: "ebooks" };
   }
 
-  // Gallery (photos + videos). The asset route opens the lightbox over the
-  // timeline; /gallery/memories deep-links into the Memories view (Home tiles).
-  if (path === "/gallery") {
-    return { name: "gallery" };
-  }
-
-  if (path === "/gallery/memories") {
-    return { name: "galleryMemories" };
+  // Gallery (photos + videos). Every browse view is its own path — see
+  // GALLERY_VIEW_PATHS above — and the asset route opens the lightbox over the
+  // timeline. Folders is matched separately below since it carries a path.
+  const galleryView = GALLERY_VIEW_BY_PATH.get(path);
+  if (galleryView) {
+    return { name: "gallery", view: galleryView };
   }
 
   const galleryAssetMatch = path.match(/^\/gallery\/assets\/([^/]+)$/);

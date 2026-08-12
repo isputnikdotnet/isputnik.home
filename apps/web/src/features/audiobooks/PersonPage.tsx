@@ -6,6 +6,8 @@ import { getReferrer, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { Button } from "../../shared/Button";
+import { SectionNav } from "../../shared/SectionNav";
+import { sectionFromHref, sectionNavProps } from "./sectionNavItems";
 import { PersonProfileModal } from "./PersonProfileModal";
 
 // One item this person is credited on, in any media type / any accessible
@@ -57,8 +59,14 @@ export function PersonPage({
   const [error, setError] = useState("");
 
   const backTo = getReferrer();
-  // The page spans types; highlight the nav the visitor most likely came from.
-  const dashActive = backTo === "/authors" ? "authors" : backTo?.startsWith("/ebooks") ? "ebooks" : "audiobooks";
+  // The page spans types, so it has no section of its own — it borrows the one
+  // whose list sent the visitor here, so stepping in and back out of a person
+  // doesn't swap the left nav underneath them. Reached without a trail (a
+  // bookmark, a link from Tags), there's nothing to borrow and the generic nav
+  // stands, same as every other cross-type page.
+  const section = sectionFromHref(backTo);
+  const dashActive = section?.active ?? "audiobooks";
+  const sectionKey = backTo?.startsWith("/audiobooks/narrators") ? "narrators" : "authors";
 
   // Photo + bio for the header; re-fetched after the profile modal closes so
   // edits show up immediately.
@@ -121,7 +129,12 @@ export function PersonPage({
   };
 
   return (
-    <DashboardShell active={dashActive} user={user} logout={logout}>
+    <DashboardShell
+      active={dashActive}
+      user={user}
+      logout={logout}
+      sideNav={section && <SectionNav {...sectionNavProps(section)} activeKey={sectionKey} />}
+    >
       <section className="audiobook-main-page">
         <button className="audiobook-back-button" type="button" onClick={() => navigate(backTo ?? "/authors")}>
           <ArrowLeft size={17} aria-hidden="true" />

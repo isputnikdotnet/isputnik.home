@@ -1,13 +1,14 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, LibraryBig, ListMusic, MapPin, MapPinned, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, navigate } from "../../router";
+import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
-import { AudiobookPageHeader, AudiobookHeaderSort, formatCount } from "../audiobooks/AudiobooksPage";
+import { AudiobookHeaderSort, formatCount } from "../audiobooks/AudiobooksPage";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { SectionNav, type SectionNavItem } from "../../shared/SectionNav";
 import type { SortKey } from "../audiobooks/BookFilter";
@@ -41,8 +42,20 @@ const PEOPLE_PAGE = 120;
 // it off the initial bundle for the common Timeline/Folder browsing.
 const GalleryMap = lazy(() => import("./GalleryMap").then((m) => ({ default: m.GalleryMap })));
 
-type GalleryView = "timeline" | "folder" | "map" | "people" | "memories" | "albums" | "slideshows";
 type TimelineSort = "taken" | "added";
+
+// What the page calls itself in each view. The Timeline is the gallery's own
+// front page, so it keeps the section's name; every other view is titled after
+// the nav item that opens it, the way Series and Narrators are under Audiobooks.
+const VIEW_TITLES: Record<GalleryView, string> = {
+  timeline: "Gallery",
+  memories: "Memories",
+  albums: "Albums",
+  slideshows: "Slideshows",
+  folder: "Folders",
+  people: "People",
+  map: "Map"
+};
 
 // Timeline sort, presented through the same compact dropdown the audiobooks/ebooks
 // header uses, so the controls line up visually. The media-type (photo/video)
@@ -94,15 +107,18 @@ function dayLabel(takenAt: string | null): string {
 export function GalleryPage({
   user,
   logout,
+  view,
   initialAssetId,
-  initialView,
   initialFolder,
   initialLibraryId
 }: {
   user: PublicUser;
   logout: () => Promise<void>;
+  /** Which browse view the address names. Not state — the URL is the view, so
+   *  every one of them can be linked to, opened in a new tab and stepped back
+   *  out of; switching views goes through goToView() below. */
+  view: GalleryView;
   initialAssetId?: string;
-  initialView?: GalleryView;
   /** Deep link (/gallery/folders/…): open the Folders view straight into this folder. */
   initialFolder?: string;
   initialLibraryId?: string | null;
@@ -115,9 +131,11 @@ export function GalleryPage({
   // all three — one loading flag, one error box, one notice line for the page.
   const [notice, setNotice] = useState("");
 
-  const [view, setView] = useState<GalleryView>(
-    initialView ?? (initialFolder != null ? "folder" : "timeline")
-  );
+  // Switching view is a navigation. The page itself is not remounted — App hands
+  // every gallery address to this same component — so the scope, sort and loaded
+  // libraries survive the move, exactly as they did when view was useState.
+  const goToView = useCallback((next: GalleryView) => navigate(galleryHref(next)), []);
+
   const [scopeId, setScopeId] = useState<string>(initialLibraryId || "all");
   const [sort, setSort] = useState<TimelineSort>("taken");
 
@@ -276,8 +294,17 @@ export function GalleryPage({
   // Searching/filtering is a timeline operation (folder view is structural); either
   // pulls the user into the timeline so results are visible.
   useEffect(() => {
-    if ((query || activeGalleryFilterCount(filters) > 0) && view === "folder") setView("timeline");
-  }, [query, filters, view]);
+    if ((query || activeGalleryFilterCount(filters) > 0) && view === "folder") goToView("timeline");
+  }, [query, filters, view, goToView]);
+
+  // A term left in the box on the way out of the timeline would describe a filter
+  // no other view applies. The nav items used to clear it on the way through;
+  // they are plain links now, so the arriving view clears it instead.
+  useEffect(() => {
+    if (view === "timeline") return;
+    setSearchText("");
+    setQuery("");
+  }, [view]);
 
   const loadTimeline = useCallback(async (offset: number) => {
     setLoading(true);
@@ -424,13 +451,13 @@ export function GalleryPage({
       });
       setSlideshowAssets([]);
       setSlideshowTotal(0);
-      setView("slideshows");
+      goToView("slideshows");
       await openSlideshow(slideshow.id);
       setNotice(`Created slideshow “${slideshow.name}” from a memory.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create the slideshow");
     }
-  }, [openSlideshow]);
+  }, [openSlideshow, goToView]);
 
   // The Memories lightbox runs over ALL years flattened (newest year first,
   // chronological within a year), so Next flows from one year into the next.
@@ -667,7 +694,7 @@ export function GalleryPage({
         : view === "folder" && parent
           ? { label: "Back to folders", onClick: () => void loadFolder("") }
           : view !== "timeline"
-            ? { label: "Back to gallery", onClick: () => setView("timeline") }
+            ? { label: "Back to gallery", onClick: () => goToView("timeline") }
             : null;
   const canDeleteAny = libraries.some((library) => library.canDelete);
   // Stamping a date/location is a metadata write; the server re-checks per item's
@@ -764,7 +791,7 @@ export function GalleryPage({
     setQuery("");
     setFilters(EMPTY_GALLERY_FILTERS);
     pendingFolderRef.current = folder;
-    setView("folder");
+    goToView("folder");
   };
 
   // Group timeline assets into calendar-day buckets for the date headers, keyed on
@@ -821,22 +848,37 @@ export function GalleryPage({
             ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
             : folderSubtitle;
 
-  // Gallery's views are local state (view/setView), not separate routes — the
-  // same as the tab row and mobile Browse menu they replace, so each item
-  // preventDefault()s and flips state rather than navigating.
+  // Ordinary links to ordinary addresses. Memories and Map only appear when there
+  // is something behind them — no memories on file, nothing geotagged in scope —
+  // which is why they are the two conditional entries.
   const galleryNavItems: SectionNavItem[] = [
-    { key: "timeline", label: "Timeline", href: "/gallery", icon: CalendarDays, onClick: (event) => { event.preventDefault(); setView("timeline"); } },
+    { key: "timeline", label: "Timeline", href: galleryHref("timeline"), icon: CalendarDays },
     ...((memories?.groups.length ?? 0) > 0
-      ? [{ key: "memories", label: "Memories", href: "/gallery/memories", icon: Sparkles, onClick: (event: ReactMouseEvent<HTMLAnchorElement>) => { event.preventDefault(); setSearchText(""); setView("memories"); } }]
+      ? [{ key: "memories", label: "Memories", href: galleryHref("memories"), icon: Sparkles }]
       : []),
-    { key: "albums", label: "Albums", href: "/gallery", icon: Album, onClick: (event) => { event.preventDefault(); setSearchText(""); setView("albums"); } },
-    { key: "slideshows", label: "Slideshows", href: "/gallery", icon: Film, onClick: (event) => { event.preventDefault(); setSearchText(""); setView("slideshows"); } },
-    { key: "folder", label: "Folders", href: "/gallery", icon: FolderOpen, onClick: (event) => { event.preventDefault(); setSearchText(""); setView("folder"); } },
-    { key: "people", label: "People", href: "/gallery", icon: Users, onClick: (event) => { event.preventDefault(); setSearchText(""); setView("people"); } },
+    { key: "albums", label: "Albums", href: galleryHref("albums"), icon: Album },
+    { key: "slideshows", label: "Slideshows", href: galleryHref("slideshows"), icon: Film },
+    { key: "folder", label: "Folders", href: galleryHref("folder"), icon: FolderOpen },
+    { key: "people", label: "People", href: galleryHref("people"), icon: Users },
     ...(mapCount > 0
-      ? [{ key: "map", label: "Map", href: "/gallery", icon: MapPin, onClick: (event: ReactMouseEvent<HTMLAnchorElement>) => { event.preventDefault(); setSearchText(""); setView("map"); } }]
+      ? [{ key: "map", label: "Map", href: galleryHref("map"), icon: MapPin }]
       : [])
   ];
+
+  // The one Create this view offers, in the header's primary slot — the same
+  // place "New series" and "New narrator" sit. Only the list levels have one:
+  // inside an open album or slideshow the page is about that one thing.
+  const primaryAction = view === "albums" && !selectedAlbum ? (
+    <Button variant="primary" onClick={() => setAlbumCreateOpen(true)}>
+      <Plus size={16} aria-hidden="true" />
+      <span>New album</span>
+    </Button>
+  ) : view === "slideshows" && !selectedSlideshow ? (
+    <Button variant="primary" onClick={() => setSlideshowCreateOpen(true)}>
+      <Plus size={16} aria-hidden="true" />
+      <span>New slideshow</span>
+    </Button>
+  ) : null;
 
   return (
     <DashboardShell
@@ -846,8 +888,8 @@ export function GalleryPage({
       sideNav={<SectionNav ariaLabel="Gallery" groupLabel="Gallery" items={galleryNavItems} activeKey={view} />}
     >
       <section className={`audiobook-main-page gallery-page${selectionMode ? " is-selecting" : ""}`}>
-        <AudiobookPageHeader
-          title="Gallery"
+        <LibraryPageHeader
+          title={VIEW_TITLES[view]}
           subtitle={subtitle}
           search={searchText}
           onSearchChange={setSearchText}
@@ -899,6 +941,7 @@ export function GalleryPage({
               )}
             </>
           }
+          primaryAction={primaryAction}
         />
 
         {error && <MessageBox tone="error" title="Gallery error">{error}</MessageBox>}
@@ -1002,38 +1045,23 @@ export function GalleryPage({
                         aria-label="Browse"
                         style={{ position: "fixed", top: viewMenuPos.top, left: viewMenuPos.left ?? undefined, right: viewMenuPos.right ?? undefined }}
                       >
-                        <button type="button" role="menuitem" className={view === "timeline" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setView("timeline"); }}>
-                          <CalendarDays size={16} aria-hidden="true" />
-                          <span>Timeline</span>
-                        </button>
-                        {(memories?.groups.length ?? 0) > 0 && (
-                          <button type="button" role="menuitem" className={view === "memories" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("memories"); }}>
-                            <Sparkles size={16} aria-hidden="true" />
-                            <span>Memories</span>
-                          </button>
-                        )}
-                        <button type="button" role="menuitem" className={view === "albums" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("albums"); }}>
-                          <Album size={16} aria-hidden="true" />
-                          <span>Albums</span>
-                        </button>
-                        <button type="button" role="menuitem" className={view === "slideshows" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("slideshows"); }}>
-                          <Film size={16} aria-hidden="true" />
-                          <span>Slideshows</span>
-                        </button>
-                        <button type="button" role="menuitem" className={view === "folder" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("folder"); }}>
-                          <FolderOpen size={16} aria-hidden="true" />
-                          <span>Folders</span>
-                        </button>
-                        <button type="button" role="menuitem" className={view === "people" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("people"); }}>
-                          <Users size={16} aria-hidden="true" />
-                          <span>People</span>
-                        </button>
-                        {mapCount > 0 && (
-                          <button type="button" role="menuitem" className={view === "map" ? "active" : ""} onClick={() => { setViewMenuOpen(false); setSearchText(""); setView("map"); }}>
-                            <MapPin size={16} aria-hidden="true" />
-                            <span>Map</span>
-                          </button>
-                        )}
+                        {/* The phone's version of the left nav, off the same list,
+                            so a view added there appears here too. */}
+                        {galleryNavItems.map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <button
+                              key={item.key}
+                              type="button"
+                              role="menuitem"
+                              className={view === item.key ? "active" : ""}
+                              onClick={() => { setViewMenuOpen(false); navigate(item.href); }}
+                            >
+                              <Icon size={16} aria-hidden="true" />
+                              <span>{item.label}</span>
+                            </button>
+                          );
+                        })}
                       </div>,
                       document.body
                     )}
@@ -1522,10 +1550,9 @@ export function GalleryPage({
                 );
               })() : (
                 <>
+                  {/* New album lives in the page header's primary slot now, with
+                      every other page's Create button. */}
                   <div className="gallery-person-toolbar">
-                    <button type="button" className="secondary-button compact-button" onClick={() => setAlbumCreateOpen(true)}>
-                      <Plus size={14} aria-hidden="true" /> New album
-                    </button>
                     <span className="muted gallery-face-hint">
                       Albums organize photos across libraries. Anyone can view; only the creator and admins can change one.
                     </span>
@@ -1629,10 +1656,8 @@ export function GalleryPage({
                 );
               })() : (
                 <>
+                  {/* New slideshow lives in the page header's primary slot now. */}
                   <div className="gallery-person-toolbar">
-                    <button type="button" className="secondary-button compact-button" onClick={() => setSlideshowCreateOpen(true)}>
-                      <Plus size={14} aria-hidden="true" /> New slideshow
-                    </button>
                     <span className="muted gallery-face-hint">
                       Slideshows present photos in a set order with a transition and timing. Anyone can view; only the creator and admins can change one.
                     </span>

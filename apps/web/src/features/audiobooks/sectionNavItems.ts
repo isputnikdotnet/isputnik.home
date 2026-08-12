@@ -27,13 +27,46 @@ export interface QuerySection {
   items: SectionNavItem[];
 }
 
+/** A section's whole SectionNav configuration, so no page has to restate the
+ *  label twice and the items once — the same "nowhere else to keep in sync"
+ *  rule the control panel's nav.ts holds itself to. */
+export function sectionNavProps(section: QuerySection): { ariaLabel: string; groupLabel: string; items: SectionNavItem[] } {
+  const label = section.active === "ebooks" ? "Ebooks" : "Audiobooks";
+  return { ariaLabel: label, groupLabel: label, items: section.items };
+}
+
+/** The same, from a media type rather than a parsed query param — what the
+ *  pages that always know which section they're in (Series, Narrators) use. */
+export function bookSectionNav(kind: "audiobook" | "ebook"): QuerySection {
+  return kind === "ebook"
+    ? { active: "ebooks", items: EBOOK_NAV_ITEMS }
+    : { active: "audiobooks", items: AUDIOBOOK_NAV_ITEMS };
+}
+
 // Reads the `?section=` a cross-type page (Authors, Categories) was linked in
 // with, so it can keep showing the Ebooks/Audiobooks nav that sent it there.
 // Reached any other way — Tags, a bookmark, a typed URL — this returns null and
 // the page falls back to the generic main nav, same as before `section` existed.
 export function sectionFromQuery(): QuerySection | null {
-  const section = new URLSearchParams(window.location.search).get("section");
-  if (section === "ebooks") return { active: "ebooks", items: EBOOK_NAV_ITEMS };
-  if (section === "audiobooks") return { active: "audiobooks", items: AUDIOBOOK_NAV_ITEMS };
+  return sectionFromName(new URLSearchParams(window.location.search).get("section"));
+}
+
+/** The same question asked of a link rather than of the current URL — what a
+ *  page that only knows where its Back button points (the person page) uses to
+ *  keep the nav its visitor arrived under. Per-type paths answer it on their
+ *  own; the cross-type lists need the explicit `?section=` they are linked with. */
+export function sectionFromHref(href: string | null | undefined): QuerySection | null {
+  if (!href) return null;
+  const [path, query = ""] = href.split("?");
+  const named = sectionFromName(new URLSearchParams(query).get("section"));
+  if (named) return named;
+  if (path.startsWith("/ebooks")) return bookSectionNav("ebook");
+  if (path.startsWith("/audiobooks")) return bookSectionNav("audiobook");
+  return null;
+}
+
+function sectionFromName(name: string | null): QuerySection | null {
+  if (name === "ebooks") return bookSectionNav("ebook");
+  if (name === "audiobooks") return bookSectionNav("audiobook");
   return null;
 }

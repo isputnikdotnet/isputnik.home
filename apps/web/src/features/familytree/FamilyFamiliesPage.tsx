@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, UsersRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { followRoute, navigate } from "../../router";
+import { navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
-import { AudiobookPageHeader } from "../audiobooks/AudiobooksPage";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
+import { SectionNav } from "../../shared/SectionNav";
+import { familyNavProps } from "./sectionNavItems";
 import { PersonAvatar } from "./PersonAvatar";
 import { lifeYears, type FamilyPerson } from "./types";
 
@@ -72,25 +73,14 @@ export function FamilyFamiliesPage({ user, logout }: { user: PublicUser; logout:
   const shown = term ? families.filter((family) => family.surname.toLowerCase().includes(term)) : families;
 
   return (
-    <DashboardShell active="family" user={user} logout={logout}>
+    <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("families")} />}>
       <section className="audiobook-main-page">
-        <a className="audiobook-back-button" href="/family" onClick={(event) => followRoute(event, "/family")}>
-          <ArrowLeft size={18} aria-hidden="true" />
-          <span>Back to the tree</span>
-        </a>
-
-        <AudiobookPageHeader
+        <LibraryPageHeader
           title="Families"
-          subtitle={`${families.length} ${families.length === 1 ? "family name" : "family names"} · ${persons.length} ${persons.length === 1 ? "person" : "people"}`}
+          subtitle={`${shown.length} ${shown.length === 1 ? "family name" : "family names"} · ${persons.length} ${persons.length === 1 ? "person" : "people"}`}
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search family names..."
-          actions={
-            <a className="secondary-button compact-button" href="/family/people" onClick={(event) => followRoute(event, "/family/people")}>
-              <UsersRound size={16} aria-hidden="true" />
-              All people
-            </a>
-          }
         />
 
         {error && <MessageBox tone="error" title="Unable to load families">{error}</MessageBox>}

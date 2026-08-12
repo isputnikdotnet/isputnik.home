@@ -10,6 +10,8 @@ import { followRoute, getReferrer, navigate } from "../../router";
 import { ActionMenu } from "../../shared/ActionMenu";
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { SectionNav } from "../../shared/SectionNav";
+import { familyNavProps } from "./sectionNavItems";
 import { MessageBox } from "../../shared/MessageBox";
 import { GalleryLightbox } from "../gallery/GalleryLightbox";
 import type { GalleryAsset } from "../gallery/types";
@@ -533,7 +535,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
 
   if (notFound) {
     return (
-      <DashboardShell active="family" user={user} logout={logout}>
+      <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
         <section className="audiobook-main-page">
           <MessageBox tone="warning" title="Person not found">This family member doesn't exist (anymore).</MessageBox>
           <p><a href="/family/people" onClick={(event) => followRoute(event, "/family/people")}>Back to family members</a></p>
@@ -543,7 +545,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
   }
 
   return (
-    <DashboardShell active="family" user={user} logout={logout}>
+    <DashboardShell active="family" user={user} logout={logout} sideNav={<SectionNav {...familyNavProps("people")} />}>
       <section className="work-area book-detail-area ft-profile-page">
         <div className="book-detail-shell">
           {error && <MessageBox tone="error" title="Unable to load">{error}</MessageBox>}

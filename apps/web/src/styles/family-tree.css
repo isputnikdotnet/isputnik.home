@@ -1131,48 +1131,11 @@
   gap: 14px;
 }
 
-.ft-tree-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin-bottom: 0;
-}
-
-.ft-tree-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.ft-tree-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  flex: 1 1 520px;
-}
-
-.ft-tree-header-link.compact-button,
-.ft-tree-header-icon.icon-button {
-  min-height: 42px;
-  height: 42px;
-}
-
-.ft-tree-header-link.compact-button {
-  padding-inline: 14px;
-}
-
-.ft-tree-header-icon.icon-button {
-  width: 42px;
-  min-width: 42px;
-  padding: 0;
-  border-color: var(--line);
-  background: color-mix(in srgb, var(--surface-raised, var(--surface)) 72%, var(--field));
-}
-
+/* The chart page wears the shared page header (.audiobook-page-header) like every
+   other browse page; what is left here is the one control it doesn't share — the
+   find-a-person typeahead, which rides in the header's actions slot and needs to
+   be a positioning context for the results that drop out of it. Its height
+   matches the filter/sort/primary controls it now sits beside. */
 .ft-tree-search {
   position: relative;
   flex: 0 1 320px;
@@ -1181,8 +1144,9 @@
 .ft-tree-search .ft-picker-search {
   margin-bottom: 0;
   min-width: min(320px, 100%);
-  min-height: 42px;
-  border-radius: 12px;
+  min-height: 44px;
+  height: 44px;
+  border-radius: 7px;
   background: color-mix(in srgb, var(--surface-raised, var(--surface)) 72%, var(--field));
 }
 
@@ -1887,11 +1851,6 @@
 
   .ft-tree-search .ft-picker-search {
     min-width: 0;
-  }
-
-  .ft-tree-header-actions {
-    justify-content: flex-start;
-    flex-basis: 100%;
   }
 
   .ft-tree-search {

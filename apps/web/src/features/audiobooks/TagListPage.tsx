@@ -5,7 +5,7 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { Button } from "../../shared/Button";
 import { MessageBox } from "../../shared/MessageBox";
-import { AudiobookPageHeader } from "./AudiobooksPage";
+import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 
 // Per-type breakdown so the page can filter the cloud by where a tag is used.
 // One tag can span several types at once (a family name that is also an album
@@ -87,7 +87,7 @@ export function TagListPage({ user, logout }: { user: PublicUser; logout: () => 
   return (
     <DashboardShell active="tags" user={user} logout={logout}>
       <section className="audiobook-main-page">
-        <AudiobookPageHeader
+        <LibraryPageHeader
           title="Tags"
           subtitle={`${tags.length} ${tags.length === 1 ? "tag" : "tags"}`}
           search={search}
