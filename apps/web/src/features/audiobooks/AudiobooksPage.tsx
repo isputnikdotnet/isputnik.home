@@ -1253,22 +1253,14 @@ export function AudiobooksPage({
           search={cat.search}
           onSearchChange={cat.setSearch}
           searchPlaceholder="Search audiobooks..."
-          actions={
-            <>
-              <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} compact />
-              <AudiobookHeaderSort value={sort} onChange={setSort} compact />
-              {uploadLibraries.length > 0 && !selectionMode && (
-                <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setBulkNotice(""); }} aria-label="Upload" title="Upload">
-                  <UploadCloud size={18} aria-hidden="true" />
-                </button>
-              )}
-              {!isMobile && canEditScope && !selectionMode && (
-                <button type="button" className="audiobook-page-action-icon" onClick={() => { setSelectionMode(true); setBulkNotice(""); }} aria-label="Select" title="Select">
-                  <CheckSquare size={18} aria-hidden="true" />
-                </button>
-              )}
-            </>
-          }
+          // Filter, sort and Select moved down to the library row — they act on
+          // what that row is scoping, so they belong beside it rather than up
+          // here. Upload stays: it adds to the library rather than narrowing it.
+          actions={uploadLibraries.length > 0 && !selectionMode && (
+            <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setBulkNotice(""); }} aria-label="Upload" title="Upload">
+              <UploadCloud size={18} aria-hidden="true" />
+            </button>
+          )}
         />
 
         {error && <MessageBox tone="error" title="Audiobooks error">{error}</MessageBox>}
@@ -1388,6 +1380,20 @@ export function AudiobooksPage({
                       document.body
                     )}
                   </div>
+                )}
+              </div>
+
+              {/* The controls that narrow what the library picker beside them has
+                  scoped. Same compact square controls as before — they carry the
+                  actions class so they keep the header's sizing, and only opt out
+                  of its full width. */}
+              <div className="audiobook-page-actions audiobook-main-nav-tools">
+                <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} compact />
+                <AudiobookHeaderSort value={sort} onChange={setSort} compact />
+                {!isMobile && canEditScope && !selectionMode && (
+                  <button type="button" className="audiobook-page-action-icon" onClick={() => { setSelectionMode(true); setBulkNotice(""); }} aria-label="Select" title="Select">
+                    <CheckSquare size={18} aria-hidden="true" />
+                  </button>
                 )}
               </div>
             </div>
