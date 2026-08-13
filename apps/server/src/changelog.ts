@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.4.0",
+    label: "One toolbar for Audiobooks, Ebooks and Gallery, and an A–Z that reads Cyrillic",
+    changes: [
+      "Audiobooks, Ebooks and Gallery now share one toolbar instead of three near-identical copies of the same row. Filter, Sort and View say what they're doing rather than making you open them to find out — Sort shows the order the list is actually in, Filter shows how many things are narrowed, and a divider separates what changes the view from what acts on it (Select, Upload, and each page's own tools). Selecting books or photos swaps that row in place instead of pushing a second bar under it, and the card stays pinned while you work. On a phone, the row drops its labels down to icons and Gallery's eleven-verb selection does the same a little earlier, so nothing ever runs off the edge of the screen.",
+      "Choosing which library to browse moved into Filter on Audiobooks and Ebooks, and it's no longer one-or-all: pick two libraries and the list shows both, narrowing within what you can already see rather than a separate picker bolted on the side. Gallery keeps its own picker for now — a folder tree and a rescan still mean one library at a time.",
+      "An A–Z strip sits under the toolbar on Audiobooks, Ebooks, Authors, Narrators and Series, and it understands more than the alphabet it was built with: a library mixing Latin and Cyrillic titles gets an English/Русский switch, each showing only the letters something is actually filed under. Getting there meant fixing how those titles sort in the first place — Ё used to sort above А by raw character code, so a shelf of Cyrillic titles opened in the wrong order without anyone touching the alphabet strip at all.",
+      "The Recycle Bin users' Actions column now fits every action without a horizontal scrollbar — it was sized for five buttons after a sixth joined the row. Session timestamps in Members do the same: the date and time now sit on two short lines instead of one that didn't fit."
+    ]
+  },
+  {
     version: "3.3.3",
     label: "A network that blocks the app now says so, instead of looking like a failed sign-in",
     changes: [
