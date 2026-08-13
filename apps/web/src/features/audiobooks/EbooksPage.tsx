@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookMarked, BookOpen, Check, CheckCheck, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, LibraryBig, ListMusic, Loader2, Pencil, RotateCcw, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { BookMarked, BookOpen, Check, CheckCheck, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, LayoutGrid, Library, LibraryBig, ListMusic, Loader2, Pencil, RotateCcw, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
@@ -22,9 +22,9 @@ import { EbookReader } from "./reader/EbookReader";
 import { AddToSeriesModal, GroupAsEditionsModal, BulkEditModal, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
-import { LibraryMenu } from "../../shared/LibraryMenu";
 import { AlphabetBar } from "../../shared/AlphabetBar";
-import { useMediaCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
+import { SortMenu } from "../../shared/SortMenu";
+import { useMediaCatalog, readCatalogView, writeCatalogView, DENSITY_OPTIONS, type CatalogDensity, type CatalogScope } from "./useAudiobookCatalog";
 import {
   EBOOK_SORT_OPTIONS, FilterButton, FilterChips, activeFilterCount,
   type BookFilters, type SortKey
@@ -49,7 +49,7 @@ const EBOOK_ENDPOINTS = {
 };
 
 // Ebooks only expose the facets that apply — no narrators/series/length.
-const EBOOK_FILTER_FIELDS: (keyof BookFilters)[] = ["status", "authors", "categories", "tags", "languages"];
+const EBOOK_FILTER_FIELDS: (keyof BookFilters)[] = ["libraries", "status", "authors", "categories", "tags", "languages"];
 
 interface EbookLibrary {
   id: string;
@@ -342,8 +342,11 @@ function EbookCatalogCard({
 
 export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => Promise<void> }) {
   const [libraries, setLibraries] = useState<EbookLibrary[]>([]);
-  const [selectedLibraryId, setSelectedLibraryId] = useState(() => readCatalogView("ebooks:main").selectedLibraryId);
+  // Derived from the library filter below, not chosen: one library behaves as a
+  // scope, none or several is the whole catalog.
+  const [selectedLibraryId, setSelectedLibraryId] = useState("all");
   const [sort, setSort] = useState<SortKey>(() => readCatalogView("ebooks:main").sort);
+  const [density, setDensity] = useState<CatalogDensity>(() => readCatalogView("ebooks:main").density);
   const [librariesError, setLibrariesError] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [notice, setNotice] = useState("");
@@ -403,21 +406,30 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
       .catch(() => setCategories([]));
   }, []);
 
+  // Which shelves the list is drawn from is a filter, like every other way of
+  // narrowing it — see the audiobooks page for the same wiring. One library
+  // chosen still resolves to the library-scoped query so facets and letters stay
+  // honest to what's on screen.
   const scope: CatalogScope = selectedLibraryId === "all"
     ? { kind: "all" }
     : { kind: "library", libraryId: selectedLibraryId };
   const cat = useMediaCatalog<EbookBook>(scope, sort, "ebooks:main", EBOOK_ENDPOINTS);
 
-  // Curate access in the current scope drives the multi-select bulk controls.
-  const canEditScope = selectedLibraryId === "all"
-    ? libraries.some((library) => library.canWrite)
-    : libraries.find((library) => library.id === selectedLibraryId)?.canWrite ?? false;
-  // Series live in a single library, so bulk "Add to series" needs a single-library scope.
+  useEffect(() => {
+    setSelectedLibraryId(cat.filters.libraries.length === 1 ? cat.filters.libraries[0] : "all");
+  }, [cat.filters.libraries]);
+
+  // The libraries the filter is narrowing to — everything accessible when empty.
+  const scopedLibraries = cat.filters.libraries.length
+    ? libraries.filter((library) => cat.filters.libraries.includes(library.id))
+    : libraries;
+
+  // Curate access in what's on screen drives the multi-select bulk controls.
+  const canEditScope = scopedLibraries.some((library) => library.canWrite);
+  // Series live in a single library, so bulk "Add to series" needs one picked.
   const canAddToSeries = canEditScope && selectedLibraryId !== "all";
-  // Delete access in the current scope drives bulk delete (works across "all" too).
-  const canDeleteScope = selectedLibraryId === "all"
-    ? libraries.some((library) => library.canDelete)
-    : libraries.find((library) => library.id === selectedLibraryId)?.canDelete ?? false;
+  // Delete access in view drives bulk delete (works across several libraries too).
+  const canDeleteScope = scopedLibraries.some((library) => library.canDelete);
   // Libraries accepting uploads drive the Upload button + modal choices.
   const uploadLibraries = libraries.filter((library) => library.canUpload);
 
@@ -504,8 +516,9 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
   useEffect(() => { void loadLibraries(); }, [loadLibraries]);
 
   useEffect(() => {
-    writeCatalogView("ebooks:main", { selectedLibraryId, sort });
-  }, [selectedLibraryId, sort]);
+    // The chosen libraries ride along in `filters`, which the hook persists.
+    writeCatalogView("ebooks:main", { sort, density });
+  }, [sort, density]);
 
   // Drop selection when the scope changes or all bulk access is lost.
   useEffect(() => { exitSelection(); }, [selectedLibraryId]);
@@ -625,17 +638,14 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
 
   const libraryFor = (libraryId: string) => libraries.find((library) => library.id === libraryId);
 
-  const selectedLibrary = selectedLibraryId === "all" ? null : libraryFor(selectedLibraryId) ?? null;
-  const selectedLibraryLabel = selectedLibraryId === "all" ? "All Libraries" : selectedLibrary?.name ?? "All Libraries";
-  const selectedScopeBookCount = selectedLibraryId === "all"
-    ? libraries.reduce((sum, library) => sum + library.bookCount, 0)
-    : selectedLibrary?.bookCount ?? 0;
+  // How many ebooks the chosen shelves hold at all — the difference between
+  // "your libraries are empty" and "nothing matched what you asked for".
+  const selectedScopeBookCount = scopedLibraries.reduce((sum, library) => sum + library.bookCount, 0);
+  const selectedLibraryLabel = scopedLibraries.length === 1 ? scopedLibraries[0].name : "your libraries";
   const scanning = libraries.some((library) => library.scanStatus === "scanning");
   const hasActiveQuery = cat.search.trim().length > 0 || activeFilterCount(cat.filters) > 0 || cat.letter != null;
   const emptyMessage = selectedScopeBookCount === 0
-    ? selectedLibraryId === "all"
-      ? "No ebooks in your libraries yet."
-      : `No ebooks in ${selectedLibraryLabel} yet.`
+    ? `No ebooks in ${selectedLibraryLabel} yet.`
     : hasActiveQuery
       ? "No ebooks match this search or filter."
       : "No ebooks to show.";
@@ -655,13 +665,8 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
           search={cat.search}
           onSearchChange={cat.setSearch}
           searchPlaceholder="Search ebooks..."
-          // Filter, sort and Select live on the library row below, beside the
-          // scope they narrow. Upload stays here: it adds to the library.
-          actions={uploadLibraries.length > 0 && !selectionMode && (
-            <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setNotice(""); }} aria-label="Upload" title="Upload">
-              <UploadCloud size={18} aria-hidden="true" />
-            </button>
-          )}
+          // Every control lives in the toolbar below, Upload included: the header
+          // is the page's name and its search box, nothing else.
         />
 
         {error && <MessageBox tone="error" title="Ebooks error">{error}</MessageBox>}
@@ -692,18 +697,10 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
         ) : (
           <>
             <LibraryPageToolbar
+              // No library picker of its own: choosing shelves is one of the ways
+              // this list is narrowed, so it lives in Filter with the rest.
               scope={
                 <>
-                  <LibraryMenu
-                    value={selectedLibraryId}
-                    options={[
-                      { value: "all", label: "All Libraries" },
-                      ...libraries.map((library) => ({ value: library.id, label: library.name }))
-                    ]}
-                    icon={<BookMarked size={19} aria-hidden="true" />}
-                    label="Select library"
-                    onChange={setSelectedLibraryId}
-                  />
                   {isMobile && (
                     <div className="audiobook-library-shortcuts">
                       <button
@@ -746,13 +743,41 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                   )}
                 </>
               }
+              // Left to right: what narrows the list, a divider, then what acts on
+              // it — the same row the audiobooks page wears.
               tools={
                 <>
-                  <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} fields={EBOOK_FILTER_FIELDS} compact />
-                  <AudiobookHeaderSort value={sort} onChange={setSort} options={EBOOK_SORT_OPTIONS} ariaLabel="Sort ebooks" compact />
+                  <FilterButton
+                    facets={cat.facets}
+                    value={cat.filters}
+                    onChange={cat.setFilters}
+                    fields={EBOOK_FILTER_FIELDS}
+                    libraries={libraries}
+                  />
+                  <SortMenu value={sort} options={EBOOK_SORT_OPTIONS} onChange={setSort} ariaLabel="Sort ebooks" presentation="labelled" />
+                  {/* Desktop only: the phone renders rows, not the grid this sizes. */}
+                  {!isMobile && (
+                    <SortMenu
+                      value={density}
+                      options={DENSITY_OPTIONS}
+                      onChange={setDensity}
+                      ariaLabel="View"
+                      presentation="labelled"
+                      icon={<LayoutGrid size={18} aria-hidden="true" />}
+                      label="View"
+                    />
+                  )}
+                  <span className="library-toolbar-divider" aria-hidden="true" />
                   {!isMobile && (canEditScope || canDeleteScope) && (
-                    <button type="button" className="audiobook-page-action-icon" onClick={() => { setSelectionMode(true); setNotice(""); }} aria-label="Select" title="Select">
+                    <button type="button" className="library-toolbar-button" onClick={() => { setSelectionMode(true); setNotice(""); }}>
                       <CheckSquare size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Select</span>
+                    </button>
+                  )}
+                  {uploadLibraries.length > 0 && (
+                    <button type="button" className="library-toolbar-button primary" onClick={() => { setUploadOpen(true); setNotice(""); }}>
+                      <UploadCloud size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Upload</span>
                     </button>
                   )}
                 </>
@@ -761,72 +786,80 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                 count: selectedIds.size,
                 actions: (
                   <>
-                    <Button
-                      variant="icon"
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
                       onClick={() => setSelectedIds(new Set(cat.books.map((book) => book.id)))}
                       disabled={cat.books.length === 0}
-                      aria-label="Select all loaded"
-                      title="Select all loaded"
+                      title="Select every ebook loaded so far"
                     >
                       <CheckCheck size={18} aria-hidden="true" />
-                    </Button>
+                      <span className="toolbar-label">All</span>
+                    </button>
                     {canEditScope && (
-                      <Button
-                        variant="icon"
-                        className="accent-gold"
+                      <button
+                        type="button"
+                        className="library-toolbar-button"
                         onClick={() => setBulkOpen(true)}
                         disabled={selectedIds.size === 0}
-                        aria-label="Edit metadata"
                         title="Edit metadata"
                       >
                         <Pencil size={18} aria-hidden="true" />
-                      </Button>
+                        <span className="toolbar-label">Edit</span>
+                      </button>
                     )}
                     {canEditScope && (
-                      <Button
-                        variant="icon"
+                      <button
+                        type="button"
+                        className="library-toolbar-button"
                         onClick={() => setEditionsModalOpen(true)}
                         disabled={selectedIds.size < 2}
-                        aria-label="Group as editions"
                         title="Group the selected ebooks as editions of one title"
                       >
                         <Layers size={18} aria-hidden="true" />
-                      </Button>
+                        <span className="toolbar-label">Group</span>
+                      </button>
                     )}
                     {canAddToSeries && (
-                      <Button
-                        variant="icon"
+                      <button
+                        type="button"
+                        className="library-toolbar-button"
                         onClick={() => setSeriesModalOpen(true)}
                         disabled={selectedIds.size === 0}
-                        aria-label="Add to series"
                         title="Add to series"
                       >
                         <Library size={18} aria-hidden="true" />
-                      </Button>
+                        <span className="toolbar-label">Series</span>
+                      </button>
                     )}
                     {canDeleteScope && (
-                      <Button
-                        variant="icon"
-                        danger
+                      <button
+                        type="button"
+                        className="library-toolbar-button danger"
                         onClick={() => { setDeleteError(""); setBulkDeleteOpen(true); }}
                         disabled={selectedIds.size === 0}
-                        aria-label="Delete"
-                        title="Delete"
+                        title="Move the selected ebooks to the Recycle Bin"
                       >
                         <Trash2 size={18} aria-hidden="true" />
-                      </Button>
+                        <span className="toolbar-label">Delete</span>
+                      </button>
                     )}
                     <span className="library-toolbar-divider" aria-hidden="true" />
-                    <Button variant="icon" onClick={exitSelection} aria-label="Cancel selection" title="Cancel selection">
+                    <button type="button" className="library-toolbar-button" onClick={exitSelection} title="Leave selection">
                       <X size={18} aria-hidden="true" />
-                    </Button>
+                      <span className="toolbar-label">Done</span>
+                    </button>
                   </>
                 )
               } : null}
-              strip={<AlphabetBar available={cat.facets.letters} value={cat.letter} onChange={cat.setLetter} ariaLabel="Filter ebooks by letter" />}
+              // Desktop only — see the audiobooks page: 30 letter targets don't
+              // belong on a phone screen.
+              strip={!isMobile && (
+                <AlphabetBar available={cat.facets.letters} value={cat.letter} onChange={cat.setLetter} ariaLabel="Filter ebooks by letter" />
+              )}
             />
 
-            <FilterChips value={cat.filters} onChange={cat.setFilters} />
+            <FilterChips value={cat.filters} onChange={cat.setFilters} libraries={libraries} />
 
             {scanning && (
               <MessageBox tone="info" title="Scanning ebooks">
@@ -857,7 +890,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
                 {!cat.loading && cat.books.length === 0 && <p className="management-empty">{emptyMessage}</p>}
               </div>
             ) : (
-              <div className="audiobook-catalog grid">
+              <div className={`audiobook-catalog grid ${density}`}>
                 {cat.books.map((book) => (
                   <EbookCatalogCard
                     key={book.id}

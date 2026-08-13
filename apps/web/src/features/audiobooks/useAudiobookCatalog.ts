@@ -17,8 +17,18 @@ export interface CatalogView {
   /** The A–Z strip's letter. Mirrored in the URL, unlike the rest of this view. */
   letter: string | null;
   /** The toolbar's View choice — how many covers a row holds. */
-  density: "comfortable" | "compact";
+  density: CatalogDensity;
 }
+
+// What the toolbar's View menu offers today: how many covers a row holds. A
+// grid/list switch belongs here too, but a list needs a row-shaped card that
+// doesn't exist yet — one column of full-size covers isn't a list view.
+export type CatalogDensity = "comfortable" | "compact";
+
+export const DENSITY_OPTIONS: { value: CatalogDensity; label: string }[] = [
+  { value: "comfortable", label: "Comfortable" },
+  { value: "compact", label: "Compact" }
+];
 
 const DEFAULT_VIEW: CatalogView = {
   selectedLibraryId: "all", sort: "title", search: "", filters: EMPTY_FILTERS, letter: null, density: "comfortable"
