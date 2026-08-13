@@ -224,7 +224,9 @@ this order:
   what you're looking at; everything right of it acts on the library or the
   selection.
 - **Below 1100px the labels drop, nothing else moves** (one media query on
-  `.toolbar-label`). The icons, order and divider stay put.
+  `.toolbar-label`). The icons, order and divider stay put. A selection row with
+  nine or more actions — the gallery's — drops them at 1400px instead, keyed on
+  the count with `:has(> :nth-child(9))` rather than on the page.
 - **At most two promoted page actions**; anything more goes in a menu named for
   the object (`Album ▾`), not behind a bare three-dot glyph.
 - **Libraries are a facet, not a picker** (`BookFilters.libraries`, ids in, names
