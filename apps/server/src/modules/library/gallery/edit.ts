@@ -4,6 +4,7 @@
 // rescan preserves the edits.
 import { db } from "../../../db.js";
 import { setEntityTags } from "../audiobook/categorize.js";
+import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 
 export interface GalleryAssetEdit {
   title: string;
@@ -45,6 +46,7 @@ export function updateGalleryAsset(itemId: string, data: GalleryAssetEdit): bool
         description = excluded.description,
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     `).run(itemId, data.title, sortName(data.title), data.description);
+    applyItemAlphaIndex(itemId);
 
     if (data.takenAt) {
       db.prepare(

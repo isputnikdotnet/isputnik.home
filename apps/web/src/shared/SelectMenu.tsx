@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { Button } from "./Button";
 
@@ -28,10 +28,33 @@ export function SelectMenu<T extends string>({
   triggerIcon?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  // Which edge of the trigger the popover hangs from. Left by default; flipped
+  // below when that would put it off the window.
+  const [alignRight, setAlignRight] = useState(false);
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value) ?? options[0];
   const hasIcons = options.some((option) => option.icon);
+
+  // A trigger near the right edge — the sort square at the end of a browse
+  // toolbar is always there — opens a left-anchored menu straight off the page,
+  // where an ancestor's overflow clips it. Measured after paint rather than
+  // guessed, because the width is the widest option's text.
+  useLayoutEffect(() => {
+    if (!open) {
+      setAlignRight(false);
+      return;
+    }
+    const popover = popoverRef.current;
+    if (!popover) return;
+    const rect = popover.getBoundingClientRect();
+    const overflowsRight = rect.right > window.innerWidth - 8;
+    // Only worth flipping if the other side actually has room for it.
+    if (overflowsRight && rect.width + 8 <= (rootRef.current?.getBoundingClientRect().right ?? 0)) {
+      setAlignRight(true);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -77,7 +100,13 @@ export function SelectMenu<T extends string>({
       </Button>
 
       {open && (
-        <div id={menuId} className="select-menu-popover" role="listbox" aria-label={label}>
+        <div
+          id={menuId}
+          ref={popoverRef}
+          className={`select-menu-popover${alignRight ? " align-right" : ""}`}
+          role="listbox"
+          aria-label={label}
+        >
           {options.map((option) => {
             const active = option.value === value;
             return (

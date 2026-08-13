@@ -283,6 +283,8 @@ export function buildAcquisitionFeed(
     limit: PAGE_SIZE,
     offset,
     filters: {
+      // OPDS browses everything the reader can reach; no per-library narrowing.
+      libraries: [],
       authors: query.author ? [query.author] : [],
       narrators: [],
       categories: query.category ? [query.category] : [],

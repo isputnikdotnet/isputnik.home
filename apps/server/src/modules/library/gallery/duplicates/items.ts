@@ -27,6 +27,7 @@ import { libraryJobRunning } from "../../shared/scan-lock.js";
 import { requeueInterruptedJobs } from "../../shared/job-recovery.js";
 import { jobProgressWriter } from "../../shared/job-progress.js";
 import { trashBook, libraryAllowsDelete } from "../../shared/trash.js";
+import { applyItemAlphaIndex } from "../../shared/alphabet-index.js";
 import { recomputeFaceCount } from "../people.js";
 // Same shape of mutual import, for the same reason: a cleanup job's scan is this
 // module's hashing pass followed by that job's own snapshot, so the worker down at the
@@ -911,6 +912,7 @@ export function absorbDuplicateMetadata(
             sort_title = excluded.sort_title, description = excluded.description,
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
         `).run(keeperId, donor.title, donor.sort_title, donor.description);
+        applyItemAlphaIndex(keeperId);
       }
     }
 

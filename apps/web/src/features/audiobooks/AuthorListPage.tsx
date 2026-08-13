@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Headphones, LibraryBig, SortAsc, UserRound } from "lucide-react";
+import { BookOpen, Headphones, LibraryBig, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { navigate, queryParam, replaceQuery } from "../../router";
+import { AlphabetBar } from "../../shared/AlphabetBar";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
+import { LibraryMenu } from "../../shared/LibraryMenu";
+import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
 import { SectionNav } from "../../shared/SectionNav";
-import { SelectMenu } from "../../shared/SelectMenu";
+import { SortMenu } from "../../shared/SortMenu";
 import { sectionFromQuery, sectionNavProps } from "./sectionNavItems";
 
 type KindFilter = "all" | "audiobook" | "ebook";
@@ -17,42 +20,15 @@ type AuthorSummary = {
   audiobookCount: number;
   ebookCount: number;
   libraryIds: string[];
+  // Both ways this list can be indexed, bucketed and ordered by the server (see
+  // modules/library/shared/alphabet.ts). Script detection and Cyrillic folding
+  // live there once, rather than in every page that draws a strip.
+  alphaKey: string;
+  alphaKeyLast: string;
+  sortKey: string;
+  sortKeyLast: string;
 };
 type AuthorLibrary = { id: string; name: string; type: string };
-
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-// Everything that isn't a Latin letter indexes here: digits, punctuation, and
-// names in scripts this strip can't represent. Better one bucket that always has
-// the author in it than 26 buttons they can never be found under.
-const OTHER = "#";
-
-// Common generational and honorific suffixes. They're the last token of a name
-// without ever being the surname, so a last-name index has to look past them.
-const SUFFIXES = new Set(["jr", "jr.", "sr", "sr.", "i", "ii", "iii", "iv", "v", "phd", "ph.d.", "md", "esq"]);
-
-// The surname to file an author under. A curated sort name wins when it has one
-// ("Tolkien, J. R. R." → Tolkien), since a person set it deliberately. Otherwise
-// take the last word of the name, stepping back over any suffix. The scanner
-// seeds sort_name from the title-sort helper — which only strips leading
-// articles — so most authors reach this with a sort name that is just their name
-// again, and the fallback is what actually does the work.
-function surnameOf(author: AuthorSummary): string {
-  const sortName = author.sortName?.trim();
-  if (sortName && sortName.includes(",")) return sortName.split(",")[0].trim();
-
-  const words = author.name.trim().split(/\s+/).filter(Boolean);
-  for (let i = words.length - 1; i >= 0; i -= 1) {
-    if (!SUFFIXES.has(words[i].toLowerCase())) return words[i];
-  }
-  return author.name.trim();
-}
-
-// The A–Z bucket a string falls in. Accents are folded so "Ángela" files under A
-// rather than disappearing into "#".
-function letterOf(value: string): string {
-  const first = value.normalize("NFD").replace(/\p{M}/gu, "").trim().charAt(0).toUpperCase();
-  return first >= "A" && first <= "Z" ? first : OTHER;
-}
 
 // The single, cross-type Authors browse (replaces the old per-section author
 // lists). Authors are global, so one list spans audiobooks + ebooks. Four filters
@@ -74,8 +50,15 @@ export function AuthorListPage({
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const [libraryFilter, setLibraryFilter] = useState("all");
   const [nameOrder, setNameOrder] = useState<NameOrder>("first");
-  const [letter, setLetter] = useState("");
+  // The letter is navigation-shaped: it comes off the URL so a reload or a shared
+  // link opens on it, and goes back with replaceState so Back leaves the page
+  // instead of walking out through every letter that was clicked.
+  const [letter, setLetter] = useState<string | null>(() => queryParam("letter"));
   const section = sectionFromQuery();
+
+  useEffect(() => {
+    replaceQuery("letter", letter);
+  }, [letter]);
 
   useEffect(() => {
     api<{ authors: AuthorSummary[]; libraries: AuthorLibrary[] }>("/api/library/people/authors")
@@ -89,16 +72,11 @@ export function AuthorListPage({
       .catch(() => {}); // avatars are decoration — the list works without them
   }, []);
 
-  // The name each author is indexed and sorted by under the current choice.
-  const indexNames = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const author of authors) {
-      map.set(author.name, nameOrder === "last" ? surnameOf(author) : author.name.trim());
-    }
-    return map;
-  }, [authors, nameOrder]);
-
-  const indexName = (author: AuthorSummary) => indexNames.get(author.name) ?? author.name;
+  // Which of the server's two indexes the First/Last choice selects — the letter
+  // an author files under and the value the list sorts by are the same question
+  // asked twice, so they always come from the same pair.
+  const bucketOf = (author: AuthorSummary) => (nameOrder === "last" ? author.alphaKeyLast : author.alphaKey);
+  const orderOf = (author: AuthorSummary) => (nameOrder === "last" ? author.sortKeyLast : author.sortKey);
 
   // Toggle counts = how many authors fall in each media type; the toggle only
   // appears when authors actually span both types.
@@ -127,19 +105,22 @@ export function AuthorListPage({
     const seen = new Set<string>();
     for (const author of authors) {
       if (matchesKind(author) && matchesLibrary(author) && matchesSearch(author)) {
-        seen.add(letterOf(indexName(author)));
+        seen.add(bucketOf(author));
       }
     }
-    return seen;
+    return [...seen];
     // Deps are the filter inputs, not the match helpers closing over them: those
     // are re-made every render and would defeat the memo entirely.
-  }, [authors, kindFilter, libraryFilter, term, indexNames]);
+  }, [authors, kindFilter, libraryFilter, term, nameOrder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown = authors
     .filter((a) => matchesKind(a) && matchesLibrary(a) && matchesSearch(a))
-    .filter((a) => !letter || letterOf(indexName(a)) === letter)
+    .filter((a) => !letter || bucketOf(a) === letter)
     .slice()
-    .sort((a, b) => indexName(a).localeCompare(indexName(b), undefined, { sensitivity: "base" }));
+    // Ordered by the server's sort key, which is already folded (Ё → Е, accents
+    // stripped), so a plain comparison puts Cyrillic and Latin names in the order
+    // a reader expects.
+    .sort((a, b) => orderOf(a).localeCompare(orderOf(b)));
 
   const libraryOptions = [
     { value: "all", label: "All libraries" },
@@ -165,69 +146,63 @@ export function AuthorListPage({
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search authors..."
-          actions={authors.length > 0 && (
-            <>
-              <SelectMenu
+        />
+
+        {error && <MessageBox tone="error" title="Authors error">{error}</MessageBox>}
+
+        {authors.length > 0 && (
+          <LibraryPageToolbar
+            // Same left-to-right reading as the book pages: what the page is scoped
+            // to (library, then media type) on the left, the controls that reorder
+            // what it found on the right. The media-type toggle appears only where
+            // it does something — a shelf of audiobooks alone has nothing to switch.
+            scope={
+              <>
+                {libraries.length > 1 && (
+                  <LibraryMenu
+                    value={libraryFilter}
+                    options={libraryOptions}
+                    icon={<LibraryBig size={19} aria-hidden="true" />}
+                    label="Library"
+                    onChange={setLibraryFilter}
+                  />
+                )}
+                {hasBothTypes && (
+                  <div className="kind-toggle" role="group" aria-label="Filter by media type">
+                    <button type="button" className={kindFilter === "all" ? "is-active" : ""} onClick={() => setKindFilter("all")}>
+                      All<span className="kind-toggle-count">{authors.length}</span>
+                    </button>
+                    <button type="button" className={kindFilter === "audiobook" ? "is-active" : ""} onClick={() => setKindFilter("audiobook")}>
+                      <Headphones size={15} aria-hidden="true" />Audiobooks<span className="kind-toggle-count">{audiobookAuthors}</span>
+                    </button>
+                    <button type="button" className={kindFilter === "ebook" ? "is-active" : ""} onClick={() => setKindFilter("ebook")}>
+                      <BookOpen size={15} aria-hidden="true" />Ebooks<span className="kind-toggle-count">{ebookAuthors}</span>
+                    </button>
+                  </div>
+                )}
+              </>
+            }
+            tools={
+              <SortMenu
+                presentation="labelled"
                 value={nameOrder}
-                label="Sort and index by"
-                triggerIcon={<SortAsc size={15} aria-hidden="true" />}
+                ariaLabel="Sort and index by"
                 onChange={setNameOrder}
                 options={[
                   { value: "first", label: "First name" },
                   { value: "last", label: "Last name" }
                 ]}
               />
-              {libraries.length > 1 && (
-                <SelectMenu
-                  value={libraryFilter}
-                  label="Library"
-                  triggerIcon={<LibraryBig size={15} aria-hidden="true" />}
-                  onChange={setLibraryFilter}
-                  options={libraryOptions}
-                />
-              )}
-            </>
-          )}
-        />
-
-        {error && <MessageBox tone="error" title="Authors error">{error}</MessageBox>}
-
-        {hasBothTypes && (
-          <div className="kind-toggle" role="group" aria-label="Filter by media type">
-            <button type="button" className={kindFilter === "all" ? "is-active" : ""} onClick={() => setKindFilter("all")}>
-              All<span className="kind-toggle-count">{authors.length}</span>
-            </button>
-            <button type="button" className={kindFilter === "audiobook" ? "is-active" : ""} onClick={() => setKindFilter("audiobook")}>
-              <Headphones size={15} aria-hidden="true" />Audiobooks<span className="kind-toggle-count">{audiobookAuthors}</span>
-            </button>
-            <button type="button" className={kindFilter === "ebook" ? "is-active" : ""} onClick={() => setKindFilter("ebook")}>
-              <BookOpen size={15} aria-hidden="true" />Ebooks<span className="kind-toggle-count">{ebookAuthors}</span>
-            </button>
-          </div>
-        )}
-
-        {authors.length > 0 && (
-          <div className="alpha-filter" role="group" aria-label={`Filter by ${nameOrder} letter`}>
-            <button
-              type="button"
-              className={letter === "" ? "is-active" : ""}
-              onClick={() => setLetter("")}
-            >
-              All
-            </button>
-            {[...ALPHABET, OTHER].map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={letter === option ? "is-active" : ""}
-                disabled={!availableLetters.has(option)}
-                aria-label={option === OTHER ? "Names starting with a number or symbol" : option}
-                onClick={() => setLetter((current) => (current === option ? "" : option))}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
+            }
+            strip={
+              <AlphabetBar
+                available={availableLetters}
+                value={letter}
+                onChange={setLetter}
+                ariaLabel={`Filter by ${nameOrder} letter`}
+              />
+            }
+          />
         )}
 
         {shown.length === 0 ? (

@@ -365,6 +365,8 @@ a.icon-button svg {
   top: calc(100% + 8px);
   left: 0;
   display: grid;
+  /* Anchoring is flipped by the component when a left-anchored menu would run
+     past the window — see .align-right below. */
   gap: 2px;
   min-width: 100%;
   width: max-content;
@@ -374,6 +376,14 @@ a.icon-button svg {
   border-radius: 8px;
   background: var(--surface-raised);
   box-shadow: 0 16px 36px var(--shadow);
+}
+
+/* Hangs from the trigger's right edge instead of its left. A menu on a control
+   near the window's right edge — a browse toolbar's sort square, say — would
+   otherwise open off-screen and be clipped by the page's overflow. */
+.select-menu-popover.align-right {
+  left: auto;
+  right: 0;
 }
 
 .select-menu-option.text-button {

@@ -20,6 +20,7 @@ import {
 } from "../shared/library-settings.js";
 import type { MetadataSourceId } from "../shared/metadata-sources.js";
 import { downloadImage } from "../shared/remote-image.js";
+import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 import { enrichLibraryAuthors, lookupOnlineBookMetadata } from "./enrich.js";
 import { matchCategoryId, setEntityTags } from "./categorize.js";
 import { isMp4ChapterContainer, readMp4Chapters } from "./mp4-chapters.js";
@@ -1318,6 +1319,11 @@ export function writeBookScan(libraryId: string, book: PreparedBookScan) {
       book.isbn,
       book.publisher
     );
+
+    // Whatever title survived that upsert (scanned or manually owned) decides the
+    // A–Z bucket, so the index is re-derived from the stored row, not from
+    // book.sortTitle.
+    applyItemAlphaIndex(book.bookId);
 
     // Audiobook-specific: duration always refreshes; asin is preserved on manual.
     db.prepare(`

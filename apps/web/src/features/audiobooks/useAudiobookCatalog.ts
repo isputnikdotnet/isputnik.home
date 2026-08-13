@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
+import { queryParam, replaceQuery } from "../../router";
 import { EMPTY_FILTERS, EMPTY_FACETS, type BookFilters, type FacetOptions, type SortKey } from "./BookFilter";
 import type { AudiobookBook } from "./types";
 
@@ -13,9 +14,15 @@ export interface CatalogView {
   sort: SortKey;
   search: string;
   filters: BookFilters;
+  /** The A–Z strip's letter. Mirrored in the URL, unlike the rest of this view. */
+  letter: string | null;
+  /** The toolbar's View choice — how many covers a row holds. */
+  density: "comfortable" | "compact";
 }
 
-const DEFAULT_VIEW: CatalogView = { selectedLibraryId: "all", sort: "title", search: "", filters: EMPTY_FILTERS };
+const DEFAULT_VIEW: CatalogView = {
+  selectedLibraryId: "all", sort: "title", search: "", filters: EMPTY_FILTERS, letter: null, density: "comfortable"
+};
 const viewStore = new Map<string, CatalogView>();
 
 export function readCatalogView(key: string): CatalogView {
@@ -60,11 +67,20 @@ export function useMediaCatalog<T = AudiobookBook>(
   const [search, setSearch] = useState(() => readCatalogView(persistKey).search);
   const [debounced, setDebounced] = useState(() => readCatalogView(persistKey).search.trim());
   const [filters, setFilters] = useState<BookFilters>(() => readCatalogView(persistKey).filters);
+  // The letter comes off the URL first, so a reloaded or shared ?letter=Б opens
+  // on that letter; the session store is the fallback for an in-app return.
+  const [letter, setLetter] = useState<string | null>(() => queryParam("letter") ?? readCatalogView(persistKey).letter);
 
   // Persist the bits this hook owns so they survive a remount within the session.
   useEffect(() => {
-    writeCatalogView(persistKey, { search, filters });
-  }, [persistKey, search, filters]);
+    writeCatalogView(persistKey, { search, filters, letter });
+  }, [persistKey, search, filters, letter]);
+
+  // The letter is navigation-shaped, so it also lives in the URL — replaced, not
+  // pushed, or Back would walk out through every letter that was clicked.
+  useEffect(() => {
+    replaceQuery("letter", letter);
+  }, [letter]);
   const [books, setBooks] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
   const [facets, setFacets] = useState<FacetOptions>(EMPTY_FACETS);
@@ -89,7 +105,12 @@ export function useMediaCatalog<T = AudiobookBook>(
     const params = new URLSearchParams({ scope: scope.kind });
     if (scope.kind === "library") params.set("libraryId", scope.libraryId);
     api<FacetOptions>(`${endpoints.facets}?${params.toString()}`)
-      .then(setFacets)
+      .then((next) => {
+        setFacets(next);
+        // Switching library can strand the chosen letter on a scope that has
+        // nothing under it — an empty grid with no way to tell why. Drop it.
+        setLetter((current) => (current && !next.letters.includes(current) ? null : current));
+      })
       .catch(() => setFacets(EMPTY_FACETS));
   }, [scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -100,10 +121,11 @@ export function useMediaCatalog<T = AudiobookBook>(
     sort,
     limit: PAGE_SIZE,
     offset,
+    letter,
     filters
-  }), [scopeKey, debounced, sort, filters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [scopeKey, debounced, sort, filters, letter]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const queryKey = JSON.stringify({ scopeKey, debounced, sort, filters, tick });
+  const queryKey = JSON.stringify({ scopeKey, debounced, sort, filters, letter, tick });
 
   // Reset to page 1 whenever the query changes. A request id guards against
   // out-of-order responses (a slow page-1 landing after a newer query).
@@ -157,6 +179,7 @@ export function useMediaCatalog<T = AudiobookBook>(
   return {
     search, setSearch,
     filters, setFilters,
+    letter, setLetter,
     books, total, facets,
     loading, loadingMore, hasMore, loadMore,
     sentinelRef, error, refresh

@@ -8,6 +8,7 @@ import { parseBody } from "../../../core/shared.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { accessibleLibraryIds, canUserWriteLibrary, getAccessibleLibrary } from "../shared/library-access.js";
+import { alphaFieldsFor } from "../shared/alphabet.js";
 import { enrichPerson, lookupPersonByUrl, lookupPersonInfo, lookupPersonPhotoCandidates, removeStoredPhotos, writePersonPhoto } from "./enrich.js";
 import { MetadataLinkError } from "./providers/types.js";
 import { sortTitle } from "./scanner.js";
@@ -115,22 +116,48 @@ export function listPersonItems(name: string, userId: string, userRole: string):
 export type AuthorSummary = {
   name: string;
   // The curated "file under" form, when someone has set one on the person's
-  // profile. Usually "Surname, First" — the Authors browse reads the surname off
-  // it for its last-name index rather than guessing from `name`.
+  // profile. Usually "Surname, First" — the surname index below reads off it
+  // rather than guessing from `name`.
   sortName: string | null;
   audiobookCount: number;
   ebookCount: number;
   libraryIds: string[];
+  // The A–Z buckets and ordering keys for both ways the list can be indexed, so
+  // the browse page never has to detect a script or fold a letter itself. See
+  // shared/alphabet.ts — that logic exists once, here.
+  alphaKey: string;
+  alphaKeyLast: string;
+  sortKey: string;
+  sortKeyLast: string;
 };
 
 export type AuthorLibrary = { id: string; name: string; type: string };
 
-// Every person credited as an author, across all accessible libraries, with how
-// many audiobooks vs ebooks they have and which libraries they appear in —
-// drives the unified Authors list and its media-type, library, and A–Z filters.
-// Same global-people + access-filter shape as listPersonItems; narrators are
-// intentionally excluded (audiobook-only role).
-export function listAuthors(userId: string, userRole: string): AuthorSummary[] {
+export type PersonRole = "author" | "narrator";
+
+// Generational and honorific suffixes: the last token of a name without ever
+// being the surname, so a last-name index has to look past them.
+const NAME_SUFFIXES = new Set(["jr", "jr.", "sr", "sr.", "i", "ii", "iii", "iv", "v", "phd", "ph.d.", "md", "esq"]);
+
+// The surname to file a person under. A curated sort name wins when it has one
+// ("Tolkien, J. R. R." → Tolkien), since a person set it deliberately. Otherwise
+// take the last word of the name, stepping back over any suffix.
+function surnameOf(name: string, sortName: string | null): string {
+  const curated = sortName?.trim();
+  if (curated && curated.includes(",")) return curated.split(",")[0].trim();
+
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  for (let i = words.length - 1; i >= 0; i -= 1) {
+    if (!NAME_SUFFIXES.has(words[i].toLowerCase())) return words[i];
+  }
+  return name.trim();
+}
+
+// Every person in one credit role, across all accessible libraries, with how many
+// audiobooks vs ebooks they have and which libraries they appear in — drives the
+// unified Authors list (and the Narrators one) with its media-type, library and
+// A–Z filters. Same global-people + access-filter shape as listPersonItems.
+export function listPeopleByRole(userId: string, userRole: string, role: PersonRole): AuthorSummary[] {
   const libraryIds = [...accessibleLibraryIds(userId, userRole)];
   if (libraryIds.length === 0) return [];
 
@@ -143,13 +170,13 @@ export function listAuthors(userId: string, userRole: string): AuthorSummary[] {
       SUM(CASE WHEN li.type = 'ebook' THEN 1 ELSE 0 END) AS ebook_count,
       GROUP_CONCAT(DISTINCT li.library_id) AS library_ids
     FROM people p
-    JOIN item_people ip   ON ip.person_id = p.id AND ip.role = 'author'
+    JOIN item_people ip   ON ip.person_id = p.id AND ip.role = ?
     JOIN library_items li ON li.id = ip.item_id
     WHERE li.deleted_at IS NULL
       AND li.library_id IN (${placeholders})
     GROUP BY p.id
     ORDER BY p.sort_name COLLATE NOCASE, p.name COLLATE NOCASE
-  `).all(...libraryIds) as {
+  `).all(role, ...libraryIds) as {
     name: string;
     sort_name: string | null;
     audiobook_count: number;
@@ -157,21 +184,33 @@ export function listAuthors(userId: string, userRole: string): AuthorSummary[] {
     library_ids: string | null;
   }[];
 
-  return rows.map((row) => ({
-    name: row.name,
-    sortName: row.sort_name,
-    audiobookCount: row.audiobook_count,
-    ebookCount: row.ebook_count,
-    // GROUP_CONCAT has no separator argument in the DISTINCT form, so it is
-    // always a plain comma — library ids are nanoids and never contain one.
-    libraryIds: row.library_ids ? row.library_ids.split(",").filter(Boolean) : []
-  }));
+  return rows.map((row) => {
+    const byFirst = alphaFieldsFor(row.name);
+    const byLast = alphaFieldsFor(surnameOf(row.name, row.sort_name));
+    return {
+      name: row.name,
+      sortName: row.sort_name,
+      audiobookCount: row.audiobook_count,
+      ebookCount: row.ebook_count,
+      // GROUP_CONCAT has no separator argument in the DISTINCT form, so it is
+      // always a plain comma — library ids are nanoids and never contain one.
+      libraryIds: row.library_ids ? row.library_ids.split(",").filter(Boolean) : [],
+      alphaKey: byFirst.alphaKey,
+      alphaKeyLast: byLast.alphaKey,
+      sortKey: byFirst.sortKey,
+      sortKeyLast: byLast.sortKey
+    };
+  });
 }
 
-// The libraries the list above can be filtered by: accessible, and actually
-// holding something with an author on it. Anything else would be a picker entry
-// that can only ever return nothing.
-export function listAuthorLibraries(userId: string, userRole: string): AuthorLibrary[] {
+export function listAuthors(userId: string, userRole: string): AuthorSummary[] {
+  return listPeopleByRole(userId, userRole, "author");
+}
+
+// The libraries a role's list can be filtered by: accessible, and actually
+// holding something with such a credit on it. Anything else would be a picker
+// entry that can only ever return nothing.
+export function listPeopleLibraries(userId: string, userRole: string, role: PersonRole): AuthorLibrary[] {
   const libraryIds = [...accessibleLibraryIds(userId, userRole)];
   if (libraryIds.length === 0) return [];
 
@@ -180,10 +219,14 @@ export function listAuthorLibraries(userId: string, userRole: string): AuthorLib
     SELECT DISTINCT l.id AS id, l.name AS name, l.type AS type
     FROM libraries l
     JOIN library_items li ON li.library_id = l.id AND li.deleted_at IS NULL
-    JOIN item_people ip   ON ip.item_id = li.id AND ip.role = 'author'
+    JOIN item_people ip   ON ip.item_id = li.id AND ip.role = ?
     WHERE l.id IN (${placeholders})
     ORDER BY l.name COLLATE NOCASE
-  `).all(...libraryIds) as AuthorLibrary[];
+  `).all(role, ...libraryIds) as AuthorLibrary[];
+}
+
+export function listAuthorLibraries(userId: string, userRole: string): AuthorLibrary[] {
+  return listPeopleLibraries(userId, userRole, "author");
 }
 
 export async function audiobookPeoplePlugin(app: FastifyInstance) {
@@ -248,6 +291,16 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
     return reply.send({
       authors: listAuthors(user.id, user.role),
       libraries: listAuthorLibraries(user.id, user.role)
+    });
+  });
+
+  // The Narrators browse, same payload shape as /authors. It exists so that page
+  // can stop deriving its list by downloading every book of every library.
+  app.get("/api/library/people/narrators", { preHandler: app.authenticate }, async (request, reply) => {
+    const user = request.user!;
+    return reply.send({
+      narrators: listPeopleByRole(user.id, user.role, "narrator"),
+      libraries: listPeopleLibraries(user.id, user.role, "narrator")
     });
   });
 

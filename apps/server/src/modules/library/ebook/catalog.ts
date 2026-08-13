@@ -3,6 +3,7 @@ import {
   queryCatalog as coreQueryCatalog,
   catalogFacets as coreCatalogFacets,
   editionRepresentativeSql,
+  TITLE_ORDER,
   type CatalogConfig,
   type CatalogQuery
 } from "../shared/catalog-core.js";
@@ -137,8 +138,11 @@ export const ebookCatalogConfig: CatalogConfig = {
   countJoins: `
       LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id${EBOOK_PROGRESS_JOIN}`,
   orderBy: {
-    title: "COALESCE(item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE ASC",
-    title_desc: "COALESCE(item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE DESC",
+    // Ordered by the alphabet index's sort_key for the same reason audiobooks are
+    // (see TITLE_ORDER there): NOCASE is ASCII-only, so Cyrillic would order by
+    // code point.
+    title: `${TITLE_ORDER} ASC`,
+    title_desc: `${TITLE_ORDER} DESC`,
     recent: "library_items.discovered_at DESC",
     author: "(SELECT p.name FROM item_people ip JOIN people p ON p.id = ip.person_id WHERE ip.item_id = library_items.id AND ip.role = 'author' ORDER BY ip.sort_order LIMIT 1) COLLATE NOCASE ASC, COALESCE(item_metadata.sort_title, item_metadata.title) COLLATE NOCASE ASC"
   },

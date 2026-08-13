@@ -21,6 +21,9 @@ import { EditMetadataModal } from "./EditMetadataModal";
 import { EbookReader } from "./reader/EbookReader";
 import { AddToSeriesModal, GroupAsEditionsModal, BulkEditModal, AudiobookHeaderSort, CatalogAdminMenu, CatalogTail, formatCount } from "./AudiobooksPage";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
+import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
+import { LibraryMenu } from "../../shared/LibraryMenu";
+import { AlphabetBar } from "../../shared/AlphabetBar";
 import { useMediaCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
 import {
   EBOOK_SORT_OPTIONS, FilterButton, FilterChips, activeFilterCount,
@@ -345,12 +348,6 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
   const [loaded, setLoaded] = useState(false);
   const [notice, setNotice] = useState("");
 
-  // Library selector dropdown (mirrors the audiobooks main page).
-  const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
-  const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const libraryTriggerRef = useRef<HTMLButtonElement>(null);
-  const libraryMenuRef = useRef<HTMLDivElement>(null);
-
   // Source-writing actions: upload new ebooks, plus multi-select bulk add-to-series / delete.
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -525,34 +522,6 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
     return () => window.clearInterval(timer);
   }, [libraries, loadLibraries, cat.refresh]);
 
-  const toggleLibraryMenu = () => {
-    setLibraryMenuOpen((open) => {
-      if (!open && libraryTriggerRef.current) {
-        const rect = libraryTriggerRef.current.getBoundingClientRect();
-        setLibraryMenuPos({ top: rect.bottom + 8, left: rect.left });
-      }
-      return !open;
-    });
-  };
-
-  useEffect(() => {
-    if (!libraryMenuOpen) return;
-    const close = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (libraryTriggerRef.current?.contains(target)) return;
-      if (libraryMenuRef.current?.contains(target)) return;
-      setLibraryMenuOpen(false);
-    };
-    const dismiss = () => setLibraryMenuOpen(false);
-    window.addEventListener("mousedown", close);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
-    };
-  }, [libraryMenuOpen]);
 
   const toggleBrowse = () => {
     setBrowseOpen((open) => {
@@ -662,7 +631,7 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
     ? libraries.reduce((sum, library) => sum + library.bookCount, 0)
     : selectedLibrary?.bookCount ?? 0;
   const scanning = libraries.some((library) => library.scanStatus === "scanning");
-  const hasActiveQuery = cat.search.trim().length > 0 || activeFilterCount(cat.filters) > 0;
+  const hasActiveQuery = cat.search.trim().length > 0 || activeFilterCount(cat.filters) > 0 || cat.letter != null;
   const emptyMessage = selectedScopeBookCount === 0
     ? selectedLibraryId === "all"
       ? "No ebooks in your libraries yet."
@@ -722,175 +691,140 @@ export function EbooksPage({ user, logout }: { user: PublicUser; logout: () => P
           </div>
         ) : (
           <>
-            <div className="audiobook-page-nav-row audiobook-main-nav-row">
-              <div className="audiobook-page-tabs-with-library">
-                <div className="audiobook-library-shortcuts">
-                  <button
-                    ref={libraryTriggerRef}
-                    type="button"
-                    className="audiobook-library-tab"
-                    onClick={toggleLibraryMenu}
-                    aria-haspopup="menu"
-                    aria-expanded={libraryMenuOpen}
-                    aria-label="Select library"
-                  >
-                    <BookMarked size={19} aria-hidden="true" />
-                    <span>{selectedLibraryLabel}</span>
-                    <ChevronDown size={16} aria-hidden="true" />
-                  </button>
-                  {libraryMenuOpen && libraryMenuPos && createPortal(
-                    <div
-                      ref={libraryMenuRef}
-                      className="book-detail-action-menu audiobook-library-menu"
-                      role="menu"
-                      aria-label="Select library"
-                      style={{ position: "fixed", top: libraryMenuPos.top, left: libraryMenuPos.left, right: "auto" }}
-                    >
+            <LibraryPageToolbar
+              scope={
+                <>
+                  <LibraryMenu
+                    value={selectedLibraryId}
+                    options={[
+                      { value: "all", label: "All Libraries" },
+                      ...libraries.map((library) => ({ value: library.id, label: library.name }))
+                    ]}
+                    icon={<BookMarked size={19} aria-hidden="true" />}
+                    label="Select library"
+                    onChange={setSelectedLibraryId}
+                  />
+                  {isMobile && (
+                    <div className="audiobook-library-shortcuts">
                       <button
+                        ref={browseTriggerRef}
                         type="button"
-                        role="menuitem"
-                        className={selectedLibraryId === "all" ? "active" : ""}
-                        onClick={() => { setSelectedLibraryId("all"); setLibraryMenuOpen(false); }}
+                        className="audiobook-library-tab"
+                        onClick={toggleBrowse}
+                        aria-haspopup="menu"
+                        aria-expanded={browseOpen}
+                        aria-label="Browse authors and series"
                       >
-                        <span>All Libraries</span>
+                        <Compass size={19} aria-hidden="true" />
+                        <span>Browse</span>
+                        <ChevronDown size={16} aria-hidden="true" />
                       </button>
-                      {libraries.map((library) => (
-                        <button
-                          key={library.id}
-                          type="button"
-                          role="menuitem"
-                          className={selectedLibraryId === library.id ? "active" : ""}
-                          onClick={() => { setSelectedLibraryId(library.id); setLibraryMenuOpen(false); }}
+                      {browseOpen && browsePos && createPortal(
+                        <div
+                          ref={browseMenuRef}
+                          className="book-detail-action-menu audiobook-library-menu"
+                          role="menu"
+                          aria-label="Browse"
+                          style={{ position: "fixed", top: browsePos.top, left: browsePos.left ?? undefined, right: browsePos.right ?? undefined }}
                         >
-                          <span>{library.name}</span>
-                        </button>
-                      ))}
-                    </div>,
-                    document.body
+                          <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/authors"); }}>
+                            <UserRound size={16} aria-hidden="true" />
+                            <span>Authors</span>
+                          </button>
+                          <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/ebooks/series"); }}>
+                            <Library size={16} aria-hidden="true" />
+                            <span>Series</span>
+                          </button>
+                          <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/categories"); }}>
+                            <Shapes size={16} aria-hidden="true" />
+                            <span>Categories</span>
+                          </button>
+                        </div>,
+                        document.body
+                      )}
+                    </div>
                   )}
-                </div>
-                {isMobile && (
-                  <div className="audiobook-library-shortcuts">
-                    <button
-                      ref={browseTriggerRef}
-                      type="button"
-                      className="audiobook-library-tab"
-                      onClick={toggleBrowse}
-                      aria-haspopup="menu"
-                      aria-expanded={browseOpen}
-                      aria-label="Browse authors and series"
-                    >
-                      <Compass size={19} aria-hidden="true" />
-                      <span>Browse</span>
-                      <ChevronDown size={16} aria-hidden="true" />
+                </>
+              }
+              tools={
+                <>
+                  <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} fields={EBOOK_FILTER_FIELDS} compact />
+                  <AudiobookHeaderSort value={sort} onChange={setSort} options={EBOOK_SORT_OPTIONS} ariaLabel="Sort ebooks" compact />
+                  {!isMobile && (canEditScope || canDeleteScope) && (
+                    <button type="button" className="audiobook-page-action-icon" onClick={() => { setSelectionMode(true); setNotice(""); }} aria-label="Select" title="Select">
+                      <CheckSquare size={18} aria-hidden="true" />
                     </button>
-                    {browseOpen && browsePos && createPortal(
-                      <div
-                        ref={browseMenuRef}
-                        className="book-detail-action-menu audiobook-library-menu"
-                        role="menu"
-                        aria-label="Browse"
-                        style={{ position: "fixed", top: browsePos.top, left: browsePos.left ?? undefined, right: browsePos.right ?? undefined }}
+                  )}
+                </>
+              }
+              selection={!isMobile && selectionMode ? {
+                count: selectedIds.size,
+                actions: (
+                  <>
+                    <Button
+                      variant="icon"
+                      onClick={() => setSelectedIds(new Set(cat.books.map((book) => book.id)))}
+                      disabled={cat.books.length === 0}
+                      aria-label="Select all loaded"
+                      title="Select all loaded"
+                    >
+                      <CheckCheck size={18} aria-hidden="true" />
+                    </Button>
+                    {canEditScope && (
+                      <Button
+                        variant="icon"
+                        className="accent-gold"
+                        onClick={() => setBulkOpen(true)}
+                        disabled={selectedIds.size === 0}
+                        aria-label="Edit metadata"
+                        title="Edit metadata"
                       >
-                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/authors"); }}>
-                          <UserRound size={16} aria-hidden="true" />
-                          <span>Authors</span>
-                        </button>
-                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/ebooks/series"); }}>
-                          <Library size={16} aria-hidden="true" />
-                          <span>Series</span>
-                        </button>
-                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/categories"); }}>
-                          <Shapes size={16} aria-hidden="true" />
-                          <span>Categories</span>
-                        </button>
-                      </div>,
-                      document.body
+                        <Pencil size={18} aria-hidden="true" />
+                      </Button>
                     )}
-                  </div>
-                )}
-              </div>
-
-              {/* The controls that narrow what the library picker beside them
-                  has scoped. Same compact squares as the header's — they keep
-                  its actions class and only opt out of its full width. */}
-              <div className="audiobook-page-actions audiobook-main-nav-tools">
-                <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} fields={EBOOK_FILTER_FIELDS} compact />
-                <AudiobookHeaderSort value={sort} onChange={setSort} options={EBOOK_SORT_OPTIONS} ariaLabel="Sort ebooks" compact />
-                {!isMobile && (canEditScope || canDeleteScope) && !selectionMode && (
-                  <button type="button" className="audiobook-page-action-icon" onClick={() => { setSelectionMode(true); setNotice(""); }} aria-label="Select" title="Select">
-                    <CheckSquare size={18} aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {!isMobile && selectionMode && (
-              <div className="audiobook-bulk-bar is-compact">
-                <span className="audiobook-bulk-count">{selectedIds.size} selected</span>
-                <div className="row-actions audiobook-bulk-actions">
-                  <Button
-                    variant="icon"
-                    onClick={() => setSelectedIds(new Set(cat.books.map((book) => book.id)))}
-                    disabled={cat.books.length === 0}
-                    aria-label="Select all loaded"
-                    title="Select all loaded"
-                  >
-                    <CheckCheck size={18} aria-hidden="true" />
-                  </Button>
-                  {canEditScope && (
-                    <Button
-                      variant="icon"
-                      className="accent-gold"
-                      onClick={() => setBulkOpen(true)}
-                      disabled={selectedIds.size === 0}
-                      aria-label="Edit metadata"
-                      title="Edit metadata"
-                    >
-                      <Pencil size={18} aria-hidden="true" />
+                    {canEditScope && (
+                      <Button
+                        variant="icon"
+                        onClick={() => setEditionsModalOpen(true)}
+                        disabled={selectedIds.size < 2}
+                        aria-label="Group as editions"
+                        title="Group the selected ebooks as editions of one title"
+                      >
+                        <Layers size={18} aria-hidden="true" />
+                      </Button>
+                    )}
+                    {canAddToSeries && (
+                      <Button
+                        variant="icon"
+                        onClick={() => setSeriesModalOpen(true)}
+                        disabled={selectedIds.size === 0}
+                        aria-label="Add to series"
+                        title="Add to series"
+                      >
+                        <Library size={18} aria-hidden="true" />
+                      </Button>
+                    )}
+                    {canDeleteScope && (
+                      <Button
+                        variant="icon"
+                        danger
+                        onClick={() => { setDeleteError(""); setBulkDeleteOpen(true); }}
+                        disabled={selectedIds.size === 0}
+                        aria-label="Delete"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} aria-hidden="true" />
+                      </Button>
+                    )}
+                    <span className="library-toolbar-divider" aria-hidden="true" />
+                    <Button variant="icon" onClick={exitSelection} aria-label="Cancel selection" title="Cancel selection">
+                      <X size={18} aria-hidden="true" />
                     </Button>
-                  )}
-                  {canEditScope && (
-                    <Button
-                      variant="icon"
-                      onClick={() => setEditionsModalOpen(true)}
-                      disabled={selectedIds.size < 2}
-                      aria-label="Group as editions"
-                      title="Group the selected ebooks as editions of one title"
-                    >
-                      <Layers size={18} aria-hidden="true" />
-                    </Button>
-                  )}
-                  {canAddToSeries && (
-                    <Button
-                      variant="icon"
-                      onClick={() => setSeriesModalOpen(true)}
-                      disabled={selectedIds.size === 0}
-                      aria-label="Add to series"
-                      title="Add to series"
-                    >
-                      <Library size={18} aria-hidden="true" />
-                    </Button>
-                  )}
-                  {canDeleteScope && (
-                    <Button
-                      variant="icon"
-                      danger
-                      onClick={() => { setDeleteError(""); setBulkDeleteOpen(true); }}
-                      disabled={selectedIds.size === 0}
-                      aria-label="Delete"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} aria-hidden="true" />
-                    </Button>
-                  )}
-                  <span className="audiobook-bulk-divider" aria-hidden="true" />
-                  <Button variant="icon" onClick={exitSelection} aria-label="Cancel selection" title="Cancel selection">
-                    <X size={18} aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-            )}
+                  </>
+                )
+              } : null}
+              strip={<AlphabetBar available={cat.facets.letters} value={cat.letter} onChange={cat.setLetter} ariaLabel="Filter ebooks by letter" />}
+            />
 
             <FilterChips value={cat.filters} onChange={cat.setFilters} />
 

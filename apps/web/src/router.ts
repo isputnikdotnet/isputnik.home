@@ -563,6 +563,24 @@ export function navigate(path: string) {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
+// Reads one query param off the current URL.
+export function queryParam(key: string): string | null {
+  return new URLSearchParams(window.location.search).get(key);
+}
+
+// Writes one query param without adding a history entry. For view state that
+// belongs in the URL so it survives a reload and can be linked — the A–Z strip's
+// letter — but must not turn Back into a walk through every letter someone
+// clicked. Pass null to drop the param. No popstate is dispatched: the caller
+// already holds this state in React, and re-running the router would remount the
+// page under it.
+export function replaceQuery(key: string, value: string | null) {
+  const url = new URL(window.location.href);
+  if (value == null || value === "") url.searchParams.delete(key);
+  else url.searchParams.set(key, value);
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
 export function followRoute(event: React.MouseEvent<HTMLAnchorElement>, path: string) {
   if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
     return;

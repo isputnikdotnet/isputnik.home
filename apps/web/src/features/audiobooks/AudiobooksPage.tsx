@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDownUp, BookOpen, Check, CheckCheck, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, Library, LibraryBig, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Search, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
+import { BookOpen, Check, CheckCheck, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, LayoutGrid, Library, LibraryBig, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { activeFilterCount, FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
 import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
@@ -23,15 +23,31 @@ import { FileUpload } from "../../shared/FileUpload";
 import { formatDuration } from "../../shared/utils";
 import { Field } from "../../shared/Field";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
+import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
+import { AlphabetBar } from "../../shared/AlphabetBar";
+import { SortMenu } from "../../shared/SortMenu";
 import type { AudiobookBook, AudiobookBookDetail, AudiobookLibrary, CategorySummary, SeriesSummary } from "./types";
 
 
 type AudiobookViewMode = "grid" | "list";
 
+// What the toolbar's View menu offers today: how many covers a row holds. A
+// grid/list switch belongs here too, but a list needs a row-shaped card that
+// doesn't exist yet — one column of full-size covers isn't a list view.
+export type CatalogDensity = "comfortable" | "compact";
+
+const DENSITY_OPTIONS: { value: CatalogDensity; label: string }[] = [
+  { value: "comfortable", label: "Comfortable" },
+  { value: "compact", label: "Compact" }
+];
+
 export function formatCount(value: number) {
   return new Intl.NumberFormat().format(value);
 }
 
+// The book pages' sort control. The control itself is shared/SortMenu — this is
+// the audiobook-flavoured signature (SortKey, the audiobook option list) kept for
+// the several pages that already call it this way.
 export function AudiobookHeaderSort({
   value,
   onChange,
@@ -45,105 +61,7 @@ export function AudiobookHeaderSort({
   ariaLabel?: string;
   compact?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number | null; right: number | null; width: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const currentLabel = options.find((option) => option.value === value)?.label ?? "";
-
-  const toggle = () => {
-    setOpen((isOpen) => {
-      if (!isOpen && triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect();
-        // Right-align the menu when a left-aligned one would run off-screen (the
-        // compact icon sits near the right edge). Desktop, where it fits, is unchanged.
-        const alignRight = rect.left + 200 > window.innerWidth;
-        setPos({
-          top: rect.bottom + 8,
-          left: alignRight ? null : rect.left,
-          right: alignRight ? window.innerWidth - rect.right : null,
-          width: rect.width
-        });
-      }
-      return !isOpen;
-    });
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (triggerRef.current?.contains(target)) return;
-      if (menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const dismiss = () => setOpen(false);
-    window.addEventListener("mousedown", close);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
-    };
-  }, [open]);
-
-  return (
-    <div className={`audiobook-sort-control${compact ? " compact" : ""}`}>
-      {compact ? (
-        <button
-          ref={triggerRef}
-          type="button"
-          className="audiobook-sort-trigger"
-          onClick={toggle}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-label={ariaLabel}
-          title="Sort"
-        >
-          <ArrowDownUp size={18} aria-hidden="true" />
-        </button>
-      ) : (
-        <>
-          <span>Sort by</span>
-          <button
-            ref={triggerRef}
-            type="button"
-            className="audiobook-sort-trigger"
-            onClick={toggle}
-            aria-haspopup="menu"
-            aria-expanded={open}
-            aria-label={ariaLabel}
-          >
-            <span>{currentLabel}</span>
-          </button>
-          <ChevronDown size={16} aria-hidden="true" />
-        </>
-      )}
-      {open && pos && createPortal(
-        <div
-          ref={menuRef}
-          className="book-detail-action-menu audiobook-library-menu audiobook-sort-menu"
-          role="menu"
-          aria-label={ariaLabel}
-          style={{ position: "fixed", top: pos.top, left: pos.left ?? undefined, right: pos.right ?? undefined, minWidth: pos.width }}
-        >
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="menuitem"
-              className={value === option.value ? "active" : ""}
-              onClick={() => { onChange(option.value); setOpen(false); }}
-            >
-              <span>{option.label}</span>
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
-    </div>
-  );
+  return <SortMenu value={value} options={options} onChange={onChange} ariaLabel={ariaLabel} presentation={compact ? "icon" : "inline"} />;
 }
 
 type BookStatus = "finished" | "in_progress" | "none";
@@ -914,14 +832,13 @@ export function AudiobooksPage({
   logout: () => Promise<void>;
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
-  const [selectedLibraryId, setSelectedLibraryId] = useState(() => readCatalogView("audiobooks:main").selectedLibraryId);
+  // Derived, not chosen: exactly one library in the filter behaves as a scope,
+  // anything else is "all". Keeps one source of truth for what's in view.
+  const [selectedLibraryId, setSelectedLibraryId] = useState("all");
   const [sort, setSort] = useState<SortKey>("recent");
   const [librariesError, setLibrariesError] = useState("");
   const viewMode: AudiobookViewMode = "grid";
-  const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
-  const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const libraryTriggerRef = useRef<HTMLButtonElement>(null);
-  const libraryMenuRef = useRef<HTMLDivElement>(null);
+  const [density, setDensity] = useState<CatalogDensity>(() => readCatalogView("audiobooks:main").density);
   // Mobile-only "Browse" dropdown that collapses the Authors / Narrators / Series tabs.
   const [browseOpen, setBrowseOpen] = useState(false);
   const [browsePos, setBrowsePos] = useState<{ top: number; left: number | null; right: number | null } | null>(null);
@@ -974,20 +891,35 @@ export function AudiobooksPage({
     return () => { alive = false; };
   }, [isMobile]);
 
-  const scope: CatalogScope = selectedLibraryId === "all" ? { kind: "all" } : { kind: "library", libraryId: selectedLibraryId };
+  // Which shelves the list is drawn from is a filter now, like every other way of
+  // narrowing it — there is no scope picker of its own. One library chosen still
+  // resolves to the library-scoped query, so the facets and the A–Z letters stay
+  // honest to what is actually on screen; anything else is the whole catalog.
+  const scope: CatalogScope = selectedLibraryId === "all"
+    ? { kind: "all" }
+    : { kind: "library", libraryId: selectedLibraryId };
   const cat = useAudiobookCatalog(scope, sort, "audiobooks:main");
 
-  // Can the user edit books in the current scope? Drives the bulk-edit controls.
-  const canEditScope = selectedLibraryId === "all"
-    ? libraries.some((library) => library.canWrite)
-    : libraries.find((library) => library.id === selectedLibraryId)?.canWrite ?? false;
+  // One library in the filter is a scope; none or several is the whole catalog.
+  // Following it here (rather than deriving `scope` inline) keeps the hook's
+  // filters the single source of truth without the two referring to each other.
+  useEffect(() => {
+    setSelectedLibraryId(cat.filters.libraries.length === 1 ? cat.filters.libraries[0] : "all");
+  }, [cat.filters.libraries]);
+
+  // The libraries the filter is narrowing to — everything accessible when it is
+  // left empty.
+  const scopedLibraries = cat.filters.libraries.length
+    ? libraries.filter((library) => cat.filters.libraries.includes(library.id))
+    : libraries;
+
+  // Can the user edit books in what's on screen? Drives the bulk-edit controls.
+  const canEditScope = scopedLibraries.some((library) => library.canWrite);
 
   // Libraries accepting uploads (drives the Upload button + modal choices) and
-  // whether anything in the current scope allows deleting source files.
+  // whether anything in view allows deleting source files.
   const uploadLibraries = libraries.filter((library) => library.canUpload);
-  const canDeleteScope = selectedLibraryId === "all"
-    ? libraries.some((library) => library.canDelete)
-    : libraries.find((library) => library.id === selectedLibraryId)?.canDelete ?? false;
+  const canDeleteScope = scopedLibraries.some((library) => library.canDelete);
 
   // Existing authors/narrators in the current scope, for the bulk-edit comboboxes.
   const peopleSuggestions = Array.from(new Set([...cat.facets.authors, ...cat.facets.narrators]));
@@ -1020,8 +952,8 @@ export function AudiobooksPage({
     exitSelection();
   };
 
-  // Series live in a single library, so bulk "Add to series" is only offered
-  // when the catalog is scoped to one library (not the "All Libraries" view).
+  // Series live in a single library, so bulk "Add to series" is only offered when
+  // the list is down to one — which now means one library picked in Filter.
   const canAddToSeries = canEditScope && selectedLibraryId !== "all";
 
   const submitAddToSeries = async (target: { seriesId: string } | { newName: string }) => {
@@ -1135,8 +1067,9 @@ export function AudiobooksPage({
   }, []);
 
   useEffect(() => {
-    writeCatalogView("audiobooks:main", { selectedLibraryId, sort });
-  }, [selectedLibraryId, sort]);
+    // The chosen libraries ride along in `filters`, which the hook persists.
+    writeCatalogView("audiobooks:main", { sort, density });
+  }, [sort, density]);
 
   useEffect(() => {
     api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
@@ -1156,35 +1089,6 @@ export function AudiobooksPage({
     }, 3000);
     return () => window.clearInterval(timer);
   }, [libraries, cat.refresh]);
-
-  const toggleLibraryMenu = () => {
-    setLibraryMenuOpen((open) => {
-      if (!open && libraryTriggerRef.current) {
-        const rect = libraryTriggerRef.current.getBoundingClientRect();
-        setLibraryMenuPos({ top: rect.bottom + 8, left: rect.left });
-      }
-      return !open;
-    });
-  };
-
-  useEffect(() => {
-    if (!libraryMenuOpen) return;
-    const close = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (libraryTriggerRef.current?.contains(target)) return;
-      if (libraryMenuRef.current?.contains(target)) return;
-      setLibraryMenuOpen(false);
-    };
-    const dismiss = () => setLibraryMenuOpen(false);
-    window.addEventListener("mousedown", close);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
-    };
-  }, [libraryMenuOpen]);
 
   const toggleBrowse = () => {
     setBrowseOpen((open) => {
@@ -1220,20 +1124,13 @@ export function AudiobooksPage({
     };
   }, [browseOpen]);
 
-  const selectedLibrary = selectedLibraryId === "all"
-    ? null
-    : libraries.find((library) => library.id === selectedLibraryId) ?? null;
-  const selectedLibraryLabel = selectedLibraryId === "all"
-    ? "All Libraries"
-    : selectedLibrary?.name ?? "All Libraries";
-  const selectedScopeBookCount = selectedLibraryId === "all"
-    ? libraries.reduce((sum, library) => sum + library.bookCount, 0)
-    : selectedLibrary?.bookCount ?? 0;
-  const hasActiveCatalogQuery = cat.search.trim().length > 0 || activeFilterCount(cat.filters) > 0;
+  // How many books the chosen shelves hold at all — the difference between "your
+  // libraries are empty" and "nothing matched what you asked for".
+  const selectedScopeBookCount = scopedLibraries.reduce((sum, library) => sum + library.bookCount, 0);
+  const selectedLibraryLabel = scopedLibraries.length === 1 ? scopedLibraries[0].name : "your libraries";
+  const hasActiveCatalogQuery = cat.search.trim().length > 0 || activeFilterCount(cat.filters) > 0 || cat.letter != null;
   const emptyCatalogMessage = selectedScopeBookCount === 0
-    ? selectedLibraryId === "all"
-      ? "No audiobooks in your libraries yet."
-      : `No audiobooks in ${selectedLibraryLabel} yet.`
+    ? `No audiobooks in ${selectedLibraryLabel} yet.`
     : hasActiveCatalogQuery
       ? "No audiobooks match this search or filter."
       : "No audiobooks to show.";
@@ -1253,14 +1150,8 @@ export function AudiobooksPage({
           search={cat.search}
           onSearchChange={cat.setSearch}
           searchPlaceholder="Search audiobooks..."
-          // Filter, sort and Select moved down to the library row — they act on
-          // what that row is scoping, so they belong beside it rather than up
-          // here. Upload stays: it adds to the library rather than narrowing it.
-          actions={uploadLibraries.length > 0 && !selectionMode && (
-            <button type="button" className="audiobook-page-action-icon" onClick={() => { setUploadOpen(true); setBulkNotice(""); }} aria-label="Upload" title="Upload">
-              <UploadCloud size={18} aria-hidden="true" />
-            </button>
-          )}
+          // Every control lives in the toolbar below, Upload included: the header
+          // is the page's name and its search box, nothing else.
         />
 
         {error && <MessageBox tone="error" title="Audiobooks error">{error}</MessageBox>}
@@ -1290,178 +1181,179 @@ export function AudiobooksPage({
           </div>
         ) : (
           <>
-            <div className="audiobook-page-nav-row audiobook-main-nav-row">
-              <div className="audiobook-page-tabs-with-library">
-                <div className="audiobook-library-shortcuts">
-                  <button
-                    ref={libraryTriggerRef}
-                    type="button"
-                    className="audiobook-library-tab"
-                    onClick={toggleLibraryMenu}
-                    aria-haspopup="menu"
-                    aria-expanded={libraryMenuOpen}
-                    aria-label="Select library"
-                  >
-                    <BookOpen size={19} aria-hidden="true" />
-                    <span>{selectedLibraryLabel}</span>
-                    <ChevronDown size={16} aria-hidden="true" />
-                  </button>
-                  {libraryMenuOpen && libraryMenuPos && createPortal(
-                    <div
-                      ref={libraryMenuRef}
-                      className="book-detail-action-menu audiobook-library-menu"
-                      role="menu"
-                      aria-label="Select library"
-                      style={{ position: "fixed", top: libraryMenuPos.top, left: libraryMenuPos.left, right: "auto" }}
+            <LibraryPageToolbar
+              // No library picker of its own: choosing shelves is one of the ways
+              // this list is narrowed, so it lives in Filter with the rest. The
+              // active choice reads back as a chip under the toolbar.
+              scope={
+                <>
+                  {isMobile && (
+                    <div className="audiobook-library-shortcuts">
+                      <button
+                        ref={browseTriggerRef}
+                        type="button"
+                        className="audiobook-library-tab"
+                        onClick={toggleBrowse}
+                        aria-haspopup="menu"
+                        aria-expanded={browseOpen}
+                        aria-label="Browse authors, narrators and series"
+                      >
+                        <Compass size={19} aria-hidden="true" />
+                        <span>Browse</span>
+                        <ChevronDown size={16} aria-hidden="true" />
+                      </button>
+                      {browseOpen && browsePos && createPortal(
+                        <div
+                          ref={browseMenuRef}
+                          className="book-detail-action-menu audiobook-library-menu"
+                          role="menu"
+                          aria-label="Browse"
+                          style={{ position: "fixed", top: browsePos.top, left: browsePos.left ?? undefined, right: browsePos.right ?? undefined }}
+                        >
+                          <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/authors"); }}>
+                            <UserRound size={16} aria-hidden="true" />
+                            <span>Authors</span>
+                          </button>
+                          <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/narrators"); }}>
+                            <Mic2 size={16} aria-hidden="true" />
+                            <span>Narrators</span>
+                          </button>
+                          <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/series"); }}>
+                            <Library size={16} aria-hidden="true" />
+                            <span>Series</span>
+                          </button>
+                          <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/categories"); }}>
+                            <Shapes size={16} aria-hidden="true" />
+                            <span>Categories</span>
+                          </button>
+                        </div>,
+                        document.body
+                      )}
+                    </div>
+                  )}
+                </>
+              }
+              // Left to right: what narrows the list, a divider, then what acts on
+              // it. Each control says what it is doing — the sort prints the order
+              // it is in, the filter its count — because neither is visible in the
+              // grid itself.
+              tools={
+                <>
+                  <FilterButton
+                    facets={cat.facets}
+                    value={cat.filters}
+                    onChange={cat.setFilters}
+                    libraries={libraries}
+                  />
+                  <SortMenu value={sort} options={SORT_OPTIONS} onChange={setSort} ariaLabel="Sort audiobooks" presentation="labelled" />
+                  {/* Desktop only: View sets the grid's tile size, and the phone
+                      doesn't render the grid — it renders rows. A control that
+                      can't change anything doesn't belong on that screen. */}
+                  {!isMobile && (
+                    <SortMenu
+                      value={density}
+                      options={DENSITY_OPTIONS}
+                      onChange={setDensity}
+                      ariaLabel="View"
+                      presentation="labelled"
+                      icon={<LayoutGrid size={18} aria-hidden="true" />}
+                      // The layout is on screen already; the name reads better than
+                      // printing back what you can see.
+                      label="View"
+                    />
+                  )}
+                  <span className="library-toolbar-divider" aria-hidden="true" />
+                  {!isMobile && canEditScope && (
+                    <button type="button" className="library-toolbar-button" onClick={() => { setSelectionMode(true); setBulkNotice(""); }}>
+                      <CheckSquare size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Select</span>
+                    </button>
+                  )}
+                  {uploadLibraries.length > 0 && (
+                    <button type="button" className="library-toolbar-button primary" onClick={() => { setUploadOpen(true); setBulkNotice(""); }}>
+                      <UploadCloud size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Upload</span>
+                    </button>
+                  )}
+                </>
+              }
+              selection={!isMobile && selectionMode ? {
+                count: selectedIds.size,
+                // Labelled, like the standard row: an unlabelled trash icon is
+                // exactly where hesitation costs the most.
+                actions: (
+                  <>
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => setSelectedIds(new Set(cat.books.map((book) => book.id)))}
+                      disabled={cat.books.length === 0}
+                      title="Select every book loaded so far"
                     >
+                      <CheckCheck size={18} aria-hidden="true" />
+                      <span className="toolbar-label">All</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => setBulkOpen(true)}
+                      disabled={selectedIds.size === 0}
+                      title="Edit metadata"
+                    >
+                      <Pencil size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => setEditionsModalOpen(true)}
+                      disabled={selectedIds.size < 2}
+                      title="Group the selected books as editions of one title"
+                    >
+                      <Layers size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Group</span>
+                    </button>
+                    {canAddToSeries && (
                       <button
                         type="button"
-                        role="menuitem"
-                        className={selectedLibraryId === "all" ? "active" : ""}
-                        onClick={() => { setSelectedLibraryId("all"); setLibraryMenuOpen(false); }}
+                        className="library-toolbar-button"
+                        onClick={() => setSeriesModalOpen(true)}
+                        disabled={selectedIds.size === 0}
+                        title="Add to series"
                       >
-                        <span>All Libraries</span>
+                        <Library size={18} aria-hidden="true" />
+                        <span className="toolbar-label">Series</span>
                       </button>
-                      {libraries.map((library) => (
-                        <button
-                          key={library.id}
-                          type="button"
-                          role="menuitem"
-                          className={selectedLibraryId === library.id ? "active" : ""}
-                          onClick={() => { setSelectedLibraryId(library.id); setLibraryMenuOpen(false); }}
-                        >
-                          <span>{library.name}</span>
-                        </button>
-                      ))}
-                    </div>,
-                    document.body
-                  )}
-                </div>
-                {isMobile && (
-                  <div className="audiobook-library-shortcuts">
-                    <button
-                      ref={browseTriggerRef}
-                      type="button"
-                      className="audiobook-library-tab"
-                      onClick={toggleBrowse}
-                      aria-haspopup="menu"
-                      aria-expanded={browseOpen}
-                      aria-label="Browse authors, narrators and series"
-                    >
-                      <Compass size={19} aria-hidden="true" />
-                      <span>Browse</span>
-                      <ChevronDown size={16} aria-hidden="true" />
-                    </button>
-                    {browseOpen && browsePos && createPortal(
-                      <div
-                        ref={browseMenuRef}
-                        className="book-detail-action-menu audiobook-library-menu"
-                        role="menu"
-                        aria-label="Browse"
-                        style={{ position: "fixed", top: browsePos.top, left: browsePos.left ?? undefined, right: browsePos.right ?? undefined }}
-                      >
-                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/authors"); }}>
-                          <UserRound size={16} aria-hidden="true" />
-                          <span>Authors</span>
-                        </button>
-                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/narrators"); }}>
-                          <Mic2 size={16} aria-hidden="true" />
-                          <span>Narrators</span>
-                        </button>
-                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/audiobooks/series"); }}>
-                          <Library size={16} aria-hidden="true" />
-                          <span>Series</span>
-                        </button>
-                        <button type="button" role="menuitem" onClick={() => { setBrowseOpen(false); navigate("/categories"); }}>
-                          <Shapes size={16} aria-hidden="true" />
-                          <span>Categories</span>
-                        </button>
-                      </div>,
-                      document.body
                     )}
-                  </div>
-                )}
-              </div>
+                    {canDeleteScope && (
+                      <button
+                        type="button"
+                        className="library-toolbar-button danger"
+                        onClick={() => { setDeleteError(""); setBulkDeleteOpen(true); }}
+                        disabled={selectedIds.size === 0}
+                        title="Move the selected books to the Recycle Bin"
+                      >
+                        <Trash2 size={18} aria-hidden="true" />
+                        <span className="toolbar-label">Delete</span>
+                      </button>
+                    )}
+                    <span className="library-toolbar-divider" aria-hidden="true" />
+                    <button type="button" className="library-toolbar-button" onClick={exitSelection} title="Leave selection">
+                      <X size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Done</span>
+                    </button>
+                  </>
+                )
+              } : null}
+              // Desktop only. On a phone the letters are a 30-target row nobody
+              // can hit accurately, competing with the list they're meant to
+              // reach — scrolling and search do that job better there.
+              strip={!isMobile && (
+                <AlphabetBar available={cat.facets.letters} value={cat.letter} onChange={cat.setLetter} ariaLabel="Filter audiobooks by letter" />
+              )}
+            />
 
-              {/* The controls that narrow what the library picker beside them has
-                  scoped. Same compact square controls as before — they carry the
-                  actions class so they keep the header's sizing, and only opt out
-                  of its full width. */}
-              <div className="audiobook-page-actions audiobook-main-nav-tools">
-                <FilterButton facets={cat.facets} value={cat.filters} onChange={cat.setFilters} compact />
-                <AudiobookHeaderSort value={sort} onChange={setSort} compact />
-                {!isMobile && canEditScope && !selectionMode && (
-                  <button type="button" className="audiobook-page-action-icon" onClick={() => { setSelectionMode(true); setBulkNotice(""); }} aria-label="Select" title="Select">
-                    <CheckSquare size={18} aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {!isMobile && selectionMode && (
-              <div className="audiobook-bulk-bar is-compact">
-                <span className="audiobook-bulk-count">{selectedIds.size} selected</span>
-                <div className="row-actions audiobook-bulk-actions">
-                  <Button
-                    variant="icon"
-                    onClick={() => setSelectedIds(new Set(cat.books.map((book) => book.id)))}
-                    disabled={cat.books.length === 0}
-                    aria-label="Select all loaded"
-                    title="Select all loaded"
-                  >
-                    <CheckCheck size={18} aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="icon"
-                    className="accent-gold"
-                    onClick={() => setBulkOpen(true)}
-                    disabled={selectedIds.size === 0}
-                    aria-label="Edit metadata"
-                    title="Edit metadata"
-                  >
-                    <Pencil size={18} aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="icon"
-                    onClick={() => setEditionsModalOpen(true)}
-                    disabled={selectedIds.size < 2}
-                    aria-label="Group as editions"
-                    title="Group the selected books as editions of one title"
-                  >
-                    <Layers size={18} aria-hidden="true" />
-                  </Button>
-                  {canAddToSeries && (
-                    <Button
-                      variant="icon"
-                      onClick={() => setSeriesModalOpen(true)}
-                      disabled={selectedIds.size === 0}
-                      aria-label="Add to series"
-                      title="Add to series"
-                    >
-                      <Library size={18} aria-hidden="true" />
-                    </Button>
-                  )}
-                  {canDeleteScope && (
-                    <Button
-                      variant="icon"
-                      danger
-                      onClick={() => { setDeleteError(""); setBulkDeleteOpen(true); }}
-                      disabled={selectedIds.size === 0}
-                      aria-label="Delete"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} aria-hidden="true" />
-                    </Button>
-                  )}
-                  <span className="audiobook-bulk-divider" aria-hidden="true" />
-                  <Button variant="icon" onClick={exitSelection} aria-label="Cancel selection" title="Cancel selection">
-                    <X size={18} aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <FilterChips value={cat.filters} onChange={cat.setFilters} />
+            <FilterChips value={cat.filters} onChange={cat.setFilters} libraries={libraries} />
 
             {libraries.some((library) => library.scanStatus === "scanning") && (
               <MessageBox tone="info" title="Scanning audiobooks">
@@ -1494,7 +1386,7 @@ export function AudiobooksPage({
                 {!cat.loading && cat.books.length === 0 && <p className="management-empty">{emptyCatalogMessage}</p>}
               </div>
             ) : (
-              <div className={`audiobook-catalog ${viewMode}`}>
+              <div className={`audiobook-catalog ${viewMode} ${density}`}>
                 {cat.books.map((book) => (
                   <CatalogBookCard
                     key={book.id}

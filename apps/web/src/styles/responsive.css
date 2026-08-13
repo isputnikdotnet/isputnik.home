@@ -50,6 +50,20 @@
     display: none;
   }
 
+  /* Sessions loses Expires one tier earlier than the phone rules below. Its two
+     stamps and the Current badge have a floor they can't ellipsize past, and at
+     this width five columns are under it — which shows up as the whole table in
+     a horizontal scroll rather than as anything getting narrower. */
+  .session-table th:nth-child(4),
+  .session-table td:nth-child(4) {
+    display: none;
+  }
+
+  .session-table th:nth-child(1) { width: 30%; }
+  .session-table th:nth-child(2) { width: 28%; }
+  .session-table th:nth-child(3) { width: 22%; }
+  .session-table th:nth-child(5) { width: 20%; }
+
   /* Once User is down to its last hundred-odd pixels the 36px avatar is costing
      a third of the name. It's a generic glyph, identical on every row — the
      first thing that should go. */

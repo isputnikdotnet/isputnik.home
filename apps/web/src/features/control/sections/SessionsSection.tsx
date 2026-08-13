@@ -5,13 +5,26 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
-import { formatManagedDate } from "../../../shared/utils";
+import { formatManagedDateParts } from "../../../shared/utils";
 import type { ManagedSession } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
 
 function sessionDeviceLabel(session: ManagedSession) {
   const device = session.deviceName?.trim() || "Unknown device";
   return session.ipAddress ? `${device} - ${session.ipAddress}` : device;
+}
+
+// Date over time, so a timestamp fits a narrow column instead of pushing the
+// whole table into a horizontal scroll. Five columns leave these two about 90px
+// each — a third of what "13 Aug 2026, 19:12" needs on one line.
+function Stamp({ value }: { value: string }) {
+  const { date, time } = formatManagedDateParts(value);
+  return (
+    <span className="datagrid-stamp">
+      <span>{date}</span>
+      <small>{time}</small>
+    </span>
+  );
 }
 
 export function SessionsSection() {
@@ -125,8 +138,8 @@ export function SessionsSection() {
                   <td>
                     <span className="datagrid-muted session-device-cell">{sessionDeviceLabel(session)}</span>
                   </td>
-                  <td className="datagrid-muted">{formatManagedDate(session.lastSeen)}</td>
-                  <td className="datagrid-muted">{formatManagedDate(session.expiresAt)}</td>
+                  <td className="datagrid-muted"><Stamp value={session.lastSeen} /></td>
+                  <td className="datagrid-muted"><Stamp value={session.expiresAt} /></td>
                   <td className="col-actions">
                     {session.current ? (
                       <span className="status-badge current">Current</span>

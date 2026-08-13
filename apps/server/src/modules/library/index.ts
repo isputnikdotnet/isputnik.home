@@ -10,6 +10,7 @@ import { scanRulesPlugin } from "./shared/scan-rules-routes.js";
 import { registerTrashRoutes } from "./shared/trash-routes.js";
 import { startTrashPurgeWorker } from "./shared/trash.js";
 import { sweepOrphanLibraryThumbnails } from "./shared/thumbnail.js";
+import { backfillAlphaKeys } from "./shared/alphabet-index.js";
 import { registerFeedRoutes } from "./feed.js";
 import { registerCategoryRoutes } from "./categories.js";
 import { registerTagRoutes } from "./tags.js";
@@ -19,6 +20,17 @@ import { registerQuoteRoutes } from "./quotes.js";
 import { librarySharesPlugin } from "./shared/shares.js";
 
 export async function libraryPlugin(app: FastifyInstance) {
+  // The A–Z strip reads item_metadata.alpha_key, which migration 34 adds empty
+  // (the values need JS — SQLite's UPPER is ASCII-only). Fill them before the
+  // first browse request rather than on a timer, or the strip comes up blank on
+  // the boot right after an upgrade. A no-op on every later boot.
+  try {
+    const indexed = backfillAlphaKeys();
+    if (indexed > 0) app.log.info(`Indexed ${indexed} item${indexed === 1 ? "" : "s"} into the alphabet strip.`);
+  } catch (err) {
+    app.log.warn({ err }, "Alphabet backfill failed; browse letters may be incomplete.");
+  }
+
   await app.register(librarySettingsPlugin);
   await app.register(coversPlugin);
   await app.register(storagePlugin);

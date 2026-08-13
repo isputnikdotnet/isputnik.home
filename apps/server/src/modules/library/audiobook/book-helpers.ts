@@ -7,6 +7,7 @@ import { builtinCategoryImageUrl, isBuiltinCategoryImageKey } from "../../../cat
 import { type MetadataCandidate } from "./providers/index.js";
 import { sortTitle, writeCoverImages } from "./scanner.js";
 import { writeMetadataExport } from "../shared/metadata.js";
+import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 import { pathIsInside } from "../shared/storage-roots.js";
 import { setEntityTags, addEntityTags } from "./categorize.js";
 import { type AudiobookBookRow, type BookFileRow } from "./types.js";
@@ -325,6 +326,7 @@ export async function applyMetadataCandidate(bookId: string, candidate: Metadata
       next.isbn,
       next.publisher
     );
+    applyItemAlphaIndex(bookId);
     db.prepare(`
       INSERT INTO audiobook_details (item_id, asin) VALUES (?, ?)
       ON CONFLICT(item_id) DO UPDATE SET asin = excluded.asin
@@ -381,6 +383,7 @@ export function updateManualMetadata(bookId: string, metadata: z.infer<typeof ma
       metadata.isbn ?? null,
       metadata.publisher ?? null
     );
+    applyItemAlphaIndex(bookId);
     db.prepare(`
       INSERT INTO audiobook_details (item_id, asin) VALUES (?, ?)
       ON CONFLICT(item_id) DO UPDATE SET asin = excluded.asin

@@ -64,6 +64,15 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   failed ("Unable to save").
 - Busy states repeat the verb with an ellipsis ("Saving…"); pass `busy` to
   Modal/ConfirmDialog so dismissal is blocked while an action runs.
+- **Browse pages** wear `shared/LibraryPageHeader` (title + search only) over
+  `shared/LibraryPageToolbar` (slots: `scope` · `tools` · `selection` · `strip`),
+  which owns every control including the page's primary action. Tools read
+  Filter · Sort · View │ page actions · Select · primary; labels carry state
+  (`Recently added`, a filter count) and drop to icons below 1100px. Choosing
+  libraries is a filter facet (`BookFilters.libraries`), not a picker in `scope`. Selection
+  replaces the tools inside that card — never add a second bar under it. The A–Z
+  strip is `shared/AlphabetBar` over the server's `letters` facet; bucketing
+  lives in `modules/library/shared/alphabet.ts` only.
 - New UI pattern needed? Extend the shared component (prop/variant) in
   `apps/web/src/shared/` first — never inline a one-off.
 - **Control panel**: its whole shape (7 nav groups × their tabs) is declared in

@@ -300,13 +300,16 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     sort: z.enum(["title", "title_desc", "recent", "author"]).default("title"),
     limit: z.number().int().min(1).max(200).default(48),
     offset: z.number().int().min(0).default(0),
+    // One bucket from the A–Z strip; "#" is a bucket too, hence max(1) not a letter test.
+    letter: z.string().trim().min(1).max(1).nullable().optional(),
     filters: z.object({
+      libraries: z.array(z.string()).default([]),
       authors: z.array(z.string()).default([]),
       categories: z.array(z.string()).default([]),
       tags: z.array(z.string()).default([]),
       languages: z.array(z.string()).default([]),
       status: z.array(z.string()).default([])
-    }).default({ authors: [], categories: [], tags: [], languages: [], status: [] })
+    }).default({ libraries: [], authors: [], categories: [], tags: [], languages: [], status: [] })
   });
 
   app.post("/api/library/ebooks/catalog", { preHandler: app.authenticate }, async (request, reply) => {
@@ -322,8 +325,10 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
       sort: p.sort ?? "title",
       limit: p.limit ?? 48,
       offset: p.offset ?? 0,
+      letter: p.letter ?? null,
       // Ebooks ignore narrators/series/durations; the engine treats them as empty.
       filters: {
+        libraries: f.libraries ?? [],
         authors: f.authors ?? [],
         narrators: [],
         categories: f.categories ?? [],

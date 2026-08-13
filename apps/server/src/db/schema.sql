@@ -264,6 +264,15 @@ CREATE TABLE IF NOT EXISTS item_metadata (
   source            TEXT NOT NULL DEFAULT 'scan' CHECK (source IN ('scan', 'manual')),
   title             TEXT,
   sort_title        TEXT,
+  -- Alphabet index (see modules/library/shared/alphabet.ts): the letter this
+  -- item files under, the script that letter belongs to, an administrator's
+  -- override of the bucket, and the normalized form the browse lists sort by.
+  -- Derived from sort_title on write — SQLite can't compute them (ASCII-only
+  -- UPPER, no custom collations).
+  alpha_key         TEXT,
+  alpha_script      TEXT,
+  alpha_override    TEXT,
+  sort_key          TEXT,
   description       TEXT,
   language          TEXT,
   publisher         TEXT,

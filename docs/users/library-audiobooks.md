@@ -66,7 +66,18 @@ you can stop on a phone and continue on a laptop. It also offers:
 
 **Authors**, **Narrators**, **Series** and **Categories** browse the library
 different ways; search covers titles, authors and series. The filter button
-narrows by category, tag, narrator, length and whether you've finished it.
+narrows by library, category, tag, narrator, length and whether you've finished
+it — pick one library to browse just that shelf, or several to combine them.
+Whatever you choose shows as a chip under the toolbar, with **Clear all** beside
+it.
+
+The **A–Z strip** under the toolbar jumps to titles starting with one letter —
+**#** collects the ones starting with a number or a symbol. Libraries holding
+both Latin and Cyrillic titles get an **English / Русский** switch beside it;
+letters with nothing behind them are greyed out. The letter you pick is part of
+the page address, so the link can be bookmarked or shared, and reloading keeps
+it. The same strip files authors and narrators by first or last name — whichever
+that page is sorted by.
 
 ## Offline
 
