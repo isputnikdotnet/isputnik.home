@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { BookOpen, Check, CheckCheck, CheckCircle2, CheckSquare, ChevronDown, Compass, Download, Heart, Layers, LayoutGrid, Library, LibraryBig, ListMusic, Loader2, Mic2, MoreHorizontal, Pencil, Play, RotateCcw, Shapes, Square, Trash2, UploadCloud, UserRound, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { activeFilterCount, FilterButton, FilterChips, SORT_OPTIONS, type SortKey } from "./BookFilter";
-import { useAudiobookCatalog, readCatalogView, writeCatalogView, type CatalogScope } from "./useAudiobookCatalog";
+import { useAudiobookCatalog, readCatalogView, writeCatalogView, DENSITY_OPTIONS, type CatalogDensity, type CatalogScope } from "./useAudiobookCatalog";
 import { DashboardShell } from "../../app/DashboardShell";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { EditMetadataModal } from "./EditMetadataModal";
@@ -30,16 +30,6 @@ import type { AudiobookBook, AudiobookBookDetail, AudiobookLibrary, CategorySumm
 
 
 type AudiobookViewMode = "grid" | "list";
-
-// What the toolbar's View menu offers today: how many covers a row holds. A
-// grid/list switch belongs here too, but a list needs a row-shaped card that
-// doesn't exist yet — one column of full-size covers isn't a list view.
-export type CatalogDensity = "comfortable" | "compact";
-
-const DENSITY_OPTIONS: { value: CatalogDensity; label: string }[] = [
-  { value: "comfortable", label: "Comfortable" },
-  { value: "compact", label: "Compact" }
-];
 
 export function formatCount(value: number) {
   return new Intl.NumberFormat().format(value);
