@@ -8,7 +8,7 @@ import { normalizeLibrarySettings } from "../src/modules/library/shared/library-
 import type { CatalogFilters } from "../src/modules/library/shared/catalog-core.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
-const EMPTY: CatalogFilters = { authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: [] };
+const EMPTY: CatalogFilters = { libraries: [], authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: [] };
 const SETTINGS = normalizeLibrarySettings("ebook", "{}");
 const CTX: LinkCtx = { origin: "http://home.test", tokenInPath: null };
 const ALL_SPEC: AcquisitionSpec = { base: "/all", title: "All ebooks", id: "urn:isputnik:ebooks:all", sort: "title" };

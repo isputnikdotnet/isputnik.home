@@ -1,15 +1,34 @@
-import { useCallback, useEffect, useState } from "react";
-import { UserPlus, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LibraryBig, UserPlus, UserRound } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
-import { navigate } from "../../router";
+import { navigate, queryParam, replaceQuery } from "../../router";
+import { AlphabetBar } from "../../shared/AlphabetBar";
 import { Button } from "../../shared/Button";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
+import { LibraryMenu } from "../../shared/LibraryMenu";
+import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
 import { Modal } from "../../shared/Modal";
 import { SectionNav } from "../../shared/SectionNav";
+import { SortMenu } from "../../shared/SortMenu";
 import { bookSectionNav, sectionNavProps } from "./sectionNavItems";
-import type { AudiobookBook, AudiobookLibrary } from "./types";
+import type { AudiobookLibrary } from "./types";
+
+// Same payload shape the Authors browse gets — the counts plus the server's
+// alphabet index (see modules/library/shared/alphabet.ts). Narrators are an
+// audiobook-only credit, so only audiobookCount is ever non-zero.
+type NarratorSummary = {
+  name: string;
+  audiobookCount: number;
+  libraryIds: string[];
+  alphaKey: string;
+  alphaKeyLast: string;
+  sortKey: string;
+  sortKeyLast: string;
+};
+
+type NameOrder = "first" | "last";
 
 // Narrators are an audiobook-only credit, so this list stays per-section (unlike
 // Authors, which are unified across types in AuthorListPage). Each narrator
@@ -22,10 +41,14 @@ export function NarratorListPage({
   logout: () => Promise<void>;
 }) {
   const [libraries, setLibraries] = useState<AudiobookLibrary[]>([]);
-  const [booksByLibrary, setBooksByLibrary] = useState<Record<string, AudiobookBook[]>>({});
+  const [persons, setPersons] = useState<NarratorSummary[]>([]);
   const [photos, setPhotos] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [libraryFilter, setLibraryFilter] = useState("all");
+  const [nameOrder, setNameOrder] = useState<NameOrder>("first");
+  // Navigation-shaped like the Authors strip: off the URL, back with replaceState.
+  const [letter, setLetter] = useState<string | null>(() => queryParam("letter"));
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newLibraryId, setNewLibraryId] = useState("");
@@ -33,30 +56,52 @@ export function NarratorListPage({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  const loadBooks = useCallback(async (libraryId: string) => {
-    const payload = await api<{ books: AudiobookBook[] }>(`/api/library/audiobook-libraries/${libraryId}/books`);
-    setBooksByLibrary((current) => ({ ...current, [libraryId]: payload.books }));
-  }, []);
+  useEffect(() => {
+    replaceQuery("letter", letter);
+  }, [letter]);
 
   useEffect(() => {
+    // One request for the whole list, indexed and counted by the server. This
+    // page used to derive its narrators by downloading every book of every
+    // library and folding them client-side.
+    api<{ narrators: NarratorSummary[] }>("/api/library/people/narrators")
+      .then((payload) => setPersons(payload.narrators))
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load narrators"));
+    // The libraries list is still needed: it gates "New narrator" on write access.
     api<{ libraries: AudiobookLibrary[] }>("/api/library/audiobook-libraries")
-      .then(async (payload) => {
-        setLibraries(payload.libraries);
-        await Promise.all(payload.libraries.map((lib) => loadBooks(lib.id)));
-      })
+      .then((payload) => setLibraries(payload.libraries))
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load data"));
     api<{ photos: Record<string, string> }>("/api/library/people/photos")
       .then((payload) => setPhotos(payload.photos))
       .catch(() => {}); // avatars are decoration — the list works without them
-  }, [loadBooks]);
-
-  const allBooks = libraries.flatMap((lib) => booksByLibrary[lib.id] ?? []);
-  const persons = [...new Set(allBooks.flatMap((book) => book.narrators))]
-    .map((name) => ({ name, bookCount: allBooks.filter((b) => b.narrators.includes(name)).length }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
 
   const term = search.trim().toLowerCase();
-  const filtered = term ? persons.filter((person) => person.name.toLowerCase().includes(term)) : persons;
+  const matchesSearch = (person: NarratorSummary) => !term || person.name.toLowerCase().includes(term);
+  const matchesLibrary = (person: NarratorSummary) =>
+    libraryFilter === "all" || person.libraryIds.includes(libraryFilter);
+
+  // Which of the server's two indexes the First/Last choice selects — the letter a
+  // narrator files under and the order they sort in are the same question twice.
+  const bucketOf = (person: NarratorSummary) => (nameOrder === "last" ? person.alphaKeyLast : person.alphaKey);
+  const orderOf = (person: NarratorSummary) => (nameOrder === "last" ? person.sortKeyLast : person.sortKey);
+
+  // Offered from everything the OTHER filters allow, so choosing a letter never
+  // empties the strip that chose it.
+  const availableLetters = [
+    ...new Set(persons.filter((p) => matchesSearch(p) && matchesLibrary(p)).map(bucketOf))
+  ];
+
+  const filtered = persons
+    .filter((person) => matchesSearch(person) && matchesLibrary(person) && (!letter || bucketOf(person) === letter))
+    .slice()
+    // The server's sort key is already folded (Ё → Е, accents stripped).
+    .sort((a, b) => orderOf(a).localeCompare(orderOf(b)));
+
+  const libraryOptions = [
+    { value: "all", label: "All libraries" },
+    ...libraries.map((lib) => ({ value: lib.id, label: lib.name }))
+  ];
 
   // Everyone lands on the canonical, cross-type person page; `from` lets its
   // Back button return to this list.
@@ -114,6 +159,40 @@ export function NarratorListPage({
 
         {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}
 
+        {persons.length > 0 && (
+          <LibraryPageToolbar
+            scope={libraries.length > 1 && (
+              <LibraryMenu
+                value={libraryFilter}
+                options={libraryOptions}
+                icon={<LibraryBig size={19} aria-hidden="true" />}
+                label="Library"
+                onChange={setLibraryFilter}
+              />
+            )}
+            tools={
+              <SortMenu
+                presentation="labelled"
+                value={nameOrder}
+                ariaLabel="Sort and index by"
+                onChange={setNameOrder}
+                options={[
+                  { value: "first", label: "First name" },
+                  { value: "last", label: "Last name" }
+                ]}
+              />
+            }
+            strip={
+              <AlphabetBar
+                available={availableLetters}
+                value={letter}
+                onChange={setLetter}
+                ariaLabel={`Filter by ${nameOrder} letter`}
+              />
+            }
+          />
+        )}
+
         {libraries.length === 0 ? (
           <div className="empty-state library-empty">
             <UserRound size={58} aria-hidden="true" />
@@ -142,7 +221,7 @@ export function NarratorListPage({
                 </div>
                 <div className="person-card-body">
                   <strong>{person.name}</strong>
-                  <span>{person.bookCount} {person.bookCount === 1 ? "book" : "books"}</span>
+                  <span>{person.audiobookCount} {person.audiobookCount === 1 ? "book" : "books"}</span>
                 </div>
               </button>
             ))}

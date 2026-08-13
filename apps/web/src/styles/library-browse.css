@@ -284,6 +284,423 @@
   gap: 8px;
 }
 
+/* ── Browse toolbar (shared/LibraryPageToolbar) ──────────────────────────────
+   The card above every browse grid: what scopes the page on the left, the
+   controls that narrow it on the right, and the A–Z strip on a second row
+   inside the same surface. Generalises .audiobook-main-nav-row (which the
+   pages still using their own markup keep) and swallows the standalone
+   .audiobook-bulk-bar: edit mode replaces the tools in place rather than
+   pushing the page down with another bar. */
+.library-toolbar {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+  box-shadow: var(--audiobook-soft-shadow);
+}
+
+/* Both rows are grid items, whose default min-width:auto lets their content push
+   them wider than the card — which on a phone puts the tail of the alphabet off
+   screen, where nothing can scroll to it. */
+.library-toolbar-row,
+.library-toolbar-strip {
+  min-width: 0;
+}
+
+.library-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Scrolls rather than shrinks: a long library name or an extra picker slides
+   sideways instead of squeezing the tools out of their 44px squares. */
+.library-toolbar-scope {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.library-toolbar-scope::-webkit-scrollbar {
+  display: none;
+}
+
+.library-toolbar-tools {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.library-toolbar .audiobook-library-tab {
+  min-height: 44px;
+  border-color: transparent;
+  background: var(--active);
+  color: var(--mint);
+}
+
+/* ── Labelled toolbar controls ───────────────────────────────────────────────
+   Every control in the row is the same pill: icon, label, optional chevron. The
+   label is what the control is DOING where that is otherwise invisible (the sort
+   prints its order, the filter its count) and what it IS where the effect is on
+   screen already (View). Icons alone were learnable but never learned — and on
+   the phone there is no hover to reveal a title. */
+.library-toolbar-button,
+.library-toolbar-tools .filter-button,
+.library-toolbar-tools .audiobook-sort-control.labelled .audiobook-sort-trigger {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 7px;
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* The sort control ships as a wide labelled box ("Sort by … ▾"); inside the
+   toolbar it is just its trigger, so the wrapper must shrink to that and stop
+   claiming a share of the row. */
+.library-toolbar-tools .audiobook-sort-control.labelled {
+  display: flex;
+  flex: 0 0 auto;
+  width: fit-content;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.library-toolbar-button:hover:not(:disabled),
+.library-toolbar-tools .filter-button:hover,
+.library-toolbar-tools .audiobook-sort-control.labelled .audiobook-sort-trigger:hover {
+  background: var(--hover);
+}
+
+.library-toolbar-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The one filled control per row — the page's own add-to-the-library action. */
+.library-toolbar-button.primary {
+  border-color: transparent;
+  background: var(--mint);
+  color: var(--canvas);
+}
+
+.library-toolbar-button.primary:hover {
+  background: var(--mint);
+  filter: brightness(1.06);
+}
+
+.library-toolbar-button.danger {
+  color: var(--rose, #e26a6a);
+}
+
+.library-toolbar-button.danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--rose, #e26a6a) 45%, transparent);
+}
+
+/* The sort control's own chevron and the filter's count badge sit inside these
+   pills, so they inherit the muted/accent treatment rather than the standalone
+   control's. */
+.library-toolbar-tools .audiobook-sort-control.labelled svg:last-child {
+  color: var(--muted);
+}
+
+@media (max-width: 1100px) {
+  /* Labels go before anything else does: the icons and the divider keep the
+     row's shape, so nothing moves except the words. */
+  .library-toolbar-tools .toolbar-label,
+  .library-toolbar-tools .filter-button > span:not(.filter-badge) {
+    display: none;
+  }
+
+  .library-toolbar-button,
+  .library-toolbar-tools .filter-button,
+  .library-toolbar-tools .audiobook-sort-control.labelled .audiobook-sort-trigger {
+    justify-content: center;
+    padding: 0 10px;
+  }
+}
+
+/* The same compact squares the page header uses, matched here so a control
+   keeps its size wherever a page puts it. */
+.library-toolbar-tools .filter-button.compact {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  height: 44px;
+  gap: 5px;
+  padding: 0 10px;
+  justify-content: center;
+}
+
+.library-toolbar-tools .audiobook-sort-control.compact {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: none;
+  width: 44px;
+  min-width: 0;
+  min-height: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.library-toolbar-tools .audiobook-sort-control.compact:hover {
+  background: var(--hover);
+}
+
+.library-toolbar-tools .audiobook-sort-control.compact .audiobook-sort-trigger {
+  width: auto;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.library-toolbar-tools .select-menu-trigger.secondary-button,
+.library-toolbar-tools > .primary-button {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+
+/* The media-type toggle sits beside the library picker, so it wears the picker's
+   language rather than the rounded capsule it uses on pages with no toolbar:
+   one 44px control, square corners, the active segment in the same accent. */
+.library-toolbar .kind-toggle {
+  flex: 0 0 auto;
+  margin: 0;
+  min-height: 44px;
+  padding: 3px;
+  border-color: transparent;
+  border-radius: 8px;
+  background: var(--field);
+  flex-wrap: nowrap;
+}
+
+.library-toolbar .kind-toggle button {
+  border-radius: 6px;
+  padding: 7px 13px;
+  font-size: 0.9rem;
+  font-weight: 680;
+}
+
+.library-toolbar .kind-toggle button.is-active {
+  background: var(--active);
+  color: var(--mint);
+}
+
+/* Edit mode. Same short row of labelled icon buttons the standalone bulk bar
+   had — a catalog is browsed at every width, so the verbs stay icons with
+   title + aria-label rather than a wrapping wall of text buttons. */
+.library-toolbar-tools.is-selection {
+  gap: 10px;
+}
+
+.library-toolbar-count {
+  font-weight: 600;
+}
+
+.library-toolbar-selection-actions {
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.library-toolbar-selection-actions .icon-button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 7px;
+}
+
+/* Sets the destructive/exit end of the row apart from the additive actions. */
+.library-toolbar-divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 2px 3px;
+  background: var(--line);
+}
+
+/* Pinned while a selection is live, so the actions stay reachable however far
+   the selection scrolls. */
+.library-toolbar.is-selecting {
+  position: sticky;
+  top: 8px;
+  z-index: 20;
+  background: var(--surface);
+  box-shadow: 0 8px 22px var(--shadow);
+}
+
+/* position:sticky can't escape a scroll-container ancestor, and .scene-page uses
+   overflow:hidden to clip its background layers. overflow:clip clips identically
+   without being a scroll container, so the toolbar can pin to the viewport.
+   Keyed on :has() so this only applies while selecting. */
+.home-main.scene-page:has(.library-toolbar.is-selecting) {
+  overflow: clip;
+}
+
+/* The A–Z row, divided off the controls above it rather than boxed again. */
+.library-toolbar-strip {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+/* ── A–Z strip (shared/AlphabetBar) ──────────────────────────────────────────
+   Thirty-odd targets in one line, so the letters borrow the kind-toggle's pill
+   language but drop the enclosing capsule: a pill around a whole alphabet reads
+   as a container, not a control. Letters with nothing behind them stay in place
+   and go quiet, so the row never reflows under the pointer. */
+.alphabet-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.alphabet-scripts {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+
+/* Sized so a full 33-letter alphabet plus All and # still fits on one line beside
+   the sidebar at a 1280px window — a wrapped strip reads as two controls. */
+.alphabet-letters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-width: 0;
+}
+
+.alphabet-bar button {
+  min-width: 26px;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.13s ease, color 0.13s ease, border-color 0.13s ease;
+}
+
+.alphabet-bar button:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.alphabet-bar button:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.alphabet-bar button.is-active {
+  background: var(--mint);
+  color: var(--canvas);
+}
+
+/* The script toggle is a mode, not a filter, so it reads as an outlined pair
+   rather than another letter. */
+.alphabet-scripts button {
+  border-color: var(--line);
+  white-space: nowrap;
+}
+
+.alphabet-scripts button.is-active {
+  border-color: transparent;
+  background: var(--active);
+  color: var(--mint);
+}
+
+@media (max-width: 740px) {
+  /* Wrapping an alphabet onto four lines eats the screen; slide it instead. */
+  .alphabet-letters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .alphabet-letters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .alphabet-letters button {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 740px) {
+  /* One line on the phone too: with the library picker gone from `scope` there
+     is room for Browse and the three squares side by side. The scope side is
+     what gives — it already scrolls — so the tools never wrap or get clipped. */
+  .library-toolbar-row {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .library-toolbar-tools {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  /* Two groups of two don't need a rule between them at this width. */
+  .library-toolbar-row .library-toolbar-divider {
+    display: none;
+  }
+
+  .library-toolbar-tools.is-selection {
+    gap: 8px;
+  }
+
+  .library-toolbar-selection-actions {
+    gap: 2px;
+  }
+
+  .library-toolbar-selection-actions .icon-button {
+    min-width: 34px;
+    min-height: 34px;
+    padding: 6px;
+  }
+
+  .library-toolbar-divider {
+    margin: 2px 1px;
+  }
+}
+
 .audiobook-page-tabs {
   display: flex;
   align-items: center;
@@ -503,6 +920,13 @@
 .audiobook-catalog.list {
   grid-template-columns: 1fr;
   gap: 12px;
+}
+
+/* The toolbar's View choice: same grid, smaller tiles, so a wide window shows
+   more of the library at once. */
+.audiobook-catalog.grid.compact {
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 14px;
 }
 
 /* Transparent card: only the cover is a boxed/shadowed tile; the title/author

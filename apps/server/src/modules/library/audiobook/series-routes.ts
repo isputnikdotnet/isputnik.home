@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { sortTitle } from "./scanner.js";
+import { alphaFieldsFor } from "../shared/alphabet.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { getAccessibleLibrary, canUserCurateLibrary } from "../shared/library-access.js";
 
@@ -46,12 +47,19 @@ function listSeriesForLibrary(libraryId: string) {
     ORDER BY series.name COLLATE NOCASE
   `).all(libraryId) as { id: string; name: string; book_count: number; cover_storage_key: string | null }[];
 
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    bookCount: r.book_count,
-    coverUrl: r.cover_storage_key ? `/api/library/covers/${r.cover_storage_key}` : null
-  }));
+  return rows.map((r) => {
+    // The A–Z strip's bucket and ordering key, from the one place that decides
+    // them (shared/alphabet.ts) — the browse page never re-derives either.
+    const alpha = alphaFieldsFor(r.name);
+    return {
+      id: r.id,
+      name: r.name,
+      bookCount: r.book_count,
+      coverUrl: r.cover_storage_key ? `/api/library/covers/${r.cover_storage_key}` : null,
+      alphaKey: alpha.alphaKey,
+      sortKey: alpha.sortKey
+    };
+  });
 }
 
 // List + create series for a library of the given type. Series live in a single

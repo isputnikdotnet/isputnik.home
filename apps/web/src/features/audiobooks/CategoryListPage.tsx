@@ -4,8 +4,10 @@ import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { navigate } from "../../router";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
+import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
 import { MessageBox } from "../../shared/MessageBox";
 import { SectionNav } from "../../shared/SectionNav";
+import { SortMenu } from "../../shared/SortMenu";
 import { CategoryIcon, categoryTint } from "./categoryIcons";
 import { sectionFromQuery, sectionNavProps } from "./sectionNavItems";
 import type { CategorySummary } from "./types";
@@ -20,6 +22,9 @@ export function CategoryListPage({
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  // "shelf" is the curated order the server returns (categories.sort_order) — the
+  // one a browsing eye expects, so it stays the default.
+  const [sort, setSort] = useState<"shelf" | "name" | "books">("shelf");
   const section = sectionFromQuery();
 
   useEffect(() => {
@@ -29,7 +34,14 @@ export function CategoryListPage({
   }, []);
 
   const term = search.trim().toLowerCase();
-  const shown = term ? categories.filter((category) => category.name.toLowerCase().includes(term)) : categories;
+  const shown = categories
+    .filter((category) => !term || category.name.toLowerCase().includes(term))
+    .slice()
+    .sort((a, b) => {
+      if (sort === "books") return b.bookCount - a.bookCount;
+      if (sort === "name") return a.name.localeCompare(b.name);
+      return 0; // the payload already arrives in shelf order
+    });
 
   return (
     <DashboardShell
@@ -48,6 +60,28 @@ export function CategoryListPage({
         />
 
         {error && <MessageBox tone="error" title="Categories error">{error}</MessageBox>}
+
+        {/* Same toolbar as its sibling browse pages, with only the control this one
+            can use: the taxonomy is a fixed, curated shelf of a few dozen names —
+            there is no library to scope it to, and an A–Z strip over a list that
+            fits on one screen would filter nothing anyone couldn't already see. */}
+        {categories.length > 0 && (
+          <LibraryPageToolbar
+            tools={
+              <SortMenu
+                presentation="labelled"
+                value={sort}
+                ariaLabel="Sort categories"
+                onChange={setSort}
+                options={[
+                  { value: "shelf", label: "Shelf order" },
+                  { value: "name", label: "Name (A–Z)" },
+                  { value: "books", label: "Most books" }
+                ]}
+              />
+            }
+          />
+        )}
 
         {shown.length === 0 && !error ? (
           <div className="empty-state library-empty">

@@ -5,6 +5,7 @@ import type { AudiobookBook } from "./types";
 export type FilterableBook = AudiobookBook & { libraryName?: string };
 
 export interface BookFilters {
+  libraries: string[];  // library ids — which shelves the list is drawn from
   authors: string[];
   narrators: string[];
   categories: string[]; // category display names (unique in the taxonomy)
@@ -16,7 +17,7 @@ export interface BookFilters {
 }
 
 export const EMPTY_FILTERS: BookFilters = {
-  authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: []
+  libraries: [], authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: []
 };
 
 // Filter dropdown options, supplied by the server (the panel can no longer derive
@@ -28,10 +29,14 @@ export interface FacetOptions {
   tags: string[];
   series: string[];
   languages: string[];
+  // The A–Z buckets the scope holds — the strip's enabled letters. Not a filter
+  // chip like the rest: it comes back with them because it answers the same
+  // question ("what can this scope offer?") in the same request.
+  letters: string[];
 }
 
 export const EMPTY_FACETS: FacetOptions = {
-  authors: [], narrators: [], categories: [], tags: [], series: [], languages: []
+  authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], letters: []
 };
 
 // Derive facet options from an in-memory book set — used by pages that still load
@@ -45,7 +50,10 @@ export function facetsFromBooks(books: FilterableBook[]): FacetOptions {
     categories: uniq(books.map((b) => b.category?.name ?? "")),
     tags: uniq(books.flatMap((b) => b.tags)),
     series: uniq(books.map((b) => b.series ?? "")),
-    languages: uniq(books.map((b) => b.language ?? ""))
+    languages: uniq(books.map((b) => b.language ?? "")),
+    // Letters are indexed server-side (the bucket depends on script detection a
+    // loaded page can't redo), so a client-derived facet set has none.
+    letters: []
   };
 }
 
@@ -82,8 +90,12 @@ const DURATION_OPTIONS = [
 ];
 
 // Facets keyed to the BookFilters fields, in display order. Status/duration are
-// fixed enumerations; the rest are derived from the loaded books.
+// fixed enumerations; libraries are supplied per page (ids with names to show);
+// the rest are derived from the loaded books.
 const FACET_ORDER: FacetDef<keyof BookFilters>[] = [
+  // First, because it is the widest cut: which shelves the rest of the panel is
+  // narrowing. Leaving it empty means every library you can reach.
+  { key: "libraries", title: "Libraries", searchable: false },
   { key: "status", title: "Status", searchable: false, fixed: STATUS_OPTIONS },
   { key: "authors", title: "Authors", searchable: true },
   { key: "narrators", title: "Narrators", searchable: true },
@@ -121,6 +133,7 @@ export function activeFilterCount(filters: BookFilters): number {
 
 export function filterBooks(books: FilterableBook[], filters: BookFilters): FilterableBook[] {
   return books.filter((b) => {
+    if (filters.libraries.length && !filters.libraries.includes(b.libraryId)) return false;
     if (filters.authors.length && !b.authors.some((a) => filters.authors.includes(a))) return false;
     if (filters.narrators.length && !b.narrators.some((n) => filters.narrators.includes(n))) return false;
     if (filters.categories.length && !(b.category && filters.categories.includes(b.category.name))) return false;
@@ -161,7 +174,7 @@ export function sortBooks(books: FilterableBook[], sort: SortKey): FilterableBoo
 // ── Components (thin wrappers over the shared generic filter UI) ───────────
 
 export function FilterButton({
-  facets, value, onChange, fields, compact = false
+  facets, value, onChange, fields, libraries, compact = false
 }: {
   facets: FacetOptions;
   value: BookFilters;
@@ -169,9 +182,17 @@ export function FilterButton({
   // Restrict which facet sections render (e.g. ebooks drop narrators/series/length).
   // Defaults to every facet in display order.
   fields?: (keyof BookFilters)[];
+  // The libraries this user can reach, as id + name. Omitted (or fewer than two)
+  // drops the section: a filter that can only mean "everything" isn't one.
+  libraries?: { id: string; name: string }[];
   compact?: boolean;
 }) {
-  const order = fields ? FACET_ORDER.filter((facet) => fields.includes(facet.key)) : FACET_ORDER;
+  const order = (fields ? FACET_ORDER.filter((facet) => fields.includes(facet.key)) : FACET_ORDER)
+    .flatMap((facet) => {
+      if (facet.key !== "libraries") return [facet];
+      if (!libraries || libraries.length < 2) return [];
+      return [{ ...facet, fixed: libraries.map((library) => ({ value: library.id, label: library.name })) }];
+    });
   return (
     <FacetFilterButton
       order={order}
@@ -197,6 +218,16 @@ export function SortSelect({ value, onChange }: { value: SortKey; onChange: (sor
   );
 }
 
-export function FilterChips({ value, onChange }: { value: BookFilters; onChange: (filters: BookFilters) => void }) {
-  return <FacetFilterChips value={value} onChange={onChange} empty={EMPTY_FILTERS} labels={CODE_LABELS} />;
+export function FilterChips({
+  value, onChange, libraries
+}: {
+  value: BookFilters;
+  onChange: (filters: BookFilters) => void;
+  // Library chips carry ids; without this they would read as nanoids.
+  libraries?: { id: string; name: string }[];
+}) {
+  const labels = libraries?.length
+    ? { ...CODE_LABELS, ...Object.fromEntries(libraries.map((library) => [library.id, library.name])) }
+    : CODE_LABELS;
+  return <FacetFilterChips value={value} onChange={onChange} empty={EMPTY_FILTERS} labels={labels} />;
 }

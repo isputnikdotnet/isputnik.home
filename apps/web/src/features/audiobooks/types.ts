@@ -352,6 +352,10 @@ export interface SeriesSummary {
   name: string;
   bookCount: number;
   coverUrl: string | null;
+  // The A–Z bucket and ordering key, decided server-side (see
+  // modules/library/shared/alphabet.ts) so every browse strip agrees.
+  alphaKey: string;
+  sortKey: string;
 }
 
 export interface SeriesDetail {

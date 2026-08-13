@@ -65,6 +65,21 @@ audiobook library selector.
 />
 ```
 
+For **sorting**, use `shared/SortMenu` instead — see below. SelectMenu's popover
+is anchored inside the page, which a browse toolbar clips.
+
+### SortMenu — `shared/SortMenu.tsx`
+
+The one sort control across browse pages (Audiobooks, Ebooks, Authors, Narrators,
+Series, Categories). Pass `compact` inside a toolbar and it renders as one 44px
+icon square, with the chosen value in the title and accessible name
+(`"Sort and index by: Last name"`).
+
+Its menu is portalled to `<body>` and fixed-positioned, and hangs from the
+trigger's right edge when a left-anchored menu would run off-screen. That is not
+decoration: a toolbar scrolls sideways and clips its overflow, so a menu anchored
+inside it gets cut off.
+
 ### ChoiceGroup — `shared/ChoiceGroup.tsx`
 
 Use `<ChoiceGroup>` when the user picks between **approaches**, not values — each
@@ -179,6 +194,57 @@ The only way to show an inline message. Tones: `info`, `warning`, `error`,
 
 Error message copy: say what failed and keep the server message when it's useful —
 `"Unable to create collection"`, not `"Something went wrong"`.
+
+---
+
+## Browse pages
+
+Every library browse page — Audiobooks, Ebooks, Gallery and the lists they link
+to (Authors, Narrators, Series, Albums…) — is built from the same two pieces, in
+this order:
+
+1. **`shared/LibraryPageHeader`** — title + count, the search box, and the page's
+   one primary action. Nothing that filters by facet belongs here.
+2. **`shared/LibraryPageToolbar`** — the card below it, with four slots:
+
+   | Slot | What goes in it |
+   |---|---|
+   | `scope` | What the page is scoped by, where that isn't a filter: the media-kind toggle on Authors, an album's breadcrumb. Audiobooks leaves it empty — choosing libraries is a filter facet there, not a picker |
+   | `tools` | Filter · Sort · View, then `.library-toolbar-divider`, then the acting controls — page-specific actions, Select, and the page's one primary action |
+   | `selection` | `{ count, actions }` while multi-selecting |
+   | `strip` | A second row inside the same card; the A–Z index today |
+
+- **Controls are labelled, and the label carries state where state is invisible.**
+  Sort prints the order it is in (`Recently added`), Filter prints a count badge,
+  View prints its name because the layout is already on screen. Every control is
+  a `.library-toolbar-button` (or the filter/sort equivalents), 44px tall, icon +
+  `.toolbar-label` + optional chevron; chevrons mean "opens a menu", so Select and
+  the primary action don't have one.
+- **The divider separates narrowing from acting.** Everything left of it changes
+  what you're looking at; everything right of it acts on the library or the
+  selection.
+- **Below 1100px the labels drop, nothing else moves** (one media query on
+  `.toolbar-label`). The icons, order and divider stay put.
+- **At most two promoted page actions**; anything more goes in a menu named for
+  the object (`Album ▾`), not behind a bare three-dot glyph.
+- **Libraries are a facet, not a picker** (`BookFilters.libraries`, ids in, names
+  shown). The section hides itself below two libraries, and picking exactly one
+  still resolves the catalog to that library so the facets and A–Z letters stay
+  honest to what's on screen. The choice reads back as a chip under the toolbar.
+
+- **Edit mode replaces the tools, it doesn't add a bar.** Passing `selection`
+  swaps the right-hand slot for "N selected" + the bulk icon buttons and pins the
+  toolbar. A separate selection bar below the toolbar pushed the whole grid down
+  the moment anything was selected.
+- **Menu contents change per page, the look doesn't.** A page picks which slots
+  it fills; it does not arrange its own row. New shared control? Add it to the
+  toolbar's CSS block in `styles/library-browse.css`, not to one page.
+- **The A–Z strip is `shared/AlphabetBar`**, fed by the server's `letters` facet.
+  Which bucket a title or name falls in is decided once, on the server
+  (`modules/library/shared/alphabet.ts` — SQLite's `UPPER()` is ASCII-only, so
+  Cyrillic can't be bucketed in SQL); the web only knows which letters each
+  alphabet shows. The chosen letter lives in `?letter=` via `replaceQuery`, so it
+  survives a reload without turning Back into a walk through every letter.
 
 ---
 

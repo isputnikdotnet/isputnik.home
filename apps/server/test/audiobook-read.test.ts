@@ -62,7 +62,7 @@ describe("getAudiobookBookDetail (read path on the new schema)", () => {
 });
 
 describe("queryCatalog (paged catalog on the new schema)", () => {
-  const emptyFilters = { authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: [] };
+  const emptyFilters = { libraries: [], authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: [] };
 
   it("lists the item with the same shape as the detail view", () => {
     const id = seedAudiobook("L");

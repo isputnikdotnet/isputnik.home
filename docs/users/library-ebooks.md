@@ -44,6 +44,10 @@ read the EPUB.
 - **Authors**, **Series** and **Categories** tabs browse the same library other
   ways. Categories are a fixed shelf-like taxonomy the scanner assigns; tags are
   free-form and yours.
+- **A–Z** under the toolbar jumps to titles starting with one letter, with **#**
+  for numbers and symbols and an **English / Русский** switch when the library
+  holds both alphabets. The letter is part of the address, so it survives a
+  reload and can be shared.
 
 ## Taking books with you
 

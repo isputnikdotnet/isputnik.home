@@ -6,7 +6,7 @@ import { getWorkEditions, setPrimaryEdition, removeEdition } from "../src/module
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
 const EMPTY_FILTERS: CatalogFilters = {
-  authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: []
+  libraries: [], authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: []
 };
 
 function addItem(id: string, libraryId: string, type: string, title: string): void {

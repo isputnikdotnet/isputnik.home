@@ -54,7 +54,10 @@ export function registerBookRoutes(app: FastifyInstance) {
     sort: z.enum(["title", "title_desc", "recent", "duration", "author", "series"]).default("title"),
     limit: z.number().int().min(1).max(200).default(48),
     offset: z.number().int().min(0).default(0),
+    // One bucket from the A–Z strip; "#" is a bucket too, hence max(1) not a letter test.
+    letter: z.string().trim().min(1).max(1).nullable().optional(),
     filters: z.object({
+      libraries: z.array(z.string()).default([]),
       authors: z.array(z.string()).default([]),
       narrators: z.array(z.string()).default([]),
       categories: z.array(z.string()).default([]),
@@ -63,7 +66,7 @@ export function registerBookRoutes(app: FastifyInstance) {
       languages: z.array(z.string()).default([]),
       status: z.array(z.string()).default([]),
       durations: z.array(z.string()).default([])
-    }).default({ authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: [] })
+    }).default({ libraries: [], authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], status: [], durations: [] })
   });
 
   app.post("/api/library/audiobooks/catalog", { preHandler: app.authenticate }, async (request, reply) => {
@@ -79,7 +82,9 @@ export function registerBookRoutes(app: FastifyInstance) {
       sort: p.sort ?? "title",
       limit: p.limit ?? 48,
       offset: p.offset ?? 0,
+      letter: p.letter ?? null,
       filters: {
+        libraries: f.libraries ?? [],
         authors: f.authors ?? [],
         narrators: f.narrators ?? [],
         categories: f.categories ?? [],

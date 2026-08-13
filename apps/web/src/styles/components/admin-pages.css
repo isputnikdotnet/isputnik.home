@@ -137,20 +137,24 @@
   text-overflow: ellipsis;
 }
 
-/* Actions is five 34px icon buttons with 6px gaps — 214px including the cell's
-   padding, and no percentage can know that: at 1280px the old 18% handed it
-   149px and the buttons spilled out, putting the whole grid in a horizontal
-   scroll. So the columns whose content has a fixed intrinsic width are sized in
-   px and User takes whatever is left. responsive.css drops Created, then
+/* The table is table-layout:fixed, so a column is exactly as wide as it is told —
+   nothing shrinks the Actions cell to its content, and anything that doesn't fit
+   spills and puts the whole grid in a horizontal scroll. The width therefore has
+   to be kept in step with the row's button count, which is what went wrong: the
+   row grew to six actions (edit · password · 2FA · passkeys · lockout · delete)
+   while this stayed sized for five.
+   Six 32px buttons with 4px gaps = 212px, plus the cell's 20px of padding.
+   ADD AN ACTION → UPDATE THIS NUMBER.
+   User is `auto` and absorbs the rest; responsive.css drops Created, then
    Sessions, as the region narrows, rather than crushing User to nothing. */
 .user-table th:nth-child(1) { width: auto; }
 .user-table th:nth-child(2) { width: 100px; }
 .user-table th:nth-child(3) { width: 108px; }
 .user-table th:nth-child(4) { width: 164px; }
-.user-table th:nth-child(5) { width: 214px; }
+.user-table th:nth-child(5) { width: 232px; }
 
 .user-table .row-actions {
-  gap: 6px;
+  gap: 4px;
 }
 
 .user-table .col-actions {
@@ -158,9 +162,9 @@
 }
 
 .user-table .icon-button {
-  min-width: 34px;
-  min-height: 34px;
-  padding: 8px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 7px;
 }
 
 .user-account-cell {
@@ -350,11 +354,16 @@
 .group-table th:nth-child(3) { width: 14%; }
 .group-table th:nth-child(4) { width: 27%; }
 
-.session-table th:nth-child(1) { width: 27%; }
-.session-table th:nth-child(2) { width: 31%; }
-.session-table th:nth-child(3) { width: 15%; }
-.session-table th:nth-child(4) { width: 15%; }
-.session-table th:nth-child(5) { width: 12%; }
+/* Last seen and Expires carry a two-line stamp (see .datagrid-stamp) and Actions
+   a "Current" badge — none of which can ellipsize away, so those three columns
+   are given enough to hold their content and the two text columns, which do
+   ellipsize, take what is left. Under-sizing them is what put this table in a
+   horizontal scroll. */
+.session-table th:nth-child(1) { width: 25%; }
+.session-table th:nth-child(2) { width: 26%; }
+.session-table th:nth-child(3) { width: 17%; }
+.session-table th:nth-child(4) { width: 17%; }
+.session-table th:nth-child(5) { width: 15%; }
 
 .invite-table th:nth-child(1) { width: 37%; }
 .invite-table th:nth-child(2) { width: 12%; }

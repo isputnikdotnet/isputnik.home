@@ -4,6 +4,7 @@ import {
   queryCatalog as coreQueryCatalog,
   catalogFacets as coreCatalogFacets,
   editionRepresentativeSql,
+  TITLE_ORDER,
   type CatalogConfig,
   type CatalogQuery
 } from "../shared/catalog-core.js";
@@ -13,8 +14,8 @@ export type { CatalogFilters, CatalogQuery } from "../shared/catalog-core.js";
 const placeholders = (n: number) => Array(n).fill("?").join(", ");
 
 const ORDER_BY: Record<string, string> = {
-  title: "COALESCE(item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE ASC",
-  title_desc: "COALESCE(item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE DESC",
+  title: `${TITLE_ORDER} ASC`,
+  title_desc: `${TITLE_ORDER} DESC`,
   recent: "library_items.discovered_at DESC",
   duration: "audiobook_details.duration_seconds DESC",
   author: "(SELECT p.name FROM item_people ip JOIN people p ON p.id = ip.person_id WHERE ip.item_id = library_items.id AND ip.role = 'author' ORDER BY ip.sort_order LIMIT 1) COLLATE NOCASE ASC, COALESCE(item_metadata.sort_title, item_metadata.title) COLLATE NOCASE ASC",

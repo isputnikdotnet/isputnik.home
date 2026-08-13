@@ -29,6 +29,7 @@ import {
   type AssetKind
 } from "./media.js";
 import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
+import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 
 const scanJobType = "SCAN_GALLERY_LIBRARY";
 
@@ -218,6 +219,7 @@ export async function ingestGalleryAsset(
           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       `).run(itemId, title, sortName(title), thumbs?.coverKey ?? null);
     }
+    applyItemAlphaIndex(itemId);
 
     db.prepare(`
       INSERT INTO gallery_details

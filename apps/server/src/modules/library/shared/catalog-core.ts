@@ -7,6 +7,9 @@ import { canUserAccessLibrary } from "./library-access.js";
 // scope resolution, the WHERE builder, pagination, COUNT and facets — is common.
 
 export interface CatalogFilters {
+  // Library ids. Empty means every library the scope resolved to — the filter
+  // narrows within what access already allows, it never widens it.
+  libraries: string[];
   authors: string[];
   narrators: string[];
   categories: string[];
@@ -23,9 +26,15 @@ export interface CatalogQuery {
   limit: number;
   offset: number;
   filters: CatalogFilters;
+  // One bucket from the A–Z strip ("B", "Б", "#"), or null for every letter.
+  // Kept out of CatalogFilters: the strip is an index, not a facet chip.
+  letter?: string | null;
 }
 
 export type FacetKey = "authors" | "narrators" | "categories" | "tags" | "series" | "languages";
+
+// Facet options plus the letters the strip can offer for the scope.
+export type CatalogFacets = Record<FacetKey, string[]> & { letters: string[] };
 
 // A type-specific filter clause: returns SQL + its bound args, or null when the
 // filter is empty for this request.
@@ -110,7 +119,19 @@ export function editionRepresentativeSql(alias: string): string {
 // Builds the WHERE clause + its bound args (after the leading user-id param[s]).
 // Common book filters (authors/categories/tags/languages/status) are handled here;
 // the config adds the free-text search clause and any type-specific extras.
-function buildWhere(libIds: string[], q: string, f: CatalogFilters, config: CatalogConfig): { where: string; args: unknown[] } {
+// The bucket an item files under: an administrator's override when there is one,
+// otherwise the letter the scanner derived. Both the filter and the strip's own
+// options read through this, so an override moves the item in both at once.
+const ALPHA_BUCKET = "COALESCE(item_metadata.alpha_override, item_metadata.alpha_key)";
+
+// The ORDER BY every type's Title A–Z / Z–A sort uses. sort_key is the
+// accent-stripped, uppercased title with Ё folded into Е — SQLite's NOCASE
+// collation is ASCII-only, so ordering the raw title puts Ёлка above Абрамов.
+// Falls back to the raw title for rows the alphabet backfill hasn't reached.
+export const TITLE_ORDER =
+  "COALESCE(item_metadata.sort_key, item_metadata.sort_title, item_metadata.title, library_items.folder_path) COLLATE NOCASE";
+
+function buildWhere(libIds: string[], q: string, f: CatalogFilters, config: CatalogConfig, letter?: string | null): { where: string; args: unknown[] } {
   const clauses: string[] = ["library_items.deleted_at IS NULL", `library_items.library_id IN (${placeholders(libIds.length)})`];
   const args: unknown[] = [...libIds];
 
@@ -122,6 +143,12 @@ function buildWhere(libIds: string[], q: string, f: CatalogFilters, config: Cata
     clauses.push(config.searchSql);
     const like = `%${q}%`;
     for (let i = 0; i < config.searchArgs; i += 1) args.push(like);
+  }
+  // Intersected with the scope's ids above, never substituted for them: an id
+  // the caller can't reach simply matches nothing.
+  if (f.libraries.length) {
+    clauses.push(`library_items.library_id IN (${placeholders(f.libraries.length)})`);
+    args.push(...f.libraries);
   }
   if (f.authors.length) {
     clauses.push(`EXISTS (SELECT 1 FROM item_people ip JOIN people p ON p.id = ip.person_id WHERE ip.item_id = library_items.id AND ip.role = 'author' AND p.name IN (${placeholders(f.authors.length)}))`);
@@ -142,6 +169,13 @@ function buildWhere(libIds: string[], q: string, f: CatalogFilters, config: Cata
   const statusParts = f.status.map((s) => STATUS_SQL[s]).filter(Boolean);
   if (statusParts.length) clauses.push(`(${statusParts.join(" OR ")})`);
 
+  // A plain equality against the stored bucket. The letter can't be derived here
+  // — SQLite's UPPER() is ASCII-only, so it would never match a Cyrillic title.
+  if (letter) {
+    clauses.push(`${ALPHA_BUCKET} = ?`);
+    args.push(letter);
+  }
+
   for (const extra of config.extraClauses) {
     const clause = extra(f);
     if (clause) { clauses.push(clause.sql); args.push(...clause.args); }
@@ -158,7 +192,7 @@ export function queryCatalog<Mapped>(
 ): { books: Mapped[]; total: number } {
   if (libIds.length === 0) return { books: [], total: 0 };
 
-  const { where, args } = buildWhere(libIds, opts.q, opts.filters, config);
+  const { where, args } = buildWhere(libIds, opts.q, opts.filters, config, opts.letter);
   const order = config.orderBy[opts.sort] ?? config.orderBy.title;
 
   const rows = db.prepare(`
@@ -182,8 +216,8 @@ export function queryCatalog<Mapped>(
 
 // Distinct filter options for the scope (a single page can't derive them).
 // Status/duration are fixed enumerations on the client, so they aren't returned.
-export function catalogFacets(libIds: string[], config: CatalogConfig): Record<FacetKey, string[]> {
-  const empty: Record<FacetKey, string[]> = { authors: [], narrators: [], categories: [], tags: [], series: [], languages: [] };
+export function catalogFacets(libIds: string[], config: CatalogConfig): CatalogFacets {
+  const empty: CatalogFacets = { authors: [], narrators: [], categories: [], tags: [], series: [], languages: [], letters: [] };
   if (libIds.length === 0) return empty;
 
   const inLibs = placeholders(libIds.length);
@@ -193,5 +227,19 @@ export function catalogFacets(libIds: string[], config: CatalogConfig): Record<F
     const build = config.facetQueries[key];
     if (build) empty[key] = run(build(inLibs));
   }
+
+  // Which letters the strip can offer. Every type indexes titles the same way, so
+  // this one is built here rather than per config — and it is scope-wide, not
+  // filtered, so choosing a letter never empties the strip that chose it.
+  empty.letters = run(`
+    SELECT DISTINCT COALESCE(item_metadata.alpha_override, item_metadata.alpha_key) AS v
+    FROM item_metadata
+    JOIN library_items b ON b.id = item_metadata.item_id
+    WHERE b.deleted_at IS NULL
+      AND b.library_id IN (${inLibs})
+      AND COALESCE(item_metadata.alpha_override, item_metadata.alpha_key) IS NOT NULL
+      AND ${editionRepresentativeSql("b")}
+    ORDER BY v
+  `);
   return empty;
 }

@@ -20,6 +20,7 @@ import { libraryJobRunning } from "../shared/scan-lock.js";
 import { requeueInterruptedJobs } from "../shared/job-recovery.js";
 import { jobProgressWriter } from "../shared/job-progress.js";
 import { applyScannedSeries } from "../shared/series.js";
+import { applyItemAlphaIndex } from "../shared/alphabet-index.js";
 
 const scanJobType = "SCAN_EBOOK_LIBRARY";
 
@@ -376,6 +377,7 @@ export async function ingestEbookGroup(
         bookId, title, sortName(title), meta.description,
         meta.year, meta.language || settings.default_language || null, meta.isbn, coverKey
       );
+      applyItemAlphaIndex(bookId);
 
       // Primary category from the ebook's subjects.
       const categoryId = matchCategoryId(meta.subjects);
