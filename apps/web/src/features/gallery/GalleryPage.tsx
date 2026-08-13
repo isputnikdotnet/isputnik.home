@@ -7,11 +7,13 @@ import { followRoute, galleryHref, navigate, type GalleryView } from "../../rout
 import { Button } from "../../shared/Button";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
 import { MessageBox } from "../../shared/MessageBox";
-import { AudiobookHeaderSort, formatCount } from "../audiobooks/AudiobooksPage";
+import { formatCount } from "../audiobooks/AudiobooksPage";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
+import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
+import { LibraryMenu } from "../../shared/LibraryMenu";
+import { SortMenu } from "../../shared/SortMenu";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { SectionNav, type SectionNavItem } from "../../shared/SectionNav";
-import type { SortKey } from "../audiobooks/BookFilter";
 import { AssetTile, PersonAvatar, type LightboxSource } from "./AssetTile";
 import { useGalleryAlbums } from "./useGalleryAlbums";
 import { useGallerySlideshows } from "./useGallerySlideshows";
@@ -260,12 +262,6 @@ export function GalleryPage({
   const mapCount = facets?.withGps ?? 0;
 
   const isMobile = useIsMobile();
-
-  // Library selector dropdown (mirrors the audiobooks/ebooks main page chip).
-  const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
-  const [libraryMenuPos, setLibraryMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const libraryTriggerRef = useRef<HTMLButtonElement>(null);
-  const libraryMenuRef = useRef<HTMLDivElement>(null);
 
   // Mobile / PWA: "Browse" dropdown that collapses the view tabs (Timeline,
   // Memories, Albums, …), matching the audiobooks/ebooks compact header.
@@ -551,36 +547,6 @@ export function GalleryPage({
     return () => window.clearInterval(timer);
   }, [libraries, view, parent, loadLibraries, loadTimeline, loadFolder, loadMemories, loadMap]);
 
-  // Library selector dropdown open/close + outside-click dismissal.
-  const toggleLibraryMenu = () => {
-    setLibraryMenuOpen((open) => {
-      if (!open && libraryTriggerRef.current) {
-        const rect = libraryTriggerRef.current.getBoundingClientRect();
-        setLibraryMenuPos({ top: rect.bottom + 8, left: rect.left });
-      }
-      return !open;
-    });
-  };
-
-  useEffect(() => {
-    if (!libraryMenuOpen) return;
-    const close = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (libraryTriggerRef.current?.contains(target)) return;
-      if (libraryMenuRef.current?.contains(target)) return;
-      setLibraryMenuOpen(false);
-    };
-    const dismiss = () => setLibraryMenuOpen(false);
-    window.addEventListener("mousedown", close);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
-    };
-  }, [libraryMenuOpen]);
-
   // Mobile "Browse" (views) dropdown open/close + outside-click dismissal.
   const toggleViewMenu = () => {
     setViewMenuOpen((open) => {
@@ -673,7 +639,6 @@ export function GalleryPage({
   const canShareCurrent = currentLibrary?.canCurate ?? false;
 
   const uploadLibraries = libraries.filter((library) => library.canUpload);
-  const selectedLibraryLabel = scopeId === "all" ? "All Libraries" : libraryFor(scopeId)?.name ?? "All Libraries";
 
   // Reload whichever view is active plus the library list (counts / scan badges).
   const refreshView = useCallback(() => {
@@ -932,22 +897,8 @@ export function GalleryPage({
           search={searchText}
           onSearchChange={hasSearch ? setSearchText : undefined}
           searchPlaceholder={searchPlaceholder}
-          // Filter, sort, Play and Select moved down to the library row — they
-          // all act on whatever that row has scoped into view. Upload stays
-          // here: it puts photos into the library rather than choosing among
-          // them, and it is the one action that means the same in every view.
-          actions={uploadLibraries.length > 0 && !selectionMode && (
-            <button
-              type="button"
-              className="audiobook-page-action-icon"
-              onClick={() => { setNotice(""); setUploadOpen(true); }}
-              aria-label="Upload"
-              title="Upload"
-            >
-              <UploadCloud size={18} aria-hidden="true" />
-            </button>
-          )}
-          primaryAction={primaryAction}
+          // Every control lives in the toolbar below, Upload and the view's own
+          // Create included: the header is the page's name and its search box.
         />
 
         {error && <MessageBox tone="error" title="Gallery error">{error}</MessageBox>}
@@ -980,55 +931,28 @@ export function GalleryPage({
           </div>
         ) : (
           <>
-            <div className="audiobook-page-nav-row audiobook-main-nav-row">
-              <div className="audiobook-page-tabs-with-library">
-                <div className="audiobook-library-shortcuts">
-                  <button
-                    ref={libraryTriggerRef}
-                    type="button"
-                    className="audiobook-library-tab"
-                    onClick={toggleLibraryMenu}
-                    aria-haspopup="menu"
-                    aria-expanded={libraryMenuOpen}
-                    aria-label="Select library"
-                  >
-                    <Images size={19} aria-hidden="true" />
-                    <span>{selectedLibraryLabel}</span>
-                    <ChevronDown size={16} aria-hidden="true" />
-                  </button>
-                  {libraryMenuOpen && libraryMenuPos && createPortal(
-                    <div
-                      ref={libraryMenuRef}
-                      className="book-detail-action-menu audiobook-library-menu"
-                      role="menu"
-                      aria-label="Select library"
-                      style={{ position: "fixed", top: libraryMenuPos.top, left: libraryMenuPos.left, right: "auto" }}
-                    >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className={scopeId === "all" ? "active" : ""}
-                        onClick={() => { setScopeId("all"); setLibraryMenuOpen(false); }}
-                      >
-                        <span>All Libraries</span>
-                      </button>
-                      {libraries.map((library) => (
-                        <button
-                          key={library.id}
-                          type="button"
-                          role="menuitem"
-                          className={scopeId === library.id ? "active" : ""}
-                          onClick={() => { setScopeId(library.id); setLibraryMenuOpen(false); }}
-                        >
-                          <span>{library.name}</span>
-                        </button>
-                      ))}
-                    </div>,
-                    document.body
+            <LibraryPageToolbar
+              // Scope reads left to right the way you got here: where you are
+              // (back out of a sub-view), then which library it is drawn from.
+              scope={
+                <>
+                  {backTarget && (
+                    <button type="button" className="library-toolbar-button" onClick={backTarget.onClick}>
+                      <ArrowLeft size={18} aria-hidden="true" />
+                      <span className="toolbar-label">{backTarget.label}</span>
+                    </button>
                   )}
-                </div>
-
-                {isMobile && (
+                  <LibraryMenu
+                    value={scopeId}
+                    options={[
+                      { value: "all", label: "All Libraries" },
+                      ...libraries.map((library) => ({ value: library.id, label: library.name }))
+                    ]}
+                    icon={<Images size={19} aria-hidden="true" />}
+                    label="Select library"
+                    onChange={setScopeId}
+                  />
+                  {isMobile && (
                   <div className="audiobook-library-shortcuts">
                     <button
                       ref={viewMenuTriggerRef}
@@ -1073,162 +997,175 @@ export function GalleryPage({
                     )}
                   </div>
                 )}
-              </div>
-
-              {/* The controls that act on what the library picker beside them has
-                  scoped into view. Same compact squares as the header's — they
-                  keep its actions class and only opt out of its full width. */}
-              <div className="audiobook-page-actions audiobook-main-nav-tools">
-                {/* Filter and sort describe a set of photos — the people, camera,
-                    year and place a shot was taken, and the order to show them
-                    in. Only the two views that ARE a set of photos can answer
-                    that, so the other five don't offer controls that would sit
-                    there doing nothing. */}
-                {browsingPhotos && (
+                </>
+              }
+              // Filter and sort describe a set of photos — the people, camera,
+              // year and place a shot was taken, and the order to show them in.
+              // Only the two views that ARE a set of photos can answer that, so
+              // the other five don't offer controls that would sit there doing
+              // nothing.
+              tools={
+                <>
+                  {browsingPhotos && (
+                    <>
+                      <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} />
+                      <SortMenu
+                        value={sort}
+                        onChange={setSort}
+                        options={SORT_OPTIONS}
+                        ariaLabel="Sort timeline"
+                        presentation="labelled"
+                      />
+                    </>
+                  )}
+                  {/* Nothing narrows these views, so there is nothing to divide
+                      the acting controls from. */}
+                  {browsingPhotos && <span className="library-toolbar-divider" aria-hidden="true" />}
+                  {/* Selection is not delete-gated: favouriting and adding to a
+                      collection are for every member. Delete inside it still is. */}
+                  {/* Desktop only, as on the book pages: bulk editing from a phone
+                      is a row of eleven verbs on a 375px screen. */}
+                  {!isMobile && view !== "map" && view !== "people" && view !== "albums" && view !== "slideshows" && (
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => { setNotice(""); setSelectionMode(true); }}
+                    >
+                      <SquareCheck size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Select</span>
+                    </button>
+                  )}
+                  {uploadLibraries.length > 0 && (
+                    <button
+                      type="button"
+                      // The view's own Create outranks it when there is one, so
+                      // only one control in the row is filled.
+                      className={`library-toolbar-button${primaryAction ? "" : " primary"}`}
+                      onClick={() => { setNotice(""); setUploadOpen(true); }}
+                    >
+                      <UploadCloud size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Upload</span>
+                    </button>
+                  )}
+                  {primaryAction}
+                </>
+              }
+              selection={selectionMode ? {
+                count: selectedIds.size,
+                actions: (
                   <>
-                    <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} compact />
-                    <AudiobookHeaderSort
-                      value={sort as unknown as SortKey}
-                      onChange={(value) => setSort(value as unknown as TimelineSort)}
-                      options={SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
-                      ariaLabel="Sort timeline"
-                      compact
-                    />
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => setSelectedIds(new Set(displayedAssets.map((asset) => asset.id)))}
+                      disabled={displayedAssets.length === 0}
+                      title="Select everything loaded so far"
+                    >
+                      <CheckCheck size={18} aria-hidden="true" />
+                      <span className="toolbar-label">All</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => void bulkFavorite()}
+                      disabled={selectedIds.size === 0 || bulkBusy}
+                      title={bulkBusy ? "Adding…" : "Add to Favorites"}
+                    >
+                      <Heart size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Favorite</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => { setBulkError(""); setBulkAlbumOpen(true); }}
+                      disabled={selectedIds.size === 0 || bulkBusy}
+                      title="Add to album"
+                    >
+                      <ImagePlus size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Album</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => { setBulkError(""); setBulkSlideshowOpen(true); }}
+                      disabled={selectedIds.size === 0 || bulkBusy}
+                      title="Add to slideshow"
+                    >
+                      <Film size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Slideshow</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => { setBulkError(""); setBulkCollectionOpen(true); }}
+                      disabled={selectedIds.size === 0 || bulkBusy}
+                      title="Add to collection"
+                    >
+                      <ListMusic size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Collection</span>
+                    </button>
+                    {canShareAny && (
+                      <button
+                        type="button"
+                        className="library-toolbar-button"
+                        onClick={() => { setBulkError(""); setShareIds([...selectedIds]); }}
+                        disabled={selectedIds.size === 0 || bulkBusy}
+                        title="Share"
+                      >
+                        <Share2 size={18} aria-hidden="true" />
+                        <span className="toolbar-label">Share</span>
+                      </button>
+                    )}
+                    {canWriteAny && (
+                      <button
+                        type="button"
+                        className="library-toolbar-button"
+                        onClick={() => { setBulkError(""); setBulkDateOpen(true); }}
+                        disabled={selectedIds.size === 0 || bulkBusy}
+                        title="Set date taken"
+                      >
+                        <CalendarClock size={18} aria-hidden="true" />
+                        <span className="toolbar-label">Date</span>
+                      </button>
+                    )}
+                    {canWriteAny && (
+                      <button
+                        type="button"
+                        className="library-toolbar-button"
+                        onClick={() => { setBulkError(""); setBulkLocationOpen(true); }}
+                        disabled={selectedIds.size === 0 || bulkBusy}
+                        title="Set location"
+                      >
+                        <MapPinned size={18} aria-hidden="true" />
+                        <span className="toolbar-label">Place</span>
+                      </button>
+                    )}
+                    {canDeleteAny && (
+                      <button
+                        type="button"
+                        className="library-toolbar-button danger"
+                        onClick={() => { setBulkError(""); setBulkDeleteOpen(true); }}
+                        disabled={selectedIds.size === 0 || bulkBusy}
+                        title="Move the selected photos to the Recycle Bin"
+                      >
+                        <Trash2 size={18} aria-hidden="true" />
+                        <span className="toolbar-label">Delete</span>
+                      </button>
+                    )}
+                    <span className="library-toolbar-divider" aria-hidden="true" />
+                    <button type="button" className="library-toolbar-button" onClick={exitSelection} title="Leave selection">
+                      <X size={18} aria-hidden="true" />
+                      <span className="toolbar-label">Done</span>
+                    </button>
                   </>
-                )}
-                {/* Selection is no longer delete-gated: favoriting and adding to a
-                    collection are for every member. Delete inside the bar still is. */}
-                {!selectionMode && view !== "map" && view !== "people" && view !== "albums" && view !== "slideshows" && (
-                  <button
-                    type="button"
-                    className="audiobook-page-action-icon"
-                    onClick={() => { setNotice(""); setSelectionMode(true); }}
-                    aria-label="Select"
-                    title="Select"
-                  >
-                    <SquareCheck size={18} aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* One-click "up" out of any sub-view. Context-aware: from a detail level
-                it steps back to the parent list (Back to albums/people/folders),
-                otherwise back to the main Timeline (Back to gallery). */}
-            {backTarget && (
-              <div className="gallery-back-row">
-                <button type="button" className="gallery-back-button" onClick={backTarget.onClick}>
-                  <ArrowLeft size={16} aria-hidden="true" /> {backTarget.label}
-                </button>
-              </div>
-            )}
+                )
+              } : null}
+            />
 
             {view === "timeline" && <GalleryFilterChips value={filters} onChange={setFilters} />}
 
             {libraries.some((library) => library.scanStatus === "scanning") && (
               <MessageBox tone="info" title="Scanning">Thumbnails appear as the scan finishes.</MessageBox>
-            )}
-
-            {selectionMode && (
-              <div className="audiobook-bulk-bar is-compact">
-                <span className="audiobook-bulk-count">{selectedIds.size} selected</span>
-                <div className="row-actions audiobook-bulk-actions">
-                  <Button
-                    variant="icon"
-                    onClick={() => setSelectedIds(new Set(displayedAssets.map((asset) => asset.id)))}
-                    disabled={displayedAssets.length === 0}
-                    aria-label="Select all loaded"
-                    title="Select all loaded"
-                  >
-                    <CheckCheck size={18} aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="icon"
-                    onClick={() => void bulkFavorite()}
-                    disabled={selectedIds.size === 0 || bulkBusy}
-                    aria-label={bulkBusy ? "Adding to Favorites…" : "Favorite"}
-                    title={bulkBusy ? "Adding…" : "Favorite"}
-                  >
-                    <Heart size={18} aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="icon"
-                    onClick={() => { setBulkError(""); setBulkAlbumOpen(true); }}
-                    disabled={selectedIds.size === 0 || bulkBusy}
-                    aria-label="Add to album"
-                    title="Add to album"
-                  >
-                    <ImagePlus size={18} aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="icon"
-                    onClick={() => { setBulkError(""); setBulkSlideshowOpen(true); }}
-                    disabled={selectedIds.size === 0 || bulkBusy}
-                    aria-label="Add to slideshow"
-                    title="Add to slideshow"
-                  >
-                    <Film size={18} aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="icon"
-                    onClick={() => { setBulkError(""); setBulkCollectionOpen(true); }}
-                    disabled={selectedIds.size === 0 || bulkBusy}
-                    aria-label="Add to collection"
-                    title="Add to collection"
-                  >
-                    <ListMusic size={18} aria-hidden="true" />
-                  </Button>
-                  {canShareAny && (
-                    <Button
-                      variant="icon"
-                      onClick={() => { setBulkError(""); setShareIds([...selectedIds]); }}
-                      disabled={selectedIds.size === 0 || bulkBusy}
-                      aria-label="Share"
-                      title="Share"
-                    >
-                      <Share2 size={18} aria-hidden="true" />
-                    </Button>
-                  )}
-                  {canWriteAny && (
-                    <Button
-                      variant="icon"
-                      onClick={() => { setBulkError(""); setBulkDateOpen(true); }}
-                      disabled={selectedIds.size === 0 || bulkBusy}
-                      aria-label="Set date taken"
-                      title="Set date taken"
-                    >
-                      <CalendarClock size={18} aria-hidden="true" />
-                    </Button>
-                  )}
-                  {canWriteAny && (
-                    <Button
-                      variant="icon"
-                      onClick={() => { setBulkError(""); setBulkLocationOpen(true); }}
-                      disabled={selectedIds.size === 0 || bulkBusy}
-                      aria-label="Set location"
-                      title="Set location"
-                    >
-                      <MapPinned size={18} aria-hidden="true" />
-                    </Button>
-                  )}
-                  {canDeleteAny && (
-                    <Button
-                      variant="icon"
-                      danger
-                      onClick={() => { setBulkError(""); setBulkDeleteOpen(true); }}
-                      disabled={selectedIds.size === 0 || bulkBusy}
-                      aria-label="Delete"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} aria-hidden="true" />
-                    </Button>
-                  )}
-                  <span className="audiobook-bulk-divider" aria-hidden="true" />
-                  <Button variant="icon" onClick={exitSelection} aria-label="Cancel selection" title="Cancel selection">
-                    <X size={18} aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
             )}
 
             {view === "map" ? (
@@ -1499,12 +1436,12 @@ export function GalleryPage({
                         <MoreHorizontal size={18} aria-hidden="true" />
                       </button>
                       {selectedAlbum.canEdit && (
-                        <AudiobookHeaderSort
-                          value={selectedAlbum.sortMode as unknown as SortKey}
-                          onChange={(value) => void patchAlbum(selectedAlbum.id, { sortMode: value as unknown as "taken_at" | "manual" })}
-                          options={ALBUM_SORT_OPTIONS as unknown as { value: SortKey; label: string }[]}
+                        <SortMenu
+                          value={selectedAlbum.sortMode}
+                          onChange={(value) => void patchAlbum(selectedAlbum.id, { sortMode: value })}
+                          options={ALBUM_SORT_OPTIONS}
                           ariaLabel="Sort album"
-                          compact
+                          presentation="icon"
                         />
                       )}
                       {!selectionMode && (

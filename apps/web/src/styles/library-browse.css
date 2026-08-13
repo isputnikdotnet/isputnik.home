@@ -429,6 +429,16 @@
   color: var(--muted);
 }
 
+/* A crowded selection row — the gallery's is eleven verbs against the books'
+   six — runs out of width a tier earlier than the standard one. Keyed on the
+   count itself rather than the page, so a row that grows an action starts
+   behaving before anyone notices it wrapped. */
+@media (max-width: 1400px) {
+  .library-toolbar-selection-actions:has(> :nth-child(9)) .toolbar-label {
+    display: none;
+  }
+}
+
 @media (max-width: 1100px) {
   /* Labels go before anything else does: the icons and the divider keep the
      row's shape, so nothing moves except the words. */
