@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, LibraryBig, ListMusic, MapPin, MapPinned, MoreHorizontal, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
@@ -1018,8 +1018,100 @@ export function GalleryPage({
                       />
                     </>
                   )}
-                  {/* Nothing narrows these views, so there is nothing to divide
-                      the acting controls from. */}
+                  {/* One open album's own tools: at most two promoted (Slideshow,
+                      Share — the two reached for most), everything else — Rename,
+                      Set cover, Download, Delete — behind the named "Album" menu
+                      rather than a bare three-dot glyph, per the toolbar's own
+                      rule. Sort here reorders the album's own photos, so it sits
+                      with the narrowing controls even though there's no Filter
+                      to keep it company. */}
+                  {view === "albums" && selectedAlbum && (
+                    <>
+                      {selectedAlbum.canEdit && (
+                        <SortMenu
+                          value={selectedAlbum.sortMode}
+                          onChange={(value) => void patchAlbum(selectedAlbum.id, { sortMode: value })}
+                          options={ALBUM_SORT_OPTIONS}
+                          ariaLabel="Sort album"
+                          presentation="icon"
+                        />
+                      )}
+                      <span className="library-toolbar-divider" aria-hidden="true" />
+                      <button
+                        type="button"
+                        className="library-toolbar-button"
+                        disabled={albumAssets.length < 2}
+                        title={albumAssets.length < 2 ? "Add more photos to play a slideshow" : "Play this album as a slideshow"}
+                        onClick={startSlideshow}
+                      >
+                        <Play size={18} aria-hidden="true" />
+                        <span className="toolbar-label">Slideshow</span>
+                      </button>
+                      {selectedAlbum.canEdit && (
+                        <button type="button" className="library-toolbar-button" onClick={() => setShareAlbumOpen(true)}>
+                          <Share2 size={18} aria-hidden="true" />
+                          <span className="toolbar-label">Share</span>
+                        </button>
+                      )}
+                      <button
+                        ref={albumMenuTriggerRef}
+                        type="button"
+                        className="library-toolbar-button"
+                        onClick={toggleAlbumMenu}
+                        aria-haspopup="menu"
+                        aria-expanded={albumMenuOpen}
+                      >
+                        <span className="toolbar-label">Album</span>
+                        <ChevronDown size={16} aria-hidden="true" />
+                      </button>
+                      {albumMenuOpen && albumMenuPos && createPortal(
+                        <div
+                          ref={albumMenuRef}
+                          className="gallery-album-menu"
+                          role="menu"
+                          aria-label="Album actions"
+                          style={{ position: "fixed", top: albumMenuPos.top, left: albumMenuPos.left }}
+                        >
+                          {selectedAlbum.canEdit && (
+                            <button type="button" role="menuitem" onClick={() => { setAlbumMenuOpen(false); setAlbumRename(selectedAlbum.name); }}>
+                              <Pencil size={15} aria-hidden="true" /><span>Rename album</span>
+                            </button>
+                          )}
+                          {selectedAlbum.canEdit && (
+                            <button type="button" role="menuitem" onClick={() => { setAlbumMenuOpen(false); setNotice(""); setCoverPickerOpen(true); }}>
+                              <ImageIcon size={15} aria-hidden="true" /><span>Set cover photo</span>
+                            </button>
+                          )}
+                          <a
+                            role="menuitem"
+                            href={`/api/library/gallery/albums/${selectedAlbum.id}/download`}
+                            download
+                            onClick={() => setAlbumMenuOpen(false)}
+                          >
+                            <Download size={15} aria-hidden="true" /><span>Download album</span>
+                          </a>
+                          {selectedAlbum.canEdit && (
+                            <button type="button" role="menuitem" className="danger" onClick={() => { setAlbumMenuOpen(false); setAlbumDeleteOpen(true); }}>
+                              <Trash2 size={15} aria-hidden="true" /><span>Delete album</span>
+                            </button>
+                          )}
+                        </div>,
+                        document.body
+                      )}
+                      {!isMobile && !selectionMode && (
+                        <button
+                          type="button"
+                          className="library-toolbar-button"
+                          onClick={() => { setNotice(""); setSelectionMode(true); }}
+                        >
+                          <SquareCheck size={18} aria-hidden="true" />
+                          <span className="toolbar-label">Select</span>
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {/* Nothing narrows the other list views, so there is nothing to
+                      divide the acting controls from. */}
                   {browsingPhotos && <span className="library-toolbar-divider" aria-hidden="true" />}
                   {/* Selection is not delete-gated: favouriting and adding to a
                       collection are for every member. Delete inside it still is. */}
@@ -1396,14 +1488,10 @@ export function GalleryPage({
                 const albumCoverUrl = albums.find((al) => al.id === selectedAlbum.id)?.coverUrl ?? albumAssets[0]?.coverUrl ?? null;
                 return (
                 <>
-                  <div className="gallery-breadcrumb">
-                    <button type="button" onClick={() => { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); }}>All albums</button>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      <ChevronRight size={14} aria-hidden="true" />
-                      <strong>{selectedAlbum.name}</strong>
-                    </span>
-                  </div>
-
+                  {/* Where you are and what you can do to it both moved into the
+                      toolbar above — "← Back to albums" in scope, the album's own
+                      tools in tools. This is just the album itself: cover, name,
+                      count. */}
                   <div className="gallery-album-header">
                     <span className="gallery-album-cover">
                       {albumCoverUrl ? <img src={albumCoverUrl} alt="" /> : <Album size={30} aria-hidden="true" />}
@@ -1422,88 +1510,6 @@ export function GalleryPage({
                         {formatCount(albumTotal)} {albumTotal === 1 ? "item" : "items"}
                         {selectedAlbum.description ? <> · {selectedAlbum.description}</> : null}
                       </p>
-                    <div className="gallery-album-actions">
-                      <button
-                        ref={albumMenuTriggerRef}
-                        type="button"
-                        className="audiobook-page-action-icon"
-                        onClick={toggleAlbumMenu}
-                        aria-haspopup="menu"
-                        aria-expanded={albumMenuOpen}
-                        aria-label="More album actions"
-                        title="More"
-                      >
-                        <MoreHorizontal size={18} aria-hidden="true" />
-                      </button>
-                      {selectedAlbum.canEdit && (
-                        <SortMenu
-                          value={selectedAlbum.sortMode}
-                          onChange={(value) => void patchAlbum(selectedAlbum.id, { sortMode: value })}
-                          options={ALBUM_SORT_OPTIONS}
-                          ariaLabel="Sort album"
-                          presentation="icon"
-                        />
-                      )}
-                      {!selectionMode && (
-                        <button
-                          type="button"
-                          className="audiobook-page-action-icon"
-                          onClick={() => { setNotice(""); setSelectionMode(true); }}
-                          aria-label="Select"
-                          title="Select"
-                        >
-                          <SquareCheck size={18} aria-hidden="true" />
-                        </button>
-                      )}
-                      {albumMenuOpen && albumMenuPos && createPortal(
-                        <div
-                          ref={albumMenuRef}
-                          className="gallery-album-menu"
-                          role="menu"
-                          aria-label="Album actions"
-                          style={{ position: "fixed", top: albumMenuPos.top, left: albumMenuPos.left }}
-                        >
-                          {selectedAlbum.canEdit && (
-                            <button type="button" role="menuitem" onClick={() => { setAlbumMenuOpen(false); setAlbumRename(selectedAlbum.name); }}>
-                              <Pencil size={15} aria-hidden="true" /><span>Rename album</span>
-                            </button>
-                          )}
-                          {selectedAlbum.canEdit && (
-                            <button type="button" role="menuitem" onClick={() => { setAlbumMenuOpen(false); setNotice(""); setCoverPickerOpen(true); }}>
-                              <ImageIcon size={15} aria-hidden="true" /><span>Set cover photo</span>
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            role="menuitem"
-                            disabled={albumAssets.length < 2}
-                            title={albumAssets.length < 2 ? "Add more photos to play a slideshow" : "Play this album as a slideshow"}
-                            onClick={() => { setAlbumMenuOpen(false); startSlideshow(); }}
-                          >
-                            <Play size={15} aria-hidden="true" /><span>Play slideshow</span>
-                          </button>
-                          <a
-                            role="menuitem"
-                            href={`/api/library/gallery/albums/${selectedAlbum.id}/download`}
-                            download
-                            onClick={() => setAlbumMenuOpen(false)}
-                          >
-                            <Download size={15} aria-hidden="true" /><span>Download album</span>
-                          </a>
-                          {selectedAlbum.canEdit && (
-                            <button type="button" role="menuitem" onClick={() => { setAlbumMenuOpen(false); setShareAlbumOpen(true); }}>
-                              <Share2 size={15} aria-hidden="true" /><span>Share album</span>
-                            </button>
-                          )}
-                          {selectedAlbum.canEdit && (
-                            <button type="button" role="menuitem" className="danger" onClick={() => { setAlbumMenuOpen(false); setAlbumDeleteOpen(true); }}>
-                              <Trash2 size={15} aria-hidden="true" /><span>Delete album</span>
-                            </button>
-                          )}
-                        </div>,
-                        document.body
-                      )}
-                    </div>
                     </div>
                   </div>
 
