@@ -43,8 +43,7 @@ export function SlideshowPhotoBrowser({
     setError("");
     try {
       const params = new URLSearchParams({ parent: nextParent, limit: "300" });
-      if (nextScope === "all") params.set("scope", "all");
-      else { params.set("scope", "library"); params.set("libraryId", nextScope); }
+      if (nextScope !== "all") params.set("libraryIds", nextScope);
       const payload = await api<{ parent: string; folders: GalleryFolder[]; assets: GalleryAsset[] }>(
         `/api/library/gallery/folders?${params}`
       );

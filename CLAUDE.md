@@ -69,7 +69,8 @@ Full reference: `docs/UI-CONVENTIONS.md`. The short version:
   which owns every control including the page's primary action. Tools read
   Filter · Sort · View │ page actions · Select · primary; labels carry state
   (`Recently added`, a filter count) and drop to icons below 1100px. Choosing
-  libraries is a filter facet (`BookFilters.libraries`), not a picker in `scope`. Selection
+  libraries is a filter facet everywhere, including Gallery (`BookFilters.libraries` /
+  `GalleryFilters.libraries`), not a picker in `scope`. Selection
   replaces the tools inside that card — never add a second bar under it. The A–Z
   strip is `shared/AlphabetBar` over the server's `letters` facet; bucketing
   lives in `modules/library/shared/alphabet.ts` only.

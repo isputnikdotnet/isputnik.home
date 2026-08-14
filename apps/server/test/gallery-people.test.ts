@@ -121,11 +121,11 @@ describe("gallery people — manual whole-photo tagging", () => {
     tagAssetPerson(secret, p.id);
 
     // u1 sees both libraries' photos for this person.
-    const ownerLibs = resolveGalleryScopeLibraryIds({ id: "u1", role: "member" }, "all");
+    const ownerLibs = resolveGalleryScopeLibraryIds({ id: "u1", role: "member" });
     expect(getGalleryPersonPhotos("u1", ownerLibs, p.id, 50, 0)?.total).toBe(2);
 
     // u2 (no grant on PRIV) only sees the GAL photo.
-    const strangerLibs = resolveGalleryScopeLibraryIds({ id: "u2", role: "member" }, "all");
+    const strangerLibs = resolveGalleryScopeLibraryIds({ id: "u2", role: "member" });
     const seen = getGalleryPersonPhotos("u2", strangerLibs, p.id, 50, 0);
     expect(seen?.total).toBe(1);
     expect(seen?.assets.map((x) => x.title)).toEqual(["a.jpg"]);

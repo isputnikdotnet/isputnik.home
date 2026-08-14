@@ -229,10 +229,12 @@ this order:
   the count with `:has(> :nth-child(9))` rather than on the page.
 - **At most two promoted page actions**; anything more goes in a menu named for
   the object (`Album ▾`), not behind a bare three-dot glyph.
-- **Libraries are a facet, not a picker** (`BookFilters.libraries`, ids in, names
-  shown). The section hides itself below two libraries, and picking exactly one
-  still resolves the catalog to that library so the facets and A–Z letters stay
-  honest to what's on screen. The choice reads back as a chip under the toolbar.
+- **Libraries are a facet, not a picker** — every browse page, including Gallery
+  (`BookFilters.libraries` / `GalleryFilters.libraries`, ids in, names shown).
+  The section hides itself below two libraries, and picking exactly one still
+  resolves the view to that library, so a view with a single-library-only action
+  (Gallery Folders' rescan) gates on the filter narrowing to one instead of
+  keeping its own picker. The choice reads back as a chip under the toolbar.
 
 - **Edit mode replaces the tools, it doesn't add a bar.** Passing `selection`
   swaps the right-hand slot for "N selected" + the bulk icon buttons and pins the

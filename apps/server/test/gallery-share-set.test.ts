@@ -108,7 +108,7 @@ describe("gallery user shares (recipient access)", () => {
     const priv = getLibraryForBook(secret)!;
     // u2 has no role on PRIV, so before sharing the asset is invisible to them.
     expect(canUserAccessBook(secret, priv, viewer.id, viewer.role, "gallery")).toBe(false);
-    expect(getGalleryAsset(viewer.id, resolveGalleryScopeLibraryIds(viewer, "all"), secret)).toBeNull();
+    expect(getGalleryAsset(viewer.id, resolveGalleryScopeLibraryIds(viewer), secret)).toBeNull();
 
     makeShare({ module: "gallery", resourceId: secret, userId: viewer.id, createdBy: "owner", expiresAt: null });
 

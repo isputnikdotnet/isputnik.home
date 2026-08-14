@@ -22,6 +22,7 @@ import { kindForExtension, readAssetMetadata } from "./media.js";
 import { listMissingGalleryPhotos, setMissingRetentionDays, purgeMissingGalleryPhoto, purgeMissingGalleryPhotos } from "./cleanup.js";
 import {
   resolveGalleryScopeLibraryIds,
+  parseLibraryIds,
   queryGalleryTimeline,
   queryGalleryFolders,
   getGalleryAsset,
@@ -332,11 +333,12 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   // bounded so a hostile payload can't inflate the SQL placeholder count.
   const filterList = z.array(z.string().trim().min(1).max(200)).max(100).default([]);
   const timelineSchema = z.object({
-    scope: z.enum(["all", "library"]).default("all"),
-    libraryId: z.string().trim().min(1).optional(),
     q: z.string().trim().max(200).default(""),
     kinds: z.array(z.enum(["photo", "video"])).default([]),
     filters: z.object({
+      // Which gallery libraries this scopes to — the first cut, so it stays
+      // outside the AND-of-facets loop below and reads that way in catalog.ts.
+      libraries: filterList,
       people: filterList,
       tags: filterList,
       years: filterList,
@@ -357,7 +359,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid timeline query", details: parsed.error });
     }
     const p = parsed.data;
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, p.scope ?? "all", p.libraryId);
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, p.filters?.libraries ?? []);
     return reply.send(queryGalleryTimeline(request.user!.id, libIds, {
       q: p.q ?? "", kinds: p.kinds ?? [],
       filters: { ...EMPTY_GALLERY_FILTERS, ...p.filters },
@@ -403,9 +405,8 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   });
 
   app.get("/api/library/gallery/folders", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { scope?: string; libraryId?: string; parent?: string; limit?: string; offset?: string };
-    const scope = qp.scope === "library" ? qp.scope : "all";
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    const qp = request.query as { libraryIds?: string; parent?: string; limit?: string; offset?: string };
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
     // Cap the folder path: real relative paths are short, so a bounded value keeps
@@ -419,9 +420,8 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   // different timezone, and "today" belongs to the person looking at the screen.
   // `perYear` caps items per year group (the Home tile only needs one for a cover).
   app.get("/api/library/gallery/memories", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { scope?: string; libraryId?: string; date?: string; perYear?: string };
-    const scope = qp.scope === "library" ? qp.scope : "all";
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    const qp = request.query as { libraryIds?: string; date?: string; perYear?: string };
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     // A malformed or impossible date (e.g. 2026-99-99 passes the shape check but
     // not Date parsing) falls back to the server's local calendar date.
     let date = qp.date ?? "";
@@ -437,9 +437,8 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   // items, returned as PROPOSED slideshows (nothing persisted until saved). Distinct
   // from /memories above, which is the date-only "On this day" anniversary feed.
   app.get("/api/library/gallery/memories/suggestions", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { scope?: string; libraryId?: string; limit?: string };
-    const scope = qp.scope === "library" ? qp.scope : "all";
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    const qp = request.query as { libraryIds?: string; limit?: string };
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "12", 10) || 12, 1), 40);
     return { suggestions: suggestGalleryMemories(libIds, { limit }) };
   });
@@ -454,23 +453,21 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid item ids", details: parsed.error });
     }
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
+    const libIds = resolveGalleryScopeLibraryIds(request.user!);
     return reply.send({ assets: getGalleryAssets(request.user!.id, libIds, parsed.data.itemIds) });
   });
 
   app.get("/api/library/gallery/facets", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { scope?: string; libraryId?: string };
-    const scope = qp.scope === "library" ? qp.scope : "all";
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    const qp = request.query as { libraryIds?: string };
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     return galleryFacets(libIds);
   });
 
   // Geotagged assets for the map view. Same scope/kind filtering as the timeline;
   // capped so a huge library can't return an unbounded marker payload.
   app.get("/api/library/gallery/map", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { scope?: string; libraryId?: string; kinds?: string };
-    const scope = qp.scope === "library" ? qp.scope : "all";
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    const qp = request.query as { libraryIds?: string; kinds?: string };
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const kinds = (qp.kinds ?? "").split(",").map((k) => k.trim()).filter((k) => k === "photo" || k === "video");
     return queryGalleryMapPoints(libIds, { kinds, limit: 5000 });
   });
@@ -478,7 +475,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   app.get("/api/library/gallery/assets/:id", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const user = request.user!;
-    const libIds = resolveGalleryScopeLibraryIds(user, "all");
+    const libIds = resolveGalleryScopeLibraryIds(user);
     let asset = getGalleryAsset(user.id, libIds, id);
     if (!asset) {
       // Not in a library the viewer can browse — allow it only if the photo was

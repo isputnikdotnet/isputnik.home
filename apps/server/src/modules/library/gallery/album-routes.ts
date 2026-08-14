@@ -60,7 +60,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
   };
 
   app.get("/api/library/gallery/albums", { preHandler: app.authenticate }, async (request) => {
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
+    const libIds = resolveGalleryScopeLibraryIds(request.user!);
     return { albums: listAlbums(request.user!, libIds) };
   });
 
@@ -102,7 +102,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     const qp = request.query as { limit?: string; offset?: string };
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
-    const libIds = resolveGalleryScopeLibraryIds(user, "all");
+    const libIds = resolveGalleryScopeLibraryIds(user);
     const { assets, total } = getAlbumItems(user.id, libIds, album, limit, offset);
     // The zero-visible rule from the list applies here too: a member who can't
     // see any of the album's items shouldn't learn it exists via deep link.
@@ -182,7 +182,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
       reply.code(404).send({ error: "Album not found" });
       return;
     }
-    const libIds = resolveGalleryScopeLibraryIds(user, "all");
+    const libIds = resolveGalleryScopeLibraryIds(user);
     const available = getAlbumFilePaths(libIds, album).filter((file) => {
       const filePath = path.join(file.source_path, ...file.relative_path.split("/"));
       return pathIsInside(filePath, file.source_path) && fs.existsSync(filePath);
@@ -273,7 +273,7 @@ export async function galleryAlbumRoutesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid items", details: parsed.error });
     }
-    const libIds = new Set(resolveGalleryScopeLibraryIds(user, "all"));
+    const libIds = new Set(resolveGalleryScopeLibraryIds(user));
     return reply.send(addAlbumItems(album.id, libIds, parsed.data.itemIds));
   });
 
