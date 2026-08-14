@@ -4,7 +4,7 @@ import { db, logActivity } from "../../../db.js";
 import { parseBody } from "../../../core/shared.js";
 import { canUserWriteLibrary, getLibraryForBook } from "../shared/library-access.js";
 import type { LibraryListRow } from "../shared/library-serializer.js";
-import { resolveGalleryScopeLibraryIds, getGalleryAsset } from "./catalog.js";
+import { resolveGalleryScopeLibraryIds, parseLibraryIds, getGalleryAsset } from "./catalog.js";
 import {
   listGalleryPeople,
   getGalleryPersonPhotos,
@@ -43,9 +43,8 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   // ── Browse people ──
 
   app.get("/api/library/gallery/people", { preHandler: app.authenticate }, async (request) => {
-    const qp = request.query as { scope?: string; libraryId?: string; includeHidden?: string };
-    const scope = qp.scope === "library" ? qp.scope : "all";
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, scope, qp.libraryId);
+    const qp = request.query as { libraryIds?: string; includeHidden?: string };
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
     const includeHidden = qp.includeHidden === "1" && request.user!.role === "admin";
     return { people: listGalleryPeople(libIds, includeHidden) };
   });
@@ -55,7 +54,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     const qp = request.query as { limit?: string; offset?: string };
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "80", 10) || 80, 1), 200);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
+    const libIds = resolveGalleryScopeLibraryIds(request.user!);
     // Hidden people 404 for non-admins, mirroring the list's includeHidden gate.
     const result = getGalleryPersonPhotos(request.user!.id, libIds, personId, limit, offset, request.user!.role === "admin");
     if (!result) {
@@ -185,7 +184,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
 
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
+    const libIds = resolveGalleryScopeLibraryIds(request.user!);
     return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) });
   });
 
@@ -196,7 +195,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
       return reply.code(403).send({ error: "Write access required to tag people in this item." });
     }
     untagAssetPerson(assetId, personId);
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
+    const libIds = resolveGalleryScopeLibraryIds(request.user!);
     return reply.send({ asset: getGalleryAsset(request.user!.id, libIds, assetId) });
   });
 
@@ -368,7 +367,7 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   // split across clusters, plus the strongest merge suggestions. Read-only; O(people²)
   // over stored centroids, so it yields to the event loop and never blocks the server.
   app.get("/api/library/gallery/faces/cluster-health", { preHandler: app.requireAdmin }, async (request) => {
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
+    const libIds = resolveGalleryScopeLibraryIds(request.user!);
     return computeClusterHealth(libIds);
   });
 

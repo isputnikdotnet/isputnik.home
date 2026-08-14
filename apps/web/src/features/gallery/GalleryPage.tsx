@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, Images, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
@@ -10,7 +10,6 @@ import { MessageBox } from "../../shared/MessageBox";
 import { formatCount } from "../audiobooks/AudiobooksPage";
 import { LibraryPageHeader } from "../../shared/LibraryPageHeader";
 import { LibraryPageToolbar } from "../../shared/LibraryPageToolbar";
-import { LibraryMenu } from "../../shared/LibraryMenu";
 import { SortMenu } from "../../shared/SortMenu";
 import { useIsMobile } from "../../shared/useIsMobile";
 import { SectionNav, type SectionNavItem } from "../../shared/SectionNav";
@@ -141,7 +140,6 @@ export function GalleryPage({
   // libraries survive the move, exactly as they did when view was useState.
   const goToView = useCallback((next: GalleryView) => navigate(galleryHref(next)), []);
 
-  const [scopeId, setScopeId] = useState<string>(initialLibraryId || "all");
   const [sort, setSort] = useState<TimelineSort>("taken");
 
   // Search box drives the timeline `q`; a debounce keeps typing from spamming the API.
@@ -149,9 +147,19 @@ export function GalleryPage({
   const [query, setQuery] = useState("");
 
   // Advanced filters (people/years/tags/cameras/location) — timeline-scoped, like
-  // the audiobook catalog's filter panel. Facets supply the option lists.
-  const [filters, setFilters] = useState<GalleryFilters>(EMPTY_GALLERY_FILTERS);
+  // the audiobook catalog's filter panel. Facets supply the option lists. Which
+  // libraries a view draws from lives here too, as the first facet, rather than
+  // a picker of its own — a deep link into one library's folder tree (Folders'
+  // "?library=") seeds it with that one library chosen.
+  const [filters, setFilters] = useState<GalleryFilters>(() => ({
+    ...EMPTY_GALLERY_FILTERS,
+    libraries: initialLibraryId ? [initialLibraryId] : []
+  }));
   const [facets, setFacets] = useState<GalleryFacets | null>(null);
+  // A few actions — rescanning a folder, Folders' own scope — only make sense
+  // against exactly one library, the same way Audiobooks only offers "Add to
+  // series" once its library filter narrows to one.
+  const soleLibraryId = filters.libraries.length === 1 ? filters.libraries[0] : null;
 
   // Timeline state.
   const [assets, setAssets] = useState<GalleryAsset[]>([]);
@@ -178,10 +186,11 @@ export function GalleryPage({
   // The Albums and Slideshows views own their own state and loaders. Destructured
   // back into the names the rest of this file already uses, so the seam is the
   // state and not a rewrite of the markup.
-  // Above the view hooks because People is scope-filtered and takes this.
+  // Above the view hooks because People is scope-filtered and takes this. Omitted
+  // entirely when no library is chosen — every accessible one, same as before.
   const scopeParams = useCallback(() => (
-    scopeId === "all" ? { scope: "all" as const } : { scope: "library" as const, libraryId: scopeId }
-  ), [scopeId]);
+    filters.libraries.length > 0 ? { libraryIds: filters.libraries.join(",") } : {}
+  ), [filters.libraries]);
 
   const status = { setLoading, setError, setNotice };
   const {
@@ -316,9 +325,13 @@ export function GalleryPage({
   }, [searchText, browsingPhotos]);
 
   // Searching/filtering is a timeline operation (folder view is structural); either
-  // pulls the user into the timeline so results are visible.
+  // pulls the user into the timeline so results are visible. Which libraries the
+  // view draws from is exempt — Folders is already a per-library concept (its own
+  // rescan needs exactly one), so narrowing to a library stays right where you are
+  // instead of reading as "now go search".
   useEffect(() => {
-    if ((query || activeGalleryFilterCount(filters) > 0) && view === "folder") goToView("timeline");
+    const nonLibraryFilters = activeGalleryFilterCount({ ...filters, libraries: [] });
+    if ((query || nonLibraryFilters > 0) && view === "folder") goToView("timeline");
   }, [query, filters, view, goToView]);
 
   // The box means something different in each view — photos here, album names
@@ -333,9 +346,12 @@ export function GalleryPage({
     setLoading(true);
     setError("");
     try {
+      // Which libraries this draws from is already inside `filters.libraries` —
+      // the POST body's JSON carries it natively, unlike the GET views below
+      // which need scopeParams()'s query-string form.
       const payload = await api<{ assets: GalleryAsset[]; total: number }>("/api/library/gallery/timeline", {
         method: "POST",
-        body: JSON.stringify({ ...scopeParams(), q: query, kinds: filters.kinds, filters, sort, limit: PAGE_SIZE, offset })
+        body: JSON.stringify({ q: query, kinds: filters.kinds, filters, sort, limit: PAGE_SIZE, offset })
       });
       setAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setTotal(payload.total);
@@ -344,7 +360,7 @@ export function GalleryPage({
     } finally {
       setLoading(false);
     }
-  }, [scopeParams, sort, query, filters]);
+  }, [sort, query, filters]);
 
   // `offset` > 0 is the "Load more" path: keep what is on screen and append the
   // next page (the folder list itself is identical, so it is simply re-set).
@@ -375,12 +391,12 @@ export function GalleryPage({
   // runs on the server; progress shows on Control panel → Overview → Tasks.
   const [folderRescanBusy, setFolderRescanBusy] = useState(false);
   const rescanFolder = useCallback(async () => {
-    if (scopeId === "all" || !parent) return;
+    if (!soleLibraryId || !parent) return;
     setFolderRescanBusy(true);
     setError("");
     setNotice("");
     try {
-      await api(`/api/library/gallery-libraries/${scopeId}/rescan`, {
+      await api(`/api/library/gallery-libraries/${soleLibraryId}/rescan`, {
         method: "POST",
         body: JSON.stringify({ folder: parent })
       });
@@ -390,7 +406,7 @@ export function GalleryPage({
     } finally {
       setFolderRescanBusy(false);
     }
-  }, [scopeId, parent]);
+  }, [soleLibraryId, parent]);
 
   const loadMap = useCallback(async () => {
     setLoading(true);
@@ -522,7 +538,7 @@ export function GalleryPage({
     else if (view === "slideshows") { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); void loadSlideshowSettings(); }
     else if (view === "map") void loadMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, scopeId, sort, query, filters]);
+  }, [view, sort, query, filters]);
 
   // Deep link: fetch the asset and open a standalone lightbox.
   useEffect(() => {
@@ -714,7 +730,7 @@ export function GalleryPage({
   // Changing the dataset (view / scope / search / filters) clears any selection so
   // a stale id from a no-longer-visible asset can't linger. Sorting only reorders
   // the same assets, so it keeps the selection.
-  useEffect(() => { setSelectionMode(false); setSelectedIds(new Set()); }, [view, scopeId, query, filters]);
+  useEffect(() => { setSelectionMode(false); setSelectedIds(new Set()); }, [view, query, filters]);
 
   // Close the folder browser / movie-delete confirm when leaving a slideshow, so neither
   // reappears over the next one (a refresh keeps selectedSlideshow truthy, so the browser
@@ -932,8 +948,10 @@ export function GalleryPage({
         ) : (
           <>
             <LibraryPageToolbar
-              // Scope reads left to right the way you got here: where you are
-              // (back out of a sub-view), then which library it is drawn from.
+              // Scope says where you are — back out of a sub-view. Which library
+              // the view draws from is a filter now, like every other way of
+              // narrowing it (see the Libraries facet below): no standalone
+              // picker to keep in step with it.
               scope={
                 <>
                   {backTarget && (
@@ -942,16 +960,6 @@ export function GalleryPage({
                       <span className="toolbar-label">{backTarget.label}</span>
                     </button>
                   )}
-                  <LibraryMenu
-                    value={scopeId}
-                    options={[
-                      { value: "all", label: "All Libraries" },
-                      ...libraries.map((library) => ({ value: library.id, label: library.name }))
-                    ]}
-                    icon={<Images size={19} aria-hidden="true" />}
-                    label="Select library"
-                    onChange={setScopeId}
-                  />
                   {isMobile && (
                   <div className="audiobook-library-shortcuts">
                     <button
@@ -1008,7 +1016,7 @@ export function GalleryPage({
                 <>
                   {browsingPhotos && (
                     <>
-                      <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} />
+                      <GalleryFilterButton facets={facets} value={filters} onChange={setFilters} libraries={libraries} />
                       <SortMenu
                         value={sort}
                         onChange={setSort}
@@ -1017,6 +1025,14 @@ export function GalleryPage({
                         presentation="labelled"
                       />
                     </>
+                  )}
+                  {/* Memories, People and Map have nothing to narrow but which
+                      libraries they draw from — Filter renders just that one
+                      section, and only once there's more than one library to
+                      choose between (GalleryFilterButton hides it otherwise,
+                      which would leave the button with nothing behind it). */}
+                  {(view === "memories" || view === "people" || view === "map") && libraries.length > 1 && (
+                    <GalleryFilterButton facets={null} value={filters} onChange={setFilters} fields={["libraries"]} libraries={libraries} />
                   )}
                   {/* One open album's own tools: at most two promoted (Slideshow,
                       Share — the two reached for most), everything else — Rename,
@@ -1254,7 +1270,7 @@ export function GalleryPage({
               } : null}
             />
 
-            {view === "timeline" && <GalleryFilterChips value={filters} onChange={setFilters} />}
+            {view === "timeline" && <GalleryFilterChips value={filters} onChange={setFilters} libraries={libraries} />}
 
             {libraries.some((library) => library.scanStatus === "scanning") && (
               <MessageBox tone="info" title="Scanning">Thumbnails appear as the scan finishes.</MessageBox>
@@ -1913,7 +1929,7 @@ export function GalleryPage({
                       );
                     })}
                   </div>
-                  {isAdmin && scopeId !== "all" && parent !== "" && (
+                  {isAdmin && soleLibraryId && parent !== "" && (
                     <Button
                       variant="secondary"
                       compact

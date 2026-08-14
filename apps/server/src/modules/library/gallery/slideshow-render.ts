@@ -1071,7 +1071,7 @@ export async function processSlideshowRenderQueue(): Promise<void> {
 function resolveRendererLibraries(userId: string): string[] {
   const user = db.prepare("SELECT id, role FROM users WHERE id = ?").get(userId) as { id: string; role: string } | undefined;
   if (!user) return [];
-  return resolveGalleryScopeLibraryIds(user, "all");
+  return resolveGalleryScopeLibraryIds(user);
 }
 
 export function startSlideshowRenderWorker(): () => void {

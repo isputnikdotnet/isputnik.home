@@ -4,12 +4,27 @@
 // "book-like" type, so it does not use the shared catalog engine — its queries are
 // asset-centric (one row per photo/video) rather than work/edition-centric.
 import { db } from "../../../db.js";
-import { resolveScopeLibraryIds } from "../shared/catalog-core.js";
+import { canUserAccessLibrary } from "../shared/library-access.js";
 
 const inClause = (n: number) => Array(n).fill("?").join(", ");
 
-export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }, scope: string, libraryId?: string) {
-  return resolveScopeLibraryIds(user, scope, libraryId, "gallery");
+// A `?libraryIds=id1,id2` query param, the GET-route counterpart of the timeline
+// POST's `filters.libraries` array. Bounded generously — the number of libraries
+// on an install, not a payload someone controls the size of.
+export function parseLibraryIds(raw: string | undefined): string[] {
+  return (raw ?? "").split(",").map((id) => id.trim()).filter(Boolean).slice(0, 200);
+}
+
+// Which gallery libraries a query runs over: every one the user can reach, or —
+// when `libraryIds` narrows it — the intersection with that set. Narrows only,
+// never widens: an id the caller can't reach (or that isn't a gallery library at
+// all) simply drops out rather than granting access to it.
+export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }, libraryIds?: string[]): string[] {
+  const rows = db.prepare("SELECT id FROM libraries WHERE type = 'gallery'").all() as { id: string }[];
+  const accessible = rows.filter((row) => canUserAccessLibrary(row, user.id, user.role)).map((row) => row.id);
+  if (!libraryIds || libraryIds.length === 0) return accessible;
+  const requested = new Set(libraryIds);
+  return accessible.filter((id) => requested.has(id));
 }
 
 interface AssetRow {

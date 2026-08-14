@@ -6,6 +6,7 @@ import type { GalleryFacets } from "./types";
 // recognition), years and months (from the EXIF date), tags, cameras, and a fixed
 // with/without-location toggle. The header dropdown holds the timeline sort.
 export interface GalleryFilters {
+  libraries: string[]; // gallery library ids — which libraries the view draws from
   kinds: string[];    // codes: photo | video (sent as the API's top-level `kinds`)
   people: string[];
   years: string[];
@@ -18,7 +19,7 @@ export interface GalleryFilters {
 }
 
 export const EMPTY_GALLERY_FILTERS: GalleryFilters = {
-  kinds: [], people: [], years: [], months: [], taken: [], tags: [], cameras: [], sizes: [], location: []
+  libraries: [], kinds: [], people: [], years: [], months: [], taken: [], tags: [], cameras: [], sizes: [], location: []
 };
 
 const KIND_OPTIONS = [
@@ -56,6 +57,9 @@ const LOCATION_OPTIONS = [
 ];
 
 const FACET_ORDER: FacetDef<keyof GalleryFilters>[] = [
+  // First, because it's the widest cut: which libraries the rest of the panel is
+  // narrowing. Leaving it empty means every library the viewer can reach.
+  { key: "libraries", title: "Libraries", searchable: false },
   { key: "kinds", title: "Media type", searchable: false, fixed: KIND_OPTIONS },
   { key: "people", title: "People", searchable: true },
   // A family archive can span many decades (scanned prints reach the 1940s), so
@@ -78,16 +82,29 @@ export function activeGalleryFilterCount(filters: GalleryFilters): number {
 }
 
 export function GalleryFilterButton({
-  facets, value, onChange, compact = false
+  facets, value, onChange, fields, libraries, compact = false
 }: {
   facets: GalleryFacets | null;
   value: GalleryFilters;
   onChange: (filters: GalleryFilters) => void;
+  // Restrict which facet sections render — Memories, People and Map have nothing
+  // but Libraries to offer, unlike Timeline and Folder. Defaults to every facet.
+  fields?: (keyof GalleryFilters)[];
+  // The gallery libraries this viewer can reach, as id + name. Omitted (or fewer
+  // than two) drops the Libraries section: a filter that can only mean
+  // "everything" isn't one.
+  libraries?: { id: string; name: string }[];
   compact?: boolean;
 }) {
+  const order = (fields ? FACET_ORDER.filter((facet) => fields.includes(facet.key)) : FACET_ORDER)
+    .flatMap((facet) => {
+      if (facet.key !== "libraries") return [facet];
+      if (!libraries || libraries.length < 2) return [];
+      return [{ ...facet, fixed: libraries.map((library) => ({ value: library.id, label: library.name })) }];
+    });
   return (
     <FacetFilterButton
-      order={FACET_ORDER}
+      order={order}
       facets={{
         people: facets?.people ?? [],
         years: facets?.years ?? [],
@@ -108,6 +125,16 @@ function chipLabel(value: string): string | undefined {
   return undefined;
 }
 
-export function GalleryFilterChips({ value, onChange }: { value: GalleryFilters; onChange: (filters: GalleryFilters) => void }) {
-  return <FacetFilterChips value={value} onChange={onChange} empty={EMPTY_GALLERY_FILTERS} labels={CODE_LABELS} formatLabel={chipLabel} />;
+export function GalleryFilterChips({
+  value, onChange, libraries
+}: {
+  value: GalleryFilters;
+  onChange: (filters: GalleryFilters) => void;
+  // Library chips carry ids; without this they'd read as nanoids.
+  libraries?: { id: string; name: string }[];
+}) {
+  const labels = libraries?.length
+    ? { ...CODE_LABELS, ...Object.fromEntries(libraries.map((library) => [library.id, library.name])) }
+    : CODE_LABELS;
+  return <FacetFilterChips value={value} onChange={onChange} empty={EMPTY_GALLERY_FILTERS} labels={labels} formatLabel={chipLabel} />;
 }

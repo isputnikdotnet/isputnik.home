@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.4.2",
+    label: "Gallery's library picker moved into Filter too",
+    changes: [
+      "Gallery's own library dropdown is gone — which libraries a view draws from is a Filter facet now, the same as Audiobooks and Ebooks, and it's multi-select: narrow to two libraries and see both at once instead of one at a time. Timeline, Folders, Memories, People and Map all gained it; Albums and Slideshows never scoped by library in the first place, so they're unchanged. Folders' rescan still needs exactly one library, so its button now appears only when the filter narrows to a single one."
+    ]
+  },
+  {
     version: "3.4.1",
     label: "An open album shows what it can do in one place instead of three",
     changes: [

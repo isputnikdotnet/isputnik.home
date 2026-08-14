@@ -272,12 +272,32 @@ describe("gallery access scoping", () => {
     await ingestGalleryAsset("PRIV", asset("secret.jpg", Date.now()), false);
     makeUser("u2");
 
-    const owner = resolveGalleryScopeLibraryIds({ id: "u1", role: "member" }, "all");
+    const owner = resolveGalleryScopeLibraryIds({ id: "u1", role: "member" });
     expect(owner).toContain("PRIV");
 
-    const stranger = resolveGalleryScopeLibraryIds({ id: "u2", role: "member" }, "all");
+    const stranger = resolveGalleryScopeLibraryIds({ id: "u2", role: "member" });
     expect(stranger).not.toContain("PRIV");
     expect(queryGalleryTimeline("u2", stranger, { q: "", kinds: [], limit: 50, offset: 0 }).total).toBe(0);
+  });
+
+  it("narrows to the requested libraries, and can never widen past what's accessible", () => {
+    makeUser("u2");
+    makeLibrary("SECOND", { createdBy: "u1", type: "gallery" });
+    grant("group", EVERYONE_GROUP_ID, "SECOND", "member");
+    makeLibrary("PRIV", { createdBy: "u1", type: "gallery" });
+    grant("user", "u1", "PRIV", "manager");
+
+    // Every accessible library when nothing is requested.
+    expect(resolveGalleryScopeLibraryIds({ id: "u1", role: "member" }).sort())
+      .toEqual(["GAL", "PRIV", "SECOND"]);
+
+    // A subset narrows to exactly that subset.
+    expect(resolveGalleryScopeLibraryIds({ id: "u1", role: "member" }, ["SECOND"])).toEqual(["SECOND"]);
+
+    // A library the caller can't reach simply drops out — never granted by naming it.
+    expect(resolveGalleryScopeLibraryIds({ id: "u2", role: "member" }, ["PRIV"])).toEqual([]);
+    // Requesting a mix of reachable and unreachable keeps only what's reachable.
+    expect(resolveGalleryScopeLibraryIds({ id: "u2", role: "member" }, ["GAL", "PRIV"])).toEqual(["GAL"]);
   });
 
   it("reports kind facets for the scoped libraries", async () => {

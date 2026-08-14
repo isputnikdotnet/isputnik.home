@@ -139,7 +139,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
   };
 
   app.get("/api/library/gallery/slideshows", { preHandler: app.authenticate }, async (request) => {
-    const libIds = resolveGalleryScopeLibraryIds(request.user!, "all");
+    const libIds = resolveGalleryScopeLibraryIds(request.user!);
     return { slideshows: listSlideshows(request.user!, libIds) };
   });
 
@@ -183,7 +183,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     const slideshow = createSlideshow(user, parsed.data.name, { kind: parsed.data.sourceKind, ref: parsed.data.sourceRef });
     let added = 0;
     if (parsed.data.itemIds && parsed.data.itemIds.length > 0) {
-      const libIds = new Set(resolveGalleryScopeLibraryIds(user, "all"));
+      const libIds = new Set(resolveGalleryScopeLibraryIds(user));
       added = addSlideshowItems(slideshow.id, libIds, parsed.data.itemIds).added;
     }
     logActivity({
@@ -207,7 +207,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     const qp = request.query as { limit?: string; offset?: string };
     const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "200", 10) || 200, 1), 500);
     const offset = Math.max(Number.parseInt(qp.offset ?? "0", 10) || 0, 0);
-    const libIds = resolveGalleryScopeLibraryIds(user, "all");
+    const libIds = resolveGalleryScopeLibraryIds(user);
     const { assets, total } = getSlideshowItems(user.id, libIds, slideshow, limit, offset);
     // A member who can't see any of the items shouldn't learn the slideshow exists.
     if (total === 0 && !canEditSlideshow(slideshow, user)) {
@@ -240,7 +240,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     if (slideshow.render_status === "queued" || slideshow.render_status === "rendering") {
       return reply.send({ renderStatus: slideshow.render_status });
     }
-    const hasPhotos = getSlideshowItems(user.id, resolveGalleryScopeLibraryIds(user, "all"), slideshow, 1, 0).total > 0;
+    const hasPhotos = getSlideshowItems(user.id, resolveGalleryScopeLibraryIds(user), slideshow, 1, 0).total > 0;
     if (!hasPhotos) {
       return reply.code(400).send({ error: "Add at least one photo before rendering a movie." });
     }
@@ -267,7 +267,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
       return;
     }
     // Reuse the detail visibility rule: a member who can't see any items can't watch.
-    if (getSlideshowItems(user.id, resolveGalleryScopeLibraryIds(user, "all"), slideshow, 1, 0).total === 0 && !canEditSlideshow(slideshow, user)) {
+    if (getSlideshowItems(user.id, resolveGalleryScopeLibraryIds(user), slideshow, 1, 0).total === 0 && !canEditSlideshow(slideshow, user)) {
       reply.code(404).send({ error: "No movie available" });
       return;
     }
@@ -330,7 +330,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     const slideshow = getSlideshow((request.params as { id: string }).id);
     const user = request.user!;
     if (!slideshow) return reply.code(404).send({ error: "Slideshow not found" });
-    const libIds = resolveGalleryScopeLibraryIds(user, "all");
+    const libIds = resolveGalleryScopeLibraryIds(user);
     // Same visibility rule as the detail: no visible items, no slideshow.
     if (getSlideshowItems(user.id, libIds, slideshow, 1, 0).total === 0 && !canEditSlideshow(slideshow, user)) {
       return reply.code(404).send({ error: "Slideshow not found" });
@@ -417,7 +417,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid items", details: parsed.error });
     }
-    const libIds = new Set(resolveGalleryScopeLibraryIds(user, "all"));
+    const libIds = new Set(resolveGalleryScopeLibraryIds(user));
     return reply.send(addSlideshowItems(slideshow.id, libIds, parsed.data.itemIds));
   });
 
