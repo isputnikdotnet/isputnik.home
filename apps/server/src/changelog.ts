@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.6.1",
+    label: "Choose how long remote linking stays open, and a tidier user list",
+    changes: [
+      "Allowing someone to link a device from outside now asks how long for — anything from 1 to 60 minutes, still defaulting to the hour. If you're on the phone with them while they set the screen up, five minutes is plenty and leaves nothing open behind you. It still ends the moment they link a device.",
+      "The user list under Members has been cleaned up. Each account's seven action buttons — a row of unlabelled icons whose meaning lived in tooltips — are now one ⋮ menu where every action is written out, and an action you can't use says why (\"This user has no passkeys\"). Rows are about half as tall as a result: names, badges and email no longer wrap onto three lines each, and the space the buttons were holding went back to the name column, which had been truncating.",
+      "The row menu also opens properly now. It used to be cut off by the edge of the table it lived in; it escapes the grid entirely, flips above the row when there's no space below, and follows the row if you scroll while it's open."
+    ]
+  },
+  {
     version: "3.6.0",
     label: "Let one person link one device from outside the house, for one hour",
     changes: [

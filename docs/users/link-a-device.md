@@ -48,7 +48,7 @@ If you need to set up a screen somewhere else — a tablet at a holiday house, a
 display at a relative's — ask whoever runs the server to **allow it for you**. They
 turn it on for your account from Control panel → Members → Users, and then:
 
-- you have **one hour**;
+- you have **however long they set** — anything from a minute to an hour;
 - it works for **one device** — the first screen you link closes it again;
 - everything else is the same, including entering your own password to approve.
 
@@ -122,10 +122,14 @@ When a household member is away and needs to set a screen up, don't change the
 policy — **allow it for that person**, from Control panel → **Members** →
 **Users** → the monitor icon on their row.
 
-That opens a window for one hour, for one device, for that account only. Their row
-shows how long is left, and the same button cancels it early. Nothing lasting is
-switched on: it closes itself when they link a device or when the hour is up,
-whichever comes first, and you're emailed when it's used.
+You choose how long it stays open — anything from 1 to 60 minutes, defaulting to
+the hour. It is good for one device, for that account only. Their row shows how
+long is left, and the same menu cancels it early. Nothing lasting is switched on:
+it closes itself when they link a device or when the time runs out, whichever comes
+first, and you're emailed when it's used.
+
+If you're on the phone with them while they set the screen up, a few minutes is
+plenty and leaves nothing open behind you.
 
 They still need their own password to approve the device, and what they link is
 still barred from the control panel and from authorizing further devices.

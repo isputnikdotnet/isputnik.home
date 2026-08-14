@@ -386,6 +386,22 @@ a.icon-button svg {
   right: 0;
 }
 
+/* ActionMenu renders its popover into <body> so a data grid's overflow can't clip
+   it, which means it is positioned against the viewport rather than the trigger —
+   the component writes top/right and this stops the absolute rules above fighting
+   it. Above the modal backdrop is deliberate: a menu opened over a panel must not
+   disappear behind it. */
+.action-menu-popover {
+  position: fixed;
+  left: auto;
+  z-index: 60;
+  /* The base rule says min-width:100% so a menu matches the control it drops from.
+     Portalled and fixed, that 100% is the VIEWPORT — a menu the width of the whole
+     window. Here the menu sizes to its longest label instead (width:max-content
+     above), with a floor so a menu of short labels still reads as one. */
+  min-width: 190px;
+}
+
 .select-menu-option.text-button {
   display: grid;
   grid-template-columns: 24px 22px minmax(0, 1fr);

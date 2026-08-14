@@ -262,8 +262,19 @@ export function sweepLinkRequests(): number {
 // there?" when the request is created, and "is it YOU who is allowed?" at
 // approval, which is the step that has an identity and a password behind it.
 
-/** How long a window stays open. Fixed: a duration picker is how a door gets left open for a week. */
-export const WINDOW_MINUTES = 60;
+// How long a window may stay open. The admin picks, within a range whose upper
+// bound is the point: an hour is long enough to walk someone through setting up a
+// screen, and short enough that forgetting about it costs nothing. There is no way
+// to ask for a day.
+export const MIN_WINDOW_MINUTES = 1;
+export const MAX_WINDOW_MINUTES = 60;
+export const DEFAULT_WINDOW_MINUTES = 60;
+
+/** Clamp to the range and to whole minutes; anything unusable falls to the default. */
+export function normalizeWindowMinutes(minutes: number | undefined | null): number {
+  if (!Number.isFinite(minutes ?? NaN)) return DEFAULT_WINDOW_MINUTES;
+  return Math.min(MAX_WINDOW_MINUTES, Math.max(MIN_WINDOW_MINUTES, Math.round(minutes as number)));
+}
 
 export interface LinkWindowRow {
   id: string;
@@ -286,11 +297,13 @@ const LIVE_WINDOW = `
 `;
 
 /**
- * Open a window for one person. Replaces any window they already have rather than
- * stacking a second one, so "how long have I got?" has exactly one answer.
+ * Open a window for one person, for `minutes` (clamped to 1–60, defaulting to 60).
+ * Replaces any window they already have rather than stacking a second one, so "how
+ * long have I got?" has exactly one answer.
  */
-export function openLinkWindow(userId: string, createdBy: string | null): LinkWindowRow {
+export function openLinkWindow(userId: string, createdBy: string | null, minutes?: number): LinkWindowRow {
   const id = nanoid(16);
+  const life = normalizeWindowMinutes(minutes);
   db.transaction(() => {
     db.prepare(
       `UPDATE device_link_windows SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
@@ -298,7 +311,7 @@ export function openLinkWindow(userId: string, createdBy: string | null): LinkWi
     ).run(userId);
     db.prepare(
       "INSERT INTO device_link_windows (id, user_id, created_by, expires_at) VALUES (?, ?, ?, ?)"
-    ).run(id, userId, createdBy, minutesFromNow(WINDOW_MINUTES));
+    ).run(id, userId, createdBy, minutesFromNow(life));
   })();
   return db.prepare("SELECT * FROM device_link_windows WHERE id = ?").get(id) as LinkWindowRow;
 }

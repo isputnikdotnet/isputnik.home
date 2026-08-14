@@ -51,9 +51,16 @@ first.
 
 ### Decisions taken (change them here if you disagree)
 
-1. **Sixty minutes, fixed, no picker.** The number matches "I am setting this up
-   right now", and a duration control is a way to leave a door open for a week by
-   accident. An admin who needs longer can grant again.
+1. ~~**Sixty minutes, fixed, no picker.**~~ **Reversed after 3.6.0 shipped, at the
+   owner's request: the admin picks, 1–60 minutes, defaulting to 60.** The original
+   worry was that a duration control is how a door gets left open for a week — but
+   that worry is answered by the *maximum*, not by removing the choice. Sixty
+   minutes is still the ceiling and still the default, so the only thing the picker
+   can do is make a window shorter. Someone on the phone with a family member can
+   grant five minutes and leave nothing behind them. The range is enforced twice:
+   the route's schema rejects anything outside it (so an admin who types 600 is
+   told, not silently given 60), and `normalizeWindowMinutes` clamps underneath, on
+   the principle that a number from a form is client input.
 2. **A live window overrides the misconfigured-proxy refusal.** Behind a proxy
    with `TRUST_PROXY_HOPS` unset the server cannot tell where anything is, and
    3.5.0 therefore refuses all linking. An open window is an explicit statement

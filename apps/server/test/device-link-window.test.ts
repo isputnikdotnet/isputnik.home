@@ -9,9 +9,12 @@ import {
   liveWindowFor,
   listLiveWindows,
   openLinkWindow,
+  normalizeWindowMinutes,
   revokeLinkWindow,
   sweepLinkWindows,
-  WINDOW_MINUTES
+  DEFAULT_WINDOW_MINUTES,
+  MAX_WINDOW_MINUTES,
+  MIN_WINDOW_MINUTES
 } from "../src/core/device-link.js";
 import { getSecurityPolicy, setSecurityPolicy } from "../src/core/security.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
@@ -43,18 +46,42 @@ beforeEach(() => {
   makeUser("boss", "admin");
 });
 
+/** How many minutes from now a window's expiry sits, rounded to the minute. */
+function lifeOf(window: { expires_at: string }): number {
+  return Math.round((Date.parse(window.expires_at) - Date.now()) / 60_000);
+}
+
 describe("opening one", () => {
-  it("lasts an hour and belongs to one person", () => {
+  it("defaults to an hour and belongs to one person", () => {
     const window = openLinkWindow("traveller", "boss");
     expect(window.user_id).toBe("traveller");
     expect(window.created_by).toBe("boss");
-
-    const minutes = (Date.parse(window.expires_at) - Date.now()) / 60_000;
-    expect(minutes).toBeGreaterThan(WINDOW_MINUTES - 1);
-    expect(minutes).toBeLessThanOrEqual(WINDOW_MINUTES);
+    expect(lifeOf(window)).toBe(DEFAULT_WINDOW_MINUTES);
 
     expect(liveWindowFor("traveller")?.id).toBe(window.id);
     expect(liveWindowFor("someone-else")).toBeNull();
+  });
+
+  it("lasts as long as the admin asked for", () => {
+    expect(lifeOf(openLinkWindow("traveller", "boss", 5))).toBe(5);
+    expect(lifeOf(openLinkWindow("traveller", "boss", 1))).toBe(1);
+    expect(lifeOf(openLinkWindow("traveller", "boss", 60))).toBe(60);
+  });
+
+  it("clamps anything outside the range rather than honouring it", () => {
+    // A number typed into a form is client input; the range is enforced here as
+    // well as in the schema, so no caller can open a window for a day.
+    expect(normalizeWindowMinutes(0)).toBe(MIN_WINDOW_MINUTES);
+    expect(normalizeWindowMinutes(-30)).toBe(MIN_WINDOW_MINUTES);
+    expect(normalizeWindowMinutes(1440)).toBe(MAX_WINDOW_MINUTES);
+    expect(normalizeWindowMinutes(12.6)).toBe(13);
+    expect(lifeOf(openLinkWindow("traveller", "boss", 9999))).toBe(MAX_WINDOW_MINUTES);
+  });
+
+  it("falls back to the default when asked for nothing usable", () => {
+    expect(normalizeWindowMinutes(undefined)).toBe(DEFAULT_WINDOW_MINUTES);
+    expect(normalizeWindowMinutes(null)).toBe(DEFAULT_WINDOW_MINUTES);
+    expect(normalizeWindowMinutes(Number.NaN)).toBe(DEFAULT_WINDOW_MINUTES);
   });
 
   it("replaces an existing one instead of stacking a second", () => {

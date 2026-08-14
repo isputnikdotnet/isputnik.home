@@ -7,6 +7,8 @@ export function Field({
   onChange,
   type = "text",
   minLength,
+  min,
+  max,
   autoComplete,
   placeholder,
   required = true
@@ -16,6 +18,10 @@ export function Field({
   onChange: (value: string) => void;
   type?: string;
   minLength?: number;
+  /** Numeric bounds — only meaningful for type="number". Enforced by the browser
+   *  on submit; the server clamps anyway, since a typed number is client input. */
+  min?: number;
+  max?: number;
   autoComplete?: string;
   placeholder?: string;
   required?: boolean;
@@ -34,6 +40,8 @@ export function Field({
           type={effectiveType}
           value={value}
           minLength={minLength}
+          min={min}
+          max={max}
           autoComplete={autoComplete}
           placeholder={placeholder}
           onChange={(event) => onChange(event.target.value)}

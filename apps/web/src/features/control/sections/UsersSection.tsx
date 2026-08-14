@@ -6,6 +6,7 @@ import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
+import { ActionMenu } from "../../../shared/ActionMenu";
 import { RefreshButton } from "../../../shared/RefreshButton";
 import { formatManagedDate } from "../../../shared/utils";
 import type { ManagedUser } from "../types";
@@ -27,6 +28,13 @@ function formatSessionCount(value: number) {
 function minutesLeft(iso: string): number {
   return Math.max(0, Math.round((Date.parse(iso) - Date.now()) / 60_000));
 }
+
+// Mirrors MIN/MAX/DEFAULT_WINDOW_MINUTES in the server's core/device-link.ts. This
+// is the shape of the control, not the enforcement — the server clamps whatever
+// arrives, because a number typed into a form is client input like any other.
+const MIN_WINDOW_MINUTES = 1;
+const MAX_WINDOW_MINUTES = 60;
+const DEFAULT_WINDOW_MINUTES = 60;
 
 export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -63,6 +71,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
 
   const [pendingWindow, setPendingWindow] = useState<ManagedUser | null>(null);
+  const [windowMinutes, setWindowMinutes] = useState(String(DEFAULT_WINDOW_MINUTES));
   const [openingWindow, setOpeningWindow] = useState(false);
   const [closingWindowId, setClosingWindowId] = useState<string | null>(null);
 
@@ -199,13 +208,17 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
   // Linking a device is refused from outside the house and the app doesn't offer
   // it there. This turns it on for one person, for an hour, for one device — after
   // which it closes itself. There is no way to leave one open.
-  const openWindow = async () => {
+  const openWindow = async (event: FormEvent) => {
+    event.preventDefault();
     if (!pendingWindow) return;
 
     setOpeningWindow(true);
     setModalError("");
     try {
-      await api(`/api/users/${pendingWindow.id}/device-link-window`, { method: "POST", body: "{}" });
+      await api(`/api/users/${pendingWindow.id}/device-link-window`, {
+        method: "POST",
+        body: JSON.stringify({ minutes: Number(windowMinutes) })
+      });
       setPendingWindow(null);
       await loadUsers();
     } catch (err) {
@@ -329,7 +342,11 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                 <th>Role</th>
                 <th className="col-num">Sessions</th>
                 <th>Created</th>
-                <th className="col-actions">Actions</th>
+                {/* The word is wider than the column now that the column holds one
+                    ⋮ button, and in a fixed-layout table a heading that doesn't fit
+                    puts the whole grid into a horizontal scroll. Kept for screen
+                    readers, which is the only audience it was serving anyway. */}
+                <th className="col-actions"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
@@ -368,102 +385,97 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                     <td className="col-num datagrid-muted">{formatSessionCount(account.activeSessions)}</td>
                     <td className="datagrid-muted">{formatManagedDate(account.createdAt)}</td>
                     <td className="col-actions">
+                      {/* One menu rather than seven icon buttons. Everything here is
+                          occasional — nothing is reached for often enough to earn a
+                          permanent square — and as icons their meaning lived in
+                          tooltips. In the menu each one gets its name back, and the
+                          reason an unavailable action is unavailable is its tooltip
+                          rather than a mystery grey glyph. */}
                       <div className="row-actions">
-                        <Button
-                          variant="icon"
-                          title="Edit user"
-                          aria-label={`Edit ${account.displayName}`}
-                          onClick={() => openEdit(account)}
-                        >
-                          <Pencil size={15} />
-                        </Button>
-                        <Button
-                          variant="icon"
-                          title="Change password"
-                          aria-label={`Change password for ${account.displayName}`}
-                          onClick={() => openPassword(account)}
-                        >
-                          <KeyRound size={15} />
-                        </Button>
-                        <Button
-                          variant="icon"
-                          title={
-                            account.mfaEnabled
-                              ? `Reset two-factor authentication (${account.mfaMethod === "email" ? "codes by email" : "authenticator app"})`
-                              : "This user doesn't have two-factor on"
-                          }
-                          aria-label={`Reset two-factor for ${account.displayName}`}
-                          disabled={!account.mfaEnabled}
-                          onClick={() => {
-                            setModalError("");
-                            setPendingMfaReset(account);
-                          }}
-                        >
-                          <ShieldOff size={15} />
-                        </Button>
-                        <Button
-                          variant="icon"
-                          title={
-                            account.passkeyCount > 0
-                              ? `Remove ${account.passkeyCount} passkey${account.passkeyCount === 1 ? "" : "s"}`
-                              : "This user has no passkeys"
-                          }
-                          aria-label={`Remove passkeys for ${account.displayName}`}
-                          disabled={account.passkeyCount === 0}
-                          onClick={() => {
-                            setModalError("");
-                            setPendingPasskeyReset(account);
-                          }}
-                        >
-                          <Fingerprint size={15} />
-                        </Button>
-                        {account.deviceLinkWindowExpiresAt ? (
-                          <Button
-                            variant="icon"
-                            danger
-                            title="Cancel remote device linking"
-                            aria-label={`Cancel remote device linking for ${account.displayName}`}
-                            disabled={closingWindowId === account.id}
-                            onClick={() => closeWindow(account)}
-                          >
-                            <MonitorX size={15} />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="icon"
-                            title="Allow one device to be linked from outside the home network"
-                            aria-label={`Allow ${account.displayName} to link a device from outside`}
-                            disabled={!account.isActive}
-                            onClick={() => {
-                              setModalError("");
-                              setPendingWindow(account);
-                            }}
-                          >
-                            <MonitorSmartphone size={15} />
-                          </Button>
-                        )}
-                        <Button
-                          variant="icon"
-                          title={account.locked ? "Clear sign-in lockout" : "This account isn't locked"}
-                          aria-label={`Clear sign-in lockout for ${account.displayName}`}
-                          disabled={!account.locked || unlockingId === account.id}
-                          onClick={() => unlockUser(account)}
-                        >
-                          <LockOpen size={15} />
-                        </Button>
-                        <Button
-                          variant="icon"
-                          danger
-                          title={deleteDisabled ? "This user cannot be deleted here" : "Delete user"}
-                          aria-label={`Delete ${account.displayName}`}
-                          disabled={deleteDisabled}
-                          onClick={() => {
-                            setModalError("");
-                            setPendingDelete(account);
-                          }}
-                        >
-                          <Trash2 size={15} />
-                        </Button>
+                        <ActionMenu
+                          trigger="icon"
+                          label={`Manage ${account.displayName}`}
+                          items={[
+                            {
+                              key: "edit",
+                              label: "Edit user",
+                              icon: <Pencil size={15} />,
+                              onSelect: () => openEdit(account)
+                            },
+                            {
+                              key: "password",
+                              label: "Change password",
+                              icon: <KeyRound size={15} />,
+                              onSelect: () => openPassword(account)
+                            },
+                            {
+                              key: "mfa",
+                              label: account.mfaEnabled
+                                ? `Reset two-factor (${account.mfaMethod === "email" ? "codes by email" : "authenticator app"})`
+                                : "Reset two-factor",
+                              icon: <ShieldOff size={15} />,
+                              disabledReason: account.mfaEnabled ? undefined : "This user doesn't have two-factor on",
+                              onSelect: () => {
+                                setModalError("");
+                                setPendingMfaReset(account);
+                              }
+                            },
+                            {
+                              key: "passkeys",
+                              label: account.passkeyCount > 0
+                                ? `Remove ${account.passkeyCount} passkey${account.passkeyCount === 1 ? "" : "s"}`
+                                : "Remove passkeys",
+                              icon: <Fingerprint size={15} />,
+                              disabledReason: account.passkeyCount > 0 ? undefined : "This user has no passkeys",
+                              onSelect: () => {
+                                setModalError("");
+                                setPendingPasskeyReset(account);
+                              }
+                            },
+                            account.deviceLinkWindowExpiresAt
+                              ? {
+                                  key: "device-window",
+                                  label: "Cancel remote device linking",
+                                  icon: <MonitorX size={15} />,
+                                  danger: true,
+                                  disabledReason: closingWindowId === account.id ? "Cancelling…" : undefined,
+                                  onSelect: () => closeWindow(account)
+                                }
+                              : {
+                                  key: "device-window",
+                                  label: "Allow a device from outside",
+                                  icon: <MonitorSmartphone size={15} />,
+                                  disabledReason: account.isActive ? undefined : "This account is deactivated",
+                                  onSelect: () => {
+                                    setModalError("");
+                                    setWindowMinutes(String(DEFAULT_WINDOW_MINUTES));
+                                    setPendingWindow(account);
+                                  }
+                                },
+                            {
+                              key: "unlock",
+                              label: "Clear sign-in lockout",
+                              icon: <LockOpen size={15} />,
+                              disabledReason: !account.locked
+                                ? "This account isn't locked"
+                                : unlockingId === account.id
+                                  ? "Clearing…"
+                                  : undefined,
+                              onSelect: () => unlockUser(account)
+                            },
+                            {
+                              key: "delete",
+                              label: "Delete user",
+                              icon: <Trash2 size={15} />,
+                              danger: true,
+                              disabledReason: deleteDisabled ? "This user cannot be deleted here" : undefined,
+                              onSelect: () => {
+                                setModalError("");
+                                setPendingDelete(account);
+                              }
+                            }
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -600,27 +612,45 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
         </ConfirmDialog>
       )}
 
+      {/* A Modal rather than a ConfirmDialog now that it collects something: the
+          confirmation primitive answers yes/no, and this asks "how long". */}
       {pendingWindow && (
-        <ConfirmDialog
+        <Modal
+          variant="card"
           title={`Allow "${pendingWindow.displayName}" to link a device from outside?`}
-          confirmLabel="Allow for one hour"
-          busyLabel="Allowing…"
-          confirmIcon={<MonitorSmartphone size={15} />}
-          rich
           busy={openingWindow}
-          error={modalError}
-          onConfirm={openWindow}
-          onCancel={() => setPendingWindow(null)}
+          onClose={() => setPendingWindow(null)}
+          onSubmit={openWindow}
         >
-          <p>
-            For the next hour they can sign a TV, display or kiosk in from anywhere, instead of only from your
-            home network. It ends as soon as one device is linked.
+          <p className="section-description">
+            They can sign a TV, display or kiosk in from anywhere, instead of only from your home network. It ends
+            as soon as one device is linked, or when the time below runs out — whichever comes first.
           </p>
-          <p>
+          <Field
+            label="Minutes"
+            type="number"
+            value={windowMinutes}
+            onChange={setWindowMinutes}
+            min={MIN_WINDOW_MINUTES}
+            max={MAX_WINDOW_MINUTES}
+          />
+          <p className="section-description">
+            Between {MIN_WINDOW_MINUTES} and {MAX_WINDOW_MINUTES} minutes. Long enough to walk someone through it;
+            short enough that forgetting costs nothing.
+          </p>
+          <p className="section-description">
             <strong>They will still need their own password to authorize it</strong>, and the linked device still
-            can't reach the control panel. You'll be emailed if one is linked.
+            can't reach the control panel or authorize others. You'll be emailed if one is linked.
           </p>
-        </ConfirmDialog>
+          {modalError && <MessageBox tone="error" title="Unable to allow remote linking">{modalError}</MessageBox>}
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setPendingWindow(null)} disabled={openingWindow}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={openingWindow}>
+              <MonitorSmartphone size={15} />
+              {openingWindow ? "Allowing…" : `Allow for ${windowMinutes} min`}
+            </Button>
+          </div>
+        </Modal>
       )}
 
       {pendingMfaReset && (
