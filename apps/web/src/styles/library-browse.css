@@ -247,6 +247,30 @@
   min-width: 180px;
 }
 
+/* A menu that carries more than one setting (the gallery's View) splits into
+   headed groups. The group is its own grid so its choices keep the menu's
+   spacing, and a rule above every group but the first separates them. */
+.audiobook-sort-group {
+  display: grid;
+  gap: 2px;
+}
+
+.audiobook-sort-group + .audiobook-sort-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.audiobook-sort-heading {
+  margin: 2px 0 4px;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .audiobook-sort-control svg {
   color: var(--muted);
 }
@@ -1671,5 +1695,46 @@
     flex: 1;
     width: auto;
     min-width: 0;
+  }
+}
+
+/* ── PWA: a back button is the arrow alone ───────────────────────────────────
+   "Back to slideshows" is more words than a 375px row has to spare, especially
+   in the gallery toolbar where it shares the line with the browse chip. The
+   arrow carries it on a phone, where going back is also a system gesture.
+   Covers both back buttons in the app: the standalone one over a detail page
+   (books, people, series, tags, collections, family) and the one in a browse
+   toolbar's scope slot.
+
+   The label is CLIPPED, not display:none, so the button keeps its accessible
+   name — an unlabelled arrow is what a screen reader would be left with
+   otherwise. Mobile only; desktop keeps the words. */
+@media (max-width: 740px) {
+  .audiobook-back-button,
+  .library-toolbar-scope .library-toolbar-button {
+    position: relative;
+  }
+
+  .audiobook-back-button > span,
+  .library-toolbar-scope .library-toolbar-button .toolbar-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Nothing left to sit beside the arrow, so both drop the gap they held for a
+     label and centre on it. */
+  .audiobook-back-button {
+    gap: 0;
+  }
+
+  .library-toolbar-scope .library-toolbar-button {
+    justify-content: center;
+    padding: 0 10px;
   }
 }

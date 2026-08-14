@@ -7,6 +7,22 @@ export interface SortOption<T extends string> {
   label: string;
 }
 
+/**
+ * One headed group of choices inside the menu, for a trigger that carries more
+ * than one setting (the gallery's View: tile size AND whether the grid is broken
+ * into date sections). Each group is its own single-choice list with its own
+ * value and handler — this is not a multi-select.
+ *
+ * Untyped on purpose: a menu's groups answer different questions, so there is no
+ * single T that covers them. Call sites cast in their own `onChange`.
+ */
+export interface SortMenuGroup {
+  heading: string;
+  value: string;
+  options: SortOption<string>[];
+  onChange: (value: string) => void;
+}
+
 // The sort control every browse page wears. Lifted out of the audiobooks page,
 // where this shape was settled, so Authors, Narrators, Series and Categories get
 // the identical box rather than a second dropdown that looks nearly the same.
@@ -16,18 +32,7 @@ export interface SortOption<T extends string> {
 // anchored inside it. Being out of that box, it also has to decide its own
 // alignment — it hangs from the trigger's right edge when a left-anchored menu
 // would run off-screen, which for a control at the end of a toolbar is always.
-export function SortMenu<T extends string>({
-  value,
-  options,
-  onChange,
-  ariaLabel = "Sort",
-  presentation = "inline",
-  icon,
-  label
-}: {
-  value: T;
-  options: SortOption<T>[];
-  onChange: (value: T) => void;
+interface SortMenuChrome {
   ariaLabel?: string;
   /**
    * `inline` — "Sort by ▾ Title (A–Z)", for a page that has room for a sentence.
@@ -41,13 +46,31 @@ export function SortMenu<T extends string>({
   icon?: React.ReactNode;
   /** Fixed trigger text, instead of the chosen option's label. */
   label?: string;
-}) {
+}
+
+export function SortMenu<T extends string>(props: SortMenuChrome & (
+  | { value: T; options: SortOption<T>[]; onChange: (value: T) => void; groups?: undefined }
+  // A menu of several settings at once. It carries no single value, so the
+  // trigger needs `label` — there is no one chosen option to print.
+  | { groups: SortMenuGroup[]; value?: undefined; options?: undefined; onChange?: undefined }
+)) {
+  const { ariaLabel = "Sort", presentation = "inline", icon, label } = props;
   const compact = presentation === "icon";
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number | null; right: number | null; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const currentLabel = options.find((option) => option.value === value)?.label ?? "";
+  // One code path for both shapes: a single-setting menu is a menu of one
+  // unheaded group.
+  const groups: SortMenuGroup[] = props.groups
+    ? props.groups
+    : [{ heading: "", value: props.value, options: props.options, onChange: props.onChange as (value: string) => void }];
+  // What is chosen right now, for the tooltip and accessible name. With several
+  // settings that is a list of them, since the trigger shows none of them.
+  const currentLabel = groups
+    .map((group) => group.options.find((option) => option.value === group.value)?.label ?? "")
+    .filter(Boolean)
+    .join(" · ");
 
   const toggle = () => {
     setOpen((isOpen) => {
@@ -148,17 +171,31 @@ export function SortMenu<T extends string>({
           aria-label={ariaLabel}
           style={{ position: "fixed", top: pos.top, left: pos.left ?? undefined, right: pos.right ?? undefined, minWidth: pos.width }}
         >
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="menuitem"
-              className={value === option.value ? "active" : ""}
-              onClick={() => { onChange(option.value); setOpen(false); }}
-            >
-              <span>{option.label}</span>
-            </button>
-          ))}
+          {groups.map((group, index) => {
+            const items = group.options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="menuitem"
+                className={group.value === option.value ? "active" : ""}
+                onClick={() => { group.onChange(option.value); setOpen(false); }}
+              >
+                <span>{option.label}</span>
+              </button>
+            ));
+            // A headed group is a real ARIA group, so a screen reader announces
+            // "Tile size" before its choices rather than reading one flat list
+            // of everything the menu holds. The visible heading is decorative —
+            // the group's own label already carries the word.
+            return group.heading ? (
+              <div key={group.heading} role="group" aria-label={group.heading} className="audiobook-sort-group">
+                <p className="audiobook-sort-heading" aria-hidden="true">{group.heading}</p>
+                {items}
+              </div>
+            ) : (
+              <React.Fragment key={index}>{items}</React.Fragment>
+            );
+          })}
         </div>,
         document.body
       )}

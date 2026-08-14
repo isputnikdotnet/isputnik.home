@@ -4,6 +4,27 @@
    (.audiobook-main-page / .audiobook-page-* / .audiobook-library-*); only the
    gallery-specific grid, folder, and lightbox styles live here. */
 
+/* The phone's Browse menu, in the header row beside the search box (it is only
+   rendered below 740px — see useIsMobile — so this needs no media query of its
+   own). The shared chip is a 52px tab built for a nav row; here it stands next
+   to the 44px search field, so it comes down to that height and keeps the
+   toolbar's filled look. */
+.gallery-browse-shortcut .audiobook-library-tab {
+  min-height: 44px;
+  height: 44px;
+  padding: 0 12px;
+  gap: 7px;
+  border-color: transparent;
+  background: var(--active);
+  color: var(--mint);
+  font-size: 0.9rem;
+}
+
+/* Search gets whatever the chip leaves, rather than the two splitting the row. */
+.gallery-browse-shortcut {
+  flex: 0 0 auto;
+}
+
 /* Timeline day headers: the sticky date row with its select-this-day checkbox. */
 .gallery-day-head {
   display: flex;
@@ -79,6 +100,13 @@
   grid-template-columns: repeat(auto-fill, minmax(188px, 1fr));
   gap: 6px;
 }
+
+/* The toolbar's View → Tile size, on the grids that control is shown over (the
+   timeline and an open folder). Medium is the size every other gallery grid
+   uses, so it restates the rule above rather than changing it. */
+.gallery-grid.tiles-small { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.gallery-grid.tiles-medium { grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)); }
+.gallery-grid.tiles-large { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 
 /* Memories ("On this day") — a horizontal strip of year cards above the timeline */
 .gallery-memories-title {
@@ -1150,6 +1178,11 @@
 
 @media (max-width: 740px) {
   .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); }
+  /* Same three steps on a phone, scaled to the width one has: small is four
+     across, large is one-and-a-bit. */
+  .gallery-grid.tiles-small { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+  .gallery-grid.tiles-medium { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); }
+  .gallery-grid.tiles-large { grid-template-columns: repeat(auto-fill, minmax(164px, 1fr)); }
   .gallery-map { height: calc(100vh - 300px); }
 }
 

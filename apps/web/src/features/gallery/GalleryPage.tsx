@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LayoutGrid, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
@@ -20,6 +20,7 @@ import { useGalleryPeople } from "./useGalleryPeople";
 import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
 import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
+import { GROUPING_OPTIONS, TILE_SIZE_OPTIONS, galleryGridClass, readGalleryView, writeGalleryView, type GalleryGrouping, type GalleryTileSize, type GalleryViewPrefs } from "./gallery-view";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
 import { AddToSlideshowModal } from "./AddToSlideshowModal";
@@ -135,6 +136,13 @@ export function GalleryPage({
   const goToView = useCallback((next: GalleryView) => navigate(galleryHref(next)), []);
 
   const [sort, setSort] = useState<TimelineSort>("taken");
+
+  // How the photo grids look: tile size, and whether the timeline comes in dated
+  // sections or as one uninterrupted grid. Both live behind the toolbar's View
+  // menu and are remembered between visits (see gallery-view.ts).
+  const [viewPrefs, setViewPrefs] = useState<GalleryViewPrefs>(readGalleryView);
+  useEffect(() => { writeGalleryView(viewPrefs); }, [viewPrefs]);
+  const gridClass = galleryGridClass(viewPrefs.tileSize);
 
   // Search box drives the timeline `q`; a debounce keeps typing from spamming the API.
   const [searchText, setSearchText] = useState("");
@@ -780,8 +788,11 @@ export function GalleryPage({
 
   // Group timeline assets into calendar-day buckets for the date headers, keyed on
   // whichever date the timeline is sorted by so the buckets stay consecutive.
+  // Skipped entirely in one-continuous-grid mode: that view renders `assets`
+  // straight through, so there is nothing to bucket.
   const days = useMemo(() => {
     const out: { label: string; items: { asset: GalleryAsset; index: number }[] }[] = [];
+    if (viewPrefs.grouping === "none") return out;
     assets.forEach((asset, index) => {
       const label = dayLabel(sort === "added" ? asset.addedAt : asset.takenAt);
       const last = out[out.length - 1];
@@ -789,7 +800,7 @@ export function GalleryPage({
       else out.push({ label, items: [{ asset, index }] });
     });
     return out;
-  }, [assets, sort]);
+  }, [assets, sort, viewPrefs.grouping]);
 
   // Select or deselect every asset taken on one calendar day. Using a day header's
   // checkbox also enters selection mode, so it works as the entry point too.
@@ -866,6 +877,57 @@ export function GalleryPage({
       : [])
   ];
 
+  // The phone's stand-in for the left nav, in the header row beside the search
+  // box. It rides the header rather than the toolbar because the toolbar is not
+  // on every view — People has none at all, and an open album or slideshow trades
+  // it for a compact topbar — which used to leave those views with no way to
+  // reach the others. Every view that draws browse chrome now draws this too.
+  const browseMenu = isMobile ? (
+    <div className="audiobook-library-shortcuts gallery-browse-shortcut">
+      <button
+        ref={viewMenuTriggerRef}
+        type="button"
+        className="audiobook-library-tab"
+        onClick={toggleViewMenu}
+        aria-haspopup="menu"
+        aria-expanded={viewMenuOpen}
+        aria-label="Browse gallery views"
+      >
+        <Compass size={19} aria-hidden="true" />
+        <span>Browse</span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {viewMenuOpen && viewMenuPos && createPortal(
+        <div
+          ref={viewMenuRef}
+          className="book-detail-action-menu audiobook-library-menu"
+          role="menu"
+          aria-label="Browse"
+          style={{ position: "fixed", top: viewMenuPos.top, left: viewMenuPos.left ?? undefined, right: viewMenuPos.right ?? undefined }}
+        >
+          {/* The phone's version of the left nav, off the same list, so a view
+              added there appears here too. */}
+          {galleryNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                role="menuitem"
+                className={view === item.key ? "active" : ""}
+                onClick={() => { setViewMenuOpen(false); navigate(item.href); }}
+              >
+                <Icon size={16} aria-hidden="true" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+    </div>
+  ) : null;
+
   // The one Create this view offers, in the header's primary slot — the same
   // place "New series" and "New narrator" sit. Only the list levels have one:
   // inside an open album or slideshow the page is about that one thing.
@@ -893,11 +955,13 @@ export function GalleryPage({
         <LibraryPageHeader
           title={VIEW_TITLES[view]}
           subtitle={subtitle}
+          nav={browseMenu}
           search={searchText}
           onSearchChange={hasSearch ? setSearchText : undefined}
           searchPlaceholder={searchPlaceholder}
           // Every control lives in the toolbar below, Upload and the view's own
-          // Create included: the header is the page's name and its search box.
+          // Create included: the header is the page's name, its search box, and
+          // (on a phone) the Browse menu that stands in for the left nav.
         />
         )}
 
@@ -941,59 +1005,12 @@ export function GalleryPage({
               // narrowing it (see the Libraries facet below): no standalone
               // picker to keep in step with it.
               scope={
-                <>
-                  {backTarget && (
-                    <button type="button" className="library-toolbar-button" onClick={backTarget.onClick}>
-                      <ArrowLeft size={18} aria-hidden="true" />
-                      <span className="toolbar-label">{backTarget.label}</span>
-                    </button>
-                  )}
-                  {isMobile && (
-                  <div className="audiobook-library-shortcuts">
-                    <button
-                      ref={viewMenuTriggerRef}
-                      type="button"
-                      className="audiobook-library-tab"
-                      onClick={toggleViewMenu}
-                      aria-haspopup="menu"
-                      aria-expanded={viewMenuOpen}
-                      aria-label="Browse gallery views"
-                    >
-                      <Compass size={19} aria-hidden="true" />
-                      <span>Browse</span>
-                      <ChevronDown size={16} aria-hidden="true" />
-                    </button>
-                    {viewMenuOpen && viewMenuPos && createPortal(
-                      <div
-                        ref={viewMenuRef}
-                        className="book-detail-action-menu audiobook-library-menu"
-                        role="menu"
-                        aria-label="Browse"
-                        style={{ position: "fixed", top: viewMenuPos.top, left: viewMenuPos.left ?? undefined, right: viewMenuPos.right ?? undefined }}
-                      >
-                        {/* The phone's version of the left nav, off the same list,
-                            so a view added there appears here too. */}
-                        {galleryNavItems.map((item) => {
-                          const Icon = item.icon;
-                          return (
-                            <button
-                              key={item.key}
-                              type="button"
-                              role="menuitem"
-                              className={view === item.key ? "active" : ""}
-                              onClick={() => { setViewMenuOpen(false); navigate(item.href); }}
-                            >
-                              <Icon size={16} aria-hidden="true" />
-                              <span>{item.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>,
-                      document.body
-                    )}
-                  </div>
-                )}
-                </>
+                backTarget && (
+                  <button type="button" className="library-toolbar-button" onClick={backTarget.onClick}>
+                    <ArrowLeft size={18} aria-hidden="true" />
+                    <span className="toolbar-label">{backTarget.label}</span>
+                  </button>
+                )
               }
               // Filter and sort describe a set of photos — the people, camera,
               // year and place a shot was taken, and the order to show them in.
@@ -1011,6 +1028,32 @@ export function GalleryPage({
                         options={SORT_OPTIONS}
                         ariaLabel="Sort timeline"
                         presentation="labelled"
+                      />
+                      {/* One menu, two settings — how big the tiles are, and (on
+                          the timeline) whether they come in dated sections. Both
+                          are visible on screen already, so the trigger says
+                          "View" rather than printing back what you can see.
+                          Folders has no dates to group by, so it gets the size
+                          section alone. */}
+                      <SortMenu
+                        ariaLabel="View"
+                        label="View"
+                        presentation="labelled"
+                        icon={<LayoutGrid size={18} aria-hidden="true" />}
+                        groups={[
+                          {
+                            heading: "Tile size",
+                            value: viewPrefs.tileSize,
+                            options: TILE_SIZE_OPTIONS,
+                            onChange: (value) => setViewPrefs((prefs) => ({ ...prefs, tileSize: value as GalleryTileSize }))
+                          },
+                          ...(view === "timeline" ? [{
+                            heading: "Dates",
+                            value: viewPrefs.grouping,
+                            options: GROUPING_OPTIONS,
+                            onChange: (value: string) => setViewPrefs((prefs) => ({ ...prefs, grouping: value as GalleryGrouping }))
+                          }] : [])
+                        ]}
                       />
                     </>
                   )}
@@ -1853,7 +1896,23 @@ export function GalleryPage({
                     </div>
                   </section>
                 )}
-                {days.map((day) => {
+                {viewPrefs.grouping === "none" ? (
+                  // One uninterrupted grid: no date headers, so the whole run of
+                  // photos reads as a single wall. Selection is still available —
+                  // through the toolbar's Select rather than a day's checkbox.
+                  <div className={gridClass}>
+                    {assets.map((asset, index) => (
+                      <AssetTile
+                        key={asset.id}
+                        asset={asset}
+                        onOpen={() => setLightbox({ source: "timeline", index })}
+                        selectionMode={selectionMode}
+                        selected={selectedIds.has(asset.id)}
+                        onToggleSelect={() => toggleSelect(asset.id)}
+                      />
+                    ))}
+                  </div>
+                ) : days.map((day) => {
                   const ids = day.items.map(({ asset }) => asset.id);
                   const allSelected = ids.every((id) => selectedIds.has(id));
                   return (
@@ -1883,7 +1942,7 @@ export function GalleryPage({
                         )}
                         <h2 className="gallery-day-label">{day.label}</h2>
                       </div>
-                      <div className="gallery-grid">
+                      <div className={gridClass}>
                         {day.items.map(({ asset, index }) => (
                           <AssetTile
                             key={asset.id}
@@ -1957,7 +2016,7 @@ export function GalleryPage({
                 {folderAssets.length > 0 && (
                   <>
                     <p className="gallery-section-label">Photos &amp; videos ({formatCount(folderTotal)})</p>
-                    <div className="gallery-grid">
+                    <div className={gridClass}>
                       {folderAssets.map((asset, index) => (
                         <AssetTile
                           key={asset.id}
