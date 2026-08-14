@@ -378,6 +378,16 @@
   color: var(--muted);
 }
 
+/* An open album or slideshow's compact icon row — Back plus every action,
+   standing in for the page header and toolbar that step aside while it's
+   open. Wraps rather than overflows: Albums alone can run to nine icons. */
+.slideshow-detail-topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 /* Album detail header — cover thumbnail + title/subtitle on the left, the sort
    control, slideshow, and the … overflow menu on the right. */
 .gallery-album-header {

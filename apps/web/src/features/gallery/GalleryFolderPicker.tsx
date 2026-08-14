@@ -6,23 +6,24 @@ import { Modal } from "../../shared/Modal";
 import type { GalleryAsset, GalleryFolder, GalleryLibrary } from "./types";
 import { faceFocusStyle } from "./types";
 
-// Browse the galleries by folder and add photos/videos straight into an open slideshow —
-// no leaving the editor, no re-picking the slideshow. Reuses the folder-listing endpoint
-// (GET /folders) the main Folder view uses. Selection persists across folders so you can
-// gather from several before adding; already-present items show as "Added" and can't be
-// re-selected (the add endpoint would skip them anyway).
-export function SlideshowPhotoBrowser({
-  slideshowId,
-  slideshowName,
+// Browse the galleries by folder and add photos/videos straight into an open album
+// or slideshow — no leaving it, no re-picking it. Reuses the folder-listing endpoint
+// (GET /folders) the main Folder view uses. Selection persists across folders so you
+// can gather from several before adding; already-present items show as "Added" and
+// can't be re-selected (the add endpoint would skip them anyway).
+export function GalleryFolderPicker({
+  title,
+  endpoint,
   libraries,
   existingIds,
   onClose,
   onAdded
 }: {
-  slideshowId: string;
-  slideshowName: string;
+  title: string;
+  /** POST endpoint accepting { itemIds: string[] } and returning { added, skipped }. */
+  endpoint: string;
   libraries: GalleryLibrary[];
-  // Item ids already in the slideshow (the loaded page) — shown as "Added".
+  // Item ids already attached (the loaded page) — shown as "Added".
   existingIds: string[];
   onClose: () => void;
   onAdded: (added: number) => void;
@@ -34,7 +35,7 @@ export function SlideshowPhotoBrowser({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  // Already in the slideshow, plus anything added during this browse session.
+  // Already attached, plus anything added during this browse session.
   const [added, setAdded] = useState<Set<string>>(() => new Set(existingIds));
   const [adding, setAdding] = useState(false);
 
@@ -76,7 +77,7 @@ export function SlideshowPhotoBrowser({
     setAdding(true);
     setError("");
     try {
-      const result = await api<{ added: number; skipped: number }>(`/api/library/gallery/slideshows/${slideshowId}/items`, {
+      const result = await api<{ added: number; skipped: number }>(endpoint, {
         method: "POST",
         body: JSON.stringify({ itemIds: ids })
       });
@@ -105,7 +106,7 @@ export function SlideshowPhotoBrowser({
   return (
     <Modal
       variant="panel"
-      title={`Add photos to “${slideshowName}”`}
+      title={title}
       icon={<FolderOpen size={20} />}
       className="add-to-album-modal slideshow-browse-modal"
       busy={adding}
@@ -161,7 +162,7 @@ export function SlideshowPhotoBrowser({
                     onClick={() => toggle(asset.id)}
                     disabled={isAdded || adding}
                     aria-pressed={isSelected}
-                    title={isAdded ? "Already in this slideshow" : asset.title}
+                    title={isAdded ? "Already added" : asset.title}
                   >
                     {asset.coverUrl ? <img src={asset.coverUrl} alt="" loading="lazy" style={faceFocusStyle(asset)} /> : (
                       <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>

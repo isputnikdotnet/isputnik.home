@@ -44,6 +44,8 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
   // "Pick a cover" mode, where clicking a tile sets it as the album cover
   // instead of opening the lightbox.
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+  // Folder-browser: add photos to the open album straight from the galleries.
+  const [albumBrowseOpen, setAlbumBrowseOpen] = useState(false);
 
   // Albums list + one album's items (paged like the timeline). Albums are
   // global, not scope-filtered — the server already trims items per viewer.
@@ -160,6 +162,7 @@ export function useGalleryAlbums({ setLoading, setError, setNotice }: GallerySta
     shareAlbumOpen, setShareAlbumOpen,
     bulkAlbumOpen, setBulkAlbumOpen,
     coverPickerOpen, setCoverPickerOpen,
+    albumBrowseOpen, setAlbumBrowseOpen,
     loadAlbums, openAlbum, patchAlbum, setAlbumCover,
     removeFromAlbum, createAlbumSubmit, confirmDeleteAlbum
   };
