@@ -350,6 +350,14 @@ Bump all three `package.json` to `3.6.0`, add the `VERSION_UPDATES` entry in
 `changelog.ts`, commit, annotated `v3.6.0` tag. Confirm the ghcr build started;
 don't watch it.
 
+> **Status: released.** `4aa63c6..58b883f` on main, tag `v3.6.0` pushed, ghcr build
+> running. Stage 4's docs went with it: the guide gained *Linking a device while
+> away from home* and an admin section that leads with the window and demotes the
+> global policy to "the blunt alternative", and `docs/auth.md` gained both the
+> window mechanics and a plain statement of what `/api/setup/status` now discloses.
+> No new guide file, so the Help page was unchanged and `check:ui` had nothing new
+> to check.
+
 ---
 
 ## Verification checklist
