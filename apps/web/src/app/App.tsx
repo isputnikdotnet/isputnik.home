@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect, lazy, Suspense } from "react";
-import { api, type PublicUser } from "../api";
+import { api, isAdminSession, type PublicUser } from "../api";
 import { cacheCurrentUser, clearCachedUser, getCachedUser } from "../offline/downloads";
 import { flushProgressQueue } from "../offline/progress";
 import { flushQuoteQueue } from "../offline/quotes";
 import { flushBookmarkQueue } from "../offline/bookmarks";
 import { clearPrivateRuntimeCaches } from "../pwa/cache";
 import { AppLoading, Shell } from "./Shell";
-import { useRoute, navigate } from "../router";
+import { useRoute, navigate, rememberPathAfterSignIn } from "../router";
 
 // Eager: the shell, the ways in, and the page you land on. Everything on the
 // critical path from a cold open to a usable Home stays in the entry chunk —
@@ -26,6 +26,8 @@ const AboutPage = lazy(() => import("../pages/AboutPage").then((m) => ({ default
 const HelpPage = lazy(() => import("../pages/HelpPage").then((m) => ({ default: m.HelpPage })));
 const GuidePage = lazy(() => import("../pages/GuidePage").then((m) => ({ default: m.GuidePage })));
 const SharePage = lazy(() => import("../pages/SharePage").then((m) => ({ default: m.SharePage })));
+const DeviceLinkPage = lazy(() => import("../pages/DeviceLinkPage").then((m) => ({ default: m.DeviceLinkPage })));
+const DeviceLinkConfirmPage = lazy(() => import("../pages/DeviceLinkConfirmPage").then((m) => ({ default: m.DeviceLinkConfirmPage })));
 const AudiobooksPage = lazy(() => import("../features/audiobooks/AudiobooksPage").then((m) => ({ default: m.AudiobooksPage })));
 const AudiobookBookPage = lazy(() => import("../features/audiobooks/BookDetailPage").then((m) => ({ default: m.AudiobookBookPage })));
 const EbooksPage = lazy(() => import("../features/audiobooks/EbooksPage").then((m) => ({ default: m.EbooksPage })));
@@ -231,7 +233,16 @@ export function App() {
       return;
     }
 
-    if (!session.requiresSetup && !session.user && !["login", "invite", "share"].includes(route.name)) {
+    // deviceLink is here for the same reason login is: the display asking to be
+    // linked has nobody to be signed in as yet, and sending it to /login is
+    // sending it back to the keyboard it hasn't got.
+    if (!session.requiresSetup && !session.user && !["login", "invite", "share", "deviceLink"].includes(route.name)) {
+      // Scanning the QR on a phone that isn't signed in lands here. Remember the
+      // errand before sending them to sign in, or approving a device turns into
+      // "sign in, arrive at the home page, wonder what happened to the code".
+      if (route.name === "deviceLinkConfirm") {
+        rememberPathAfterSignIn(`${window.location.pathname}${window.location.search}`);
+      }
       navigate("/login");
       return;
     }
@@ -244,7 +255,9 @@ export function App() {
       return;
     }
 
-    if (session.user && ["control", "controlCategoryEditor"].includes(route.name) && session.user.role !== "admin") {
+    // Not just "are they an admin" — a linked display is refused on every admin
+    // route, so letting it open the control panel yields a page of 403s.
+    if (session.user && ["control", "controlCategoryEditor"].includes(route.name) && !isAdminSession(session.user)) {
       navigate("/");
     }
   }, [route.name, session]);
@@ -310,18 +323,30 @@ export function App() {
       return <LoginPage onSignedIn={refreshSession} passkeysAvailable={session.passkeysAvailable} />;
     }
 
+    // Reachable signed in as well as out: someone can open /link on a display that
+    // still holds an old session, and the flow works the same either way.
+    if (route.name === "deviceLink") {
+      return <DeviceLinkPage onSignedIn={refreshSession} />;
+    }
+
     if (!session.user) {
       return <Shell><p className="status">Preparing sign in...</p></Shell>;
     }
 
+    // Below the signed-out gate: approving needs an account, and an anonymous
+    // visitor has already been sent to sign in with this path remembered.
+    if (route.name === "deviceLinkConfirm") {
+      return <DeviceLinkConfirmPage userCode={route.userCode} />;
+    }
+
     if (route.name === "control") {
-      return session.user.role === "admin"
+      return isAdminSession(session.user)
         ? <ControlPanelPage section={route.section} user={session.user} logout={logout} />
         : <HomePage user={session.user} logout={logout} />;
     }
 
     if (route.name === "controlCategoryEditor") {
-      return session.user.role === "admin"
+      return isAdminSession(session.user)
         ? <ControlPanelPage section="categories" categoryId={route.categoryId} user={session.user} logout={logout} />
         : <HomePage user={session.user} logout={logout} />;
     }

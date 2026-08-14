@@ -35,7 +35,8 @@ const policySchema = z.object({
   ipFailThreshold: z.number().int().min(1).max(10000),
   ipFailWindowMinutes: z.number().int().min(1).max(1440),
   ipAutoblockMinutes: z.number().int().min(1).max(10080),
-  alertNewIpSignIn: z.boolean()
+  alertNewIpSignIn: z.boolean(),
+  deviceLinkScope: z.enum(["local", "any"])
 });
 
 const passwordPolicySchema = z.object({

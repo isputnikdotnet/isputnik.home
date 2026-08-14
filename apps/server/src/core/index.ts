@@ -3,6 +3,7 @@ import { setupPlugin } from "./setup.js";
 import { authPlugin } from "./auth-routes.js";
 import { mfaRoutes } from "./mfa-routes.js";
 import { webauthnRoutes } from "./webauthn-routes.js";
+import { deviceLinkRoutes } from "./device-link-routes.js";
 import { sessionsPlugin } from "./sessions.js";
 import { apiTokensPlugin } from "./api-tokens.js";
 import { logsPlugin } from "./logs.js";
@@ -21,6 +22,7 @@ export async function corePlugin(app: FastifyInstance) {
   await app.register(authPlugin);
   await app.register(mfaRoutes);
   await app.register(webauthnRoutes);
+  await app.register(deviceLinkRoutes);
   await app.register(sessionsPlugin);
   await app.register(apiTokensPlugin);
   await app.register(logsPlugin);

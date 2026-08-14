@@ -7,6 +7,7 @@ import {
   Info,
   LockKeyhole,
   MailWarning,
+  MonitorSmartphone,
   Plus,
   Save,
   ShieldCheck,
@@ -47,6 +48,10 @@ interface SecurityPolicy {
   ipFailWindowMinutes: number;
   ipAutoblockMinutes: number;
   alertNewIpSignIn: boolean;
+  // Where a device may ask to be linked from. No control for it on this page yet;
+  // it is here because both policy cards PATCH the whole blob, and a field missing
+  // from the type is a field a later edit drops on the floor.
+  deviceLinkScope: "local" | "any";
 }
 
 interface PasswordPolicy {
@@ -68,7 +73,7 @@ interface SecurityData {
 }
 
 type SecurityTab = "overview" | "policies" | "trusted" | "blocked";
-type PolicyScope = "thresholds" | "alerts";
+type PolicyScope = "thresholds" | "alerts" | "devices";
 
 type SecuritySectionKey = Extract<ControlSection, "security" | "securityPolicies" | "securityTrusted" | "securityBlocked">;
 
@@ -620,6 +625,81 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       >
                         <Save size={16} />
                         {savingPolicy === "alerts" ? "Saving…" : "Save sign-in alerts"}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
+
+              <section className="security-block security-policy-card" aria-labelledby="device-link-heading">
+                <div className="security-policy-card-head">
+                  <span className="security-policy-icon" aria-hidden="true">
+                    <MonitorSmartphone size={24} />
+                  </span>
+                  <div>
+                    <h2 id="device-link-heading">Linking devices</h2>
+                    <p className="section-description">
+                      Where a TV, display or kiosk may ask to be signed in from by showing a code.
+                    </p>
+                  </div>
+                </div>
+                {policyForm && (
+                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "devices")}>
+                    <label className="security-setting-row security-setting-row-checkbox">
+                      <input
+                        type="radio"
+                        name="device-link-scope"
+                        checked={policyForm.deviceLinkScope === "local"}
+                        onChange={() => setPolicyForm({ ...policyForm, deviceLinkScope: "local" })}
+                      />
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">Only devices on your home network</span>
+                        <span className="security-setting-help">
+                          The recommended setting. A wall display is always in the house, and this is what stops a
+                          stranger elsewhere from starting a request at all.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="security-setting-row security-setting-row-checkbox">
+                      <input
+                        type="radio"
+                        name="device-link-scope"
+                        checked={policyForm.deviceLinkScope === "any"}
+                        onChange={() => setPolicyForm({ ...policyForm, deviceLinkScope: "any" })}
+                      />
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">Any device that can reach the server</span>
+                        <span className="security-setting-help">
+                          Needed only if you link devices while away from home. It also lets someone else start a
+                          request and send you its code — approving one still needs your password, so never approve a
+                          device you didn't just set up, and check the code matches the screen in front of you.
+                        </span>
+                      </span>
+                    </label>
+
+                    {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
+                      <MessageBox tone="warning" title="Device linking is refusing everything">
+                        Requests arrive through a proxy but <code>TRUST_PROXY_HOPS</code> is not set, so every device
+                        looks like it is on the proxy's own address — which would make "home network only" mean
+                        "anyone at all". Linking is refused entirely until you set it.
+                      </MessageBox>
+                    )}
+
+                    {policyError?.scope === "devices" && (
+                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                    )}
+                    {policySaved === "devices" && (
+                      <MessageBox tone="success" title="Saved">Device linking updated.</MessageBox>
+                    )}
+                    <div className="security-policy-actions">
+                      <Button
+                        variant="primary"
+                        className="security-save-button"
+                        type="submit"
+                        disabled={savingPolicy !== null}
+                      >
+                        <Save size={16} />
+                        {savingPolicy === "devices" ? "Saving…" : "Save device linking"}
                       </Button>
                     </div>
                   </form>

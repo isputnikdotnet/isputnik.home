@@ -1,6 +1,6 @@
 import {
   BookOpen, Bug, ExternalLink, FolderTree, HardDrive, Headphones, Images, Info, KeyRound, LibraryBig,
-  Mail, Rocket, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
+  Mail, MonitorSmartphone, Rocket, Settings, ShieldCheck, Trash2, UserRound, Wifi, type LucideIcon
 } from "lucide-react";
 import type { PublicUser } from "../api";
 import { DashboardShell } from "../app/DashboardShell";
@@ -122,6 +122,14 @@ const HELP_SECTIONS: HelpSection[] = [
         description:
           "Add a one-time code to your sign-in, manage backup codes, and what to do if you're locked out.",
         href: guide("two-factor-authentication.md"),
+        external: false
+      },
+      {
+        icon: MonitorSmartphone,
+        title: "Link a device",
+        description:
+          "Sign a TV, wall display or kiosk in by scanning a code with your phone — and how to remove one later.",
+        href: guide("link-a-device.md"),
         external: false
       }
     ]

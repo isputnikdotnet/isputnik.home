@@ -57,6 +57,14 @@ CREATE TABLE IF NOT EXISTS sessions (
   last_seen_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   device_name   TEXT,
   ip_address    TEXT,
+  -- 'device' marks a session minted by the link-a-device flow (see
+  -- core/device-link.ts) rather than by someone typing a password here. It lives
+  -- much longer than a browser session and is refused on admin routes, because
+  -- the thing holding it is a TV in a room, not a person at a keyboard.
+  kind          TEXT NOT NULL DEFAULT 'browser' CHECK (kind IN ('browser', 'device')),
+  -- What the owner calls this device ("Living Room TV"). device_name above is the
+  -- raw user agent and is never editable; this is, and takes precedence in the UI.
+  label         TEXT,
   revoked_at    TEXT
 );
 
@@ -116,6 +124,46 @@ CREATE TABLE IF NOT EXISTS webauthn_challenges (
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   expires_at  TEXT NOT NULL
 );
+
+-- Link a device: one row per pending "sign this display in" request, between the
+-- device putting a code on screen and someone approving it from their phone. The
+-- OAuth 2.0 device-authorization shape, narrowed to one household (core/device-link.ts).
+--
+-- Two secrets, doing different jobs. `device_code` is the long one only the asking
+-- device ever holds, and — like sessions, share links and API tokens — only its
+-- sha256 is stored. `user_code` is the short one shown on the TV and typed or
+-- scanned on the phone; it is not a credential (holding it approves nothing on its
+-- own — approving needs a signed-in account and that account's password), so it is
+-- stored as-is and bounded by its short expiry. Guessing user codes is answered
+-- per-IP by the route's rate limit and the abuse counter, not per-row: a guess that
+-- is wrong matches no row at all, so there is nothing here for it to count against.
+--
+-- `attempts` is therefore about the other end — wrong passwords typed on the
+-- confirmation screen. Enough of them kill the request rather than the account,
+-- which is what someone holding an unlocked phone would be up against.
+--
+-- There is deliberately no 'expired' status: expiry is `expires_at <= now`, asked
+-- in every query. A stored state has to be swept to become true, and until the
+-- sweep runs the screen would still say "waiting".
+--
+-- `session_id` links a redeemed request to the session it became, so revoking a
+-- device from Profile → Devices can be traced back to how it got there.
+CREATE TABLE IF NOT EXISTS device_link_requests (
+  id                TEXT PRIMARY KEY,
+  device_code_hash  TEXT NOT NULL UNIQUE,
+  user_code         TEXT NOT NULL UNIQUE,
+  status            TEXT NOT NULL DEFAULT 'pending'
+                      CHECK (status IN ('pending', 'approved', 'denied', 'consumed')),
+  created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  expires_at        TEXT NOT NULL,
+  attempts          INTEGER NOT NULL DEFAULT 0,
+  user_agent        TEXT,
+  ip_address        TEXT,
+  approved_by       TEXT REFERENCES users(id) ON DELETE CASCADE,
+  approved_at       TEXT,
+  session_id        TEXT REFERENCES sessions(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_device_link_expires ON device_link_requests (expires_at);
 
 -- Brute-force defense & source-IP access control.
 -- Every sign-in attempt, used to derive per-account lockout and per-IP auto-block.

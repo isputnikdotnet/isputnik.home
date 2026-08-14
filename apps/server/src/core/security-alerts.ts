@@ -270,6 +270,40 @@ export function alertMfaBackupCodesRegenerated(email: string, ip: string | null)
   ]);
 }
 
+// ── Linked devices ───────────────────────────────────────────────────────────
+
+// A linked display is a session that lives for a year in a room, minted without a
+// password ever being typed on the device itself. The owner approved it, so this
+// is not a warning — it is the receipt, and the one thing that catches an approval
+// given to a code someone else was holding. Not throttled per account, because
+// each link is a distinct device and a burst of them is exactly what should be
+// noticed; the flow's own rate limits bound how many can arrive.
+export function alertDeviceLinked(user: User, request: FastifyRequest, label: string): void {
+  void notify([user.email], "A new device was linked to your account", [
+    `"${label}" can now use your iSputnik account without signing in again.`,
+    context(request.ip, { label: "Device", value: label }),
+    "You approved this from a device you were already signed in on.",
+    "Remove it any time from Profile → Devices, which is also where you can rename it.",
+    "If you didn't approve this, revoke it there now and change your password."
+  ]);
+}
+
+// A device asked to be linked and the server refused before creating anything.
+// Goes to admins, not the owner: nobody owns it yet, and both reasons are the
+// admin's to act on — widen the policy deliberately, or fix TRUST_PROXY_HOPS.
+export function alertDeviceLinkRejected(ip: string | null, reason: "scope" | "proxy"): void {
+  if (throttled(`devlink:${reason}:${ip ?? "none"}`, 30 * 60_000)) return;
+  void notifyAdmins("A device was refused permission to link", [
+    reason === "proxy"
+      ? "A device asked to be linked, and the server could not tell where it was asking from: a proxy is in front but TRUST_PROXY_HOPS is unset, so every request appears to come from the proxy's own address."
+      : "A device outside your home network asked to be linked, and device linking is set to accept local devices only.",
+    context(ip),
+    reason === "proxy"
+      ? "Set TRUST_PROXY_HOPS to the number of proxies in front (usually 1) and device linking will work again. Until then it refuses every request rather than treating the whole internet as local. See docs/users/exposing-to-the-internet.md."
+      : "If this was you, linking from outside can be allowed in Control panel → Security → Policies. Read what it says there first: it is the setting that lets a stranger start a request and talk someone into approving it."
+  ]);
+}
+
 export function alertMfaDisabled(targetEmail: string, byAdmin: boolean): void {
   void notifyAdmins("Two-factor authentication was turned off", [
     {

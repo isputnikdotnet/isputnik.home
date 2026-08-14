@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import packageInfo from "../../../../package.json";
-import type { PublicUser } from "../api";
+import { isAdminSession, type PublicUser } from "../api";
 import { isStandalone } from "../pwa/platform";
 import { controlHref, followRoute } from "../router";
 import { REPO_ISSUES_URL } from "../shared/links";
@@ -204,7 +204,7 @@ function MobileNav({
               <UsersRound size={26} aria-hidden="true" />
               <span>Shared</span>
             </a>
-            {user.role === "admin" && (
+            {isAdminSession(user) && (
               <a className="mobile-media-option" href={CONTROL_HOME} onClick={(event) => { followRoute(event, CONTROL_HOME); close(); }}>
                 <Settings size={26} aria-hidden="true" />
                 <span>Settings</span>
@@ -443,7 +443,7 @@ export function DashboardShell({
             media section) sits above it. The menu opens upward: its trigger sits at
             the bottom of the sidebar, so there's no room to drop down. */}
         <div className="home-sidebar-bottom">
-          {user.role === "admin" && (
+          {isAdminSession(user) && (
             <a
               className={`home-nav-link${currentPath === CONTROL_HOME || currentPath.startsWith("/control") ? " is-active" : ""}`}
               href={CONTROL_HOME}

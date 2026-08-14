@@ -13,8 +13,17 @@ sessions
 --------
 id, user_id, created_at, expires_at, last_seen,
 token_hash,
-device_name, ip_address, revoked_at
+device_name, ip_address, revoked_at,
+kind,           -- 'browser' | 'device'  (migration v37)
+label           -- owner-given name for a linked device
 ```
+
+`kind` separates a session someone signed into here from one minted by linking a
+display (see below). A `device` session lives for `DEVICE_SESSION_DAYS` (365)
+rather than `SESSION_DAYS` (14), and `requireAdmin` refuses it outright whatever
+the account's role — so a screen in a hallway is never a way into the control
+panel. `/api/auth/me` reports the kind, and the SPA hides admin UI for a device
+session rather than offering a control panel that answers 403 to everything.
 
 Session cookies are configured with:
 
@@ -173,6 +182,25 @@ Shipped:
   that table from sign-in history, so switching it on doesn't fire for devices
   already in use. First sight of a network is also written to the activity log
   (`auth.new_network`) whether or not email is on.
+
+- **Link a device** — signing a TV, wall display or kiosk in by scanning a QR code
+  with a phone that is already signed in, rather than typing a password with a
+  remote control (`core/device-link.ts`, `core/device-link-routes.ts`). The OAuth
+  2.0 device-authorization shape, narrowed to one household. The attack this grant
+  type invites is a stranger starting a request remotely and talking a household
+  member into approving it, so four things answer it: the request is refused
+  outright unless it comes from the home network (`deviceLinkScope`, default
+  `local`, admin-tunable); the QR carries no approval — it opens a confirmation
+  screen showing the code to be compared against the screen across the room;
+  approving is password-gated like enrolling a second factor; and the owner is
+  emailed every time one is linked. A linked display cannot open the control panel
+  or authorize further devices. Behind a proxy with `TRUST_PROXY_HOPS` unset,
+  `request.ip` is the proxy — every device would look local — so linking refuses
+  entirely in that state rather than degrading to "anyone at all". User-facing
+  guide: [`users/link-a-device.md`](users/link-a-device.md).
+- **Self-service sessions** — `/api/account/sessions` lets each user see, rename
+  and revoke their own sign-ins (Profile → Devices). `/api/sessions` remains the
+  admin's view of everyone's.
 
 Planned:
 

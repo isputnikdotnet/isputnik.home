@@ -393,3 +393,217 @@
     transform: translate3d(12px, -10px, 0);
   }
 }
+
+/* ── Link a device ──────────────────────────────────────────────────
+   The one screen in this app read from a sofa rather than at a desk, so it does
+   not reuse .auth-panel (500px of card, sized for a keyboard). Type scales with
+   the viewport: on a 1080p television the code lands around 5rem, on a phone
+   checking the same URL it stays readable. */
+
+.device-link-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: clamp(20px, 4vw, 56px);
+  /* The orbits in .auth-scene are wider than a narrow viewport by design; without
+     this they push the page sideways, exactly as they would on the sign-in screen
+     if .app-shell didn't clip them too. */
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 15% 20%, var(--auth-glow-primary), transparent 55%),
+    radial-gradient(circle at 85% 80%, var(--auth-glow-secondary), transparent 50%),
+    linear-gradient(160deg, var(--auth-bg-start), var(--auth-bg-mid) 55%, var(--auth-bg-end));
+  color: var(--text);
+}
+
+.device-link-panel {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 1000px);
+  padding: clamp(24px, 3vw, 44px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 93%, transparent);
+  box-shadow: 0 24px 70px var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.device-link-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: clamp(18px, 2.5vw, 30px);
+}
+
+.device-link-head img {
+  width: clamp(38px, 4vw, 52px);
+  height: auto;
+}
+
+.device-link-head h1 {
+  margin: 2px 0 0;
+  font-size: clamp(1.5rem, 2.6vw, 2.2rem);
+}
+
+.device-link-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: clamp(24px, 4vw, 52px);
+}
+
+.device-link-qr {
+  padding: clamp(12px, 1.5vw, 18px);
+  background: #ffffff;
+  border-radius: 14px;
+  line-height: 0;
+}
+
+.device-link-qr svg {
+  width: clamp(180px, 22vw, 300px);
+  height: auto;
+}
+
+.device-link-lead {
+  margin: 0;
+  font-size: clamp(1.15rem, 2vw, 1.7rem);
+  font-weight: 600;
+}
+
+.device-link-note,
+.device-link-or {
+  margin: 6px 0 0;
+  font-size: clamp(0.85rem, 1.1vw, 1.05rem);
+  color: var(--muted);
+}
+
+.device-link-or {
+  margin-top: clamp(16px, 2vw, 26px);
+}
+
+.device-link-url {
+  margin: 4px 0 0;
+  font-size: clamp(1rem, 1.5vw, 1.35rem);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+/* The largest thing on the screen, and the only thing anyone has to copy by
+   hand. Monospace so O/0 and I/1 stay distinguishable even though the alphabet
+   already excludes them, and wide tracking so a phone camera and a pair of eyes
+   both cope at four metres. */
+.device-link-code {
+  margin: 8px 0 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: clamp(2.4rem, 6vw, 5rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.05;
+}
+
+.device-link-expiry {
+  margin: clamp(14px, 2vw, 22px) 0 0;
+  font-size: clamp(0.85rem, 1.1vw, 1.05rem);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.device-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: clamp(20px, 3vw, 34px);
+}
+
+/* Portrait tablets, phones, and the narrow half of a split screen: the QR moves
+   above the words rather than shrinking beside them. */
+@media (max-width: 760px) {
+  .device-link-grid {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .device-link-actions {
+    justify-content: center;
+  }
+}
+
+/* The way out of the password form for a device that can't fill it in. */
+.login-link-device {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.login-link-device button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ── Authorizing a device (the phone's half) ───────────────────────── */
+
+.device-confirm-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.device-confirm-card > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.device-confirm-card strong {
+  font-size: 1.05rem;
+}
+
+.device-confirm-card span {
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* The one thing on this screen that has to be compared against something else in
+   the room, so it gets the weight of a heading rather than of a caption. */
+.device-confirm-match {
+  display: grid;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.device-confirm-match span {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.device-confirm-match strong {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 1.6rem;
+  letter-spacing: 0.08em;
+}
+
+.device-confirm-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.device-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}

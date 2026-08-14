@@ -690,11 +690,11 @@ describe('schema baseline (3.0.0)', () => {
   it('builds a complete schema in one pass and stamps the current version', () => {
     const scratch = new Database(':memory:');
     migrate(scratch);
-    // 36 = the baseline (32) plus the title-card columns, the alphabet-index
-    // columns, the slideshow cover column, and the person cover column — all of
-    // which schema.sql already builds for a fresh file; those migrations are
-    // only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(36);
+    // 37 = the baseline (32) plus the title-card columns, the alphabet-index
+    // columns, the slideshow cover column, the person cover column, and the
+    // session kind/label columns — all of which schema.sql already builds for a
+    // fresh file; those migrations are only for databases that predate them.
+    expect(scratch.pragma('user_version', { simple: true })).toBe(37);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -770,7 +770,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(36);
+    expect(current.pragma('user_version', { simple: true })).toBe(37);
     current.close();
   });
 

@@ -17,9 +17,25 @@ export interface PublicUser {
   // Which second factor the account uses — a code from an authenticator app, or
   // one emailed at sign-in. Only meaningful when mfaEnabled is true.
   mfaMethod?: MfaMethod;
+  // How this session was minted. Self-only, and a property of the session rather
+  // than the account — it travels here because `user` is what every screen
+  // already has in hand. See isAdminSession below.
+  sessionKind?: SessionKind;
 }
 
 export type MfaMethod = "totp" | "email";
+
+export type SessionKind = "browser" | "device";
+
+/** Whether this caller may be shown administrative UI.
+ *
+ *  Being an admin is necessary but not sufficient: a session minted by linking a
+ *  display is refused on every admin route by the server, so offering it the
+ *  control panel produces a page of 403s instead of a page. The check lives here
+ *  so the answer is the same in all five places that ask. */
+export function isAdminSession(user: PublicUser | null | undefined): boolean {
+  return user?.role === "admin" && user.sessionKind !== "device";
+}
 
 interface ApiErrorPayload {
   error?: string;

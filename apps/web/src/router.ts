@@ -216,6 +216,12 @@ export type Route =
   | { name: "install" }
   | { name: "welcome" }
   | { name: "login" }
+  // Linking a display: the panel it shows, and the screen the phone lands on.
+  // Both are reachable signed out — the panel because the device has nobody to
+  // sign in as yet, the confirmation because a scan can arrive on a phone that
+  // isn't signed in either (it signs in and comes back).
+  | { name: "deviceLink" }
+  | { name: "deviceLinkConfirm"; userCode: string }
   | { name: "home" }
   | { name: "libraryFeed"; mode: "recent" | "continue" }
   | { name: "audiobooks" }
@@ -284,6 +290,17 @@ export function getRoute(): Route {
 
   if (path === "/login") {
     return { name: "login" };
+  }
+
+  if (path === "/link") {
+    return { name: "deviceLink" };
+  }
+
+  // The QR's target. The code is matched loosely and normalised by the page —
+  // someone reading it off a screen will type it lowercase, or with the dash.
+  const deviceCodeMatch = path.match(/^\/link\/([A-Za-z0-9-]{1,20})$/);
+  if (deviceCodeMatch) {
+    return { name: "deviceLinkConfirm", userCode: deviceCodeMatch[1] };
   }
 
   if (path === "/audiobooks") {
@@ -561,6 +578,36 @@ export function getReferrer(): string | null {
 export function navigate(path: string) {
   window.history.pushState({}, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+// Where to go once someone has signed in, when they didn't arrive at the sign-in
+// screen by choice. Today that means one thing: scanning a device-link QR on a
+// phone that happens to be signed out, which without this lands on the home page
+// having silently dropped the thing they were trying to do.
+//
+// sessionStorage, not localStorage — it belongs to this tab and this errand, and
+// should not still be waiting a week later. Only a same-origin path is ever
+// stored or returned, so a poisoned value can't become an off-site redirect.
+const PENDING_PATH_KEY = "isputnik:after-sign-in";
+
+export function rememberPathAfterSignIn(path: string): void {
+  if (!path.startsWith("/") || path.startsWith("//")) return;
+  try {
+    window.sessionStorage.setItem(PENDING_PATH_KEY, path);
+  } catch {
+    // Private mode, or storage full. The errand is lost, not the sign-in.
+  }
+}
+
+/** Reads and clears it: an interrupted errand is resumed once, never twice. */
+export function takePathAfterSignIn(): string | null {
+  try {
+    const path = window.sessionStorage.getItem(PENDING_PATH_KEY);
+    window.sessionStorage.removeItem(PENDING_PATH_KEY);
+    return path && path.startsWith("/") && !path.startsWith("//") ? path : null;
+  } catch {
+    return null;
+  }
 }
 
 // Reads one query param off the current URL.

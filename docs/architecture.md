@@ -172,6 +172,7 @@ apps/server/src/
                                  libraryPlugin, collectionsPlugin, familyTreePlugin,
                                  maintenancePlugin
   core/                       ← platform infrastructure ONLY: auth-routes, sessions,
+                                 device-link (sign a TV in by QR — see auth.md),
                                  permissions, app-config, setup, logs, status, shared
   modules/                    ← product features
     users/                    ← profile, users, invites, groups (aggregate usersPlugin)

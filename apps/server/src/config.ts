@@ -56,6 +56,12 @@ export const config = {
   // operator can have either without the other.
   httpsRedirect: appUrlIsHttps && process.env.HTTPS_REDIRECT !== "false",
   sessionDays: Number(process.env.SESSION_DAYS ?? 14),
+  // A linked display gets a much longer session than a browser does, because the
+  // alternative is a wall screen that signs itself out every fortnight and needs
+  // someone with a remote control — the exact chore the feature exists to remove.
+  // Affordable because the session is named, listed in Profile → Devices, emailed
+  // to its owner at creation, revocable in one click, and barred from admin routes.
+  deviceSessionDays: Number(process.env.DEVICE_SESSION_DAYS ?? 365),
   inviteDays: Number(process.env.INVITE_DAYS ?? 7),
   version: packageInfo.version,
   description: packageInfo.description
