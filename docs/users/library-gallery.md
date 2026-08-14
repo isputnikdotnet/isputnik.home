@@ -33,6 +33,21 @@ They're all views of the same photos — nothing is copied or moved between them
 The screenshot above shows the timeline grouping by date, with a Memories tile
 on top, because the sample photos were deliberately dated across several months.
 
+## How the grid looks
+
+**View**, next to Filter and Sort, sets two things and remembers them for next
+time:
+
+- **Tile size** — Small, Medium or Large. Small fits far more on screen for
+  hunting through a big year; Large is for actually looking at the photos. It
+  applies to the timeline and to an open folder.
+- **Dates** — *Group by day* is the default: a heading over each day, with the
+  checkbox that takes the whole day at once. *One continuous grid* drops the
+  headings and runs every photo together as a single wall, which reads better
+  when you're scrolling for a picture rather than for a date. Selecting still
+  works there — use **Select** in the toolbar, since there are no day headers to
+  tick.
+
 ## Viewing
 
 Click a photo to open the viewer. From there: pan and zoom, step through with

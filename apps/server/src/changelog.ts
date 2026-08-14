@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.7.0",
+    label: "Set how big your photos are, and reach the rest of the gallery from anywhere in it",
+    changes: [
+      "The gallery has a View button now, next to Filter and Sort. Tile size — Small, Medium or Large — decides how much of a year fits on screen at once: small for hunting through it, large for actually looking at the photos. It applies to the timeline and to an open folder, and it is remembered, so it is a decision you make once rather than every visit.",
+      "The same menu turns the date headings off. Group by day is still how the timeline arrives; One continuous grid runs every photo together as a single wall, which reads better when you are scrolling for a picture rather than for a date. Picking several still works there — use Select in the toolbar, since there are no day headings to tick.",
+      "On a phone, the Browse menu now sits beside the search box on every gallery view: Timeline, Memories, Albums, Slideshows, Folders, People and Map. It used to ride the toolbar, which People has none of, so that one view had no way of reaching any of the others.",
+      "Also on a phone, a Back button is now the arrow on its own. \"Back to slideshows\" is more words than a 375-pixel row has to spare, and it was crowding out the controls it shares that line with. It still says where it goes when a screen reader reads it out."
+    ]
+  },
+  {
     version: "3.6.1",
     label: "Choose how long remote linking stays open, and a tidier user list",
     changes: [

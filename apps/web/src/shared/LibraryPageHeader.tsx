@@ -10,17 +10,22 @@ import type { ReactNode } from "react";
 // The row has a fixed order, left to right, and pages opt into the slots they
 // need rather than arranging their own:
 //
-//   title + count · search · filters/sort · icon actions · primary action
+//   title + count · nav · search · filters/sort · icon actions · primary action
 //
 // `primaryAction` is a slot of its own rather than the tail of `actions` so the
 // page's one Create/New button lands in the same place on every page without
 // each call site having to remember to put it last.
+//
+// `nav` leads the row because it answers "where am I" rather than "what do I do
+// with this" — the gallery's phone Browse menu, which stands in for the left nav
+// a phone has no room for, so it must be reachable from every view.
 //
 // Anything that filters by facet rather than by text — the A–Z strip, the media
 // kind toggle, filter chips — belongs in a row BELOW this header, not inside it.
 export function LibraryPageHeader({
   title,
   subtitle,
+  nav,
   search,
   onSearchChange,
   searchPlaceholder,
@@ -29,6 +34,8 @@ export function LibraryPageHeader({
 }: {
   title: string;
   subtitle?: string;
+  /** A view switcher for this section — always first in the row, before search. */
+  nav?: ReactNode;
   search?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
@@ -43,8 +50,9 @@ export function LibraryPageHeader({
         <h1>{title}</h1>
         {subtitle && <p>{subtitle}</p>}
       </div>
-      {(onSearchChange || actions || primaryAction) && (
+      {(nav || onSearchChange || actions || primaryAction) && (
         <div className="audiobook-page-actions">
+          {nav}
           {onSearchChange && (
             <label className="audiobook-page-search">
               <span className="sr-only">{searchPlaceholder ?? `Search ${title.toLowerCase()}`}</span>
