@@ -372,6 +372,10 @@ CREATE TABLE IF NOT EXISTS gallery_people (
   name             TEXT NOT NULL,
   linked_person_id TEXT REFERENCES people(id) ON DELETE SET NULL,
   cover_face_id    TEXT,                          -- chosen representative face (Phase 2)
+  -- An explicit "use this photo" pick, same shape as gallery_albums/gallery_slideshows
+  -- .cover_item_id. Takes priority over cover_face_id and the most-recent-photo
+  -- fallback when set; NULL leaves the cover fully automatic.
+  cover_item_id    TEXT REFERENCES library_items(id) ON DELETE SET NULL,
   hidden           INTEGER NOT NULL DEFAULT 0,    -- hide a noisy auto-cluster from the People list
   curated          INTEGER NOT NULL DEFAULT 0,    -- user-shaped (a merge target): anchors reclustering like a name does
   face_count       INTEGER NOT NULL DEFAULT 0,    -- distinct accessible items; recomputed on change
@@ -455,6 +459,10 @@ CREATE TABLE IF NOT EXISTS gallery_slideshows (
   title_background TEXT NOT NULL DEFAULT 'black'
                    CHECK (title_background IN ('black', 'photo', 'blur', 'collage')),
   title_photo_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL,
+  -- The list-card / detail-header cover. NULL falls back to the first slide in
+  -- presentation order that has one — same "explicit pick, else first" shape as
+  -- gallery_albums.cover_item_id.
+  cover_item_id  TEXT REFERENCES library_items(id) ON DELETE SET NULL,
   -- Render state of the LATEST MP4 export (Phase 4). 'draft' = never rendered.
   render_status  TEXT NOT NULL DEFAULT 'draft'
                    CHECK (render_status IN ('draft', 'queued', 'rendering', 'ready', 'failed')),

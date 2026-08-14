@@ -40,6 +40,7 @@ export interface SlideshowRow {
   title_seconds: number;
   title_background: SlideshowTitleBackground;
   title_photo_item_id: string | null;
+  cover_item_id: string | null;
   render_status: "draft" | "queued" | "rendering" | "ready" | "failed";
   render_stale: number; // 1 = a 'ready' movie predates the current settings/content
   render_job_id: string | null;
@@ -103,11 +104,20 @@ export interface SlideshowUpdate {
   titleSeconds?: number;
   titleBackground?: SlideshowTitleBackground;
   titlePhotoItemId?: string | null;
+  coverItemId?: string | null;
 }
 
 export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): boolean {
   const slideshow = getSlideshow(slideshowId);
   if (!slideshow) return false;
+  // A cover must be a member of the slideshow (or null to fall back to the first
+  // slide) — same rule as gallery_albums.cover_item_id.
+  if (fields.coverItemId) {
+    const member = db.prepare(
+      "SELECT 1 FROM gallery_slideshow_items WHERE slideshow_id = ? AND item_id = ?"
+    ).get(slideshowId, fields.coverItemId);
+    if (!member) return false;
+  }
   // musicTrackId is a nullable set: `undefined` = leave alone, `null` = clear the
   // music, a value = set it (the route validates the track exists first). The
   // nullable title fields follow the same shape — `null` there means "fall back to
@@ -126,6 +136,7 @@ export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): b
       title_seconds = COALESCE(?, title_seconds),
       title_background = COALESCE(?, title_background),
       title_photo_item_id = CASE WHEN ? THEN ? ELSE title_photo_item_id END,
+      cover_item_id = CASE WHEN ? THEN ? ELSE cover_item_id END,
       render_stale = CASE WHEN render_status = 'ready' THEN 1 ELSE render_stale END,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE id = ?
@@ -142,6 +153,7 @@ export function updateSlideshow(slideshowId: string, fields: SlideshowUpdate): b
     fields.titleSeconds ?? null,
     fields.titleBackground ?? null,
     fields.titlePhotoItemId !== undefined ? 1 : 0, fields.titlePhotoItemId ?? null,
+    fields.coverItemId !== undefined ? 1 : 0, fields.coverItemId ?? null,
     slideshowId
   );
   return true;
@@ -245,8 +257,8 @@ interface SlideshowListRow extends SlideshowRow {
 
 // Slideshows the viewer should see, newest-updated first. `visible_count` counts
 // only items in the viewer's accessible libraries; zero-visible slideshows are kept
-// only for the creator/admin. The cover is the first (lowest-position) visible
-// member with a thumbnail.
+// only for the creator/admin. The cover prefers the explicit cover item, else the
+// first (lowest-position) visible member with a thumbnail.
 export function listSlideshows(user: { id: string; role: string }, libIds: string[]) {
   const libArgs = libIds.length > 0 ? libIds : [""];
   const libIn = inClause(libArgs.length);
@@ -257,16 +269,22 @@ export function listSlideshows(user: { id: string; role: string }, libIds: strin
         JOIN library_items ON library_items.id = gallery_slideshow_items.item_id AND library_items.deleted_at IS NULL
         WHERE gallery_slideshow_items.slideshow_id = gallery_slideshows.id
           AND library_items.library_id IN (${libIn})) AS visible_count,
-      (SELECT item_metadata.cover_storage_key FROM gallery_slideshow_items
-        JOIN library_items ON library_items.id = gallery_slideshow_items.item_id AND library_items.deleted_at IS NULL
-        JOIN item_metadata ON item_metadata.item_id = library_items.id
-        WHERE gallery_slideshow_items.slideshow_id = gallery_slideshows.id
-          AND library_items.library_id IN (${libIn})
-          AND item_metadata.cover_storage_key IS NOT NULL
-        ORDER BY gallery_slideshow_items.position LIMIT 1) AS cover_key
+      COALESCE(
+        (SELECT item_metadata.cover_storage_key FROM library_items
+          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          WHERE library_items.id = gallery_slideshows.cover_item_id AND library_items.deleted_at IS NULL
+            AND library_items.library_id IN (${libIn})),
+        (SELECT item_metadata.cover_storage_key FROM gallery_slideshow_items
+          JOIN library_items ON library_items.id = gallery_slideshow_items.item_id AND library_items.deleted_at IS NULL
+          JOIN item_metadata ON item_metadata.item_id = library_items.id
+          WHERE gallery_slideshow_items.slideshow_id = gallery_slideshows.id
+            AND library_items.library_id IN (${libIn})
+            AND item_metadata.cover_storage_key IS NOT NULL
+          ORDER BY gallery_slideshow_items.position LIMIT 1)
+      ) AS cover_key
     FROM gallery_slideshows
     ORDER BY datetime(gallery_slideshows.updated_at) DESC
-  `).all(...libArgs, ...libArgs) as SlideshowListRow[];
+  `).all(...libArgs, ...libArgs, ...libArgs) as SlideshowListRow[];
 
   return rows
     .filter((row) => row.visible_count > 0 || canEditSlideshow(row, user))

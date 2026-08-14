@@ -32,6 +32,8 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
   const [bulkSlideshowOpen, setBulkSlideshowOpen] = useState(false);
   // Folder-browser: add photos to the open slideshow straight from the galleries.
   const [browseOpen, setBrowseOpen] = useState(false);
+  // "Pick a cover" popup, where clicking a tile sets it as the slideshow cover.
+  const [slideshowCoverPickerOpen, setSlideshowCoverPickerOpen] = useState(false);
   // Confirm + delete the open slideshow's rendered movie.
   const [movieDeleteOpen, setMovieDeleteOpen] = useState(false);
   const [movieDeleteBusy, setMovieDeleteBusy] = useState(false);
@@ -103,6 +105,17 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
       void openSlideshow(slideshowId); // resync on failure
     }
   }, [loadSlideshows, openSlideshow, setError]);
+
+  // Set the slideshow cover (chosen in the cover-picker popup). The list card's
+  // cover is cached on `slideshows`, not the detail — refresh it too, or the open
+  // slideshow's header would keep showing the old one until the next reload.
+  const setSlideshowCover = useCallback(async (slideshowId: string, itemId: string) => {
+    setSlideshowCoverPickerOpen(false);
+    setNotice("");
+    await patchSlideshow(slideshowId, { coverItemId: itemId });
+    void loadSlideshows();
+    setNotice("Slideshow cover updated.");
+  }, [patchSlideshow, loadSlideshows, setNotice]);
 
   // Kick off (or re-run) an MP4 render. The poll effect below tracks it to completion.
   const renderSlideshowMovie = useCallback(async (slideshowId: string) => {
@@ -224,10 +237,11 @@ export function useGallerySlideshows({ setLoading, setError, setNotice, isAdmin 
     slideshowBusy, setSlideshowBusy,
     bulkSlideshowOpen, setBulkSlideshowOpen,
     browseOpen, setBrowseOpen,
+    slideshowCoverPickerOpen, setSlideshowCoverPickerOpen,
     movieDeleteOpen, setMovieDeleteOpen,
     movieDeleteBusy, setMovieDeleteBusy,
     slideshowSettings, loadSlideshowSettings, setRenderLibrary,
-    loadSlideshows, openSlideshow, patchSlideshow,
+    loadSlideshows, openSlideshow, patchSlideshow, setSlideshowCover,
     renderSlideshowMovie, deleteSlideshowMovie, reorderSlideshow,
     removeFromSlideshow, createSlideshowSubmit, confirmDeleteSlideshow
   };

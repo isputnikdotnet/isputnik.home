@@ -9,12 +9,14 @@ import {
   findGalleryPersonByName,
   listGalleryPeople,
   getGalleryPersonPhotos,
+  getGalleryPersonRow,
   tagAssetPerson,
   untagAssetPerson,
   reassignPersonPhotos,
   deleteGalleryPerson,
   renameGalleryPerson,
-  setGalleryPersonHidden
+  setGalleryPersonHidden,
+  setGalleryPersonCover
 } from "../src/modules/library/gallery/people.js";
 import { resetDb, makeUser, makeLibrary, grant } from "./helpers/seed.js";
 
@@ -100,6 +102,21 @@ describe("gallery people — manual whole-photo tagging", () => {
     // The asset is still there, just untagged.
     expect((getGalleryAsset("u1", ["GAL"], a) as { people?: unknown[] }).people).toEqual([]);
     expect((db.prepare("SELECT COUNT(*) c FROM gallery_faces").get() as { c: number }).c).toBe(0);
+  });
+
+  it("update validates the cover is a photo of this person", async () => {
+    const a = await ingestGalleryAsset("GAL", asset("a.jpg", T), false);
+    const b = await ingestGalleryAsset("GAL", asset("b.jpg", T + DAY), false);
+    const p = createGalleryPerson("Cover");
+    tagAssetPerson(a, p.id);
+
+    expect(setGalleryPersonCover(p.id, b)).toBe(false); // b isn't tagged to this person
+    expect(setGalleryPersonCover(p.id, a)).toBe(true);
+    expect(getGalleryPersonRow(p.id)?.cover_item_id).toBe(a);
+
+    // null clears it back to fully automatic.
+    expect(setGalleryPersonCover(p.id, null)).toBe(true);
+    expect(getGalleryPersonRow(p.id)?.cover_item_id).toBeNull();
   });
 
   it("finds a person by name case-insensitively (so tag-by-name links, not duplicates)", () => {

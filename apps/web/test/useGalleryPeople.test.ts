@@ -52,12 +52,12 @@ describe("useGalleryPeople", () => {
   it("clears a half-made photo selection when the open person changes", async () => {
     const { result } = renderHook(() => useGalleryPeople(deps()));
 
-    mockApi.mockResolvedValueOnce({ assets: [asset("p1")], total: 1 });
+    mockApi.mockResolvedValueOnce({ person: { id: "person-1", name: "Ada", coverItemId: null }, assets: [asset("p1")], total: 1 });
     await act(() => result.current.openPerson({ id: "person-1", name: "Ada" }));
     act(() => result.current.setPersonPick(new Set(["p1"])));
     expect(result.current.personPick?.size).toBe(1);
 
-    mockApi.mockResolvedValueOnce({ assets: [asset("p2")], total: 1 });
+    mockApi.mockResolvedValueOnce({ person: { id: "person-2", name: "Grace", coverItemId: null }, assets: [asset("p2")], total: 1 });
     await act(() => result.current.openPerson({ id: "person-2", name: "Grace" }));
 
     expect(result.current.personPick).toBeNull();
@@ -65,7 +65,7 @@ describe("useGalleryPeople", () => {
 
   it("keeps the selection while the same person stays open", async () => {
     const { result } = renderHook(() => useGalleryPeople(deps()));
-    mockApi.mockResolvedValueOnce({ assets: [asset("p1"), asset("p2")], total: 2 });
+    mockApi.mockResolvedValueOnce({ person: { id: "person-1", name: "Ada", coverItemId: null }, assets: [asset("p1"), asset("p2")], total: 2 });
     await act(() => result.current.openPerson({ id: "person-1", name: "Ada" }));
 
     act(() => result.current.setPersonPick(new Set()));
@@ -84,7 +84,7 @@ describe("useGalleryPeople", () => {
 
   it("renames the open person and keeps the header in step", async () => {
     const { result } = renderHook(() => useGalleryPeople(deps()));
-    mockApi.mockResolvedValueOnce({ assets: [], total: 0 });
+    mockApi.mockResolvedValueOnce({ person: { id: "person-1", name: "Unnamed", coverItemId: null }, assets: [], total: 0 });
     await act(() => result.current.openPerson({ id: "person-1", name: "Unnamed" }));
 
     act(() => result.current.setRenameValue("  Ada Lovelace  "));
@@ -98,7 +98,7 @@ describe("useGalleryPeople", () => {
 
   it("refuses to rename to blank", async () => {
     const { result } = renderHook(() => useGalleryPeople(deps()));
-    mockApi.mockResolvedValueOnce({ assets: [], total: 0 });
+    mockApi.mockResolvedValueOnce({ person: { id: "person-1", name: "Ada", coverItemId: null }, assets: [], total: 0 });
     await act(() => result.current.openPerson({ id: "person-1", name: "Ada" }));
     mockApi.mockClear();
 
@@ -111,7 +111,7 @@ describe("useGalleryPeople", () => {
   it("moves the picked photos out of the grid and counts them off", async () => {
     const d = deps();
     const { result } = renderHook(() => useGalleryPeople(d));
-    mockApi.mockResolvedValueOnce({ assets: [asset("p1"), asset("p2"), asset("p3")], total: 3 });
+    mockApi.mockResolvedValueOnce({ person: { id: "person-1", name: "Ada", coverItemId: null }, assets: [asset("p1"), asset("p2"), asset("p3")], total: 3 });
     await act(() => result.current.openPerson({ id: "person-1", name: "Ada" }));
     act(() => result.current.setPersonPick(new Set(["p1", "p3"])));
 
@@ -127,7 +127,7 @@ describe("useGalleryPeople", () => {
   it("says photo, not photos, when only one moved", async () => {
     const d = deps();
     const { result } = renderHook(() => useGalleryPeople(d));
-    mockApi.mockResolvedValueOnce({ assets: [asset("p1")], total: 1 });
+    mockApi.mockResolvedValueOnce({ person: { id: "person-1", name: "Ada", coverItemId: null }, assets: [asset("p1")], total: 1 });
     await act(() => result.current.openPerson({ id: "person-1", name: "Ada" }));
     act(() => result.current.setPersonPick(new Set(["p1"])));
 
@@ -139,7 +139,7 @@ describe("useGalleryPeople", () => {
 
   it("does not move anything when nothing is picked", async () => {
     const { result } = renderHook(() => useGalleryPeople(deps()));
-    mockApi.mockResolvedValueOnce({ assets: [asset("p1")], total: 1 });
+    mockApi.mockResolvedValueOnce({ person: { id: "person-1", name: "Ada", coverItemId: null }, assets: [asset("p1")], total: 1 });
     await act(() => result.current.openPerson({ id: "person-1", name: "Ada" }));
     mockApi.mockClear();
 

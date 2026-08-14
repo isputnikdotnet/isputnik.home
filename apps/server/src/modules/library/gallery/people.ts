@@ -40,18 +40,26 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
       LEFT JOIN item_metadata im ON im.item_id = li.id
       WHERE gf.person_id IS NOT NULL AND gf.assignment != 'rejected'
     ),
+    -- An explicit cover_item_id (set from the person's own "Set cover photo") beats
+    -- everything below it: the most-recent-photo fallback here, and the auto
+    -- cover_face_id in bestface. NULL leaves both fully automatic, as before.
     ranked AS (
-      SELECT person_id, cover,
-        ROW_NUMBER() OVER (PARTITION BY person_id ORDER BY datetime(taken_at) DESC) AS rn,
-        COUNT(*) OVER (PARTITION BY person_id) AS cnt
-      FROM accessible
+      SELECT a.person_id, a.cover,
+        ROW_NUMBER() OVER (PARTITION BY a.person_id
+          ORDER BY (gp1.cover_item_id IS NOT NULL AND a.item_id = gp1.cover_item_id) DESC, datetime(a.taken_at) DESC) AS rn,
+        COUNT(*) OVER (PARTITION BY a.person_id) AS cnt
+      FROM accessible a
+      JOIN gallery_people gp1 ON gp1.id = a.person_id
     ),
     -- The avatar crop is picked per viewer, from faces on photos THEY can access — the
     -- global cover_face_id may point into a library this viewer can't see, and a face
     -- crop must never leak across library access. Prefer the person's chosen cover face
     -- (recomputeClusterCentroid picks the clearest REPRESENTATIVE face) when it's
     -- accessible; otherwise fall back to best det_score among the faces this viewer can
-    -- see. This keeps a sharp but mis-clustered face from becoming the avatar.
+    -- see. This keeps a sharp but mis-clustered face from becoming the avatar. When an
+    -- explicit cover_item_id is set, candidates are restricted to faces on THAT item —
+    -- either a crop from it, or (via ranked, above) that item's whole-photo cover; never
+    -- a sharper face from some other, un-chosen photo.
     bestface AS (
       SELECT gf.person_id AS person_id, gf.thumb_storage_key AS thumb,
         ROW_NUMBER() OVER (PARTITION BY gf.person_id
@@ -61,6 +69,7 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
       JOIN library_items li ON li.id = gf.item_id AND li.deleted_at IS NULL AND li.library_id IN (${libIn})
       WHERE gf.person_id IS NOT NULL AND gf.assignment != 'rejected' AND gf.source = 'scan'
         AND gf.thumb_storage_key IS NOT NULL
+        AND (gp2.cover_item_id IS NULL OR gf.item_id = gp2.cover_item_id)
     )
     SELECT gp.id, gp.name, ranked.cover AS cover, ranked.cnt AS cnt,
       bestface.thumb AS face_thumb
@@ -86,9 +95,9 @@ export function listGalleryPeople(libIds: string[], includeHidden = false): Gall
   }));
 }
 
-export function getGalleryPersonRow(personId: string): { id: string; name: string; hidden: number } | null {
-  const row = db.prepare("SELECT id, name, hidden FROM gallery_people WHERE id = ?").get(personId) as
-    | { id: string; name: string; hidden: number }
+export function getGalleryPersonRow(personId: string): { id: string; name: string; hidden: number; cover_item_id: string | null } | null {
+  const row = db.prepare("SELECT id, name, hidden, cover_item_id FROM gallery_people WHERE id = ?").get(personId) as
+    | { id: string; name: string; hidden: number; cover_item_id: string | null }
     | undefined;
   return row ?? null;
 }
@@ -108,7 +117,7 @@ export function getGalleryPersonPhotos(
   const person = getGalleryPersonRow(personId);
   if (!person) return null;
   if (person.hidden && !includeHidden) return null;
-  if (libIds.length === 0) return { person: { id: person.id, name: person.name }, assets: [], total: 0 };
+  if (libIds.length === 0) return { person: { id: person.id, name: person.name, coverItemId: person.cover_item_id }, assets: [], total: 0 };
   const libIn = inClause(libIds.length);
   const itemFilter = `
     library_items.id IN (
@@ -127,7 +136,7 @@ export function getGalleryPersonPhotos(
     ORDER BY datetime(gallery_details.taken_at) DESC, library_items.id DESC
     LIMIT ? OFFSET ?
   `).all(userId, personId, ...libIds, limit, offset) as GalleryAssetRow[];
-  return { person: { id: person.id, name: person.name }, assets: rows.map(mapAsset), total };
+  return { person: { id: person.id, name: person.name, coverItemId: person.cover_item_id }, assets: rows.map(mapAsset), total };
 }
 
 // Exported for duplicates/items.ts, which moves face rows onto a kept copy and has to
@@ -171,6 +180,21 @@ export function setGalleryPersonHidden(personId: string, hidden: boolean): boole
   const res = db.prepare(
     "UPDATE gallery_people SET hidden = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
   ).run(hidden ? 1 : 0, personId);
+  return res.changes > 0;
+}
+
+// A cover must be a photo this person actually appears in (or null, to fall back to
+// automatic) — same rule as gallery_albums/gallery_slideshows' cover_item_id.
+export function setGalleryPersonCover(personId: string, itemId: string | null): boolean {
+  if (itemId) {
+    const member = db.prepare(
+      "SELECT 1 FROM gallery_faces WHERE person_id = ? AND item_id = ? AND assignment != 'rejected'"
+    ).get(personId, itemId);
+    if (!member) return false;
+  }
+  const res = db.prepare(
+    "UPDATE gallery_people SET cover_item_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+  ).run(itemId, personId);
   return res.changes > 0;
 }
 
