@@ -75,6 +75,11 @@ interface SessionState {
   /** Whether this install can offer passkeys at all — false on a plain-http LAN
    *  deployment, where the browser has no WebAuthn to call. See core/webauthn.ts. */
   passkeysAvailable: boolean;
+  /** Whether a device may be linked from THIS address right now: true at home, and
+   *  outside only while an admin has opened a registration window. The sign-in
+   *  screen leaves the option out entirely when it is false, rather than offering a
+   *  button that answers 403. See core/device-link.ts. */
+  deviceLinkAvailable: boolean;
 }
 
 type SessionCheck =
@@ -85,6 +90,7 @@ type SessionCheck =
       user: PublicUser | null;
       defaultTheme: Theme;
       passkeysAvailable: boolean;
+      deviceLinkAvailable: boolean;
       onboardingPending?: boolean;
     };
 
@@ -101,13 +107,15 @@ async function checkSession(): Promise<SessionCheck> {
       requiresSetup: boolean;
       defaultTheme?: Theme;
       passkeysAvailable?: boolean;
+      deviceLinkAvailable?: boolean;
     };
     const defaultTheme = setup.defaultTheme ?? "dark";
     const passkeysAvailable = Boolean(setup.passkeysAvailable);
-    if (setup.requiresSetup) return { reachable: true, requiresSetup: true, user: null, defaultTheme, passkeysAvailable };
+    const deviceLinkAvailable = Boolean(setup.deviceLinkAvailable);
+    if (setup.requiresSetup) return { reachable: true, requiresSetup: true, user: null, defaultTheme, passkeysAvailable, deviceLinkAvailable };
 
     const meRes = await fetch("/api/auth/me", { credentials: "include", signal: controller.signal });
-    if (meRes.status === 401) return { reachable: true, requiresSetup: false, user: null, defaultTheme, passkeysAvailable };
+    if (meRes.status === 401) return { reachable: true, requiresSetup: false, user: null, defaultTheme, passkeysAvailable, deviceLinkAvailable };
     if (!meRes.ok) return { reachable: false };
     const me = (await meRes.json()) as { user: PublicUser | null; onboardingPending?: boolean };
     return {
@@ -116,6 +124,7 @@ async function checkSession(): Promise<SessionCheck> {
       user: me.user ?? null,
       defaultTheme,
       passkeysAvailable,
+      deviceLinkAvailable,
       onboardingPending: me.onboardingPending
     };
   } catch {
@@ -143,7 +152,8 @@ export function App() {
       defaultTheme: cachedDefaultTheme(),
       // Not cached: it is cheap to learn and wrong to guess. Until the server
       // answers the sign-in screen simply doesn't offer the passkey button.
-      passkeysAvailable: false
+      passkeysAvailable: false,
+      deviceLinkAvailable: false
     };
   });
 
@@ -166,7 +176,7 @@ export function App() {
     if (result.requiresSetup) {
       await clearPrivateRuntimeCaches().catch(() => {});
       clearCachedUser();
-      setSession((s) => ({ ...s, loading: false, requiresSetup: true, user: null, defaultTheme: result.defaultTheme, passkeysAvailable: result.passkeysAvailable }));
+      setSession((s) => ({ ...s, loading: false, requiresSetup: true, user: null, defaultTheme: result.defaultTheme, passkeysAvailable: result.passkeysAvailable, deviceLinkAvailable: result.deviceLinkAvailable }));
       return;
     }
     if (result.user) {
@@ -174,12 +184,12 @@ export function App() {
         await clearPrivateRuntimeCaches().catch(() => {});
       }
       cacheCurrentUser(result.user);
-      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: result.user, defaultTheme: result.defaultTheme, passkeysAvailable: result.passkeysAvailable, onboardingPending: Boolean(result.onboardingPending) }));
+      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: result.user, defaultTheme: result.defaultTheme, passkeysAvailable: result.passkeysAvailable, deviceLinkAvailable: result.deviceLinkAvailable, onboardingPending: Boolean(result.onboardingPending) }));
     } else {
       // Server reachable but not authenticated — a genuine sign-out / expiry.
       await clearPrivateRuntimeCaches().catch(() => {});
       clearCachedUser();
-      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: null, defaultTheme: result.defaultTheme, passkeysAvailable: result.passkeysAvailable }));
+      setSession((s) => ({ ...s, loading: false, requiresSetup: false, user: null, defaultTheme: result.defaultTheme, passkeysAvailable: result.passkeysAvailable, deviceLinkAvailable: result.deviceLinkAvailable }));
     }
   }, []);
 
@@ -320,7 +330,13 @@ export function App() {
     }
 
     if (route.name === "login") {
-      return <LoginPage onSignedIn={refreshSession} passkeysAvailable={session.passkeysAvailable} />;
+      return (
+        <LoginPage
+          onSignedIn={refreshSession}
+          passkeysAvailable={session.passkeysAvailable}
+          deviceLinkAvailable={session.deviceLinkAvailable}
+        />
+      );
     }
 
     // Reachable signed in as well as out: someone can open /link on a display that

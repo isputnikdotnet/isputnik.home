@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from "react";
-import { Fingerprint, KeyRound, LockOpen, Pencil, Plus, Search, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
+import { Fingerprint, KeyRound, LockOpen, MonitorSmartphone, MonitorX, Pencil, Plus, Search, ShieldCheck, ShieldOff, Trash2, User, Users } from "lucide-react";
 import { api, type PublicUser } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
@@ -20,6 +20,12 @@ const ROLE_LABEL: Record<UserRole, string> = {
 
 function formatSessionCount(value: number) {
   return `${value.toLocaleString()} ${value === 1 ? "session" : "sessions"}`;
+}
+
+/** Whole minutes until an ISO instant, floored at zero. Read off a badge, so a
+ *  rounded number beats a ticking clock — the list is not a countdown timer. */
+function minutesLeft(iso: string): number {
+  return Math.max(0, Math.round((Date.parse(iso) - Date.now()) / 60_000));
 }
 
 export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
@@ -55,6 +61,10 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
   const [resettingPasskeys, setResettingPasskeys] = useState(false);
 
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
+
+  const [pendingWindow, setPendingWindow] = useState<ManagedUser | null>(null);
+  const [openingWindow, setOpeningWindow] = useState(false);
+  const [closingWindowId, setClosingWindowId] = useState<string | null>(null);
 
   const loadUsers = useCallback(async () => {
     const payload = await api<{ users: ManagedUser[] }>("/api/users");
@@ -186,6 +196,38 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     }
   };
 
+  // Linking a device is refused from outside the house and the app doesn't offer
+  // it there. This turns it on for one person, for an hour, for one device — after
+  // which it closes itself. There is no way to leave one open.
+  const openWindow = async () => {
+    if (!pendingWindow) return;
+
+    setOpeningWindow(true);
+    setModalError("");
+    try {
+      await api(`/api/users/${pendingWindow.id}/device-link-window`, { method: "POST", body: "{}" });
+      setPendingWindow(null);
+      await loadUsers();
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : "Unable to allow remote linking");
+    } finally {
+      setOpeningWindow(false);
+    }
+  };
+
+  const closeWindow = async (account: ManagedUser) => {
+    setClosingWindowId(account.id);
+    setError("");
+    try {
+      await api(`/api/users/${account.id}/device-link-window`, { method: "DELETE" });
+      await loadUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to cancel remote linking");
+    } finally {
+      setClosingWindowId(null);
+    }
+  };
+
   const resetMfa = async () => {
     if (!pendingMfaReset) return;
 
@@ -307,6 +349,14 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                             {isCurrent && <span className="status-badge current">Current</span>}
                             {account.protectedFromDelete && <span className="status-badge protected">Protected</span>}
                             {account.locked && <span className="status-badge locked">Locked</span>}
+                            {/* Only ever visible for the hour it is open, which is
+                                the whole design: there is no lasting state here to
+                                forget about. */}
+                            {account.deviceLinkWindowExpiresAt && (
+                              <span className="status-badge device-window">
+                                Remote linking · {minutesLeft(account.deviceLinkWindowExpiresAt)} min left
+                              </span>
+                            )}
                           </span>
                           <small>{account.email}</small>
                         </div>
@@ -367,6 +417,31 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                         >
                           <Fingerprint size={15} />
                         </Button>
+                        {account.deviceLinkWindowExpiresAt ? (
+                          <Button
+                            variant="icon"
+                            danger
+                            title="Cancel remote device linking"
+                            aria-label={`Cancel remote device linking for ${account.displayName}`}
+                            disabled={closingWindowId === account.id}
+                            onClick={() => closeWindow(account)}
+                          >
+                            <MonitorX size={15} />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="icon"
+                            title="Allow one device to be linked from outside the home network"
+                            aria-label={`Allow ${account.displayName} to link a device from outside`}
+                            disabled={!account.isActive}
+                            onClick={() => {
+                              setModalError("");
+                              setPendingWindow(account);
+                            }}
+                          >
+                            <MonitorSmartphone size={15} />
+                          </Button>
+                        )}
                         <Button
                           variant="icon"
                           title={account.locked ? "Clear sign-in lockout" : "This account isn't locked"}
@@ -522,6 +597,29 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
         >
           <p>This will deactivate the account and sign the user out on all devices.</p>
           <p><strong>Libraries, groups, activity history, and files are not deleted.</strong></p>
+        </ConfirmDialog>
+      )}
+
+      {pendingWindow && (
+        <ConfirmDialog
+          title={`Allow "${pendingWindow.displayName}" to link a device from outside?`}
+          confirmLabel="Allow for one hour"
+          busyLabel="Allowing…"
+          confirmIcon={<MonitorSmartphone size={15} />}
+          rich
+          busy={openingWindow}
+          error={modalError}
+          onConfirm={openWindow}
+          onCancel={() => setPendingWindow(null)}
+        >
+          <p>
+            For the next hour they can sign a TV, display or kiosk in from anywhere, instead of only from your
+            home network. It ends as soon as one device is linked.
+          </p>
+          <p>
+            <strong>They will still need their own password to authorize it</strong>, and the linked device still
+            can't reach the control panel. You'll be emailed if one is linked.
+          </p>
         </ConfirmDialog>
       )}
 

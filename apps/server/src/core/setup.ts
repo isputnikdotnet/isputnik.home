@@ -6,6 +6,7 @@ import { issueSession } from "../auth.js";
 import { parseBody, setupSchema } from "./shared.js";
 import { getDefaultTheme } from "./app-config.js";
 import { noteSignInNetwork } from "./security.js";
+import { deviceLinkAccess } from "./device-link.js";
 import { passkeysAvailable } from "./webauthn.js";
 
 // Whether the first admin has been offered the setup guide yet.
@@ -42,14 +43,27 @@ export async function setupPlugin(app: FastifyInstance) {
   // this every 6 seconds per open tab to tell "server down" from "no network"
   // (pwa/useOnlineStatus.ts): 240/min leaves room for two dozen tabs behind one
   // household address while still capping anyone hammering it.
-  app.get("/api/setup/status", { config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async () => ({
+  app.get("/api/setup/status", { config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request) => ({
     requiresSetup: !hasUsers(),
     defaultTheme: getDefaultTheme(),
     // Rides along on the call the app already makes before rendering, so the sign-in
     // screen knows whether to offer the passkey button without a second request.
     // Safe to say publicly: it only restates whether this install is reached over
     // HTTPS at a domain, which the caller can see from its own address bar.
-    passkeysAvailable: passkeysAvailable()
+    passkeysAvailable: passkeysAvailable(),
+    // Whether "Link a TV or display" is worth offering to THIS caller, so the
+    // sign-in screen can leave it out entirely rather than show a button that
+    // answers 403 — which is how people learn to click through refusals.
+    //
+    // Unlike passkeysAvailable, this one does disclose something: from outside the
+    // house it is false almost always, so a `true` tells an anonymous caller that
+    // an admin has a registration window open right now. Not whose, and not for how
+    // long — but it does say "someone here is expecting to approve a device", which
+    // is the best moment to try talking them into approving the wrong one. Accepted
+    // deliberately: the window is an hour, shut the rest of the time, and approving
+    // still needs the account password and a code that matches the screen in the
+    // room. See docs/iSputnik-Remote-Device-Linking-Plan.md.
+    deviceLinkAvailable: deviceLinkAccess(request.ip, request.headers as Record<string, unknown>).allowed
   }));
 
   // Deliberately NOT on /api/setup/status, which is public: whether an install has

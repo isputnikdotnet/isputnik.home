@@ -14,6 +14,7 @@ import { hashPassword } from "../src/crypto.js";
 import { registerAuthDecorators } from "../src/auth.js";
 import { deviceLinkRoutes } from "../src/core/device-link-routes.js";
 import { getSecurityPolicy, setSecurityPolicy } from "../src/core/security.js";
+import { liveWindowFor, openLinkWindow } from "../src/core/device-link.js";
 import { resetDb } from "./helpers/seed.js";
 
 // The flow end to end, and every way it is supposed to say no. "The device" and
@@ -382,6 +383,139 @@ describe("redeeming", () => {
 
     expect((await poll(body.deviceCode)).json()).toMatchObject({ status: "expired" });
     expect(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE kind = 'device'").get()).toEqual({ n: 0 });
+  });
+});
+
+describe("linking from outside, during a registration window", () => {
+  // The window is the whole of the remote path: without one, outside is refused at
+  // the door; with one, the request is created but only the person it was opened
+  // for can approve it, and the first device to link closes it.
+  it("refuses at the door with no window open", async () => {
+    const { res } = await startLink(OUTSIDE);
+    expect(res.statusCode).toBe(403);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM device_link_requests").get()).toEqual({ n: 0 });
+  });
+
+  it("carries a device all the way through while a window is open", async () => {
+    const owner = await makeOwner();
+    const cookieHeader = await phoneCookie(owner);
+    openLinkWindow(owner, null);
+
+    const { res: started, body } = await startLink(OUTSIDE);
+    expect(started.statusCode).toBe(201);
+    expect((db.prepare("SELECT remote FROM device_link_requests").get() as { remote: number }).remote).toBe(1);
+
+    const approved = await app.inject({
+      method: "POST",
+      url: `/api/auth/device/${body.userCode}/approve`,
+      headers: { cookie: cookieHeader },
+      payload: { currentPassword: PASSWORD }
+    });
+    expect(approved.statusCode).toBe(200);
+
+    const done = await poll(body.deviceCode);
+    expect(done.json()).toMatchObject({ status: "approved" });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE kind = 'device'").get()).toEqual({ n: 1 });
+  });
+
+  it("closes the window on the first device, so a second is refused", async () => {
+    const owner = await makeOwner();
+    const cookieHeader = await phoneCookie(owner);
+    openLinkWindow(owner, null);
+
+    const first = await startLink(OUTSIDE);
+    await app.inject({
+      method: "POST",
+      url: `/api/auth/device/${first.body.userCode}/approve`,
+      headers: { cookie: cookieHeader },
+      payload: { currentPassword: PASSWORD }
+    });
+    await poll(first.body.deviceCode);
+
+    expect(liveWindowFor(owner)).toBeNull();
+    // …and the door is shut again: a second device can't even open a request.
+    const second = await startLink(OUTSIDE);
+    expect(second.res.statusCode).toBe(403);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE kind = 'device'").get()).toEqual({ n: 1 });
+  });
+
+  it("will not let someone else's window authorize this account's device", async () => {
+    const traveller = await makeOwner("traveller");
+    const stayer = await makeOwner("stayer");
+    // The window belongs to the traveller; the request is approved by the stayer.
+    openLinkWindow(traveller, null);
+    const stayerCookie = await phoneCookie(stayer);
+
+    const { body } = await startLink(OUTSIDE);
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/auth/device/${body.userCode}/approve`,
+      headers: { cookie: stayerCookie },
+      payload: { currentPassword: PASSWORD }
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect((res.json() as { error: string }).error).toMatch(/administrator/i);
+    expect((await poll(body.deviceCode)).json()).toMatchObject({ status: "pending" });
+    // The traveller's window is untouched by someone else's attempt.
+    expect(liveWindowFor(traveller)).toBeTruthy();
+  });
+
+  it("checks the password first, so a wrong one never reveals whether a window exists", async () => {
+    const owner = await makeOwner();
+    const cookieHeader = await phoneCookie(owner);
+    db.prepare("INSERT INTO users (id, email, password_hash, display_name, role) VALUES ('someone-else-entirely', 'x@y.z', 'x', 'Other', 'member')")
+      .run();
+    openLinkWindow("someone-else-entirely", null);
+
+    const { body } = await startLink(OUTSIDE);
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/auth/device/${body.userCode}/approve`,
+      headers: { cookie: cookieHeader },
+      payload: { currentPassword: "wrong" }
+    });
+
+    // 401 for the password, not 403 for the window — the two are indistinguishable
+    // to someone who doesn't have the password anyway.
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("stops honouring a window that expired mid-flow", async () => {
+    const owner = await makeOwner();
+    const cookieHeader = await phoneCookie(owner);
+    openLinkWindow(owner, null);
+    const { body } = await startLink(OUTSIDE);
+
+    db.prepare("UPDATE device_link_windows SET expires_at = ?").run(new Date(Date.now() - 60_000).toISOString());
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/auth/device/${body.userCode}/approve`,
+      headers: { cookie: cookieHeader },
+      payload: { currentPassword: PASSWORD }
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("leaves the house alone: a local request needs no window and burns none", async () => {
+    const owner = await makeOwner();
+    const cookieHeader = await phoneCookie(owner);
+    openLinkWindow(owner, null);
+
+    const { body } = await startLink(LAN);
+    expect((db.prepare("SELECT remote FROM device_link_requests").get() as { remote: number }).remote).toBe(0);
+
+    await app.inject({
+      method: "POST",
+      url: `/api/auth/device/${body.userCode}/approve`,
+      headers: { cookie: cookieHeader },
+      payload: { currentPassword: PASSWORD }
+    });
+    await poll(body.deviceCode);
+
+    // The window is still open — it was never needed, so it wasn't spent.
+    expect(liveWindowFor(owner)).toBeTruthy();
   });
 });
 

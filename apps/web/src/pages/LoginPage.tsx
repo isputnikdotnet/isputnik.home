@@ -13,12 +13,17 @@ import { navigate, takePathAfterSignIn } from "../router";
 
 export function LoginPage({
   onSignedIn,
-  passkeysAvailable
+  passkeysAvailable,
+  deviceLinkAvailable
 }: {
   onSignedIn: () => Promise<void>;
   /** Whether the SERVER can do passkeys (HTTPS at a domain). The browser half is
    *  checked separately — both have to be true for the button to mean anything. */
   passkeysAvailable: boolean;
+  /** Whether a device may be linked from this address right now. False outside the
+   *  house unless an admin has opened a registration window, and the option is then
+   *  left out rather than shown and refused. */
+  deviceLinkAvailable: boolean;
 }) {
   const [stage, setStage] = useState<"credentials" | "mfa">("credentials");
   const [email, setEmail] = useState("");
@@ -205,13 +210,18 @@ export function LoginPage({
 
         {/* For the device that can't type this form: a TV, a wall display, a
             kiosk. It shows a code, and a phone that IS signed in authorizes it.
-            Below the password form deliberately — this is the unusual path. */}
-        <div className="login-link-device">
-          <Button variant="text" onClick={() => navigate("/link")}>
-            <MonitorSmartphone size={16} aria-hidden="true" />
-            Link a TV or display instead
-          </Button>
-        </div>
+            Below the password form deliberately — this is the unusual path.
+            Hidden outside the house, where linking is refused unless an admin has
+            opened a registration window: a button that answers 403 teaches people
+            to click through refusals. */}
+        {deviceLinkAvailable && (
+          <div className="login-link-device">
+            <Button variant="text" onClick={() => navigate("/link")}>
+              <MonitorSmartphone size={16} aria-hidden="true" />
+              Link a TV or display instead
+            </Button>
+          </div>
+        )}
 
         <div className="login-qr">
           <div className="login-qr-code">

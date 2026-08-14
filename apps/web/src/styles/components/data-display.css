@@ -163,6 +163,16 @@
   background: color-mix(in srgb, var(--rose) 16%, transparent);
 }
 
+/* An open registration window: permission that is deliberately temporary, so it
+   reads as a state to notice rather than a problem (rose) or a fact (grey).
+   Not capitalized — it carries a countdown, and "Remote Linking · 47 Min Left"
+   is not a sentence anyone wrote. */
+.status-badge.device-window {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 16%, transparent);
+  text-transform: none;
+}
+
 .status-badge.manager {
   color: var(--gold);
   background: color-mix(in srgb, var(--gold) 18%, transparent);

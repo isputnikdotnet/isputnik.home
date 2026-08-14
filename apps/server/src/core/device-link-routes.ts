@@ -5,20 +5,23 @@ import { db, logActivity, publicUser, type User } from "../db.js";
 import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody, requestOrigin } from "./shared.js";
-import { deviceLinkAllowedFrom } from "./security.js";
-import { alertDeviceLinked, alertDeviceLinkRejected, flagAbusiveRequest } from "./security-alerts.js";
+import { alertDeviceLinked, alertDeviceLinkRejected, alertRemoteDeviceLinked, flagAbusiveRequest } from "./security-alerts.js";
 import {
   approveLinkRequest,
   attachSession,
+  closeLinkWindow,
   createLinkRequest,
   denyLinkRequest,
   describeNetwork,
   describeUserAgent,
+  deviceLinkAccess,
   findPendingByUserCode,
   formatUserCode,
+  liveWindowFor,
   noteFailedApproval,
   pollLinkRequest,
   sweepLinkRequests,
+  sweepLinkWindows,
   userCodeExists,
   POLL_INTERVAL_SECONDS
 } from "./device-link.js";
@@ -45,10 +48,10 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
   // Requests are one per attempt, including every abandoned one, and nothing else
   // in this app purges anything. A boot is the natural moment.
   try {
-    const swept = sweepLinkRequests();
-    if (swept > 0) app.log.info(`Cleared ${swept} expired device-link request${swept === 1 ? "" : "s"}.`);
+    const swept = sweepLinkRequests() + sweepLinkWindows();
+    if (swept > 0) app.log.info(`Cleared ${swept} expired device-link row${swept === 1 ? "" : "s"}.`);
   } catch (err) {
-    app.log.warn({ err }, "Could not clear expired device-link requests.");
+    app.log.warn({ err }, "Could not clear expired device-link rows.");
   }
 
   // ── The device ─────────────────────────────────────────────────────────────
@@ -61,8 +64,11 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
     }
 
     // Before anything is created: is this device even allowed to ask? Refusing here
-    // means a remote attacker cannot open a request to phish an approval for.
-    const verdict = deviceLinkAllowedFrom(request.ip, request.headers as Record<string, unknown>);
+    // means a remote attacker cannot open a request to phish an approval for —
+    // except during a registration window an admin has opened, when a request may
+    // be created from outside and is marked `remote` so approval can insist the
+    // approver is the person the window was opened for.
+    const verdict = deviceLinkAccess(request.ip, request.headers as Record<string, unknown>);
     if (!verdict.allowed) {
       logActivity({
         event: "auth.device_link_rejected",
@@ -82,12 +88,13 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
 
     const created = createLinkRequest({
       userAgent: typeof request.headers["user-agent"] === "string" ? request.headers["user-agent"] : null,
-      ip: request.ip
+      ip: request.ip,
+      remote: verdict.remote
     });
 
     logActivity({
       event: "auth.device_link_requested",
-      detail: `A device asked to be linked (${describeUserAgent(request.headers["user-agent"] as string)}).`,
+      detail: `A device asked to be linked (${describeUserAgent(request.headers["user-agent"] as string)})${verdict.remote ? ", from outside the home network" : ""}.`,
       ipAddress: request.ip
     });
 
@@ -150,12 +157,23 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
     });
     attachSession(outcome.row.id, sessionId);
 
+    // One window, one device. Spent here rather than at approval, so an approval
+    // nobody collects doesn't burn the hour — the same reasoning that makes the
+    // request itself single-use only once a session actually exists.
+    if (outcome.row.remote === 1) {
+      const window = liveWindowFor(user.id);
+      if (window) closeLinkWindow(window.id, sessionId);
+      alertRemoteDeviceLinked(user, request, label);
+    }
+
     logActivity({
-      event: "auth.device_link_redeemed",
+      event: outcome.row.remote === 1 ? "auth.device_link_remote" : "auth.device_link_redeemed",
       actorUserId: user.id,
       targetType: "user",
       targetId: user.id,
-      detail: `A linked device ("${label}") signed in.`,
+      detail: outcome.row.remote === 1
+        ? `A device ("${label}") was linked from outside the home network.`
+        : `A linked device ("${label}") signed in.`,
       ipAddress: request.ip
     });
 
@@ -237,6 +255,25 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
           ? "That password isn't right."
           : "That password isn't right, and this request has been cancelled. Start again on the device.",
         remaining
+      });
+    }
+
+    // A request that came from outside may only be approved by the person an admin
+    // opened a window for. This is where "for user X" is actually enforced: the
+    // request itself was created by an anonymous device that could say nothing
+    // about whose it was. After the password check, so a wrong password never
+    // reveals whether a window exists.
+    if (row.remote === 1 && !liveWindowFor(user.id)) {
+      logActivity({
+        event: "auth.device_link_remote_refused",
+        actorUserId: user.id,
+        targetType: "user",
+        targetId: user.id,
+        detail: "Tried to authorize a device from outside the home network without an open registration window.",
+        ipAddress: request.ip
+      });
+      return reply.code(403).send({
+        error: "Linking a device from outside your home network has to be turned on for your account by an administrator."
       });
     }
 
