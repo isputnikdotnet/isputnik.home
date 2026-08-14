@@ -139,19 +139,20 @@
 
 /* The table is table-layout:fixed, so a column is exactly as wide as it is told —
    nothing shrinks the Actions cell to its content, and anything that doesn't fit
-   spills and puts the whole grid in a horizontal scroll. The width therefore has
-   to be kept in step with the row's button count, which is what went wrong: the
-   row grew to six actions (edit · password · 2FA · passkeys · lockout · delete)
-   while this stayed sized for five.
-   Six 32px buttons with 4px gaps = 212px, plus the cell's 20px of padding.
-   ADD AN ACTION → UPDATE THIS NUMBER.
+   spills and puts the whole grid in a horizontal scroll.
+   This used to have to track the row's button count, and drifted twice: sized for
+   five while the row held six, then holding 232px of air once the six collapsed
+   into one menu — width taken straight out of the User column, which was left
+   truncating names. The row is one ⋮ button now and this is sized for it: 32px
+   plus the cell's 20px of padding, rounded up. It only changes if the trigger
+   changes, not when an action is added.
    User is `auto` and absorbs the rest; responsive.css drops Created, then
    Sessions, as the region narrows, rather than crushing User to nothing. */
 .user-table th:nth-child(1) { width: auto; }
 .user-table th:nth-child(2) { width: 100px; }
 .user-table th:nth-child(3) { width: 108px; }
 .user-table th:nth-child(4) { width: 164px; }
-.user-table th:nth-child(5) { width: 232px; }
+.user-table th:nth-child(5) { width: 56px; }
 
 .user-table .row-actions {
   gap: 4px;
@@ -169,28 +170,48 @@
 
 .user-account-cell {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   min-width: 0;
 }
 
 .user-avatar-icon {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   color: var(--blue);
   background: color-mix(in srgb, var(--blue) 14%, transparent);
 }
 
+.user-avatar-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* One line, always. This used to wrap, and with badges in a column barely wider
+   than a name that meant three stacked lines per user — name, badge, email — for a
+   table whose whole job is to be scanned. The name gives way instead: it is the
+   part you can still recognise from its first characters, and it is repeated in
+   full in every dialog the row opens. */
 .user-name-line {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.user-name-line > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-name-line > .status-badge {
+  flex: none;
 }
 
 /* ── Unified admin management pages ─────────────────────────────── */

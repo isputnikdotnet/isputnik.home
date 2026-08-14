@@ -9,11 +9,24 @@ import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { resetMfa } from "../../core/mfa-routes.js";
 import { clearPasskeys } from "../../core/webauthn.js";
 import { isAccountLocked, clearAccountLockout } from "../../core/security.js";
-import { listLiveWindows, openLinkWindow, revokeLinkWindow, WINDOW_MINUTES } from "../../core/device-link.js";
+import {
+  listLiveWindows,
+  normalizeWindowMinutes,
+  openLinkWindow,
+  revokeLinkWindow,
+  MAX_WINDOW_MINUTES,
+  MIN_WINDOW_MINUTES
+} from "../../core/device-link.js";
 import { alertNewAdmin, alertMfaDisabled, alertPasswordChanged } from "../../core/security-alerts.js";
 
 const roleSchema = z.object({
   role: z.enum(["admin", "member"])
+});
+
+// How long the admin wants the registration window open for. Optional, because a
+// caller with no opinion should get the default rather than an error.
+const deviceLinkWindowSchema = z.object({
+  minutes: z.number().int().min(MIN_WINDOW_MINUTES).max(MAX_WINDOW_MINUTES).optional()
 });
 
 const createUserSchema = z.object({
@@ -257,16 +270,22 @@ export async function usersPlugin(app: FastifyInstance) {
       return reply.code(409).send({ error: "That account is deactivated." });
     }
 
-    const window = openLinkWindow(id, request.user!.id);
+    const parsed = parseBody(deviceLinkWindowSchema, request.body ?? {});
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Pick between 1 and 60 minutes", details: parsed.error });
+    }
+
+    const minutes = normalizeWindowMinutes(parsed.data.minutes);
+    const window = openLinkWindow(id, request.user!.id, minutes);
     logActivity({
       event: "user.device_link_window_opened",
       actorUserId: request.user!.id,
       targetType: "user",
       targetId: id,
-      detail: `Allowed ${user.display_name} to link one device from outside the home network for ${WINDOW_MINUTES} minutes.`,
+      detail: `Allowed ${user.display_name} to link one device from outside the home network for ${minutes} minute${minutes === 1 ? "" : "s"}.`,
       ipAddress: request.ip
     });
-    return reply.send({ expiresAt: window.expires_at, minutes: WINDOW_MINUTES });
+    return reply.send({ expiresAt: window.expires_at, minutes });
   });
 
   app.delete("/api/users/:id/device-link-window", { preHandler: app.requireAdmin }, async (request, reply) => {

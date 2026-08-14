@@ -12,7 +12,7 @@ import { db } from "../src/db.js";
 import { issueSession, registerAuthDecorators } from "../src/auth.js";
 import { usersPlugin } from "../src/modules/users/users.js";
 import { setupPlugin } from "../src/core/setup.js";
-import { liveWindowFor, openLinkWindow, WINDOW_MINUTES } from "../src/core/device-link.js";
+import { liveWindowFor, openLinkWindow, DEFAULT_WINDOW_MINUTES } from "../src/core/device-link.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 // The admin's half — granting and cancelling a registration window — and the
@@ -66,7 +66,7 @@ beforeEach(async () => {
 });
 
 describe("granting a window", () => {
-  it("opens one for an hour and says when it ends", async () => {
+  it("defaults to an hour and says when it ends", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/users/traveller/device-link-window",
@@ -75,8 +75,37 @@ describe("granting a window", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ minutes: WINDOW_MINUTES });
+    expect(res.json()).toMatchObject({ minutes: DEFAULT_WINDOW_MINUTES });
     expect(liveWindowFor("traveller")).toBeTruthy();
+  });
+
+  it("opens one for as long as the admin asked", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/users/traveller/device-link-window",
+      headers: { cookie: await signIn("boss") },
+      payload: { minutes: 5 }
+    });
+
+    expect(res.json()).toMatchObject({ minutes: 5 });
+    const life = Math.round((Date.parse(liveWindowFor("traveller")!.expires_at) - Date.now()) / 60_000);
+    expect(life).toBe(5);
+  });
+
+  it("refuses a duration outside the range instead of quietly clamping it", async () => {
+    // Clamping is the last line of defence (normalizeWindowMinutes); the schema
+    // rejects first, so an admin who types 600 is told, not silently given 60.
+    const bossCookie = await signIn("boss");
+    for (const minutes of [0, -5, 61, 1440]) {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/users/traveller/device-link-window",
+        headers: { cookie: bossCookie },
+        payload: { minutes }
+      });
+      expect(res.statusCode, `minutes=${minutes}`).toBe(400);
+    }
+    expect(liveWindowFor("traveller")).toBeNull();
   });
 
   it("records who granted it, and to whom", async () => {

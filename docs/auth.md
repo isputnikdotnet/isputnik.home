@@ -199,8 +199,8 @@ Shipped:
   entirely in that state rather than degrading to "anyone at all". User-facing
   guide: [`users/link-a-device.md`](users/link-a-device.md).
 - **Registration windows** — the exception to that, for a household member who is
-  away. An admin opens a window for **one user** for **one hour** from Control
-  panel → Members → Users; the first device linked closes it
+  away. An admin opens a window for **one user** for **1–60 minutes** (default 60)
+  from Control panel → Members → Users; the first device linked closes it
   (`device_link_windows`). Enforced in two halves, because `start` is anonymous and
   cannot know whose device is asking: a request from outside is allowed only while
   *some* window is live and is marked `remote`, and a `remote` request may only be
@@ -216,7 +216,7 @@ Shipped:
   omit the option rather than offer one that 403s. Unlike `passkeysAvailable`, this
   is a real disclosure: from outside the house a `true` tells an anonymous caller
   that some registration window is open right now — not whose, not for how long.
-  Accepted deliberately (windows are an hour, shut the rest of the time, and
+  Accepted deliberately (windows are an hour at most, shut the rest of the time, and
   approval still needs the account password plus a code matching the screen in the
   room). The alternative, showing a button that fails, teaches people to click
   through refusals.
