@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, Film, FolderOpen, GripVertical, Heart, Image as ImageIcon, Music, Play, RefreshCw, Trash2, Type, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Film, GripVertical, Heart, Image as ImageIcon, Music, Play, RefreshCw, Trash2, Type, X } from "lucide-react";
 import { MusicPicker } from "./MusicPicker";
 import { SlideshowTitleCardModal } from "./SlideshowTitleCardModal";
 import { MessageBox } from "../../shared/MessageBox";
@@ -46,7 +46,6 @@ export function GallerySlideshowEditor({
   onRemove,
   onPatch,
   onRender,
-  onAddPhotos,
   onDeleteMovie
 }: {
   slideshow: GallerySlideshowDetail;
@@ -61,7 +60,6 @@ export function GallerySlideshowEditor({
   onRemove: (id: string) => void;
   onPatch: (fields: SlideshowPatch) => Promise<void> | void;
   onRender: () => void;
-  onAddPhotos: () => void;
   onDeleteMovie: () => void;
 }) {
   const [musicOpen, setMusicOpen] = useState(false);
@@ -144,15 +142,6 @@ export function GallerySlideshowEditor({
 
   return (
     <>
-      {canEdit && (
-        <div className="slideshow-toolbar">
-          <button type="button" className="secondary-button compact-button" onClick={onAddPhotos}>
-            <FolderOpen size={15} aria-hidden="true" /> Add photos
-          </button>
-          <span className="muted gallery-face-hint">Browse your galleries by folder and add more photos to this slideshow.</span>
-        </div>
-      )}
-
       {canEdit && ordered.length > 0 && (
         <div className="slideshow-settings" role="group" aria-label="Slideshow settings">
           <div className="slideshow-setting">

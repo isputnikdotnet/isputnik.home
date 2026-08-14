@@ -12,6 +12,8 @@ import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, navigate } from "../../router";
 import { MessageBox } from "../../shared/MessageBox";
 import { ConfirmDialog } from "../../shared/ConfirmDialog";
+import { SectionNav } from "../../shared/SectionNav";
+import { bookSectionNav, sectionNavProps } from "./sectionNavItems";
 import { getDownloadedBookDetail, getDownloadedEpubBlob } from "../../offline/downloads";
 import { useDownload } from "../../offline/useDownload";
 import { useEbookDownload } from "../../offline/useEbookDownload";
@@ -84,8 +86,15 @@ export function AudiobookBookPage({
     return () => { cancelled = true; };
   }, [id, reloadKey]);
 
+  const section = bookSectionNav(active === "ebooks" ? "ebook" : "audiobook");
+
   return (
-    <DashboardShell active={active} user={user} logout={logout}>
+    <DashboardShell
+      active={active}
+      user={user}
+      logout={logout}
+      sideNav={<SectionNav {...sectionNavProps(section)} activeKey="books" />}
+    >
       <section className="work-area book-detail-area">
         <div className="book-detail-shell">
           {error && <MessageBox tone="error" title="Error">{error}</MessageBox>}

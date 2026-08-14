@@ -26,11 +26,12 @@ import { AddToAlbumModal } from "./AddToAlbumModal";
 import { AddToSlideshowModal } from "./AddToSlideshowModal";
 import { GalleryDateModal } from "./GalleryDateModal";
 import { GalleryLocationModal } from "./GalleryLocationModal";
-import { SlideshowPhotoBrowser } from "./SlideshowPhotoBrowser";
+import { GalleryFolderPicker } from "./GalleryFolderPicker";
 import { GallerySlideshowEditor } from "./GallerySlideshowEditor";
 import { ShareSetModal } from "../share/ShareSetModal";
 import { ShareAlbumModal } from "./ShareAlbumModal";
 import { Modal } from "../../shared/Modal";
+import { ChoiceGroup } from "../../shared/ChoiceGroup";
 import type { GalleryAlbum, GalleryAlbumDetail, GalleryAsset, GalleryFaceSettings, GalleryFacets, GalleryFolder, GalleryLibrary, GalleryMapPoint, GalleryMemories, GalleryMemoryGroup, GalleryMemorySuggestion, GalleryPerson, GallerySlideshow, GallerySlideshowDetail, GallerySlideshowSettings, SlideshowTransition } from "./types";
 import { faceFocusStyle } from "./types";
 
@@ -64,12 +65,6 @@ const VIEW_TITLES: Record<GalleryView, string> = {
 const SORT_OPTIONS = [
   { value: "taken" as const, label: "Date taken" },
   { value: "added" as const, label: "Date uploaded" }
-];
-
-// Album sort, shown through the same compact icon dropdown as the timeline sort.
-const ALBUM_SORT_OPTIONS = [
-  { value: "taken_at" as const, label: "Date taken" },
-  { value: "manual" as const, label: "Order added" }
 ];
 
 // Titles for the Memories strip — the server reports how wide it had to match
@@ -200,6 +195,7 @@ export function GalleryPage({
     albumRename, setAlbumRename, albumDeleteOpen, setAlbumDeleteOpen,
     albumBusy, setAlbumBusy, shareAlbumOpen, setShareAlbumOpen,
     bulkAlbumOpen, setBulkAlbumOpen, coverPickerOpen, setCoverPickerOpen,
+    albumBrowseOpen, setAlbumBrowseOpen,
     loadAlbums, openAlbum, patchAlbum, setAlbumCover,
     removeFromAlbum, createAlbumSubmit, confirmDeleteAlbum
   } = useGalleryAlbums(status);
@@ -244,18 +240,19 @@ export function GalleryPage({
     || (view === "slideshows" && !selectedSlideshow)
     || (view === "people" && !selectedPerson);
   const hasSearch = browsingPhotos || browsingNamedList;
+  // An open album or slideshow has its own compact icon topbar (Back plus every
+  // action) and its cover-title heading — the shared toolbar and page header
+  // would only repeat that, so both step aside while one is open. The toolbar
+  // still needs to come back for a live selection, though — it's the only
+  // place the bulk-action bar renders, and Albums' own Select uses it.
+  const openDetailView = (view === "albums" && selectedAlbum) || (view === "slideshows" && selectedSlideshow);
+  const showBrowseChrome = !openDetailView;
   const searchPlaceholder = browsingPhotos
     ? "Search photos & videos..."
     : view === "albums" ? "Search albums..."
       : view === "slideshows" ? "Search slideshows..."
         : "Search people...";
 
-  // The open album's overflow (…) menu. Menu placement stays here with the other
-  // popovers and their shared outside-click handling.
-  const [albumMenuOpen, setAlbumMenuOpen] = useState(false);
-  const [albumMenuPos, setAlbumMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const albumMenuTriggerRef = useRef<HTMLButtonElement>(null);
-  const albumMenuRef = useRef<HTMLDivElement>(null);
   // Folder to open on the next switch into the Folders view (set by the lightbox's
   // Folder link); the view-change effect consumes it instead of loading the root.
   const pendingFolderRef = useRef<string | null>(null);
@@ -287,6 +284,10 @@ export function GalleryPage({
   // Upload (source-writing, policy-gated): the modal is offered when any library
   // accepts uploads. A notice confirms the batch after the modal closes.
   const [uploadOpen, setUploadOpen] = useState(false);
+
+  // Where a rendered slideshow movie is saved — an admin-only setting reached
+  // from the toolbar rather than a standing dropdown on the list page.
+  const [movieLibraryOpen, setMovieLibraryOpen] = useState(false);
 
   // Multi-select for bulk delete (mirrors the audiobook/ebook Select mode). Tiles
   // toggle selection instead of opening; the bulk bar acts on the chosen assets.
@@ -598,42 +599,12 @@ export function GalleryPage({
     };
   }, [viewMenuOpen]);
 
-  // Album overflow (…) menu — right-aligned under its trigger, same dismissal.
-  const toggleAlbumMenu = () => {
-    setAlbumMenuOpen((open) => {
-      if (!open && albumMenuTriggerRef.current) {
-        const rect = albumMenuTriggerRef.current.getBoundingClientRect();
-        setAlbumMenuPos({ top: rect.bottom + 8, left: rect.left });
-      }
-      return !open;
-    });
-  };
-
-  useEffect(() => {
-    if (!albumMenuOpen) return;
-    const close = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (albumMenuTriggerRef.current?.contains(target)) return;
-      if (albumMenuRef.current?.contains(target)) return;
-      setAlbumMenuOpen(false);
-    };
-    const dismiss = () => setAlbumMenuOpen(false);
-    window.addEventListener("mousedown", close);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
-    };
-  }, [albumMenuOpen]);
-
-  // Opening a different album (or closing) drops the cover picker / menu and any
-  // selection carried over from the previous album.
+  // Opening a different album (or closing) drops the cover picker, the folder
+  // browser, and any selection carried over from the previous album.
   useEffect(() => {
     setCoverPickerOpen(false);
-    setAlbumMenuOpen(false);
     setShareAlbumOpen(false);
+    setAlbumBrowseOpen(false);
     setSelectionMode(false);
     setSelectedIds(new Set());
   }, [selectedAlbum?.id]);
@@ -860,9 +831,13 @@ export function GalleryPage({
       : view === "memories"
         ? `${formatCount(memoriesTotal)} ${memoriesTotal === 1 ? "photo" : "photos"} from past years`
         : view === "albums"
-          ? (selectedAlbum ? `${formatCount(albumTotal)} ${albumTotal === 1 ? "item" : "items"}` : `${formatCount(shownAlbums.length)} ${shownAlbums.length === 1 ? "album" : "albums"}`)
+          // An open album shows its own count under its cover title too — see
+          // the slideshow case below.
+          ? (selectedAlbum ? undefined : `${formatCount(shownAlbums.length)} ${shownAlbums.length === 1 ? "album" : "albums"}`)
           : view === "slideshows"
-            ? (selectedSlideshow ? `${formatCount(slideshowTotal)} ${slideshowTotal === 1 ? "photo" : "photos"}` : `${formatCount(shownSlideshows.length)} ${shownSlideshows.length === 1 ? "slideshow" : "slideshows"}`)
+            // An open slideshow shows its own count under its cover title — the
+            // page-level subtitle would just be saying it a second time.
+            ? (selectedSlideshow ? undefined : `${formatCount(shownSlideshows.length)} ${shownSlideshows.length === 1 ? "slideshow" : "slideshows"}`)
           : view === "timeline"
             ? `${formatCount(total)} ${total === 1 ? "item" : "items"}`
             : folderSubtitle;
@@ -907,6 +882,7 @@ export function GalleryPage({
       sideNav={<SectionNav ariaLabel="Gallery" groupLabel="Gallery" items={galleryNavItems} activeKey={view} />}
     >
       <section className={`audiobook-main-page gallery-page${selectionMode ? " is-selecting" : ""}`}>
+        {showBrowseChrome && (
         <LibraryPageHeader
           title={VIEW_TITLES[view]}
           subtitle={subtitle}
@@ -916,6 +892,7 @@ export function GalleryPage({
           // Every control lives in the toolbar below, Upload and the view's own
           // Create included: the header is the page's name and its search box.
         />
+        )}
 
         {error && <MessageBox tone="error" title="Gallery error">{error}</MessageBox>}
         {notice && <MessageBox tone="success" title="Gallery updated">{notice}</MessageBox>}
@@ -947,6 +924,10 @@ export function GalleryPage({
           </div>
         ) : (
           <>
+            {/* An open album still needs this for one thing: the pinned bulk-
+                action bar a live selection swaps in. Otherwise it steps aside
+                for the compact icon topbar below. */}
+            {(showBrowseChrome || selectionMode) && (
             <LibraryPageToolbar
               // Scope says where you are — back out of a sub-view. Which library
               // the view draws from is a filter now, like every other way of
@@ -1034,97 +1015,21 @@ export function GalleryPage({
                   {(view === "memories" || view === "people" || view === "map") && libraries.length > 1 && (
                     <GalleryFilterButton facets={null} value={filters} onChange={setFilters} fields={["libraries"]} libraries={libraries} />
                   )}
-                  {/* One open album's own tools: at most two promoted (Slideshow,
-                      Share — the two reached for most), everything else — Rename,
-                      Set cover, Download, Delete — behind the named "Album" menu
-                      rather than a bare three-dot glyph, per the toolbar's own
-                      rule. Sort here reorders the album's own photos, so it sits
-                      with the narrowing controls even though there's no Filter
-                      to keep it company. */}
-                  {view === "albums" && selectedAlbum && (
-                    <>
-                      {selectedAlbum.canEdit && (
-                        <SortMenu
-                          value={selectedAlbum.sortMode}
-                          onChange={(value) => void patchAlbum(selectedAlbum.id, { sortMode: value })}
-                          options={ALBUM_SORT_OPTIONS}
-                          ariaLabel="Sort album"
-                          presentation="icon"
-                        />
-                      )}
-                      <span className="library-toolbar-divider" aria-hidden="true" />
-                      <button
-                        type="button"
-                        className="library-toolbar-button"
-                        disabled={albumAssets.length < 2}
-                        title={albumAssets.length < 2 ? "Add more photos to play a slideshow" : "Play this album as a slideshow"}
-                        onClick={startSlideshow}
-                      >
-                        <Play size={18} aria-hidden="true" />
-                        <span className="toolbar-label">Slideshow</span>
-                      </button>
-                      {selectedAlbum.canEdit && (
-                        <button type="button" className="library-toolbar-button" onClick={() => setShareAlbumOpen(true)}>
-                          <Share2 size={18} aria-hidden="true" />
-                          <span className="toolbar-label">Share</span>
-                        </button>
-                      )}
-                      <button
-                        ref={albumMenuTriggerRef}
-                        type="button"
-                        className="library-toolbar-button"
-                        onClick={toggleAlbumMenu}
-                        aria-haspopup="menu"
-                        aria-expanded={albumMenuOpen}
-                      >
-                        <span className="toolbar-label">Album</span>
-                        <ChevronDown size={16} aria-hidden="true" />
-                      </button>
-                      {albumMenuOpen && albumMenuPos && createPortal(
-                        <div
-                          ref={albumMenuRef}
-                          className="gallery-album-menu"
-                          role="menu"
-                          aria-label="Album actions"
-                          style={{ position: "fixed", top: albumMenuPos.top, left: albumMenuPos.left }}
-                        >
-                          {selectedAlbum.canEdit && (
-                            <button type="button" role="menuitem" onClick={() => { setAlbumMenuOpen(false); setAlbumRename(selectedAlbum.name); }}>
-                              <Pencil size={15} aria-hidden="true" /><span>Rename album</span>
-                            </button>
-                          )}
-                          {selectedAlbum.canEdit && (
-                            <button type="button" role="menuitem" onClick={() => { setAlbumMenuOpen(false); setNotice(""); setCoverPickerOpen(true); }}>
-                              <ImageIcon size={15} aria-hidden="true" /><span>Set cover photo</span>
-                            </button>
-                          )}
-                          <a
-                            role="menuitem"
-                            href={`/api/library/gallery/albums/${selectedAlbum.id}/download`}
-                            download
-                            onClick={() => setAlbumMenuOpen(false)}
-                          >
-                            <Download size={15} aria-hidden="true" /><span>Download album</span>
-                          </a>
-                          {selectedAlbum.canEdit && (
-                            <button type="button" role="menuitem" className="danger" onClick={() => { setAlbumMenuOpen(false); setAlbumDeleteOpen(true); }}>
-                              <Trash2 size={15} aria-hidden="true" /><span>Delete album</span>
-                            </button>
-                          )}
-                        </div>,
-                        document.body
-                      )}
-                      {!isMobile && !selectionMode && (
-                        <button
-                          type="button"
-                          className="library-toolbar-button"
-                          onClick={() => { setNotice(""); setSelectionMode(true); }}
-                        >
-                          <SquareCheck size={18} aria-hidden="true" />
-                          <span className="toolbar-label">Select</span>
-                        </button>
-                      )}
-                    </>
+                  {/* Where a rendered movie is saved is otherwise invisible, so
+                      the label carries it — same reasoning as Sort showing the
+                      order it's in. Admin-only, and only once there's somewhere
+                      to save one. */}
+                  {view === "slideshows" && !selectedSlideshow && isAdmin && slideshowSettings && slideshowSettings.libraries.length > 0 && (
+                    <button
+                      type="button"
+                      className="library-toolbar-button"
+                      onClick={() => setMovieLibraryOpen(true)}
+                    >
+                      <LibraryBig size={18} aria-hidden="true" />
+                      <span className="toolbar-label">
+                        {(slideshowSettings.renderLibraryId && slideshowSettings.libraries.find((lib) => lib.id === slideshowSettings.renderLibraryId)?.name) || "Movie library"}
+                      </span>
+                    </button>
                   )}
                   {/* Nothing narrows the other list views, so there is nothing to
                       divide the acting controls from. */}
@@ -1269,6 +1174,7 @@ export function GalleryPage({
                 )
               } : null}
             />
+            )}
 
             {view === "timeline" && <GalleryFilterChips value={filters} onChange={setFilters} libraries={libraries} />}
 
@@ -1504,10 +1410,69 @@ export function GalleryPage({
                 const albumCoverUrl = albums.find((al) => al.id === selectedAlbum.id)?.coverUrl ?? albumAssets[0]?.coverUrl ?? null;
                 return (
                 <>
-                  {/* Where you are and what you can do to it both moved into the
-                      toolbar above — "← Back to albums" in scope, the album's own
-                      tools in tools. This is just the album itself: cover, name,
-                      count. */}
+                  {/* Same idea as the slideshow detail's topbar: Back plus every
+                      action this album offers, icon-only, replacing the toolbar
+                      and page header that step aside while it's open. */}
+                  <div className="slideshow-detail-topbar">
+                    <Button
+                      variant="icon"
+                      title="Back to albums"
+                      aria-label="Back to albums"
+                      onClick={() => { setSelectedAlbum(null); setAlbumRename(null); void loadAlbums(); }}
+                    >
+                      <ArrowLeft size={18} aria-hidden="true" />
+                    </Button>
+                    <span className="library-toolbar-divider" aria-hidden="true" />
+                    <Button
+                      variant="icon"
+                      disabled={albumAssets.length < 2}
+                      title={albumAssets.length < 2 ? "Add more photos to play a slideshow" : "Play this album as a slideshow"}
+                      aria-label="Play this album as a slideshow"
+                      onClick={startSlideshow}
+                    >
+                      <Play size={18} aria-hidden="true" />
+                    </Button>
+                    {selectedAlbum.canEdit && (
+                      <Button variant="icon" title="Add photos" aria-label="Add photos" onClick={() => setAlbumBrowseOpen(true)}>
+                        <FolderOpen size={18} aria-hidden="true" />
+                      </Button>
+                    )}
+                    {selectedAlbum.canEdit && (
+                      <Button variant="icon" title="Share" aria-label="Share" onClick={() => setShareAlbumOpen(true)}>
+                        <Share2 size={18} aria-hidden="true" />
+                      </Button>
+                    )}
+                    {selectedAlbum.canEdit && (
+                      <Button variant="icon" title="Rename" aria-label="Rename" onClick={() => setAlbumRename(selectedAlbum.name)}>
+                        <Pencil size={18} aria-hidden="true" />
+                      </Button>
+                    )}
+                    {selectedAlbum.canEdit && (
+                      <Button variant="icon" title="Set cover photo" aria-label="Set cover photo" onClick={() => { setNotice(""); setCoverPickerOpen(true); }}>
+                        <ImageIcon size={18} aria-hidden="true" />
+                      </Button>
+                    )}
+                    <a
+                      className="icon-button"
+                      title="Download album"
+                      aria-label="Download album"
+                      href={`/api/library/gallery/albums/${selectedAlbum.id}/download`}
+                      download
+                    >
+                      <Download size={18} aria-hidden="true" />
+                    </a>
+                    {selectedAlbum.canEdit && (
+                      <Button variant="icon" danger title="Delete" aria-label="Delete album" onClick={() => setAlbumDeleteOpen(true)}>
+                        <Trash2 size={18} aria-hidden="true" />
+                      </Button>
+                    )}
+                    {!isMobile && !selectionMode && (
+                      <Button variant="icon" title="Select" aria-label="Select photos" onClick={() => { setNotice(""); setSelectionMode(true); }}>
+                        <SquareCheck size={18} aria-hidden="true" />
+                      </Button>
+                    )}
+                  </div>
+
                   <div className="gallery-album-header">
                     <span className="gallery-album-cover">
                       {albumCoverUrl ? <img src={albumCoverUrl} alt="" /> : <Album size={30} aria-hidden="true" />}
@@ -1545,7 +1510,7 @@ export function GalleryPage({
                   </div>
                   {!loading && albumAssets.length === 0 && (
                     <p className="management-empty">
-                      This album is empty. Select photos in the Timeline and use “Add to album”.
+                      This album is empty. Use “Add photos” above to browse your galleries by folder, or select photos in the Timeline and use “Add to album”.
                     </p>
                   )}
                   {albumAssets.length < albumTotal && (
@@ -1602,12 +1567,43 @@ export function GalleryPage({
                 const cover = slideshows.find((s) => s.id === selectedSlideshow.id)?.coverUrl ?? slideshowAssets[0]?.coverUrl ?? null;
                 return (
                   <>
-                    <div className="gallery-breadcrumb">
-                      <button type="button" onClick={() => { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); }}>All slideshows</button>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <ChevronRight size={14} aria-hidden="true" />
-                        <strong>{selectedSlideshow.name}</strong>
-                      </span>
+                    {/* The toolbar and page header are gone on an open slideshow
+                        (see showBrowseChrome). This compact icon row is what
+                        replaces them — Back plus every action, icon-only. */}
+                    <div className="slideshow-detail-topbar">
+                      <Button
+                        variant="icon"
+                        title="Back to slideshows"
+                        aria-label="Back to slideshows"
+                        onClick={() => { setSelectedSlideshow(null); setSlideshowRename(null); void loadSlideshows(); }}
+                      >
+                        <ArrowLeft size={18} aria-hidden="true" />
+                      </Button>
+                      <span className="library-toolbar-divider" aria-hidden="true" />
+                      <Button
+                        variant="icon"
+                        disabled={slideshowAssets.length === 0}
+                        title={slideshowAssets.length < 2 ? "Add more photos to play a slideshow" : "Play this slideshow"}
+                        aria-label="Play this slideshow"
+                        onClick={startSlideshow}
+                      >
+                        <Play size={18} aria-hidden="true" />
+                      </Button>
+                      {selectedSlideshow.canEdit && (
+                        <Button variant="icon" title="Add photos" aria-label="Add photos" onClick={() => setBrowseOpen(true)}>
+                          <FolderOpen size={18} aria-hidden="true" />
+                        </Button>
+                      )}
+                      {selectedSlideshow.canEdit && (
+                        <Button variant="icon" title="Rename" aria-label="Rename" onClick={() => setSlideshowRename(selectedSlideshow.name)}>
+                          <Pencil size={18} aria-hidden="true" />
+                        </Button>
+                      )}
+                      {selectedSlideshow.canEdit && (
+                        <Button variant="icon" danger title="Delete" aria-label="Delete" onClick={() => setSlideshowDeleteOpen(true)}>
+                          <Trash2 size={18} aria-hidden="true" />
+                        </Button>
+                      )}
                     </div>
 
                     <div className="gallery-album-header">
@@ -1627,27 +1623,6 @@ export function GalleryPage({
                         <p className="gallery-album-sub">
                           {formatCount(slideshowTotal)} {slideshowTotal === 1 ? "photo" : "photos"}
                         </p>
-                        <div className="gallery-album-actions">
-                          <button
-                            type="button"
-                            className="primary-button compact-button"
-                            disabled={slideshowAssets.length === 0}
-                            title={slideshowAssets.length < 2 ? "Add more photos to play a slideshow" : "Play this slideshow"}
-                            onClick={startSlideshow}
-                          >
-                            <Play size={15} aria-hidden="true" /> Play
-                          </button>
-                          {selectedSlideshow.canEdit && (
-                            <button type="button" className="secondary-button compact-button" onClick={() => setSlideshowRename(selectedSlideshow.name)}>
-                              <Pencil size={15} aria-hidden="true" /> Rename
-                            </button>
-                          )}
-                          {selectedSlideshow.canEdit && (
-                            <button type="button" className="danger-button compact-button" onClick={() => setSlideshowDeleteOpen(true)}>
-                              <Trash2 size={15} aria-hidden="true" /> Delete
-                            </button>
-                          )}
-                        </div>
                       </div>
                     </div>
 
@@ -1664,32 +1639,19 @@ export function GalleryPage({
                       onRemove={(id) => void removeFromSlideshow(selectedSlideshow.id, id)}
                       onPatch={(fields) => patchSlideshow(selectedSlideshow.id, fields)}
                       onRender={() => void renderSlideshowMovie(selectedSlideshow.id)}
-                      onAddPhotos={() => setBrowseOpen(true)}
                       onDeleteMovie={() => setMovieDeleteOpen(true)}
                     />
                   </>
                 );
               })() : (
                 <>
-                  {/* New slideshow lives in the page header's primary slot now. */}
+                  {/* New slideshow lives in the page header's primary slot now;
+                      where rendered movies are saved lives in the toolbar's
+                      "Movie library" button now. */}
                   <div className="gallery-person-toolbar">
                     <span className="muted gallery-face-hint">
                       Slideshows present photos in a set order with a transition and timing. Anyone can view; only the creator and admins can change one.
                     </span>
-                    {isAdmin && slideshowSettings && slideshowSettings.libraries.length > 0 && (
-                      <label className="slideshow-movie-lib">
-                        <span className="muted">Save rendered movies to</span>
-                        <select
-                          value={slideshowSettings.renderLibraryId ?? ""}
-                          onChange={(e) => void setRenderLibrary(e.target.value)}
-                        >
-                          <option value="">Don’t save to a library</option>
-                          {slideshowSettings.libraries.map((lib) => (
-                            <option key={lib.id} value={lib.id}>{lib.name}</option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
                   </div>
 
                   {shownSlideshows.length > 0 && (
@@ -2154,9 +2116,9 @@ export function GalleryPage({
       )}
 
       {browseOpen && selectedSlideshow && (
-        <SlideshowPhotoBrowser
-          slideshowId={selectedSlideshow.id}
-          slideshowName={selectedSlideshow.name}
+        <GalleryFolderPicker
+          title={`Add photos to “${selectedSlideshow.name}”`}
+          endpoint={`/api/library/gallery/slideshows/${selectedSlideshow.id}/items`}
           libraries={libraries}
           existingIds={slideshowAssets.map((asset) => asset.id)}
           onClose={() => setBrowseOpen(false)}
@@ -2164,6 +2126,22 @@ export function GalleryPage({
             if (added > 0) {
               setNotice(`Added ${added} photo${added === 1 ? "" : "s"} to "${selectedSlideshow.name}".`);
               void openSlideshow(selectedSlideshow.id);
+            }
+          }}
+        />
+      )}
+
+      {albumBrowseOpen && selectedAlbum && (
+        <GalleryFolderPicker
+          title={`Add photos to “${selectedAlbum.name}”`}
+          endpoint={`/api/library/gallery/albums/${selectedAlbum.id}/items`}
+          libraries={libraries}
+          existingIds={albumAssets.map((asset) => asset.id)}
+          onClose={() => setAlbumBrowseOpen(false)}
+          onAdded={(added) => {
+            if (added > 0) {
+              setNotice(`Added ${added} photo${added === 1 ? "" : "s"} to "${selectedAlbum.name}".`);
+              void openAlbum(selectedAlbum.id);
             }
           }}
         />
@@ -2187,6 +2165,32 @@ export function GalleryPage({
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {movieLibraryOpen && slideshowSettings && (
+        <Modal
+          variant="card"
+          title="Save rendered movies to"
+          icon={<LibraryBig size={20} />}
+          onClose={() => setMovieLibraryOpen(false)}
+        >
+          <p className="muted">
+            When a slideshow is rendered into a movie, it can also be saved into one of your
+            gallery libraries so it shows up alongside your photos.
+          </p>
+          <ChoiceGroup
+            legend="Movie library"
+            value={slideshowSettings.renderLibraryId ?? ""}
+            onChange={(value) => void setRenderLibrary(value)}
+            options={[
+              { value: "", label: "Don’t save to a library" },
+              ...slideshowSettings.libraries.map((lib) => ({ value: lib.id, label: lib.name }))
+            ]}
+          />
+          <div className="modal-actions">
+            <button type="button" className="primary-button" onClick={() => setMovieLibraryOpen(false)}>Done</button>
+          </div>
         </Modal>
       )}
 
