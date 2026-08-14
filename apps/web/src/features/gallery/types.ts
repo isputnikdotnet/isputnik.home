@@ -137,6 +137,7 @@ export interface SlideshowPatch extends Partial<SlideshowTitleSettings> {
   slideSeconds?: number;
   transitionSeconds?: number;
   musicTrackId?: string | null;
+  coverItemId?: string | null;
 }
 
 // A gallery slideshow: an ordered photo set with presentation settings. itemCount/
@@ -166,6 +167,7 @@ export interface GallerySlideshowDetail extends SlideshowTitleSettings {
   slideSeconds: number;
   // Cross-fade length in seconds (0.5–5): playback animations + the movie's xfade.
   transitionSeconds: number;
+  coverItemId: string | null;
   canEdit: boolean;
   updatedAt: string;
   musicTrackId: string | null;

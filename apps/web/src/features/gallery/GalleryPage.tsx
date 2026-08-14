@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, Image as ImageIcon, ImagePlus, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, ScanFace, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
+import { Album, ArrowLeft, CalendarClock, CalendarDays, CheckCheck, CheckCircle2, ChevronDown, ChevronRight, Circle, Combine, Compass, Download, Film, FolderOpen, FolderPlus, Image as ImageIcon, ImagePlus, LibraryBig, ListMusic, MapPin, MapPinned, Pencil, Play, Plus, Heart, Folder, RefreshCw, Share2, Sparkles, SquareCheck, Trash2, UploadCloud, Users, X } from "lucide-react";
 import { api, type PublicUser } from "../../api";
 import { DashboardShell } from "../../app/DashboardShell";
 import { followRoute, galleryHref, navigate, type GalleryView } from "../../router";
@@ -19,7 +19,6 @@ import { useGallerySlideshows } from "./useGallerySlideshows";
 import { useGalleryPeople } from "./useGalleryPeople";
 import { GalleryLightbox } from "./GalleryLightbox";
 import { GalleryUploadModal } from "./GalleryUploadModal";
-import { GalleryFaceSettingsModal } from "./GalleryFaceSettingsModal";
 import { GalleryFilterButton, GalleryFilterChips, EMPTY_GALLERY_FILTERS, activeGalleryFilterCount, type GalleryFilters } from "./GalleryFilter";
 import { AddToCollectionModal } from "../collections/AddToCollectionModal";
 import { AddToAlbumModal } from "./AddToAlbumModal";
@@ -206,16 +205,17 @@ export function GalleryPage({
     slideshowNewName, setSlideshowNewName, slideshowRename, setSlideshowRename,
     slideshowDeleteOpen, setSlideshowDeleteOpen, slideshowBusy,
     bulkSlideshowOpen, setBulkSlideshowOpen, browseOpen, setBrowseOpen,
+    slideshowCoverPickerOpen, setSlideshowCoverPickerOpen,
     movieDeleteOpen, setMovieDeleteOpen, movieDeleteBusy,
     slideshowSettings, loadSlideshowSettings, setRenderLibrary,
-    loadSlideshows, openSlideshow, patchSlideshow, renderSlideshowMovie,
+    loadSlideshows, openSlideshow, patchSlideshow, setSlideshowCover, renderSlideshowMovie,
     deleteSlideshowMovie, reorderSlideshow, removeFromSlideshow,
     createSlideshowSubmit, confirmDeleteSlideshow
   } = useGallerySlideshows({ ...status, isAdmin });
   const {
     people, selectedPerson, setSelectedPerson, personAssets, personTotal,
-    faceSettings, faceModalOpen, setFaceModalOpen,
     renameValue, setRenameValue, mergeOpen, setMergeOpen,
+    personCoverPickerOpen, setPersonCoverPickerOpen, setPersonCover,
     personDeleteOpen, setPersonDeleteOpen, personPick, setPersonPick,
     moveNewName, setMoveNewName, movingPhotos,
     showSmallGroups, setShowSmallGroups,
@@ -240,13 +240,18 @@ export function GalleryPage({
     || (view === "slideshows" && !selectedSlideshow)
     || (view === "people" && !selectedPerson);
   const hasSearch = browsingPhotos || browsingNamedList;
-  // An open album or slideshow has its own compact icon topbar (Back plus every
-  // action) and its cover-title heading — the shared toolbar and page header
-  // would only repeat that, so both step aside while one is open. The toolbar
-  // still needs to come back for a live selection, though — it's the only
-  // place the bulk-action bar renders, and Albums' own Select uses it.
-  const openDetailView = (view === "albums" && selectedAlbum) || (view === "slideshows" && selectedSlideshow);
+  // An open album, slideshow or person has its own compact icon topbar (Back
+  // plus every action) and its cover-title heading — the shared toolbar and
+  // page header would only repeat that, so both step aside while one is open.
+  // The toolbar still needs to come back for a live selection, though — it's
+  // the only place the bulk-action bar renders, and Albums' own Select uses it.
+  const openDetailView = (view === "albums" && selectedAlbum) || (view === "slideshows" && selectedSlideshow) || (view === "people" && selectedPerson);
   const showBrowseChrome = !openDetailView;
+  // People's own toolbar only ever held Filter (libraries-only) and Upload —
+  // neither pulls its weight on a page about who's in your photos, so it goes
+  // without one entirely (list and open-person alike), unlike Albums/
+  // Slideshows which only step aside while something specific is open.
+  const showToolbar = showBrowseChrome && view !== "people";
   const searchPlaceholder = browsingPhotos
     ? "Search photos & videos..."
     : view === "albums" ? "Search albums..."
@@ -454,7 +459,7 @@ export function GalleryPage({
   // Suggested memories (event/trip clusters). Loaded on mount too, so the Memories
   // tab can appear even when there are no "On this day" anniversaries today.
   const loadMemorySuggestions = useCallback(async () => {
-    const params = new URLSearchParams({ ...scopeParams(), limit: "12" } as Record<string, string>);
+    const params = new URLSearchParams({ ...scopeParams(), limit: "8" } as Record<string, string>);
     try {
       const payload = await api<{ suggestions: GalleryMemorySuggestion[] }>(`/api/library/gallery/memories/suggestions?${params}`);
       setMemorySuggestions(payload.suggestions);
@@ -706,7 +711,7 @@ export function GalleryPage({
   // Close the folder browser / movie-delete confirm when leaving a slideshow, so neither
   // reappears over the next one (a refresh keeps selectedSlideshow truthy, so the browser
   // stays open through adds).
-  useEffect(() => { if (!selectedSlideshow) { setBrowseOpen(false); setMovieDeleteOpen(false); } }, [selectedSlideshow]);
+  useEffect(() => { if (!selectedSlideshow) { setBrowseOpen(false); setSlideshowCoverPickerOpen(false); setMovieDeleteOpen(false); } }, [selectedSlideshow]);
 
   // Bulk favorite: one request for the whole selection. Items in libraries the
   // user can't favorite (shouldn't happen from this UI) come back as skipped.
@@ -827,7 +832,9 @@ export function GalleryPage({
   const subtitle = view === "map"
     ? `${formatCount(mapPoints.length)} on the map`
     : view === "people"
-      ? (selectedPerson ? `${formatCount(personTotal)} ${personTotal === 1 ? "photo" : "photos"}` : `${formatCount(shownPeople.length)} ${shownPeople.length === 1 ? "person" : "people"}`)
+      // An open person shows its own count under its cover title too — see
+      // the album/slideshow cases below.
+      ? (selectedPerson ? undefined : `${formatCount(shownPeople.length)} ${shownPeople.length === 1 ? "person" : "people"}`)
       : view === "memories"
         ? `${formatCount(memoriesTotal)} ${memoriesTotal === 1 ? "photo" : "photos"} from past years`
         : view === "albums"
@@ -927,7 +934,7 @@ export function GalleryPage({
             {/* An open album still needs this for one thing: the pinned bulk-
                 action bar a live selection swaps in. Otherwise it steps aside
                 for the compact icon topbar below. */}
-            {(showBrowseChrome || selectionMode) && (
+            {(showToolbar || selectionMode) && (
             <LibraryPageToolbar
               // Scope says where you are — back out of a sub-view. Which library
               // the view draws from is a filter now, like every other way of
@@ -1007,12 +1014,13 @@ export function GalleryPage({
                       />
                     </>
                   )}
-                  {/* Memories, People and Map have nothing to narrow but which
-                      libraries they draw from — Filter renders just that one
-                      section, and only once there's more than one library to
-                      choose between (GalleryFilterButton hides it otherwise,
-                      which would leave the button with nothing behind it). */}
-                  {(view === "memories" || view === "people" || view === "map") && libraries.length > 1 && (
+                  {/* Memories and Map have nothing to narrow but which libraries
+                      they draw from — Filter renders just that one section,
+                      and only once there's more than one library to choose
+                      between (GalleryFilterButton hides it otherwise, which
+                      would leave the button with nothing behind it). People
+                      has no toolbar at all (see showToolbar). */}
+                  {(view === "memories" || view === "map") && libraries.length > 1 && (
                     <GalleryFilterButton facets={null} value={filters} onChange={setFilters} fields={["libraries"]} libraries={libraries} />
                   )}
                   {/* Where a rendered movie is saved is otherwise invisible, so
@@ -1192,22 +1200,68 @@ export function GalleryPage({
                 )}
               </>
             ) : view === "people" ? (
-              selectedPerson ? (
+              selectedPerson ? (() => {
+                const personCoverUrl = people.find((p) => p.id === selectedPerson.id)?.coverUrl ?? null;
+                return (
                 <>
-                  <div className="gallery-breadcrumb">
-                    <button type="button" onClick={() => { setSelectedPerson(null); setRenameValue(null); setMergeOpen(false); void loadPeople(); }}>All people</button>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      <ChevronRight size={14} aria-hidden="true" />
-                      <strong>{selectedPerson.name || "Unnamed"}</strong>
-                    </span>
+                  {/* Same idea as the album/slideshow detail's topbar: Back
+                      plus every action this person offers, icon-only. */}
+                  <div className="slideshow-detail-topbar">
+                    <Button
+                      variant="icon"
+                      title="Back to people"
+                      aria-label="Back to people"
+                      onClick={() => { setSelectedPerson(null); setRenameValue(null); setMergeOpen(false); void loadPeople(); }}
+                    >
+                      <ArrowLeft size={18} aria-hidden="true" />
+                    </Button>
+                    {canCuratePeople && (
+                      <>
+                        <span className="library-toolbar-divider" aria-hidden="true" />
+                        {people.length > 1 && (
+                          <Button variant="icon" title="Merge all" aria-label="Merge all" onClick={() => setMergeOpen((v) => !v)}>
+                            <Combine size={18} aria-hidden="true" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="icon"
+                          title={personPick ? "Cancel selection" : "Pick photos"}
+                          aria-label={personPick ? "Cancel selection" : "Pick photos"}
+                          onClick={() => { setPersonPick(personPick ? null : new Set()); setMoveNewName(null); setMergeOpen(false); }}
+                        >
+                          <SquareCheck size={18} aria-hidden="true" />
+                        </Button>
+                        {personAssets.length > 0 && (
+                          <Button variant="icon" title="Set cover photo" aria-label="Set cover photo" onClick={() => { setNotice(""); setPersonCoverPickerOpen(true); }}>
+                            <ImageIcon size={18} aria-hidden="true" />
+                          </Button>
+                        )}
+                        <Button variant="icon" danger title="Delete" aria-label="Delete" onClick={() => setPersonDeleteOpen(true)}>
+                          <Trash2 size={18} aria-hidden="true" />
+                        </Button>
+                      </>
+                    )}
                   </div>
 
-                  {canCuratePeople && (
-                    <div className="gallery-person-toolbar">
+                  <div className="gallery-album-header">
+                    <span className="gallery-person-avatar">
+                      <PersonAvatar url={personCoverUrl} />
+                    </span>
+                    <div className="gallery-album-heading">
                       {renameValue == null ? (
-                        <button type="button" className="secondary-button compact-button" onClick={() => setRenameValue(selectedPerson.name)}>
-                          <Pencil size={14} aria-hidden="true" /> {selectedPerson.name ? "Rename" : "Name person"}
-                        </button>
+                        <div className="gallery-title-row">
+                          <h2 className={selectedPerson.name ? undefined : "gallery-person-unnamed"}>{selectedPerson.name || "Unnamed"}</h2>
+                          {canCuratePeople && (
+                            <Button
+                              variant="icon"
+                              title={selectedPerson.name ? "Rename" : "Name person"}
+                              aria-label={selectedPerson.name ? "Rename" : "Name person"}
+                              onClick={() => setRenameValue(selectedPerson.name)}
+                            >
+                              <Pencil size={18} aria-hidden="true" />
+                            </Button>
+                          )}
+                        </div>
                       ) : (
                         <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); void submitRename(); }}>
                           <input value={renameValue} onChange={(event) => setRenameValue(event.target.value)} placeholder="Name" autoFocus maxLength={120} />
@@ -1215,23 +1269,11 @@ export function GalleryPage({
                           <button type="button" className="icon-button" onClick={() => setRenameValue(null)} aria-label="Cancel"><X size={14} aria-hidden="true" /></button>
                         </form>
                       )}
-                      {people.length > 1 && (
-                        <button type="button" className="secondary-button compact-button" onClick={() => setMergeOpen((v) => !v)}>
-                          <Combine size={14} aria-hidden="true" /> Merge all
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="secondary-button compact-button"
-                        onClick={() => { setPersonPick(personPick ? null : new Set()); setMoveNewName(null); setMergeOpen(false); }}
-                      >
-                        <SquareCheck size={14} aria-hidden="true" /> {personPick ? "Cancel selection" : "Pick photos"}
-                      </button>
-                      <button type="button" className="danger-button compact-button" onClick={() => setPersonDeleteOpen(true)}>
-                        <Trash2 size={14} aria-hidden="true" /> Delete
-                      </button>
+                      <p className="gallery-album-sub">
+                        {formatCount(personTotal)} {personTotal === 1 ? "photo" : "photos"}
+                      </p>
                     </div>
-                  )}
+                  </div>
 
                   {mergeOpen && (
                     <div className="gallery-merge-panel">
@@ -1328,21 +1370,9 @@ export function GalleryPage({
                     </div>
                   )}
                 </>
-              ) : (
+                );
+              })() : (
                 <>
-                  {isAdmin && (
-                    <div className="gallery-face-admin">
-                      <button type="button" className="secondary-button compact-button" onClick={() => setFaceModalOpen(true)}>
-                        <ScanFace size={14} aria-hidden="true" /> Face recognition
-                      </button>
-                      <span className="muted gallery-face-hint">
-                        {anyFaceEnabled
-                          ? "Detecting faces and grouping people automatically — manage per library."
-                          : "Turn on face recognition per library to auto-detect people in your photos."}
-                      </span>
-                    </div>
-                  )}
-
                   {(() => {
                     // Keep named people and multi-photo groups up front; tuck unnamed
                     // single-photo groups into a collapsible "Small groups" section so a
@@ -1398,7 +1428,7 @@ export function GalleryPage({
                       <h2>No people yet</h2>
                       <p className="muted">
                         {isAdmin && !anyFaceEnabled
-                          ? "Turn on face recognition (button above) to auto-detect people — or open a photo's details to tag someone by hand."
+                          ? "Turn on face recognition from Control Panel → Libraries to auto-detect people — or open a photo's details to tag someone by hand."
                           : "Open a photo, show its details, and add a person to start grouping by who's in them."}
                       </p>
                     </div>
@@ -1434,17 +1464,12 @@ export function GalleryPage({
                     </Button>
                     {selectedAlbum.canEdit && (
                       <Button variant="icon" title="Add photos" aria-label="Add photos" onClick={() => setAlbumBrowseOpen(true)}>
-                        <FolderOpen size={18} aria-hidden="true" />
+                        <FolderPlus size={18} aria-hidden="true" />
                       </Button>
                     )}
                     {selectedAlbum.canEdit && (
                       <Button variant="icon" title="Share" aria-label="Share" onClick={() => setShareAlbumOpen(true)}>
                         <Share2 size={18} aria-hidden="true" />
-                      </Button>
-                    )}
-                    {selectedAlbum.canEdit && (
-                      <Button variant="icon" title="Rename" aria-label="Rename" onClick={() => setAlbumRename(selectedAlbum.name)}>
-                        <Pencil size={18} aria-hidden="true" />
                       </Button>
                     )}
                     {selectedAlbum.canEdit && (
@@ -1479,7 +1504,14 @@ export function GalleryPage({
                     </span>
                     <div className="gallery-album-heading">
                       {albumRename == null ? (
-                        <h2>{selectedAlbum.name}</h2>
+                        <div className="gallery-title-row">
+                          <h2>{selectedAlbum.name}</h2>
+                          {selectedAlbum.canEdit && (
+                            <Button variant="icon" title="Rename" aria-label="Rename" onClick={() => setAlbumRename(selectedAlbum.name)}>
+                              <Pencil size={18} aria-hidden="true" />
+                            </Button>
+                          )}
+                        </div>
                       ) : (
                         <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (albumRename.trim()) void patchAlbum(selectedAlbum.id, { name: albumRename.trim() }); }}>
                           <input value={albumRename} onChange={(event) => setAlbumRename(event.target.value)} placeholder="Album name" autoFocus maxLength={120} />
@@ -1591,12 +1623,12 @@ export function GalleryPage({
                       </Button>
                       {selectedSlideshow.canEdit && (
                         <Button variant="icon" title="Add photos" aria-label="Add photos" onClick={() => setBrowseOpen(true)}>
-                          <FolderOpen size={18} aria-hidden="true" />
+                          <FolderPlus size={18} aria-hidden="true" />
                         </Button>
                       )}
                       {selectedSlideshow.canEdit && (
-                        <Button variant="icon" title="Rename" aria-label="Rename" onClick={() => setSlideshowRename(selectedSlideshow.name)}>
-                          <Pencil size={18} aria-hidden="true" />
+                        <Button variant="icon" title="Set cover photo" aria-label="Set cover photo" onClick={() => { setNotice(""); setSlideshowCoverPickerOpen(true); }}>
+                          <ImageIcon size={18} aria-hidden="true" />
                         </Button>
                       )}
                       {selectedSlideshow.canEdit && (
@@ -1612,7 +1644,14 @@ export function GalleryPage({
                       </span>
                       <div className="gallery-album-heading">
                         {slideshowRename == null ? (
-                          <h2>{selectedSlideshow.name}</h2>
+                          <div className="gallery-title-row">
+                            <h2>{selectedSlideshow.name}</h2>
+                            {selectedSlideshow.canEdit && (
+                              <Button variant="icon" title="Rename" aria-label="Rename" onClick={() => setSlideshowRename(selectedSlideshow.name)}>
+                                <Pencil size={18} aria-hidden="true" />
+                              </Button>
+                            )}
+                          </div>
                         ) : (
                           <form className="gallery-person-rename" onSubmit={(event) => { event.preventDefault(); if (slideshowRename.trim()) void patchSlideshow(selectedSlideshow.id, { name: slideshowRename.trim() }); }}>
                             <input value={slideshowRename} onChange={(event) => setSlideshowRename(event.target.value)} placeholder="Slideshow name" autoFocus maxLength={120} />
@@ -1645,34 +1684,12 @@ export function GalleryPage({
                 );
               })() : (
                 <>
-                  {/* New slideshow lives in the page header's primary slot now;
-                      where rendered movies are saved lives in the toolbar's
-                      "Movie library" button now. */}
-                  <div className="gallery-person-toolbar">
-                    <span className="muted gallery-face-hint">
-                      Slideshows present photos in a set order with a transition and timing. Anyone can view; only the creator and admins can change one.
-                    </span>
-                  </div>
-
-                  {shownSlideshows.length > 0 && (
-                    <div className="gallery-folder-grid">
-                      {shownSlideshows.map((slideshow) => (
-                        <button key={slideshow.id} type="button" className="gallery-folder-tile" onClick={() => { setSlideshowAssets([]); setSlideshowTotal(0); void openSlideshow(slideshow.id); }}>
-                          <span className="gallery-folder-thumb">
-                            {slideshow.coverUrl ? <img src={slideshow.coverUrl} alt="" loading="lazy" /> : <Film size={28} aria-hidden="true" />}
-                            {slideshow.renderStatus === "ready" && <span className="slideshow-card-badge ready" title="Movie ready"><Play size={11} aria-hidden="true" />Movie</span>}
-                            {(slideshow.renderStatus === "rendering" || slideshow.renderStatus === "queued") && <span className="slideshow-card-badge busy" title="Rendering a movie">Rendering…</span>}
-                          </span>
-                          <strong>{slideshow.name}</strong>
-                          <small>{slideshow.itemCount.toLocaleString()} {slideshow.itemCount === 1 ? "photo" : "photos"}</small>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
                   {/* Suggestions are slideshows you don't have yet, so they are
                       not something a search of your own can match — they step
-                      aside while the box has a term in it. */}
+                      aside while the box has a term in it. Ahead of your own
+                      slideshows: it's the "make something new" prompt, and a
+                      single scrollable row (the fetch itself is capped) keeps
+                      it from pushing your actual list below the fold. */}
                   {memorySuggestions.length > 0 && !nameTerm && (
                     <section className="gallery-memory-suggestions" aria-label="Suggested slideshows">
                       <div className="gallery-memory-suggestions-head">
@@ -1685,10 +1702,7 @@ export function GalleryPage({
                           <Sparkles size={15} aria-hidden="true" /> Surprise me
                         </button>
                       </div>
-                      <p className="muted gallery-face-hint">
-                        Photos we’ve gathered into events and trips. Tap one to preview it, then create a slideshow or add its photos to one you already have.
-                      </p>
-                      <div className="gallery-folder-grid">
+                      <div className="gallery-suggestion-row">
                         {memorySuggestions.map((memory) => (
                           <button
                             key={memory.id}
@@ -1707,6 +1721,25 @@ export function GalleryPage({
                         ))}
                       </div>
                     </section>
+                  )}
+
+                  {shownSlideshows.length > 0 && (
+                    <>
+                      {memorySuggestions.length > 0 && !nameTerm && <h2 className="gallery-memories-title">Your slideshows</h2>}
+                      <div className="gallery-folder-grid">
+                        {shownSlideshows.map((slideshow) => (
+                          <button key={slideshow.id} type="button" className="gallery-folder-tile" onClick={() => { setSlideshowAssets([]); setSlideshowTotal(0); void openSlideshow(slideshow.id); }}>
+                            <span className="gallery-folder-thumb">
+                              {slideshow.coverUrl ? <img src={slideshow.coverUrl} alt="" loading="lazy" /> : <Film size={28} aria-hidden="true" />}
+                              {slideshow.renderStatus === "ready" && <span className="slideshow-card-badge ready" title="Movie ready"><Play size={11} aria-hidden="true" />Movie</span>}
+                              {(slideshow.renderStatus === "rendering" || slideshow.renderStatus === "queued") && <span className="slideshow-card-badge busy" title="Rendering a movie">Rendering…</span>}
+                            </span>
+                            <strong>{slideshow.name}</strong>
+                            <small>{slideshow.itemCount.toLocaleString()} {slideshow.itemCount === 1 ? "photo" : "photos"}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
 
                   {!loading && slideshows.length > 0 && shownSlideshows.length === 0 && (
@@ -2272,6 +2305,84 @@ export function GalleryPage({
         </Modal>
       )}
 
+      {slideshowCoverPickerOpen && selectedSlideshow && (
+        <Modal
+          variant="panel"
+          title="Set cover photo"
+          icon={<ImageIcon size={20} />}
+          className="gallery-cover-modal"
+          onClose={() => setSlideshowCoverPickerOpen(false)}
+        >
+          <div className="modal-tab-content">
+            <p className="muted">Choose a photo to use as this slideshow’s cover.</p>
+            {slideshowAssets.length === 0 ? (
+              <p className="management-empty">This slideshow has no photos yet.</p>
+            ) : (
+              <div className="gallery-grid gallery-cover-grid">
+                {slideshowAssets.map((asset) => (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    className={`gallery-tile${asset.id === selectedSlideshow.coverItemId ? " selected" : ""}`}
+                    onClick={() => void setSlideshowCover(selectedSlideshow.id, asset.id)}
+                    aria-label={`Use ${asset.title} as the cover`}
+                    title={`Use ${asset.title} as the cover`}
+                  >
+                    {asset.coverUrl ? (
+                      <img src={asset.coverUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
+                    )}
+                    {asset.id === selectedSlideshow.coverItemId && (
+                      <span className="gallery-tile-check" aria-hidden="true"><CheckCircle2 size={22} /></span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {personCoverPickerOpen && selectedPerson && (
+        <Modal
+          variant="panel"
+          title="Set cover photo"
+          icon={<ImageIcon size={20} />}
+          className="gallery-cover-modal"
+          onClose={() => setPersonCoverPickerOpen(false)}
+        >
+          <div className="modal-tab-content">
+            <p className="muted">Choose a photo to use as {selectedPerson.name ? `${selectedPerson.name}’s` : "this person’s"} cover.</p>
+            {personAssets.length === 0 ? (
+              <p className="management-empty">No photos yet.</p>
+            ) : (
+              <div className="gallery-grid gallery-cover-grid">
+                {personAssets.map((asset) => (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    className={`gallery-tile${asset.id === selectedPerson.coverItemId ? " selected" : ""}`}
+                    onClick={() => void setPersonCover(selectedPerson.id, asset.id)}
+                    aria-label={`Use ${asset.title} as the cover`}
+                    title={`Use ${asset.title} as the cover`}
+                  >
+                    {asset.coverUrl ? (
+                      <img src={asset.coverUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span className="gallery-tile-fallback"><ImageIcon size={26} aria-hidden="true" /></span>
+                    )}
+                    {asset.id === selectedPerson.coverItemId && (
+                      <span className="gallery-tile-check" aria-hidden="true"><CheckCircle2 size={22} /></span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
       {albumDeleteOpen && selectedAlbum && (
         <ConfirmDialog
           title={`Delete "${selectedAlbum.name}"?`}
@@ -2315,13 +2426,6 @@ export function GalleryPage({
           These items move into the Recycle Bin and leave the gallery for everyone. You can restore them
           from the Recycle Bin, or delete them permanently from there.
         </ConfirmDialog>
-      )}
-
-      {faceModalOpen && (
-        <GalleryFaceSettingsModal
-          onClose={() => setFaceModalOpen(false)}
-          onChanged={() => { void loadFaceSettings(); void loadLibraries(); if (view === "people") void loadPeople(); }}
-        />
       )}
 
       {personDeleteOpen && selectedPerson && (

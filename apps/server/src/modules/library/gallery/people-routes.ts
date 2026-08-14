@@ -12,6 +12,7 @@ import {
   findGalleryPersonByName,
   renameGalleryPerson,
   setGalleryPersonHidden,
+  setGalleryPersonCover,
   deleteGalleryPerson,
   mergeGalleryPeople,
   reassignPersonPhotos,
@@ -89,7 +90,8 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
 
   const updateSchema = z.object({
     name: z.string().trim().min(1).max(120).optional(),
-    hidden: z.boolean().optional()
+    hidden: z.boolean().optional(),
+    coverItemId: z.string().trim().min(1).max(64).nullable().optional()
   });
 
   app.patch("/api/library/gallery/people/:id", { preHandler: app.authenticate }, async (request, reply) => {
@@ -106,7 +108,11 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
     }
     if (parsed.data.name != null) renameGalleryPerson(personId, parsed.data.name);
     if (parsed.data.hidden != null) setGalleryPersonHidden(personId, parsed.data.hidden);
-    return reply.send({ person: getGalleryPersonRow(personId) });
+    if (parsed.data.coverItemId !== undefined && !setGalleryPersonCover(personId, parsed.data.coverItemId)) {
+      return reply.code(400).send({ error: "That photo isn't of this person." });
+    }
+    const updated = getGalleryPersonRow(personId)!;
+    return reply.send({ person: { id: updated.id, name: updated.name, hidden: Boolean(updated.hidden), coverItemId: updated.cover_item_id } });
   });
 
   app.delete("/api/library/gallery/people/:id", { preHandler: app.authenticate }, async (request, reply) => {

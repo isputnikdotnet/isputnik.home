@@ -28,14 +28,16 @@ interface PeopleDeps extends GalleryStatus {
  */
 export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams, isAdmin }: PeopleDeps) {
   const [people, setPeople] = useState<GalleryPerson[]>([]);
-  const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string } | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string; coverItemId: string | null } | null>(null);
   const [personAssets, setPersonAssets] = useState<GalleryAsset[]>([]);
   const [personTotal, setPersonTotal] = useState(0);
-  // Face recognition (admin): per-library settings + the settings popup.
+  // Face recognition (admin): per-library settings, managed from Control
+  // Panel → Libraries now — read here only for the "no people yet" hint.
   const [faceSettings, setFaceSettings] = useState<GalleryFaceSettings | null>(null);
-  const [faceModalOpen, setFaceModalOpen] = useState(false);
   // Inline rename of the open person.
   const [renameValue, setRenameValue] = useState<string | null>(null);
+  // "Pick a cover" popup, where clicking a photo sets it as this person's cover.
+  const [personCoverPickerOpen, setPersonCoverPickerOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [personDeleteOpen, setPersonDeleteOpen] = useState(false);
   // Picking individual photos out of the open person, to move them to someone else
@@ -71,11 +73,14 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
   const openPerson = useCallback(async (person: { id: string; name: string }, offset = 0) => {
     setLoading(true);
     setError("");
-    setSelectedPerson(person);
+    // Optimistic: name shows immediately, coverItemId fills in once the detail
+    // response arrives (the list card the click came from doesn't carry it).
+    setSelectedPerson((prev) => (prev && prev.id === person.id ? prev : { ...person, coverItemId: null }));
     try {
-      const payload = await api<{ assets: GalleryAsset[]; total: number }>(
+      const payload = await api<{ person: { id: string; name: string; coverItemId: string | null }; assets: GalleryAsset[]; total: number }>(
         `/api/library/gallery/people/${person.id}?limit=${PAGE_SIZE}&offset=${offset}`
       );
+      setSelectedPerson(payload.person);
       setPersonAssets((prev) => (offset === 0 ? payload.assets : [...prev, ...payload.assets]));
       setPersonTotal(payload.total);
     } catch (err) {
@@ -107,6 +112,22 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
       setError(err instanceof Error ? err.message : "Unable to rename");
     }
   }, [selectedPerson, renameValue, loadPeople, setError]);
+
+  // Set the person's cover (chosen in the cover-picker popup). The list card's
+  // cover is cached on `people`, not the detail — refresh it too, or the open
+  // person's header would keep showing the old avatar until the next reload.
+  const setPersonCover = useCallback(async (personId: string, itemId: string) => {
+    setPersonCoverPickerOpen(false);
+    setNotice("");
+    try {
+      await api(`/api/library/gallery/people/${personId}`, { method: "PATCH", body: JSON.stringify({ coverItemId: itemId }) });
+      setSelectedPerson((prev) => (prev && prev.id === personId ? { ...prev, coverItemId: itemId } : prev));
+      void loadPeople();
+      setNotice("Person cover updated.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update the cover");
+    }
+  }, [loadPeople, setError, setNotice]);
 
   const confirmMerge = useCallback(async (targetId: string) => {
     if (!selectedPerson) return;
@@ -145,9 +166,9 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
     });
   }, []);
 
-  // Leaving (or switching) the open person drops any half-made selection, so it
-  // can't be applied to the wrong cluster later.
-  useEffect(() => { setPersonPick(null); setMoveNewName(null); }, [selectedPerson?.id]);
+  // Leaving (or switching) the open person drops any half-made selection and
+  // closes the cover picker, so neither carries over to the wrong cluster.
+  useEffect(() => { setPersonPick(null); setMoveNewName(null); setPersonCoverPickerOpen(false); }, [selectedPerson?.id]);
 
   // Move the picked photos to another person (existing, or a name to create). The
   // moved photos leave this person's grid; both people's counts change, so the
@@ -193,8 +214,8 @@ export function useGalleryPeople({ setLoading, setError, setNotice, scopeParams,
     personAssets, setPersonAssets,
     personTotal, setPersonTotal,
     faceSettings, setFaceSettings,
-    faceModalOpen, setFaceModalOpen,
     renameValue, setRenameValue,
+    personCoverPickerOpen, setPersonCoverPickerOpen, setPersonCover,
     mergeOpen, setMergeOpen,
     personDeleteOpen, setPersonDeleteOpen,
     personPick, setPersonPick,

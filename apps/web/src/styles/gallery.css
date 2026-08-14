@@ -415,6 +415,9 @@
 .gallery-album-heading h2 { margin: 0; font-size: 1.5rem; line-height: 1.2; }
 .gallery-album-sub { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
 
+/* Title + its inline Rename pencil, sat right next to the cover. */
+.gallery-title-row { display: flex; align-items: center; gap: 6px; }
+
 /* Icon-only action row under the title + item count (…, sort, select). */
 .gallery-album-actions {
   display: flex;
@@ -1659,6 +1662,22 @@
 }
 .gallery-memory-suggestions-head h2 { margin: 0; }
 
+/* One row, scrolled sideways rather than wrapped — the fetch itself is capped
+   (see loadMemorySuggestions), so this is never more than a screenful or two
+   of horizontal scroll, on desktop or in the PWA. */
+.gallery-suggestion-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.gallery-suggestion-row .gallery-folder-tile {
+  flex: 0 0 auto;
+  width: 170px;
+}
+
 /* A memory tile reuses the folder-tile card; the cover gets a play affordance so it
    reads as "playable", and hover lifts it slightly. */
 .gallery-memory-tile .gallery-folder-thumb { position: relative; }
@@ -1766,18 +1785,6 @@
 .slideshow-card-badge.busy { background: rgba(18, 18, 20, 0.8); }
 
 /* Admin face-recognition bar above the People grid. */
-.gallery-face-admin {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-
 .gallery-face-hint { font-size: 0.84rem; }
 
 /* Face-recognition settings popup: a per-library on/off list with rescan. */

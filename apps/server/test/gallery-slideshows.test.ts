@@ -130,6 +130,14 @@ describe("slideshow presentation settings", () => {
     updateSlideshow(slideshow.id, { titleBackground: "blur" });
     expect(getSlideshow(slideshow.id)!.render_stale).toBe(1);
   });
+
+  it("update validates the cover is a member", () => {
+    const slideshow = createSlideshow(creator, "Summer");
+    addSlideshowItems(slideshow.id, new Set(["GAL"]), [a]);
+    expect(updateSlideshow(slideshow.id, { coverItemId: b })).toBe(false); // b not in the slideshow
+    expect(updateSlideshow(slideshow.id, { coverItemId: a })).toBe(true);
+    expect(getSlideshow(slideshow.id)!.cover_item_id).toBe(a);
+  });
 });
 
 describe("slideshow ordering", () => {

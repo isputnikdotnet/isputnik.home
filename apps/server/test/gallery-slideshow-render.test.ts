@@ -690,10 +690,11 @@ describe('schema baseline (3.0.0)', () => {
   it('builds a complete schema in one pass and stamps the current version', () => {
     const scratch = new Database(':memory:');
     migrate(scratch);
-    // 34 = the baseline (32) plus the title-card columns and the alphabet-index
-    // columns, both of which schema.sql already builds for a fresh file — those
-    // migrations are only for databases that predate them.
-    expect(scratch.pragma('user_version', { simple: true })).toBe(34);
+    // 36 = the baseline (32) plus the title-card columns, the alphabet-index
+    // columns, the slideshow cover column, and the person cover column — all of
+    // which schema.sql already builds for a fresh file; those migrations are
+    // only for databases that predate them.
+    expect(scratch.pragma('user_version', { simple: true })).toBe(36);
 
     const userColumns = (scratch.pragma('table_info(users)') as { name: string }[]).map((c) => c.name);
     expect(userColumns).toEqual(
@@ -769,7 +770,7 @@ describe('schema baseline (3.0.0)', () => {
     migrate(current);
     current.pragma('user_version = 31'); // every 2.x migration applied
     expect(() => migrate(current)).not.toThrow();
-    expect(current.pragma('user_version', { simple: true })).toBe(34);
+    expect(current.pragma('user_version', { simple: true })).toBe(36);
     current.close();
   });
 
@@ -786,7 +787,7 @@ describe('schema baseline (3.0.0)', () => {
     const columns = (old.pragma('table_info(gallery_slideshows)') as { name: string }[]).map((c) => c.name);
     expect(columns).toEqual(expect.arrayContaining([
       'title_enabled', 'title_text', 'title_subtitle_mode', 'title_subtitle',
-      'title_seconds', 'title_background', 'title_photo_item_id'
+      'title_seconds', 'title_background', 'title_photo_item_id', 'cover_item_id'
     ]));
     // The defaults are the card 3.1.x drew, so a slideshow made before this existed
     // re-renders the same movie until someone changes something.

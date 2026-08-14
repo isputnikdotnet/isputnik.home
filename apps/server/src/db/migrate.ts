@@ -62,6 +62,33 @@ const migrations: { version: number; up: (db: Database.Database) => void }[] = [
         if (!columns.has(name)) db.exec(`ALTER TABLE item_metadata ADD COLUMN ${name} TEXT`);
       }
     }
+  },
+  {
+    // 3.4.3 — an explicit cover for a slideshow (mirrors gallery_albums.cover_item_id),
+    // rather than always the first slide. New column on an existing table, so
+    // schema.sql alone can't reach a database that already has one.
+    version: 35,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_slideshows)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("cover_item_id")) {
+        db.exec("ALTER TABLE gallery_slideshows ADD COLUMN cover_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL");
+      }
+    }
+  },
+  {
+    // 3.4.4 — the same explicit cover pick for a person. New column on an existing
+    // table, so schema.sql alone can't reach a database that already has one.
+    version: 36,
+    up: (db) => {
+      const columns = new Set(
+        (db.prepare("PRAGMA table_info(gallery_people)").all() as { name: string }[]).map((c) => c.name)
+      );
+      if (!columns.has("cover_item_id")) {
+        db.exec("ALTER TABLE gallery_people ADD COLUMN cover_item_id TEXT REFERENCES library_items(id) ON DELETE SET NULL");
+      }
+    }
   }
 ];
 

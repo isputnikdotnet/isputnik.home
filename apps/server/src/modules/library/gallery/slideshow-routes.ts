@@ -88,7 +88,8 @@ const updateSchema = z.object({
   titleSubtitle: z.string().trim().max(120).nullable().optional(),
   titleSeconds: z.number().min(1).max(15).optional(),
   titleBackground: z.enum(["black", "photo", "blur", "collage"]).optional(),
-  titlePhotoItemId: z.string().trim().min(1).max(64).nullable().optional()
+  titlePhotoItemId: z.string().trim().min(1).max(64).nullable().optional(),
+  coverItemId: z.string().trim().min(1).max(64).nullable().optional()
 });
 
 // The title-card fields a detail response carries, in the same shape the PATCH takes.
@@ -220,6 +221,7 @@ export async function gallerySlideshowRoutesPlugin(app: FastifyInstance) {
         transition: slideshow.transition,
         slideSeconds: slideshow.slide_seconds,
         transitionSeconds: slideshow.transition_seconds,
+        coverItemId: slideshow.cover_item_id,
         canEdit: canEditSlideshow(slideshow, user),
         updatedAt: slideshow.updated_at,
         ...titleFields(slideshow),

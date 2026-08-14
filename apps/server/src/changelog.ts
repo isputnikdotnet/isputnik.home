@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.4.3",
+    label: "Every open album, slideshow and person looks and works the same way now",
+    changes: [
+      "Opening an album, a slideshow or a person now shows the same thing: a compact row of icons — Back plus every action, no page title or toolbar competing for space — above a cover, a name, and a count. Rename sits right next to the name instead of hiding in the row. All three can also have their cover photo set by hand now, including people (pick one of their photos and it also picks the sharpest matching face crop from it), not just albums and slideshows.",
+      "Slideshows now leads with what you might create — suggested slideshows sit above your own, capped to one scrollable row instead of a wall of tiles, and it scrolls sideways in the app too. The explanatory paragraphs under both sections are gone; the sections speak for themselves.",
+      "People dropped its Filter/Upload row and the \"Face recognition\" button — turning it on, rescanning, or clearing a library's face data all happen from Control Panel → Libraries now, which already had the same controls."
+    ]
+  },
+  {
     version: "3.4.2",
     label: "Gallery's library picker moved into Filter too",
     changes: [
