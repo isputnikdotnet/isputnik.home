@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { db } from "../db.js";
-import { ipInAnyCidr, ipNetworkKey } from "./cidr.js";
+import { ipInAnyCidr, ipNetworkKey, isPrivateIp } from "./cidr.js";
 
 // Brute-force defense and source-IP access control. Pure data/logic over the
 // login_attempts / blocked_ips / trusted_networks tables; the login route and a
@@ -14,7 +14,15 @@ export interface SecurityPolicy {
   ipFailWindowMinutes: number; // …counted within this window
   ipAutoblockMinutes: number; // …how long the auto-block lasts
   alertNewIpSignIn: boolean; // email on a sign-in from a network not seen before
+  deviceLinkScope: DeviceLinkScope; // where a device may ask to be linked from
 }
+
+// Which devices may start a "link a device" request. 'local' is the default and
+// the safe one: a wall display is always in the house, and the attack this feature
+// invites is a stranger starting a request remotely and talking a household member
+// into approving it. 'any' exists for the household that really does want to link
+// a device over the internet, and says so deliberately.
+export type DeviceLinkScope = "local" | "any";
 
 export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
   lockoutThreshold: 5,
@@ -22,7 +30,8 @@ export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
   ipFailThreshold: 20,
   ipFailWindowMinutes: 15,
   ipAutoblockMinutes: 60,
-  alertNewIpSignIn: false
+  alertNewIpSignIn: false,
+  deviceLinkScope: "local"
 };
 
 const POLICY_KEY = "security_policy";
@@ -135,6 +144,38 @@ export function addTrustedNetwork(cidr: string, label: string | null, userId: st
 
 export function removeTrustedNetwork(id: string): boolean {
   return db.prepare("DELETE FROM trusted_networks WHERE id = ?").run(id).changes > 0;
+}
+
+// ── Device linking ───────────────────────────────────────────────────────────
+
+// May a device at this address ask to be linked? Answered here rather than at the
+// route because the interesting half of it is about the deployment, not the caller.
+//
+// The 'proxy' refusal is the one worth understanding. Behind a reverse proxy with
+// TRUST_PROXY_HOPS unset, request.ip is the proxy's own address — on Docker,
+// something like 172.18.0.2 — so isPrivateIp says yes to every visitor on earth
+// and a 'local' scope would silently permit the open internet. The server already
+// warns about this at startup for the rate limiter and the auto-block, but those
+// degrade toward noise; this one would degrade toward an open door, so it refuses
+// instead. Fixing TRUST_PROXY_HOPS gets the feature back.
+//
+// The question is asked of THIS request's headers rather than the process-wide
+// "a forwarded header has been seen" flag, which would be both too broad and
+// abusable: that flag latches on for the process's lifetime, and any client can
+// set X-Forwarded-For, so one curious device on the LAN could switch device
+// linking off for the whole household until the next restart. Per-request is also
+// simply more accurate — a header on someone else's earlier request says nothing
+// about whether request.ip is trustworthy for this one.
+export type DeviceLinkVerdict = { allowed: true } | { allowed: false; reason: "scope" | "proxy" };
+
+export function deviceLinkAllowedFrom(
+  ip: string | null | undefined,
+  headers: Record<string, unknown>
+): DeviceLinkVerdict {
+  if (hasForwardedHeader(headers) && getTrustProxyHops() === 0) return { allowed: false, reason: "proxy" };
+  if (getSecurityPolicy().deviceLinkScope === "any") return { allowed: true };
+  if (!ip) return { allowed: false, reason: "scope" };
+  return isTrustedIp(ip) || isPrivateIp(ip) ? { allowed: true } : { allowed: false, reason: "scope" };
 }
 
 // ── Known sign-in networks ───────────────────────────────────────────────────

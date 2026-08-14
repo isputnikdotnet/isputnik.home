@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ipInCidr, ipInAnyCidr, isValidCidr, ipNetworkKey } from "../src/core/cidr.js";
+import { ipInCidr, ipInAnyCidr, isPrivateIp, isValidCidr, ipNetworkKey } from "../src/core/cidr.js";
 
 describe("ipInCidr (IPv4)", () => {
   it("matches an address inside the range", () => {
@@ -58,6 +58,41 @@ describe("ipInAnyCidr / isValidCidr", () => {
     expect(isValidCidr("192.168.0.0/33")).toBe(false);
     expect(isValidCidr("999.1.1.1")).toBe(false);
     expect(isValidCidr("not-an-ip")).toBe(false);
+  });
+});
+
+describe("isPrivateIp", () => {
+  it("accepts the ranges that cannot cross the open internet", () => {
+    expect(isPrivateIp("192.168.1.50")).toBe(true);
+    expect(isPrivateIp("10.1.2.3")).toBe(true);
+    expect(isPrivateIp("172.16.0.1")).toBe(true);
+    expect(isPrivateIp("172.31.255.254")).toBe(true);
+    expect(isPrivateIp("127.0.0.1")).toBe(true);
+    expect(isPrivateIp("169.254.10.1")).toBe(true);
+    expect(isPrivateIp("::1")).toBe(true);
+    expect(isPrivateIp("fd00::1")).toBe(true);
+    expect(isPrivateIp("fe80::abcd")).toBe(true);
+  });
+
+  it("rejects public addresses, including the ones that look close to a private range", () => {
+    expect(isPrivateIp("8.8.8.8")).toBe(false);
+    expect(isPrivateIp("203.0.113.10")).toBe(false);
+    // 172.16/12 covers 172.16–172.31 only; the neighbours either side are public.
+    expect(isPrivateIp("172.15.0.1")).toBe(false);
+    expect(isPrivateIp("172.32.0.1")).toBe(false);
+    expect(isPrivateIp("2001:db8::1")).toBe(false);
+  });
+
+  it("sees through an IPv4-mapped address, which is what a dual-stack socket reports", () => {
+    expect(isPrivateIp("::ffff:192.168.1.10")).toBe(true);
+    expect(isPrivateIp("::ffff:8.8.8.8")).toBe(false);
+  });
+
+  it("says no rather than throwing on missing or unparsable input", () => {
+    expect(isPrivateIp(null)).toBe(false);
+    expect(isPrivateIp(undefined)).toBe(false);
+    expect(isPrivateIp("")).toBe(false);
+    expect(isPrivateIp("not-an-ip")).toBe(false);
   });
 });
 

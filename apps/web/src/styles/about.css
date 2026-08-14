@@ -1721,3 +1721,98 @@
   gap: 6px;
   color: var(--muted);
 }
+
+/* ── Linked devices ─────────────────────────────────────────────── */
+
+/* The same card as Passkeys and two-factor: these are all "where this account is
+   reachable from", and they should read as one family. */
+.linked-devices-section {
+  display: grid;
+  gap: 12px;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.linked-devices-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.device-list {
+  display: grid;
+  gap: 8px;
+}
+
+.device-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.device-row-icon {
+  display: flex;
+  color: var(--muted);
+}
+
+/* min-width:0 so a long device name truncates instead of stretching the row. */
+.device-row-meta {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.device-row-meta strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-row-tag {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, var(--line)) 22%, transparent);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.device-row-detail {
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-row-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.device-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Ordinary browser sign-ins, folded away: honest to list, but they would bury the
+   linked display this card is actually about. */
+.device-others {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.device-others > button {
+  justify-self: start;
+}

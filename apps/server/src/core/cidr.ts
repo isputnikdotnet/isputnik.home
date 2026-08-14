@@ -111,6 +111,39 @@ export function ipNetworkKey(ip: string): string | null {
   return `${groups.join(":")}::/64`;
 }
 
+// The address ranges that can only be reached from inside the house: RFC 1918,
+// loopback, link-local, and IPv6 ULA. Not configuration — these are fixed by the
+// internet's own address plan, and an operator who wants a *different* range
+// treated as local adds it as a trusted network instead.
+const PRIVATE_RANGES = [
+  "10.0.0.0/8",
+  "172.16.0.0/12",
+  "192.168.0.0/16",
+  "127.0.0.0/8",
+  "169.254.0.0/16",
+  "::1/128",
+  "fc00::/7",
+  "fe80::/10"
+];
+
+// True when an address belongs to one of those ranges — i.e. a packet from it
+// cannot have crossed the open internet to get here. Used by device linking to
+// answer "is this display actually in the house?" without the household having to
+// configure anything first.
+//
+// A caller must not read this as "trustworthy": behind a reverse proxy with
+// TRUST_PROXY_HOPS unset, request.ip is the proxy's own private address and
+// everything looks local. Whoever asks the question has to rule that out first —
+// see deviceLinkAllowedFrom in core/security.ts.
+//
+// ::ffff:192.168.1.5 (what a dual-stack socket reports for an IPv4 client) is
+// handled by parseIp, which resolves a mapped address to its IPv4 form, so no
+// separate case is needed here.
+export function isPrivateIp(ip: string | null | undefined): boolean {
+  if (!ip) return false;
+  return ipInAnyCidr(ip, PRIVATE_RANGES);
+}
+
 // True when the string is a usable address or CIDR (for validating admin input).
 export function isValidCidr(cidr: string): boolean {
   const slash = cidr.indexOf("/");

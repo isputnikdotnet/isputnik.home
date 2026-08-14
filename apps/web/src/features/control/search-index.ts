@@ -38,7 +38,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   users: "accounts people roles admin member password reset disable remove",
   groups: "shared access group membership permissions",
   invites: "invite signup sign-up registration link token new account",
-  sessions: "devices signed in sign out revoke logout tokens",
+  sessions: "devices signed in sign out revoke logout tokens linked tv display",
 
   security: "posture summary proxy hops client ip mode overview",
   securityPolicies: "lockout brute force threshold attempts password minimum length complexity sign-in alerts email",
@@ -73,6 +73,11 @@ const SETTING_ENTRIES: { title: string; section: ControlSection; keywords: strin
   { title: "IP auto-block", section: "securityPolicies", keywords: "automatic ban failed window minutes" },
   { title: "Password policy", section: "securityPolicies", keywords: "minimum length complexity require strong" },
   { title: "New sign-in alerts", section: "securityPolicies", keywords: "email notify unknown network login" },
+  {
+    title: "Linking devices",
+    section: "securityPolicies",
+    keywords: "link a device tv television wall display kiosk qr code scan sign in without password home network only outside remote"
+  },
   { title: "Add a trusted network", section: "securityTrusted", keywords: "cidr range lan skip lockout" },
   { title: "Scheduled backups", section: "backup", keywords: "automatic nightly keep how many retention" },
   { title: "Default theme", section: "appearance", keywords: "new members sign-in screen look" },

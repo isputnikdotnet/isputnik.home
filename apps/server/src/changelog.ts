@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.5.0",
+    label: "Sign a TV in by scanning a code, instead of typing a password with a remote",
+    changes: [
+      "A television, wall display or kiosk can now be signed in without typing anything on it. The screen shows a QR code and a short code; you scan it with your phone, check the code matches, enter your password, and the screen signs itself in. Your phone must be on the same network as the server — it says so on the screen, because that's the one thing that otherwise fails silently.",
+      "Linked screens are deliberately less powerful than the account behind them: a linked display can't open the control panel even when the account is an administrator's, and it can't authorize further devices. It stays signed in for a year rather than a fortnight, because a wall display that logs itself out every two weeks needs a human with a remote control — the exact chore this removes.",
+      "Profile → Devices is now a real list of everywhere your account is signed in. Linked screens sit at the top with the date they were linked and where they were last used; rename one, or revoke it and it's signed out on its next request. Your ordinary browser sign-ins are in the same list, folded away, and can be signed out the same way. You're emailed whenever a device is linked to your account.",
+      "By default only devices on your home network can ask to be linked, which is what stops someone elsewhere from starting a request and talking a household member into approving it. Admins can widen that under Control panel → Security → Policies. If the server sits behind a reverse proxy with TRUST_PROXY_HOPS unset, every visitor looks local — so linking refuses entirely until that's set, rather than quietly treating the whole internet as your living room."
+    ]
+  },
+  {
     version: "3.4.3",
     label: "Every open album, slideshow and person looks and works the same way now",
     changes: [

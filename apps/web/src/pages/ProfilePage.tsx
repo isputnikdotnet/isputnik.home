@@ -14,6 +14,7 @@ import { ChangePasswordSection } from "../features/profile/ChangePasswordSection
 import { MfaSection } from "../features/profile/MfaSection";
 import { PasskeysSection } from "../features/profile/PasskeysSection";
 import { SharedLinksSection } from "../features/profile/SharedLinksSection";
+import { LinkedDevicesSection } from "../features/profile/LinkedDevicesSection";
 
 const PROFILE_TABS: { key: ProfileTab; label: string; icon: LucideIcon }[] = [
   { key: "account", label: "Account", icon: UserRound },
@@ -216,6 +217,8 @@ export function ProfilePage({
             aria-labelledby="profile-tab-devices"
             hidden={activeTab !== "devices"}
           >
+            <LinkedDevicesSection />
+
             <section className="ereader-section" aria-labelledby="ereader-heading">
               <h2 id="ereader-heading">Send to e-reader</h2>
               <p className="ereader-intro">

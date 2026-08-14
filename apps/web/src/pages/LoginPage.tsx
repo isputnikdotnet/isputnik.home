@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, MonitorSmartphone } from "lucide-react";
 import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { api, NETWORK_BLOCK_MESSAGE, type MfaMethod } from "../api";
 import { Shell } from "../app/Shell";
+import { Button } from "../shared/Button";
 import { Field } from "../shared/Field";
 import { MessageBox } from "../shared/MessageBox";
 import { useConnectionStatus } from "../pwa/useOnlineStatus";
-import { navigate } from "../router";
+import { navigate, takePathAfterSignIn } from "../router";
 
 export function LoginPage({
   onSignedIn,
@@ -45,7 +46,10 @@ export function LoginPage({
 
   const finish = async () => {
     await onSignedIn();
-    navigate("/");
+    // Back to whatever they were interrupted doing — today, approving a device
+    // whose QR they scanned while signed out. Every sign-in path ends here, so
+    // password, second factor and passkey all resume the same way.
+    navigate(takePathAfterSignIn() ?? "/");
   };
 
   // One button, no email typed: the passkeys are discoverable, so the browser
@@ -198,6 +202,16 @@ export function LoginPage({
           error && <MessageBox tone="error" title="Unable to sign in">{error}</MessageBox>
         )}
         <button className="primary-button">Sign in</button>
+
+        {/* For the device that can't type this form: a TV, a wall display, a
+            kiosk. It shows a code, and a phone that IS signed in authorizes it.
+            Below the password form deliberately — this is the unusual path. */}
+        <div className="login-link-device">
+          <Button variant="text" onClick={() => navigate("/link")}>
+            <MonitorSmartphone size={16} aria-hidden="true" />
+            Link a TV or display instead
+          </Button>
+        </div>
 
         <div className="login-qr">
           <div className="login-qr-code">
