@@ -198,6 +198,28 @@ Shipped:
   `request.ip` is the proxy — every device would look local — so linking refuses
   entirely in that state rather than degrading to "anyone at all". User-facing
   guide: [`users/link-a-device.md`](users/link-a-device.md).
+- **Registration windows** — the exception to that, for a household member who is
+  away. An admin opens a window for **one user** for **one hour** from Control
+  panel → Members → Users; the first device linked closes it
+  (`device_link_windows`). Enforced in two halves, because `start` is anonymous and
+  cannot know whose device is asking: a request from outside is allowed only while
+  *some* window is live and is marked `remote`, and a `remote` request may only be
+  approved by someone holding a live window **of their own** — after the password
+  check, so a wrong password never reveals whether a window exists. A live window
+  also overrides the proxy refusal above, deliberately: that refusal exists because
+  "local" is unknowable in that state, and a window says location does not matter
+  for the hour. Admins are emailed when one is used.
+  This replaces reaching for `deviceLinkScope: "any"`, which is permanent and
+  applies to everyone, and it is emphatically not a job for a trusted network —
+  those also exempt an address from MFA, lockout and rate limiting.
+- **`/api/setup/status` discloses `deviceLinkAvailable`** so the sign-in screen can
+  omit the option rather than offer one that 403s. Unlike `passkeysAvailable`, this
+  is a real disclosure: from outside the house a `true` tells an anonymous caller
+  that some registration window is open right now — not whose, not for how long.
+  Accepted deliberately (windows are an hour, shut the rest of the time, and
+  approval still needs the account password plus a code matching the screen in the
+  room). The alternative, showing a button that fails, teaches people to click
+  through refusals.
 - **Self-service sessions** — `/api/account/sessions` lets each user see, rename
   and revoke their own sign-ins (Profile → Devices). `/api/sessions` remains the
   admin's view of everyone's.

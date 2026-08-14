@@ -161,9 +161,35 @@ CREATE TABLE IF NOT EXISTS device_link_requests (
   ip_address        TEXT,
   approved_by       TEXT REFERENCES users(id) ON DELETE CASCADE,
   approved_at       TEXT,
-  session_id        TEXT REFERENCES sessions(id) ON DELETE SET NULL
+  session_id        TEXT REFERENCES sessions(id) ON DELETE SET NULL,
+  -- Whether this request came from outside the house, decided when it was created
+  -- and remembered because approval cannot re-derive it: by then the caller is the
+  -- phone, and the phone's address says nothing about where the television is.
+  -- A remote request may only be approved by someone holding a live registration
+  -- window (see device_link_windows).
+  remote            INTEGER NOT NULL DEFAULT 0 CHECK (remote IN (0, 1))
 );
 CREATE INDEX IF NOT EXISTS idx_device_link_expires ON device_link_requests (expires_at);
+
+-- An administrator's temporary permission for ONE person to link ONE device from
+-- outside the home network. The rest of the time linking is refused out there and
+-- the app does not offer it, which is the default this exists to make survivable:
+-- the alternative was a global setting that opens the door for everyone, forever.
+--
+-- "Live" is derived, never stored: not used, not revoked, not past expires_at.
+-- The first device linked against it fills used_at and session_id, and it is over
+-- — so an admin may grant as often as they like and each grant is worth one device.
+CREATE TABLE IF NOT EXISTS device_link_windows (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  expires_at  TEXT NOT NULL,
+  used_at     TEXT,
+  session_id  TEXT REFERENCES sessions(id) ON DELETE SET NULL,
+  revoked_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_device_link_windows_user ON device_link_windows (user_id, expires_at);
 
 -- Brute-force defense & source-IP access control.
 -- Every sign-in attempt, used to derive per-account lockout and per-IP auto-block.

@@ -6,6 +6,9 @@ export interface ManagedUser extends PublicUser {
   /** How many passkeys the account has registered. Zero disables the clear action —
    *  there is nothing to rescue them from. */
   passkeyCount: number;
+  /** When this person's permission to link a device from outside the home network
+   *  runs out, or null — which is almost always, and is the point. */
+  deviceLinkWindowExpiresAt: string | null;
 }
 
 export interface ManagedInvite {

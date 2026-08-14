@@ -37,6 +37,28 @@ data, the QR code opens a page that can't load.
 
 Turn Wi-Fi on and try again.
 
+## Linking a device while away from home
+
+Normally you can only link a device from inside the house — the sign-in screen
+elsewhere doesn't even offer the option, which is deliberate: it's what stops a
+stranger from starting a request and talking someone in your household into
+approving it.
+
+If you need to set up a screen somewhere else — a tablet at a holiday house, a
+display at a relative's — ask whoever runs the server to **allow it for you**. They
+turn it on for your account from Control panel → Members → Users, and then:
+
+- you have **one hour**;
+- it works for **one device** — the first screen you link closes it again;
+- everything else is the same, including entering your own password to approve.
+
+While it's on, **Link a TV or display** appears on the sign-in screen where you
+are. If the hour runs out first, ask again — it can be turned on as many times as
+you need.
+
+Your administrator is emailed when you use it, so they know the permission they
+gave was actually spent.
+
 ## Why it asks for your password
 
 You're already signed in on the phone, so being asked again can feel redundant. It
@@ -94,10 +116,31 @@ display is always in the house, and this setting is what stops someone elsewhere
 the internet from starting a request and trying to talk a household member into
 approving it.
 
-You can change this under Control panel → **Security** → **Policies** →
-**Linking devices**. Allowing it from anywhere is only needed if you link devices
-while away from home — the password prompt still protects each approval, but the
-setting removes a barrier that costs you nothing when it's on.
+### Letting someone link a device from elsewhere
+
+When a household member is away and needs to set a screen up, don't change the
+policy — **allow it for that person**, from Control panel → **Members** →
+**Users** → the monitor icon on their row.
+
+That opens a window for one hour, for one device, for that account only. Their row
+shows how long is left, and the same button cancels it early. Nothing lasting is
+switched on: it closes itself when they link a device or when the hour is up,
+whichever comes first, and you're emailed when it's used.
+
+They still need their own password to approve the device, and what they link is
+still barred from the control panel and from authorizing further devices.
+
+### The blunt alternative
+
+Control panel → **Security** → **Policies** → **Linking devices** can be set to
+accept requests from anywhere — permanently, for everybody. It exists for the
+household that genuinely wants it, but a one-hour window for one person does the
+same job with a door that shuts itself. Reach for that first.
+
+**Don't** use a trusted network for this either. Adding a remote address there
+would let linking through, but trusted networks also skip two-factor
+authentication, account lockout and rate limits at that address. It is a much
+bigger change than it looks.
 
 **If your server sits behind a reverse proxy**, set `TRUST_PROXY_HOPS` (see
 [Exposing your library to the internet](exposing-to-the-internet.md)). Without it,

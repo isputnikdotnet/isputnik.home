@@ -9,6 +9,7 @@ import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { resetMfa } from "../../core/mfa-routes.js";
 import { clearPasskeys } from "../../core/webauthn.js";
 import { isAccountLocked, clearAccountLockout } from "../../core/security.js";
+import { listLiveWindows, openLinkWindow, revokeLinkWindow, WINDOW_MINUTES } from "../../core/device-link.js";
 import { alertNewAdmin, alertMfaDisabled, alertPasswordChanged } from "../../core/security-alerts.js";
 
 const roleSchema = z.object({
@@ -55,6 +56,10 @@ export async function usersPlugin(app: FastifyInstance) {
       ORDER BY datetime(users.created_at) ASC
     `).all() as UserListRow[];
 
+    // One query for every open registration window, rather than one per row: there
+    // are almost never any, and when there is one it is a single row.
+    const windows = new Map(listLiveWindows().map((window) => [window.user_id, window.expires_at]));
+
     return {
       users: users.map((user) => ({
         ...publicUser(user),
@@ -62,7 +67,10 @@ export async function usersPlugin(app: FastifyInstance) {
         mfaEnabled: Boolean(user.mfa_enabled),
         mfaMethod: user.mfa_method,
         passkeyCount: user.passkey_count,
-        locked: isAccountLocked(user.email)
+        locked: isAccountLocked(user.email),
+        // When this person may link a device from outside the house, or null —
+        // which is almost always, and is the point.
+        deviceLinkWindowExpiresAt: windows.get(user.id) ?? null
       }))
     };
   });
@@ -232,6 +240,56 @@ export async function usersPlugin(app: FastifyInstance) {
       ipAddress: request.ip
     });
     return reply.send({ ok: true });
+  });
+
+  // Linking a device is refused from outside the house, and the app doesn't offer
+  // it there. This is the exception: one person, one hour, one device — after which
+  // it closes itself. Deliberately not a setting that stays on; the global
+  // "allow from anywhere" policy already exists for anyone who truly wants a door
+  // with no name on it, and this is the alternative to reaching for it.
+  app.post("/api/users/:id/device-link-window", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
+    if (!user) {
+      return reply.code(404).send({ error: "User not found" });
+    }
+    if (!user.is_active) {
+      return reply.code(409).send({ error: "That account is deactivated." });
+    }
+
+    const window = openLinkWindow(id, request.user!.id);
+    logActivity({
+      event: "user.device_link_window_opened",
+      actorUserId: request.user!.id,
+      targetType: "user",
+      targetId: id,
+      detail: `Allowed ${user.display_name} to link one device from outside the home network for ${WINDOW_MINUTES} minutes.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ expiresAt: window.expires_at, minutes: WINDOW_MINUTES });
+  });
+
+  app.delete("/api/users/:id/device-link-window", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL").get(id) as User | undefined;
+    if (!user) {
+      return reply.code(404).send({ error: "User not found" });
+    }
+    if (!revokeLinkWindow(id)) {
+      // Already spent, already expired, or never opened — all the same to the
+      // caller, whose intent ("make sure it is shut") is satisfied either way.
+      return reply.send({ ok: true, closed: false });
+    }
+
+    logActivity({
+      event: "user.device_link_window_cancelled",
+      actorUserId: request.user!.id,
+      targetType: "user",
+      targetId: id,
+      detail: `Cancelled ${user.display_name}'s permission to link a device from outside.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ ok: true, closed: true });
   });
 
   // The passkey counterpart of the MFA rescue above: a member who lost every device

@@ -35,7 +35,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   categories: "genres genre keywords mapping icons images taxonomy",
   tags: "labels rename merge taxonomy",
 
-  users: "accounts people roles admin member password reset disable remove",
+  users: "accounts people roles admin member password reset disable remove remote device link window allow outside away travel",
   groups: "shared access group membership permissions",
   invites: "invite signup sign-up registration link token new account",
   sessions: "devices signed in sign out revoke logout tokens linked tv display",

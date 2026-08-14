@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.6.0",
+    label: "Let one person link one device from outside the house, for one hour",
+    changes: [
+      "Linking a TV or display has always been refused from outside your home network — the setting that allowed it was all-or-nothing, permanently, for everybody. There's a better way now: from Control panel → Members → Users, allow a single person to link a single device from anywhere, for one hour. Their row shows how long is left and cancels it with the same button, and it closes itself as soon as they link something. Grant it as often as you need; each grant is worth one device.",
+      "Away from home with nothing open, the sign-in screen simply doesn't offer to link a device any more, instead of offering it and refusing. Approving still takes the person's own password, the device still can't reach the control panel or authorize other devices, and you're emailed when a window you opened gets used.",
+      "If your server sits behind a reverse proxy with TRUST_PROXY_HOPS unset, every visitor looks like it's on your home network — so device linking refuses everything in that state rather than treating the internet as your living room. An open window is an explicit decision that location doesn't matter for the next hour, so it goes through anyway."
+    ]
+  },
+  {
     version: "3.5.0",
     label: "Sign a TV in by scanning a code, instead of typing a password with a remote",
     changes: [

@@ -2,7 +2,7 @@ import { customAlphabet, nanoid } from "nanoid";
 import { db } from "../db.js";
 import { sha256 } from "../crypto.js";
 import { isPrivateIp } from "./cidr.js";
-import { isTrustedIp } from "./security.js";
+import { deviceLinkAllowedFrom, isTrustedIp } from "./security.js";
 
 // Link a device: signing a TV, wall display or kiosk in by scanning a QR code with
 // a phone that is already signed in, instead of typing a password with a remote
@@ -58,6 +58,8 @@ export interface LinkRequestRow {
   approved_by: string | null;
   approved_at: string | null;
   session_id: string | null;
+  /** 1 when the request came from outside the house — see device_link_windows. */
+  remote: 0 | 1;
 }
 
 export interface NewLinkRequest {
@@ -97,15 +99,17 @@ function minutesFromNow(minutes: number): string {
  * there. There is deliberately no client-supplied device *name*: the owner names
  * the device afterwards, from their own device list.
  */
-export function createLinkRequest(opts: { userAgent?: string | null; ip?: string | null } = {}): NewLinkRequest {
+export function createLinkRequest(
+  opts: { userAgent?: string | null; ip?: string | null; remote?: boolean } = {}
+): NewLinkRequest {
   const id = nanoid(16);
   const deviceCode = nanoid(48);
   const expiresAt = minutesFromNow(EXPIRY_MINUTES);
   const userAgent = opts.userAgent ? opts.userAgent.slice(0, 200) : null;
 
   const insert = db.prepare(`
-    INSERT INTO device_link_requests (id, device_code_hash, user_code, expires_at, user_agent, ip_address)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO device_link_requests (id, device_code_hash, user_code, expires_at, user_agent, ip_address, remote)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   // user_code is UNIQUE and short, so a collision with another live request is
@@ -115,7 +119,7 @@ export function createLinkRequest(opts: { userAgent?: string | null; ip?: string
   for (let attempt = 0; attempt < 5; attempt += 1) {
     userCode = userCodeBody();
     try {
-      insert.run(id, sha256(deviceCode), userCode, expiresAt, userAgent, opts.ip ?? null);
+      insert.run(id, sha256(deviceCode), userCode, expiresAt, userAgent, opts.ip ?? null, opts.remote ? 1 : 0);
       return { id, deviceCode, userCode, userCodeDisplay: formatUserCode(userCode), expiresAt };
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
@@ -242,6 +246,135 @@ export function attachSession(id: string, sessionId: string): void {
 export function sweepLinkRequests(): number {
   return db.prepare("DELETE FROM device_link_requests WHERE datetime(expires_at) < datetime('now', '-1 hour')")
     .run().changes;
+}
+
+// ── Registration windows (linking from outside the house) ────────────────────
+//
+// Linking is refused from outside by default, and the app doesn't offer it there.
+// The exception is a window: an administrator turns it on for ONE person for an
+// hour, and the first device they link closes it. That shape is deliberate — the
+// setting it replaces (deviceLinkScope: "any") is a door with no name on it and no
+// closing time.
+//
+// Windows are per user because nothing in this flow can identify a device before
+// it exists: the request is created by an anonymous caller. So the window is
+// checked twice, in two different senses — "is anyone allowed to ask from out
+// there?" when the request is created, and "is it YOU who is allowed?" at
+// approval, which is the step that has an identity and a password behind it.
+
+/** How long a window stays open. Fixed: a duration picker is how a door gets left open for a week. */
+export const WINDOW_MINUTES = 60;
+
+export interface LinkWindowRow {
+  id: string;
+  user_id: string;
+  created_by: string | null;
+  created_at: string;
+  expires_at: string;
+  used_at: string | null;
+  session_id: string | null;
+  revoked_at: string | null;
+}
+
+// Liveness is derived every time, never stored, for the same reason the request
+// table has no 'expired' status: a stored state has to be swept to become true.
+// One clause, used by every question below, so they can't drift apart.
+const LIVE_WINDOW = `
+  used_at IS NULL
+  AND revoked_at IS NULL
+  AND datetime(expires_at) > datetime('now')
+`;
+
+/**
+ * Open a window for one person. Replaces any window they already have rather than
+ * stacking a second one, so "how long have I got?" has exactly one answer.
+ */
+export function openLinkWindow(userId: string, createdBy: string | null): LinkWindowRow {
+  const id = nanoid(16);
+  db.transaction(() => {
+    db.prepare(
+      `UPDATE device_link_windows SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        WHERE user_id = ? AND ${LIVE_WINDOW}`
+    ).run(userId);
+    db.prepare(
+      "INSERT INTO device_link_windows (id, user_id, created_by, expires_at) VALUES (?, ?, ?, ?)"
+    ).run(id, userId, createdBy, minutesFromNow(WINDOW_MINUTES));
+  })();
+  return db.prepare("SELECT * FROM device_link_windows WHERE id = ?").get(id) as LinkWindowRow;
+}
+
+/** This person's live window, or null. The "is it YOU?" half, asked at approval. */
+export function liveWindowFor(userId: string): LinkWindowRow | null {
+  return (db
+    .prepare(`SELECT * FROM device_link_windows WHERE user_id = ? AND ${LIVE_WINDOW}`)
+    .get(userId) as LinkWindowRow | undefined) ?? null;
+}
+
+/**
+ * Is anyone at all allowed to ask from outside right now? The "may this request
+ * even be created?" half — the device is anonymous at that point, so this is the
+ * most that can be known. Being generous here costs little: a request nobody with
+ * a window approves is inert and expires in ten minutes having done nothing.
+ */
+export function anyLiveWindow(): boolean {
+  return Boolean(db.prepare(`SELECT 1 FROM device_link_windows WHERE ${LIVE_WINDOW} LIMIT 1`).get());
+}
+
+/** A device linked against this window: it is spent. */
+export function closeLinkWindow(id: string, sessionId: string | null): void {
+  db.prepare(
+    `UPDATE device_link_windows
+        SET used_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), session_id = ?
+      WHERE id = ? AND used_at IS NULL`
+  ).run(sessionId, id);
+}
+
+/** The admin closing one early. Returns false when there was nothing open. */
+export function revokeLinkWindow(userId: string): boolean {
+  return db.prepare(
+    `UPDATE device_link_windows SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+      WHERE user_id = ? AND ${LIVE_WINDOW}`
+  ).run(userId).changes > 0;
+}
+
+/** Every window open right now, for the admin's user list. */
+export function listLiveWindows(): LinkWindowRow[] {
+  return db.prepare(`SELECT * FROM device_link_windows WHERE ${LIVE_WINDOW}`).all() as LinkWindowRow[];
+}
+
+/** Spent and expired windows, swept beside the requests at startup. */
+export function sweepLinkWindows(): number {
+  return db.prepare(
+    "DELETE FROM device_link_windows WHERE datetime(expires_at) < datetime('now', '-1 day')"
+  ).run().changes;
+}
+
+// ── May this device ask to be linked? ────────────────────────────────────────
+
+/**
+ * The whole question, in one place: where the caller is, whether the deployment
+ * can tell, and whether a window is open.
+ *
+ * This layers over deviceLinkAllowedFrom rather than living inside it. security.ts
+ * is platform infrastructure with no product knowledge — it knows about trusted
+ * networks and proxy configuration, and it should not learn about registration
+ * windows. It also cannot: device-link.ts already imports it, so the dependency
+ * only runs one way without a cycle.
+ *
+ * A live window overrides BOTH refusals, including the misconfigured-proxy one.
+ * That refusal exists because "local" is unknowable in that state; a window says
+ * location does not matter for the next hour, which makes the question moot. The
+ * startup warning and the Policies-page warning both remain.
+ */
+export type DeviceLinkAccess =
+  | { allowed: true; remote: boolean }
+  | { allowed: false; reason: "scope" | "proxy" };
+
+export function deviceLinkAccess(ip: string | null | undefined, headers: Record<string, unknown>): DeviceLinkAccess {
+  const local = deviceLinkAllowedFrom(ip, headers);
+  if (local.allowed) return { allowed: true, remote: false };
+  if (anyLiveWindow()) return { allowed: true, remote: true };
+  return local;
 }
 
 // ── Describing a device to its owner ─────────────────────────────────────────

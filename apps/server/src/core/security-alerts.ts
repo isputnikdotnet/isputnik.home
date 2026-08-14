@@ -288,6 +288,19 @@ export function alertDeviceLinked(user: User, request: FastifyRequest, label: st
   ]);
 }
 
+// A device was linked from OUTSIDE the house, during a window an admin opened.
+// Goes to the admins rather than the owner — the owner already gets the receipt
+// above, and this is the other half: they granted an exception, and should see it
+// land rather than having to go looking in the log for whether it was used.
+export function alertRemoteDeviceLinked(user: User, request: FastifyRequest, label: string): void {
+  void notifyAdmins("A device was linked from outside the home network", [
+    `${user.display_name} used the registration window you opened, and "${label}" is now signed in to their account.`,
+    context(request.ip, { label: "Account", value: user.email }, { label: "Device", value: label }),
+    "The window is now closed — another device would need a new one.",
+    "They can remove the device themselves from Profile → Devices, and you can end its session from Control panel → Members → Sessions."
+  ]);
+}
+
 // A device asked to be linked and the server refused before creating anything.
 // Goes to admins, not the owner: nobody owns it yet, and both reasons are the
 // admin's to act on — widen the policy deliberately, or fix TRUST_PROXY_HOPS.
