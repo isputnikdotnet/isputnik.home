@@ -19,6 +19,13 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.4.1",
+    label: "An open album shows what it can do in one place instead of three",
+    changes: [
+      "Opening an album used to show its own breadcrumb, its own three-dot menu, and its own Sort and Select buttons, sitting apart from the toolbar and styled differently from it — three places carrying what one album lets you do. It's one row now: Sort, then Slideshow and Share (what you reach for most), then an \"Album\" menu holding Rename, Set cover photo, Download and Delete, then Select — the same shape as every other page's toolbar. The breadcrumb is gone; \"Back to albums\" in the toolbar already said where you were."
+    ]
+  },
+  {
     version: "3.4.0",
     label: "One toolbar for Audiobooks, Ebooks and Gallery, and an A–Z that reads Cyrillic",
     changes: [
