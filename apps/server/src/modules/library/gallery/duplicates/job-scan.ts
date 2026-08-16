@@ -39,6 +39,7 @@ import {
   duplicateIgnorePairs,
   enqueueJobScan,
   groupNearIdentical,
+  keeperRankIsDecision,
   loadDetails,
   pickKeeper,
   type DetailRow,
@@ -1153,12 +1154,64 @@ export type MatchConfidence = "certain" | "likely" | "unsure";
  *  the file itself; 'tossup' = nothing separated them. */
 export type KeeperConfidence = "evidence" | "guess" | "tossup";
 
-// Ranks 0-4 are the protected library, the two folder instructions, hand-filed work and
-// hand-edited details — all of them somebody's decision. Past that the ladder is
-// guessing from the file, and -1 means it never got to guess.
-const KEEPER_EVIDENCE_RANKS = 5;
+// 'evidence' when the deciding rung was somebody's decision — the protected library,
+// a folder instruction, hand-filed work, hand-edited details. The ladder itself says
+// which those are (see KEEPER_CRITERIA's `decision` flags): this used to be a bare
+// count of ranks here, which went quietly wrong the day a file-property criterion was
+// inserted among the decisions. -1 means nothing separated the copies at all.
 export const keeperConfidenceOf = (rank: number): KeeperConfidence =>
-  rank < 0 ? "tossup" : rank < KEEPER_EVIDENCE_RANKS ? "evidence" : "guess";
+  rank < 0 ? "tossup" : keeperRankIsDecision(rank) ? "evidence" : "guess";
+
+/** How carefully a person should look before letting a result go through, folded to a
+ *  single reading for the card's gauge. The two confidence axes stay separate above —
+ *  they answer different questions — but "how much attention does this deserve" is a
+ *  third question with one answer, and leaving the fold to whoever reads the card
+ *  means every reader folds it differently.
+ *
+ *  Severity is decided almost entirely by the MATCH. Byte-identical copies are risk 0
+ *  whatever chose the keeper: the pixels are the same pixels, and everything attached
+ *  to the losers is merged onto the survivor. Risk exists only where the copies merely
+ *  look alike — deleting one then loses a real file — and grows when the keeper choice
+ *  had nothing human behind it, and again when the match itself is doubtful. */
+export interface ResultRisk {
+  /** 0 = none, 1 = low, 2 = worth a look, 3 = check first. */
+  severity: 0 | 1 | 2 | 3;
+  label: string;
+  /** One sentence for the tooltip: why this severity, in terms of what could be lost. */
+  explanation: string;
+}
+
+export function assessResultRisk(tier: ResultTier, match: MatchConfidence, keeper: KeeperConfidence): ResultRisk {
+  // The tier is derived from the members' distances, so it is the ground truth about
+  // whether the files are the same bytes — ahead of the stored confidence column.
+  if (tier === "exact") {
+    return {
+      severity: 0,
+      label: "No risk",
+      explanation: "The copies are identical, byte for byte. Whichever is kept, the picture is exactly the same — deleting the rest loses nothing."
+    };
+  }
+  if (match === "unsure") {
+    return {
+      severity: 3,
+      label: "Check first",
+      explanation: "These may be two different photographs that merely look alike. Open them side by side before letting this one go through."
+    };
+  }
+  // A likely match: almost certainly the same picture, but the files differ, so the
+  // copies being deleted are not interchangeable with the keeper.
+  return keeper === "evidence"
+    ? {
+        severity: 1,
+        label: "Low risk",
+        explanation: "The copies look like the same picture but are different files. The kept one was chosen on work you did — tags, albums, or a folder rule."
+      }
+    : {
+        severity: 2,
+        label: "Worth a look",
+        explanation: "The copies look like the same picture but are different files, and nothing you did separated them — the choice came from the files themselves."
+      };
+}
 
 export interface SnapshotResult {
   id: string;
@@ -1166,6 +1219,7 @@ export interface SnapshotResult {
   tier: ResultTier;
   matchConfidence: MatchConfidence;
   keeperConfidence: KeeperConfidence;
+  risk: ResultRisk;
   status: string;
   reviewStatus: string;
   reclaimableBytes: number;
@@ -1365,14 +1419,17 @@ export function listJobResults(
 
   return results.map((row) => {
     const rowMembers = membersBy.get(row.id) ?? [];
+    // Any member sitting off the keeper by a bit or more makes the whole set a
+    // perceptual match. Read from the members so it cannot drift from them.
+    const tier = rowMembers.some((member) => member.distance > 0) ? "near" as const : "exact" as const;
+    const keeperConfidence = keeperConfidenceOf(row.keeper_rank);
     return {
       id: row.id,
       type: row.result_type,
-      // Any member sitting off the keeper by a bit or more makes the whole set a
-      // perceptual match. Read from the members so it cannot drift from them.
-      tier: rowMembers.some((member) => member.distance > 0) ? "near" as const : "exact" as const,
+      tier,
       matchConfidence: row.match_confidence,
-      keeperConfidence: keeperConfidenceOf(row.keeper_rank),
+      keeperConfidence,
+      risk: assessResultRisk(tier, row.match_confidence, keeperConfidence),
       status: row.status,
       reviewStatus: row.review_status,
       reclaimableBytes: row.reclaimable_bytes,

@@ -10,13 +10,14 @@ import {
 } from "lucide-react";
 import { formatBytes } from "../../../../shared/utils";
 import { Button } from "../../../../shared/Button";
+import { RiskGauge } from "../../../../shared/RiskGauge";
 import { FolderStrip, TOP_LEVEL, TOP_LEVEL_HINT } from "./shared";
 import { DuplicateViewer, type ViewerMember } from "./DuplicateViewer";
 import { FolderCompare } from "./FolderCompare";
 import { CertaintyBadge } from "./CertaintyBadge";
 import {
   doomedFolder, fileNameOf, folderLabel, folderLocation, folderOfPath, galleryFolderHref,
-  keeperFolders, photoCountLabel,
+  keeperFolders, keeperMuchSmaller, largestPixelsOf, photoCountLabel, sizeShortfallOf,
   type SnapshotFolder, type SnapshotMember, type SnapshotResult
 } from "./cleanup-types";
 
@@ -231,6 +232,7 @@ function ContainedCard({
             <p className="dup-set-meta datagrid-muted">
               <span><Images size={14} aria-hidden="true" /> {photoCountLabel(totalPhotos)}</span>
               <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(result.reclaimableBytes)}</span>
+              {result.risk && <RiskGauge severity={result.risk.severity} label={result.risk.label} explanation={result.risk.explanation} />}
               <ReviewedBadge result={result} />
             </p>
             <CertaintyBadge match={result.matchConfidence} keeper={result.keeperConfidence} />
@@ -319,6 +321,7 @@ function FolderSetCard({
             <p className="dup-set-meta datagrid-muted">
               <span><Images size={14} aria-hidden="true" /> {photoCountLabel(totalPhotos)}</span>
               <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(result.reclaimableBytes)}</span>
+              {result.risk && <RiskGauge severity={result.risk.severity} label={result.risk.label} explanation={result.risk.explanation} />}
               <ReviewedBadge result={result} />
             </p>
             <CertaintyBadge match={result.matchConfidence} keeper={result.keeperConfidence} />
@@ -387,9 +390,10 @@ function FolderSetCard({
  *  The picture is the control: clicking it moves this copy between keep and delete,
  *  which is the decision the scan only guessed at. "Compare" opens the copies full size
  *  for anyone who wants a closer look before choosing. */
-function CopyTile({ member, showSize, busy, onToggle }: {
+function CopyTile({ member, largestPixels, busy, onToggle }: {
   member: SnapshotMember;
-  showSize: boolean;
+  /** The set's biggest copy in pixels, for the "N× smaller" tag. 0 disables it. */
+  largestPixels: number;
   busy: boolean;
   /** Absent when this copy's fate is not open to change — a cleanup someone else owns,
    *  a protected library, or a copy already in the Recycle Bin. Then the tile is a
@@ -398,6 +402,7 @@ function CopyTile({ member, showSize, busy, onToggle }: {
   onToggle?: () => void;
 }) {
   const doomed = member.role === "delete";
+  const shortfall = sizeShortfallOf(member, largestPixels);
   // The grid thumbnail, not the web-sized preview: a card shows a dozen of these and
   // the preview is sized for the viewer's full-screen panes.
   const src = member.coverUrl ?? member.previewUrl;
@@ -445,7 +450,24 @@ function CopyTile({ member, showSize, busy, onToggle }: {
           <Images size={11} aria-hidden="true" />
           <span>{member.libraryName}</span>
         </span>
-        {showSize && <span className="dup-copy-where">{formatBytes(member.size ?? 0)}</span>}
+        <span className="dup-copy-where">
+          {formatBytes(member.size ?? 0)}
+          {member.width && member.height ? ` · ${member.width}×${member.height}` : ""}
+        </span>
+        {/* The tag is a fact on a copy being deleted and a warning on one being kept:
+            deleting the small copy is the point of the page, keeping it is the mistake.
+            Severity shows as colour, not more words — the number already says it. */}
+        {shortfall && (
+          <span
+            className={`dup-copy-scale${!doomed ? " is-warn" : shortfall.severe ? " is-much" : ""}`}
+            title={`This copy has ${shortfall.times}× fewer pixels than the biggest one in the set${
+              !doomed ? " — and it is the one being kept" : ""
+            }.`}
+          >
+            {!doomed && <TriangleAlert size={11} aria-hidden="true" />}
+            {shortfall.label}
+          </span>
+        )}
       </span>
     </li>
   );
@@ -487,6 +509,12 @@ function PhotoSetCard({
   const keepsNothing = keeps.length === 0
     && result.members.some((member) => member.role === "delete" && member.status !== "deleted");
 
+  // For the "N× smaller" tags, and the warning below when the small copy is the one
+  // being kept. Recomputed on every role flip, which is exactly when it matters: the
+  // scan no longer proposes keeping a preview, but a click can.
+  const largestPixels = near ? largestPixelsOf(result.members) : 0;
+  const keepingSmall = near && keeperMuchSmaller(result.members);
+
   return (
     <div className="dup-set">
       <div className="dup-set-head">
@@ -495,6 +523,7 @@ function PhotoSetCard({
           <p className="dup-set-meta datagrid-muted">
             <span><Images size={14} aria-hidden="true" /> {result.members.length} copies</span>
             <span><HardDrive size={14} aria-hidden="true" /> {formatBytes(result.reclaimableBytes)}</span>
+            {result.risk && <RiskGauge severity={result.risk.severity} label={result.risk.label} explanation={result.risk.explanation} />}
           </p>
           <CertaintyBadge match={result.matchConfidence} keeper={result.keeperConfidence} />
           {/* Said on the card as well as under the heading. Someone working down a long
@@ -513,6 +542,15 @@ function PhotoSetCard({
                 Nothing here is kept, so this removes the picture from your library, not
                 just its spare copies. {result.members.length === 1 ? "The copy goes" : "All copies go"} to
                 the Recycle Bin, where {result.members.length === 1 ? "it can" : "they can"} still be restored.
+              </span>
+            </p>
+          )}
+          {keepingSmall && (
+            <p className="dup-set-explain dup-set-near">
+              <TriangleAlert size={13} aria-hidden="true" />
+              <span>
+                A copy being deleted is much larger than the one being kept. Pixels can't be
+                got back — check you're keeping the right one.
               </span>
             </p>
           )}
@@ -540,15 +578,15 @@ function PhotoSetCard({
           body (strip beside folders), and it pinned this content into a 270px column
           with half the card standing empty. */}
       <ul className="dup-copies">
-        {/* On a near set the file sizes are the visible difference between the copies —
-            which is the downscaled one, which is the original — so each tile carries
-            one. In an identical set every size is the same by definition and printing
-            them would be noise. */}
+        {/* Every tile carries its size and dimensions. On a near set they are the
+            visible difference between the copies; on an identical set they are the
+            same on every tile, and that sameness is itself the reassurance — it
+            SHOWS the copies are interchangeable instead of asking to be believed. */}
         {ordered.map((member) => (
           <CopyTile
             key={member.id}
             member={member}
-            showSize={near}
+            largestPixels={largestPixels}
             busy={actions.busy}
             onToggle={togglable(member)
               ? () => actions.onSetRole(member.id, member.role === "delete" ? "keep" : "delete")

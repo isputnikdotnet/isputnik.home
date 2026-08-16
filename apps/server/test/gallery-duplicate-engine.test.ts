@@ -222,6 +222,53 @@ describe("keeper choice", () => {
     expect(pickKeeper([plain, tagged])?.keeperId).toBe("tagged");
   });
 
+  // The film-scanner case from the real library, and the reason this criterion exists.
+  // A Fuji Frontier writes FL000003.jpg at 432×640 beside FH000003.jpg at 1215×1800 —
+  // and stamps the camera make and model on the LOW-resolution index scan only. Judged
+  // on metadata the preview wins and the only detailed copy of the photograph is the one
+  // proposed for deletion.
+  it("never keeps an index scan over the full-size photo it came from", () => {
+    const full = {
+      ...detail("full"), relative_path: "2004-09-09/FH000003-003.jpg",
+      width: 1215, height: 1800, size: 1473848, camera_make: null, camera_model: null
+    };
+    const index = {
+      ...detail("index"), relative_path: "2004-09-09/FL000003.jpg",
+      width: 432, height: 640, size: 147278,
+      camera_make: "FUJI PHOTO FILM CO., LTD.", camera_model: "SP-2000"
+    };
+
+    const choice = pickKeeper([index, full]);
+    expect(choice?.keeperId).toBe("full");
+    expect(choice?.reason).toContain("not a low-resolution copy");
+  });
+
+  it("outranks the work merged onto the keeper anyway", () => {
+    // Tags, albums and people move to the surviving copy; pixels cannot. So a tagged
+    // thumbnail still loses — unlike a tagged full-size copy, which wins above.
+    const full = { ...detail("full"), width: 4000, height: 3000 };
+    const thumb = { ...detail("thumb"), width: 400, height: 300, tag_count: 3, face_count: 2 };
+    expect(pickKeeper([thumb, full])?.keeperId).toBe("full");
+  });
+
+  it("leaves a moderate downscale to the ordinary criteria", () => {
+    // Half the pixels is not a preview — it is a photograph. 'small' carries the camera
+    // info, which is a real criterion and still allowed to decide at this distance.
+    const big = { ...detail("big"), width: 6000, height: 4000, camera_make: null };
+    const small = { ...detail("small"), width: 4000, height: 3000, camera_make: "Canon" };
+    const choice = pickKeeper([big, small]);
+    expect(choice?.keeperId).toBe("small");
+    expect(choice?.reason).not.toContain("low-resolution");
+  });
+
+  it("never calls a copy of unknown size a preview", () => {
+    // Unknown is not small: an item whose dimensions never got read must not be thrown
+    // away for having none.
+    const known = { ...detail("known"), width: 4000, height: 3000 };
+    const unknown = { ...detail("unknown"), width: null, height: null, tag_count: 1 };
+    expect(pickKeeper([known, unknown])?.keeperId).toBe("unknown");
+  });
+
   it("prefers the original over a file-manager copy", () => {
     const original = detail("original");
     const copy = { ...detail("copy"), relative_path: "IMG_1234 (1).jpg" };

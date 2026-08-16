@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.7.3",
+    label: "Backups carry your covers again, and duplicate cleanup stops guessing wrong",
+    changes: [
+      "Backups were quietly leaving out every cover if your thumbnail store was set in the app (Control panel → Library → Storage) rather than through the THUMBNAIL_PATH environment variable — the backup page read only the environment, said \"no thumbnail path configured\" while one was plainly configured, and still labelled the result \"Full (DB + covers)\". It now reads the same setting everything else does, backs up the covers from where they actually are, and restores them to where the app will actually look. If your Storage page names a custom path, check one backup made after this update — earlier \"full\" backups from such a setup carry no covers.",
+      "Duplicate cleanup no longer proposes deleting the only good copy of a photo. Film scanners write a low-resolution index scan beside each full-size frame and stamp the camera model on the index scan only, so judged on metadata the thumbnail won — and the app suggested keeping a 147 KB preview over the 1.4 MB photograph it came from. A copy holding under a quarter of the pixels of the best in its set now loses to it no matter what metadata it carries, because pixels are the one thing no other copy can give back; the camera info and date follow the surviving photo instead of vanishing with the preview. Re-run the scan on an open cleanup to get the corrected choices.",
+      "Every result in a cleanup now wears a little dial, from green to red: how carefully to look before letting it through. Byte-identical copies read \"No risk\" — whichever is kept, the picture is exactly the same. Copies that merely look alike climb to \"Low risk\", \"Worth a look\" or \"Check first\", depending on whether anything you did — tags, albums, folder rules — stood behind the choice, and on how much the pictures can be trusted to be the same shot. The full sentence behind the reading is on the dial's tooltip.",
+      "Each copy on a card now shows its file size and pixel dimensions — on identical sets too, where the sameness of the numbers is the reassurance. Where one copy is a fraction of the biggest, its tile says so outright (\"8× smaller\"): a quiet note on a copy being deleted, a red warning on one being kept. And if your own clicks would delete a copy much larger than the one being kept, the card says that in words before you do it — pixels can't be got back.",
+      "Also fixed: the backup page's note about a missing thumbnail store now links to the Storage page instead of misreporting the situation, and a \"Kept on a guess\" badge stays honest — a keeper chosen because the other copy was a low-resolution preview is reported as the guess it is, not as your own decision."
+    ]
+  },
+  {
     version: "3.7.2",
     label: "Restore just the database, and find out why a sign-in really failed",
     changes: [

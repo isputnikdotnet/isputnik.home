@@ -155,6 +155,21 @@ describe("choosing what a restore puts back", () => {
     expect(coversOnDisk()).toEqual(["one.jpg", "two.jpg"]);
   });
 
+  it("follows the thumbnail store the admin set, not the environment", async () => {
+    // The store is an app setting that overrides THUMBNAIL_PATH, and the rest of the
+    // app reads it that way. Reading only the environment here put the covers back
+    // into a folder nothing looks at — and left them out of the backup to begin with.
+    const chosen = path.join(workdir, "elsewhere");
+    const { db } = await import("../src/db.js");
+    db.prepare("INSERT INTO app_settings (key, value) VALUES ('library.thumbnail_path', ?)").run(chosen);
+
+    const res = await restore(await signIn(), { covers: true });
+
+    expect(res.json()).toMatchObject({ coversRestored: 2 });
+    expect(fs.readdirSync(path.join(chosen, "covers")).sort()).toEqual(["one.jpg", "two.jpg"]);
+    expect(coversOnDisk()).toEqual([]); // …and nothing in the environment's folder
+  });
+
   it("says in the log which kind of restore it was", async () => {
     const cookieHeader = await signIn();
     await restore(cookieHeader, { covers: false });

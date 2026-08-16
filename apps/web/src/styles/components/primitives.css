@@ -802,3 +802,55 @@ a.icon-button svg {
   align-content: start;
 }
 
+
+/* ── RiskGauge ───────────────────────────────────────────────────────
+   A little dial: green → gold → amber → red zones on a semicircle, a needle in the
+   zone for the current severity. Needle position and colour say the same thing twice,
+   so the reading survives colour-blindness and a half-second glance. */
+.risk-gauge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: default;
+}
+
+.risk-gauge.is-none   { --risk-tone: var(--mint); }
+.risk-gauge.is-low    { --risk-tone: var(--gold); }
+.risk-gauge.is-medium { --risk-tone: var(--amber); }
+.risk-gauge.is-high   { --risk-tone: var(--rose); }
+
+.risk-gauge-dial {
+  width: 30px;
+  height: 17px;
+  overflow: visible;
+}
+
+/* The whole scale is always on the dial; only the zone under the needle speaks at
+   full strength. Stroke colours come inline from the component (one per zone). */
+.risk-gauge-zone {
+  fill: none;
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  opacity: 0.28;
+}
+
+.risk-gauge-zone.is-active {
+  opacity: 1;
+}
+
+.risk-gauge-needle {
+  stroke: var(--ink);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.risk-gauge-pivot {
+  fill: var(--ink);
+}
+
+.risk-gauge-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--risk-tone);
+  white-space: nowrap;
+}

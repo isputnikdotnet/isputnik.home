@@ -14,6 +14,11 @@
 // Merging them would lose exactly the case that matters most — a byte-identical set
 // where the copies are interchangeable and the choice between them was arbitrary. That
 // is completely safe and completely uncertain at the same time.
+// A third reading lives OUTSIDE this component: the risk gauge on the card's meta
+// line, which deliberately IS a fold of the two chips — "how carefully should I look
+// before clicking?", folded on the server (assessResultRisk) so every card folds it
+// the same way. It sits with the copy count and size because it is the same kind of
+// fact: one glanceable property of the set. The chips stay here with the detail.
 import { CircleCheck, CircleHelp, TriangleAlert } from "lucide-react";
 import type { KeeperConfidence, MatchConfidence } from "./cleanup-types";
 

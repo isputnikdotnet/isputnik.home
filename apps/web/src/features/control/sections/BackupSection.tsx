@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Archive, DatabaseBackup, Download, Folder, Trash2, RotateCcw, Save, UploadCloud } from "lucide-react";
 import { api } from "../../../api";
+import { controlHref, followRoute } from "../../../router";
 import { MessageBox } from "../../../shared/MessageBox";
 import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Modal } from "../../../shared/Modal";
@@ -194,7 +195,17 @@ export function BackupSection() {
               />
               <span>
                 Include cover art
-                {data && !data.coversAvailable && <small>(no thumbnail path configured)</small>}
+                {data && !data.coversAvailable && (
+                  <small>
+                    No thumbnail store yet — set one under{" "}
+                    <a
+                      href={controlHref("storage")}
+                      onClick={(event) => followRoute(event, controlHref("storage"))}
+                    >
+                      Library → Storage
+                    </a>
+                  </small>
+                )}
               </span>
             </label>
           </div>
