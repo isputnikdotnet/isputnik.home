@@ -14,6 +14,12 @@ and `apps/web` (React + Vite PWA).
   in `apps/web/test/`, typechecked with the source). Never run `npx vitest` from the
   repo root — it misses `DB_PATH=:memory:` and the server suite will wipe the dev
   database; use the scripts, or `npx vitest --root apps/server`.
+- A test that registers `backupsPlugin` runs `rescueStrandedBackups()`, which **moves**
+  every backup out of `<process.cwd()>/data/backups` into the configured `BACKUP_PATH`
+  — under Vitest that folder is the developer's own `data/backups`, and a test that
+  cleans up its temp dir afterwards deletes them for good (this has happened). Mock
+  `process.cwd()` to the test's temp folder before registering it, as
+  `backup-restore-covers.test.ts` and `backup-path-rescue.test.ts` do.
 
 ## Repo-root files — do not delete
 

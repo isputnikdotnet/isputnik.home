@@ -79,9 +79,21 @@ async function notifyAdmins(subject: string, parts: AlertPart[]): Promise<void> 
   await notify(adminEmails(), subject, parts);
 }
 
-export function alertAccountLocked(email: string, ip: string | null): void {
+// `hasAccount` is false when the address that crossed the threshold has no account
+// behind it. That is worth saying rather than smoothing over: the lockout is keyed on
+// what was typed, so a household member with a mistyped email locks out an address
+// nobody can find in the user list, and the alert is the one place an admin would
+// otherwise be told an "account" is under attack that does not exist.
+export function alertAccountLocked(email: string, ip: string | null, hasAccount = true): void {
   const { lockoutMinutes } = getSecurityPolicy();
   if (throttled(`lock:${email.toLowerCase()}`, lockoutMinutes * 60_000)) return;
+  if (!hasAccount) {
+    void notifyAdmins("Repeated failed sign-ins for an address with no account", [
+      context(ip, { label: "Address tried", value: email }),
+      `No account uses this address, so nothing of yours is locked. Either someone is guessing, or a member of the household is typing their own email slightly wrong — compare it with their account under Control panel → Members → Users.`
+    ]);
+    return;
+  }
   void notifyAdmins("An account was locked after repeated failed sign-ins", [
     context(ip, { label: "Account", value: email }),
     `The account is locked for ${lockoutMinutes} minutes. If this wasn't the owner, their password may be under attack.`

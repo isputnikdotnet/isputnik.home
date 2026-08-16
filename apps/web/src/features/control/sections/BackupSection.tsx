@@ -41,6 +41,7 @@ export function BackupSection() {
   const [pendingDelete, setPendingDelete] = useState<BackupFile | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [pendingRestore, setPendingRestore] = useState<BackupFile | null>(null);
+  const [restoreCovers, setRestoreCovers] = useState(true);
   const [restoring, setRestoring] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
@@ -99,10 +100,17 @@ export function BackupSection() {
 
   const restoreBackup = async () => {
     if (!pendingRestore) return;
+    const covers = pendingRestore.kind === "full" && restoreCovers;
     setRestoring(true); setError("");
     try {
-      await api(`/api/backups/${encodeURIComponent(pendingRestore.name)}/restore`, { method: "POST", body: "{}" });
-      setNotice(`Restore staged from ${pendingRestore.name}. Restart the server to apply it.`);
+      await api(`/api/backups/${encodeURIComponent(pendingRestore.name)}/restore`, {
+        method: "POST",
+        body: JSON.stringify({ covers })
+      });
+      setNotice(
+        `Restore staged from ${pendingRestore.name}${covers ? "" : ", database only — cover art left as it is"}. ` +
+        "Restart the server to apply it."
+      );
       setPendingRestore(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to stage restore");
@@ -239,7 +247,7 @@ export function BackupSection() {
                       <td className="col-num datagrid-muted">{formatBytes(backup.sizeBytes)}</td>
                       <td className="col-actions">
                         <div className="row-actions">
-                          <button className="secondary-button compact-button" title="Restore this backup" onClick={() => setPendingRestore(backup)}>
+                          <button className="secondary-button compact-button" title="Restore this backup" onClick={() => { setRestoreCovers(true); setPendingRestore(backup); }}>
                             <RotateCcw size={14} /> Restore
                           </button>
                           <a className="icon-button" title="Download backup" href={`/api/backups/${encodeURIComponent(backup.name)}/download`} download>
@@ -287,7 +295,24 @@ export function BackupSection() {
           onConfirm={restoreBackup}
           onCancel={() => setPendingRestore(null)}
         >
-          <p>Cover art from <strong>{pendingRestore.name}</strong> is restored immediately. The database is staged and replaces the current one the next time the server starts (the current database is saved as an automatic backup first).</p>
+          <p>
+            The database in <strong>{pendingRestore.name}</strong> is staged and replaces the current one the next time
+            the server starts (the current database is saved as an automatic backup first).
+            {pendingRestore.kind === "full" && restoreCovers && " Cover art is put back straight away."}
+          </p>
+          {pendingRestore.kind === "full" && (
+            <label className="field-checkbox backup-cover-toggle">
+              <input
+                type="checkbox"
+                checked={restoreCovers}
+                onChange={(e) => setRestoreCovers(e.target.checked)}
+              />
+              <span>
+                Also restore cover art
+                <small>Off is quicker and leaves the covers you have now alone — the database comes back either way.</small>
+              </span>
+            </label>
+          )}
           <p><strong>You must restart the server to finish</strong> — changes made since this backup will be lost.</p>
         </ConfirmDialog>
       )}

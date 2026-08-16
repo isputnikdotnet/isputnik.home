@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.7.2",
+    label: "Restore just the database, and find out why a sign-in really failed",
+    changes: [
+      "Restoring a backup now asks whether to put the cover art back as well. It's on by default, exactly as before. Turning it off restores only the database and leaves the covers you have alone — quicker, since on a full backup the covers are most of the archive, and usually what you want, because the cache on disk is generally holding the same art the backup is carrying.",
+      "A failed sign-in now says in the activity log why it failed: a wrong password, an address with no account behind it, a deleted account, or a deactivated one. A mistyped email and a wrong password used to read exactly alike, and they behave nothing alike — the lockout counts against the address that was typed, so one transposed letter locks out an email that appears nowhere in your user list, while the real account sits there unlocked, apparently refusing a password that is perfectly correct. The sign-in screen still says only \"Invalid email or password\": this is for the log, which only administrators can read.",
+      "For the same reason, the email you're sent when an address is locked out now tells you when that address has no account at all — nothing of yours is locked, and the likeliest explanation is someone in the house typing their own email slightly wrong."
+    ]
+  },
+  {
     version: "3.7.1",
     label: "Restore a backup bigger than 2 GB, and get a locked-out account back",
     changes: [
