@@ -15,6 +15,7 @@ import { RefreshButton } from "../../../shared/RefreshButton";
 import { SelectMenu } from "../../../shared/SelectMenu";
 import { formatBytes, formatManagedDate } from "../../../shared/utils";
 import { ControlSectionHead } from "../ControlSectionHead";
+import { TrashRootEditor, type TrashRootSettings } from "./TrashRootEditor";
 
 interface TrashedItem {
   id: string;
@@ -139,6 +140,8 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
   // The settings dialog keeps its own error, so a failed save is reported where the
   // fields are rather than behind the dialog on the page underneath.
   const [settingsError, setSettingsError] = useState("");
+  const [trashRoot, setTrashRoot] = useState<TrashRootSettings | null>(null);
+  const [editLocationOpen, setEditLocationOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [restoringId, setRestoringId] = useState("");
@@ -273,6 +276,13 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
     setCleanupRetentionDays(payload.cleanupRetentionDays);
     setBinInput(String(payload.retentionDays));
     setCleanupInput(payload.cleanupRetentionDays == null ? "" : String(payload.cleanupRetentionDays));
+
+    // The install-wide bin location, for the settings dialog and the empty-bin line.
+    // Admin-only on the server, and only admins see the doors into it here — a member
+    // getting a 403 on page load would dress the whole page in an error.
+    if (currentUser.role === "admin") {
+      setTrashRoot(await api<TrashRootSettings>("/api/storage/trash-root"));
+    }
   };
 
   useEffect(() => {
@@ -488,6 +498,22 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
               {shownBins.length > 1 && <> ({bin.libraryName})</>}
             </span>
           ))}
+        </p>
+      )}
+
+      {/* The per-library line above only exists while something is IN the bin, which
+          left an empty bin saying nothing about where deletions go — and empty is the
+          only time the location can be changed. Admins get the answer and the door. */}
+      {isAdmin && trashRoot && items.length === 0 && loaded && !error && (
+        <p className="trash-bins datagrid-muted">
+          Deleted files will go to{" "}
+          {trashRoot.path
+            ? <code title="The install-wide Recycle Bin folder">{trashRoot.path}</code>
+            : <>a hidden <code>.trash</code> folder inside each library</>}
+          {" — change this under the "}
+          <Button variant="text" onClick={() => { setSettingsError(""); setSettingsOpen(true); }}>
+            bin's settings
+          </Button>.
         </p>
       )}
 
@@ -761,6 +787,28 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
             never moves a date already set. They decide what happens from now on.
           </p>
 
+          {/* The location was reachable only from Library → Storage, which nobody
+              standing in the bin thinks to visit. Shown and changed from here too —
+              same editor, same rules — while the Storage page keeps its copy for the
+              set-it-up-first flow. */}
+          {trashRoot && (
+            <div className="trash-location-row">
+              <span>Deleted files go to</span>
+              <code>{trashRoot.path || "each library's own .trash folder"}</code>
+              <Button
+                variant="secondary"
+                compact
+                disabled={!trashRoot.editable}
+                title={trashRoot.editable
+                  ? undefined
+                  : "Empty the Recycle Bin first — the location can only change while it holds nothing"}
+                onClick={() => { closeSettings(); setEditLocationOpen(true); }}
+              >
+                Change location
+              </Button>
+            </div>
+          )}
+
           {settingsError && (
             <MessageBox tone="error" title="Unable to save">{settingsError}</MessageBox>
           )}
@@ -772,6 +820,14 @@ export function RecycleBinSection({ currentUser }: { currentUser: PublicUser }) 
             </Button>
           </div>
         </Modal>
+      )}
+
+      {editLocationOpen && (
+        <TrashRootEditor
+          current={trashRoot?.path ?? null}
+          onSaved={load}
+          onClose={() => setEditLocationOpen(false)}
+        />
       )}
 
       {purgeTarget && (
