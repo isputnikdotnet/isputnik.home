@@ -257,6 +257,12 @@ const settingsSchema = z.object({
   includeCovers: z.boolean()
 });
 
+// Restoring is all-or-nothing about the database and optional about the covers.
+// Absent means yes, so an older client (or a bare "{}") restores everything.
+const restoreSchema = z.object({
+  covers: z.boolean().default(true)
+});
+
 export async function backupsPlugin(app: FastifyInstance) {
   // Before anything can list them: an install upgrading from an earlier version may
   // have backups sitting where a container update would discard them.
@@ -354,6 +360,16 @@ export async function backupsPlugin(app: FastifyInstance) {
       return reply.code(404).send({ error: "Backup not found" });
     }
 
+    // Covers are the bulk of a full backup and the slow half of a restore, and an
+    // admin reaching for a backup usually wants the database back — the covers in
+    // the cache are often the ones they already have. Default on, so a restore that
+    // says nothing still puts everything back.
+    const parsed = parseBody(restoreSchema, request.body ?? {});
+    if (parsed.error) {
+      return reply.code(400).send({ error: "Invalid restore options", details: parsed.error });
+    }
+    const wantCovers = parsed.data.covers;
+
     const stagedDb = `${config.dbPath}.restore`;
     let coversRestored = 0;
 
@@ -378,7 +394,7 @@ export async function backupsPlugin(app: FastifyInstance) {
         fs.renameSync(tmp, stagedDb);
 
         // Restore covers live into the thumbnail cache.
-        if (config.thumbnailPath) {
+        if (wantCovers && config.thumbnailPath) {
           const cache = config.thumbnailPath;
           coversRestored = await extractFromZip(filePath, (name) => {
             if (!name.startsWith("thumbnails/")) return null;
@@ -396,10 +412,14 @@ export async function backupsPlugin(app: FastifyInstance) {
       actorUserId: request.user!.id,
       targetType: "backup",
       targetId: name,
-      detail: `Staged restore from "${name}"${coversRestored > 0 ? `, restored ${coversRestored} cover file(s)` : ""}; database applies on next restart.`,
+      detail: `Staged restore from "${name}"${
+        wantCovers
+          ? coversRestored > 0 ? `, restored ${coversRestored} cover file(s)` : ""
+          : ", database only (cover art left as it is)"
+      }; database applies on next restart.`,
       ipAddress: request.ip
     });
-    return reply.send({ staged: true, coversRestored });
+    return reply.send({ staged: true, coversRestored, coversSkipped: !wantCovers });
   });
 
   // Upload a backup file (.zip full backup, or .sqlite database-only) from the admin's

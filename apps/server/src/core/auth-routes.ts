@@ -10,6 +10,20 @@ import { maskEmail } from "./mfa.js";
 import { isTrustedIp, isAccountLocked, recordLoginAttempt, maybeAutoBlockIp } from "./security.js";
 import { alertAccountLocked, alertIpAutoBlocked, reviewSignInLocation } from "./security-alerts.js";
 
+// Why a sign-in failed, for the activity log only — the answer sent back to the
+// browser stays deliberately vague, and this log is admin-only.
+//
+// Without it, a mistyped address and a wrong password read identically, while the
+// failures pile up against an email the user list cannot show: the lockout is keyed
+// on what was typed, and an account's Locked badge comes from the address the
+// account actually has. One transposed letter can therefore look exactly like a
+// password that refuses to work, through a reset and a lockout both.
+function failureReason(email: string, user: User | undefined): string {
+  if (user) return user.is_active ? "wrong password" : "the account is deactivated";
+  const deleted = db.prepare("SELECT 1 FROM users WHERE email = ? AND deleted_at IS NOT NULL").get(email);
+  return deleted ? "that account was deleted" : "there is no account with that address";
+}
+
 export async function authPlugin(app: FastifyInstance) {
   app.post("/api/auth/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const parsed = parseBody(credentialsSchema, request.body);
@@ -49,13 +63,13 @@ export async function authPlugin(app: FastifyInstance) {
     if (!ok) {
       logActivity({
         event: "auth.login_failed",
-        detail: `A sign-in attempt for ${email} failed.`,
+        detail: `A sign-in attempt for ${email} failed — ${failureReason(email, user)}.`,
         ipAddress: request.ip
       });
       // Trusted networks are never auto-blocked or locked out.
       if (!trusted) {
         if (maybeAutoBlockIp(request.ip)) alertIpAutoBlocked(request.ip);
-        if (isAccountLocked(email)) alertAccountLocked(email, request.ip);
+        if (isAccountLocked(email)) alertAccountLocked(email, request.ip, Boolean(user));
       }
       return reply.code(401).send({ error: "Invalid email or password" });
     }
