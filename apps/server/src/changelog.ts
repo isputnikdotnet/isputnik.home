@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.7.1",
+    label: "Restore a backup bigger than 2 GB, and get a locked-out account back",
+    changes: [
+      "Restoring a full backup larger than 2 GB failed outright, with \"File size … is greater than 2 GiB\" — and a backup that carries your covers passes 2 GB quickly, so this hit the backups most worth having. The archive is now read a piece at a time instead of being loaded whole into memory, and its size no longer decides whether it can be restored. Uploading a backup from your computer had the same ceiling and no longer does.",
+      "Deleting an account used to keep its email address for itself. Creating a new account with that address answered \"An account with this email already exists\" while no such account was anywhere on the page — an argument with something invisible, and no way out of it. The address is accepted now: the new account takes the deleted one's place, so anything it still owns, like a library or a collection, comes with it, and its old two-factor setup and passkeys are removed, since only the new password is meant to open it. You're told when that happens.",
+      "\"Clear sign-in lockout\" is no longer greyed out. Whether an account is locked is worked out from its recent failed sign-ins each time the user list loads, so the answer went stale while you were reading it — and the one action that could help was disabled exactly when it was needed. It's always available now, and clearing a lockout that isn't there costs nothing.",
+      "Giving someone a new password now clears their lockout too. A new password is no use to someone the server is still refusing, and waiting out the lock reads as the reset having failed. Deleting an account clears it as well: failed sign-ins are counted against the email address rather than the account, so a lock could otherwise outlive the account and meet whoever was given that address next."
+    ]
+  },
+  {
     version: "3.7.0",
     label: "Set how big your photos are, and reach the rest of the gallery from anywhere in it",
     changes: [

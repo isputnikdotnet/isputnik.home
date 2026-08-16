@@ -2,13 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import archiver from "archiver";
-import AdmZip from "adm-zip";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, logActivity } from "../../db.js";
 import { config } from "../../config.js";
 import { parseBody } from "../../core/shared.js";
 import { receiveUpload, UploadError } from "../uploads/index.js";
+import { extractFromZip, isBackupDatabaseEntry, zipHasEntry } from "./zip-read.js";
 
 // Database backups. A backup is a zip containing database.sqlite (a consistent
 // online snapshot) and, optionally, the thumbnail cache under thumbnails/ — those
@@ -362,15 +362,13 @@ export async function backupsPlugin(app: FastifyInstance) {
         assertValidSqlite(filePath);
         fs.copyFileSync(filePath, stagedDb);
       } else {
-        const zip = new AdmZip(filePath);
-        const entries = zip.getEntries();
-        const dbEntry = entries.find((e) => !e.isDirectory && (e.entryName === "database.sqlite" || e.entryName.endsWith("/database.sqlite")));
-        if (!dbEntry) {
+        // The database first and on its own: an invalid one aborts the restore, and
+        // it must do that before any cover is written over the live cache.
+        const tmp = `${config.dbPath}.restore.tmp`;
+        const gotDb = await extractFromZip(filePath, (name) => (isBackupDatabaseEntry(name) ? tmp : null));
+        if (gotDb === 0) {
           return reply.code(400).send({ error: "Backup is missing its database." });
         }
-        // Write DB to a temp file, validate, then promote to the staging path.
-        const tmp = `${config.dbPath}.restore.tmp`;
-        fs.writeFileSync(tmp, dbEntry.getData());
         try {
           assertValidSqlite(tmp);
         } catch {
@@ -381,18 +379,12 @@ export async function backupsPlugin(app: FastifyInstance) {
 
         // Restore covers live into the thumbnail cache.
         if (config.thumbnailPath) {
-          for (const entry of entries) {
-            if (entry.isDirectory || !entry.entryName.startsWith("thumbnails/")) {
-              continue;
-            }
-            const dest = path.join(config.thumbnailPath, entry.entryName.slice("thumbnails/".length));
-            if (!isInside(dest, config.thumbnailPath)) {
-              continue;
-            }
-            fs.mkdirSync(path.dirname(dest), { recursive: true });
-            fs.writeFileSync(dest, entry.getData());
-            coversRestored += 1;
-          }
+          const cache = config.thumbnailPath;
+          coversRestored = await extractFromZip(filePath, (name) => {
+            if (!name.startsWith("thumbnails/")) return null;
+            const dest = path.join(cache, name.slice("thumbnails/".length));
+            return isInside(dest, cache) ? dest : null;
+          });
         }
       }
     } catch (err) {
@@ -431,11 +423,7 @@ export async function backupsPlugin(app: FastifyInstance) {
       if (received.extension === "sqlite") {
         assertValidSqlite(received.tmpPath);
       } else {
-        const zip = new AdmZip(received.tmpPath);
-        const hasDb = zip.getEntries().some(
-          (entry) => !entry.isDirectory && (entry.entryName === "database.sqlite" || entry.entryName.endsWith("/database.sqlite"))
-        );
-        if (!hasDb) {
+        if (!(await zipHasEntry(received.tmpPath, isBackupDatabaseEntry))) {
           throw new Error("This zip is not an isputnik backup — it has no database.sqlite inside.");
         }
       }

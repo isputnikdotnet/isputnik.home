@@ -39,6 +39,7 @@ const DEFAULT_WINDOW_MINUTES = 60;
 export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [modalError, setModalError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -98,6 +99,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
 
   const openCreate = () => {
     setError("");
+    setNotice("");
     setModalError("");
     setNewDisplayName("");
     setNewEmail("");
@@ -127,7 +129,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
     setCreating(true);
     setModalError("");
     try {
-      await api("/api/users", {
+      const result = await api<{ restored?: boolean }>("/api/users", {
         method: "POST",
         body: JSON.stringify({
           displayName: newDisplayName,
@@ -136,6 +138,14 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
           role: newRole
         })
       });
+      // The address belonged to a deleted account, so this took that account's place
+      // rather than making a second one. Say so — what came back with it is not
+      // obvious, and the admin is the one who has to tell the new user.
+      setNotice(
+        result.restored
+          ? `This email belonged to a deleted account, so ${newDisplayName} takes it over — anything it still owns, like libraries or collections, comes with it. Its old two-factor setup and passkeys were removed.`
+          : ""
+      );
       setCreateOpen(false);
       await loadUsers();
     } catch (err) {
@@ -316,6 +326,7 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
       </ControlSectionHead>
 
       {error && <MessageBox tone="error" title="User management error">{error}</MessageBox>}
+      {notice && <MessageBox tone="info" title="An existing email was reused">{notice}</MessageBox>}
 
       <div className="user-controls-bar">
         <label className="search-field user-search">
@@ -456,11 +467,13 @@ export function UsersSection({ currentUser }: { currentUser: PublicUser }) {
                               key: "unlock",
                               label: "Clear sign-in lockout",
                               icon: <LockOpen size={15} />,
-                              disabledReason: !account.locked
-                                ? "This account isn't locked"
-                                : unlockingId === account.id
-                                  ? "Clearing…"
-                                  : undefined,
+                              // Never disabled on the "Locked" badge: that badge is
+                              // computed when the list is fetched, from failures inside
+                              // a window that keeps sliding, so it is stale the moment
+                              // after it loads and goes false on its own well before an
+                              // admin looking at this page believes it has. Clearing an
+                              // account that isn't locked costs nothing.
+                              disabledReason: unlockingId === account.id ? "Clearing…" : undefined,
                               onSelect: () => unlockUser(account)
                             },
                             {

@@ -94,31 +94,60 @@ export async function usersPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid account details", details: parsed.error });
     }
 
-    const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(parsed.data.email);
-    if (existing) {
+    // Deleting an account is a soft delete (see the DELETE route): the row stays so
+    // the things it created — libraries, collections, shares — keep their owner. The
+    // email column is UNIQUE, so that tombstone would otherwise reserve the address
+    // forever against an admin who can no longer see the account anywhere. Reuse the
+    // row instead, which also keeps every reference to it intact.
+    const existing = db
+      .prepare("SELECT id, deleted_at FROM users WHERE email = ?")
+      .get(parsed.data.email) as { id: string; deleted_at: string | null } | undefined;
+    if (existing && !existing.deleted_at) {
       return reply.code(409).send({ error: "An account with this email already exists" });
     }
 
-    const userId = nanoid(16);
+    const restored = Boolean(existing);
+    const userId = existing?.id ?? nanoid(16);
     const passwordHash = await hashPassword(parsed.data.password);
     const user = db.transaction(() => {
-      db.prepare(`
-        INSERT INTO users (id, email, password_hash, display_name, role, theme)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(userId, parsed.data.email, passwordHash, parsed.data.displayName, parsed.data.role, getDefaultTheme());
+      if (existing) {
+        // Re-issuing the account, not undeleting a person: the second factor and
+        // passkeys are credentials of whoever held it before, and only the new
+        // password is meant to open it. They re-enroll after signing in.
+        db.prepare(`
+          UPDATE users
+          SET password_hash = ?, display_name = ?, role = ?, is_active = 1, deleted_at = NULL,
+              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          WHERE id = ?
+        `).run(passwordHash, parsed.data.displayName, parsed.data.role, existing.id);
+        resetMfa(existing.id);
+        clearPasskeys(existing.id);
+      } else {
+        db.prepare(`
+          INSERT INTO users (id, email, password_hash, display_name, role, theme)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(userId, parsed.data.email, passwordHash, parsed.data.displayName, parsed.data.role, getDefaultTheme());
+      }
       return db.prepare("SELECT * FROM users WHERE id = ?").get(userId) as User;
     })();
+
+    // Failed sign-ins are counted per email, not per account, so an address that was
+    // locked out before it was deleted would hand the lockout straight to whoever
+    // holds it next (see core/security.ts).
+    clearAccountLockout(parsed.data.email);
 
     logActivity({
       event: "user.created",
       actorUserId: request.user!.id,
       targetType: "user",
       targetId: userId,
-      detail: `Created ${user.display_name}'s account.`,
+      detail: restored
+        ? `Created ${user.display_name}'s account, reusing a deleted account with the same email.`
+        : `Created ${user.display_name}'s account.`,
       ipAddress: request.ip
     });
     if (parsed.data.role === "admin") alertNewAdmin(parsed.data.email, `admin ${request.user!.display_name}`);
-    return reply.code(201).send({ user: { ...publicUser(user), activeSessions: 0 } });
+    return reply.code(201).send({ user: { ...publicUser(user), activeSessions: 0 }, restored });
   });
 
   app.patch("/api/users/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -219,6 +248,11 @@ export async function usersPlugin(app: FastifyInstance) {
           AND (? IS NULL OR token_hash <> ?)
       `).run(id, id === request.user!.id ? sessionHash : null, sessionHash ?? "");
     })();
+
+    // A new password is no use to someone the lockout is still refusing, and the
+    // window runs 30 minutes by default — long enough that the admin reads it as the
+    // reset having failed. Handing out a password is the same rescue as unlocking.
+    clearAccountLockout(user.email);
 
     alertPasswordChanged(user.email, request.user!.id !== id, request.ip);
     logActivity({
@@ -374,6 +408,9 @@ export async function usersPlugin(app: FastifyInstance) {
     db.transaction(() => {
       db.prepare("UPDATE users SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'), is_active = 0 WHERE id = ?").run(id);
       db.prepare("UPDATE sessions SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE user_id = ?").run(id);
+      // Failed sign-ins are keyed on the email, so they outlive the account and would
+      // meet whoever is given that address next.
+      clearAccountLockout(user.email);
     })();
 
     logActivity({
