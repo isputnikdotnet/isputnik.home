@@ -8,6 +8,7 @@ import { db, logActivity } from "../../db.js";
 import { config } from "../../config.js";
 import { parseBody } from "../../core/shared.js";
 import { receiveUpload, UploadError } from "../uploads/index.js";
+import { configuredThumbnailPathValue } from "../library/shared/thumbnail.js";
 import { extractFromZip, isBackupDatabaseEntry, zipHasEntry } from "./zip-read.js";
 
 // Database backups. A backup is a zip containing database.sqlite (a consistent
@@ -198,8 +199,15 @@ async function runBackup(actorUserId: string | null, trigger: "manual" | "schedu
       archive.on("error", reject);
       archive.pipe(output);
       archive.file(tmpDb, { name: "database.sqlite" });
-      if (settings.includeCovers && config.thumbnailPath && fs.existsSync(config.thumbnailPath)) {
-        archive.directory(config.thumbnailPath, "thumbnails");
+      // Where the covers actually are, which is not necessarily THUMBNAIL_PATH: the
+      // store is an admin setting that overrides the environment (see
+      // library/shared/thumbnail.ts), and everything else in the app reads it that
+      // way. Reading only the environment here meant a backup that quietly carried no
+      // covers at all — or carried the wrong, empty folder — while still reporting
+      // itself as "with covers".
+      const coverRoot = settings.includeCovers ? configuredThumbnailPathValue() : "";
+      if (coverRoot && fs.existsSync(coverRoot)) {
+        archive.directory(coverRoot, "thumbnails");
       }
       void archive.finalize();
     });
@@ -274,7 +282,7 @@ export async function backupsPlugin(app: FastifyInstance) {
       backups,
       backupPath: config.backupPath,
       settings: getSettings(),
-      coversAvailable: Boolean(config.thumbnailPath),
+      coversAvailable: Boolean(configuredThumbnailPathValue()),
       totalSizeBytes: backups.reduce((sum, b) => sum + b.sizeBytes, 0)
     };
   });
@@ -393,9 +401,11 @@ export async function backupsPlugin(app: FastifyInstance) {
         }
         fs.renameSync(tmp, stagedDb);
 
-        // Restore covers live into the thumbnail cache.
-        if (wantCovers && config.thumbnailPath) {
-          const cache = config.thumbnailPath;
+        // Restore covers live into the thumbnail cache — the configured one, so they
+        // land where the app will look for them rather than where the environment
+        // happens to point.
+        const cache = wantCovers ? configuredThumbnailPathValue() : "";
+        if (cache) {
           coversRestored = await extractFromZip(filePath, (name) => {
             if (!name.startsWith("thumbnails/")) return null;
             const dest = path.join(cache, name.slice("thumbnails/".length));

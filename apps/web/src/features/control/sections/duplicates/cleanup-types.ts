@@ -27,6 +27,16 @@ export type MatchConfidence = "certain" | "likely" | "unsure";
  *  the file, or by nothing at all. */
 export type KeeperConfidence = "evidence" | "guess" | "tossup";
 
+/** The two confidences folded to one reading for the card's gauge: how carefully to
+ *  look before letting this result go through. Folded on the server, so every page
+ *  that shows a gauge shows the same fold. */
+export interface ResultRisk {
+  /** 0 = none (green) … 3 = check first (red). */
+  severity: 0 | 1 | 2 | 3;
+  label: string;
+  explanation: string;
+}
+
 export interface JobLibrary {
   libraryId: string;
   name: string;
@@ -133,6 +143,7 @@ export interface SnapshotResult {
   tier: ResultTier;
   matchConfidence: MatchConfidence;
   keeperConfidence: KeeperConfidence;
+  risk: ResultRisk;
   status: string;
   reviewStatus: "unreviewed" | "reviewed" | "skipped";
   reclaimableBytes: number;
@@ -140,6 +151,51 @@ export interface SnapshotResult {
   coverUrls?: string[];
   folders: SnapshotFolder[];
   members: SnapshotMember[];
+}
+
+/** How much smaller one copy of a near set is than the set's biggest, said on its
+ *  tile. Pixels, not bytes: bytes are already printed and compression makes them lie
+ *  about detail, while pixel count is the thing that can't be re-encoded back. Only
+ *  said when the gap is real — a few percent of crop is not a difference worth a
+ *  word, and a tag on every tile teaches people to ignore tags. */
+export interface SizeShortfall {
+  /** Rounded pixel ratio against the biggest copy, ≥ 2. */
+  times: number;
+  /** True from 4× up (half the width per side) — the tag turns from a fact into a
+   *  warning when a copy this much smaller is the one being KEPT. */
+  severe: boolean;
+  label: string;
+}
+
+const pixelsOf = (member: SnapshotMember): number => (member.width ?? 0) * (member.height ?? 0);
+
+/** The most pixels any copy of the set carries — the yardstick every tile is read
+ *  against. 0 when no copy has known dimensions. */
+export function largestPixelsOf(members: SnapshotMember[]): number {
+  return members.reduce((best, member) => Math.max(best, pixelsOf(member)), 0);
+}
+
+export function sizeShortfallOf(member: SnapshotMember, largestPixels: number): SizeShortfall | null {
+  const pixels = pixelsOf(member);
+  // Unknown is not small: a copy whose dimensions never got read gets no tag.
+  if (pixels <= 0 || largestPixels <= 0) return null;
+  const ratio = largestPixels / pixels;
+  if (ratio < 2) return null;
+  const times = Math.round(ratio);
+  return { times, severe: ratio >= 4, label: `${times}× smaller` };
+}
+
+/** The sentence the card must not swallow: a copy being deleted carries far more
+ *  pixels than the copy being kept. The scan never proposes this any more (the keeper
+ *  ladder rules it out), but a hand-flipped role can create it live, and it is the
+ *  single most expensive mistake this page can let through. */
+export function keeperMuchSmaller(members: SnapshotMember[]): boolean {
+  const kept = members.filter((member) => member.role !== "delete" && pixelsOf(member) > 0);
+  const doomed = members.filter((member) => member.role === "delete" && pixelsOf(member) > 0);
+  if (kept.length === 0 || doomed.length === 0) return false;
+  const bestKept = Math.max(...kept.map(pixelsOf));
+  const bestDoomed = Math.max(...doomed.map(pixelsOf));
+  return bestDoomed >= bestKept * 4;
 }
 
 /** Why a copy can no longer be acted on. Each is a different sentence on the page,

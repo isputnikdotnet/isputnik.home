@@ -310,3 +310,23 @@ button.dup-copy-thumb:focus-visible {
   white-space: nowrap;
 }
 
+/* "N× smaller" under a near set's tile. A quiet fact on a copy being deleted —
+   removing the small one is the point — and a warning on a copy being kept, because
+   keeping the small one is the mistake pixels don't come back from. */
+.dup-copy-scale {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+.dup-copy-scale.is-warn {
+  color: var(--rose);
+}
+/* A severe gap on a copy that IS being deleted: not a mistake, but the number worth a
+   glance — it is why the set is safe to resolve. */
+.dup-copy-scale.is-much {
+  color: var(--gold);
+}
+

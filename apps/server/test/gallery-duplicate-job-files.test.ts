@@ -250,8 +250,11 @@ describe("what a cleanup does to the disk", () => {
   it("does not carry a face box from a smaller copy onto the one that survives", async () => {
     file("big", "big.jpg", "PICTURE-ORIGINAL");
     file("small", "small.jpg", "PICTURE-ORIGINAL");
+    // Different sizes, but not so different that 'small' reads as a preview — below a
+    // quarter of the pixels the keeper choice stops listening to faces at all, and this
+    // test needs the face to be what decides.
     db.prepare("UPDATE gallery_details SET width = 4000, height = 3000 WHERE item_id = 'big'").run();
-    db.prepare("UPDATE gallery_details SET width = 800, height = 600 WHERE item_id = 'small'").run();
+    db.prepare("UPDATE gallery_details SET width = 3000, height = 2250 WHERE item_id = 'small'").run();
     db.prepare("INSERT INTO gallery_people (id, name) VALUES ('p1', 'Mum')").run();
     db.prepare("INSERT INTO gallery_faces (id, item_id, person_id, box_x) VALUES ('f1', 'small', 'p1', 0.25)").run();
 
