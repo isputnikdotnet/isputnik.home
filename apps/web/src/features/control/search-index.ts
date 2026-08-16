@@ -47,7 +47,7 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
 
   backup: "restore zip archive download snapshot schedule retention export",
   scheduledJobs: "cron schedule nightly automatic recurring timer",
-  recycleBin: "trash deleted restore purge retention undelete how long keep days cleanup expiry",
+  recycleBin: "trash deleted restore purge retention undelete how long keep days cleanup expiry location folder path custom bin",
   missingPhotos: "gallery missing gone offline broken files photos videos",
   // Short labels now that they are views of Duplicates, so the words someone would
   // actually type have to be here — "duplicate photos" is no longer in the title.

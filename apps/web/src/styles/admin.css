@@ -810,6 +810,29 @@
   white-space: normal;
 }
 
+/* Where deleted files go, in the same dialog as the clocks. Separated by a rule:
+   the clocks are numbers you tune, the location is a place you move — different
+   weight of decision, and the line says so before the words do. */
+.trash-location-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+.trash-location-row > span:first-child { font-weight: 650; }
+.trash-location-row code {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
 /* Scope on the left, view controls on the right — the Duplicate photos toolbar. */
 .trash-toolbar {
   display: flex;

@@ -19,6 +19,14 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.7.4",
+    label: "See and change where deleted files go, from the Recycle Bin itself",
+    changes: [
+      "The Recycle Bin's location — one shared folder, or each library's own hidden .trash — could only be seen and changed from Library → Storage, which nobody standing in the bin thinks to visit. The bin now says it itself: an empty bin states where deleted files will go, and the bin's settings (the gear by the search box) show the location alongside the retention clocks, with a Change location button right there. Same rules as before — the location only changes while the bin is empty, and nothing already deleted ever moves.",
+      "It is the same editor in both places, not a copy: the folder picker still offers only folders the server can actually reach, and the guidance about keeping the bin on the same disk as your libraries reads identically whichever page you came from. The control panel's search now also finds the location setting from words like \"recycle bin folder\" or \"bin path\"."
+    ]
+  },
+  {
     version: "3.7.3",
     label: "Backups carry your covers again, and duplicate cleanup stops guessing wrong",
     changes: [

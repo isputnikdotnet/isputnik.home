@@ -1,32 +1,20 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { Folder, HardDrive, Plus } from "lucide-react";
+import { HardDrive, Plus } from "lucide-react";
 import { api } from "../../../api";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
 import { Button } from "../../../shared/Button";
 import { RefreshButton } from "../../../shared/RefreshButton";
-import { FolderPickerModal } from "../libraries/FolderPickerModal";
 import type { LibrarySettings, StorageRoot } from "../types";
 import { ControlSectionHead } from "../ControlSectionHead";
-
-/** The install-wide Recycle Bin folder. `path` null = each library keeps its own
- *  `.trash`, the default. `editable` is false as soon as the bin holds anything. */
-interface TrashRootSettings {
-  path: string | null;
-  libraryCount: number;
-  itemsInBin: number;
-  editable: boolean;
-}
+import { TrashRootEditor, type TrashRootSettings } from "./TrashRootEditor";
 
 export function StorageSection() {
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings | null>(null);
   const [storageRoots, setStorageRoots] = useState<StorageRoot[]>([]);
   const [trashRoot, setTrashRoot] = useState<TrashRootSettings | null>(null);
-  const [trashRootInput, setTrashRootInput] = useState("");
   const [editTrashRootOpen, setEditTrashRootOpen] = useState(false);
-  const [savingTrashRoot, setSavingTrashRoot] = useState(false);
-  const [trashPickerOpen, setTrashPickerOpen] = useState(false);
   const [thumbnailPathInput, setThumbnailPathInput] = useState("");
   const [rootNameInput, setRootNameInput] = useState("");
   const [rootPathInput, setRootPathInput] = useState("");
@@ -47,7 +35,6 @@ export function StorageSection() {
 
     const trashPayload = await api<TrashRootSettings>("/api/storage/trash-root");
     setTrashRoot(trashPayload);
-    setTrashRootInput(trashPayload.path ?? "");
   };
 
   useEffect(() => {
@@ -86,26 +73,6 @@ export function StorageSection() {
       setError(err instanceof Error ? err.message : "Unable to save Digital Library settings");
     } finally {
       setSavingLibrarySettings(false);
-    }
-  };
-
-  const saveTrashRoot = async (event: FormEvent) => {
-    event.preventDefault();
-    setSavingTrashRoot(true);
-    setError("");
-    try {
-      // Blank means "back to each library's own .trash" — a real choice, so it is sent
-      // as null rather than treated as an empty form.
-      await api("/api/storage/trash-root", {
-        method: "PUT",
-        body: JSON.stringify({ path: trashRootInput.trim() || null })
-      });
-      await loadStorage();
-      setEditTrashRootOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save the Recycle Bin location");
-    } finally {
-      setSavingTrashRoot(false);
     }
   };
 
@@ -225,7 +192,6 @@ export function StorageSection() {
               : "Empty the Recycle Bin first — the location can only change while it holds nothing"}
             onClick={() => {
               setError("");
-              setTrashRootInput(trashRoot?.path ?? "");
               setEditTrashRootOpen(true);
             }}
           >
@@ -321,72 +287,10 @@ export function StorageSection() {
       )}
 
       {editTrashRootOpen && (
-        <Modal
-          title="Edit Recycle Bin location"
-          className="edit-thumbnail-modal"
-          busy={savingTrashRoot}
+        <TrashRootEditor
+          current={trashRoot?.path ?? null}
+          onSaved={loadStorage}
           onClose={() => { setError(""); setEditTrashRootOpen(false); }}
-          onSubmit={saveTrashRoot}
-        >
-          <p>
-            Browse to a folder inside a Digital Library container, but <strong>not</strong>{" "}
-            inside a library — anything in a library is scanned, so deleted files would be
-            catalogued straight back in. Clear it to go back to each library's own hidden{" "}
-            <code>.trash</code> folder.
-          </p>
-          <MessageBox tone="info" title="Best set before you create libraries">
-            The location can only change while the Recycle Bin is completely empty, so once
-            you are using it, moving it means restoring or permanently deleting everything in
-            it first. Nothing already deleted is moved by a change — every item remembers
-            where its own files went.
-          </MessageBox>
-          <MessageBox tone="warning" title="Keep it on the same storage as your libraries">
-            Deleting into a bin on the same disk is an instant rename. To another disk it is a
-            real copy of every byte, so deleting a large video, or a duplicate cleanup removing
-            thousands of photos, will take much longer.
-          </MessageBox>
-          {/* Browsed, not typed. The path has to be the one the SERVER sees — under
-              Docker that is the container path, not the host path an admin knows — and it
-              has to already exist. Typing it wrong produced "that folder is missing or not
-              accessible", which is true and useless. The picker can only offer folders the
-              server can actually reach. */}
-          <div className="field source-folder-field">
-            <span>Recycle Bin folder</span>
-            <div className="source-folder-control">
-              <Folder size={19} aria-hidden="true" />
-              <span>{trashRootInput || "Each library's own .trash folder"}</span>
-              <Button variant="secondary" compact onClick={() => { setError(""); setTrashPickerOpen(true); }}>
-                Browse
-              </Button>
-              {trashRootInput && (
-                <Button variant="text" onClick={() => setTrashRootInput("")}>Clear</Button>
-              )}
-            </div>
-          </div>
-          {error && <MessageBox tone="error" title="Unable to save the location">{error}</MessageBox>}
-          <div className="modal-actions">
-            <Button variant="secondary" onClick={() => { setError(""); setEditTrashRootOpen(false); }} disabled={savingTrashRoot} autoFocus>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit" disabled={savingTrashRoot}>
-              {savingTrashRoot ? "Saving…" : "Save location"}
-            </Button>
-          </div>
-        </Modal>
-      )}
-
-      {trashPickerOpen && (
-        <FolderPickerModal
-          title="Select the Recycle Bin folder"
-          intro="Choose a folder inside an approved container — one outside every library, since anything inside a library is scanned."
-          storageRoots={storageRoots}
-          confirmLabel="Use this folder"
-          onPick={({ absolutePath }) => {
-            setTrashRootInput(absolutePath);
-            setTrashPickerOpen(false);
-          }}
-          onClose={() => setTrashPickerOpen(false)}
-          onError={setError}
         />
       )}
 
