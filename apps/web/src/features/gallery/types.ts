@@ -2,6 +2,8 @@
 export interface GalleryAsset {
   id: string;
   libraryId: string;
+  /** Null only for an asset whose library row has gone (snapshot-style reads). */
+  libraryName: string | null;
   folderPath: string;
   folder: string;
   kind: "photo" | "video";

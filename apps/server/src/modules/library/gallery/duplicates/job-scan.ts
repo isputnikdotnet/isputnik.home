@@ -814,8 +814,10 @@ function snapshotOverlaps(
   protectedLibs: Set<string>
 ): number {
   // Every hashed file, by the folder it sits DIRECTLY in — an overlap is about two
-  // folders' own contents, not their subtrees. A folder and its parent share photos by
-  // definition and that is the contained tier's business, not this one's.
+  // folders' own contents, not their subtrees. Direct contents make even a folder and
+  // its own parent a fair pair: a file sits directly in exactly one folder, so the two
+  // sides share nothing unless somebody copied files between them — which is exactly
+  // the duplication this tier exists to catch.
   const byHashByFolder = new Map<string, Map<string, ScanFile[]>>();
   for (const file of files) {
     if (!file.hash) continue;
@@ -872,9 +874,13 @@ function snapshotOverlaps(
   for (const [key, pair] of pairs) {
     if (pair.aFiles.length < MIN_FOLDER_FILES) continue;
     if (ignored.has(key)) continue;
-    // A folder does not "overlap" its own parent — those copies belong to the tiers
-    // above, and the pair reads as nonsense on a card.
-    if (folderSameOrInside(pair.a, pair.b) || folderSameOrInside(pair.b, pair.a)) continue;
+    // Nested pairs are NOT excluded here. They used to be, on the theory that the
+    // tiers above own a folder copied into its own parent — but "contained" fires
+    // only on TOTAL coverage, so a child differing from its parent by a single
+    // photo (one stray frame either side, the commonest sync-client mess) fell
+    // between the tiers and produced no folder-shaped answer at all, only a
+    // hundred one-photo cards. When the stronger tiers DID answer the pair,
+    // answeredAlready below still retires it from this one.
     if (answeredAlready(pair.a) || answeredAlready(pair.b)) continue;
 
     // Which side keeps, scored on the SHARED photos only: what matters is the work
@@ -1234,10 +1240,16 @@ export interface SnapshotResult {
 export const keeperFoldersOf = (result: SnapshotResult): string[] =>
   result.folders.filter((folder) => folder.role !== "delete").map((folder) => folder.folderPath).sort();
 
+/** How the results are ordered within each section — the sections themselves
+ *  (folders before files, certain before uncertain) hold whatever the sort, so the
+ *  page's headings stay contiguous. 'size' is what the page has always done. */
+export type ResultSort = "size" | "copies";
+
 /** How the page narrows what it shows. */
 export interface ResultFilter {
   /** Substring over folder paths, file paths and library names. */
   search?: string;
+  sort?: ResultSort;
   type?: SnapshotResult["type"];
   /** Byte-identical sets or perceptual ones. A separate axis from `type`, so
    *  "single files I'm certain about" is expressible without a third result type. */
@@ -1296,6 +1308,11 @@ export function listJobResults(
   filter: ResultFilter = {}
 ): SnapshotResult[] {
   const scope = filterSql(jobId, filter);
+  // Within a section: most bytes back, or most copies in the set. Both descending —
+  // the point of either is to surface the results worth doing first.
+  const orderKey = filter.sort === "copies"
+    ? "(SELECT COUNT(*) FROM duplicate_job_result_members mc WHERE mc.result_id = r.id) DESC"
+    : "r.reclaimable_bytes DESC";
   const results = db.prepare(`
     SELECT r.id, r.result_type, r.status, r.review_status, r.reclaimable_bytes, r.keeper_reason,
            r.match_confidence, r.keeper_rank
@@ -1305,7 +1322,7 @@ export function listJobResults(
       -- Certain before uncertain, so the page's headings stay contiguous and the sets
       -- that need no thought come first.
       ${NEAR_EXISTS},
-      r.reclaimable_bytes DESC, r.id
+      ${orderKey}, r.id
     LIMIT ? OFFSET ?
   `).all(...scope.args, limit, offset) as {
     id: string; result_type: SnapshotResult["type"]; status: string; review_status: string;

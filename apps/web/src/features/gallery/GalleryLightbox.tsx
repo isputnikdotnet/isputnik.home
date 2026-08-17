@@ -871,6 +871,12 @@ export function GalleryLightbox({
                 ) : (asset.folder || "/")}
               </dd>
             </div>
+            {/* Which library holds it — the folder alone can't say when several
+                libraries carry the same folder shapes (the duplicate pages exist
+                because they do). */}
+            {asset.libraryName && (
+              <div><dt>Library</dt><dd>{asset.libraryName}</dd></div>
+            )}
             {(asset.tags.length > 0 || canEdit) && (
               <div>
                 <dt>Tags{editPencil("tags", "tags")}</dt>

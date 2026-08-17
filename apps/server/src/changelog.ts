@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.7.5",
+    label: "Search folders by name, and catch a folder copied into itself",
+    changes: [
+      "Searching in the gallery's Folders view now searches folder names, and stays in Folders. Typing there used to jump you into the Timeline and search the photos — an answer to a question nobody standing in a folder tree was asking. The search covers the whole tree, not just the level on screen, so a folder buried years deep is findable by name alone; results show where each folder sits and how much it holds, and clicking one opens it. The Timeline still searches photos, and filters still take you there — a folder tree can't show \"only videos from 2019\".",
+      "Duplicate cleanup now catches a folder copied into its own parent. The commonest sync-client mess — a folder holding a copy of itself, the two differing by a stray frame or two — produced no folder answer at all: the identical tier can't pair a folder with its parent, the stored-elsewhere tier needs every last photo covered, and the overlap tier skipped nested pairs on the assumption the other two had it. Now it appears as an overlap: only the shared copies leave one side, and the stray each side holds alone survives. Re-run the scan on an open cleanup to see them.",
+      "The cleanup's results can be sorted — Largest first, as always, or Most copies first, which surfaces the sets with the most files to clear even when they reclaim little space. The order applies within each section, so folders still come before files and certain before uncertain.",
+      "A photo's details now name the library it belongs to, under the folder. The folder alone can't say which copy you're looking at when two libraries carry the same folder shapes — and if you're using duplicate cleanup, yours do."
+    ]
+  },
+  {
     version: "3.7.4",
     label: "See and change where deleted files go, from the Recycle Bin itself",
     changes: [

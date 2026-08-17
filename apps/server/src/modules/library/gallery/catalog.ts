@@ -30,6 +30,7 @@ export function resolveGalleryScopeLibraryIds(user: { id: string; role: string }
 interface AssetRow {
   id: string;
   library_id: string;
+  library_name: string | null;
   folder_path: string;
   discovered_at: string;
   kind: string;
@@ -72,6 +73,7 @@ function turnFocus(x: number, y: number, rotation: number): { x: number; y: numb
 export const ASSET_COLUMNS = `
   library_items.id,
   library_items.library_id,
+  libraries.name AS library_name,
   library_items.folder_path,
   library_items.discovered_at,
   gallery_details.kind,
@@ -108,6 +110,7 @@ export const ASSET_COLUMNS = `
 export const ASSET_JOINS = `
   FROM library_items
   JOIN gallery_details ON gallery_details.item_id = library_items.id
+  LEFT JOIN libraries ON libraries.id = library_items.library_id
   LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
   LEFT JOIN item_saves ON item_saves.item_id = library_items.id AND item_saves.user_id = ?`;
 
@@ -133,6 +136,7 @@ export function mapAsset(row: AssetRow) {
   return {
     id: row.id,
     libraryId: row.library_id,
+    libraryName: row.library_name,
     folderPath: row.folder_path,
     folder: row.folder_path.includes("/") ? row.folder_path.slice(0, row.folder_path.lastIndexOf("/")) : "",
     kind: row.kind,
@@ -391,6 +395,71 @@ export function queryGalleryFolders(userId: string, libIds: string[], parent: st
   `).all(userId, ...directArgs, limit, offset) as AssetRow[];
 
   return { parent: cleanParent, folders, assets: rows.map(mapAsset), total };
+}
+
+// Find folders BY NAME, anywhere in the scope. The browse query above answers "what
+// is inside this folder"; this answers "where is the folder called wedding", which is
+// a different question — the folder being hunted is usually buried levels deep, so
+// matching only the level on screen would find nothing.
+//
+// Folders are derived from the items' folder_path values, and a folder that holds
+// only subfolders never appears as anyone's folder_path — it exists purely as a
+// middle segment ("2004/wedding/day1" is the only path, yet "2004/wedding" is a real
+// folder to the person who made it). So every ancestor of every path is enumerated,
+// in memory: distinct folder paths number in the thousands where items number in the
+// hundreds of thousands, and SQL has no clean way to split a path into rows.
+export function searchGalleryFolders(libIds: string[], q: string, limit: number) {
+  const term = q.trim().toLowerCase();
+  if (libIds.length === 0 || !term) return { folders: [], total: 0 };
+
+  const rows = db.prepare(`
+    SELECT library_items.folder_path AS p, COUNT(*) AS n
+    FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    WHERE library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
+    GROUP BY library_items.folder_path
+  `).all(...libIds) as { p: string; n: number }[];
+
+  // Cumulative count per folder — its own items plus everything below.
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (!row.p) continue;
+    const segments = row.p.split("/");
+    for (let i = 1; i <= segments.length; i += 1) {
+      const prefix = segments.slice(0, i).join("/");
+      counts.set(prefix, (counts.get(prefix) ?? 0) + row.n);
+    }
+  }
+
+  const matched = [...counts.entries()]
+    .filter(([folderPath]) => {
+      const name = folderPath.slice(folderPath.lastIndexOf("/") + 1);
+      return name.toLowerCase().includes(term);
+    })
+    .sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: "base" }));
+
+  // Cover: the newest item's, exactly as the browse tiles choose theirs.
+  const coverStmt = db.prepare(`
+    SELECT item_metadata.cover_storage_key AS cover
+    FROM library_items
+    JOIN gallery_details ON gallery_details.item_id = library_items.id
+    LEFT JOIN item_metadata ON item_metadata.item_id = library_items.id
+    WHERE library_items.library_id IN (${inClause(libIds.length)}) AND library_items.deleted_at IS NULL
+      AND (library_items.folder_path = ? OR library_items.folder_path LIKE ?)
+    ORDER BY datetime(gallery_details.taken_at) DESC LIMIT 1
+  `);
+
+  const folders = matched.slice(0, limit).map(([folderPath, count]) => {
+    const row = coverStmt.get(...libIds, folderPath, `${folderPath}/%`) as { cover: string | null } | undefined;
+    return {
+      name: folderPath.slice(folderPath.lastIndexOf("/") + 1),
+      path: folderPath,
+      assetCount: count,
+      coverUrl: row?.cover ? `/api/library/covers/${row.cover}` : null
+    };
+  });
+
+  return { folders, total: matched.length };
 }
 
 // People tagged in one asset (distinct, name-sorted). Attached only to the

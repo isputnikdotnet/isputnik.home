@@ -25,6 +25,7 @@ import {
   parseLibraryIds,
   queryGalleryTimeline,
   queryGalleryFolders,
+  searchGalleryFolders,
   getGalleryAsset,
   getGalleryAssets,
   getGalleryAssetUnscoped,
@@ -413,6 +414,15 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     // the LIKE pattern and all downstream string work sane (defense in depth).
     const parent = (qp.parent ?? "").slice(0, 1024);
     return queryGalleryFolders(request.user!.id, libIds, parent, limit, offset);
+  });
+
+  // Folder-NAME search, everywhere in scope — "where is the folder called wedding".
+  // Separate from /folders above, which browses one level of the tree.
+  app.get("/api/library/gallery/folders/search", { preHandler: app.authenticate }, async (request) => {
+    const qp = request.query as { libraryIds?: string; q?: string; limit?: string };
+    const libIds = resolveGalleryScopeLibraryIds(request.user!, parseLibraryIds(qp.libraryIds));
+    const limit = Math.min(Math.max(Number.parseInt(qp.limit ?? "100", 10) || 100, 1), 200);
+    return searchGalleryFolders(libIds, (qp.q ?? "").slice(0, 200), limit);
   });
 
   // Memories ("On this day"): past-year assets matching today's month/day, grouped

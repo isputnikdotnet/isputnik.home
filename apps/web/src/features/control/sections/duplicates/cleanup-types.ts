@@ -324,6 +324,13 @@ export const typeFilters = (kind: DuplicateKind): { value: string; label: string
       { value: "near_set", label: "Near-identical" }
     ];
 
+/** Order within each section of the results page. Both descending — either sort
+ *  exists to surface the results worth doing first. */
+export const SORT_ORDERS: { value: string; label: string }[] = [
+  { value: "size", label: "Largest first" },
+  { value: "copies", label: "Most copies first" }
+];
+
 export const REVIEW_FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Any state" },
   { value: "unreviewed", label: "Not looked at" },

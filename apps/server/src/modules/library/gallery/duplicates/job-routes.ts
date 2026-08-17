@@ -203,7 +203,8 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
     type: z.enum(["photo_set", "folder_set", "contained", "overlap"]).optional(),
     tier: z.enum(["exact", "near"]).optional(),
     review: z.enum(["unreviewed", "reviewed", "skipped"]).optional(),
-    library: z.string().max(64).optional()
+    library: z.string().max(64).optional(),
+    sort: z.enum(["size", "copies"]).optional()
   });
   app.get("/api/library/gallery/duplicate-jobs/:id/results", { preHandler: app.requireAdmin }, async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -217,7 +218,8 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
       type: parsed.data.type,
       tier: parsed.data.tier,
       review: parsed.data.review,
-      libraryId: parsed.data.library || undefined
+      libraryId: parsed.data.library || undefined,
+      sort: parsed.data.sort
     };
     const perPage = parsed.data.perPage ?? 25;
     const total = countJobResults(id, filter);

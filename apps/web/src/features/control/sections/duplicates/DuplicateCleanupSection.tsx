@@ -30,12 +30,13 @@ import { Modal } from "../../../../shared/Modal";
 import { ConfirmDialog } from "../../../../shared/ConfirmDialog";
 import { Pager } from "../../../../shared/Pager";
 import { SelectMenu } from "../../../../shared/SelectMenu";
+import { SortMenu } from "../../../../shared/SortMenu";
 import { controlHref } from "../../../../router";
 import { CleanupHero, JobCard } from "./CleanupJobCard";
 import { CleanupWizard } from "./CleanupWizard";
 import { CleanupResultCard } from "./CleanupResultCard";
 import {
-  EMPTY_PAYLOAD, EMPTY_RESULTS, REVIEW_FILTERS, RESULT_SECTIONS, SECTION_HEADINGS, folderLabel,
+  EMPTY_PAYLOAD, EMPTY_RESULTS, REVIEW_FILTERS, RESULT_SECTIONS, SECTION_HEADINGS, SORT_ORDERS, folderLabel,
   keeperFolders, sectionQuery, typeFilters,
   type DuplicateJob, type JobsPayload, type MemberCheck, type ResultCheck, type ResultsPage,
   type SnapshotResult, type StaleReason
@@ -63,6 +64,9 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [reviewFilter, setReviewFilter] = useState("");
+  // Order within each section; the sections themselves hold. "size" is what the
+  // page has always shown and stays the default.
+  const [sortOrder, setSortOrder] = useState<"size" | "copies">("size");
   const [page, setPage] = useState(1);
 
   const job = payload.activeJob;
@@ -84,6 +88,7 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
     if (scope.type) params.set("type", scope.type);
     if (scope.tier) params.set("tier", scope.tier);
     if (reviewFilter) params.set("review", reviewFilter);
+    if (sortOrder !== "size") params.set("sort", sortOrder);
     return params.toString();
   };
 
@@ -116,9 +121,9 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
         setError(err instanceof Error ? err.message : "Unable to load the results"));
     }, search ? 250 : 0);
     return () => window.clearTimeout(handle);
-  }, [job?.id, job?.status, job?.scanCompletedAt, search, typeFilter, reviewFilter, page]);
+  }, [job?.id, job?.status, job?.scanCompletedAt, search, typeFilter, reviewFilter, sortOrder, page]);
 
-  useEffect(() => { setPage(1); }, [search, typeFilter, reviewFilter]);
+  useEffect(() => { setPage(1); }, [search, typeFilter, reviewFilter, sortOrder]);
 
   // Re-check the moment the confirm opens, not after someone presses Delete. The
   // server checks again anyway and refuses all-or-nothing, but being told "no" after
@@ -312,6 +317,15 @@ export function DuplicateCleanupSection({ currentUser }: { currentUser: PublicUs
               <SlidersHorizontal size={16} aria-hidden="true" />
               <span>{narrowed ? "Filters (on)" : "Filters"}</span>
             </Button>
+            {/* Order within each section — the sections (folders before files,
+                certain before uncertain) hold either way. */}
+            <SortMenu
+              value={sortOrder}
+              options={SORT_ORDERS}
+              presentation="labelled"
+              ariaLabel="Order the results"
+              onChange={(value) => setSortOrder(value as "size" | "copies")}
+            />
             <label className="search-field dup-folder-search">
               <Search size={17} aria-hidden="true" />
               <span className="sr-only">Search this cleanup by folder, file or library</span>
