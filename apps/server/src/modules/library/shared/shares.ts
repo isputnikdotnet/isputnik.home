@@ -4,6 +4,7 @@ import path from "node:path";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import archiver from "archiver";
+import sharp from "sharp";
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../../../db.js";
 import { sha256 } from "../../../crypto.js";
@@ -567,6 +568,69 @@ function sendFile(
   } else {
     reply.raw.writeHead(200, { ...baseHeaders, "Content-Length": totalSize });
     fs.createReadStream(opts.absolutePath).pipe(reply.raw);
+  }
+}
+
+// A guest link hands its recipient the file itself. For a photo that means the
+// camera original, which carries EXIF — including the GPS coordinates of
+// wherever it was taken, typically the family's home. The catalog JSON already
+// withholds coordinates and the thumbnails are metadata-free sharp re-encodes,
+// but the download routes below streamed the original bytes untouched, quietly
+// undoing that. Re-encode a shared photo through sharp on the way out: sharp
+// drops all metadata unless asked to keep it, and .rotate() bakes the EXIF
+// orientation into the pixels first so the stripped copy still displays upright.
+// The common formats keep their format (and so their extension); exotic ones
+// collapse to a high-quality JPEG. Videos are left as-is for now — stripping the
+// location atom from a video needs an ffmpeg remux, a heavier change tracked as
+// a follow-up — so only "photo" items divert here.
+export async function stripImageMetadata(absolutePath: string): Promise<{ buffer: Buffer; contentType: string }> {
+  const pipeline = sharp(absolutePath, { failOn: "none" }).rotate();
+  const format = (await pipeline.metadata()).format;
+  switch (format) {
+    case "png":
+      return { buffer: await pipeline.png().toBuffer(), contentType: "image/png" };
+    case "webp":
+      return { buffer: await pipeline.webp({ quality: 90 }).toBuffer(), contentType: "image/webp" };
+    case "gif":
+      return { buffer: await pipeline.gif().toBuffer(), contentType: "image/gif" };
+    default:
+      return { buffer: await pipeline.jpeg({ quality: 90, mozjpeg: true }).toBuffer(), contentType: "image/jpeg" };
+  }
+}
+
+// Send one shared gallery file: a photo goes out metadata-stripped, a video (or
+// anything sharp can't decode) streams as the original via sendFile with ranges.
+async function sendGalleryFile(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  opts: { absolutePath: string; mimeType: string | null; fileName: string; kind: string; download: boolean }
+): Promise<FastifyReply | void> {
+  const original = {
+    absolutePath: opts.absolutePath,
+    mimeType: opts.mimeType ?? "application/octet-stream",
+    fileName: opts.fileName,
+    download: opts.download
+  };
+  if (opts.kind !== "photo") {
+    return sendFile(request, reply, original);
+  }
+  try {
+    const { buffer, contentType } = await stripImageMetadata(opts.absolutePath);
+    const asciiName = opts.fileName.replace(/[^\x20-\x7E]/g, "_");
+    const disposition = opts.download ? "attachment" : "inline";
+    return reply
+      .header("Content-Type", contentType)
+      .header(
+        "Content-Disposition",
+        `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(opts.fileName)}`
+      )
+      .header("Content-Length", buffer.byteLength)
+      .header("Cache-Control", "private, no-cache")
+      .send(buffer);
+  } catch {
+    // A file sharp can't decode still gets served — a working download beats a
+    // 500 — just without the strip.
+    return sendFile(request, reply, original);
   }
 }
 
@@ -1619,10 +1683,11 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       reply.code(404).send({ error: "File not found" });
       return;
     }
-    sendFile(request, reply, {
+    return sendGalleryFile(request, reply, {
       absolutePath: filePath,
-      mimeType: item.mime_type ?? "application/octet-stream",
+      mimeType: item.mime_type,
       fileName: item.relative_path.split("/").pop() ?? "file",
+      kind: item.kind,
       download: false
     });
   });
@@ -1644,10 +1709,11 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       detail: `Downloaded a ${item.kind === "video" ? "video" : "photo"} "${item.relative_path.split("/").pop() ?? "file"}" from a shared set.`,
       ipAddress: request.ip
     });
-    sendFile(request, reply, {
+    return sendGalleryFile(request, reply, {
       absolutePath: filePath,
-      mimeType: item.mime_type ?? "application/octet-stream",
+      mimeType: item.mime_type,
       fileName: item.relative_path.split("/").pop() ?? "file",
+      kind: item.kind,
       download: true
     });
   });
@@ -1655,12 +1721,11 @@ export async function librarySharesPlugin(app: FastifyInstance) {
   // Download every photo/video in a shared set as one zip. Stored (level 0) — the
   // members are already-compressed JP/MP4, so compression only burns CPU. Missing
   // files are skipped; duplicate basenames get a " (n)" suffix so none overwrite.
-  app.get("/api/share/:token/download-all", SHARE_ZIP_LIMIT, (request, reply) => {
+  app.get("/api/share/:token/download-all", SHARE_ZIP_LIMIT, async (request, reply) => {
     const token = (request.params as { token: string }).token;
     const link = resolveShareLink(token, request);
     if (!link || !GALLERY_MULTI_MODULES.has(link.module)) {
-      reply.code(404).send({ error: "Share not found or expired" });
-      return;
+      return reply.code(404).send({ error: "Share not found or expired" });
     }
 
     const available = galleryMultiShareFiles(link).filter((file) => {
@@ -1668,8 +1733,7 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       return pathIsInside(filePath, file.source_path) && fs.existsSync(filePath);
     });
     if (available.length === 0) {
-      reply.code(404).send({ error: "No files available" });
-      return;
+      return reply.code(404).send({ error: "No files available" });
     }
 
     const meta = db.prepare("SELECT label FROM share_links WHERE id = ?").get(link.id) as { label: string | null } | undefined;
@@ -1710,6 +1774,17 @@ export async function librarySharesPlugin(app: FastifyInstance) {
       if (seen > 0) {
         const ext = path.extname(name);
         name = `${name.slice(0, name.length - ext.length)} (${seen})${ext}`;
+      }
+      // Photos go into the zip metadata-stripped, same as the single-file routes;
+      // videos (and any photo sharp can't decode) are archived as the original.
+      if (file.kind === "photo") {
+        try {
+          const { buffer } = await stripImageMetadata(filePath);
+          archive.append(buffer, { name });
+          continue;
+        } catch {
+          // fall through and archive the original file
+        }
       }
       archive.file(filePath, { name });
     }
@@ -1771,13 +1846,13 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         reply.code(404).send({ error: "File not found" });
         return;
       }
-      sendFile(request, reply, {
+      return sendGalleryFile(request, reply, {
         absolutePath: galPath,
-        mimeType: gal.mime_type ?? "application/octet-stream",
+        mimeType: gal.mime_type,
         fileName: gal.relative_path.split("/").pop() ?? "file",
+        kind: gal.kind,
         download: false
       });
-      return;
     }
 
     if (module !== "ebook") {
@@ -1832,13 +1907,13 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         ipAddress: request.ip
       });
       const ext = path.extname(gal.relative_path);
-      sendFile(request, reply, {
+      return sendGalleryFile(request, reply, {
         absolutePath: galPath,
-        mimeType: gal.mime_type ?? "application/octet-stream",
+        mimeType: gal.mime_type,
         fileName: `${safeTitle || "file"}${ext}`,
+        kind: gal.kind,
         download: true
       });
-      return;
     }
 
     if (module === "ebook") {

@@ -15,7 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import opentype, { type Font, type Glyph } from "opentype.js";
 
 export const CARD_WIDTH = 1920;
@@ -240,7 +240,7 @@ export async function titleBackgroundBuffer(background: TitleBackground): Promis
     const tileWidth = cellWidth - COLLAGE_GAP;
     const tileHeight = cellHeight - COLLAGE_GAP;
 
-    const tiles: sharp.OverlayOptions[] = [];
+    const tiles: OverlayOptions[] = [];
     for (let index = 0; index < cols * rows; index += 1) {
       // Fewer photos than cells (5 into a 3x2, say): cycle rather than leave a hole.
       const photo = photos[index % photos.length];

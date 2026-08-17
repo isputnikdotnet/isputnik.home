@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "../../../db.js";
@@ -10,10 +10,31 @@ import { canUserWriteLibrary, getLibraryForBook } from "../shared/library-access
 import { downloadImage } from "../shared/remote-image.js";
 import { imageMimeType, coverImageExtensions, getBookCoverFolder, coverFilePathFromRelative, updateBookCover, applyMetadataCandidate, updateManualMetadata, getAudiobookBookDetail, metadataMatchSchema, coverSourceSchema, coverFromUrlSchema, manualMetadataSchema } from "./book-helpers.js";
 
+// The metadata-search, metadata-from-url, and cover-candidate routes below read
+// a specific book's details or browse its on-disk folder to support the Edit
+// flow, which only a writer can reach. Without an access check they were an
+// IDOR: any signed-in user could pass any library item id — including a gallery
+// photo's, since getBookCoverFolder doesn't filter by library type, and item
+// ids leak through per-item shares — and read its title, its folder's image
+// listing, or a cover file's bytes from a library they can't see, as well as
+// fan provider requests out on arbitrary ids. Gate them on write access to the
+// book's library and 404 an inaccessible id so the route can't even confirm a
+// private item exists. Returns true (and has sent the 404) when refused.
+function refuseUnlessWritableBook(request: FastifyRequest, reply: FastifyReply, id: string): boolean {
+  const user = request.user!;
+  const lib = getLibraryForBook(id);
+  if (!lib || !canUserWriteLibrary(lib, user.id, user.role)) {
+    reply.code(404).send({ error: "Audiobook not found" });
+    return true;
+  }
+  return false;
+}
+
 export function registerMetadataRoutes(app: FastifyInstance) {
 
   app.get("/api/library/books/:id/metadata-search", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
+    if (refuseUnlessWritableBook(request, reply, id)) return;
     const book = getAudiobookBookDetail(id);
     if (!book) {
       return reply.code(404).send({ error: "Audiobook not found" });
@@ -44,6 +65,7 @@ export function registerMetadataRoutes(app: FastifyInstance) {
 
   app.get("/api/library/books/:id/metadata-from-url", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
+    if (refuseUnlessWritableBook(request, reply, id)) return;
     const book = getAudiobookBookDetail(id);
     if (!book) {
       return reply.code(404).send({ error: "Audiobook not found" });
@@ -126,6 +148,7 @@ export function registerMetadataRoutes(app: FastifyInstance) {
 
   app.get("/api/library/books/:id/cover-candidates", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
+    if (refuseUnlessWritableBook(request, reply, id)) return;
     const context = getBookCoverFolder(id);
     if (!context) {
       return reply.code(404).send({ error: "Audiobook not found" });
@@ -152,6 +175,7 @@ export function registerMetadataRoutes(app: FastifyInstance) {
 
   app.get("/api/library/books/:id/cover-candidate", { preHandler: app.authenticate }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
+    if (refuseUnlessWritableBook(request, reply, id)) return;
     const relativePath = String((request.query as { path?: string }).path ?? "");
     const filePath = coverFilePathFromRelative(id, relativePath);
     if (!filePath) {

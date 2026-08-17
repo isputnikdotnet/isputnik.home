@@ -10,6 +10,7 @@ import { registerAuthDecorators } from "./auth.js";
 import { isIpBlocked, isTrustedIp, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader, forwardedProto, safeRedirectHost, deletionBlocked } from "./core/security.js";
 import { flagAbusiveRequest } from "./core/security-alerts.js";
 import { isApiSurface, isProbePath } from "./core/probes.js";
+import { maskLogUrl } from "./core/log-redaction.js";
 import { BLOCKED_MESSAGE, BLOCKED_PAGE_HTML, wantsHtml } from "./core/blocked-page.js";
 import { registerCsrf } from "./core/csrf.js";
 import { registerCompression } from "./core/compression.js";
@@ -33,13 +34,14 @@ let proxyMisconfigWarned = false;
 const app = fastify({
   logger: {
     serializers: {
-      // Mirror Fastify's default request log, but mask the OPDS path token so the
-      // token-in-URL convenience never leaks a live credential into the logs.
+      // Mirror Fastify's default request log, but mask every path-segment token
+      // (OPDS feed, guest share, invite) so the token-in-URL convenience never
+      // leaks a live credential into the logs. See core/log-redaction.ts.
       req(request) {
         const version = request.headers?.["accept-version"];
         return {
           method: request.method,
-          url: request.url.replace(/(\/opds\/)isp_[^/?]+/g, "$1<token>"),
+          url: maskLogUrl(request.url),
           version: Array.isArray(version) ? version[0] : version,
           hostname: request.hostname,
           remoteAddress: request.ip,
