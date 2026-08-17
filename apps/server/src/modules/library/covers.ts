@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
-import { thumbnailAbsolutePath } from "./shared/thumbnail.js";
+import { thumbnailAbsolutePath, LIBRARY_BUCKET_RE } from "./shared/thumbnail.js";
+import { getAccessibleLibrary } from "./shared/library-access.js";
 
 function mimeTypeForCover(storageKey: string) {
   return {
@@ -22,6 +23,18 @@ export async function coversPlugin(app: FastifyInstance) {
     config: { rateLimit: { max: 6000, timeWindow: "1 minute" } }
   }, async (request, reply) => {
     const storageKey = (request.params as { "*": string })["*"];
+    // Thumbnails under a library bucket (item covers, previews, series covers,
+    // face crops) are only for people who can see that library. The keys are
+    // deterministic (<libraryId>/<shard>/<item>-cover.webp), so authentication
+    // alone let any signed-in user fetch a private library's thumbnails by
+    // reconstructing a key. Gate the library-scoped buckets on library access;
+    // the shared "people"/"categories" buckets are cross-library by design and
+    // don't match LIBRARY_BUCKET_RE, so they pass through.
+    const bucket = storageKey.split("/")[0] ?? "";
+    const user = request.user!;
+    if (LIBRARY_BUCKET_RE.test(bucket) && !getAccessibleLibrary(bucket, user.id, user.role)) {
+      return reply.code(404).send({ error: "Cover not found" });
+    }
     try {
       const absolutePath = thumbnailAbsolutePath(storageKey);
       const stat = await fs.stat(absolutePath);

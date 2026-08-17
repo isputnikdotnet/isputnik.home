@@ -927,7 +927,7 @@ function LibraryDetailsModal({
             <LibraryInfoRow label="Sources">{scanSources}</LibraryInfoRow>
             <LibraryInfoRow label="Extensions">{extensions}</LibraryInfoRow>
             <LibraryInfoRow label="Upload limit">
-              {library.settings?.maxUploadMB != null ? `${library.settings.maxUploadMB} MB` : "No limit"}
+              {library.settings?.maxUploadMB != null ? `${library.settings.maxUploadMB} MB` : "10 GB (standard)"}
             </LibraryInfoRow>
             {library.type === "audiobook" && (
               <LibraryInfoRow label="Tag encoding">

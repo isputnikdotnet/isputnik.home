@@ -15,7 +15,8 @@ import {
   setSecurityPolicy,
   getTrustProxyHops,
   wasForwardedHeaderSeen,
-  seedKnownLoginNetworks
+  seedKnownLoginNetworks,
+  type SecurityPolicy
 } from "./security.js";
 import { getPasswordPolicy, setPasswordPolicy } from "./password-policy.js";
 import { checkIpReputation, getCachedReputation } from "./ip-reputation.js";
@@ -40,7 +41,10 @@ const policySchema = z.object({
   alertNewIpSignIn: z.boolean(),
   deviceLinkScope: z.enum(["local", "any"]),
   requireMfaOutside: z.boolean(),
-  abuseIpdbKey: z.string().trim().max(120),
+  // Omitted/blank on save = keep the stored key; never echoed back (like the SMTP
+  // password). Other policy cards PATCH the whole blob without it, so it must be
+  // optional or a threshold save would wipe the key.
+  abuseIpdbKey: z.string().trim().max(120).optional(),
   reputationAutoEscalate: z.boolean(),
   reputationEscalateThreshold: z.number().int().min(50).max(100),
   trustedDeletesOnly: z.boolean()
@@ -54,9 +58,19 @@ const passwordPolicySchema = z.object({
 // Admin management of the access-control layer: trusted networks (relaxed zone)
 // and blocked source IPs (manual + the read-out of auto-blocks). Brute-force
 // thresholds are fixed in code and surfaced read-only for the UI to explain.
+
+// Strip the AbuseIPDB key before the policy leaves the server; report only
+// whether one is stored, exactly as publicMail does for the SMTP password. An
+// admin-only route is still no place for a live secret to sit in browser JS,
+// devtools, a HAR export, or a future admin-page XSS.
+function publicSecurityPolicy(policy: SecurityPolicy) {
+  const { abuseIpdbKey, ...rest } = policy;
+  return { ...rest, hasAbuseIpdbKey: Boolean(abuseIpdbKey) };
+}
+
 export async function securityRoutes(app: FastifyInstance) {
   app.get("/api/security", { preHandler: app.requireAdmin }, async () => ({
-    policy: getSecurityPolicy(),
+    policy: publicSecurityPolicy(getSecurityPolicy()),
     proxy: {
       trustProxyHops: getTrustProxyHops(),
       configured: getTrustProxyHops() > 0,
@@ -111,7 +125,13 @@ export async function securityRoutes(app: FastifyInstance) {
     const before = getSecurityPolicy();
     const enablingAlert = parsed.data.alertNewIpSignIn && !before.alertNewIpSignIn;
     if (enablingAlert) seedKnownLoginNetworks();
-    setSecurityPolicy(parsed.data, request.user!.id);
+    // Blank/omitted key = keep what's stored (the client never receives it to
+    // echo back), mirroring the SMTP password save.
+    const next: SecurityPolicy = {
+      ...parsed.data,
+      abuseIpdbKey: parsed.data.abuseIpdbKey?.length ? parsed.data.abuseIpdbKey : before.abuseIpdbKey
+    };
+    setSecurityPolicy(next, request.user!.id);
     // The outside-MFA switch changes who can sign in at all, so its flips are
     // named in the log rather than folded into a generic "thresholds" line.
     const mfaFlipped = parsed.data.requireMfaOutside !== before.requireMfaOutside;
@@ -123,7 +143,7 @@ export async function securityRoutes(app: FastifyInstance) {
         : "Updated brute-force protection thresholds.",
       ipAddress: request.ip
     });
-    return reply.send({ policy: parsed.data });
+    return reply.send({ policy: publicSecurityPolicy(next) });
   });
 
   app.patch("/api/security/password-policy", { preHandler: app.requireAdmin }, async (request, reply) => {

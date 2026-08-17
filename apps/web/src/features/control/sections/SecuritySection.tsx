@@ -65,7 +65,9 @@ interface SecurityPolicy {
   // from the type is a field a later edit drops on the floor.
   deviceLinkScope: "local" | "any";
   requireMfaOutside: boolean;
-  abuseIpdbKey: string;
+  // The key itself never leaves the server; the form gets only whether one is
+  // stored, and sends a replacement (blank = keep) — like the SMTP password.
+  hasAbuseIpdbKey: boolean;
   reputationAutoEscalate: boolean;
   reputationEscalateThreshold: number;
   trustedDeletesOnly: boolean;
@@ -118,6 +120,10 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
   const activeTab = TAB_FOR_SECTION[section];
 
   const [policyForm, setPolicyForm] = useState<SecurityPolicy | null>(null);
+  // The AbuseIPDB key input is separate from policyForm: the server never sends
+  // the key back (only hasAbuseIpdbKey), so this holds a replacement to send, and
+  // blank means "keep the stored one".
+  const [abuseKeyInput, setAbuseKeyInput] = useState("");
   // Both policy cards write the same blob, so each tracks its own busy/result flags.
   const [savingPolicy, setSavingPolicy] = useState<PolicyScope | null>(null);
   const [policyError, setPolicyError] = useState<{ scope: PolicyScope; message: string } | null>(null);
@@ -173,11 +179,19 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     setPolicyError(null);
     setPolicySaved(null);
     try {
+      // Send a new key only from the reputation card, and only when one was
+      // typed; every other card omits it so a threshold save can't wipe it
+      // (the server reads blank/absent as "keep the stored key").
+      const body =
+        scope === "reputation" && abuseKeyInput.trim()
+          ? { ...policyForm, abuseIpdbKey: abuseKeyInput.trim() }
+          : policyForm;
       const res = await api<{ policy: SecurityPolicy }>("/api/security/policy", {
         method: "PATCH",
-        body: JSON.stringify(policyForm)
+        body: JSON.stringify(body)
       });
       setPolicyForm(res.policy);
+      if (scope === "reputation") setAbuseKeyInput("");
       setPolicySaved(scope);
       await load();
     } catch (err) {
@@ -943,14 +957,16 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                           Free at abuseipdb.com. Leave empty to keep reputation lookups off — with a key set, addresses
                           that trip the auto-block (and ones you check by hand) are sent to AbuseIPDB. Only already-
                           flagged addresses are ever looked up, never regular visitors.
+                          {policyForm.hasAbuseIpdbKey && " A key is saved; type a new one to replace it."}
                         </span>
                       </span>
                       <input
-                        type="text"
+                        type="password"
                         autoComplete="off"
                         spellCheck={false}
-                        value={policyForm.abuseIpdbKey}
-                        onChange={(event) => setPolicyForm({ ...policyForm, abuseIpdbKey: event.target.value })}
+                        placeholder={policyForm.hasAbuseIpdbKey ? "•••••••• (saved)" : ""}
+                        value={abuseKeyInput}
+                        onChange={(event) => setAbuseKeyInput(event.target.value)}
                       />
                     </label>
                     <label className="security-setting-row security-setting-row-checkbox">
@@ -1254,7 +1270,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                               )}
                             </td>
                             <td className="col-actions">
-                              {Boolean(data.policy.abuseIpdbKey) && (
+                              {data.policy.hasAbuseIpdbKey && (
                                 <Button
                                   variant="icon"
                                   title="Check reputation"

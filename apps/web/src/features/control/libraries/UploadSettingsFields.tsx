@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
-import { Infinity as InfinityIcon } from "lucide-react";
+import { HardDrive } from "lucide-react";
 import type { LibraryMode } from "../../audiobooks/types";
 
 // Upload policy settings. Uploads accept the same extensions as scanning; only the
 // per-upload size limit is configured separately. "Custom limit" is tracked with its
 // own `limited` flag (not derived from the value) so the number field stays editable
-// while empty instead of snapping back to "No limit" mid-edit; an empty/invalid value
-// is restored to the last valid number on blur.
+// while empty instead of snapping back to the default mid-edit; an empty/invalid value
+// is restored to the last valid number on blur. Leaving it on the default applies a
+// generous 10 GB per-file cap server-side, so a runaway upload can't fill the disk.
 export function UploadSettingsFields({
   maxUploadMB,
   onChange,
@@ -62,13 +63,13 @@ export function UploadSettingsFields({
           />
           <span className="upload-size-card-body">
             <span className="upload-size-card-title">
-              <strong>No limit</strong>
+              <strong>Standard</strong>
               <span className="upload-size-recommended">Recommended</span>
             </span>
-            <small>There is no limit on file upload size.</small>
+            <small>Up to 10 GB per file — big enough for any single upload, small enough that a runaway upload can&apos;t fill the disk.</small>
           </span>
           <span className="upload-size-infinity" aria-hidden="true">
-            <InfinityIcon size={32} />
+            <HardDrive size={32} />
           </span>
         </label>
 

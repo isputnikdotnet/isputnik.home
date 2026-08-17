@@ -71,6 +71,18 @@ function buildPolicyJson(mode: "managed" | "external", maxUploadMB: number | nul
   });
 }
 
+// The per-file upload cap applied when a library policy doesn't set one. Unset
+// used to resolve to "no limit", so one careless or compromised household
+// account could stream files until the disk — and the SQLite database sharing
+// it — filled. Default to the same ceiling an admin can already configure (the
+// app never assumed larger uploads); a library that needs less sets maxUploadMB
+// lower. Bytes, ready to hand to receiveUpload.
+export const DEFAULT_MAX_UPLOAD_MB = 10240; // 10 GB, matching the maxUploadMB schema max
+
+export function resolveUploadMaxBytes(maxUploadMB: number | null | undefined): number {
+  return (maxUploadMB ?? DEFAULT_MAX_UPLOAD_MB) * 1024 * 1024;
+}
+
 function resolveOwner(data: { ownerId?: string | null; ownerType?: "user" | "group" | null }) {
   const ownerId = data.ownerId ?? null;
   const ownerType = ownerId ? (data.ownerType ?? "user") : null;

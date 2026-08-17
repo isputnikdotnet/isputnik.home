@@ -11,7 +11,7 @@ import { canUserAccessLibrary, libraryCapabilities, deleteLibraryAccess } from "
 import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
-import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
+import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord, resolveUploadMaxBytes } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
@@ -238,7 +238,7 @@ export async function ebookRoutesPlugin(app: FastifyInstance) {
     }
 
     const settings = normalizeLibrarySettings("ebook", library.settings_json);
-    const maxBytes = policy.maxUploadMB != null ? policy.maxUploadMB * 1024 * 1024 : null;
+    const maxBytes = resolveUploadMaxBytes(policy.maxUploadMB);
     const stagingDir = path.join(root, `.upload-${nanoid(10)}`);
 
     let received;

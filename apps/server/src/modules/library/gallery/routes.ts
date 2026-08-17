@@ -10,7 +10,7 @@ import { canUserAccessLibrary, canUserAccessBook, libraryCapabilities, deleteLib
 import { publicLibrary, type LibraryListRow } from "../shared/library-serializer.js";
 import { deleteSharesForLibrary } from "../shared/share-access.js";
 import { deleteCollectionItemsForLibrary } from "../../collections/cleanup.js";
-import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord } from "../shared/library-crud.js";
+import { coreLibraryCreateSchema, coreLibraryUpdateSchema, createLibraryRecord, updateLibraryRecord, resolveUploadMaxBytes } from "../shared/library-crud.js";
 import { METADATA_SOURCE_IDS } from "../shared/metadata-sources.js";
 import { validateLibrarySource, LibrarySourceError } from "../shared/library-source.js";
 import { normaliseRelativePath, relativePathWithinRoot } from "../shared/storage-roots.js";
