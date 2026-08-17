@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.10.0",
+    label: "It takes a code to drop two-factor, and shared photos forget where they were",
+    changes: [
+      "Turning off two-factor, minting fresh backup codes, or changing your sign-in email now asks for a current second factor — an authenticator code or a backup code — not just your password. A stolen password used from a live session could quietly strip the second factor or move your login to an address the thief controls; now the one wall meant to stand when a password has already fallen can't be pulled down with that same password. Accounts that never turned two-factor on are unaffected, and the disable, backup-code, and change-email screens simply gain a code field when you have it on.",
+      "A photo shared with a guest link no longer carries the hidden data your camera wrote into it — the timestamp, the camera model, and above all the GPS coordinates, which for a picture taken at home are your address. Shared photos are now re-encoded on the way out with that metadata dropped, so a link you hand a relative shows them the picture and nothing about where you were standing. If a photo ever can't be safely re-encoded, the link declines it rather than fall back to the original.",
+      "The server no longer runs as root. The container starts privileged just long enough to take ownership of your /config folder, then drops to an ordinary user — PUID/PGID, 1000 by default, or 99:100 on the Unraid template — for everything after. So if a malformed upload ever found a flaw in the image, audio, or e-book tools that parse it, what it landed in would be an unprivileged process, not root with the run of your whole media share. Existing installs are brought over once on the first restart; there is nothing to set.",
+      "Your SMTP password and AbuseIPDB key are now encrypted where they rest, so a backup that finds its way onto a less careful drive is inert rather than a working credential. The key that unseals them is kept out of the backup, so restoring onto a brand-new host means re-entering those two secrets once — the two-factor guide notes this.",
+      "A broader hardening pass sits under the surface: a private library's covers and a book's listening progress can no longer be read across accounts by guessing an id, saved-token and share links are masked in the server log, the in-app guides are sanitized before they render, session and two-factor cookies wear a stricter same-host prefix over HTTPS, unknown addresses behind a misconfigured proxy are treated as untrusted rather than waved in, and the bundled image, archive, and web libraries are moved to their patched releases."
+    ]
+  },
+  {
     version: "3.9.0",
     label: "Blocks that can stay for good, and deletions that stay home",
     changes: [
