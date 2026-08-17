@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../db.js";
 import { ipInAnyCidr, ipNetworkKey, isPrivateIp } from "./cidr.js";
+import { sealSecret, openSecret } from "./mfa.js";
 
 // Brute-force defense and source-IP access control. Pure data/logic over the
 // login_attempts / blocked_ips / trusted_networks tables; the login route and a
@@ -53,7 +54,10 @@ export function getSecurityPolicy(): SecurityPolicy {
   const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(POLICY_KEY) as { value: string } | undefined;
   if (!row) return { ...DEFAULT_SECURITY_POLICY };
   try {
-    return { ...DEFAULT_SECURITY_POLICY, ...(JSON.parse(row.value) as Partial<SecurityPolicy>) };
+    const merged = { ...DEFAULT_SECURITY_POLICY, ...(JSON.parse(row.value) as Partial<SecurityPolicy>) };
+    // The AbuseIPDB key is sealed at rest (see mfa.sealSecret) so a leaked backup
+    // can't use it; un-seal for callers. A legacy plaintext value passes through.
+    return { ...merged, abuseIpdbKey: openSecret(merged.abuseIpdbKey) };
   } catch {
     return { ...DEFAULT_SECURITY_POLICY };
   }
@@ -67,7 +71,7 @@ export function setSecurityPolicy(policy: SecurityPolicy, userId: string | null)
        value = excluded.value,
        updated_by = excluded.updated_by,
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
-  ).run(POLICY_KEY, JSON.stringify(policy), userId);
+  ).run(POLICY_KEY, JSON.stringify({ ...policy, abuseIpdbKey: sealSecret(policy.abuseIpdbKey) }), userId);
 }
 
 // True when the request carries a proxy's forwarding header. Used to warn when

@@ -188,32 +188,31 @@ procedure.
 
 ---
 
-## P2 — Defense-in-depth (schedule when convenient)
+## P2 — Defense-in-depth — ✅ DONE on `security-followup`
 
-- **Stop echoing the AbuseIPDB key to the admin browser** *(Both, Low)* — `GET /api/security`
-  returns the full policy incl. `abuseIpdbKey` (`core/security-routes.ts:59`). Return
-  `hasAbuseIpdbKey: boolean` and accept blank-means-keep on PATCH, mirroring the SMTP-password
-  pattern (`mail-routes.ts`). *(This came in with the new reputation feature — worth fixing before
-  it's widely used.)*
-- **Authorize the thumbnail/cover store per object** *(Both, Low)* — `covers.ts:20` and the OPDS
-  cover route serve any key to any authenticated user / any OPDS token. Derive `libraryId` from the
-  key's first path segment and check `canUserAccessLibrary` (cacheable per request), or issue
-  short-lived signed cover URLs.
-- **Sanitize guide markdown** *(Review A, Low)* — `GuidePage.tsx:94` uses `dangerouslySetInnerHTML`
-  over `marked` output (raw HTML passes through) and the custom renderer interpolates
-  `href/title/text/src` unescaped. Guides are app-shipped today (low risk), but add DOMPurify and
-  escape the renderer attributes so it stays safe if guides ever become dynamic.
-- **Cap uploads and restore extraction** *(Both, Low)* — default a generous per-file cap when a
-  library policy omits `maxUploadMB` (keep `null`=unlimited as an explicit admin opt-in,
-  `library-crud.ts:67`); track total uncompressed bytes/entry count during backup restore and abort
-  past a limit.
-- **Encrypt operator secrets in backups** *(Review B, Low)* — SMTP password and AbuseIPDB key sit in
-  plaintext inside every backup zip (the rest of the DB is inert on theft). Wrap both with the
-  existing `encryptSecret()` AES-GCM helper (key stays out of backups, same caveat MFA already
-  carries).
-- **`__Host-` prefix on the session/MFA/passkey cookies** *(Review B, Low)* — the CSRF cookie got
-  the anti-cookie-tossing prefix; the higher-value session cookie didn't. Apply the same
-  `csrfCookieName`-style helper with a legacy-name migration.
+- **Stop echoing the AbuseIPDB key to the admin browser** *(Both, Low)* — ✅ `publicSecurityPolicy`
+  returns `hasAbuseIpdbKey` instead of the value; PATCH treats blank/omitted as keep. Web reputation
+  card uses a password input + saved placeholder. `security-policy-key.test.ts`.
+- **Authorize the thumbnail/cover store per object** *(Both, Low)* — ✅ `covers.ts` and the OPDS cover
+  route gate library-bucketed keys (`LIBRARY_BUCKET_RE`) on `getAccessibleLibrary`; shared
+  people/categories buckets pass through. `cover-authz.test.ts`.
+- **Sanitize guide markdown** *(Review A, Low)* — ✅ `renderGuideHtml` escapes the custom renderer's
+  interpolated attributes and DOMPurify-sanitizes before `dangerouslySetInnerHTML`. `GuideMarkdown.test.ts`.
+- **Cap uploads and restore extraction** *(Both, Low)* — ✅ (upload cap) `resolveUploadMaxBytes` applies
+  a 10 GB default when `maxUploadMB` is unset (was unlimited); UI copy updated. Restore extraction:
+  the crafted-zip 4 GB-alloc DoS was already closed by the adm-zip 0.6 bump in P0.1, and restore is
+  admin-only, so no further per-entry guard was added. `upload-cap.test.ts`.
+- **Encrypt operator secrets in backups** *(Review B, Low)* — ✅ `sealSecret`/`openSecret` (core/mfa.ts,
+  versioned `enc:v1:` prefix, fail-safe decrypt) seal the SMTP password and AbuseIPDB key at rest in
+  app_settings, so the DB a backup carries is inert. Legacy plaintext reads through and re-seals on
+  next save; restore on a host without `mfa.key` needs them re-entered (documented in auth.md).
+  `secret-seal.test.ts`.
+- **`__Host-` prefix on the session/MFA/passkey cookies** *(Review B, Low)* — ✅ `hostCookieName`
+  (core/cookies.ts) prefixes the session, MFA-challenge and passkey-ceremony cookies on HTTPS. The
+  session read falls back to the bare legacy name, so nobody is logged out; challenge cookies are a
+  plain rename (ephemeral). `host-cookie.test.ts`. **The non-secure flows are covered by the suite;
+  the `__Host-` path only engages on a real HTTPS deployment — worth a browser sign-in/MFA/passkey
+  smoke test on staging before relying on it.**
 
 ### Info / note-only (no action required for this threat model)
 TOTP codes replayable within their ~60–90 s window (no last-step tracking); MFA-disable and

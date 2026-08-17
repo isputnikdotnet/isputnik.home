@@ -66,6 +66,34 @@ export function decryptSecret(stored: string): string {
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
 }
 
+// At-rest wrappers for operator secrets kept in app_settings (SMTP password,
+// AbuseIPDB key). Those sit in the SQLite DB, which is copied wholesale into every
+// backup zip — so a backup landing on a lax share used to leak working
+// credentials. Sealing them means the DB alone is inert, the same property the
+// hashed tokens and encrypted TOTP secrets already give it; mfa.key stays out of
+// backups, so restoring on a new host needs the secrets re-entered (documented).
+//
+// The version prefix tells a sealed value from a legacy plaintext one, so old
+// installs keep working and migrate on the next save. open fails SAFE: an
+// undecryptable value (missing/rotated key, corruption) reads as empty rather
+// than throwing — getSecurityPolicy runs on hot request paths, and a throw there
+// would take the app down over an unreadable optional secret.
+const SEALED_PREFIX = "enc:v1:";
+
+export function sealSecret(plain: string): string {
+  return plain ? SEALED_PREFIX + encryptSecret(plain) : "";
+}
+
+export function openSecret(stored: string | null | undefined): string {
+  if (!stored) return "";
+  if (!stored.startsWith(SEALED_PREFIX)) return stored; // legacy plaintext, pre-sealing
+  try {
+    return decryptSecret(stored.slice(SEALED_PREFIX.length));
+  } catch {
+    return "";
+  }
+}
+
 // Backup codes rescue an account when the authenticator is lost. Shown once on
 // generation, stored only as sha256 hashes, and consumed single-use. Drawn from an
 // unambiguous alphabet (no 0/O/1/I/L) and grouped XXXXX-XXXXX for readability.
