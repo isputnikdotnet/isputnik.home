@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { nanoid } from "nanoid";
 import { db, logActivity, publicUser, type Role, type User } from "../../db.js";
 import { sha256, hashPassword } from "../../crypto.js";
@@ -7,8 +7,34 @@ import { addDays, issueSession } from "../../auth.js";
 import { config } from "../../config.js";
 import { parseBody, setupSchema, getUserByEmail, requestOrigin } from "../../core/shared.js";
 import { getDefaultTheme } from "../../core/app-config.js";
-import { alertNewAdmin } from "../../core/security-alerts.js";
+import { alertNewAdmin, flagAbusiveRequest } from "../../core/security-alerts.js";
 import { noteSignInNetwork } from "../../core/security.js";
+
+// The live-invite lookup both public routes share. A miss splits two ways, and
+// only one of them counts: a token whose hash matches no row at all can only be
+// a guess or a scan, so it feeds the per-IP auto-block — the same distinction
+// the share-link and device-code paths draw. A used, revoked, or expired invite
+// is a stale link someone in the household legitimately held, and must not count.
+export function resolveLiveInvite(
+  token: string,
+  request: FastifyRequest
+): { id: string; role: Role; expires_at: string } | null {
+  const hash = sha256(token);
+  const invite = db.prepare(`
+    SELECT id, role, expires_at
+    FROM invites
+    WHERE token_hash = ?
+      AND used_at IS NULL
+      AND revoked_at IS NULL
+      AND datetime(expires_at) > datetime('now')
+  `).get(hash) as { id: string; role: Role; expires_at: string } | undefined;
+  if (invite) return invite;
+
+  if (!db.prepare("SELECT 1 FROM invites WHERE token_hash = ?").get(hash)) {
+    flagAbusiveRequest(request, "token");
+  }
+  return null;
+}
 
 const inviteSchema = z.object({
   role: z.enum(["admin", "member"]).default("member"),
@@ -120,15 +146,7 @@ export async function invitesPlugin(app: FastifyInstance) {
 
   app.get("/api/invites/:token", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
     const token = (request.params as { token: string }).token;
-    const invite = db.prepare(`
-      SELECT id, role, expires_at
-      FROM invites
-      WHERE token_hash = ?
-        AND used_at IS NULL
-        AND revoked_at IS NULL
-        AND datetime(expires_at) > datetime('now')
-    `).get(sha256(token)) as { id: string; role: Role; expires_at: string } | undefined;
-
+    const invite = resolveLiveInvite(token, request);
     if (!invite) {
       return reply.code(404).send({ error: "Invite is invalid or expired" });
     }
@@ -143,15 +161,7 @@ export async function invitesPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid account details", details: parsed.error });
     }
 
-    const invite = db.prepare(`
-      SELECT id, role
-      FROM invites
-      WHERE token_hash = ?
-        AND used_at IS NULL
-        AND revoked_at IS NULL
-        AND datetime(expires_at) > datetime('now')
-    `).get(sha256(token)) as { id: string; role: Role } | undefined;
-
+    const invite = resolveLiveInvite(token, request);
     if (!invite) {
       return reply.code(404).send({ error: "Invite is invalid or expired" });
     }
