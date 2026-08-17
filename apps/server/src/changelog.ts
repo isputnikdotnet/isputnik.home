@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.8.1",
+    label: "A blocked visitor gets a real page, and expired blocks say so",
+    changes: [
+      "A browser opening the app from a blocked address used to be shown the refusal as raw JSON on a white page. It now gets a small page that says what happened in words: the network is blocked after repeated failed sign-ins or suspicious requests, automatic blocks expire on their own, and a member of the household can wait, switch networks, or ask their administrator. It deliberately says no more than that — not why or for how long, which stays in the admin's event log and email. The app itself and other API callers still get the JSON they can show inline, so the sign-in form's error message is unchanged.",
+      "An automatic block that has run out its cooldown stays in the Blocked IPs list — only its enforcement stops — and it used to sit there looking exactly like an active block unless you read the date closely. Expired rows now wear an Expired badge, judged by the same clock the enforcement uses, and their remove button says what it now does: tidy the list, not unblock anyone. The page's description explains the lifecycle outright.",
+      "A guessed invite link now counts against its source address the same way guessed share links, reader tokens, and device codes do, feeding the automatic IP block. A used, revoked, or expired invite — a stale link someone in the household legitimately held — still counts for nothing."
+    ]
+  },
+  {
     version: "3.8.0",
     label: "A second factor from outside, and blocks that say what they counted",
     changes: [
