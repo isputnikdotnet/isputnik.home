@@ -188,6 +188,31 @@ procedure.
 
 ---
 
+## Re-review pass — ✅ DONE on `security-followup`
+
+An adversarial re-review of the branch (5 reviewers over the diff, findings verified) surfaced 15
+confirmed issues in the fixes themselves — 2 high, 4 medium, 9 low, zero false positives — all fixed:
+
+- **HIGH — cover-gate traversal:** the P2.2 check derived the bucket from the raw `split('/')[0]`, but
+  `%2f` decodes into the wildcard param, so `x%2f..%2f<privLib>/…` collapsed into a private bucket with
+  the gate skipped. Now `resolveCoverKey` derives the bucket from the RESOLVED path + rejects non-image
+  keys (also stops streaming a slideshow `.mp4`). Both cover routes. `cover-authz.test.ts`.
+- **HIGH — EXIF strip bypass:** sharp can't decode HEVC-HEIC (iPhone default), so the P0.3 strip fell
+  back to the ORIGINAL bytes with GPS. Now falls back to an ffmpeg re-decode and REFUSES (no original)
+  if a photo can't be decoded at all; animated GIFs keep animation; re-encodes get a matching extension.
+- **MED:** gallery upload still uncapped (import unused) → `resolveUploadMaxBytes`; log redaction missed
+  the browser `/share/`,`/invite/` SPA routes (the most-logged case) → patterns added; `bulk-delete` +
+  `tags/prune` bypassed the deletions-only policy → `config:{destructive}`; the second-factor gate was
+  unthrottled/unlogged → per-route rate limit + failed-attempt recording (feeds lockout/auto-block) + log.
+- **LOW:** secret-seal "blank = keep" could wipe a still-encrypted secret when the key was transiently
+  unreadable → keep-path preserves the RAW ciphertext (`ensureSealed` + raw readers); AbuseIPDB key had
+  no clear path → `clearAbuseIpdbKey` + "Remove saved key" button; passkey DELETE lacked `untrustedAllow`
+  → added; guide fragment wasn't escaped → `escapeAttr`; entrypoint skipped chown of a deleted-then-
+  recreated subdir → unconditional chown; email-method backup-code requirement documented.
+
+Commits `fb52a49` (high+med), `128fff1` (low). This is why the re-review was worth running — P2.2 and
+P0.3 were effectively bypassable as first shipped.
+
 ## P2 — Defense-in-depth — ✅ DONE on `security-followup`
 
 - **Stop echoing the AbuseIPDB key to the admin browser** *(Both, Low)* — ✅ `publicSecurityPolicy`
