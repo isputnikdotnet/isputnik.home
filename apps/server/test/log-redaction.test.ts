@@ -17,6 +17,13 @@ describe("maskLogUrl", () => {
     expect(maskLogUrl("/api/invites/inv-t0ken/accept")).toBe("/api/invites/<token>/accept");
   });
 
+  it("masks the browser-facing SPA share/invite routes (the most-logged case)", () => {
+    // A guest navigation to /share/<token> hits the SPA fallback and is logged.
+    expect(maskLogUrl("/share/s3cr3ttoken")).toBe("/share/<token>");
+    expect(maskLogUrl("/share/s3cr3ttoken/items/x")).toBe("/share/<token>/items/x");
+    expect(maskLogUrl("/invite/inv-t0ken")).toBe("/invite/<token>");
+  });
+
   it("leaves the owner's plural /api/shares routes alone", () => {
     // The guest prefix is singular /api/share/; /api/shares/ carries item ids and
     // library-scoped data, not a bearer token, so it must stay readable.

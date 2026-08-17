@@ -270,7 +270,7 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
     }
 
     const settings = normalizeLibrarySettings("gallery", library.settings_json);
-    const maxBytes = policy.maxUploadMB != null ? policy.maxUploadMB * 1024 * 1024 : null;
+    const maxBytes = resolveUploadMaxBytes(policy.maxUploadMB);
     const stagingDir = path.join(root, `.upload-${nanoid(10)}`);
 
     let received;

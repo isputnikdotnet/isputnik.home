@@ -11,7 +11,13 @@
 const TOKEN_IN_PATH: RegExp[] = [
   /(\/opds\/)isp_[^/?]+/g,
   /(\/api\/share\/)[^/?]+/g,
-  /(\/api\/invites\/)[^/?]+/g
+  /(\/api\/invites\/)[^/?]+/g,
+  // The browser-facing SPA routes that carry the same tokens — the MOST logged
+  // occurrence, since every guest page load and every invite click hits them (the
+  // SPA fallback serves index.html and the request is logged). Anchored to the
+  // path start so they can't over-mask a deeper /share/ or /invite/ segment.
+  /^(\/share\/)[^/?]+/g,
+  /^(\/invite\/)[^/?]+/g
 ];
 
 export function maskLogUrl(url: string): string {

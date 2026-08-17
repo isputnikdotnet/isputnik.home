@@ -530,7 +530,9 @@ export async function categoriesAdminPlugin(app: FastifyInstance) {
 
   // Delete tags that aren't linked to any non-deleted book — or to anything
   // else (a family-tree-only tag is in use, not unused).
-  app.post("/api/library/manage/tags/prune", { preHandler: app.requireAdmin }, async (request) => {
+  // destructive: prune deletes tag rows — refused from untrusted networks under
+  // the deletions-only policy, like DELETE /api/library/manage/tags/:id.
+  app.post("/api/library/manage/tags/prune", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request) => {
     const unused = listTags().filter((tag) => tag.bookCount === 0 && tag.otherCount === 0);
     db.transaction(() => {
       for (const tag of unused) {

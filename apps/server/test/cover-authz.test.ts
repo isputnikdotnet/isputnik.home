@@ -80,4 +80,17 @@ describe("cover route enforces library access", () => {
     expect(await get(personKey, "outsider")).toBe(200);
     expect(await get(catKey, "outsider")).toBe(200);
   });
+
+  it("blocks the encoded-slash traversal that collapses into a private bucket", async () => {
+    writeThumb("privatelib000001", "item0001", "item0001-cover.webp");
+    // %2f decodes into the wildcard param; the key collapses on disk to
+    // privatelib000001/... The gate must derive the bucket from the resolved path.
+    const status = await get("x%2f..%2fprivatelib000001/it/em/item0001-cover.webp", "outsider");
+    expect(status).toBe(404);
+  });
+
+  it("refuses a non-image key so the route can't stream e.g. a slideshow movie", async () => {
+    const mp4Key = writeThumb("slideshows", "show0001", "show0001.mp4");
+    expect(await get(mp4Key, "outsider")).toBe(404);
+  });
 });

@@ -102,7 +102,10 @@ export function registerTrashRoutes(app: FastifyInstance) {
 
   // Bulk move to the Recycle Bin (selection mode). Permission is checked per item's
   // library; items the user can't delete are counted, not fatal.
-  app.post("/api/library/books/bulk-delete", { preHandler: app.authenticate }, async (request, reply) => {
+  // destructive: this is the app's real delete path (the UI's selection-delete
+  // posts here), moving up to 200 items to the Recycle Bin — refused from
+  // untrusted networks under the deletions-only policy, same as the single DELETE.
+  app.post("/api/library/books/bulk-delete", { preHandler: app.authenticate, config: { destructive: true } }, async (request, reply) => {
     const parsed = parseBody(bulkDeleteSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid bulk delete", details: parsed.error });
