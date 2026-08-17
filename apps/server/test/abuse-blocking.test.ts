@@ -20,6 +20,7 @@ import {
   DEFAULT_SECURITY_POLICY
 } from "../src/core/security.js";
 import { resolveShareLink } from "../src/modules/library/shared/share-access.js";
+import { resolveLiveInvite } from "../src/modules/users/invites.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 const IP_FAIL_THRESHOLD = DEFAULT_SECURITY_POLICY.ipFailThreshold;
@@ -164,5 +165,62 @@ describe("share token misses", () => {
     const request = fakeRequest("203.0.113.23");
     expect(resolveShareLink("good", request)?.id).toBe("link1");
     expect(hitCount("203.0.113.23")).toBe(0);
+  });
+});
+
+describe("invite token misses", () => {
+  // resetDb doesn't clear invites, so each seed gets its own id and token.
+  function seedInvite(token: string, opts: { expired?: boolean; revoked?: boolean; used?: boolean } = {}): string {
+    const admin = makeUser("inviter");
+    const id = `inv-${token}`;
+    db.prepare(
+      `INSERT INTO invites (id, token_hash, role, created_by, expires_at, used_at, revoked_at)
+       VALUES (?, ?, 'member', ?, ?, ?, ?)`
+    ).run(
+      id,
+      sha256(token),
+      admin,
+      opts.expired ? new Date(Date.now() - 1000).toISOString() : new Date(Date.now() + 86_400_000).toISOString(),
+      opts.used ? new Date().toISOString() : null,
+      opts.revoked ? new Date().toISOString() : null
+    );
+    return id;
+  }
+
+  function hitCount(ip: string): number {
+    return (
+      db.prepare("SELECT COUNT(*) AS count FROM login_attempts WHERE ip_address = ?").get(ip) as { count: number }
+    ).count;
+  }
+
+  it("counts a token that matches nothing at all", () => {
+    const request = fakeRequest("203.0.113.30");
+    expect(resolveLiveInvite("totally-made-up", request)).toBeNull();
+    expect(hitCount("203.0.113.30")).toBe(1);
+  });
+
+  it("does not count a stale link a family member legitimately held", () => {
+    const id = seedInvite("stale", { expired: true });
+    expect(resolveLiveInvite("stale", fakeRequest("203.0.113.31"))).toBeNull();
+    expect(hitCount("203.0.113.31")).toBe(0);
+
+    db.prepare("UPDATE invites SET expires_at = ?, revoked_at = ? WHERE id = ?").run(
+      new Date(Date.now() + 86_400_000).toISOString(),
+      new Date().toISOString(),
+      id
+    );
+    expect(resolveLiveInvite("stale", fakeRequest("203.0.113.32"))).toBeNull();
+    expect(hitCount("203.0.113.32")).toBe(0);
+
+    db.prepare("UPDATE invites SET revoked_at = NULL, used_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+    expect(resolveLiveInvite("stale", fakeRequest("203.0.113.33"))).toBeNull();
+    expect(hitCount("203.0.113.33")).toBe(0);
+  });
+
+  it("resolves a live invite and counts nothing", () => {
+    const id = seedInvite("good");
+    const request = fakeRequest("203.0.113.34");
+    expect(resolveLiveInvite("good", request)?.id).toBe(id);
+    expect(hitCount("203.0.113.34")).toBe(0);
   });
 });
