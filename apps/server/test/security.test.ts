@@ -7,6 +7,7 @@ import {
   listTrustedNetworks,
   removeTrustedNetwork,
   recordLoginAttempt,
+  recordAbuseAttempt,
   isAccountLocked,
   clearAccountLockout,
   isIpBlocked,
@@ -134,11 +135,40 @@ describe("IP blocking", () => {
 
   it("auto-blocks an IP past the failure threshold, exactly once", () => {
     for (let i = 0; i < IP_FAIL_THRESHOLD - 1; i += 1) recordLoginAttempt(`u${i}@test.local`, "203.0.113.7", false);
-    expect(maybeAutoBlockIp("203.0.113.7")).toBe(false);
+    expect(maybeAutoBlockIp("203.0.113.7")).toBeNull();
     recordLoginAttempt("u@test.local", "203.0.113.7", false);
-    expect(maybeAutoBlockIp("203.0.113.7")).toBe(true);
+    const outcome = maybeAutoBlockIp("203.0.113.7");
+    expect(outcome?.counts.signin).toBe(IP_FAIL_THRESHOLD);
+    expect(outcome?.description).toBe(`${IP_FAIL_THRESHOLD} failed sign-ins`);
     expect(isIpBlocked("203.0.113.7")).toBe(true);
-    expect(maybeAutoBlockIp("203.0.113.7")).toBe(false);
+    expect(maybeAutoBlockIp("203.0.113.7")).toBeNull();
+  });
+
+  it("says in the reason and the event log what it counted", () => {
+    for (let i = 0; i < IP_FAIL_THRESHOLD; i += 1) recordAbuseAttempt("203.0.113.8", "probe");
+    expect(maybeAutoBlockIp("203.0.113.8")?.description).toBe(`${IP_FAIL_THRESHOLD} scanner probes`);
+
+    const block = db
+      .prepare("SELECT reason FROM blocked_ips WHERE ip_address = '203.0.113.8'")
+      .get() as { reason: string };
+    expect(block.reason).toBe(`Automatic: ${IP_FAIL_THRESHOLD} scanner probes in 15 min`);
+
+    const log = db
+      .prepare("SELECT detail FROM activity_logs WHERE event = 'security.ip_autoblocked' AND ip_address = '203.0.113.8'")
+      .get() as { detail: string } | undefined;
+    expect(log?.detail).toBe(
+      `Blocked 203.0.113.8 for 60 minutes after ${IP_FAIL_THRESHOLD} scanner probes within 15 minutes.`
+    );
+  });
+
+  it("lists a mixed batch by kind, sign-ins last", () => {
+    for (let i = 0; i < IP_FAIL_THRESHOLD - 3; i += 1) recordAbuseAttempt("203.0.113.9", "probe");
+    recordAbuseAttempt("203.0.113.9", "token");
+    recordLoginAttempt("u@test.local", "203.0.113.9", false);
+    recordLoginAttempt("u@test.local", "203.0.113.9", false);
+    expect(maybeAutoBlockIp("203.0.113.9")?.description).toBe(
+      `${IP_FAIL_THRESHOLD - 3} scanner probes, 1 guessed token or code and 2 failed sign-ins`
+    );
   });
 });
 

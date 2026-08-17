@@ -184,8 +184,16 @@ export function resetMfa(userId: string): void {
 // Opens a challenge for the user's chosen method. Returns the plaintext code to
 // mail when that method is email (it is stored only as a hash) and null for TOTP,
 // where the factor is the user's own secret and nothing needs sending.
-export function createMfaChallenge(userId: string, purpose: ChallengePurpose = "login"): { id: string; code: string | null } {
-  const method = getMfaMethod(userId);
+// `methodOverride` exists for the outside-MFA policy: an account that never
+// enrolled still gets an emailed code, whatever its stored (default) method says.
+// The challenge row itself then carries the truth — a code_hash marks an email
+// challenge — so verify and resend read the row, not the enrollment.
+export function createMfaChallenge(
+  userId: string,
+  purpose: ChallengePurpose = "login",
+  methodOverride?: MfaMethod
+): { id: string; code: string | null } {
+  const method = methodOverride ?? getMfaMethod(userId);
   const id = nanoid(24);
   const expiresAt = new Date(Date.now() + challengeMinutes(method) * 60_000).toISOString();
   const code = method === "email" ? generateEmailCode() : null;
@@ -449,7 +457,10 @@ export async function mfaRoutes(app: FastifyInstance) {
       const user = db.prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1").get(
         challenge.user_id
       ) as User | undefined;
-      if (!user || !user.mfa_enabled || user.mfa_method !== "email") {
+      // An email challenge is recognised by its own code_hash, not the account's
+      // enrollment — the outside-MFA fallback mails codes to accounts that never
+      // enrolled, and those must be resendable like any other.
+      if (!user || !challenge.code_hash) {
         return reply.code(409).send({ error: "This sign-in doesn't use emailed codes." });
       }
 
@@ -503,9 +514,13 @@ export async function mfaRoutes(app: FastifyInstance) {
       const user = db
         .prepare("SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1")
         .get(challenge.user_id) as User | undefined;
-      // The factor has to still exist: a secret for TOTP, a live code for email.
-      const ready = user?.mfa_method === "email" ? Boolean(challenge.code_hash) : Boolean(user?.mfa_secret);
-      if (!user || !user.mfa_enabled || !ready) {
+      // Which factor to check is the challenge's own shape: a code_hash marks an
+      // email challenge — enrolled email accounts and the outside-MFA fallback
+      // alike (the fallback's account has mfa_enabled = 0, so the enrollment
+      // can't be the gate). A TOTP challenge still needs the enrollment intact.
+      const viaEmailCode = Boolean(challenge.code_hash);
+      const ready = viaEmailCode || Boolean(user?.mfa_enabled && user?.mfa_secret);
+      if (!user || !ready) {
         clearMfaChallenge(challengeId);
         clearMfaChallengeCookie(reply);
         return reply.code(401).send({ error: "Enter your password again." });
@@ -513,10 +528,9 @@ export async function mfaRoutes(app: FastifyInstance) {
 
       let ok = false;
       try {
-        ok =
-          user.mfa_method === "email"
-            ? verifyEmailCode(challenge.code_hash!, parsed.data.token)
-            : verifyTotp(decryptSecret(user.mfa_secret!), parsed.data.token);
+        ok = viaEmailCode
+          ? verifyEmailCode(challenge.code_hash!, parsed.data.token)
+          : verifyTotp(decryptSecret(user.mfa_secret!), parsed.data.token);
       } catch {
         ok = false;
       }
@@ -542,7 +556,8 @@ export async function mfaRoutes(app: FastifyInstance) {
         // challenge cap is no limit when re-entering the password mints a new one.
         recordLoginAttempt(user.email, request.ip, false);
         if (!trusted) {
-          if (maybeAutoBlockIp(request.ip)) alertIpAutoBlocked(request.ip);
+          const blocked = maybeAutoBlockIp(request.ip);
+          if (blocked) alertIpAutoBlocked(request.ip, blocked);
           if (isAccountLocked(user.email)) {
             // The live challenge would otherwise still be good for its remaining
             // attempts, letting the guessing continue past the lock.

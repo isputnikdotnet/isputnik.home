@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { logActivity } from "../db.js";
+import { db, logActivity } from "../db.js";
 import { parseBody } from "./shared.js";
 import { isValidCidr } from "./cidr.js";
 import {
@@ -36,7 +36,8 @@ const policySchema = z.object({
   ipFailWindowMinutes: z.number().int().min(1).max(1440),
   ipAutoblockMinutes: z.number().int().min(1).max(10080),
   alertNewIpSignIn: z.boolean(),
-  deviceLinkScope: z.enum(["local", "any"])
+  deviceLinkScope: z.enum(["local", "any"]),
+  requireMfaOutside: z.boolean()
 });
 
 const passwordPolicySchema = z.object({
@@ -57,6 +58,15 @@ export async function securityRoutes(app: FastifyInstance) {
     },
     passwordPolicy: getPasswordPolicy(),
     mailConfigured: isMailConfigured(),
+    // Who the outside-MFA policy's email fallback would apply to. Shown when the
+    // admin turns it on, so nobody discovers a stranded account from a hotel room.
+    usersWithoutMfa: (
+      db
+        .prepare(
+          "SELECT display_name FROM users WHERE is_active = 1 AND deleted_at IS NULL AND mfa_enabled = 0 ORDER BY display_name"
+        )
+        .all() as { display_name: string }[]
+    ).map((row) => row.display_name),
     trustedNetworks: listTrustedNetworks().map((network) => ({
       id: network.id,
       cidr: network.cidr,
@@ -79,13 +89,19 @@ export async function securityRoutes(app: FastifyInstance) {
     }
     // Turning the new-network alert on seeds the known networks from sign-in
     // history first, so devices already in use don't each raise an alert.
-    const enablingAlert = parsed.data.alertNewIpSignIn && !getSecurityPolicy().alertNewIpSignIn;
+    const before = getSecurityPolicy();
+    const enablingAlert = parsed.data.alertNewIpSignIn && !before.alertNewIpSignIn;
     if (enablingAlert) seedKnownLoginNetworks();
     setSecurityPolicy(parsed.data, request.user!.id);
+    // The outside-MFA switch changes who can sign in at all, so its flips are
+    // named in the log rather than folded into a generic "thresholds" line.
+    const mfaFlipped = parsed.data.requireMfaOutside !== before.requireMfaOutside;
     logActivity({
       event: "security.policy_updated",
       actorUserId: request.user!.id,
-      detail: "Updated brute-force protection thresholds.",
+      detail: mfaFlipped
+        ? `A second factor is ${parsed.data.requireMfaOutside ? "now required" : "no longer required"} for sign-ins from outside trusted networks.`
+        : "Updated brute-force protection thresholds.",
       ipAddress: request.ip
     });
     return reply.send({ policy: parsed.data });

@@ -52,6 +52,7 @@ interface SecurityPolicy {
   // it is here because both policy cards PATCH the whole blob, and a field missing
   // from the type is a field a later edit drops on the floor.
   deviceLinkScope: "local" | "any";
+  requireMfaOutside: boolean;
 }
 
 interface PasswordPolicy {
@@ -68,12 +69,13 @@ interface SecurityData {
   };
   passwordPolicy: PasswordPolicy;
   mailConfigured: boolean;
+  usersWithoutMfa: string[];
   trustedNetworks: TrustedNetwork[];
   blockedIps: BlockedIp[];
 }
 
 type SecurityTab = "overview" | "policies" | "trusted" | "blocked";
-type PolicyScope = "thresholds" | "alerts" | "devices";
+type PolicyScope = "thresholds" | "alerts" | "mfa" | "devices";
 
 type SecuritySectionKey = Extract<ControlSection, "security" | "securityPolicies" | "securityTrusted" | "securityBlocked">;
 
@@ -159,7 +161,12 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       setPolicySaved(scope);
       await load();
     } catch (err) {
-      const fallback = scope === "alerts" ? "Unable to save alert settings" : "Unable to save thresholds";
+      const fallback =
+        scope === "alerts"
+          ? "Unable to save alert settings"
+          : scope === "mfa"
+            ? "Unable to save two-factor sign-in"
+            : "Unable to save thresholds";
       setPolicyError({ scope, message: err instanceof Error ? err.message : fallback });
     } finally {
       setSavingPolicy(null);
@@ -363,6 +370,28 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                           ? "New networks are not emailed"
                           : data.mailConfigured
                             ? "Emailed on a new network"
+                            : "SMTP not configured"}
+                      </span>
+                    </div>
+                  </article>
+
+                  <article className="security-overview-card">
+                    <span
+                      className={`security-overview-card-icon ${
+                        data.policy.requireMfaOutside && !data.mailConfigured ? "warning" : "info"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      <LockKeyhole size={26} />
+                    </span>
+                    <div className="security-overview-card-copy">
+                      <span className="security-overview-card-label">Two-factor outside</span>
+                      <strong>{data.policy.requireMfaOutside ? "Required" : "Optional"}</strong>
+                      <span>
+                        {!data.policy.requireMfaOutside
+                          ? "Per-account enrollment only"
+                          : data.mailConfigured
+                            ? "Email fallback for the un-enrolled"
                             : "SMTP not configured"}
                       </span>
                     </div>
@@ -625,6 +654,85 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                       >
                         <Save size={16} />
                         {savingPolicy === "alerts" ? "Saving…" : "Save sign-in alerts"}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
+
+              <section className="security-block security-policy-card" aria-labelledby="mfa-outside-heading">
+                <div className="security-policy-card-head">
+                  <span className="security-policy-icon" aria-hidden="true">
+                    <ShieldCheck size={24} />
+                  </span>
+                  <div>
+                    <h2 id="mfa-outside-heading">Two-factor sign-in</h2>
+                    <p className="section-description">
+                      Whether a password alone is enough to sign in from outside your trusted networks.
+                    </p>
+                  </div>
+                </div>
+                {policyForm && (
+                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "mfa")}>
+                    <label className="security-setting-row security-setting-row-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={policyForm.requireMfaOutside}
+                        onChange={(event) =>
+                          setPolicyForm({ ...policyForm, requireMfaOutside: event.target.checked })
+                        }
+                      />
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">
+                          Require a second factor outside trusted networks
+                        </span>
+                        <span className="security-setting-help">
+                          Even a stolen or guessed password is then not enough to get in from the internet. Accounts
+                          with two-factor set up use their usual method; accounts without get a one-time code emailed
+                          to their sign-in address. Passkey sign-ins already count as two factors. At home — on a
+                          trusted network — nothing changes.
+                        </span>
+                      </span>
+                    </label>
+
+                    {policyForm.requireMfaOutside && !data.mailConfigured && (
+                      <MessageBox tone="warning" title="Email is not set up">
+                        The emailed-code fallback needs SMTP, configured under Control panel → Settings → Email.
+                        Without it, accounts that haven't set up two-factor cannot sign in from outside at all
+                        until they enroll from home.
+                      </MessageBox>
+                    )}
+
+                    {policyForm.requireMfaOutside && data.usersWithoutMfa.length > 0 && (
+                      <MessageBox tone="info" title="Accounts without two-factor set up">
+                        {data.usersWithoutMfa.join(", ")} — {data.usersWithoutMfa.length === 1 ? "this account" : "these accounts"}{" "}
+                        will {data.mailConfigured ? "get a code by email when signing in from outside" : "be unable to sign in from outside until two-factor is set up or email is configured"}.
+                      </MessageBox>
+                    )}
+
+                    {data.proxy.forwardedHeaderSeen && !data.proxy.configured && (
+                      <MessageBox tone="warning" title="Every sign-in will ask for the second factor">
+                        Requests arrive through a proxy but <code>TRUST_PROXY_HOPS</code> is not set, so the server
+                        cannot tell who is on a trusted network. With this policy on, it plays safe and asks
+                        everyone — including at home — until you set it.
+                      </MessageBox>
+                    )}
+
+                    {policyError?.scope === "mfa" && (
+                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                    )}
+                    {policySaved === "mfa" && (
+                      <MessageBox tone="success" title="Saved">Two-factor sign-in updated.</MessageBox>
+                    )}
+                    <div className="security-policy-actions">
+                      <Button
+                        variant="primary"
+                        className="security-save-button"
+                        type="submit"
+                        disabled={savingPolicy !== null}
+                      >
+                        <Save size={16} />
+                        {savingPolicy === "mfa" ? "Saving…" : "Save two-factor sign-in"}
                       </Button>
                     </div>
                   </form>

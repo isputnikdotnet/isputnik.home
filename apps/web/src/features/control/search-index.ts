@@ -74,6 +74,11 @@ const SETTING_ENTRIES: { title: string; section: ControlSection; keywords: strin
   { title: "Password policy", section: "securityPolicies", keywords: "minimum length complexity require strong" },
   { title: "New sign-in alerts", section: "securityPolicies", keywords: "email notify unknown network login" },
   {
+    title: "Two-factor sign-in",
+    section: "securityPolicies",
+    keywords: "mfa 2fa require second factor outside trusted network force totp email code fallback remote"
+  },
+  {
     title: "Linking devices",
     section: "securityPolicies",
     keywords: "link a device tv television wall display kiosk qr code scan sign in without password home network only outside remote"

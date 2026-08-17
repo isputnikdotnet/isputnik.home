@@ -34,7 +34,7 @@ export function resolveShareLink(token: string, request?: FastifyRequest): Resol
   if (row) return row;
 
   if (request && !db.prepare("SELECT 1 FROM share_links WHERE token_hash = ?").get(hash)) {
-    flagAbusiveRequest(request);
+    flagAbusiveRequest(request, "token");
   }
   return null;
 }

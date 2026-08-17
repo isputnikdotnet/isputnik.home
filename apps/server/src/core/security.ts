@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { db } from "../db.js";
+import { db, logActivity } from "../db.js";
 import { ipInAnyCidr, ipNetworkKey, isPrivateIp } from "./cidr.js";
 
 // Brute-force defense and source-IP access control. Pure data/logic over the
@@ -15,6 +15,7 @@ export interface SecurityPolicy {
   ipAutoblockMinutes: number; // …how long the auto-block lasts
   alertNewIpSignIn: boolean; // email on a sign-in from a network not seen before
   deviceLinkScope: DeviceLinkScope; // where a device may ask to be linked from
+  requireMfaOutside: boolean; // every sign-in from outside a trusted network needs a second factor
 }
 
 // Which devices may start a "link a device" request. 'local' is the default and
@@ -31,7 +32,8 @@ export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
   ipFailWindowMinutes: 15,
   ipAutoblockMinutes: 60,
   alertNewIpSignIn: false,
-  deviceLinkScope: "local"
+  deviceLinkScope: "local",
+  requireMfaOutside: false
 };
 
 const POLICY_KEY = "security_policy";
@@ -123,6 +125,20 @@ export function isTrustedIp(ip: string | null | undefined): boolean {
   if (!ip) return false;
   const cidrs = trustedCidrs();
   return cidrs.length > 0 && ipInAnyCidr(ip, cidrs);
+}
+
+// Does the outside-MFA policy force a second factor on this sign-in? True only
+// when the toggle is on and the request is not PROVABLY inside a trusted
+// network. "Provably" is the point: behind a proxy with TRUST_PROXY_HOPS unset,
+// request.ip is the proxy's own address, so a trusted-network match proves
+// nothing — that case fails toward requiring the factor, the same direction
+// deviceLinkAllowedFrom refuses in, because guessing wrong the other way would
+// skip MFA for the whole internet. Per-request headers for the same reason as
+// there: the process-wide forwarded-header flag is latching and spoofable.
+export function mfaRequiredOutside(ip: string | null | undefined, headers: Record<string, unknown>): boolean {
+  if (!getSecurityPolicy().requireMfaOutside) return false;
+  if (hasForwardedHeader(headers) && getTrustProxyHops() === 0) return true;
+  return !isTrustedIp(ip);
 }
 
 export function listTrustedNetworks(): TrustedNetwork[] {
@@ -227,12 +243,23 @@ export function seedKnownLoginNetworks(): number {
 
 // ── Login attempts & account lockout ─────────────────────────────────────────
 
-export function recordLoginAttempt(email: string | null, ip: string | null, successful: boolean): void {
-  db.prepare("INSERT INTO login_attempts (id, email, ip_address, successful) VALUES (?, ?, ?, ?)").run(
+// What a failed row actually was, so the auto-block can say what it counted:
+// a real sign-in attempt (password, code, or passkey), a scanner probe path,
+// or a share/API token or device code that matched nothing.
+export type LoginAttemptKind = "signin" | "probe" | "token";
+
+export function recordLoginAttempt(
+  email: string | null,
+  ip: string | null,
+  successful: boolean,
+  kind: LoginAttemptKind = "signin"
+): void {
+  db.prepare("INSERT INTO login_attempts (id, email, ip_address, successful, kind) VALUES (?, ?, ?, ?, ?)").run(
     nanoid(16),
     email ? email.toLowerCase() : null,
     ip ?? null,
-    successful ? 1 : 0
+    successful ? 1 : 0,
+    kind
   );
 }
 
@@ -354,30 +381,72 @@ export function listBlockedIps(): BlockedIp[] {
 // / API token that matches nothing at all. Recorded as a failed attempt with no
 // email, so it feeds ONLY the per-IP auto-block below — accountFailureCount
 // filters on email, so an anonymous hit can never help lock a real account.
-export function recordAbuseAttempt(ip: string | null | undefined): void {
+export function recordAbuseAttempt(ip: string | null | undefined, kind: "probe" | "token"): void {
   if (!ip) return;
-  recordLoginAttempt(null, ip, false);
+  recordLoginAttempt(null, ip, false, kind);
 }
 
-function recentIpFailures(ip: string, windowMinutes: number): number {
-  const row = db
+export interface IpFailureCounts {
+  signin: number;
+  probe: number;
+  token: number;
+  total: number;
+}
+
+function recentIpFailures(ip: string, windowMinutes: number): IpFailureCounts {
+  const rows = db
     .prepare(
-      "SELECT COUNT(*) AS count FROM login_attempts WHERE ip_address = ? AND successful = 0 AND datetime(created_at) > datetime('now', ?)"
+      `SELECT kind, COUNT(*) AS count FROM login_attempts
+        WHERE ip_address = ? AND successful = 0 AND datetime(created_at) > datetime('now', ?)
+        GROUP BY kind`
     )
-    .get(ip, `-${windowMinutes} minutes`) as { count: number };
-  return row.count;
+    .all(ip, `-${windowMinutes} minutes`) as { kind: LoginAttemptKind; count: number }[];
+  const counts: IpFailureCounts = { signin: 0, probe: 0, token: 0, total: 0 };
+  for (const row of rows) {
+    counts[row.kind] += row.count;
+    counts.total += row.count;
+  }
+  return counts;
 }
 
-// Auto-block an IP that has crossed the failure threshold. Returns true when it
-// newly blocks, so the caller can raise an alert exactly once.
-export function maybeAutoBlockIp(ip: string | null | undefined): boolean {
-  if (!ip || isIpBlocked(ip)) return false;
+// "15 scanner probes and 6 failed sign-ins" — one phrase serving the block
+// reason, the event log, and the admin email, so all three tell the same story.
+export function describeIpFailures(counts: IpFailureCounts): string {
+  const phrase = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const parts: string[] = [];
+  if (counts.probe) parts.push(phrase(counts.probe, "scanner probe", "scanner probes"));
+  if (counts.token) parts.push(phrase(counts.token, "guessed token or code", "guessed tokens or codes"));
+  if (counts.signin) parts.push(phrase(counts.signin, "failed sign-in", "failed sign-ins"));
+  if (parts.length === 0) return "repeated suspicious requests";
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+export interface AutoBlockOutcome {
+  description: string; // e.g. "15 scanner probes and 6 failed sign-ins"
+  counts: IpFailureCounts;
+}
+
+// Auto-block an IP that has crossed the failure threshold. Returns what was
+// counted when it newly blocks — so the caller can raise an alert exactly once,
+// and the alert can say what actually happened — or null when nothing changed.
+// The event log entry is written here rather than at the call sites, so every
+// path that can trigger a block records it the same way.
+export function maybeAutoBlockIp(ip: string | null | undefined): AutoBlockOutcome | null {
+  if (!ip || isIpBlocked(ip)) return null;
   const policy = getSecurityPolicy();
-  if (recentIpFailures(ip, policy.ipFailWindowMinutes) < policy.ipFailThreshold) return false;
+  const counts = recentIpFailures(ip, policy.ipFailWindowMinutes);
+  if (counts.total < policy.ipFailThreshold) return null;
+  const description = describeIpFailures(counts);
   blockIp(ip, {
-    reason: `Automatic: ${policy.ipFailThreshold}+ failed sign-ins in ${policy.ipFailWindowMinutes} min`,
+    reason: `Automatic: ${description} in ${policy.ipFailWindowMinutes} min`,
     auto: true,
     minutes: policy.ipAutoblockMinutes
   });
-  return true;
+  logActivity({
+    event: "security.ip_autoblocked",
+    detail: `Blocked ${ip} for ${policy.ipAutoblockMinutes} minutes after ${description} within ${policy.ipFailWindowMinutes} minutes.`,
+    ipAddress: ip
+  });
+  return { description, counts };
 }

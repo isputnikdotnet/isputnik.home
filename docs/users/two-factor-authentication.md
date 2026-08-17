@@ -91,6 +91,20 @@ in when the server can't send mail.
 Profile → Two-factor authentication → **Turn off**. You'll confirm your password,
 and your account goes back to password-only.
 
+## When the server requires it anyway
+
+An administrator can require a second factor for **every** sign-in from outside
+the home's trusted networks (Control panel → **Security** → **Policies** →
+**Two-factor sign-in**). With that policy on:
+
+- Accounts that have two-factor set up are asked for their usual code.
+- Accounts that **don't** get a one-time code **emailed to their sign-in
+  address** — no setup needed, but your inbox has to be reachable. Setting up a
+  proper second factor (or a [passkey](passkeys.md)) is still better.
+- If the server can't send email, an account without two-factor can't sign in
+  from outside at all — sign in from home and set one up first.
+- At home, on a trusted network, nothing changes.
+
 ## Locked out?
 
 If you've lost your second factor **and** your backup codes, ask an

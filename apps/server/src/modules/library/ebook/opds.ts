@@ -149,7 +149,7 @@ async function opdsAuth(request: FastifyRequest, reply: FastifyReply): Promise<v
     // Only a token matching nothing at all is treated as a guess. A revoked or
     // expired one is a reader app that hasn't been updated yet — annoying, but
     // not something that should block the household's address.
-    if (raw && isUnknownApiToken(raw)) flagAbusiveRequest(request);
+    if (raw && isUnknownApiToken(raw)) flagAbusiveRequest(request, "token");
     return reply
       .code(401)
       .header("WWW-Authenticate", 'Basic realm="isputnik OPDS", charset="UTF-8"')

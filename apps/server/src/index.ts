@@ -173,7 +173,7 @@ app.addHook("onRequest", async (request, reply) => {
   // ahead of CSRF, auth, and the SPA fallback that would otherwise return the
   // whole app shell — and count the hit, so a sweep blocks itself.
   if (isProbePath(request.url)) {
-    flagAbusiveRequest(request);
+    flagAbusiveRequest(request, "probe");
     await reply.code(404).send({ error: "Not found" });
   }
 });
