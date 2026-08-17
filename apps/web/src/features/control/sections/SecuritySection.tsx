@@ -4,6 +4,7 @@ import {
   Ban,
   CircleOff,
   Globe,
+  Infinity as InfinityIcon,
   Info,
   LockKeyhole,
   MailWarning,
@@ -11,6 +12,7 @@ import {
   Plus,
   Save,
   ShieldCheck,
+  ShieldQuestion,
   Sparkles,
   Trash2,
   UserRound
@@ -19,6 +21,7 @@ import { api } from "../../../api";
 import type { ControlSection } from "../../../router";
 import { ControlSectionHead } from "../ControlSectionHead";
 import { Button } from "../../../shared/Button";
+import { ConfirmDialog } from "../../../shared/ConfirmDialog";
 import { Field } from "../../../shared/Field";
 import { MessageBox } from "../../../shared/MessageBox";
 import { Modal } from "../../../shared/Modal";
@@ -33,6 +36,13 @@ interface TrustedNetwork {
   createdAt: string;
 }
 
+interface IpReputationInfo {
+  score: number;
+  totalReports: number | null;
+  lastReportedAt: string | null;
+  checkedAt: string;
+}
+
 interface BlockedIp {
   ip: string;
   reason: string | null;
@@ -40,6 +50,7 @@ interface BlockedIp {
   createdAt: string;
   expiresAt: string | null;
   expired: boolean;
+  reputation: IpReputationInfo | null;
 }
 
 interface SecurityPolicy {
@@ -54,6 +65,10 @@ interface SecurityPolicy {
   // from the type is a field a later edit drops on the floor.
   deviceLinkScope: "local" | "any";
   requireMfaOutside: boolean;
+  abuseIpdbKey: string;
+  reputationAutoEscalate: boolean;
+  reputationEscalateThreshold: number;
+  trustedDeletesOnly: boolean;
 }
 
 interface PasswordPolicy {
@@ -76,7 +91,7 @@ interface SecurityData {
 }
 
 type SecurityTab = "overview" | "policies" | "trusted" | "blocked";
-type PolicyScope = "thresholds" | "alerts" | "mfa" | "devices";
+type PolicyScope = "thresholds" | "alerts" | "mfa" | "devices" | "reputation" | "deletes";
 
 type SecuritySectionKey = Extract<ControlSection, "security" | "securityPolicies" | "securityTrusted" | "securityBlocked">;
 
@@ -124,6 +139,10 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
   const [blocking, setBlocking] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockError, setBlockError] = useState("");
+  const [permanentTarget, setPermanentTarget] = useState<BlockedIp | null>(null);
+  const [makingPermanent, setMakingPermanent] = useState(false);
+  const [permanentError, setPermanentError] = useState("");
+  const [checkingIp, setCheckingIp] = useState<string | null>(null);
 
   // Throws on failure — the Refresh button needs to know, so it can skip its
   // "Updated" tick. Half-typed policy edits survive a reload (`prev ?? fresh`).
@@ -167,7 +186,11 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
           ? "Unable to save alert settings"
           : scope === "mfa"
             ? "Unable to save two-factor sign-in"
-            : "Unable to save thresholds";
+            : scope === "reputation"
+              ? "Unable to save reputation settings"
+              : scope === "deletes"
+                ? "Unable to save deletion protection"
+                : "Unable to save thresholds";
       setPolicyError({ scope, message: err instanceof Error ? err.message : fallback });
     } finally {
       setSavingPolicy(null);
@@ -266,6 +289,35 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
       await load();
     } catch (err) {
       setBlockError(err instanceof Error ? err.message : "Unable to unblock IP");
+    }
+  };
+
+  const checkReputation = async (value: string) => {
+    setBlockError("");
+    setCheckingIp(value);
+    try {
+      await api(`/api/security/blocked-ips/${encodeURIComponent(value)}/reputation`, { method: "POST" });
+      await load();
+    } catch (err) {
+      setBlockError(err instanceof Error ? err.message : "Unable to check reputation");
+    } finally {
+      setCheckingIp(null);
+    }
+  };
+
+  const makePermanent = async () => {
+    if (!permanentTarget) return;
+    setMakingPermanent(true);
+    setPermanentError("");
+    try {
+      await api(`/api/security/blocked-ips/${encodeURIComponent(permanentTarget.ip)}/permanent`, { method: "POST" });
+      await load();
+      setPermanentTarget(null);
+    } catch (err) {
+      // Keep the dialog open — the error renders inside it, next to Cancel.
+      setPermanentError(err instanceof Error ? err.message : "Unable to make the block permanent");
+    } finally {
+      setMakingPermanent(false);
     }
   };
 
@@ -868,6 +920,151 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                   </form>
                 )}
               </section>
+
+              <section className="security-block security-policy-card" aria-labelledby="reputation-heading">
+                <div className="security-policy-card-head">
+                  <span className="security-policy-icon" aria-hidden="true">
+                    <ShieldQuestion size={24} />
+                  </span>
+                  <div>
+                    <h2 id="reputation-heading">IP reputation (AbuseIPDB)</h2>
+                    <p className="section-description">
+                      Look up addresses this server has already flagged against AbuseIPDB's community database, and
+                      show the result next to each blocked IP.
+                    </p>
+                  </div>
+                </div>
+                {policyForm && (
+                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "reputation")}>
+                    <label className="security-setting-row">
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">AbuseIPDB API key</span>
+                        <span className="security-setting-help">
+                          Free at abuseipdb.com. Leave empty to keep reputation lookups off — with a key set, addresses
+                          that trip the auto-block (and ones you check by hand) are sent to AbuseIPDB. Only already-
+                          flagged addresses are ever looked up, never regular visitors.
+                        </span>
+                      </span>
+                      <input
+                        type="text"
+                        autoComplete="off"
+                        spellCheck={false}
+                        value={policyForm.abuseIpdbKey}
+                        onChange={(event) => setPolicyForm({ ...policyForm, abuseIpdbKey: event.target.value })}
+                      />
+                    </label>
+                    <label className="security-setting-row security-setting-row-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={policyForm.reputationAutoEscalate}
+                        onChange={(event) =>
+                          setPolicyForm({ ...policyForm, reputationAutoEscalate: event.target.checked })
+                        }
+                      />
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">Make auto-blocks permanent for known abusive IPs</span>
+                        <span className="security-setting-help">
+                          When an address gets auto-blocked and AbuseIPDB reports it above the score below, the block
+                          keeps no expiry instead of the usual cooldown. You can always unblock it by hand.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="security-setting-row">
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">Abuse confidence score to escalate at (50–100)</span>
+                        <span className="security-setting-help">
+                          AbuseIPDB's 0–100 confidence that an address is abusive. 90+ keeps false positives rare.
+                        </span>
+                      </span>
+                      <input
+                        type="number"
+                        min={50}
+                        max={100}
+                        value={policyForm.reputationEscalateThreshold}
+                        onChange={(event) =>
+                          setPolicyForm({ ...policyForm, reputationEscalateThreshold: Number(event.target.value) })
+                        }
+                      />
+                    </label>
+                    {policyError?.scope === "reputation" && (
+                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                    )}
+                    {policySaved === "reputation" && (
+                      <MessageBox tone="success" title="Saved">Reputation settings updated.</MessageBox>
+                    )}
+                    <div className="security-policy-actions">
+                      <Button
+                        variant="primary"
+                        className="security-save-button"
+                        type="submit"
+                        disabled={savingPolicy !== null}
+                      >
+                        <Save size={16} />
+                        {savingPolicy === "reputation" ? "Saving…" : "Save reputation settings"}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
+
+              <section className="security-block security-policy-card" aria-labelledby="deletes-heading">
+                <div className="security-policy-card-head">
+                  <span className="security-policy-icon" aria-hidden="true">
+                    <Trash2 size={24} />
+                  </span>
+                  <div>
+                    <h2 id="deletes-heading">Deletion protection</h2>
+                    <p className="section-description">
+                      Keep destructive actions to networks you trust, so stolen credentials used from the internet
+                      can't destroy the library.
+                    </p>
+                  </div>
+                </div>
+                {policyForm && (
+                  <form className="security-policy-form" onSubmit={(event) => savePolicy(event, "deletes")}>
+                    <label className="security-setting-row security-setting-row-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={policyForm.trustedDeletesOnly}
+                        onChange={(event) =>
+                          setPolicyForm({ ...policyForm, trustedDeletesOnly: event.target.checked })
+                        }
+                      />
+                      <span className="security-setting-copy">
+                        <span className="security-setting-label">Allow deletions only from trusted networks</span>
+                        <span className="security-setting-help">
+                          Applies to every account, admins included. Away from home, everything still works — browsing,
+                          uploads, edits, progress — but deleting items, emptying the Recycle Bin, cleaning up
+                          duplicates, and restoring backups are refused until you're back on a trusted network.
+                        </span>
+                      </span>
+                    </label>
+                    {policyForm.trustedDeletesOnly && data.trustedNetworks.length === 0 && (
+                      <MessageBox tone="warning" title="No trusted networks are defined">
+                        With this on and no trusted networks, nobody can delete anything from anywhere. Add your home
+                        network under Trusted networks, or turn this off.
+                      </MessageBox>
+                    )}
+                    {policyError?.scope === "deletes" && (
+                      <MessageBox tone="error" title="Unable to save">{policyError.message}</MessageBox>
+                    )}
+                    {policySaved === "deletes" && (
+                      <MessageBox tone="success" title="Saved">Deletion protection updated.</MessageBox>
+                    )}
+                    <div className="security-policy-actions">
+                      <Button
+                        variant="primary"
+                        className="security-save-button"
+                        type="submit"
+                        disabled={savingPolicy !== null}
+                      >
+                        <Save size={16} />
+                        {savingPolicy === "deletes" ? "Saving…" : "Save deletion protection"}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
             </div>
 
             <div
@@ -1022,6 +1219,7 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                           <th>IP</th>
                           <th>Reason</th>
                           <th>Type</th>
+                          <th>Reputation</th>
                           <th>Expires</th>
                           <th className="col-actions">Actions</th>
                         </tr>
@@ -1035,6 +1233,15 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                             <td className="datagrid-muted">{entry.reason || "—"}</td>
                             <td className="datagrid-muted">{entry.auto ? "Automatic" : "Manual"}</td>
                             <td className="datagrid-muted">
+                              {entry.reputation
+                                ? `${entry.reputation.score}% abuse confidence${
+                                    entry.reputation.totalReports
+                                      ? ` · ${entry.reputation.totalReports.toLocaleString()} reports`
+                                      : ""
+                                  }`
+                                : "—"}
+                            </td>
+                            <td className="datagrid-muted">
                               {entry.expired ? (
                                 <>
                                   <span className="status-badge expired">Expired</span>{" "}
@@ -1047,6 +1254,30 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                               )}
                             </td>
                             <td className="col-actions">
+                              {Boolean(data.policy.abuseIpdbKey) && (
+                                <Button
+                                  variant="icon"
+                                  title="Check reputation"
+                                  aria-label={`Check reputation of ${entry.ip}`}
+                                  disabled={checkingIp === entry.ip}
+                                  onClick={() => checkReputation(entry.ip)}
+                                >
+                                  <ShieldQuestion size={15} />
+                                </Button>
+                              )}
+                              {entry.expiresAt && (
+                                <Button
+                                  variant="icon"
+                                  title={entry.expired ? "Re-arm as a permanent block" : "Make permanent"}
+                                  aria-label={`Make block on ${entry.ip} permanent`}
+                                  onClick={() => {
+                                    setPermanentError("");
+                                    setPermanentTarget(entry);
+                                  }}
+                                >
+                                  <InfinityIcon size={15} />
+                                </Button>
+                              )}
                               <Button
                                 variant="icon"
                                 title={entry.expired ? "Remove expired block" : "Unblock"}
@@ -1065,6 +1296,26 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
               </section>
             </div>
           </div>
+
+          {permanentTarget && (
+            <ConfirmDialog
+              title={`Block ${permanentTarget.ip} permanently?`}
+              confirmLabel="Block permanently"
+              busyLabel="Blocking…"
+              confirmIcon={<InfinityIcon size={16} />}
+              busy={makingPermanent}
+              error={permanentError}
+              onConfirm={makePermanent}
+              onCancel={() => {
+                setPermanentTarget(null);
+                setPermanentError("");
+              }}
+            >
+              {permanentTarget.expired
+                ? "This block has already expired. Making it permanent re-arms it, and it then stays until you unblock this address."
+                : `This block currently expires ${formatManagedDate(permanentTarget.expiresAt!)}. It will become a manual block that stays until you unblock this address.`}
+            </ConfirmDialog>
+          )}
 
           {trustedOpen && (
             <Modal

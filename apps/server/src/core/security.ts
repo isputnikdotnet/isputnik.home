@@ -16,6 +16,10 @@ export interface SecurityPolicy {
   alertNewIpSignIn: boolean; // email on a sign-in from a network not seen before
   deviceLinkScope: DeviceLinkScope; // where a device may ask to be linked from
   requireMfaOutside: boolean; // every sign-in from outside a trusted network needs a second factor
+  abuseIpdbKey: string; // AbuseIPDB API key; "" disables all reputation lookups
+  reputationAutoEscalate: boolean; // auto-blocks become permanent when the score crosses…
+  reputationEscalateThreshold: number; // …this abuseConfidenceScore (0–100)
+  trustedDeletesOnly: boolean; // refuse delete/purge actions from outside trusted networks
 }
 
 // Which devices may start a "link a device" request. 'local' is the default and
@@ -33,7 +37,11 @@ export const DEFAULT_SECURITY_POLICY: SecurityPolicy = {
   ipAutoblockMinutes: 60,
   alertNewIpSignIn: false,
   deviceLinkScope: "local",
-  requireMfaOutside: false
+  requireMfaOutside: false,
+  abuseIpdbKey: "",
+  reputationAutoEscalate: true,
+  reputationEscalateThreshold: 90,
+  trustedDeletesOnly: false
 };
 
 const POLICY_KEY = "security_policy";
@@ -368,8 +376,40 @@ export function blockIp(
   ).run(ip, opts.reason ?? null, opts.auto ? 1 : 0, expiresAt, opts.userId ?? null);
 }
 
+// True when this request must be refused under the deletions-only-from-trusted-
+// networks policy (SecurityPolicy.trustedDeletesOnly, off by default). A DELETE
+// route is destructive by definition; routes opt OUT with config.untrustedAllow
+// (security-protective revocations a travelling user legitimately needs) and
+// non-DELETE destroyers opt IN with config.destructive (Recycle Bin empty,
+// duplicate-cleanup deletions, backup restore). Cheap gates first: the policy
+// read hits the DB, so ordinary GET/POST traffic never pays for it.
+export function deletionBlocked(method: string, routeConfig: unknown, ip: string | null | undefined): boolean {
+  const cfg = (routeConfig ?? {}) as { untrustedAllow?: boolean; destructive?: boolean };
+  const destructive = cfg.destructive === true || (method === "DELETE" && cfg.untrustedAllow !== true);
+  if (!destructive) return false;
+  if (!getSecurityPolicy().trustedDeletesOnly) return false;
+  return !ip || !isTrustedIp(ip);
+}
+
 export function unblockIp(ip: string): boolean {
   return db.prepare("DELETE FROM blocked_ips WHERE ip_address = ?").run(ip).changes > 0;
+}
+
+// Strip the expiry from an existing block, keeping its reason and created_at as
+// history. The row becomes a manual block owned by the acting admin: retention
+// is now an administrative decision, so the list shows "Manual" while the
+// preserved "Automatic: …" reason still says where it came from. Works on an
+// already-expired row too — making it permanent re-arms the block, which is
+// what an admin reviewing the log wants for a repeat offender (unblock is the
+// undo, so no conflict ceremony).
+export function makeIpBlockPermanent(ip: string, userId?: string | null): boolean {
+  return (
+    db
+      .prepare(
+        "UPDATE blocked_ips SET expires_at = NULL, auto = 0, created_by = COALESCE(?, created_by) WHERE ip_address = ?"
+      )
+      .run(userId ?? null, ip).changes > 0
+  );
 }
 
 export function listBlockedIps(): BlockedIp[] {

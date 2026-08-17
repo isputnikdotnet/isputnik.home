@@ -392,7 +392,9 @@ export async function galleryRoutesPlugin(app: FastifyInstance) {
   });
 
   // Purge every tombstone past the grace window right now (the scheduled job on demand).
-  app.post("/api/library/gallery/missing/purge", { preHandler: app.requireAdmin }, async (request) => {
+  // destructive: purging missing entries deletes their records and thumbnails —
+  // refused from untrusted networks under the deletions-only policy.
+  app.post("/api/library/gallery/missing/purge", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request) => {
     return purgeMissingGalleryPhotos(undefined, request.user!.id);
   });
 

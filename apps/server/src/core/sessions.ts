@@ -86,7 +86,9 @@ export async function sessionsPlugin(app: FastifyInstance) {
     return { sessions: rows.map((session) => serializeSession(session, tokenHash)) };
   });
 
-  app.delete("/api/sessions/:id", { preHandler: app.requireAdmin }, async (request, reply) => {
+  // untrustedAllow: revoking a session protects the account — never refused,
+  // even under the deletions-only-from-trusted-networks policy.
+  app.delete("/api/sessions/:id", { preHandler: app.requireAdmin, config: { untrustedAllow: true } }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const session = db.prepare("SELECT id, token_hash, user_id FROM sessions WHERE id = ? AND revoked_at IS NULL").get(id) as {
       id: string;
@@ -151,7 +153,9 @@ export async function sessionsPlugin(app: FastifyInstance) {
     return reply.send({ ok: true, label });
   });
 
-  app.delete("/api/account/sessions/:id", { preHandler: app.authenticate }, async (request, reply) => {
+  // untrustedAllow: "sign out that device" is exactly what a travelling user
+  // reaches for when something looks wrong — see deletionBlocked.
+  app.delete("/api/account/sessions/:id", { preHandler: app.authenticate, config: { untrustedAllow: true } }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const session = db.prepare(
       "SELECT id, token_hash, kind, label, device_name FROM sessions WHERE id = ? AND user_id = ? AND revoked_at IS NULL"

@@ -153,13 +153,36 @@ Shipped:
   only failed sign-ins, so a scanner sweeping the rest of the surface met no
   consequence. Two more things now count against the source IP (`flagAbusiveRequest`):
   requests for known scanner probe paths (`core/probes.ts` — `*.php`, `/.env`,
-  `/.git/…`, `/wp-admin`, `/phpmyadmin`, …), which are answered with a bare 404
-  ahead of CSRF, auth, and the SPA fallback; and share or OPDS tokens that match
+  `/.git/…`, `/wp-admin`, `/phpmyadmin`, secret-material extensions like
+  `*.key`/`*.pem`/`*.yml`, `/graphql`, `/nginx_status`, …), which are answered
+  with a bare 404 ahead of CSRF, auth, and the SPA fallback; and share or OPDS
+  tokens that match
   **no** row at all. A token that matches a link which is merely expired or revoked
   is deliberately not counted — that's a stale family bookmark or an e-reader
   holding an old token, and blocking the household for it would be its own outage.
   Anonymous hits are stored with a NULL email so they can only ever feed the
   per-IP block, never an account lockout, and trusted networks are exempt.
+  Unknown `/api/…` and `/opds…` paths answer a JSON 404 instead of the SPA shell
+  (`isApiSurface` in `core/probes.ts`); those misses are deliberately not
+  counted — a PWA on stale JS after an upgrade lands there legitimately.
+- **IP reputation (AbuseIPDB, opt-in)** — with an API key set under Security →
+  Policies, addresses that local detection has already flagged are looked up
+  against AbuseIPDB (`core/ip-reputation.ts`). Deliberately not a per-request
+  control: lookups happen only when an IP gets auto-blocked or when an admin
+  clicks "Check reputation" on the Blocked IPs page, results are cached 24 h in
+  `ip_reputation`, and nothing at all is sent anywhere until a key is configured —
+  no regular visitor's address ever leaves the server. The one action reputation
+  may take (also opt-out): a fresh auto-block whose abuse-confidence score
+  crosses the configured threshold (default 90) loses its cooldown expiry and
+  becomes permanent, with the score appended to the block reason and an admin
+  alert sent. Manual blocks are never rewritten.
+- **Deletions only from trusted networks (opt-in)** — a Security → Policies
+  switch, off by default. When on, delete/purge actions (any `DELETE` route,
+  plus destructive jobs like emptying the Recycle Bin, duplicate cleanup, and
+  backup restore) are refused with a 403 for requests from outside trusted
+  networks — for every account, admins included. Consumption and edits keep
+  working remotely; revoking your own sessions and API tokens is exempt, since
+  those protect the account rather than destroy content.
 - **Suspicious-activity email alerts** — admins are emailed on lockouts, auto-blocks, a new/elevated admin, and two-factor being turned off (when SMTP is configured; `core/security-alerts.ts`).
 - **Account-security change alerts** — the account owner is emailed when the login
   email changes (both the old and the new address, since the old one is the only

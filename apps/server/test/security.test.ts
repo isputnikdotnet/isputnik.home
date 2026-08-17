@@ -13,6 +13,8 @@ import {
   isIpBlocked,
   blockIp,
   unblockIp,
+  makeIpBlockPermanent,
+  deletionBlocked,
   listBlockedIps,
   maybeAutoBlockIp,
   DEFAULT_SECURITY_POLICY,
@@ -166,6 +168,76 @@ describe("IP blocking", () => {
     expect(log?.detail).toBe(
       `Blocked 203.0.113.8 for 60 minutes after ${IP_FAIL_THRESHOLD} scanner probes within 15 minutes.`
     );
+  });
+
+  it("makes a temporary block permanent, keeping its history", () => {
+    const admin = makeUser("blockadmin");
+    blockIp("203.0.113.11", { reason: "Automatic: 20 scanner probes in 15 min", auto: true, minutes: 60 });
+    expect(makeIpBlockPermanent("203.0.113.11", admin)).toBe(true);
+
+    const row = db
+      .prepare("SELECT reason, auto, expires_at, created_by FROM blocked_ips WHERE ip_address = '203.0.113.11'")
+      .get() as { reason: string; auto: number; expires_at: string | null; created_by: string | null };
+    expect(row.expires_at).toBeNull();
+    // Retention is now an admin decision, so the row reads Manual — but the
+    // automatic reason survives as history of where the block came from.
+    expect(row.auto).toBe(0);
+    expect(row.reason).toBe("Automatic: 20 scanner probes in 15 min");
+    expect(row.created_by).toBe(admin);
+    expect(isIpBlocked("203.0.113.11")).toBe(true);
+  });
+
+  it("re-arms an already-expired block when made permanent", () => {
+    const past = new Date(Date.now() - 1000).toISOString();
+    db.prepare("INSERT INTO blocked_ips (ip_address, reason, auto, expires_at) VALUES ('203.0.113.12', 'x', 1, ?)").run(past);
+    expect(isIpBlocked("203.0.113.12")).toBe(false);
+    expect(makeIpBlockPermanent("203.0.113.12")).toBe(true);
+    expect(isIpBlocked("203.0.113.12")).toBe(true);
+    // No acting user passed — whatever created_by held stays put.
+    const row = db
+      .prepare("SELECT created_by FROM blocked_ips WHERE ip_address = '203.0.113.12'")
+      .get() as { created_by: string | null };
+    expect(row.created_by).toBeNull();
+  });
+
+  it("reports a miss when there is no row to make permanent", () => {
+    expect(makeIpBlockPermanent("203.0.113.13")).toBe(false);
+  });
+
+  describe("deletion protection", () => {
+    const enable = () => setSecurityPolicy({ ...DEFAULT_SECURITY_POLICY, trustedDeletesOnly: true }, null);
+
+    it("does nothing while the policy is off", () => {
+      expect(deletionBlocked("DELETE", {}, "8.8.8.8")).toBe(false);
+    });
+
+    it("refuses a DELETE from an untrusted network once enabled", () => {
+      enable();
+      expect(deletionBlocked("DELETE", {}, "8.8.8.8")).toBe(true);
+      expect(deletionBlocked("DELETE", undefined, "8.8.8.8")).toBe(true);
+    });
+
+    it("lets a trusted network delete", () => {
+      enable();
+      addTrustedNetwork("192.168.0.0/16", "Home LAN", null);
+      expect(deletionBlocked("DELETE", {}, "192.168.1.10")).toBe(false);
+    });
+
+    it("exempts protective revocations and catches annotated destroyers", () => {
+      enable();
+      // Session/token revocation routes carry untrustedAllow — never refused.
+      expect(deletionBlocked("DELETE", { untrustedAllow: true }, "8.8.8.8")).toBe(false);
+      // Non-DELETE destroyers (Recycle Bin empty, duplicate sweep) opt in.
+      expect(deletionBlocked("POST", { destructive: true }, "8.8.8.8")).toBe(true);
+      // Ordinary writes keep working remotely — that's the point of the scope.
+      expect(deletionBlocked("POST", {}, "8.8.8.8")).toBe(false);
+      expect(deletionBlocked("GET", {}, "8.8.8.8")).toBe(false);
+    });
+
+    it("treats a missing source address as untrusted", () => {
+      enable();
+      expect(deletionBlocked("DELETE", {}, null)).toBe(true);
+    });
   });
 
   it("lists a mixed batch by kind, sign-ins last", () => {

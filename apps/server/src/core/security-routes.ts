@@ -10,6 +10,7 @@ import {
   listBlockedIps,
   blockIp,
   unblockIp,
+  makeIpBlockPermanent,
   getSecurityPolicy,
   setSecurityPolicy,
   getTrustProxyHops,
@@ -17,6 +18,7 @@ import {
   seedKnownLoginNetworks
 } from "./security.js";
 import { getPasswordPolicy, setPasswordPolicy } from "./password-policy.js";
+import { checkIpReputation, getCachedReputation } from "./ip-reputation.js";
 import { isMailConfigured } from "./mail.js";
 
 const trustedSchema = z.object({
@@ -37,7 +39,11 @@ const policySchema = z.object({
   ipAutoblockMinutes: z.number().int().min(1).max(10080),
   alertNewIpSignIn: z.boolean(),
   deviceLinkScope: z.enum(["local", "any"]),
-  requireMfaOutside: z.boolean()
+  requireMfaOutside: z.boolean(),
+  abuseIpdbKey: z.string().trim().max(120),
+  reputationAutoEscalate: z.boolean(),
+  reputationEscalateThreshold: z.number().int().min(50).max(100),
+  trustedDeletesOnly: z.boolean()
 });
 
 const passwordPolicySchema = z.object({
@@ -73,14 +79,26 @@ export async function securityRoutes(app: FastifyInstance) {
       label: network.label,
       createdAt: network.created_at
     })),
-    blockedIps: listBlockedIps().map((entry) => ({
-      ip: entry.ip_address,
-      reason: entry.reason,
-      auto: Boolean(entry.auto),
-      createdAt: entry.created_at,
-      expiresAt: entry.expires_at,
-      expired: Boolean(entry.expired)
-    }))
+    blockedIps: listBlockedIps().map((entry) => {
+      const reputation = getCachedReputation(entry.ip_address);
+      return {
+        ip: entry.ip_address,
+        reason: entry.reason,
+        auto: Boolean(entry.auto),
+        createdAt: entry.created_at,
+        expiresAt: entry.expires_at,
+        expired: Boolean(entry.expired),
+        reputation:
+          reputation && typeof reputation.score === "number"
+            ? {
+                score: reputation.score,
+                totalReports: reputation.total_reports,
+                lastReportedAt: reputation.last_reported_at,
+                checkedAt: reputation.checked_at
+              }
+            : null
+      };
+    })
   }));
 
   app.patch("/api/security/policy", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -191,6 +209,43 @@ export async function securityRoutes(app: FastifyInstance) {
       event: "security.ip_unblocked",
       actorUserId: request.user!.id,
       detail: `Unblocked IP ${ip}.`,
+      ipAddress: request.ip
+    });
+    return reply.send({ ok: true });
+  });
+
+  // On-demand reputation check from the Blocked IPs page. Forces past the cache
+  // so "Check reputation" always answers with today's data.
+  app.post("/api/security/blocked-ips/:ip/reputation", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const ip = (request.params as { ip: string }).ip;
+    if (!getSecurityPolicy().abuseIpdbKey) {
+      return reply.code(409).send({ error: "Add an AbuseIPDB API key under Security → Policies first." });
+    }
+    const reputation = await checkIpReputation(ip, { force: true });
+    if (!reputation || typeof reputation.score !== "number") {
+      return reply.code(502).send({ error: "The AbuseIPDB lookup failed. Try again in a moment." });
+    }
+    return reply.send({
+      reputation: {
+        score: reputation.score,
+        totalReports: reputation.total_reports,
+        lastReportedAt: reputation.last_reported_at,
+        checkedAt: reputation.checked_at
+      }
+    });
+  });
+
+  // Escalate an existing (usually automatic, cooldown-limited) block into one
+  // that never expires. Works on an expired row too — it re-arms the block.
+  app.post("/api/security/blocked-ips/:ip/permanent", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const ip = (request.params as { ip: string }).ip;
+    if (!makeIpBlockPermanent(ip, request.user!.id)) {
+      return reply.code(404).send({ error: "Blocked IP not found" });
+    }
+    logActivity({
+      event: "security.ip_block_made_permanent",
+      actorUserId: request.user!.id,
+      detail: `Made the block on IP ${ip} permanent.`,
       ipAddress: request.ip
     });
     return reply.send({ ok: true });

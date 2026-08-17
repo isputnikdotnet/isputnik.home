@@ -2,6 +2,7 @@ import type { FastifyRequest } from "fastify";
 import { db, logActivity, type MfaMethod, type User } from "../db.js";
 import { isMailConfigured, sendMail } from "./mail.js";
 import { renderEmail, type EmailBlock } from "./email-template.js";
+import { maybeEscalateByReputation } from "./ip-reputation.js";
 import {
   getSecurityPolicy,
   isTrustedIp,
@@ -119,7 +120,17 @@ export function flagAbusiveRequest(request: FastifyRequest, kind: "probe" | "tok
   if (!request.ip || isTrustedIp(request.ip)) return;
   recordAbuseAttempt(request.ip, kind);
   const blocked = maybeAutoBlockIp(request.ip);
-  if (blocked) alertIpAutoBlocked(request.ip, blocked);
+  if (blocked) {
+    const ip = request.ip;
+    alertIpAutoBlocked(ip, blocked);
+    // Reputation runs off the request path — a slow or failing AbuseIPDB lookup
+    // must never delay the 404 the scanner is owed. No-op until a key is set.
+    void maybeEscalateByReputation(ip)
+      .then((escalated) => {
+        if (escalated) alertIpBlockEscalated(ip, escalated.score);
+      })
+      .catch(() => {});
+  }
 }
 
 // The middle sentence is the one that matters: an all-probes block is routine
@@ -135,6 +146,17 @@ export function alertIpAutoBlocked(ip: string, outcome: AutoBlockOutcome): void 
       ? "No account password was tried — this was an automated scanner sweeping for software you don't run, the kind every internet-facing server sees. The block expires on its own; nothing else is needed."
       : "Some of these were real sign-in attempts against an account, so it is worth a look.",
     "Review it in Control panel → Security."
+  ]);
+}
+
+// Raised when the reputation check upgraded a fresh auto-block from a cooldown
+// to permanent. Follows the auto-block alert within moments, so it stays short.
+export function alertIpBlockEscalated(ip: string, score: number): void {
+  if (throttled(`escalate:${ip}`, 30 * 60_000)) return;
+  void notifyAdmins("A blocked IP was made permanent by reputation", [
+    `AbuseIPDB reports an abuse confidence of ${score}% for this address, so its automatic block will not expire on its own.`,
+    context(ip),
+    "You can still unblock it in Control panel → Security → Blocked IPs."
   ]);
 }
 
