@@ -1,5 +1,5 @@
 # ── Stage 1: install all deps (with native-module build tools) ────
-FROM node:22-slim AS deps
+FROM node:26-slim AS deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
@@ -76,13 +76,13 @@ console.log(deps.length+" runtime deps load OK")})()'
 # a server change doesn't refetch it — and the script verifies a pinned SHA-256,
 # so a replaced or truncated asset fails the build instead of shipping an image
 # whose face clustering is quietly wrong.
-FROM node:22-slim AS face-model
+FROM node:26-slim AS face-model
 WORKDIR /build
 COPY scripts/fetch-face-model.mjs ./scripts/
 RUN node scripts/fetch-face-model.mjs --dest /build/models/face
 
 # ── Stage 6: production image ─────────────────────────────────────
-FROM node:22-slim
+FROM node:26-slim
 WORKDIR /app
 
 # gosu drops the entrypoint from root to the runtime user (see
