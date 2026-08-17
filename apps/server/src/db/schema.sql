@@ -195,11 +195,16 @@ CREATE INDEX IF NOT EXISTS idx_device_link_windows_user ON device_link_windows (
 -- Every sign-in attempt, used to derive per-account lockout and per-IP auto-block.
 -- Rows with a NULL email are anonymous abuse hits (scanner probe paths, unknown
 -- share/API tokens): they count only toward the per-IP block, never a lockout.
+-- `kind` says what the row actually was, so the auto-block can report what it
+-- counted: 'signin' is a real sign-in attempt (password, code, or passkey),
+-- 'probe' a scanner path sweep, 'token' a share/API token or device code that
+-- matched nothing.
 CREATE TABLE IF NOT EXISTS login_attempts (
   id          TEXT PRIMARY KEY,
   email       TEXT,
   ip_address  TEXT,
   successful  INTEGER NOT NULL DEFAULT 0 CHECK (successful IN (0, 1)),
+  kind        TEXT NOT NULL DEFAULT 'signin' CHECK (kind IN ('signin', 'probe', 'token')),
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts (email, created_at);

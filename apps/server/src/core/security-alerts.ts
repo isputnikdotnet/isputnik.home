@@ -10,7 +10,8 @@ import {
   recordAbuseAttempt,
   recentMfaFailureCount,
   MFA_FAILURE_ALERT_THRESHOLD,
-  MFA_FAILURE_WINDOW_MINUTES
+  MFA_FAILURE_WINDOW_MINUTES,
+  type AutoBlockOutcome
 } from "./security.js";
 
 // Best-effort email alerts on suspicious activity — to admins, and for a sign-in
@@ -112,19 +113,27 @@ declare module "fastify" {
 // auto-block once it crosses the same threshold failed sign-ins use. This is what
 // extends the block from the login route to the rest of the surface: probe paths
 // and tokens that match nothing. Trusted networks are never counted or blocked.
-export function flagAbusiveRequest(request: FastifyRequest): void {
+export function flagAbusiveRequest(request: FastifyRequest, kind: "probe" | "token"): void {
   if (request.abuseFlagged) return;
   request.abuseFlagged = true;
   if (!request.ip || isTrustedIp(request.ip)) return;
-  recordAbuseAttempt(request.ip);
-  if (maybeAutoBlockIp(request.ip)) alertIpAutoBlocked(request.ip);
+  recordAbuseAttempt(request.ip, kind);
+  const blocked = maybeAutoBlockIp(request.ip);
+  if (blocked) alertIpAutoBlocked(request.ip, blocked);
 }
 
-export function alertIpAutoBlocked(ip: string): void {
+// The middle sentence is the one that matters: an all-probes block is routine
+// internet background noise, and saying so spares the admin the "who is trying
+// my passwords?" scare — while a block with real sign-in attempts in it is
+// exactly that scare, and earns the plain warning.
+export function alertIpAutoBlocked(ip: string, outcome: AutoBlockOutcome): void {
   if (throttled(`autoblock:${ip}`, 30 * 60_000)) return;
   void notifyAdmins("A source IP was automatically blocked", [
-    "It crossed the failed-sign-in threshold and is blocked for a cooldown period.",
-    context(ip),
+    "It crossed the suspicious-request threshold and is blocked for a cooldown period.",
+    context(ip, { label: "What was counted", value: outcome.description }),
+    outcome.counts.signin === 0
+      ? "No account password was tried — this was an automated scanner sweeping for software you don't run, the kind every internet-facing server sees. The block expires on its own; nothing else is needed."
+      : "Some of these were real sign-in attempts against an account, so it is worth a look.",
     "Review it in Control panel → Security."
   ]);
 }

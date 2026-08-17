@@ -19,6 +19,16 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.8.0",
+    label: "A second factor from outside, and blocks that say what they counted",
+    changes: [
+      "A new security policy — Control panel → Security → Policies → Two-factor sign-in — makes a password alone not enough to sign in from outside your trusted networks. Accounts with two-factor set up are asked for their usual code; accounts without get a one-time code emailed to their sign-in address, no setup needed. Everything else the app defends with — lockout, rate limits, the IP auto-block — guards against someone guessing a password; this is the wall that still stands when someone shows up with a correct one. At home, on a trusted network, nothing changes, and passkey sign-ins already count as two factors.",
+      "The policy plays it straight about its edges. Turning it on lists exactly which accounts have no second factor set up and what will happen to them. If the server can't send email, an account without two-factor is refused from outside — with a message saying to sign in from home and set one up — rather than waved through, because the policy's whole promise is that a password alone is never enough. And behind a reverse proxy with TRUST_PROXY_HOPS unset, where the server can't tell who is inside, it asks everyone for the factor instead of guessing.",
+      "When an IP gets automatically blocked, the block now says what it actually counted — \"15 scanner probes and 6 failed sign-ins\" — instead of calling everything a failed sign-in. The reason on the Blocked IPs page, the admin email, and a new entry in the event log all tell the same story, so a block finally shows up in the log at all (it never did before). When no password was ever tried, the email says so outright: an automated scanner sweeping for software you don't run, the kind every internet-facing server sees — the block expires on its own and nothing else is needed.",
+      "The two-factor and exposing-to-the-internet guides describe the new policy, and the control panel's search finds it under words like \"mfa\", \"2fa\" or \"require second factor\"."
+    ]
+  },
+  {
     version: "3.7.6",
     label: "Book actions move up top, and tags become tinted pills",
     changes: [

@@ -218,7 +218,7 @@ export async function webauthnRoutes(app: FastifyInstance) {
         // deleted rather than tombstoned, so a just-removed key lands here too;
         // that costs one flag against an IP that genuinely did just try an unknown
         // credential, which is the conservative side to err on.
-        flagAbusiveRequest(request);
+        flagAbusiveRequest(request, "token");
         clearWebauthnChallenge(challenge.id);
         reply.clearCookie(LOGIN_COOKIE, { path: "/" });
         return reply.code(401).send({ error: "That passkey isn't registered here." });
@@ -264,7 +264,8 @@ export async function webauthnRoutes(app: FastifyInstance) {
           ipAddress: request.ip
         });
         if (!trusted) {
-          if (maybeAutoBlockIp(request.ip)) alertIpAutoBlocked(request.ip);
+          const blocked = maybeAutoBlockIp(request.ip);
+          if (blocked) alertIpAutoBlocked(request.ip, blocked);
           if (isAccountLocked(user.email)) alertAccountLocked(user.email, request.ip);
         }
         return reply.code(401).send({

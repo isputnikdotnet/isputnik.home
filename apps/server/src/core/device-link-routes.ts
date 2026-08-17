@@ -131,7 +131,7 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
     // matches a real request which merely expired is a display left on overnight,
     // and counting that would block the household for using the feature.
     if (outcome.status === "unknown") {
-      flagAbusiveRequest(request);
+      flagAbusiveRequest(request, "token");
       return reply.code(404).send({ status: "unknown" });
     }
 
@@ -195,7 +195,7 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
       // Unknown, expired, and already-answered are one answer to the caller: a
       // distinct "wrong code" would confirm which codes exist. Only a code that has
       // never existed counts against the caller's IP.
-      if (!userCodeExists(userCode)) flagAbusiveRequest(request);
+      if (!userCodeExists(userCode)) flagAbusiveRequest(request, "token");
       return reply.code(404).send({ error: "That code has expired or doesn't exist. Check the screen and try again." });
     }
 
@@ -232,7 +232,7 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
 
     const row = findPendingByUserCode(userCode);
     if (!row) {
-      if (!userCodeExists(userCode)) flagAbusiveRequest(request);
+      if (!userCodeExists(userCode)) flagAbusiveRequest(request, "token");
       return reply.code(404).send({ error: "That code has expired or doesn't exist. Check the screen and try again." });
     }
 
@@ -305,7 +305,7 @@ export async function deviceLinkRoutes(app: FastifyInstance) {
     const { userCode } = request.params as { userCode: string };
     const row = findPendingByUserCode(userCode);
     if (!row) {
-      if (!userCodeExists(userCode)) flagAbusiveRequest(request);
+      if (!userCodeExists(userCode)) flagAbusiveRequest(request, "token");
       return reply.code(404).send({ error: "That code has expired or doesn't exist." });
     }
 

@@ -65,6 +65,11 @@ one adding the header.
 
 - **Turn on two-factor authentication** for admin accounts, and encourage everyone
   to use it — see [Two-factor authentication](two-factor-authentication.md).
+- **Require a second factor from outside** (Control panel → **Security** →
+  **Policies** → **Two-factor sign-in**). Everything else on this page defends
+  against guessing; this is the one that still holds when someone shows up with a
+  *correct* password. Accounts without two-factor set up fall back to a code
+  emailed at sign-in, so configure email first.
 - **Tell everyone about passkeys** ([guide](passkeys.md)). Once the steps above are
   done they switch on by themselves: passkeys need exactly this setup — HTTPS at a
   real hostname — and they're both quicker and harder to phish than a password.

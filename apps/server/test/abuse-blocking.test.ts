@@ -80,9 +80,9 @@ describe("isProbePath", () => {
 describe("flagAbusiveRequest", () => {
   it("counts a hit once per request, however many times it's called", () => {
     const request = fakeRequest("203.0.113.5");
-    flagAbusiveRequest(request);
-    flagAbusiveRequest(request);
-    flagAbusiveRequest(request);
+    flagAbusiveRequest(request, "probe");
+    flagAbusiveRequest(request, "probe");
+    flagAbusiveRequest(request, "token");
     const row = db
       .prepare("SELECT COUNT(*) AS count FROM login_attempts WHERE ip_address = ?")
       .get("203.0.113.5") as { count: number };
@@ -90,15 +90,15 @@ describe("flagAbusiveRequest", () => {
   });
 
   it("blocks the source once it crosses the failure threshold", () => {
-    for (let i = 0; i < IP_FAIL_THRESHOLD - 1; i += 1) flagAbusiveRequest(fakeRequest("203.0.113.6"));
+    for (let i = 0; i < IP_FAIL_THRESHOLD - 1; i += 1) flagAbusiveRequest(fakeRequest("203.0.113.6"), "probe");
     expect(isIpBlocked("203.0.113.6")).toBe(false);
-    flagAbusiveRequest(fakeRequest("203.0.113.6"));
+    flagAbusiveRequest(fakeRequest("203.0.113.6"), "probe");
     expect(isIpBlocked("203.0.113.6")).toBe(true);
   });
 
   it("never counts or blocks a trusted network", () => {
     addTrustedNetwork("192.168.0.0/16", "Home LAN", null);
-    for (let i = 0; i < IP_FAIL_THRESHOLD + 5; i += 1) flagAbusiveRequest(fakeRequest("192.168.1.10"));
+    for (let i = 0; i < IP_FAIL_THRESHOLD + 5; i += 1) flagAbusiveRequest(fakeRequest("192.168.1.10"), "probe");
     expect(isIpBlocked("192.168.1.10")).toBe(false);
     const row = db
       .prepare("SELECT COUNT(*) AS count FROM login_attempts WHERE ip_address = ?")
@@ -108,7 +108,7 @@ describe("flagAbusiveRequest", () => {
 
   it("can never help lock a real account", () => {
     // Anonymous hits carry no email, so they sit outside every account's tally.
-    for (let i = 0; i < 50; i += 1) recordAbuseAttempt("203.0.113.7");
+    for (let i = 0; i < 50; i += 1) recordAbuseAttempt("203.0.113.7", "token");
     expect(isAccountLocked("someone@test.local")).toBe(false);
 
     // …while a real failed sign-in from the same address still counts normally.

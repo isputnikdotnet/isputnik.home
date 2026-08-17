@@ -7,7 +7,7 @@ import { parseBody, credentialsSchema, getUserByEmail } from "./shared.js";
 import { createMfaChallenge, sendMfaCodeEmail, setMfaChallengeCookie } from "./mfa-routes.js";
 import { isMailConfigured } from "./mail.js";
 import { maskEmail } from "./mfa.js";
-import { isTrustedIp, isAccountLocked, recordLoginAttempt, maybeAutoBlockIp } from "./security.js";
+import { isTrustedIp, isAccountLocked, recordLoginAttempt, maybeAutoBlockIp, mfaRequiredOutside } from "./security.js";
 import { alertAccountLocked, alertIpAutoBlocked, reviewSignInLocation } from "./security-alerts.js";
 
 // Why a sign-in failed, for the activity log only — the answer sent back to the
@@ -52,12 +52,18 @@ export async function authPlugin(app: FastifyInstance) {
         ? await verifyPassword(parsed.data.password, user.password_hash)
         : await verifyDummyPassword(parsed.data.password);
 
+    // Two ways a second factor becomes due: the account enrolled one (and the
+    // request isn't from a trusted network), or the outside-MFA policy demands
+    // one of every sign-in that can't be placed inside a trusted network —
+    // enrolled or not (the un-enrolled get an emailed code below).
+    const forcedOutside = ok && mfaRequiredOutside(request.ip, request.headers);
+
     // A password success is only a completed sign-in when there's no second factor
     // to come. Recording it here for an MFA account would clear the failure tally
     // (accountFailureCount counts back to the last success), so a caller who knows
     // the password could reset the lockout between code guesses and never lock out.
     // The success is recorded when the second factor completes — see mfa-routes.
-    const awaitingSecondFactor = ok && Boolean(user!.mfa_enabled) && !trusted;
+    const awaitingSecondFactor = (ok && Boolean(user!.mfa_enabled) && !trusted) || forcedOutside;
     if (!awaitingSecondFactor) recordLoginAttempt(email, request.ip, ok);
 
     if (!ok) {
@@ -68,7 +74,8 @@ export async function authPlugin(app: FastifyInstance) {
       });
       // Trusted networks are never auto-blocked or locked out.
       if (!trusted) {
-        if (maybeAutoBlockIp(request.ip)) alertIpAutoBlocked(request.ip);
+        const blocked = maybeAutoBlockIp(request.ip);
+        if (blocked) alertIpAutoBlocked(request.ip, blocked);
         if (isAccountLocked(email)) alertAccountLocked(email, request.ip, Boolean(user));
       }
       return reply.code(401).send({ error: "Invalid email or password" });
@@ -77,16 +84,42 @@ export async function authPlugin(app: FastifyInstance) {
     const authed = user!; // ok === true implies the user exists and is active
 
     // With MFA on, password success only earns a short-lived challenge — unless the
-    // request is from a trusted network, which skips the second factor.
-    if (authed.mfa_enabled && !trusted) {
-      const { id: challengeId, code } = createMfaChallenge(authed.id);
-      setMfaChallengeCookie(reply, challengeId, authed.mfa_method);
+    // request is from a trusted network, which skips the second factor (except when
+    // forcedOutside says the network can't be told — see mfaRequiredOutside).
+    if (awaitingSecondFactor) {
+      // An enrolled account uses its chosen method. The outside-MFA policy's
+      // fallback for an un-enrolled one is a code emailed to the sign-in address —
+      // and when the server can't send mail, the sign-in is refused rather than
+      // waved through: the policy's whole promise is that a password alone is
+      // never enough from outside. Nothing is recorded against the account or the
+      // IP for a refusal — the password was right, and the tally must not move.
+      const enrolled = Boolean(authed.mfa_enabled);
+      if (!enrolled && !isMailConfigured()) {
+        logActivity({
+          event: "auth.login_refused_mfa",
+          targetType: "user",
+          targetId: authed.id,
+          detail:
+            `Sign-in refused for ${email}: the policy requires a second factor outside trusted networks, ` +
+            "the account has none set up, and the server can't email codes.",
+          ipAddress: request.ip
+        });
+        return reply.code(403).send({
+          error:
+            "Signing in from outside the home network requires a second factor, and this account doesn't have one set up. " +
+            "Sign in from home to set up two-factor authentication, or ask your administrator."
+        });
+      }
+
+      const method = enrolled ? authed.mfa_method : "email";
+      const { id: challengeId, code } = createMfaChallenge(authed.id, "login", method);
+      setMfaChallengeCookie(reply, challengeId, method);
 
       // An emailed code is sent without waiting on SMTP: the browser gets the code
       // prompt immediately, and a slow or dead mail server can't stall the sign-in.
       // The user is told whether we could even try — with mail down their backup
       // codes are the way in, and saying so beats waiting for a mail that won't come.
-      const byEmail = authed.mfa_method === "email";
+      const byEmail = method === "email";
       const emailSent = byEmail && isMailConfigured();
       if (code && emailSent) {
         void sendMfaCodeEmail(authed.email, code, "login").catch(() => {
@@ -105,12 +138,14 @@ export async function authPlugin(app: FastifyInstance) {
         actorUserId: authed.id,
         targetType: "user",
         targetId: authed.id,
-        detail: "Password accepted; awaiting a two-factor code.",
+        detail: enrolled
+          ? "Password accepted; awaiting a two-factor code."
+          : "Password accepted; a sign-in code was emailed (second factor required outside trusted networks).",
         ipAddress: request.ip
       });
       return reply.send({
         mfaRequired: true,
-        method: authed.mfa_method,
+        method,
         ...(byEmail ? { emailSent, sentTo: maskEmail(authed.email) } : {})
       });
     }
