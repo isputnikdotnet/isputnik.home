@@ -21,6 +21,7 @@ import {
 } from "../src/core/security.js";
 import { resolveShareLink } from "../src/modules/library/shared/share-access.js";
 import { resolveLiveInvite } from "../src/modules/users/invites.js";
+import { BLOCKED_PAGE_HTML, wantsHtml } from "../src/core/blocked-page.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 
 const IP_FAIL_THRESHOLD = DEFAULT_SECURITY_POLICY.ipFailThreshold;
@@ -222,5 +223,22 @@ describe("invite token misses", () => {
     const request = fakeRequest("203.0.113.34");
     expect(resolveLiveInvite("good", request)?.id).toBe(id);
     expect(hitCount("203.0.113.34")).toBe(0);
+  });
+});
+
+describe("what a blocked address is answered with", () => {
+  it("gives a navigating browser the page and everything else the JSON", () => {
+    // A browser navigation announces text/html; fetch/curl/API clients don't.
+    expect(wantsHtml({ accept: "text/html,application/xhtml+xml,*/*;q=0.8" })).toBe(true);
+    expect(wantsHtml({ accept: "application/json" })).toBe(false);
+    expect(wantsHtml({ accept: "*/*" })).toBe(false);
+    expect(wantsHtml({})).toBe(false);
+  });
+
+  it("carries its own styling and explains what to do, nothing more", () => {
+    expect(BLOCKED_PAGE_HTML).toContain("This network is blocked");
+    expect(BLOCKED_PAGE_HTML).toContain("expire on their own");
+    // Self-contained: a blocked address can't fetch a stylesheet or an image.
+    expect(BLOCKED_PAGE_HTML).not.toMatch(/src=|href=/);
   });
 });
