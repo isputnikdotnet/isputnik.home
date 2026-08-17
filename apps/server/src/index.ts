@@ -10,6 +10,7 @@ import { registerAuthDecorators } from "./auth.js";
 import { isIpBlocked, isTrustedIp, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader, forwardedProto, safeRedirectHost } from "./core/security.js";
 import { flagAbusiveRequest } from "./core/security-alerts.js";
 import { isProbePath } from "./core/probes.js";
+import { BLOCKED_MESSAGE, BLOCKED_PAGE_HTML, wantsHtml } from "./core/blocked-page.js";
 import { registerCsrf } from "./core/csrf.js";
 import { registerCompression } from "./core/compression.js";
 import { corePlugin } from "./core/index.js";
@@ -146,7 +147,12 @@ app.addHook("onRequest", async (request, reply) => {
     }
   }
   if (isIpBlocked(request.ip) && !isTrustedIp(request.ip)) {
-    await reply.code(403).send({ error: "Your network has been blocked." });
+    // A navigating browser gets a small page; API callers get JSON they can show.
+    if (wantsHtml(request.headers)) {
+      await reply.code(403).type("text/html; charset=utf-8").send(BLOCKED_PAGE_HTML);
+    } else {
+      await reply.code(403).send({ error: BLOCKED_MESSAGE });
+    }
     return;
   }
   // Send plain-http visitors to https. TLS terminates at the proxy, so every
