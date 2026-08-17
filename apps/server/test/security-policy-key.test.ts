@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import fastify, { type FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { securityRoutes } from "../src/core/security-routes.js";
-import { getSecurityPolicy, DEFAULT_SECURITY_POLICY } from "../src/core/security.js";
+import { getSecurityPolicy, getStoredAbuseIpdbKeyRaw, DEFAULT_SECURITY_POLICY } from "../src/core/security.js";
 import { resetDb, makeUser } from "./helpers/seed.js";
 
 let app: FastifyInstance;
@@ -80,5 +80,21 @@ describe("AbuseIPDB key is never echoed", () => {
     await patch(policyBody({ abuseIpdbKey: "old-key" }));
     await patch(policyBody({ abuseIpdbKey: "new-key" }));
     expect(getSecurityPolicy().abuseIpdbKey).toBe("new-key");
+  });
+
+  it("clears the key on an explicit clearAbuseIpdbKey", async () => {
+    await patch(policyBody({ abuseIpdbKey: "secret-key-123" }));
+    await patch(policyBody({ clearAbuseIpdbKey: true }));
+    expect(getSecurityPolicy().abuseIpdbKey).toBe("");
+  });
+
+  it("preserves the sealed key across a blank save without re-sealing it", async () => {
+    await patch(policyBody({ abuseIpdbKey: "secret-key-123" }));
+    // A blank save must keep the RAW stored ciphertext, not re-seal an opened
+    // value — the raw column stays a single-layer seal that still opens cleanly.
+    const rawBefore = getStoredAbuseIpdbKeyRaw();
+    await patch(policyBody({ lockoutThreshold: 7 }));
+    expect(getStoredAbuseIpdbKeyRaw()).toBe(rawBefore); // byte-identical, not double-sealed
+    expect(getSecurityPolicy().abuseIpdbKey).toBe("secret-key-123");
   });
 });

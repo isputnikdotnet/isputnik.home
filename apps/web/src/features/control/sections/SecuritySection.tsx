@@ -211,6 +211,28 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
     }
   };
 
+  // Blank means "keep the stored key", so removing it needs its own explicit call.
+  const removeAbuseKey = async () => {
+    if (!policyForm) return;
+    setSavingPolicy("reputation");
+    setPolicyError(null);
+    setPolicySaved(null);
+    try {
+      const res = await api<{ policy: SecurityPolicy }>("/api/security/policy", {
+        method: "PATCH",
+        body: JSON.stringify({ ...policyForm, clearAbuseIpdbKey: true })
+      });
+      setPolicyForm(res.policy);
+      setAbuseKeyInput("");
+      setPolicySaved("reputation");
+      await load();
+    } catch (err) {
+      setPolicyError({ scope: "reputation", message: err instanceof Error ? err.message : "Unable to remove the key" });
+    } finally {
+      setSavingPolicy(null);
+    }
+  };
+
   const savePwPolicy = async (event: FormEvent) => {
     event.preventDefault();
     if (!pwForm) return;
@@ -969,6 +991,13 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                         onChange={(event) => setAbuseKeyInput(event.target.value)}
                       />
                     </label>
+                    {policyForm.hasAbuseIpdbKey && (
+                      <div className="security-setting-row">
+                        <Button type="button" variant="text" onClick={removeAbuseKey} disabled={savingPolicy !== null}>
+                          Remove saved key
+                        </Button>
+                      </div>
+                    )}
                     <label className="security-setting-row security-setting-row-checkbox">
                       <input
                         type="checkbox"

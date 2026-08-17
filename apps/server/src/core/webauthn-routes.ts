@@ -162,7 +162,10 @@ export async function webauthnRoutes(app: FastifyInstance) {
     return reply.code(201).send({ id });
   });
 
-  app.delete("/api/profile/passkeys/:id", { preHandler: app.authenticate }, async (request, reply) => {
+  // untrustedAllow: removing a lost/compromised passkey protects the account, the
+  // same class as revoking a session or API token (which also opt out), so a
+  // travelling user must not be blocked from it by the deletions-only policy.
+  app.delete("/api/profile/passkeys/:id", { preHandler: app.authenticate, config: { untrustedAllow: true } }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     if (!deletePasskey(request.user!.id, id)) {
       return reply.code(404).send({ error: "Passkey not found" });

@@ -34,6 +34,16 @@ describe("renderGuideHtml sanitisation", () => {
     expect(anchor?.hasAttribute("onmouseover")).toBe(false);
   });
 
+  it("escapes a quote in an in-app guide link's fragment", async () => {
+    // The `.md#...` fragment is `.*`, which admits a quote that could break out of
+    // the href attribute if not escaped.
+    const html = await renderGuideHtml('[x](passkeys.md#"style=color:red)');
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    const anchor = div.querySelector("a");
+    expect(anchor?.getAttribute("style")).toBeNull();
+  });
+
   it("keeps ordinary guide content: a heading, an external link, an in-app link", async () => {
     const html = await renderGuideHtml(
       "# Welcome\n\nSee [the site](https://example.com) and [passkeys](passkeys.md)."

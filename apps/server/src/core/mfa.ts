@@ -84,6 +84,20 @@ export function sealSecret(plain: string): string {
   return plain ? SEALED_PREFIX + encryptSecret(plain) : "";
 }
 
+// True when a stored value is already sealed. Used by the "blank field = keep the
+// stored secret" save paths: they preserve the RAW stored column and pass it back
+// through, so an already-sealed value isn't re-sealed (and a transiently
+// unreadable key can't be silently wiped by re-sealing openSecret's empty result).
+export function isSealed(stored: string | null | undefined): boolean {
+  return typeof stored === "string" && stored.startsWith(SEALED_PREFIX);
+}
+
+// Seal a value unless it is already sealed (the keep-path passes ciphertext
+// through verbatim); a legacy plaintext value is sealed, migrating it.
+export function ensureSealed(value: string): string {
+  return isSealed(value) ? value : sealSecret(value);
+}
+
 export function openSecret(stored: string | null | undefined): string {
   if (!stored) return "";
   if (!stored.startsWith(SEALED_PREFIX)) return stored; // legacy plaintext, pre-sealing

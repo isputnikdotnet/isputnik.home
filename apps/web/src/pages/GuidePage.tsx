@@ -43,7 +43,9 @@ export async function renderGuideHtml(markdown: string): Promise<string> {
         const inner = this.parser.parseInline(tokens);
         const guide = /^([a-z0-9-]+)\.md(#.*)?$/i.exec(href ?? "");
         if (guide) {
-          return `<a href="/help/${guide[1]}${guide[2] ?? ""}" data-guide="${guide[1]}">${inner}</a>`;
+          // Escape the fragment too — `.*` admits a quote, which would otherwise
+          // break out of the href attribute (guide[1] is [a-z0-9-] so it's safe).
+          return `<a href="/help/${guide[1]}${escapeAttr(guide[2] ?? "")}" data-guide="${guide[1]}">${inner}</a>`;
         }
         const external = /^https?:\/\//i.test(href ?? "");
         const attrs = external ? ' target="_blank" rel="noreferrer"' : "";

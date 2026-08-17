@@ -2,8 +2,8 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import { db, logActivity } from "../db.js";
 import { parseBody } from "./shared.js";
-import { MAIL_SETTINGS_KEY, getMailSettings, isMailConfigured, sendTestEmail, type MailSettings } from "./mail.js";
-import { sealSecret } from "./mfa.js";
+import { MAIL_SETTINGS_KEY, getMailSettings, isMailConfigured, sendTestEmail, getStoredMailPasswordRaw, type MailSettings } from "./mail.js";
+import { ensureSealed } from "./mfa.js";
 
 const mailSchema = z.object({
   host: z.string().trim().max(255),
@@ -46,21 +46,22 @@ export async function mailPlugin(app: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid email settings", details: parsed.error });
     }
 
-    const current = getMailSettings();
     const next: MailSettings = {
       host: parsed.data.host,
       port: parsed.data.port,
       secure: parsed.data.secure,
       username: parsed.data.username,
-      password: parsed.data.password ? parsed.data.password : current.password,
+      // Blank = keep the stored password, read RAW (still-sealed) so a transiently
+      // unreadable key isn't wiped by re-sealing an opened-to-empty value.
+      password: parsed.data.password ? parsed.data.password : getStoredMailPasswordRaw(),
       fromAddress: parsed.data.fromAddress,
       fromName: parsed.data.fromName
     };
 
     // Seal the password before it lands in the DB (and therefore in every backup
-    // zip); getMailSettings un-seals it on read. hasPassword semantics are
-    // unchanged — publicMail below still sees the plaintext `next`.
-    const stored = { ...next, password: sealSecret(next.password) };
+    // zip); getMailSettings un-seals it on read. ensureSealed passes an already-
+    // sealed kept value through and seals a newly-typed plaintext one.
+    const stored = { ...next, password: ensureSealed(next.password) };
     db.prepare(`
       INSERT INTO app_settings (key, value, updated_by, updated_at)
       VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
