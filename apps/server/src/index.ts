@@ -7,7 +7,7 @@ import helmet from "@fastify/helmet";
 import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
-import { isIpBlocked, isTrustedIp, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader, forwardedProto, safeRedirectHost, deletionBlocked } from "./core/security.js";
+import { isIpBlocked, isTrustedIp, isTrustedRequest, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader, forwardedProto, safeRedirectHost, deletionBlocked } from "./core/security.js";
 import { flagAbusiveRequest } from "./core/security-alerts.js";
 import { isApiSurface, isProbePath } from "./core/probes.js";
 import { maskLogUrl } from "./core/log-redaction.js";
@@ -125,8 +125,10 @@ registerCompression(app);
 await app.register(rateLimit, {
   max: 1000,
   timeWindow: "1 minute",
-  // Trusted networks (admin-configured) are exempt from rate limiting.
-  allowList: (request) => isTrustedIp(request.ip)
+  // Trusted networks (admin-configured) are exempt from rate limiting — but not
+  // when a misconfigured proxy makes request.ip the proxy's own address, or the
+  // whole internet would share the exemption (see isTrustedRequest).
+  allowList: (request) => isTrustedRequest(request)
 });
 // Reject blocked source IPs everywhere — manual or auto-blocked — but never a
 // trusted network. isIpBlocked is the cheap, usually-false common-case check.
@@ -202,7 +204,7 @@ declare module "fastify" {
 // included, so stolen credentials used from the internet can't destroy content.
 // Runs after routing, so the matched route's config is available.
 app.addHook("onRequest", async (request, reply) => {
-  if (deletionBlocked(request.method, request.routeOptions?.config, request.ip)) {
+  if (deletionBlocked(request, request.routeOptions?.config)) {
     await reply.code(403).send({ error: "Deleting is disabled outside trusted networks." });
   }
 });

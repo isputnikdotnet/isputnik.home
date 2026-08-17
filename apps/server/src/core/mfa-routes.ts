@@ -17,7 +17,7 @@ import {
   alertMfaFailures,
   reviewSignInLocation
 } from "./security-alerts.js";
-import { isAccountLocked, isTrustedIp, maybeAutoBlockIp, recordLoginAttempt } from "./security.js";
+import { isAccountLocked, isTrustedRequest, maybeAutoBlockIp, recordLoginAttempt } from "./security.js";
 import {
   encryptSecret,
   decryptSecret,
@@ -537,7 +537,7 @@ export async function mfaRoutes(app: FastifyInstance) {
       // Either method falls back to a backup code — that's what they're for.
       if (!ok) ok = consumeBackupCode(user.id, parsed.data.token);
 
-      const trusted = isTrustedIp(request.ip);
+      const trusted = isTrustedRequest(request);
 
       if (!ok) {
         const attempts = failMfaChallenge(challengeId);

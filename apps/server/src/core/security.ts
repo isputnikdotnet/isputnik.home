@@ -135,6 +135,22 @@ export function isTrustedIp(ip: string | null | undefined): boolean {
   return cidrs.length > 0 && ipInAnyCidr(ip, cidrs);
 }
 
+// isTrustedIp, but refuses to trust the address when it can't be believed.
+// Behind a proxy with TRUST_PROXY_HOPS unset, request.ip is the proxy's own
+// address — typically a private Docker IP on the Unraid+cloudflared deployment
+// this app targets — so a trusted-network match proves nothing about the real
+// client, and every relaxing exemption keyed on it (rate limits, lockout, the
+// enrolled-MFA skip, the deletions-only policy) would then apply to the whole
+// internet. Fail closed there, the same direction mfaRequiredOutside and
+// deviceLinkAllowedFrom already take. Takes the request so the header evidence
+// travels with the address rather than the spoofable process-wide flag. A
+// correctly configured proxy (hops set) or a direct LAN install (no forwarded
+// header) is unaffected — it falls straight through to isTrustedIp.
+export function isTrustedRequest(request: { ip: string | null | undefined; headers: Record<string, unknown> }): boolean {
+  if (hasForwardedHeader(request.headers) && getTrustProxyHops() === 0) return false;
+  return isTrustedIp(request.ip);
+}
+
 // Does the outside-MFA policy force a second factor on this sign-in? True only
 // when the toggle is on and the request is not PROVABLY inside a trusted
 // network. "Provably" is the point: behind a proxy with TRUST_PROXY_HOPS unset,
@@ -382,13 +398,18 @@ export function blockIp(
 // (security-protective revocations a travelling user legitimately needs) and
 // non-DELETE destroyers opt IN with config.destructive (Recycle Bin empty,
 // duplicate-cleanup deletions, backup restore). Cheap gates first: the policy
-// read hits the DB, so ordinary GET/POST traffic never pays for it.
-export function deletionBlocked(method: string, routeConfig: unknown, ip: string | null | undefined): boolean {
+// read hits the DB, so ordinary GET/POST traffic never pays for it. Trust is
+// judged with isTrustedRequest so a misconfigured proxy can't turn the whole
+// internet "trusted" and re-open deletion.
+export function deletionBlocked(
+  request: { method: string; ip: string | null | undefined; headers: Record<string, unknown> },
+  routeConfig: unknown
+): boolean {
   const cfg = (routeConfig ?? {}) as { untrustedAllow?: boolean; destructive?: boolean };
-  const destructive = cfg.destructive === true || (method === "DELETE" && cfg.untrustedAllow !== true);
+  const destructive = cfg.destructive === true || (request.method === "DELETE" && cfg.untrustedAllow !== true);
   if (!destructive) return false;
   if (!getSecurityPolicy().trustedDeletesOnly) return false;
-  return !ip || !isTrustedIp(ip);
+  return !isTrustedRequest(request);
 }
 
 export function unblockIp(ip: string): boolean {

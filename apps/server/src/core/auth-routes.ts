@@ -7,7 +7,7 @@ import { parseBody, credentialsSchema, getUserByEmail } from "./shared.js";
 import { createMfaChallenge, sendMfaCodeEmail, setMfaChallengeCookie } from "./mfa-routes.js";
 import { isMailConfigured } from "./mail.js";
 import { maskEmail } from "./mfa.js";
-import { isTrustedIp, isAccountLocked, recordLoginAttempt, maybeAutoBlockIp, mfaRequiredOutside } from "./security.js";
+import { isTrustedRequest, isAccountLocked, recordLoginAttempt, maybeAutoBlockIp, mfaRequiredOutside } from "./security.js";
 import { alertAccountLocked, alertIpAutoBlocked, reviewSignInLocation } from "./security-alerts.js";
 
 // Why a sign-in failed, for the activity log only — the answer sent back to the
@@ -32,8 +32,10 @@ export async function authPlugin(app: FastifyInstance) {
     }
 
     const email = parsed.data.email;
-    // A request from a trusted network is exempt from lockout and (below) MFA.
-    const trusted = isTrustedIp(request.ip);
+    // A request from a trusted network is exempt from lockout and (below) MFA —
+    // but a trusted-network match is only believed when request.ip can be
+    // (isTrustedRequest fails closed behind a misconfigured proxy).
+    const trusted = isTrustedRequest(request);
 
     if (!trusted && isAccountLocked(email)) {
       logActivity({

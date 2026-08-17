@@ -7,7 +7,7 @@ import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody } from "./shared.js";
 import { alertAccountLocked, alertIpAutoBlocked, flagAbusiveRequest, reviewSignInLocation } from "./security-alerts.js";
-import { isAccountLocked, isTrustedIp, maybeAutoBlockIp, recordLoginAttempt } from "./security.js";
+import { isAccountLocked, isTrustedRequest, maybeAutoBlockIp, recordLoginAttempt } from "./security.js";
 import {
   passkeysAvailable,
   buildRegistrationOptions,
@@ -233,7 +233,7 @@ export async function webauthnRoutes(app: FastifyInstance) {
         return reply.code(401).send({ error: "That account is no longer active." });
       }
 
-      const trusted = isTrustedIp(request.ip);
+      const trusted = isTrustedRequest(request);
       if (!trusted && isAccountLocked(user.email)) {
         clearWebauthnChallenge(challenge.id);
         reply.clearCookie(LOGIN_COOKIE, { path: "/" });

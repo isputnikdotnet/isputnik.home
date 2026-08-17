@@ -79,6 +79,19 @@ one adding the header.
 - **Use strong, unique passwords.**
 - **Keep the app updated.**
 
+## About the container user
+
+The app runs **unprivileged** — the server process never runs as root, so a flaw
+in the code that parses uploads (images, e-books, video) can't turn into root
+access to your media. It runs as `PUID:PGID`, defaulting to `1000:1000`
+(`99:100` on the Unraid template, matching a default appdata share). On first
+start it takes ownership of the `/config` volume as that user.
+
+If the app can't write to `/config` after an update, the volume is owned by a
+different user: set `PUID`/`PGID` to match its owner (`ls -n` on the host shows
+the numbers), or `chown -R` the folder to `1000:1000`. Keep media mounts
+read-only (`:ro`) unless you upload through the app.
+
 ## Checklist
 
 ```

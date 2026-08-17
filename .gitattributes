@@ -1,0 +1,4 @@
+# Shell scripts run inside the Linux container — a CRLF line ending on the
+# shebang line makes the kernel look for "/bin/sh\r" and the script fails to
+# start. Keep them LF regardless of the developer's core.autocrlf setting.
+*.sh text eol=lf

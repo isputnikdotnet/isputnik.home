@@ -6,6 +6,11 @@ services:
     ports:
       - "4000:4000"
     environment:
+      # The server runs unprivileged as this user; the entrypoint chowns /config
+      # to it on first start. Default 1000. Set both to the owner of your config
+      # volume if it differs (on Unraid that is usually 99 / 100).
+      PUID: 1000
+      PGID: 1000
       # URL used to access the app — change to your server IP or domain
       APP_URL: http://localhost:4000
       # Set to "true" only if serving over HTTPS

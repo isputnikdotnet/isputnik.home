@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db, logActivity } from "../../../db.js";
@@ -22,6 +22,23 @@ const readingProgressSchema = z.object({
 const trackPlayedSchema = z.object({
   played: z.boolean()
 });
+
+// The playback-progress routes key on the :id book but only ever touch the
+// caller's OWN progress rows, so they never leaked another user's data. Without
+// an access check, though, a signed-in user could confirm a private book's id
+// exists and create/read/update/delete progress against a book they can't see —
+// the same authorization gap the reading-progress routes already close via
+// getReadableDocument. Gate them the way the book-detail route does, 404-ing an
+// inaccessible id. Returns true (and has sent the 404) when refused.
+function refuseUnlessAccessibleBook(request: FastifyRequest, reply: FastifyReply, bookId: string): boolean {
+  const user = request.user!;
+  const lib = getLibraryForBook(bookId);
+  if (!lib || !canUserAccessBook(bookId, lib, user.id, user.role, mediaKind(lib.type))) {
+    reply.code(404).send({ error: "Audiobook not found" });
+    return true;
+  }
+  return false;
+}
 
 export function registerBookRoutes(app: FastifyInstance) {
 
@@ -193,6 +210,7 @@ export function registerBookRoutes(app: FastifyInstance) {
 
   app.get("/api/library/books/:id/progress", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
+    if (refuseUnlessAccessibleBook(request, reply, bookId)) return;
     const userId = request.user!.id;
 
     const row = db.prepare(`
@@ -327,6 +345,7 @@ export function registerBookRoutes(app: FastifyInstance) {
 
   app.patch("/api/library/books/:id/progress", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
+    if (refuseUnlessAccessibleBook(request, reply, bookId)) return;
     const userId = request.user!.id;
     const parsed = parseBody(progressUpdateSchema, request.body);
     if (parsed.error) {
@@ -434,6 +453,7 @@ export function registerBookRoutes(app: FastifyInstance) {
 
   app.post("/api/library/books/:id/progress/complete", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
+    if (refuseUnlessAccessibleBook(request, reply, bookId)) return;
     const userId = request.user!.id;
     const file = db.prepare(`
       SELECT id, duration_seconds
@@ -489,6 +509,7 @@ export function registerBookRoutes(app: FastifyInstance) {
 
   app.delete("/api/library/books/:id/progress", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
+    if (refuseUnlessAccessibleBook(request, reply, bookId)) return;
     const userId = request.user!.id;
     db.prepare("DELETE FROM playback_progress WHERE item_id = ? AND user_id = ?").run(bookId, userId);
     db.prepare("DELETE FROM track_progress WHERE item_id = ? AND user_id = ?").run(bookId, userId);
@@ -500,6 +521,7 @@ export function registerBookRoutes(app: FastifyInstance) {
   // every track of a show. Linear libraries return an empty list (they use /progress).
   app.get("/api/library/books/:id/tracks/progress", { preHandler: app.authenticate }, async (request, reply) => {
     const bookId = (request.params as { id: string }).id;
+    if (refuseUnlessAccessibleBook(request, reply, bookId)) return;
     const userId = request.user!.id;
     const rows = db.prepare(`
       SELECT file_id, position_seconds, completed_at
@@ -520,6 +542,7 @@ export function registerBookRoutes(app: FastifyInstance) {
   // clears the row entirely, resetting position too.
   app.put("/api/library/books/:id/tracks/:fileId/progress", { preHandler: app.authenticate }, async (request, reply) => {
     const { id: bookId, fileId } = request.params as { id: string; fileId: string };
+    if (refuseUnlessAccessibleBook(request, reply, bookId)) return;
     const userId = request.user!.id;
     const parsed = parseBody(trackPlayedSchema, request.body);
     if (parsed.error) {

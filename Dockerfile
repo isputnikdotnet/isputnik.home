@@ -85,6 +85,12 @@ RUN node scripts/fetch-face-model.mjs --dest /build/models/face
 FROM node:22-slim
 WORKDIR /app
 
+# gosu drops the entrypoint from root to the runtime user (see
+# scripts/docker-entrypoint.sh). It is purpose-built for this — a clean privilege
+# drop with correct signal/TTY handling, unlike su/sudo.
+RUN apt-get update && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/*
+
 # ffmpeg/ffprobe (gallery video metadata + poster thumbnails) ship as the
 # ffmpeg-static / ffprobe-static node_modules binaries copied below — no system
 # install needed. Photos use sharp.
@@ -133,8 +139,21 @@ ENV COOKIE_SECURE=false
 # Number of reverse proxies in front (usually 1). 0 = trust nothing / direct access.
 ENV TRUST_PROXY_HOPS=0
 
+# Who the server runs as. Default to the image's `node` user (uid/gid 1000); the
+# entrypoint honours PUID/PGID overrides so an Unraid install can match its
+# appdata share owner (usually 99:100). The /config dirs are created and chowned
+# by the entrypoint at runtime — a build-time mkdir would only touch the image
+# layer the mounted volume then hides.
+ENV PUID=1000
+ENV PGID=1000
+
 EXPOSE 4000
 
-RUN mkdir -p /config/db /config/thumbnails /config/metadata /config/backups
+# Root entrypoint fixes /config ownership, then execs the CMD as PUID:PGID via
+# gosu — the Node server itself never runs as root. No `USER` directive: the
+# entrypoint needs root to chown the freshly mounted volume, then drops it.
+COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 CMD ["node", "apps/server/dist/index.js"]
