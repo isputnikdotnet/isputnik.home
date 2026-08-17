@@ -771,10 +771,132 @@ function BookDetailView({
   return (
     <div className="book-detail-view">
       <div className="book-detail-topbar">
-        <button className="audiobook-back-button" type="button" onClick={onBack}>
+        <button
+          className="icon-button"
+          type="button"
+          onClick={onBack}
+          aria-label={backLabel}
+          title={backLabel}
+        >
           <ArrowLeft size={18} aria-hidden="true" />
-          <span>{backLabel}</span>
         </button>
+        <span className="library-toolbar-divider" aria-hidden="true" />
+        <div className="book-detail-secondary-actions" aria-label="Book actions">
+          <button
+            className={`icon-button${save?.saved ? " on" : ""}`}
+            type="button"
+            onClick={toggleSave}
+            disabled={saveAction}
+            aria-pressed={save?.saved ?? false}
+            aria-label={saveAction ? "Saving favorite" : save?.saved ? "Remove from favorites" : "Add to favorites"}
+            title={saveAction ? "Saving..." : save?.saved ? "Favorited" : "Add to favorites"}
+          >
+            <Heart size={18} fill={save?.saved ? "currentColor" : "none"} />
+          </button>
+          {!isEbook && isStandalone() && capabilities.canDownload && book.files.some((f) => f.status === "available") && (
+            <button
+              className={`icon-button${offline.record?.state === "complete" ? " offline-saved" : ""}`}
+              type="button"
+              onClick={() => {
+                if (offline.busy) return;
+                if (offline.record?.state === "complete") {
+                  setConfirmRemoveDownload(true);
+                } else {
+                  void offline.start();
+                }
+              }}
+              disabled={offline.busy}
+              aria-label={offline.record?.state === "complete" ? "Remove offline download" : "Save for offline listening"}
+              title={offline.record?.state === "complete" ? "Saved offline" : offline.busy ? `Downloading ${Math.round(offline.progress * 100)}%` : "Save offline"}
+            >
+              {offline.record?.state === "complete" ? <CheckCircle2 size={18} /> : <Download size={18} />}
+            </button>
+          )}
+          {isEbook && isStandalone() && capabilities.canDownload && isFoliateFormat(primaryReadableDoc?.format) && (
+            <button
+              className={`icon-button${ebookOffline.record?.state === "complete" ? " offline-saved" : ""}`}
+              type="button"
+              onClick={() => {
+                if (ebookOffline.busy) return;
+                if (ebookOffline.record?.state === "complete") {
+                  setConfirmRemoveEbookDownload(true);
+                } else {
+                  void ebookOffline.start();
+                }
+              }}
+              disabled={ebookOffline.busy}
+              aria-label={ebookOffline.record?.state === "complete" ? "Remove offline download" : "Save for offline reading"}
+              title={ebookOffline.record?.state === "complete" ? "Saved offline" : ebookOffline.busy ? `Downloading ${Math.round(ebookOffline.progress * 100)}%` : "Save offline"}
+            >
+              {ebookOffline.record?.state === "complete" ? <CheckCircle2 size={18} /> : <Download size={18} />}
+            </button>
+          )}
+          {capabilities.canEdit && (
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => setMetadataModalOpen(true)}
+              aria-label="Edit metadata"
+              title="Edit metadata"
+            >
+              <Pencil size={18} />
+            </button>
+          )}
+          {capabilities.canDownload && (
+            <a
+              className="icon-button"
+              href={isEbook && primaryReadableDoc ? `${primaryReadableDoc.url}?download` : `/api/library/books/${book.id}/download`}
+              download
+              aria-label="Download"
+              title="Download"
+            >
+              <Download size={18} />
+            </a>
+          )}
+          {isEbook && capabilities.canDownload && sendableDoc && (
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => void sendToEreader()}
+              disabled={sending}
+              aria-label="Send to e-reader"
+              title={sending ? "Sending…" : "Send to e-reader (Kindle/Kobo)"}
+            >
+              <Send size={18} />
+            </button>
+          )}
+          <button
+            className="icon-button"
+            type="button"
+            onClick={() => setAddToCollectionOpen(true)}
+            aria-label="Add to collection"
+            title="Add to collection"
+          >
+            <ListMusic size={18} />
+          </button>
+          {capabilities.canShare && (
+            <button
+              className="icon-button"
+              type="button"
+              onClick={() => setShareModalOpen(true)}
+              aria-label="Share"
+              title="Share"
+            >
+              <Share2 size={18} />
+            </button>
+          )}
+          {capabilities.canDelete && (
+            <button
+              className="icon-button danger"
+              type="button"
+              onClick={() => { setDeleteError(""); setConfirmDelete(true); }}
+              aria-label="Move to Recycle Bin"
+              title="Move to Recycle Bin"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="book-detail-head">
@@ -788,6 +910,7 @@ function BookDetailView({
                 <button
                   className="book-tag-chip book-tag-chip-category"
                   type="button"
+                  title={book.category.name}
                   onClick={() => navigate(`/categories/${book.category?.key}${linkFrom}`)}
                 >
                   {book.category.name}
@@ -798,6 +921,7 @@ function BookDetailView({
                   className="book-tag-chip book-tag-chip-tag"
                   key={tag}
                   type="button"
+                  title={tag}
                   onClick={() => navigate(`/tags/${encodeURIComponent(tag)}${linkFrom}`)}
                 >
                   {tag}
@@ -859,122 +983,6 @@ function BookDetailView({
             </div>
           )}
           <div className="book-detail-actions">
-            <div className="book-detail-secondary-actions" aria-label="Book actions">
-              <button
-                className={`book-detail-icon-action${save?.saved ? " on" : ""}`}
-                type="button"
-                onClick={toggleSave}
-                disabled={saveAction}
-                aria-pressed={save?.saved ?? false}
-                aria-label={saveAction ? "Saving favorite" : save?.saved ? "Remove from favorites" : "Add to favorites"}
-                title={saveAction ? "Saving..." : save?.saved ? "Favorited" : "Add to favorites"}
-              >
-                <Heart size={18} fill={save?.saved ? "currentColor" : "none"} />
-              </button>
-              {!isEbook && isStandalone() && capabilities.canDownload && book.files.some((f) => f.status === "available") && (
-                <button
-                  className={`book-detail-icon-action${offline.record?.state === "complete" ? " offline-saved" : ""}`}
-                  type="button"
-                  onClick={() => {
-                    if (offline.busy) return;
-                    if (offline.record?.state === "complete") {
-                      setConfirmRemoveDownload(true);
-                    } else {
-                      void offline.start();
-                    }
-                  }}
-                  disabled={offline.busy}
-                  aria-label={offline.record?.state === "complete" ? "Remove offline download" : "Save for offline listening"}
-                  title={offline.record?.state === "complete" ? "Saved offline" : offline.busy ? `Downloading ${Math.round(offline.progress * 100)}%` : "Save offline"}
-                >
-                  {offline.record?.state === "complete" ? <CheckCircle2 size={18} /> : <Download size={18} />}
-                </button>
-              )}
-              {isEbook && isStandalone() && capabilities.canDownload && isFoliateFormat(primaryReadableDoc?.format) && (
-                <button
-                  className={`book-detail-icon-action${ebookOffline.record?.state === "complete" ? " offline-saved" : ""}`}
-                  type="button"
-                  onClick={() => {
-                    if (ebookOffline.busy) return;
-                    if (ebookOffline.record?.state === "complete") {
-                      setConfirmRemoveEbookDownload(true);
-                    } else {
-                      void ebookOffline.start();
-                    }
-                  }}
-                  disabled={ebookOffline.busy}
-                  aria-label={ebookOffline.record?.state === "complete" ? "Remove offline download" : "Save for offline reading"}
-                  title={ebookOffline.record?.state === "complete" ? "Saved offline" : ebookOffline.busy ? `Downloading ${Math.round(ebookOffline.progress * 100)}%` : "Save offline"}
-                >
-                  {ebookOffline.record?.state === "complete" ? <CheckCircle2 size={18} /> : <Download size={18} />}
-                </button>
-              )}
-              {capabilities.canEdit && (
-                <button
-                  className="book-detail-icon-action"
-                  type="button"
-                  onClick={() => setMetadataModalOpen(true)}
-                  aria-label="Edit metadata"
-                  title="Edit metadata"
-                >
-                  <Pencil size={18} />
-                </button>
-              )}
-              {capabilities.canDownload && (
-                <a
-                  className="book-detail-icon-action"
-                  href={isEbook && primaryReadableDoc ? `${primaryReadableDoc.url}?download` : `/api/library/books/${book.id}/download`}
-                  download
-                  aria-label="Download"
-                  title="Download"
-                >
-                  <Download size={18} />
-                </a>
-              )}
-              {isEbook && capabilities.canDownload && sendableDoc && (
-                <button
-                  className="book-detail-icon-action"
-                  type="button"
-                  onClick={() => void sendToEreader()}
-                  disabled={sending}
-                  aria-label="Send to e-reader"
-                  title={sending ? "Sending…" : "Send to e-reader (Kindle/Kobo)"}
-                >
-                  <Send size={18} />
-                </button>
-              )}
-              <button
-                className="book-detail-icon-action"
-                type="button"
-                onClick={() => setAddToCollectionOpen(true)}
-                aria-label="Add to collection"
-                title="Add to collection"
-              >
-                <ListMusic size={18} />
-              </button>
-              {capabilities.canShare && (
-                <button
-                  className="book-detail-icon-action"
-                  type="button"
-                  onClick={() => setShareModalOpen(true)}
-                  aria-label="Share"
-                  title="Share"
-                >
-                  <Share2 size={18} />
-                </button>
-              )}
-              {capabilities.canDelete && (
-                <button
-                  className="book-detail-icon-action danger"
-                  type="button"
-                  onClick={() => { setDeleteError(""); setConfirmDelete(true); }}
-                  aria-label="Move to Recycle Bin"
-                  title="Move to Recycle Bin"
-                >
-                  <Trash2 size={18} />
-                </button>
-              )}
-            </div>
             <div className="book-detail-primary-actions">
               {isEbook ? (
                 <button

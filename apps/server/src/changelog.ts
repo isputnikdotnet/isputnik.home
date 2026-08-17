@@ -19,6 +19,15 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.7.6",
+    label: "Book actions move up top, and tags become tinted pills",
+    changes: [
+      "Everything you can do to a book or ebook — favorite it, edit its details, download it, send it to an e-reader, add it to a collection, share it, delete it — now sits in one row at the top of its page, right beside Back, instead of mid-page under the description. It's the arrangement an open album in the Gallery has always had, so every \"one thing open\" page now reads alike: Back on the left, the thing's actions beside it. Start listening and Read stay big and by the cover — the action you came for doesn't hide among the housekeeping.",
+      "Those buttons now also look like the Gallery's: one square icon-button style everywhere, replacing the round pills the book and family pages carried. Nothing lost in the translation — a favorited book still fills its heart in rose, a book saved for offline still shows mint.",
+      "A book's category and tags under the cover are now small tinted pills — gold for the category, mint for tags — instead of the gray boxes they were, and they've stopped pretending every name is short: an overlong tag is cut with an ellipsis, and pointing at it shows the full name."
+    ]
+  },
+  {
     version: "3.7.5",
     label: "Search folders by name, and catch a folder copied into itself",
     changes: [

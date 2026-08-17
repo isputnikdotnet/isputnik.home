@@ -75,6 +75,32 @@
   background: color-mix(in srgb, var(--gold) 22%, var(--icon-control-bg));
 }
 
+/* Favorited/active toggle accent — filled rose, e.g. the heart on a book or
+   ebook's detail topbar once saved. */
+.icon-button.on {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(145deg, #8f173c, #c5275b);
+}
+
+.icon-button.on:hover:not(:disabled) {
+  border-color: transparent;
+  background: linear-gradient(145deg, #9c1a42, #d22b63);
+}
+
+/* Downloaded-for-offline accent — filled mint, e.g. a book/ebook's offline
+   download toggle once the download completes. */
+.icon-button.offline-saved {
+  color: #06241f;
+  border-color: transparent;
+  background: var(--mint);
+}
+
+.icon-button.offline-saved:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--mint) 88%, #ffffff);
+}
+
 /* ── Row actions (button group inside a table cell) ─────────────── */
 
 .row-actions {
