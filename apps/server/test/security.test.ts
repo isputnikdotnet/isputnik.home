@@ -127,10 +127,17 @@ describe("IP blocking", () => {
     expect(isIpBlocked("203.0.113.5")).toBe(false);
   });
 
-  it("treats an expired block as not blocked", () => {
+  it("treats an expired block as not blocked, and the list labels it so", () => {
     const past = new Date(Date.now() - 1000).toISOString();
     db.prepare("INSERT INTO blocked_ips (ip_address, reason, auto, expires_at) VALUES ('203.0.113.6', 'x', 1, ?)").run(past);
     expect(isIpBlocked("203.0.113.6")).toBe(false);
+
+    // The row survives expiry — only the enforcement stops — so the list must
+    // say which state it is in, by the same clock isIpBlocked reads.
+    blockIp("203.0.113.10", { reason: "y", auto: true, minutes: 60 });
+    const byIp = new Map(listBlockedIps().map((entry) => [entry.ip_address, entry.expired]));
+    expect(byIp.get("203.0.113.6")).toBe(1);
+    expect(byIp.get("203.0.113.10")).toBe(0);
   });
 
   it("auto-blocks an IP past the failure threshold, exactly once", () => {

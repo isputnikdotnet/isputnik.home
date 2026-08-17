@@ -78,7 +78,8 @@ export async function securityRoutes(app: FastifyInstance) {
       reason: entry.reason,
       auto: Boolean(entry.auto),
       createdAt: entry.created_at,
-      expiresAt: entry.expires_at
+      expiresAt: entry.expires_at,
+      expired: Boolean(entry.expired)
     }))
   }));
 
