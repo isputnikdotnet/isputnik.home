@@ -281,6 +281,7 @@ function MfaSetupModal({
 
 function MfaRegenerateModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [codes, setCodes] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -292,7 +293,7 @@ function MfaRegenerateModal({ onClose, onDone }: { onClose: () => void; onDone: 
     try {
       const payload = await api<{ backupCodes: string[] }>("/api/profile/mfa/backup-codes", {
         method: "POST",
-        body: JSON.stringify({ currentPassword: password })
+        body: JSON.stringify({ currentPassword: password, code: code.trim() })
       });
       setCodes(payload.backupCodes);
     } catch (err) {
@@ -319,12 +320,19 @@ function MfaRegenerateModal({ onClose, onDone }: { onClose: () => void; onDone: 
 
   return (
     <Modal variant="card" title="Regenerate backup codes" busy={busy} onClose={onClose} onSubmit={submit}>
-      <p>Confirm your password. This replaces your existing backup codes with a fresh set.</p>
+      <p>Confirm your password and a current two-factor code. This replaces your existing backup codes with a fresh set.</p>
       <Field label="Current password" type="password" value={password} onChange={setPassword} autoComplete="current-password" />
+      <Field
+        label="Two-factor code"
+        value={code}
+        onChange={setCode}
+        placeholder="From your authenticator app, or a backup code"
+        autoComplete="one-time-code"
+      />
       {error && <MessageBox tone="error" title="Unable to regenerate">{error}</MessageBox>}
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-        <Button variant="primary" type="submit" disabled={busy || password.length < 1}>
+        <Button variant="primary" type="submit" disabled={busy || password.length < 1 || code.trim().length < 6}>
           {busy ? "Generating…" : "Regenerate"}
         </Button>
       </div>
@@ -334,6 +342,7 @@ function MfaRegenerateModal({ onClose, onDone }: { onClose: () => void; onDone: 
 
 function MfaDisableModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -344,7 +353,7 @@ function MfaDisableModal({ onClose, onDone }: { onClose: () => void; onDone: () 
     try {
       await api("/api/profile/mfa/disable", {
         method: "POST",
-        body: JSON.stringify({ currentPassword: password })
+        body: JSON.stringify({ currentPassword: password, code: code.trim() })
       });
       onDone();
     } catch (err) {
@@ -355,12 +364,22 @@ function MfaDisableModal({ onClose, onDone }: { onClose: () => void; onDone: () 
 
   return (
     <Modal variant="card" title="Turn off two-factor authentication?" alert busy={busy} onClose={onClose} onSubmit={submit}>
-      <p>Your account will be protected by your password alone. Confirm your password to turn two-factor off.</p>
+      <p>
+        Your account will be protected by your password alone. Confirm your password and a current
+        two-factor code to turn it off.
+      </p>
       <Field label="Current password" type="password" value={password} onChange={setPassword} autoComplete="current-password" />
+      <Field
+        label="Two-factor code"
+        value={code}
+        onChange={setCode}
+        placeholder="From your authenticator app, or a backup code"
+        autoComplete="one-time-code"
+      />
       {error && <MessageBox tone="error" title="Unable to turn off">{error}</MessageBox>}
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-        <Button variant="danger" type="submit" disabled={busy || password.length < 1}>
+        <Button variant="danger" type="submit" disabled={busy || password.length < 1 || code.trim().length < 6}>
           {busy ? "Turning off…" : "Turn off"}
         </Button>
       </div>

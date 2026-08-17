@@ -214,15 +214,21 @@ procedure.
   the `__Host-` path only engages on a real HTTPS deployment — worth a browser sign-in/MFA/passkey
   smoke test on staging before relying on it.**
 
-### P3 — picked up after the main tiers (commit `see branch`)
+### P3 — picked up after the main tiers (on `security-followup`)
 - **Author-profile write gate** *(Review B, Low)* — ✅ the four `by-name` profile-write routes
   (`people.ts` PATCH, enrich, photo-from-url, PUT photo) were gated only on `authenticate`, so any
   member could rename/re-bio/re-photo any author globally. Now gated on `canWriteAnyBookLibrary`
   (mirrors gallery's `canWriteAnyGallery`); admins always pass. `author-profile-authz.test.ts`.
+- **Second factor to disable MFA (and regenerate backup codes)** *(Review B, Low)* — ✅ both were
+  password-only, so a stolen password + a live session could strip the second factor. Both now also
+  require a current second factor (authenticator code or backup code) while MFA is on — gated
+  together because a password-only backup-code regen would otherwise mint a code to disable with.
+  Web disable/regenerate modals gained a code field. `mfa-disable-second-factor.test.ts`. (The
+  related **email-change** flow remains password-only — a separate follow-up.)
 
 ### Info / note-only (no action required for this threat model)
-TOTP codes replayable within their ~60–90 s window (no last-step tracking); MFA-disable and
-email-change are password-gated only; scrypt at Node defaults (one notch below OWASP 2^17); backup/email codes
+TOTP codes replayable within their ~60–90 s window (no last-step tracking); login-email-change is
+password-gated only; scrypt at Node defaults (one notch below OWASP 2^17); backup/email codes
 offline-brute-forceable only with a stolen DB; `pathIsInside` is lexical (symlink-defeatable, needs
 disk access); a few exotic IPv6 ranges unblocked in the SSRF list; share-recipient endpoints return
 member emails the directory withholds. Documented here for awareness; revisit only if guest accounts

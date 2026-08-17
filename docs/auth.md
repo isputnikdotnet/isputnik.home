@@ -320,7 +320,7 @@ Only the "is this code correct?" line branches on the method — the attempt cap
 ### Enrollment & recovery
 
 - **Enroll** (Profile, password-gated): `setup` (TOTP: the secret + a QR data URL; email: mails a code to the account address and returns the masked recipient) → `enable` (confirms a code, reveals backup codes once). Nothing is switched on until the factor is proven to reach the user.
-- **Manage**: turn off (password-gated) and regenerate backup codes. Switching methods = turn off, set up again.
+- **Manage**: turn off, and regenerate backup codes — both require the password **and** a current second factor (an authenticator code, or a backup code) while MFA is on, so a stolen password plus a live session can't strip the factor. The two are gated together on purpose: regenerating backup codes password-only would otherwise mint a fresh code to then disable with. Email-method users confirm with a backup code (an admin reset is the recovery path if those are lost — `verifyCurrentSecondFactor` in `core/mfa-routes.ts`). Switching methods = turn off, set up again.
 - **Admin reset**: `POST /api/users/:id/mfa/reset` clears MFA — method, secret, and backup codes — for a member locked out of their second factor. There is no self-service recovery.
 
 ### Technology

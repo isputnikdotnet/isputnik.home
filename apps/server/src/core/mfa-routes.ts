@@ -322,6 +322,37 @@ const passwordGateSchema = z.object({
   method: z.enum(["totp", "email"]).optional()
 });
 const codeSchema = z.object({ token: z.string().trim().min(6).max(40) });
+// Password plus an optional current second factor, for the destructive
+// MFA-management actions (disable, regenerate backup codes). The code is required
+// only while MFA is on — enforced in the handler, not the schema, so a first-time
+// (MFA-off) caller never has to supply one.
+const passwordAndCodeSchema = z.object({
+  currentPassword: z.string().min(1, "Enter your current password").max(200),
+  code: z.string().trim().min(6).max(40).optional()
+});
+
+// Verify a currently-valid second factor for an already-authenticated user: their
+// authenticator code if they use TOTP, or a single-use backup code (which email-
+// method users rely on here — there's no live email challenge to check against on
+// a self-service management action, and an admin MFA reset is the recovery path if
+// the codes are lost). Only tries a backup code if TOTP didn't match, so a valid
+// app code never burns one. This is what stops a stolen password plus a live
+// session from being enough to strip the second factor.
+function verifyCurrentSecondFactor(user: User, code: string): boolean {
+  let ok = false;
+  if (user.mfa_secret) {
+    try {
+      ok = verifyTotp(decryptSecret(user.mfa_secret), code);
+    } catch {
+      ok = false;
+    }
+  }
+  if (!ok) ok = consumeBackupCode(user.id, code);
+  return ok;
+}
+
+const SECOND_FACTOR_REQUIRED = "Enter a code from your authenticator app or one of your backup codes.";
+const SECOND_FACTOR_WRONG = "That code didn't match. Enter a current authenticator code or a backup code.";
 
 export async function mfaRoutes(app: FastifyInstance) {
   app.get("/api/profile/mfa", { preHandler: app.authenticate }, async (request) => ({
@@ -399,15 +430,28 @@ export async function mfaRoutes(app: FastifyInstance) {
   });
 
   app.post("/api/profile/mfa/disable", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = parseBody(passwordGateSchema, request.body);
+    const parsed = parseBody(passwordAndCodeSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Enter your current password", details: parsed.error });
     }
-    if (!(await verifyPassword(parsed.data.currentPassword, request.user!.password_hash))) {
+    const user = request.user!;
+    if (!(await verifyPassword(parsed.data.currentPassword, user.password_hash))) {
       return reply.code(403).send({ error: "Your current password is incorrect." });
     }
-    resetMfa(request.user!.id);
-    alertMfaDisabled(request.user!.email, false);
+    // Turning two-factor off is exactly what a thief with the password wants; make
+    // them prove a second factor too, so a stolen password plus a live session
+    // isn't enough. `needsSecondFactor` lets the UI show the code field.
+    if (user.mfa_enabled) {
+      const code = parsed.data.code ?? "";
+      if (!code) {
+        return reply.code(400).send({ error: SECOND_FACTOR_REQUIRED, needsSecondFactor: true });
+      }
+      if (!verifyCurrentSecondFactor(user, code)) {
+        return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
+      }
+    }
+    resetMfa(user.id);
+    alertMfaDisabled(user.email, false);
     logActivity({
       event: "profile.mfa_disabled",
       actorUserId: request.user!.id,
@@ -420,17 +464,28 @@ export async function mfaRoutes(app: FastifyInstance) {
   });
 
   app.post("/api/profile/mfa/backup-codes", { preHandler: app.authenticate }, async (request, reply) => {
-    const parsed = parseBody(passwordGateSchema, request.body);
+    const parsed = parseBody(passwordAndCodeSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Enter your current password", details: parsed.error });
     }
-    if (!request.user!.mfa_enabled) {
+    const user = request.user!;
+    if (!user.mfa_enabled) {
       return reply.code(409).send({ error: "Two-factor authentication isn't on." });
     }
-    if (!(await verifyPassword(parsed.data.currentPassword, request.user!.password_hash))) {
+    if (!(await verifyPassword(parsed.data.currentPassword, user.password_hash))) {
       return reply.code(403).send({ error: "Your current password is incorrect." });
     }
-    const codes = regenerateBackupCodes(request.user!.id);
+    // A second factor is required here too, not just on disable: otherwise a
+    // password-only attacker could mint fresh backup codes and use one to strip
+    // MFA, sidestepping the disable gate above.
+    const code = parsed.data.code ?? "";
+    if (!code) {
+      return reply.code(400).send({ error: SECOND_FACTOR_REQUIRED, needsSecondFactor: true });
+    }
+    if (!verifyCurrentSecondFactor(user, code)) {
+      return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
+    }
+    const codes = regenerateBackupCodes(user.id);
     alertMfaBackupCodesRegenerated(request.user!.email, request.ip);
     logActivity({
       event: "profile.mfa_backup_regenerated",
