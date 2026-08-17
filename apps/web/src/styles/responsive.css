@@ -265,11 +265,6 @@
     flex: 1 1 160px;
   }
 
-  .book-detail-icon-action {
-    width: 42px;
-    height: 42px;
-  }
-
   .book-progress-inline {
     gap: 8px 10px;
   }

@@ -654,7 +654,7 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                   <div className="book-detail-actions">
                     <div className="book-detail-secondary-actions" aria-label="Person actions">
                       <a
-                        className="book-detail-icon-action"
+                        className="icon-button"
                         href={`/family/tree/${profile.id}`}
                         onClick={(event) => followRoute(event, `/family/tree/${profile.id}`)}
                         title="View in tree"
@@ -665,7 +665,6 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                       {canEdit && (
                         <Button
                           variant="icon"
-                          className="book-detail-icon-action"
                           onClick={() => setEditOpen(true)}
                           title="Edit person"
                           aria-label="Edit person"
@@ -677,7 +676,6 @@ export function FamilyPersonPage({ id, user, logout }: { id: string; user: Publi
                         <Button
                           variant="icon"
                           danger
-                          className="book-detail-icon-action"
                           onClick={() => setDeleteOpen(true)}
                           title="Delete person"
                           aria-label="Delete person"

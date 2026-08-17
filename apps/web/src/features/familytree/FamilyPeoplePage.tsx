@@ -92,6 +92,7 @@ export function FamilyPeoplePage({ user, logout }: { user: PublicUser; logout: (
                 type="button"
                 className={`book-tag-chip book-tag-chip-tag${activeTag === tag ? " ft-tag-chip-active" : ""}`}
                 aria-pressed={activeTag === tag}
+                title={`${tag} · ${count}`}
                 onClick={() => setActiveTag(activeTag === tag ? null : tag)}
               >
                 {tag} · {count}
