@@ -168,7 +168,7 @@ export function ProfilePage({
               </Button>
             </form>
 
-            <ChangeEmailSection email={user.email} onChanged={onUpdated} />
+            <ChangeEmailSection email={user.email} mfaEnabled={Boolean(user.mfaEnabled)} onChanged={onUpdated} />
           </div>
 
           <div

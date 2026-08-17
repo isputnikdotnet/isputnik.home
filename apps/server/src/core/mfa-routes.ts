@@ -338,7 +338,7 @@ const passwordAndCodeSchema = z.object({
 // the codes are lost). Only tries a backup code if TOTP didn't match, so a valid
 // app code never burns one. This is what stops a stolen password plus a live
 // session from being enough to strip the second factor.
-function verifyCurrentSecondFactor(user: User, code: string): boolean {
+export function verifyCurrentSecondFactor(user: User, code: string): boolean {
   let ok = false;
   if (user.mfa_secret) {
     try {
@@ -351,8 +351,8 @@ function verifyCurrentSecondFactor(user: User, code: string): boolean {
   return ok;
 }
 
-const SECOND_FACTOR_REQUIRED = "Enter a code from your authenticator app or one of your backup codes.";
-const SECOND_FACTOR_WRONG = "That code didn't match. Enter a current authenticator code or a backup code.";
+export const SECOND_FACTOR_REQUIRED = "Enter a code from your authenticator app or one of your backup codes.";
+export const SECOND_FACTOR_WRONG = "That code didn't match. Enter a current authenticator code or a backup code.";
 
 export async function mfaRoutes(app: FastifyInstance) {
   app.get("/api/profile/mfa", { preHandler: app.authenticate }, async (request) => ({
