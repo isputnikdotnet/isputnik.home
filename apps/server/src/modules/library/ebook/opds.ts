@@ -4,7 +4,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest, RouteShorthandOptio
 import { nowIso, type User } from "../../../db.js";
 import { resolveApiToken, isUnknownApiToken } from "../../../core/api-tokens.js";
 import { flagAbusiveRequest } from "../../../core/security-alerts.js";
-import { thumbnailAbsolutePath, LIBRARY_BUCKET_RE } from "../shared/thumbnail.js";
+import { resolveCoverKey, LIBRARY_BUCKET_RE } from "../shared/thumbnail.js";
 import { getAccessibleLibrary } from "../shared/library-access.js";
 import { streamDocumentFile } from "../shared/document-stream.js";
 import { resolveEbookScopeLibraryIds, queryEbookCatalog, ebookCatalogFacets } from "./catalog.js";
@@ -367,14 +367,18 @@ async function coverHandler(request: FastifyRequest, reply: FastifyReply): Promi
   // one user, and a deterministic key must not let it fetch thumbnails from a
   // library that user can't see — including gallery face crops, which also live
   // under a library bucket, outside the ebook surface the token was minted for.
-  const bucket = key.split("/")[0] ?? "";
+  // resolveCoverKey derives the bucket from the RESOLVED path (closing the
+  // encoded-slash traversal) and rejects non-image keys.
+  const resolved = resolveCoverKey(key);
+  if (!resolved) {
+    return reply.code(404).type("text/plain").send("Cover not found");
+  }
   const user = request.opdsUser!;
-  if (LIBRARY_BUCKET_RE.test(bucket) && !getAccessibleLibrary(bucket, user.id, user.role)) {
+  if (LIBRARY_BUCKET_RE.test(resolved.bucket) && !getAccessibleLibrary(resolved.bucket, user.id, user.role)) {
     return reply.code(404).type("text/plain").send("Cover not found");
   }
   try {
-    const absolutePath = thumbnailAbsolutePath(key);
-    const data = await fsp.readFile(absolutePath);
+    const data = await fsp.readFile(resolved.absolutePath);
     return reply.type(COVER_MIME[path.extname(key).toLowerCase()] ?? "application/octet-stream")
       .header("Cache-Control", "private, max-age=3600")
       .send(data);

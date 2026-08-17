@@ -52,6 +52,31 @@ export function thumbnailAbsolutePath(storageKey: string) {
   return absolutePath;
 }
 
+// The image extensions the cover route serves. Restricting to these stops the
+// route being used to stream a non-thumbnail asset that lives in the same store
+// (e.g. a rendered slideshow .mp4, whose own endpoint gates it per viewer).
+const COVER_EXTENSIONS = new Set([".webp", ".jpg", ".jpeg", ".png"]);
+
+// Resolve a cover storage key to its absolute path AND the top-level bucket it
+// actually lands in — derived from the RESOLVED path, never the raw request
+// string. An encoded-slash or ".." key (Fastify decodes %2f into the wildcard
+// param) collapses on disk into a library bucket; deriving the bucket from the
+// raw first segment let such a key dodge the access check while the read used the
+// collapsed path. Returns null for a non-image key or one that escapes the store.
+export function resolveCoverKey(storageKey: string): { absolutePath: string; bucket: string } | null {
+  if (!COVER_EXTENSIONS.has(path.extname(storageKey).toLowerCase())) return null;
+  let root: string;
+  try {
+    root = getConfiguredThumbnailPath();
+  } catch {
+    return null;
+  }
+  const absolutePath = path.resolve(root, storageKey);
+  if (!pathIsInside(absolutePath, root)) return null;
+  const bucket = path.relative(root, absolutePath).split(path.sep)[0] ?? "";
+  return { absolutePath, bucket };
+}
+
 // Delete every generated thumbnail file for one library. Item covers/previews,
 // series covers and gallery face crops are all stored under the library's bucket
 // directory (thumbnailStorageKey(libraryId, …)), so removing that directory is the

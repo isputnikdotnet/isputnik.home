@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { db, logActivity, nowIso, publicUser, type MfaMethod, type User } from "../db.js";
@@ -354,6 +354,28 @@ export function verifyCurrentSecondFactor(user: User, code: string): boolean {
 export const SECOND_FACTOR_REQUIRED = "Enter a code from your authenticator app or one of your backup codes.";
 export const SECOND_FACTOR_WRONG = "That code didn't match. Enter a current authenticator code or a backup code.";
 
+// A wrong second factor on a management action (disable, regenerate codes, change
+// email) is recorded like a failed sign-in — so it feeds account lockout (which is
+// IP-independent, closing the multi-source-IP brute-force a per-IP rate limit
+// alone can't) and the per-IP auto-block — and logged, so the guessing channel is
+// throttled and audited rather than silent. Callers also carry a per-route rate
+// limit for the single-IP case.
+export function recordSecondFactorFailure(request: FastifyRequest, user: User): void {
+  recordLoginAttempt(user.email, request.ip, false);
+  maybeAutoBlockIp(request.ip);
+  logActivity({
+    event: "auth.second_factor_failed",
+    actorUserId: user.id,
+    targetType: "user",
+    targetId: user.id,
+    detail: "A two-factor–protected account change was refused: wrong code.",
+    ipAddress: request.ip
+  });
+}
+
+// Shared rate limit for the second-factor-gated management routes.
+export const MFA_MANAGE_RATE_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
+
 export async function mfaRoutes(app: FastifyInstance) {
   app.get("/api/profile/mfa", { preHandler: app.authenticate }, async (request) => ({
     ...getMfaStatus(request.user!.id),
@@ -429,7 +451,7 @@ export async function mfaRoutes(app: FastifyInstance) {
     return reply.send({ backupCodes: codes });
   });
 
-  app.post("/api/profile/mfa/disable", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/profile/mfa/disable", { preHandler: app.authenticate, ...MFA_MANAGE_RATE_LIMIT }, async (request, reply) => {
     const parsed = parseBody(passwordAndCodeSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Enter your current password", details: parsed.error });
@@ -447,6 +469,7 @@ export async function mfaRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: SECOND_FACTOR_REQUIRED, needsSecondFactor: true });
       }
       if (!verifyCurrentSecondFactor(user, code)) {
+        recordSecondFactorFailure(request, user);
         return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
       }
     }
@@ -463,7 +486,7 @@ export async function mfaRoutes(app: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
-  app.post("/api/profile/mfa/backup-codes", { preHandler: app.authenticate }, async (request, reply) => {
+  app.post("/api/profile/mfa/backup-codes", { preHandler: app.authenticate, ...MFA_MANAGE_RATE_LIMIT }, async (request, reply) => {
     const parsed = parseBody(passwordAndCodeSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Enter your current password", details: parsed.error });
@@ -483,6 +506,7 @@ export async function mfaRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: SECOND_FACTOR_REQUIRED, needsSecondFactor: true });
     }
     if (!verifyCurrentSecondFactor(user, code)) {
+      recordSecondFactorFailure(request, user);
       return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
     }
     const codes = regenerateBackupCodes(user.id);

@@ -5,7 +5,7 @@ import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { hashPassword, verifyPassword } from "../../crypto.js";
 import { currentSessionHash } from "../../auth.js";
 import { alertEmailChanged, alertPasswordChanged } from "../../core/security-alerts.js";
-import { verifyCurrentSecondFactor, SECOND_FACTOR_REQUIRED, SECOND_FACTOR_WRONG } from "../../core/mfa-routes.js";
+import { verifyCurrentSecondFactor, recordSecondFactorFailure, SECOND_FACTOR_REQUIRED, SECOND_FACTOR_WRONG, MFA_MANAGE_RATE_LIMIT } from "../../core/mfa-routes.js";
 
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
@@ -103,7 +103,7 @@ export async function profilePlugin(app: FastifyInstance) {
   // Self-service email change: the email is the login identity, so the caller must
   // prove their current password (mirrors the password change). Sessions are
   // token-based and stay valid — changing the login email doesn't sign devices out.
-  app.patch("/api/profile/email", { preHandler: app.authenticate }, async (request, reply) => {
+  app.patch("/api/profile/email", { preHandler: app.authenticate, ...MFA_MANAGE_RATE_LIMIT }, async (request, reply) => {
     const parsed = parseBody(emailSchema, request.body);
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid email", details: parsed.error });
@@ -141,6 +141,7 @@ export async function profilePlugin(app: FastifyInstance) {
         return reply.code(400).send({ error: SECOND_FACTOR_REQUIRED, needsSecondFactor: true });
       }
       if (!verifyCurrentSecondFactor(user, code)) {
+        recordSecondFactorFailure(request, user);
         return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
       }
     }

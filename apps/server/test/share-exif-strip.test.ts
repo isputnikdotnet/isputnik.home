@@ -39,20 +39,31 @@ describe("stripImageMetadata", () => {
     // Sanity: the fixture really does carry EXIF before stripping.
     expect((await sharp(src).metadata()).exif).toBeDefined();
 
-    const { buffer, contentType } = await stripImageMetadata(src);
-    const meta = await sharp(buffer).metadata();
+    const result = await stripImageMetadata(src);
+    expect(result).not.toBeNull();
+    const meta = await sharp(result!.buffer).metadata();
     expect(meta.exif).toBeUndefined();
-    expect(contentType).toBe("image/jpeg");
+    expect(result!.contentType).toBe("image/jpeg");
     expect(meta.width).toBe(32);
     expect(meta.height).toBe(24);
   });
 
   it("keeps a PNG a PNG and drops its metadata", async () => {
     const src = await writeImageWithGps("home.png", "png");
-    const { buffer, contentType } = await stripImageMetadata(src);
-    const meta = await sharp(buffer).metadata();
+    const result = await stripImageMetadata(src);
+    expect(result).not.toBeNull();
+    const meta = await sharp(result!.buffer).metadata();
     expect(meta.format).toBe("png");
-    expect(contentType).toBe("image/png");
+    expect(result!.contentType).toBe("image/png");
     expect(meta.exif).toBeUndefined();
+  });
+
+  it("returns null (refuse) for a file that can't be decoded — never the original", async () => {
+    // The security-critical contract: an undecodable photo must not fall back to
+    // the original bytes (which would carry EXIF/GPS). sharp fails, the ffmpeg
+    // rescue fails, so the helper returns null and the route refuses the download.
+    const junk = path.join(dir, "not-an-image.jpg");
+    fs.writeFileSync(junk, Buffer.from("this is definitely not an image"));
+    expect(await stripImageMetadata(junk)).toBeNull();
   });
 });

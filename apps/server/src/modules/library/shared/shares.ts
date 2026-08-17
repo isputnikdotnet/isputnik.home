@@ -17,6 +17,7 @@ import { resolveShareLink, type ResolvedShareLink } from "./share-access.js";
 import { newlySharedResources, notifyShareGranted } from "./share-notify.js";
 import { parseRangeHeader } from "./document-stream.js";
 import { mediaKind, type MediaModule } from "./library-types.js";
+import { decodePhotoToJpeg } from "../gallery/media.js";
 
 // Item-level sharing for the digital library, shared across media types. Guest
 // links (anonymous, no account) and user-to-user shares both live on the generic
@@ -583,55 +584,96 @@ function sendFile(
 // collapse to a high-quality JPEG. Videos are left as-is for now — stripping the
 // location atom from a video needs an ffmpeg remux, a heavier change tracked as
 // a follow-up — so only "photo" items divert here.
-export async function stripImageMetadata(absolutePath: string): Promise<{ buffer: Buffer; contentType: string }> {
-  const pipeline = sharp(absolutePath, { failOn: "none" }).rotate();
-  const format = (await pipeline.metadata()).format;
-  switch (format) {
-    case "png":
-      return { buffer: await pipeline.png().toBuffer(), contentType: "image/png" };
-    case "webp":
-      return { buffer: await pipeline.webp({ quality: 90 }).toBuffer(), contentType: "image/webp" };
-    case "gif":
-      return { buffer: await pipeline.gif().toBuffer(), contentType: "image/gif" };
-    default:
-      return { buffer: await pipeline.jpeg({ quality: 90, mozjpeg: true }).toBuffer(), contentType: "image/jpeg" };
+// Re-encode a shared photo, dropping all metadata. `animated: true` keeps GIF /
+// animated-WebP frames; .rotate() bakes the EXIF orientation in so the stripped
+// copy still displays upright. The common formats keep their format; exotic ones
+// collapse to a high-quality JPEG. Returns null when the photo can't be decoded
+// AT ALL — the caller must NOT then serve the original, or its EXIF/GPS leaks.
+// Never throws.
+export async function stripImageMetadata(absolutePath: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+  try {
+    const pipeline = sharp(absolutePath, { failOn: "none", animated: true }).rotate();
+    const format = (await pipeline.metadata()).format;
+    switch (format) {
+      case "png":
+        return { buffer: await pipeline.png().toBuffer(), contentType: "image/png" };
+      case "webp":
+        return { buffer: await pipeline.webp({ quality: 90 }).toBuffer(), contentType: "image/webp" };
+      case "gif":
+        return { buffer: await pipeline.gif().toBuffer(), contentType: "image/gif" };
+      default:
+        return { buffer: await pipeline.jpeg({ quality: 90, mozjpeg: true }).toBuffer(), contentType: "image/jpeg" };
+    }
+  } catch {
+    // sharp can't decode it — HEIC/HEIF is the common case (iPhone's default, and
+    // exactly where the home GPS rides): the bundled libheif has no HEVC decoder.
+    // Re-decode via ffmpeg to a clean JPEG, the same rescue the thumbnailer uses,
+    // then strip that through sharp to be certain nothing rode along.
+    const jpeg = await decodePhotoToJpeg(absolutePath);
+    if (!jpeg) return null;
+    try {
+      return {
+        buffer: await sharp(jpeg, { failOn: "none" }).rotate().jpeg({ quality: 90, mozjpeg: true }).toBuffer(),
+        contentType: "image/jpeg"
+      };
+    } catch {
+      return null;
+    }
   }
 }
 
-// Send one shared gallery file: a photo goes out metadata-stripped, a video (or
-// anything sharp can't decode) streams as the original via sendFile with ranges.
+// The extension a stripped photo should carry, so a re-encoded file doesn't keep
+// a lying extension (a TIFF re-encoded to JPEG must download as .jpg, not .tiff).
+function extForContentType(contentType: string): string {
+  return contentType === "image/png"
+    ? ".png"
+    : contentType === "image/webp"
+      ? ".webp"
+      : contentType === "image/gif"
+        ? ".gif"
+        : ".jpg";
+}
+
+function withExtension(fileName: string, ext: string): string {
+  const current = path.extname(fileName).toLowerCase();
+  const already = ext === ".jpg" ? current === ".jpg" || current === ".jpeg" : current === ext;
+  return already ? fileName : `${fileName.slice(0, fileName.length - current.length)}${ext}`;
+}
+
+// Send one shared gallery file: a photo goes out metadata-stripped (and, if it
+// can't be decoded at all, is refused rather than leaked), a video streams as the
+// original via sendFile with ranges.
 async function sendGalleryFile(
   request: FastifyRequest,
   reply: FastifyReply,
   opts: { absolutePath: string; mimeType: string | null; fileName: string; kind: string; download: boolean }
 ): Promise<FastifyReply | void> {
-  const original = {
-    absolutePath: opts.absolutePath,
-    mimeType: opts.mimeType ?? "application/octet-stream",
-    fileName: opts.fileName,
-    download: opts.download
-  };
   if (opts.kind !== "photo") {
-    return sendFile(request, reply, original);
+    return sendFile(request, reply, {
+      absolutePath: opts.absolutePath,
+      mimeType: opts.mimeType ?? "application/octet-stream",
+      fileName: opts.fileName,
+      download: opts.download
+    });
   }
-  try {
-    const { buffer, contentType } = await stripImageMetadata(opts.absolutePath);
-    const asciiName = opts.fileName.replace(/[^\x20-\x7E]/g, "_");
-    const disposition = opts.download ? "attachment" : "inline";
-    return reply
-      .header("Content-Type", contentType)
-      .header(
-        "Content-Disposition",
-        `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(opts.fileName)}`
-      )
-      .header("Content-Length", buffer.byteLength)
-      .header("Cache-Control", "private, no-cache")
-      .send(buffer);
-  } catch {
-    // A file sharp can't decode still gets served — a working download beats a
-    // 500 — just without the strip.
-    return sendFile(request, reply, original);
+  const stripped = await stripImageMetadata(opts.absolutePath);
+  if (!stripped) {
+    // Undecodable even via ffmpeg — refuse rather than serve the original with its
+    // EXIF/GPS intact, which is the whole point of stripping.
+    return reply.code(415).send({ error: "This photo can't be shared." });
   }
+  const fileName = withExtension(opts.fileName, extForContentType(stripped.contentType));
+  const asciiName = fileName.replace(/[^\x20-\x7E]/g, "_");
+  const disposition = opts.download ? "attachment" : "inline";
+  return reply
+    .header("Content-Type", stripped.contentType)
+    .header(
+      "Content-Disposition",
+      `${disposition}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`
+    )
+    .header("Content-Length", stripped.buffer.byteLength)
+    .header("Cache-Control", "private, no-cache")
+    .send(stripped.buffer);
 }
 
 export async function librarySharesPlugin(app: FastifyInstance) {
@@ -1775,16 +1817,16 @@ export async function librarySharesPlugin(app: FastifyInstance) {
         const ext = path.extname(name);
         name = `${name.slice(0, name.length - ext.length)} (${seen})${ext}`;
       }
-      // Photos go into the zip metadata-stripped, same as the single-file routes;
-      // videos (and any photo sharp can't decode) are archived as the original.
+      // Photos go into the zip metadata-stripped, same as the single-file routes.
+      // A photo that can't be decoded at all is SKIPPED, not archived as the
+      // original — the same fail-safe as the single-file route (never leak EXIF).
+      // Videos are archived as the original.
       if (file.kind === "photo") {
-        try {
-          const { buffer } = await stripImageMetadata(filePath);
-          archive.append(buffer, { name });
-          continue;
-        } catch {
-          // fall through and archive the original file
+        const stripped = await stripImageMetadata(filePath);
+        if (stripped) {
+          archive.append(stripped.buffer, { name: withExtension(name, extForContentType(stripped.contentType)) });
         }
+        continue;
       }
       archive.file(filePath, { name });
     }

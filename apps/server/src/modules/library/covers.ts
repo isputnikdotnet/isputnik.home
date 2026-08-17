@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
-import { thumbnailAbsolutePath, LIBRARY_BUCKET_RE } from "./shared/thumbnail.js";
+import { resolveCoverKey, LIBRARY_BUCKET_RE } from "./shared/thumbnail.js";
 import { getAccessibleLibrary } from "./shared/library-access.js";
 
 function mimeTypeForCover(storageKey: string) {
@@ -27,16 +27,21 @@ export async function coversPlugin(app: FastifyInstance) {
     // face crops) are only for people who can see that library. The keys are
     // deterministic (<libraryId>/<shard>/<item>-cover.webp), so authentication
     // alone let any signed-in user fetch a private library's thumbnails by
-    // reconstructing a key. Gate the library-scoped buckets on library access;
-    // the shared "people"/"categories" buckets are cross-library by design and
-    // don't match LIBRARY_BUCKET_RE, so they pass through.
-    const bucket = storageKey.split("/")[0] ?? "";
+    // reconstructing a key. resolveCoverKey derives the bucket from the RESOLVED
+    // path (so an encoded-slash/.. key can't dodge the check) and rejects
+    // non-image keys; gate the library-scoped buckets on library access. The
+    // shared "people"/"categories" buckets are cross-library by design and don't
+    // match LIBRARY_BUCKET_RE, so they pass through.
+    const resolved = resolveCoverKey(storageKey);
+    if (!resolved) {
+      return reply.code(404).send({ error: "Cover not found" });
+    }
     const user = request.user!;
-    if (LIBRARY_BUCKET_RE.test(bucket) && !getAccessibleLibrary(bucket, user.id, user.role)) {
+    if (LIBRARY_BUCKET_RE.test(resolved.bucket) && !getAccessibleLibrary(resolved.bucket, user.id, user.role)) {
       return reply.code(404).send({ error: "Cover not found" });
     }
     try {
-      const absolutePath = thumbnailAbsolutePath(storageKey);
+      const absolutePath = resolved.absolutePath;
       const stat = await fs.stat(absolutePath);
 
       // A `?v=` query param means the caller mints a fresh URL whenever the image
