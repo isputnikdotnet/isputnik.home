@@ -29,10 +29,17 @@ if [ "$(id -u)" = "0" ]; then
   # we write. A plain top-level check is not enough: upgrading from a root-run
   # image can leave /config itself owned correctly (Unraid pre-creates it) while
   # the files inside are still root-owned and unwritable by the dropped user.
+  # Both the recursive chown and the sentinel write are best-effort (|| true) for
+  # the same reason as the top-level chown above: a subdir bind-mounted onto a
+  # chown-hostile filesystem (NFS root_squash, read-only) makes `chown -R` exit
+  # non-zero, which under `set -e` would abort before `exec gosu` and crash-loop
+  # the container — exactly the mount the top-level guard exists to survive. A
+  # failed chown surfaces later as a runtime write error the dropped user logs, not
+  # a boot loop; a failed sentinel write just re-runs this (harmless) pass next start.
   mark="/config/.owner-uid"
   if [ "$(cat "$mark" 2>/dev/null)" != "${PUID}:${PGID}" ]; then
-    chown -R "${PUID}:${PGID}" /config
-    printf '%s:%s' "$PUID" "$PGID" > "$mark"
+    chown -R "${PUID}:${PGID}" /config 2>/dev/null || true
+    printf '%s:%s' "$PUID" "$PGID" > "$mark" 2>/dev/null || true
   fi
   exec gosu "${PUID}:${PGID}" "$@"
 fi
