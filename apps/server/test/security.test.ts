@@ -3,6 +3,7 @@ import { db } from "../src/db.js";
 import { makeUser, resetDb } from "./helpers/seed.js";
 import {
   isTrustedIp,
+  isTrustedRequest,
   addTrustedNetwork,
   listTrustedNetworks,
   removeTrustedNetwork,
@@ -206,37 +207,62 @@ describe("IP blocking", () => {
 
   describe("deletion protection", () => {
     const enable = () => setSecurityPolicy({ ...DEFAULT_SECURITY_POLICY, trustedDeletesOnly: true }, null);
+    const req = (method: string, ip: string | null, headers: Record<string, unknown> = {}) => ({ method, ip, headers });
 
     it("does nothing while the policy is off", () => {
-      expect(deletionBlocked("DELETE", {}, "8.8.8.8")).toBe(false);
+      expect(deletionBlocked(req("DELETE", "8.8.8.8"), {})).toBe(false);
     });
 
     it("refuses a DELETE from an untrusted network once enabled", () => {
       enable();
-      expect(deletionBlocked("DELETE", {}, "8.8.8.8")).toBe(true);
-      expect(deletionBlocked("DELETE", undefined, "8.8.8.8")).toBe(true);
+      expect(deletionBlocked(req("DELETE", "8.8.8.8"), {})).toBe(true);
+      expect(deletionBlocked(req("DELETE", "8.8.8.8"), undefined)).toBe(true);
     });
 
     it("lets a trusted network delete", () => {
       enable();
       addTrustedNetwork("192.168.0.0/16", "Home LAN", null);
-      expect(deletionBlocked("DELETE", {}, "192.168.1.10")).toBe(false);
+      expect(deletionBlocked(req("DELETE", "192.168.1.10"), {})).toBe(false);
     });
 
     it("exempts protective revocations and catches annotated destroyers", () => {
       enable();
       // Session/token revocation routes carry untrustedAllow — never refused.
-      expect(deletionBlocked("DELETE", { untrustedAllow: true }, "8.8.8.8")).toBe(false);
+      expect(deletionBlocked(req("DELETE", "8.8.8.8"), { untrustedAllow: true })).toBe(false);
       // Non-DELETE destroyers (Recycle Bin empty, duplicate sweep) opt in.
-      expect(deletionBlocked("POST", { destructive: true }, "8.8.8.8")).toBe(true);
+      expect(deletionBlocked(req("POST", "8.8.8.8"), { destructive: true })).toBe(true);
       // Ordinary writes keep working remotely — that's the point of the scope.
-      expect(deletionBlocked("POST", {}, "8.8.8.8")).toBe(false);
-      expect(deletionBlocked("GET", {}, "8.8.8.8")).toBe(false);
+      expect(deletionBlocked(req("POST", "8.8.8.8"), {})).toBe(false);
+      expect(deletionBlocked(req("GET", "8.8.8.8"), {})).toBe(false);
     });
 
     it("treats a missing source address as untrusted", () => {
       enable();
-      expect(deletionBlocked("DELETE", {}, null)).toBe(true);
+      expect(deletionBlocked(req("DELETE", null), {})).toBe(true);
+    });
+
+    it("won't let a misconfigured proxy re-open deletion for a trusted CIDR", () => {
+      enable();
+      // The proxy's own address happens to sit in the trusted range, so a naive
+      // isTrustedIp would wave every forwarded request through. With no proxy
+      // hops configured, the forwarded header means request.ip is unbelievable.
+      addTrustedNetwork("192.168.0.0/16", "Home LAN", null);
+      const forwarded = { "x-forwarded-for": "8.8.8.8" };
+      expect(deletionBlocked(req("DELETE", "192.168.1.10", forwarded), {})).toBe(true);
+    });
+  });
+
+  describe("isTrustedRequest", () => {
+    beforeEach(() => addTrustedNetwork("192.168.0.0/16", "Home LAN", null));
+
+    it("trusts a trusted-CIDR address on a direct (unproxied) request", () => {
+      expect(isTrustedRequest({ ip: "192.168.1.10", headers: {} })).toBe(true);
+      expect(isTrustedRequest({ ip: "8.8.8.8", headers: {} })).toBe(false);
+    });
+
+    it("refuses to trust when a forwarded header arrives with no proxy hops set", () => {
+      // request.ip is then the proxy's own address; a trusted match proves nothing.
+      expect(isTrustedRequest({ ip: "192.168.1.10", headers: { "x-forwarded-for": "8.8.8.8" } })).toBe(false);
     });
   });
 

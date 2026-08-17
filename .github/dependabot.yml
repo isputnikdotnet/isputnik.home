@@ -1,0 +1,29 @@
+# Weekly dependency PRs. Before this existed, security patches only landed when
+# the maintainer happened to touch the lockfile at release time — a set of high
+# advisories (sharp/libvips, @fastify/static traversal, adm-zip zip-DoS) had
+# accumulated silently on an internet-facing server. npm covers the root and both
+# workspaces; grouping keeps the noise to a handful of PRs a week.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the routine minor/patch churn; majors still come alone so a
+      # breaking bump gets its own review.
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

@@ -118,9 +118,15 @@ with Docker logs can replay live links and unused invites (an invite grants acco
 
 ---
 
-## P1 — Do soon (same release or the next)
+## P1 — Do soon (same release or the next) — ✅ DONE on `security-followup`
 
-### P1.1 — Extend the misconfigured-proxy guard to all trusted-net exemptions · *Review B · Medium*
+### P1.1 — Extend the misconfigured-proxy guard to all trusted-net exemptions · *Review B · Medium* — ✅ DONE
+New `isTrustedRequest(request)` in `core/security.ts` returns false when a forwarded header is present
+but `TRUST_PROXY_HOPS` is 0, then falls through to `isTrustedIp`. Routed the rate-limit allowList,
+the login lockout/MFA skip, the MFA-verify and passkey lockout skips, and `deletionBlocked` through
+it (`deletionBlocked` now takes the request). `security.test.ts` adds `isTrustedRequest` cases and a
+proxy-misconfig deletion case. Correctly configured proxies and direct-LAN installs are unaffected.
+
 `mfaRequiredOutside` refuses to trust `request.ip` when a forwarded header is present but
 `TRUST_PROXY_HOPS` is unset — but the lockout skip, enrolled-MFA skip, and rate-limit allowlist take
 a bare `isTrustedIp()` (`apps/server/src/core/auth-routes.ts:36`; `index.ts:127`;
@@ -133,8 +139,18 @@ a bare `isTrustedIp()` (`apps/server/src/core/auth-routes.ts:36`; `index.ts:127`
   Cloudflare-peer check) so the hop-count trust can't be forged by a direct-to-origin client.
 - Effort: S–M. Files: `core/security.ts`, four call sites.
 
-### P1.2 — Run the container as non-root · *Both · Medium/Low*
-The final image has no `USER`; `CMD` runs as root with `/config` (DB) and, on many Unraid setups,
+### P1.2 — Run the container as non-root · *Both · Medium/Low* — ✅ DONE (needs image-build smoke test)
+Implemented with a gosu-drop entrypoint (`scripts/docker-entrypoint.sh`): the image starts as root
+only to make the mounted `/config` writable by `PUID:PGID` (default 1000; `99:100` on the Unraid
+template), then `exec gosu` drops privileges so the Node process never runs as root. A sentinel
+(`/config/.owner-uid`) runs the one-time recursive chown on first boot / uid change without a slow
+every-boot pass, and handles the upgrade-from-root case where `/config` is pre-owned but its contents
+aren't. `.gitattributes` pins `*.sh` to LF. Updated `docker-compose.yml`, `isputnik-home.xml`
+(PUID/PGID), and the exposing-to-the-internet guide. **Not runtime-verified here — no Docker in this
+environment; the shell parses clean (`sh -n`), but build the image and confirm it starts non-root and
+writes `/config` on a fresh volume, an existing root-owned volume, and Unraid (99:100) before merge.**
+
+Original finding: the final image has no `USER`; `CMD` runs as root with `/config` (DB) and, on many Unraid setups,
 `/media` writable. Any RCE in the upload-parsing path (EPUB/adm-zip, sharp, ffmpeg/exifr) becomes
 root with write access to the family's media.
 - Fix: `USER node` in the final stage (node:22-slim ships the `node` user), `chown` `/config` in the
@@ -142,8 +158,14 @@ root with write access to the family's media.
 - Verify: container starts, writes to `/config`, streams media.
 - Effort: S. Files: `Dockerfile`, `docker-compose.yml`, `isputnik-home.xml`, hosting docs.
 
-### P1.3 — Fix audiobook progress IDOR · *Review A · Medium*
-Progress read/write/delete routes (`apps/server/src/modules/library/audiobook/books-routes.ts:194,
+### P1.3 — Fix audiobook progress IDOR · *Review A · Medium* — ✅ DONE
+A `refuseUnlessAccessibleBook` helper (mirroring the book-detail route's `getLibraryForBook` +
+`canUserAccessBook` check) gates all six playback-progress routes and 404s an inaccessible id.
+`progress-idor.test.ts` confirms an outsider gets 404 on every route and writes no rows, while a
+member reads and writes normally. (Reading-progress/ebook routes were already gated via
+`getReadableDocument`.)
+
+Original finding: progress read/write/delete routes (`books-routes.ts:194,
 328, 435, 490, 501, 521`) act on arbitrary book ids without `canUserAccessBook`. No content bytes
 leak, but a user can confirm inaccessible ids and create/update/delete their own progress rows
 against them.
@@ -151,7 +173,11 @@ against them.
   progress operation; 404 on miss. (Bundles naturally with the P0.2 helper.)
 - Effort: S. File: `books-routes.ts`.
 
-### P1.4 — Add a dependency-update cadence · *Review B · Medium*
+### P1.4 — Add a dependency-update cadence · *Review B · Medium* — ✅ DONE
+Added `.github/dependabot.yml`: weekly npm (root — covers both workspaces via the single lockfile),
+github-actions, and docker updates; minor/patch grouped into one PR, majors alone for review.
+
+Original finding:
 No `dependabot.yml`/renovate and no `npm audit` in CI — P0.1's vulns accumulated silently. otplib
 (MFA path) is unmaintained since ~2019; vendored foliate-js only updates via the manual VENDOR.md
 procedure.

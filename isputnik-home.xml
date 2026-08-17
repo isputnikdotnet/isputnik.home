@@ -66,6 +66,26 @@ Private self-hosted family media library for audiobooks, ebooks, photos, and oth
 
   <!-- Environment Variables -->
 
+  <Config Name="PUID"
+          Target="PUID"
+          Default="99"
+          Mode=""
+          Description="User ID the app runs as. The server runs unprivileged (not root); on first start it takes ownership of the Config &amp; Data path as this user. 99 (nobody) matches the default owner of an Unraid appdata share — leave it unless your share is owned by a different user."
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="false">99</Config>
+
+  <Config Name="PGID"
+          Target="PGID"
+          Default="100"
+          Mode=""
+          Description="Group ID the app runs as. 100 (users) matches the default group of an Unraid appdata share — leave it unless your share uses a different group."
+          Type="Variable"
+          Display="advanced"
+          Required="false"
+          Mask="false">100</Config>
+
   <Config Name="App URL"
           Target="APP_URL"
           Default=""
