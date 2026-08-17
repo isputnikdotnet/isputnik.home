@@ -337,6 +337,9 @@ export interface BlockedIp {
   auto: 0 | 1;
   created_at: string;
   expires_at: string | null;
+  // Judged by the same clock isIpBlocked enforces with, so the list can never
+  // label a row Expired while requests are still being refused (or vice versa).
+  expired: 0 | 1;
 }
 
 export function isIpBlocked(ip: string | null | undefined): boolean {
@@ -372,7 +375,9 @@ export function unblockIp(ip: string): boolean {
 export function listBlockedIps(): BlockedIp[] {
   return db
     .prepare(
-      "SELECT ip_address, reason, auto, created_at, expires_at FROM blocked_ips ORDER BY datetime(created_at) DESC"
+      `SELECT ip_address, reason, auto, created_at, expires_at,
+              CASE WHEN expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now') THEN 1 ELSE 0 END AS expired
+       FROM blocked_ips ORDER BY datetime(created_at) DESC`
     )
     .all() as BlockedIp[];
 }

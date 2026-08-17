@@ -39,6 +39,7 @@ interface BlockedIp {
   auto: boolean;
   createdAt: string;
   expiresAt: string | null;
+  expired: boolean;
 }
 
 interface SecurityPolicy {
@@ -973,8 +974,8 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                 <div className="security-network-head">
                   <h2 id="blocked-heading">Blocked IPs</h2>
                   <p className="section-description">
-                    Blocked addresses are refused everywhere. Automatic blocks expire on their own; manual blocks stay
-                    until you remove them.
+                    Blocked addresses are refused everywhere. Automatic blocks expire on their own and are then labeled
+                    Expired — remove them whenever you want to tidy the list. Manual blocks stay until you remove them.
                   </p>
                 </div>
 
@@ -1034,13 +1035,22 @@ export function SecuritySection({ section }: { section: SecuritySectionKey }) {
                             <td className="datagrid-muted">{entry.reason || "—"}</td>
                             <td className="datagrid-muted">{entry.auto ? "Automatic" : "Manual"}</td>
                             <td className="datagrid-muted">
-                              {entry.expiresAt ? formatManagedDate(entry.expiresAt) : "Never"}
+                              {entry.expired ? (
+                                <>
+                                  <span className="status-badge expired">Expired</span>{" "}
+                                  {formatManagedDate(entry.expiresAt!)}
+                                </>
+                              ) : entry.expiresAt ? (
+                                formatManagedDate(entry.expiresAt)
+                              ) : (
+                                "Never"
+                              )}
                             </td>
                             <td className="col-actions">
                               <Button
                                 variant="icon"
-                                title="Unblock"
-                                aria-label={`Unblock ${entry.ip}`}
+                                title={entry.expired ? "Remove expired block" : "Unblock"}
+                                aria-label={`${entry.expired ? "Remove expired block for" : "Unblock"} ${entry.ip}`}
                                 onClick={() => unblock(entry.ip)}
                               >
                                 <Trash2 size={15} />
