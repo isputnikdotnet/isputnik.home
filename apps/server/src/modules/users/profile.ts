@@ -5,6 +5,7 @@ import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { hashPassword, verifyPassword } from "../../crypto.js";
 import { currentSessionHash } from "../../auth.js";
 import { alertEmailChanged, alertPasswordChanged } from "../../core/security-alerts.js";
+import { verifyCurrentSecondFactor, SECOND_FACTOR_REQUIRED, SECOND_FACTOR_WRONG } from "../../core/mfa-routes.js";
 
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
@@ -20,7 +21,9 @@ const passwordSchema = z.object({
 
 const emailSchema = z.object({
   currentPassword: z.string().min(1, "Enter your current password").max(200),
-  newEmail: z.string().trim().email("Enter a valid email address").max(254).transform((value) => value.toLowerCase())
+  newEmail: z.string().trim().email("Enter a valid email address").max(254).transform((value) => value.toLowerCase()),
+  // Required only when MFA is on (enforced in the handler): a current second factor.
+  code: z.string().trim().min(6).max(40).optional()
 });
 
 export async function profilePlugin(app: FastifyInstance) {
@@ -126,6 +129,20 @@ export async function profilePlugin(app: FastifyInstance) {
     const taken = db.prepare("SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id <> ?").get(parsed.data.newEmail, user.id);
     if (taken) {
       return reply.code(409).send({ error: "That email address is already in use." });
+    }
+
+    // Repointing the login email is second-factor-worthy: for the email MFA method
+    // it's where future codes are delivered, so a stolen password plus a live
+    // session must not be enough. Checked last — after the no-op and conflict
+    // checks — so a rejected change never burns a backup code.
+    if (user.mfa_enabled) {
+      const code = parsed.data.code ?? "";
+      if (!code) {
+        return reply.code(400).send({ error: SECOND_FACTOR_REQUIRED, needsSecondFactor: true });
+      }
+      if (!verifyCurrentSecondFactor(user, code)) {
+        return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
+      }
     }
 
     try {

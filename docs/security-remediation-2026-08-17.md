@@ -223,8 +223,12 @@ procedure.
   password-only, so a stolen password + a live session could strip the second factor. Both now also
   require a current second factor (authenticator code or backup code) while MFA is on — gated
   together because a password-only backup-code regen would otherwise mint a code to disable with.
-  Web disable/regenerate modals gained a code field. `mfa-disable-second-factor.test.ts`. (The
-  related **email-change** flow remains password-only — a separate follow-up.)
+  Web disable/regenerate modals gained a code field. `mfa-disable-second-factor.test.ts`.
+- **Second factor to change the login email** *(Review B, Low)* — ✅ `/api/profile/email` was
+  password-only; with MFA on it now also requires a current second factor (the email is where
+  email-MFA codes go, so a password-only change repoints identity + factor). Checked after the
+  no-op/conflict checks so a rejected change never burns a backup code; non-MFA users are unaffected.
+  Web change-email modal gained a conditional code field. `email-change-second-factor.test.ts`.
 
 ### Info / note-only (no action required for this threat model)
 TOTP codes replayable within their ~60–90 s window (no last-step tracking); login-email-change is
