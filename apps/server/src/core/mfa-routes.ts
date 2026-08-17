@@ -355,14 +355,12 @@ export const SECOND_FACTOR_REQUIRED = "Enter a code from your authenticator app 
 export const SECOND_FACTOR_WRONG = "That code didn't match. Enter a current authenticator code or a backup code.";
 
 // A wrong second factor on a management action (disable, regenerate codes, change
-// email) is recorded like a failed sign-in — so it feeds account lockout (which is
-// IP-independent, closing the multi-source-IP brute-force a per-IP rate limit
-// alone can't) and the per-IP auto-block — and logged, so the guessing channel is
-// throttled and audited rather than silent. Callers also carry a per-route rate
-// limit for the single-IP case.
+// email) is recorded like a failed sign-in — so it feeds account lockout, which is
+// IP-independent and ENFORCED by secondFactorThrottled below (closing the
+// multi-source-IP guess a per-IP rate limit alone can't) — and logged, so the
+// channel is audited. Trusted networks are exempt from the lockout/auto-block
+// (only audited), matching the login and MFA-verify failure paths.
 export function recordSecondFactorFailure(request: FastifyRequest, user: User): void {
-  recordLoginAttempt(user.email, request.ip, false);
-  maybeAutoBlockIp(request.ip);
   logActivity({
     event: "auth.second_factor_failed",
     actorUserId: user.id,
@@ -371,10 +369,27 @@ export function recordSecondFactorFailure(request: FastifyRequest, user: User): 
     detail: "A two-factor–protected account change was refused: wrong code.",
     ipAddress: request.ip
   });
+  if (isTrustedRequest(request)) return;
+  recordLoginAttempt(user.email, request.ip, false);
+  maybeAutoBlockIp(request.ip);
+}
+
+// The account-level lock the failures feed, enforced on the management routes so a
+// guesser spreading attempts across many IPs is stopped account-wide, not just
+// per-IP. Trusted networks skip it (they never accumulate failures above).
+export function secondFactorThrottled(request: FastifyRequest, user: User): boolean {
+  return !isTrustedRequest(request) && isAccountLocked(user.email);
+}
+
+// Clear the failure tally after a legitimate second-factor-gated action, so an
+// ordinary typo or two on the way doesn't strand the account's future sign-ins.
+export function clearSecondFactorTally(request: FastifyRequest, user: User): void {
+  recordLoginAttempt(user.email, request.ip, true);
 }
 
 // Shared rate limit for the second-factor-gated management routes.
 export const MFA_MANAGE_RATE_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
+const SECOND_FACTOR_LOCKED = "Too many attempts. Wait a few minutes and try again.";
 
 export async function mfaRoutes(app: FastifyInstance) {
   app.get("/api/profile/mfa", { preHandler: app.authenticate }, async (request) => ({
@@ -464,6 +479,9 @@ export async function mfaRoutes(app: FastifyInstance) {
     // them prove a second factor too, so a stolen password plus a live session
     // isn't enough. `needsSecondFactor` lets the UI show the code field.
     if (user.mfa_enabled) {
+      if (secondFactorThrottled(request, user)) {
+        return reply.code(429).send({ error: SECOND_FACTOR_LOCKED });
+      }
       const code = parsed.data.code ?? "";
       if (!code) {
         return reply.code(400).send({ error: SECOND_FACTOR_REQUIRED, needsSecondFactor: true });
@@ -472,6 +490,7 @@ export async function mfaRoutes(app: FastifyInstance) {
         recordSecondFactorFailure(request, user);
         return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
       }
+      clearSecondFactorTally(request, user);
     }
     resetMfa(user.id);
     alertMfaDisabled(user.email, false);
@@ -501,6 +520,9 @@ export async function mfaRoutes(app: FastifyInstance) {
     // A second factor is required here too, not just on disable: otherwise a
     // password-only attacker could mint fresh backup codes and use one to strip
     // MFA, sidestepping the disable gate above.
+    if (secondFactorThrottled(request, user)) {
+      return reply.code(429).send({ error: SECOND_FACTOR_LOCKED });
+    }
     const code = parsed.data.code ?? "";
     if (!code) {
       return reply.code(400).send({ error: SECOND_FACTOR_REQUIRED, needsSecondFactor: true });
@@ -509,6 +531,7 @@ export async function mfaRoutes(app: FastifyInstance) {
       recordSecondFactorFailure(request, user);
       return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
     }
+    clearSecondFactorTally(request, user);
     const codes = regenerateBackupCodes(user.id);
     alertMfaBackupCodesRegenerated(request.user!.email, request.ip);
     logActivity({

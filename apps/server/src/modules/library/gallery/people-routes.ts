@@ -209,7 +209,9 @@ export async function galleryPeopleRoutesPlugin(app: FastifyInstance) {
   // clusters of the same person together.
   const mergeSchema = z.object({ intoId: z.string().trim().min(1) });
 
-  app.post("/api/library/gallery/people/:id/merge", { preHandler: app.authenticate }, async (request, reply) => {
+  // destructive: merge permanently deletes the merged-from gallery_people row —
+  // refused from untrusted networks under the deletions-only policy.
+  app.post("/api/library/gallery/people/:id/merge", { preHandler: app.authenticate, config: { destructive: true } }, async (request, reply) => {
     if (!canWriteAnyGallery(request.user!)) {
       return reply.code(403).send({ error: "Write access to a gallery library is required." });
     }

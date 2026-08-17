@@ -21,6 +21,7 @@ import {
 } from "./security.js";
 import { getPasswordPolicy, setPasswordPolicy } from "./password-policy.js";
 import { checkIpReputation, getCachedReputation } from "./ip-reputation.js";
+import { sealSecret } from "./mfa.js";
 import { isMailConfigured } from "./mail.js";
 
 const trustedSchema = z.object({
@@ -130,11 +131,14 @@ export async function securityRoutes(app: FastifyInstance) {
     if (enablingAlert) seedKnownLoginNetworks();
     // Blank/omitted key = keep what's stored — read from the RAW (still-sealed)
     // column, not the opened value, so a transiently unreadable key isn't wiped by
-    // a routine save. An explicit clearAbuseIpdbKey removes it.
+    // a routine save. A freshly-submitted key is sealed HERE with sealSecret (not
+    // passed as plaintext to setSecurityPolicy's ensureSealed, which would treat a
+    // value literally starting with the seal prefix as already-sealed). An explicit
+    // clearAbuseIpdbKey removes it.
     const { clearAbuseIpdbKey, abuseIpdbKey: submittedKey, ...restPolicy } = parsed.data;
     const next: SecurityPolicy = {
       ...restPolicy,
-      abuseIpdbKey: clearAbuseIpdbKey ? "" : submittedKey?.length ? submittedKey : getStoredAbuseIpdbKeyRaw()
+      abuseIpdbKey: clearAbuseIpdbKey ? "" : submittedKey?.length ? sealSecret(submittedKey) : getStoredAbuseIpdbKeyRaw()
     };
     setSecurityPolicy(next, request.user!.id);
     // The outside-MFA switch changes who can sign in at all, so its flips are

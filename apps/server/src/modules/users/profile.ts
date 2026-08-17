@@ -5,7 +5,7 @@ import { parseBody, passwordPolicyField } from "../../core/shared.js";
 import { hashPassword, verifyPassword } from "../../crypto.js";
 import { currentSessionHash } from "../../auth.js";
 import { alertEmailChanged, alertPasswordChanged } from "../../core/security-alerts.js";
-import { verifyCurrentSecondFactor, recordSecondFactorFailure, SECOND_FACTOR_REQUIRED, SECOND_FACTOR_WRONG, MFA_MANAGE_RATE_LIMIT } from "../../core/mfa-routes.js";
+import { verifyCurrentSecondFactor, recordSecondFactorFailure, secondFactorThrottled, clearSecondFactorTally, SECOND_FACTOR_REQUIRED, SECOND_FACTOR_WRONG, MFA_MANAGE_RATE_LIMIT } from "../../core/mfa-routes.js";
 
 const profileSchema = z.object({
   displayName: z.string().trim().min(2).max(80),
@@ -136,6 +136,9 @@ export async function profilePlugin(app: FastifyInstance) {
     // session must not be enough. Checked last — after the no-op and conflict
     // checks — so a rejected change never burns a backup code.
     if (user.mfa_enabled) {
+      if (secondFactorThrottled(request, user)) {
+        return reply.code(429).send({ error: "Too many attempts. Wait a few minutes and try again." });
+      }
       const code = parsed.data.code ?? "";
       if (!code) {
         return reply.code(400).send({ error: SECOND_FACTOR_REQUIRED, needsSecondFactor: true });
@@ -144,6 +147,7 @@ export async function profilePlugin(app: FastifyInstance) {
         recordSecondFactorFailure(request, user);
         return reply.code(403).send({ error: SECOND_FACTOR_WRONG });
       }
+      clearSecondFactorTally(request, user);
     }
 
     try {

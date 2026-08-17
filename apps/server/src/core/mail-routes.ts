@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { db, logActivity } from "../db.js";
 import { parseBody } from "./shared.js";
 import { MAIL_SETTINGS_KEY, getMailSettings, isMailConfigured, sendTestEmail, getStoredMailPasswordRaw, type MailSettings } from "./mail.js";
-import { ensureSealed } from "./mfa.js";
+import { sealSecret } from "./mfa.js";
 
 const mailSchema = z.object({
   host: z.string().trim().max(255),
@@ -51,17 +51,17 @@ export async function mailPlugin(app: FastifyInstance) {
       port: parsed.data.port,
       secure: parsed.data.secure,
       username: parsed.data.username,
-      // Blank = keep the stored password, read RAW (still-sealed) so a transiently
-      // unreadable key isn't wiped by re-sealing an opened-to-empty value.
-      password: parsed.data.password ? parsed.data.password : getStoredMailPasswordRaw(),
+      // A fresh password is sealed HERE (getMailSettings un-seals on read); blank =
+      // keep the RAW (still-sealed) stored value, so a transiently unreadable key
+      // isn't wiped by re-sealing an opened-to-empty value. Sealing fresh input with
+      // sealSecret (not ensureSealed) avoids treating a password literally starting
+      // with the seal prefix as already-sealed. next.password is therefore already
+      // the value to store — the DB (and every backup zip) never holds it plaintext.
+      password: parsed.data.password ? sealSecret(parsed.data.password) : getStoredMailPasswordRaw(),
       fromAddress: parsed.data.fromAddress,
       fromName: parsed.data.fromName
     };
 
-    // Seal the password before it lands in the DB (and therefore in every backup
-    // zip); getMailSettings un-seals it on read. ensureSealed passes an already-
-    // sealed kept value through and seals a newly-typed plaintext one.
-    const stored = { ...next, password: ensureSealed(next.password) };
     db.prepare(`
       INSERT INTO app_settings (key, value, updated_by, updated_at)
       VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -69,7 +69,7 @@ export async function mailPlugin(app: FastifyInstance) {
         value = excluded.value,
         updated_by = excluded.updated_by,
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-    `).run(MAIL_SETTINGS_KEY, JSON.stringify(stored), request.user!.id);
+    `).run(MAIL_SETTINGS_KEY, JSON.stringify(next), request.user!.id);
 
     logActivity({
       event: "config.mail_updated",

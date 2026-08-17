@@ -86,6 +86,21 @@ describe("disabling MFA requires a second factor", () => {
     expect(status).toBe(200);
     expect(db.prepare("SELECT mfa_enabled FROM users WHERE id = 'u1'").get()).toEqual({ mfa_enabled: 0 });
   });
+
+  it("locks the account after repeated wrong codes, then 429s even a valid one", async () => {
+    // The account-level lock is IP-independent, so it stops a guesser spreading
+    // attempts across many IPs — the exact multi-IP channel the throttle exists for.
+    for (let i = 0; i < 5; i += 1) {
+      expect((await post("/api/profile/mfa/disable", { currentPassword: "correct-horse", code: "000000" })).status).toBe(403);
+    }
+    const { status } = await post("/api/profile/mfa/disable", {
+      currentPassword: "correct-horse",
+      code: authenticator.generate(totpSecret)
+    });
+    expect(status).toBe(429);
+    // Still enabled — once locked, even the right code is never checked.
+    expect(db.prepare("SELECT mfa_enabled FROM users WHERE id = 'u1'").get()).toEqual({ mfa_enabled: 1 });
+  });
 });
 
 describe("regenerating backup codes requires a second factor (closes the disable bypass)", () => {
