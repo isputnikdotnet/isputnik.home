@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { db, logActivity } from "../db.js";
 import { parseBody } from "./shared.js";
 import { MAIL_SETTINGS_KEY, getMailSettings, isMailConfigured, sendTestEmail, getStoredMailPasswordRaw, type MailSettings } from "./mail.js";
-import { sealSecret } from "./mfa.js";
+import { sealSecret, ensureSealed } from "./mfa.js";
 
 const mailSchema = z.object({
   host: z.string().trim().max(255),
@@ -51,13 +51,17 @@ export async function mailPlugin(app: FastifyInstance) {
       port: parsed.data.port,
       secure: parsed.data.secure,
       username: parsed.data.username,
-      // A fresh password is sealed HERE (getMailSettings un-seals on read); blank =
-      // keep the RAW (still-sealed) stored value, so a transiently unreadable key
-      // isn't wiped by re-sealing an opened-to-empty value. Sealing fresh input with
-      // sealSecret (not ensureSealed) avoids treating a password literally starting
-      // with the seal prefix as already-sealed. next.password is therefore already
-      // the value to store — the DB (and every backup zip) never holds it plaintext.
-      password: parsed.data.password ? sealSecret(parsed.data.password) : getStoredMailPasswordRaw(),
+      // A fresh password is sealed HERE with sealSecret (getMailSettings un-seals on
+      // read) — not ensureSealed, so a password literally starting with the seal
+      // prefix isn't mistaken for already-sealed. Blank = keep the RAW stored value,
+      // wrapped in ensureSealed: an already-sealed value passes through untouched (no
+      // double-seal, and a transiently unreadable key isn't wiped by re-sealing an
+      // opened-to-empty value), while a legacy PLAINTEXT password from a pre-sealing
+      // install migrates to sealed-at-rest on this save — the same keep-path
+      // contract security-routes.ts uses for the AbuseIPDB key. next.password is
+      // therefore the value to store; the DB (and every backup zip) never holds it
+      // plaintext.
+      password: parsed.data.password ? sealSecret(parsed.data.password) : ensureSealed(getStoredMailPasswordRaw()),
       fromAddress: parsed.data.fromAddress,
       fromName: parsed.data.fromName
     };
