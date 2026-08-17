@@ -361,7 +361,9 @@ export async function backupsPlugin(app: FastifyInstance) {
 
   // Restore: extract covers back into the cache immediately (static files) and
   // stage the database as "<dbPath>.restore" for db.ts to apply on next startup.
-  app.post("/api/backups/:name/restore", { preHandler: app.requireAdmin }, async (request, reply) => {
+  // destructive: restoring replaces the live database — refused from untrusted
+  // networks under the deletions-only policy (see deletionBlocked).
+  app.post("/api/backups/:name/restore", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
     const name = (request.params as { name: string }).name;
     const filePath = resolveBackupPath(name);
     if (!filePath || !fs.existsSync(filePath)) {

@@ -9,7 +9,7 @@ vi.mock("../src/core/mail.js", async (importOriginal) => {
 import type { FastifyRequest } from "fastify";
 import { db } from "../src/db.js";
 import { sha256 } from "../src/crypto.js";
-import { isProbePath } from "../src/core/probes.js";
+import { isApiSurface, isProbePath } from "../src/core/probes.js";
 import { flagAbusiveRequest } from "../src/core/security-alerts.js";
 import {
   addTrustedNetwork,
@@ -50,7 +50,18 @@ describe("isProbePath", () => {
       "/vendor/phpunit/phpunit/phpunit.xml",
       "/actuator/health",
       "/backup.sql",
-      "/index.php?s=/admin"
+      "/index.php?s=/admin",
+      // The 2026-08-17 sweep: secrets and infra endpoints that used to fall
+      // through to the SPA fallback and collect a free 200.
+      "/application.yml",
+      "/host.key",
+      "/server.pem",
+      "/config/settings.yaml",
+      "/auth.json",
+      "/secrets.json",
+      "/graphql",
+      "/v1/graphql",
+      "/nginx_status"
     ]) {
       expect(isProbePath(url), url).toBe(true);
     }
@@ -72,9 +83,27 @@ describe("isProbePath", () => {
       "/.well-known/acme-challenge/tokenvalue",
       "/api/library/covers/abc/def.jpg",
       "/api/share/sometoken/download-all",
-      "/opds/isp_opds_abc123/new"
+      "/opds/isp_opds_abc123/new",
+      // Narrowness guards: PWA-plausible or content paths must stay clean.
+      "/manifest.json",
+      "/graphql-tutorial",
+      "/guides/control-panel.md"
     ]) {
       expect(isProbePath(url), url).toBe(false);
+    }
+  });
+});
+
+describe("isApiSurface", () => {
+  it("recognises the API and OPDS trees", () => {
+    for (const url of ["/api/v2/config", "/api/library/covers/x.jpg?y=1", "/opds", "/opds/isp_opds_abc/new"]) {
+      expect(isApiSurface(url), url).toBe(true);
+    }
+  });
+
+  it("leaves pages and lookalike prefixes alone", () => {
+    for (const url of ["/", "/control/security", "/apidocs", "/opdsomething"]) {
+      expect(isApiSurface(url), url).toBe(false);
     }
   });
 });

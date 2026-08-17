@@ -152,7 +152,9 @@ export async function apiTokensPlugin(app: FastifyInstance) {
     });
   });
 
-  app.delete("/api/account/tokens/:id", { preHandler: app.authenticate }, async (request, reply) => {
+  // untrustedAllow: revoking a token protects the account — never refused,
+  // even under the deletions-only-from-trusted-networks policy.
+  app.delete("/api/account/tokens/:id", { preHandler: app.authenticate, config: { untrustedAllow: true } }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     if (!revokeApiToken(request.user!.id, id)) {
       return reply.code(404).send({ error: "Token not found" });

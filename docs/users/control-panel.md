@@ -140,8 +140,16 @@ internet](exposing-to-the-internet.md).
 - **Trusted networks** — address ranges (your home LAN, typically) that are exempt
   from rate limits, lockout and the new-network alerts. Add your own network so
   household devices don't trip the protection meant for strangers.
-- **Blocked IPs** — what's been auto-blocked, and where you unblock it or add a
-  block by hand.
+- **Blocked IPs** — what's been auto-blocked, and where you unblock it, add a
+  block by hand, or make a temporary automatic block permanent (the ∞ button on
+  rows that would otherwise expire). With an AbuseIPDB key set under Policies,
+  each row can also show the address's public abuse score, and a check button
+  fetches it on demand.
+- Under **Policies** you can also connect **AbuseIPDB** (free API key) so blocked
+  addresses are checked against a community abuse database — and, if you keep the
+  escalation switch on, known-abusive addresses stay blocked permanently instead
+  of expiring. **Deletion protection** is there too: switch it on and deleting
+  anything only works from a trusted network, for every account including admins.
 
 The alerts these produce only reach you if email is set up.
 

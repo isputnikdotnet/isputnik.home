@@ -221,6 +221,16 @@ CREATE TABLE IF NOT EXISTS blocked_ips (
   created_by  TEXT REFERENCES users(id)
 );
 
+-- Cached AbuseIPDB lookups for IPs local detection has already flagged. Written
+-- only when an admin has configured an API key; refreshed after 24 hours.
+CREATE TABLE IF NOT EXISTS ip_reputation (
+  ip_address        TEXT PRIMARY KEY,
+  score             INTEGER,        -- abuseConfidenceScore 0..100
+  total_reports     INTEGER,
+  last_reported_at  TEXT,
+  checked_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- Trusted networks (CIDR). A request from one is a relaxed zone: rate limits,
 -- lockout, and MFA are skipped. Empty by default — admins opt in their LAN range.
 CREATE TABLE IF NOT EXISTS trusted_networks (

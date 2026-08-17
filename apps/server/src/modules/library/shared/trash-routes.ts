@@ -355,7 +355,9 @@ export function registerTrashRoutes(app: FastifyInstance) {
 
   // Empty the bin. Scoped to one library (needs manage on it) or, with no scope, the whole
   // bin (server admins only).
-  app.post("/api/library/trash/empty", { preHandler: app.authenticate }, async (request, reply) => {
+  // destructive: emptying the bin destroys files for good — refused from
+  // untrusted networks under the deletions-only policy (see deletionBlocked).
+  app.post("/api/library/trash/empty", { preHandler: app.authenticate, config: { destructive: true } }, async (request, reply) => {
     const parsed = parseBody(emptySchema, request.body ?? {});
     if (parsed.error) {
       return reply.code(400).send({ error: "Invalid request", details: parsed.error });

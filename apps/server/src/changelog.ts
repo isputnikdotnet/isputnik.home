@@ -19,6 +19,17 @@ export const RECENT_VERSION_COUNT = 10;
 
 export const VERSION_UPDATES: VersionUpdate[] = [
   {
+    version: "3.9.0",
+    label: "Blocks that can stay for good, and deletions that stay home",
+    changes: [
+      "A temporary block can now be made permanent without retyping anything. Automatic blocks expire on their own — the right default for the random noise of the internet — but when the same address keeps coming back, the Blocked IPs page now offers an ∞ button on any block that would expire: one confirmation and it stays until you remove it. The block keeps its history — the reason still says what was counted and when — and it works on an already-expired row too, re-arming it on the spot.",
+      "The app can now ask the internet's opinion of an address it has already caught. Paste a free AbuseIPDB key under Security → Policies and every address that trips the auto-block is looked up against their community abuse database, its confidence score shown right on the Blocked IPs page — \"100% abuse confidence · 4,213 reports\" turns a cryptic row into an obvious decision — with a button to check any blocked address on demand. If the score crosses a threshold you control (90 out of 100, unless you say otherwise), the automatic block simply keeps no expiry: a known-abusive address doesn't get a second visit an hour later. This is off until you add a key, only addresses the app already flagged are ever sent anywhere, answers are remembered for a day, and your own manual decisions are never rewritten.",
+      "A new policy keeps deletions at home: switch on \"Allow deletions only from trusted networks\" and deleting anything — items, files, emptying the Recycle Bin, clearing duplicates, restoring a backup over the live database — is refused from outside the networks you trust, for every account, admins included. The point is what a stolen password can no longer do from the internet: browse, listen, upload, edit, yes — destroy the library, no. Signing out a suspicious device or revoking a token still works from anywhere, because those protect the account rather than endanger it. Off by default; the page warns you if you switch it on with no trusted networks defined.",
+      "The scanner sweeps every internet-facing server sees are answered more curtly. The list of probe paths that get a bare 404 — and count toward blocking their sender — now also covers requests for YAML configuration, private key files, credential JSON, GraphQL endpoints, and web-server status pages, none of which this app has ever served. And an unknown API address now answers with a proper \"not found\" instead of politely handing the whole app shell to whoever asked.",
+      "The two-factor and control-panel guides describe the new switches, and the control panel's search finds them under words like \"permanent\", \"reputation\", \"abuseipdb\" or \"deletion protection\"."
+    ]
+  },
+  {
     version: "3.8.1",
     label: "A blocked visitor gets a real page, and expired blocks say so",
     changes: [

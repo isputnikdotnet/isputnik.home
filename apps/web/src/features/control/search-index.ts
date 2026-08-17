@@ -41,9 +41,11 @@ const TAB_KEYWORDS: Partial<Record<ControlSection, string>> = {
   sessions: "devices signed in sign out revoke logout tokens linked tv display",
 
   security: "posture summary proxy hops client ip mode overview",
-  securityPolicies: "lockout brute force threshold attempts password minimum length complexity sign-in alerts email",
+  securityPolicies:
+    "lockout brute force threshold attempts password minimum length complexity sign-in alerts email abuseipdb reputation abuse score threat intelligence read only readonly delete trusted network protect deletions",
   securityTrusted: "cidr subnet allowlist lan home network exempt whitelist",
-  securityBlocked: "banned ip block unblock auto-block ban",
+  securityBlocked:
+    "banned ip block unblock auto-block ban permanent never expires forever make permanent reputation abuseipdb abuse score check",
 
   backup: "restore zip archive download snapshot schedule retention export",
   scheduledJobs: "cron schedule nightly automatic recurring timer",
@@ -82,6 +84,16 @@ const SETTING_ENTRIES: { title: string; section: ControlSection; keywords: strin
     title: "Linking devices",
     section: "securityPolicies",
     keywords: "link a device tv television wall display kiosk qr code scan sign in without password home network only outside remote"
+  },
+  {
+    title: "IP reputation (AbuseIPDB)",
+    section: "securityPolicies",
+    keywords: "abuseipdb api key reputation abuse confidence score escalate permanent known malicious"
+  },
+  {
+    title: "Deletion protection",
+    section: "securityPolicies",
+    keywords: "allow deletions only trusted networks read only readonly refuse delete away from home stolen credentials"
   },
   { title: "Add a trusted network", section: "securityTrusted", keywords: "cidr range lan skip lockout" },
   { title: "Scheduled backups", section: "backup", keywords: "automatic nightly keep how many retention" },

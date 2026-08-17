@@ -22,16 +22,31 @@ const PROBE_PATTERNS: RegExp[] = [
   /^\/(?:phpmyadmin|pma|myadmin|adminer)(?:\/|$)/,
   /^\/cgi-bin\//,
   /^\/vendor\//,
-  /^\/(?:actuator|solr|jenkins|struts|jmx-console|server-status|server-info)(?:\/|$)/,
-  // Database dumps and editor leftovers.
-  /^\/[^?]*\.(?:sql|bak|swp)(?:\?|$)/
+  /^\/(?:actuator|solr|jenkins|struts|jmx-console|server-status|server-info|nginx_status)(?:\/|$)/,
+  // GraphQL endpoints, versioned or not. This app has none, and a browser never
+  // asks for one on its own; the trailing boundary keeps /graphql-tutorial clean.
+  /^\/(?:v\d+\/)?graphql(?:\/|$)/,
+  // Database dumps, editor leftovers, and secret material (keys, certs, YAML
+  // config) left in a web root. Nothing this app serves uses these extensions.
+  /^\/[^?]*\.(?:sql|bak|swp|key|pem|yml|yaml)$/,
+  // Credential JSON by exact name only — a broad .json rule would catch
+  // /manifest.json, which PWAs legitimately request.
+  /^\/(?:auth|credentials|secrets)\.json$/
 ];
 
+// The API and OPDS trees authenticate their own callers and speak JSON/XML; a
+// miss inside them is an unknown endpoint, never a page, so neither the probe
+// patterns nor the SPA fallback apply there.
+export function isApiSurface(url: string): boolean {
+  const pathname = (url.split("?")[0] || "/").toLowerCase();
+  return pathname.startsWith("/api/") || pathname === "/opds" || pathname.startsWith("/opds/");
+}
+
 // True when the URL can only be a scan. The API and OPDS trees are excluded: they
-// authenticate their own callers and report their own failures, and their paths
-// carry opaque ids that shouldn't be pattern-matched.
+// report their own failures, and their paths carry opaque ids that shouldn't be
+// pattern-matched.
 export function isProbePath(url: string): boolean {
   const pathname = (url.split("?")[0] || "/").toLowerCase();
-  if (pathname.startsWith("/api/") || pathname === "/opds" || pathname.startsWith("/opds/")) return false;
+  if (isApiSurface(pathname)) return false;
   return PROBE_PATTERNS.some((pattern) => pattern.test(pathname));
 }

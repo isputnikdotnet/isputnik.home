@@ -243,7 +243,9 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
   // Clear every byte-identical set the given filters leave on screen. Same filters as
   // the listing above — the button clears what a person can see, not everything a scan
   // found. Never near-identical: sweepableResultIds forces the exact tier.
-  app.post("/api/library/gallery/duplicate-jobs/:id/results/sweep", { preHandler: app.requireAdmin }, async (request, reply) => {
+  // destructive: sweeping moves copies to the Recycle Bin — refused from
+  // untrusted networks under the deletions-only policy (see deletionBlocked).
+  app.post("/api/library/gallery/duplicate-jobs/:id/results/sweep", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = parseBody(resultsSchema, request.query ?? {});
     if (parsed.error) { return reply.code(400).send({ error: "Invalid request", details: parsed.error }); }
@@ -372,7 +374,9 @@ export async function galleryDuplicateJobRoutesPlugin(app: FastifyInstance) {
 
   // Delete one result's doomed copies. All-or-nothing on the re-check: if anything
   // has changed since the scan, nothing is removed and the reply says what.
-  app.post("/api/library/gallery/duplicate-jobs/:id/results/:resultId/resolve", { preHandler: app.requireAdmin }, async (request, reply) => {
+  // destructive: resolving deletes the set's doomed copies — refused from
+  // untrusted networks under the deletions-only policy (see deletionBlocked).
+  app.post("/api/library/gallery/duplicate-jobs/:id/results/:resultId/resolve", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
     const { id, resultId } = request.params as { id: string; resultId: string };
     const outcome = resolveJobResult(id, request.user!.id, resultId);
     if (!outcome.ok) {

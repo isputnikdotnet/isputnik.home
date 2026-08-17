@@ -7,9 +7,9 @@ import helmet from "@fastify/helmet";
 import staticFiles from "@fastify/static";
 import { config } from "./config.js";
 import { registerAuthDecorators } from "./auth.js";
-import { isIpBlocked, isTrustedIp, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader, forwardedProto, safeRedirectHost } from "./core/security.js";
+import { isIpBlocked, isTrustedIp, hasForwardedHeader, getTrustProxyHops, noteForwardedHeader, forwardedProto, safeRedirectHost, deletionBlocked } from "./core/security.js";
 import { flagAbusiveRequest } from "./core/security-alerts.js";
-import { isProbePath } from "./core/probes.js";
+import { isApiSurface, isProbePath } from "./core/probes.js";
 import { BLOCKED_MESSAGE, BLOCKED_PAGE_HTML, wantsHtml } from "./core/blocked-page.js";
 import { registerCsrf } from "./core/csrf.js";
 import { registerCompression } from "./core/compression.js";
@@ -183,6 +183,27 @@ app.addHook("onRequest", async (request, reply) => {
     await reply.code(404).send({ error: "Not found" });
   }
 });
+// The route-config keys the deletion-protection hook below reads. Declared once
+// here; the routes that carry them are annotated where they are defined.
+declare module "fastify" {
+  interface FastifyContextConfig {
+    // Exempt a DELETE route: revoking sessions/tokens protects the account
+    // rather than destroying content, and a travelling user needs it.
+    untrustedAllow?: boolean;
+    // Mark a non-DELETE route that permanently destroys data (Recycle Bin
+    // empty, duplicate-cleanup deletions, backup restore).
+    destructive?: boolean;
+  }
+}
+// Deletion protection (opt-in policy, Security → Policies): refuse destructive
+// actions arriving from outside a trusted network — every account, admins
+// included, so stolen credentials used from the internet can't destroy content.
+// Runs after routing, so the matched route's config is available.
+app.addHook("onRequest", async (request, reply) => {
+  if (deletionBlocked(request.method, request.routeOptions?.config, request.ip)) {
+    await reply.code(403).send({ error: "Deleting is disabled outside trusted networks." });
+  }
+});
 // CSRF: a double-submit token validated on every state-changing request.
 registerCsrf(app);
 // Generic file uploads. No global fileSize cap — each upload route enforces its
@@ -203,7 +224,15 @@ if (config.staticPath) {
     root: config.staticPath,
     wildcard: false
   });
-  app.setNotFoundHandler((_request, reply) => {
+  app.setNotFoundHandler((request, reply) => {
+    // An unknown API or OPDS path is a missing endpoint, not a page: answer a
+    // proper 404 instead of the app shell (scanners probing /api/… were getting
+    // 200 + index.html). Deliberately NOT abuse-flagged — a PWA running stale
+    // JS after an upgrade, or an e-reader holding an old OPDS URL, lands here
+    // legitimately.
+    if (isApiSurface(request.url)) {
+      return reply.code(404).send({ error: "Not found" });
+    }
     return reply.sendFile("index.html");
   });
 }
