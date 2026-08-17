@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { db, logActivity } from "../db.js";
 import { parseBody } from "./shared.js";
 import { MAIL_SETTINGS_KEY, getMailSettings, isMailConfigured, sendTestEmail, type MailSettings } from "./mail.js";
+import { sealSecret } from "./mfa.js";
 
 const mailSchema = z.object({
   host: z.string().trim().max(255),
@@ -56,6 +57,10 @@ export async function mailPlugin(app: FastifyInstance) {
       fromName: parsed.data.fromName
     };
 
+    // Seal the password before it lands in the DB (and therefore in every backup
+    // zip); getMailSettings un-seals it on read. hasPassword semantics are
+    // unchanged — publicMail below still sees the plaintext `next`.
+    const stored = { ...next, password: sealSecret(next.password) };
     db.prepare(`
       INSERT INTO app_settings (key, value, updated_by, updated_at)
       VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -63,7 +68,7 @@ export async function mailPlugin(app: FastifyInstance) {
         value = excluded.value,
         updated_by = excluded.updated_by,
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-    `).run(MAIL_SETTINGS_KEY, JSON.stringify(next), request.user!.id);
+    `).run(MAIL_SETTINGS_KEY, JSON.stringify(stored), request.user!.id);
 
     logActivity({
       event: "config.mail_updated",

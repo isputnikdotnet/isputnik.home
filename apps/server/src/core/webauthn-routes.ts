@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import { db, logActivity, publicUser, type User } from "../db.js";
 import { config } from "../config.js";
+import { hostCookieName } from "./cookies.js";
 import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody } from "./shared.js";
@@ -36,8 +37,10 @@ import {
 // auto-block exactly as a wrong password does, and a credential id matching nothing
 // at all is flagged as abuse the way an unknown OPDS token is.
 
-const REGISTER_COOKIE = "isputnik_pk_reg";
-const LOGIN_COOKIE = "isputnik_pk_login";
+// __Host-prefixed on secure deployments (see core/cookies.ts). Short-lived, so a
+// plain rename is enough — set and read use these constants.
+const REGISTER_COOKIE = hostCookieName("isputnik_pk_reg", config.cookieSecure);
+const LOGIN_COOKIE = hostCookieName("isputnik_pk_login", config.cookieSecure);
 const COOKIE_SECONDS = 5 * 60;
 
 const passwordGateSchema = z.object({

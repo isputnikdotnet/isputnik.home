@@ -132,6 +132,11 @@ Shipped:
   plain-http LAN deployment keeps the bare name, because a browser rejects that
   prefix without `Secure` and every mutation would 403. The SPA prefers the
   prefixed cookie, so both can coexist across an upgrade (`csrfCookieName`).
+  The **session**, **MFA-challenge** and **passkey-ceremony** cookies carry the
+  same `__Host-` prefix on HTTPS (`hostCookieName`, `core/cookies.ts`), closing
+  cookie-tossing there too. The session read falls back to the bare legacy name,
+  so the rename logs nobody out — a session moves to the prefixed name on its next
+  sign-in, and logout clears both.
 - **No account-existence oracle on login** — an unknown or deactivated email is
   still checked against a dummy hash (`verifyDummyPassword`), so a miss can't be
   told from a wrong password by how long the answer takes. scrypt is slow enough
@@ -281,6 +286,8 @@ code_hash, sends, last_sent_at            -- the last three: 'email' only
 ```
 
 The TOTP secret is **encrypted** (not hashed) because it must be recoverable to verify codes. The key comes from `MFA_ENCRYPTION_KEY` (any string, sha256-derived to 32 bytes); if unset, a random key is persisted beside the database as `mfa.key`. Keep the key stable — changing it makes stored secrets undecryptable and forces re-enrolment (relevant when restoring a backup onto a new host).
+
+The two operator secrets in `app_settings` — the **SMTP password** and the **AbuseIPDB key** — are sealed with the same key (`sealSecret`/`openSecret` in `core/mfa.ts`), so the database that a backup zip carries wholesale is inert on its own: a leaked backup exposes neither. They carry the same caveat as MFA — restoring onto a host without the matching `mfa.key`/`MFA_ENCRYPTION_KEY` means re-entering them — and `openSecret` fails safe (an undecryptable value reads as empty rather than throwing, since `getSecurityPolicy` runs on request paths). Values written before sealing existed are read as legacy plaintext and re-sealed on the next save.
 
 Emailed codes need no such key: each is minted per challenge and stored **hashed** (`code_hash`), like a backup code, so a stolen database yields nothing replayable. `purpose` lets the same row shape serve both a sign-in (`login`) and the code that confirms an email enrollment (`enroll`) — one row per user per purpose. Secret/code handling lives in `core/mfa.ts`; routes and the challenge in `core/mfa-routes.ts`.
 

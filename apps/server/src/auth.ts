@@ -3,8 +3,18 @@ import { nanoid } from "nanoid";
 import { config } from "./config.js";
 import { db, selfUser, type User } from "./db.js";
 import { sha256 } from "./crypto.js";
+import { hostCookieName } from "./core/cookies.js";
 
-const cookieName = "isputnik_sid";
+// On a secure deployment the session cookie carries the __Host- prefix (see
+// core/cookies.ts). Existing sessions were issued under the bare name, so reads
+// fall back to it: nobody is logged out by the rename, and a session migrates to
+// the prefixed name the next time it is issued (sign-in). Logout clears both.
+const LEGACY_SESSION_COOKIE = "isputnik_sid";
+const cookieName = hostCookieName(LEGACY_SESSION_COOKIE, config.cookieSecure);
+
+function readSessionToken(request: FastifyRequest): string | undefined {
+  return request.cookies[cookieName] ?? request.cookies[LEGACY_SESSION_COOKIE];
+}
 
 export function addDays(days: number) {
   const date = new Date();
@@ -63,11 +73,16 @@ export function issueSession(
 
 export function clearSession(reply: FastifyReply) {
   reply.clearCookie(cookieName, { path: "/" });
+  // Also clear any cookie left under the bare pre-__Host- name, so a stale legacy
+  // cookie can't keep a signed-out browser authenticating via the read fallback.
+  if (cookieName !== LEGACY_SESSION_COOKIE) {
+    reply.clearCookie(LEGACY_SESSION_COOKIE, { path: "/" });
+  }
 }
 
 export async function registerAuthDecorators(app: FastifyInstance) {
   app.decorate("authenticate", async (request: FastifyRequest, reply: FastifyReply) => {
-    const token = request.cookies[cookieName];
+    const token = readSessionToken(request);
     if (!token) {
       return reply.code(401).send({ error: "Not authenticated" });
     }
@@ -129,13 +144,13 @@ export function currentUserPayload(request: FastifyRequest) {
 }
 
 export function revokeCurrentSession(request: FastifyRequest) {
-  const token = request.cookies[cookieName];
+  const token = readSessionToken(request);
   if (token) {
     db.prepare("UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE token_hash = ?").run(sha256(token));
   }
 }
 
 export function currentSessionHash(request: FastifyRequest) {
-  const token = request.cookies[cookieName];
+  const token = readSessionToken(request);
   return token ? sha256(token) : null;
 }

@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { db } from "../db.js";
 import { renderEmail } from "./email-template.js";
+import { openSecret } from "./mfa.js";
 
 // Platform mail infrastructure: SMTP settings storage + a thin nodemailer wrapper.
 // Lives in core because it carries no product knowledge — like logging/status. The
@@ -38,7 +39,10 @@ export function getMailSettings(): MailSettings {
     | undefined;
   if (!row) return { ...EMPTY };
   try {
-    return { ...EMPTY, ...(JSON.parse(row.value) as Partial<MailSettings>) };
+    const parsed = { ...EMPTY, ...(JSON.parse(row.value) as Partial<MailSettings>) };
+    // The password is sealed at rest (see mfa.sealSecret); un-seal it for use.
+    // A legacy plaintext value passes through unchanged.
+    return { ...parsed, password: openSecret(parsed.password) };
   } catch {
     return { ...EMPTY };
   }

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { db, logActivity, nowIso, publicUser, type MfaMethod, type User } from "../db.js";
 import { config } from "../config.js";
+import { hostCookieName } from "./cookies.js";
 import { verifyPassword } from "../crypto.js";
 import { issueSession } from "../auth.js";
 import { parseBody } from "./shared.js";
@@ -43,7 +44,9 @@ import {
 // test/mfa-routes.test.ts); the plugin routes are thin wrappers that add
 // password-gating, cookies, and logging — mirroring api-tokens.ts.
 
-const MFA_COOKIE = "isputnik_mfa";
+// __Host-prefixed on secure deployments (see core/cookies.ts). Short-lived, so a
+// plain rename is enough — set and read use this one constant.
+const MFA_COOKIE = hostCookieName("isputnik_mfa", config.cookieSecure);
 const MFA_CHALLENGE_MINUTES = 5;
 export const MFA_MAX_ATTEMPTS = 5;
 
