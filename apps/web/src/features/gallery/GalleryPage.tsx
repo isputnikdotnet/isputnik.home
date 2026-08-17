@@ -260,11 +260,12 @@ export function GalleryPage({
   // without one entirely (list and open-person alike), unlike Albums/
   // Slideshows which only step aside while something specific is open.
   const showToolbar = showBrowseChrome && view !== "people";
-  const searchPlaceholder = browsingPhotos
+  const searchPlaceholder = view === "timeline"
     ? "Search photos & videos..."
-    : view === "albums" ? "Search albums..."
-      : view === "slideshows" ? "Search slideshows..."
-        : "Search people...";
+    : view === "folder" ? "Search folders..."
+      : view === "albums" ? "Search albums..."
+        : view === "slideshows" ? "Search slideshows..."
+          : "Search people...";
 
   // Folder to open on the next switch into the Folders view (set by the lightbox's
   // Folder link); the view-change effect consumes it instead of loading the root.
@@ -328,25 +329,55 @@ export function GalleryPage({
 
   useEffect(() => { void loadLibraries(); }, [loadLibraries]);
 
-  // Debounce the search box into the query that hits the API — but only where the
-  // box means "search the photos". On the list views the same box is a name
-  // filter applied in memory (see nameTerm below), and letting it reach `query`
-  // would refetch that list on every keystroke, since query is a dependency of
-  // the view loader.
-  useEffect(() => {
-    const timer = window.setTimeout(() => setQuery(browsingPhotos ? searchText.trim() : ""), 250);
-    return () => window.clearTimeout(timer);
-  }, [searchText, browsingPhotos]);
+  // Folder-name search results, replacing the folder browse while a term is typed.
+  // null = not searching; the browse state underneath is left alone, so clearing
+  // the box lands back exactly where you were.
+  const [folderQuery, setFolderQuery] = useState("");
+  const [folderMatches, setFolderMatches] = useState<{ folders: GalleryFolder[]; total: number } | null>(null);
 
-  // Searching/filtering is a timeline operation (folder view is structural); either
-  // pulls the user into the timeline so results are visible. Which libraries the
-  // view draws from is exempt — Folders is already a per-library concept (its own
-  // rescan needs exactly one), so narrowing to a library stays right where you are
-  // instead of reading as "now go search".
+  // Debounce the search box into the query that hits the API — but only where the
+  // box means "search the photos". In the Folders view the SAME box searches folder
+  // names instead (folderQuery above) — typing there used to yank the page into the
+  // Timeline and search the photos, which answered a question nobody standing in a
+  // folder tree was asking. On the list views the box is a name filter applied in
+  // memory (see nameTerm below), and letting it reach `query` would refetch that
+  // list on every keystroke, since query is a dependency of the view loader.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setQuery(view === "timeline" ? searchText.trim() : "");
+      setFolderQuery(view === "folder" ? searchText.trim() : "");
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchText, view]);
+
+  // FILTERS are still a timeline operation (a folder tree can't show "only videos
+  // from 2019" without becoming the timeline), so they pull the user there where
+  // the results are visible. Which libraries the view draws from is exempt —
+  // Folders is already a per-library concept, so narrowing to a library stays put.
   useEffect(() => {
     const nonLibraryFilters = activeGalleryFilterCount({ ...filters, libraries: [] });
-    if ((query || nonLibraryFilters > 0) && view === "folder") goToView("timeline");
-  }, [query, filters, view, goToView]);
+    if (nonLibraryFilters > 0 && view === "folder") goToView("timeline");
+  }, [filters, view, goToView]);
+
+  useEffect(() => {
+    if (view !== "folder" || !folderQuery) {
+      setFolderMatches(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({ ...scopeParams(), q: folderQuery } as Record<string, string>);
+        const payload = await api<{ folders: GalleryFolder[]; total: number }>(
+          `/api/library/gallery/folders/search?${params}`
+        );
+        if (!cancelled) setFolderMatches(payload);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Unable to search folders");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [view, folderQuery, scopeParams]);
 
   // The box means something different in each view — photos here, album names
   // there — so a term does not follow you between them. Cleared on every change
@@ -1966,6 +1997,44 @@ export function GalleryPage({
                       {loading ? "Loading…" : "Load more"}
                     </button>
                   </div>
+                )}
+              </>
+            ) : folderMatches ? (
+              /* Folder-NAME search, everywhere in scope. Clicking a result opens the
+                 folder and clears the box — the term found its answer. The browse
+                 state underneath is untouched, so clearing by hand lands back where
+                 you were. */
+              <>
+                <p className="gallery-section-label">
+                  {folderMatches.total === 0
+                    ? "No folders match"
+                    : `Folders matching “${folderQuery}” (${formatCount(folderMatches.total)}${folderMatches.total > folderMatches.folders.length ? `, first ${formatCount(folderMatches.folders.length)}` : ""})`}
+                </p>
+                {folderMatches.folders.length > 0 ? (
+                  <div className="gallery-folder-grid">
+                    {folderMatches.folders.map((folder) => (
+                      <button
+                        key={folder.path}
+                        type="button"
+                        className="gallery-folder-tile"
+                        title={folder.path}
+                        onClick={() => { setSearchText(""); void loadFolder(folder.path); }}
+                      >
+                        <span className="gallery-folder-thumb">
+                          {folder.coverUrl ? <img src={folder.coverUrl} alt="" loading="lazy" /> : <Folder size={28} aria-hidden="true" />}
+                        </span>
+                        <strong>{folder.name}</strong>
+                        {/* Where it sits — the name alone can't tell 2004's "wedding"
+                            from 2019's. Top-level folders have nowhere to say. */}
+                        {folder.path.includes("/") && (
+                          <small className="gallery-folder-where">{folder.path.slice(0, folder.path.lastIndexOf("/"))}</small>
+                        )}
+                        <small>{folder.assetCount.toLocaleString()} {folder.assetCount === 1 ? "item" : "items"}</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="management-empty">No folder name contains “{folderQuery}”.</p>
                 )}
               </>
             ) : (

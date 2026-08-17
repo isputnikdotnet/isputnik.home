@@ -6,6 +6,7 @@ import { setGalleryPlaceAndTime, updateGalleryAsset } from "../src/modules/libra
 import {
   queryGalleryTimeline,
   queryGalleryFolders,
+  searchGalleryFolders,
   galleryFacets,
   queryGalleryMapPoints,
   resolveGalleryScopeLibraryIds
@@ -107,6 +108,47 @@ describe("gallery folder view", () => {
     const spring = queryGalleryFolders("u1", ["GAL"], "2024/spring", 100, 0);
     expect(spring.folders).toHaveLength(0);
     expect(spring.assets.map((a) => a.title).sort()).toEqual(["x.jpg", "y.jpg"]);
+  });
+});
+
+describe("gallery folder-name search", () => {
+  beforeEach(async () => {
+    const t = Date.parse("2024-01-01T00:00:00Z");
+    await ingestGalleryAsset("GAL", asset("2004/wedding/day1/a.jpg", t), false);
+    await ingestGalleryAsset("GAL", asset("2004/wedding/day2/b.jpg", t + DAY), false);
+    await ingestGalleryAsset("GAL", asset("2019/wedding-anniversary/c.jpg", t + 2 * DAY), false);
+    await ingestGalleryAsset("GAL", asset("2019/beach/d.jpg", t + 3 * DAY), false);
+  });
+
+  it("finds a folder by name anywhere in the tree, with its whole-subtree count", () => {
+    const result = searchGalleryFolders(["GAL"], "wedding", 100);
+    expect(result.folders.map((f) => f.path)).toEqual([
+      "2004/wedding",
+      "2019/wedding-anniversary"
+    ]);
+    // "2004/wedding" holds no files directly — it exists only as a middle segment
+    // of its days' paths — and still must be findable, counting everything below.
+    const buried = result.folders.find((f) => f.path === "2004/wedding");
+    expect(buried).toMatchObject({ name: "wedding", assetCount: 2 });
+  });
+
+  it("matches the folder's own name, not its ancestors'", () => {
+    // "2004" is an ancestor of the wedding days; searching it must not return them.
+    const result = searchGalleryFolders(["GAL"], "2004", 100);
+    expect(result.folders.map((f) => f.path)).toEqual(["2004"]);
+    expect(result.folders[0].assetCount).toBe(2);
+  });
+
+  it("is case-insensitive and answers nothing gracefully", () => {
+    expect(searchGalleryFolders(["GAL"], "BEACH", 100).folders.map((f) => f.name)).toEqual(["beach"]);
+    expect(searchGalleryFolders(["GAL"], "xyzzy", 100)).toEqual({ folders: [], total: 0 });
+    expect(searchGalleryFolders([], "beach", 100)).toEqual({ folders: [], total: 0 });
+  });
+
+  it("caps the list but reports the true total", () => {
+    const result = searchGalleryFolders(["GAL"], "day", 1);
+    expect(result.folders).toHaveLength(1);
+    expect(result.total).toBe(2); // day1 and day2
   });
 });
 

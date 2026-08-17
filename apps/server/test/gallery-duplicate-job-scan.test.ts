@@ -912,14 +912,43 @@ describe("overlapping folders", () => {
     expect(byType(scan(["GAL"], "folders").results, "overlap")).toHaveLength(0);
   });
 
-  it("never pairs a folder with its own parent — that is the photo tier's business", () => {
-    asset("p1", "Photos/x.jpg", { hash: "pic-p1" });
-    asset("p2", "Photos/y.jpg", { hash: "pic-p2" });
-    asset("q1", "Photos/sub/x.jpg", { hash: "pic-p1" });
-    asset("q2", "Photos/sub/y.jpg", { hash: "pic-p2" });
-    asset("q3", "Photos/sub/z.jpg", { hash: "pic-p3" });
+  // The real library's "2017-12-17/2017-12-17": a folder copied into its own parent,
+  // each side holding one stray frame the other lacks. Identical-folders can't fire
+  // for parent/child (the parent's fingerprint counts the child's files), contained
+  // needs TOTAL coverage — and this tier used to skip nested pairs on top, so 94
+  // duplicate photos produced no folder-shaped answer at all. Direct contents make
+  // the pair legitimate: a file sits directly in one folder, so parent and child
+  // share nothing unless the files were really copied.
+  it("pairs a folder with its own parent when each side holds a stray of its own", () => {
+    asset("p1", "Photos/x.jpg", { hash: "pic-1" });
+    asset("p2", "Photos/y.jpg", { hash: "pic-2" });
+    asset("p3", "Photos/only-outer.jpg", { hash: "pic-outer" });
+    asset("q1", "Photos/Photos/x.jpg", { hash: "pic-1" });
+    asset("q2", "Photos/Photos/y.jpg", { hash: "pic-2" });
+    asset("q3", "Photos/Photos/only-inner.jpg", { hash: "pic-inner" });
 
-    expect(byType(scan().results, "overlap")).toHaveLength(0);
+    const results = scan().results;
+    expect(byType(results, "folder_set")).toHaveLength(0);
+    expect(byType(results, "contained")).toHaveLength(0);
+
+    const [pair] = byType(results, "overlap");
+    expect(pair).toBeTruthy();
+    expect(pair.folders.map((folder) => folder.folderPath).sort()).toEqual(["Photos", "Photos/Photos"]);
+    // Only the shared copies are offered; each side's stray stays out of the result.
+    expect(pair.members.filter((member) => member.role === "delete")).toHaveLength(2);
+    expect(pair.members.some((member) => member.path.includes("only-"))).toBe(false);
+  });
+
+  it("still leaves a nested pair to the contained tier when that tier answers it", () => {
+    asset("p1", "Photos/x.jpg", { hash: "pic-1" });
+    asset("p2", "Photos/y.jpg", { hash: "pic-2" });
+    asset("p3", "Photos/extra.jpg", { hash: "pic-3" });
+    asset("q1", "Photos/sub/x.jpg", { hash: "pic-1" });
+    asset("q2", "Photos/sub/y.jpg", { hash: "pic-2" });
+
+    const results = scan().results;
+    expect(byType(results, "contained")).not.toHaveLength(0);
+    expect(byType(results, "overlap")).toHaveLength(0);
   });
 
   it("keeps the read-only side, whatever else is true", () => {
