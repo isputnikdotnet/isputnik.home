@@ -214,10 +214,15 @@ procedure.
   the `__Host-` path only engages on a real HTTPS deployment — worth a browser sign-in/MFA/passkey
   smoke test on staging before relying on it.**
 
+### P3 — picked up after the main tiers (commit `see branch`)
+- **Author-profile write gate** *(Review B, Low)* — ✅ the four `by-name` profile-write routes
+  (`people.ts` PATCH, enrich, photo-from-url, PUT photo) were gated only on `authenticate`, so any
+  member could rename/re-bio/re-photo any author globally. Now gated on `canWriteAnyBookLibrary`
+  (mirrors gallery's `canWriteAnyGallery`); admins always pass. `author-profile-authz.test.ts`.
+
 ### Info / note-only (no action required for this threat model)
 TOTP codes replayable within their ~60–90 s window (no last-step tracking); MFA-disable and
-email-change are password-gated only; author-profile write routes gated on `authenticate` only
-(intra-household vandalism); scrypt at Node defaults (one notch below OWASP 2^17); backup/email codes
+email-change are password-gated only; scrypt at Node defaults (one notch below OWASP 2^17); backup/email codes
 offline-brute-forceable only with a stolen DB; `pathIsInside` is lexical (symlink-defeatable, needs
 disk access); a few exotic IPv6 ranges unblocked in the SSRF list; share-recipient endpoints return
 member emails the directory withholds. Documented here for awareness; revisit only if guest accounts

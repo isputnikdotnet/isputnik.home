@@ -8,6 +8,7 @@ import { parseBody } from "../../../core/shared.js";
 import { thumbnailAbsolutePath, thumbnailStorageKey } from "../shared/thumbnail.js";
 import { normalizeLibrarySettings } from "../shared/library-settings.js";
 import { accessibleLibraryIds, canUserWriteLibrary, getAccessibleLibrary } from "../shared/library-access.js";
+import { BOOK_LIBRARY_TYPES } from "../shared/library-types.js";
 import { alphaFieldsFor } from "../shared/alphabet.js";
 import { enrichPerson, lookupPersonByUrl, lookupPersonInfo, lookupPersonPhotoCandidates, removeStoredPhotos, writePersonPhoto } from "./enrich.js";
 import { MetadataLinkError } from "./providers/types.js";
@@ -20,6 +21,21 @@ type AuthorRow = {
   bio: string | null;
   cover_storage_key: string | null;
 };
+
+// People (authors/narrators) are global — one row shared across every book
+// library that credits them — so editing a profile isn't library-scoped. Gate the
+// profile-write routes on the user being able to write SOME book library, the way
+// gallery person management gates on canWriteAnyGallery. Anyone who curates books
+// may curate the people in them; a viewer-only member must not be able to rename,
+// re-bio, or re-photo an author whose books sit in a library they can't touch.
+function canWriteAnyBookLibrary(user: { id: string; role: string }): boolean {
+  if (user.role === "admin") return true;
+  const placeholders = BOOK_LIBRARY_TYPES.map(() => "?").join(", ");
+  const rows = db
+    .prepare(`SELECT * FROM libraries WHERE type IN (${placeholders})`)
+    .all(...BOOK_LIBRARY_TYPES) as Parameters<typeof canUserWriteLibrary>[0][];
+  return rows.some((row) => canUserWriteLibrary(row, user.id, user.role));
+}
 
 function photoUrl(storageKey: string | null) {
   return storageKey ? `/api/library/covers/${storageKey}` : null;
@@ -305,6 +321,9 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   });
 
   app.patch("/api/library/people/by-name", { preHandler: app.authenticate }, async (request, reply) => {
+    if (!canWriteAnyBookLibrary(request.user!)) {
+      return reply.code(403).send({ error: "Write access to a book library is required to edit people." });
+    }
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
       return reply.code(400).send({ error: "Name is required" });
@@ -328,6 +347,9 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   // Look the person up online (Wikipedia, then Open Library) and fill their
   // biography and photo — empty fields only; existing data is never replaced.
   app.post("/api/library/people/by-name/enrich", { preHandler: app.authenticate }, async (request, reply) => {
+    if (!canWriteAnyBookLibrary(request.user!)) {
+      return reply.code(403).send({ error: "Write access to a book library is required to edit people." });
+    }
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
       return reply.code(400).send({ error: "Name is required" });
@@ -443,6 +465,9 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   // set it as the person's photo — an explicit choice, so it replaces any
   // existing photo.
   app.post("/api/library/people/by-name/photo-from-url", { preHandler: app.authenticate }, async (request, reply) => {
+    if (!canWriteAnyBookLibrary(request.user!)) {
+      return reply.code(403).send({ error: "Write access to a book library is required to edit people." });
+    }
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
       return reply.code(400).send({ error: "Name is required" });
@@ -538,6 +563,9 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   });
 
   app.put("/api/library/people/by-name/photo", { preHandler: app.authenticate }, async (request, reply) => {
+    if (!canWriteAnyBookLibrary(request.user!)) {
+      return reply.code(403).send({ error: "Write access to a book library is required to edit people." });
+    }
     const name = String((request.query as { name?: string }).name ?? "").trim();
     if (!name) {
       return reply.code(400).send({ error: "Name is required" });
