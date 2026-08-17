@@ -11,6 +11,7 @@ import { receiveUploadBatch, UploadError } from "../../uploads/index.js";
 import { can, parsePolicy } from "../../../core/permissions.js";
 import { canUserAccessLibrary } from "../shared/library-access.js";
 import { validateLibrarySource } from "../shared/library-source.js";
+import { resolveUploadMaxBytes } from "../shared/library-crud.js";
 import { normaliseRelativePath } from "../shared/storage-roots.js";
 import { normalizeLibrarySettings, uploadAcceptExtensions } from "../shared/library-settings.js";
 import { rescanSingleBook } from "./scanner.js";
@@ -81,7 +82,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
     }
 
     const settings = normalizeLibrarySettings("audiobook", library.settings_json);
-    const maxBytes = policy.maxUploadMB != null ? policy.maxUploadMB * 1024 * 1024 : null;
+    const maxBytes = resolveUploadMaxBytes(policy.maxUploadMB);
     const stagingDir = path.join(root, `.upload-${nanoid(10)}`);
 
     let received;

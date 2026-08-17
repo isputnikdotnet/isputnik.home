@@ -4,7 +4,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest, RouteShorthandOptio
 import { nowIso, type User } from "../../../db.js";
 import { resolveApiToken, isUnknownApiToken } from "../../../core/api-tokens.js";
 import { flagAbusiveRequest } from "../../../core/security-alerts.js";
-import { thumbnailAbsolutePath } from "../shared/thumbnail.js";
+import { thumbnailAbsolutePath, LIBRARY_BUCKET_RE } from "../shared/thumbnail.js";
+import { getAccessibleLibrary } from "../shared/library-access.js";
 import { streamDocumentFile } from "../shared/document-stream.js";
 import { resolveEbookScopeLibraryIds, queryEbookCatalog, ebookCatalogFacets } from "./catalog.js";
 
@@ -362,6 +363,15 @@ function documentHandler(request: FastifyRequest, reply: FastifyReply): void {
 
 async function coverHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const key = (request.params as { "*": string })["*"];
+  // Same library-access gate as the app cover route. An OPDS token is scoped to
+  // one user, and a deterministic key must not let it fetch thumbnails from a
+  // library that user can't see — including gallery face crops, which also live
+  // under a library bucket, outside the ebook surface the token was minted for.
+  const bucket = key.split("/")[0] ?? "";
+  const user = request.opdsUser!;
+  if (LIBRARY_BUCKET_RE.test(bucket) && !getAccessibleLibrary(bucket, user.id, user.role)) {
+    return reply.code(404).type("text/plain").send("Cover not found");
+  }
   try {
     const absolutePath = thumbnailAbsolutePath(key);
     const data = await fsp.readFile(absolutePath);

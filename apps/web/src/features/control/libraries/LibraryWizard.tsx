@@ -242,7 +242,7 @@ export function LibraryWizard({
         .map((source) => typeSourceInfo.find((info) => info.id === source.id)?.label ?? source.id)
         .join(" › ") || "None"
     },
-    { label: "Upload limit", value: maxUploadMB ? `${maxUploadMB} MB` : "No limit" },
+    { label: "Upload limit", value: maxUploadMB ? `${maxUploadMB} MB` : "10 GB (standard)" },
     ...(libraryType === "audiobook" ? [{ label: "Tag encoding", value: tagEncoding || "Auto detect" }] : [])
   ];
 

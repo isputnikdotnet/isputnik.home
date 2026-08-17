@@ -69,8 +69,9 @@ export function removeThumbnailsForLibrary(libraryId: string): void {
 
 // A top-level directory in the thumbnail store is a per-library bucket exactly when
 // its name is a library id (nanoid(16)); "people" and "categories" are the shared
-// cross-library buckets and never match this shape.
-const LIBRARY_BUCKET_RE = /^[A-Za-z0-9_-]{16}$/;
+// cross-library buckets and never match this shape. Exported so the cover route can
+// tell a library-scoped key (which needs a library-access check) from a shared one.
+export const LIBRARY_BUCKET_RE = /^[A-Za-z0-9_-]{16}$/;
 
 // True when the directory tree holds nothing but generated .webp thumbnails.
 // Anything else (a stray file, a symlink) disqualifies the bucket from sweeping.

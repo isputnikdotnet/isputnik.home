@@ -12,6 +12,54 @@ import { repoFileUrl } from "../shared/links";
 // the version running. "View on GitHub" stays as a way to reach the latest copy.
 //
 // marked is loaded on demand: it's ~35 KB that only a reader of the guides needs.
+
+// Attribute-safe interpolation for the custom renderer: a title or href carrying
+// a quote or angle bracket must not break out of the attribute it's placed in.
+function escapeAttr(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Render a guide's markdown to the sanitized HTML that reaches
+// dangerouslySetInnerHTML. Exported so the sanitisation can be tested directly.
+// The guides ship inside the build today, but this is the one place app markup is
+// built from a fetched document, so it must not depend on that staying true:
+// interpolated attribute values are escaped here, and DOMPurify then drops any
+// script, event handler, or javascript: URL a guide could carry. ADD_ATTR keeps
+// target (external links); data-guide is a data-* attr DOMPurify allows by default
+// and the in-app link handler reads.
+export async function renderGuideHtml(markdown: string): Promise<string> {
+  const [{ Marked }, { default: DOMPurify }] = await Promise.all([import("marked"), import("dompurify")]);
+  const marked = new Marked({ gfm: true });
+  // Rewrite the two link kinds the guides use so they work from /help/:slug:
+  // sibling guides become in-app routes, and image paths resolve against the
+  // copied folder rather than the current URL.
+  marked.use({
+    renderer: {
+      link({ href, title, tokens }) {
+        const inner = this.parser.parseInline(tokens);
+        const guide = /^([a-z0-9-]+)\.md(#.*)?$/i.exec(href ?? "");
+        if (guide) {
+          return `<a href="/help/${guide[1]}${guide[2] ?? ""}" data-guide="${guide[1]}">${inner}</a>`;
+        }
+        const external = /^https?:\/\//i.test(href ?? "");
+        const attrs = external ? ' target="_blank" rel="noreferrer"' : "";
+        const titleAttr = title ? ` title="${escapeAttr(title)}"` : "";
+        return `<a href="${escapeAttr(href ?? "")}"${titleAttr}${attrs}>${inner}</a>`;
+      },
+      image({ href, title, text }) {
+        const src = /^https?:\/\//i.test(href ?? "") ? href : `/guides/${(href ?? "").replace(/^\.?\//, "")}`;
+        const titleAttr = title ? ` title="${escapeAttr(title)}"` : "";
+        return `<img src="${escapeAttr(src)}" alt="${escapeAttr(text)}"${titleAttr} loading="lazy" />`;
+      }
+    }
+  });
+  return DOMPurify.sanitize(await marked.parse(markdown), { ADD_ATTR: ["target"] });
+}
+
 export function GuidePage({
   slug,
   user,
@@ -40,30 +88,7 @@ export function GuidePage({
       const markdown = response.ok ? await response.text() : "";
       if (!markdown || markdown.trimStart().startsWith("<")) throw new Error("That guide doesn't exist.");
 
-      const { Marked } = await import("marked");
-      const marked = new Marked({ gfm: true });
-      // Rewrite the two link kinds the guides use so they work from /help/:slug:
-      // sibling guides become in-app routes, and image paths resolve against the
-      // copied folder rather than the current URL.
-      marked.use({
-        renderer: {
-          link({ href, title, tokens }) {
-            const inner = this.parser.parseInline(tokens);
-            const guide = /^([a-z0-9-]+)\.md(#.*)?$/i.exec(href ?? "");
-            if (guide) {
-              return `<a href="/help/${guide[1]}${guide[2] ?? ""}" data-guide="${guide[1]}">${inner}</a>`;
-            }
-            const external = /^https?:\/\//i.test(href ?? "");
-            const attrs = external ? ' target="_blank" rel="noreferrer"' : "";
-            return `<a href="${href}"${title ? ` title="${title}"` : ""}${attrs}>${inner}</a>`;
-          },
-          image({ href, title, text }) {
-            const src = /^https?:\/\//i.test(href ?? "") ? href : `/guides/${(href ?? "").replace(/^\.?\//, "")}`;
-            return `<img src="${src}" alt="${text}"${title ? ` title="${title}"` : ""} loading="lazy" />`;
-          }
-        }
-      });
-      const rendered = await marked.parse(markdown);
+      const rendered = await renderGuideHtml(markdown);
       if (alive) setHtml(rendered);
     })().catch((err) => {
       if (alive) setError(err instanceof Error ? err.message : "Unable to open this guide.");
