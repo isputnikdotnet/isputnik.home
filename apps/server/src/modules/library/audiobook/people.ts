@@ -499,7 +499,10 @@ export async function audiobookPeoplePlugin(app: FastifyInstance) {
   // survives rescans), then repoint this person's book links to the target and
   // delete the now-orphaned author rows. Covers authors and narrators alike,
   // since both live in the authors table (role is on the book_authors link).
-  app.post("/api/library/people/merge", { preHandler: app.requireAdmin }, async (request, reply) => {
+  // destructive: merge permanently deletes the merged-from person row and its
+  // credit links — refused from untrusted networks under the deletions-only
+  // policy, consistent with tags/prune and the single-DELETE person routes.
+  app.post("/api/library/people/merge", { preHandler: app.requireAdmin, config: { destructive: true } }, async (request, reply) => {
     const parsed = parseBody(
       z.object({ from: z.string().trim().min(1).max(240), into: z.string().trim().min(1).max(240) }),
       request.body

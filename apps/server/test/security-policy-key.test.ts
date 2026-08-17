@@ -82,6 +82,15 @@ describe("AbuseIPDB key is never echoed", () => {
     expect(getSecurityPolicy().abuseIpdbKey).toBe("new-key");
   });
 
+  it("seals a fresh key that literally starts with the seal prefix (no false-positive passthrough)", async () => {
+    // "enc:v1:..." must be sealed, not stored verbatim as if already-sealed — else
+    // it would read back empty (decrypt fails) and leak plaintext in a backup.
+    const res = await patch(policyBody({ abuseIpdbKey: "enc:v1:tricky-key" }));
+    expect(res.statusCode).toBe(200);
+    expect(getStoredAbuseIpdbKeyRaw()).not.toBe("enc:v1:tricky-key"); // actually encrypted, not verbatim
+    expect(getSecurityPolicy().abuseIpdbKey).toBe("enc:v1:tricky-key"); // round-trips
+  });
+
   it("clears the key on an explicit clearAbuseIpdbKey", async () => {
     await patch(policyBody({ abuseIpdbKey: "secret-key-123" }));
     await patch(policyBody({ clearAbuseIpdbKey: true }));

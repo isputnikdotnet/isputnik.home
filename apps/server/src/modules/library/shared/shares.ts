@@ -592,8 +592,13 @@ function sendFile(
 // Never throws.
 export async function stripImageMetadata(absolutePath: string): Promise<{ buffer: Buffer; contentType: string } | null> {
   try {
-    const pipeline = sharp(absolutePath, { failOn: "none", animated: true }).rotate();
-    const format = (await pipeline.metadata()).format;
+    const probe = await sharp(absolutePath, { failOn: "none" }).metadata();
+    const format = probe.format;
+    // Read every frame ONLY for the animated containers we re-emit as animated
+    // (GIF/WebP), so their animation survives. A multi-page TIFF/AVIF must stay
+    // single-page — otherwise sharp stacks its pages into one tall JPEG.
+    const animated = (format === "gif" || format === "webp") && (probe.pages ?? 1) > 1;
+    const pipeline = sharp(absolutePath, { failOn: "none", animated }).rotate();
     switch (format) {
       case "png":
         return { buffer: await pipeline.png().toBuffer(), contentType: "image/png" };
@@ -1810,25 +1815,33 @@ export async function librarySharesPlugin(app: FastifyInstance) {
     const usedNames = new Map<string, number>();
     for (const file of available) {
       const filePath = path.join(file.source_path, ...file.relative_path.split("/"));
-      let name = file.relative_path.split("/").pop() ?? "file";
-      const seen = usedNames.get(name) ?? 0;
-      usedNames.set(name, seen + 1);
+      const originalName = file.relative_path.split("/").pop() ?? "file";
+      // Strip a photo first, so its FINAL (possibly re-extensioned) name is known
+      // before de-dup. A photo that can't be decoded at all is SKIPPED, not
+      // archived as the original — the fail-safe that never leaks EXIF. Videos are
+      // archived as the original.
+      let buffer: Buffer | null = null;
+      let finalName = originalName;
+      if (file.kind === "photo") {
+        const stripped = await stripImageMetadata(filePath);
+        if (!stripped) continue;
+        buffer = stripped.buffer;
+        finalName = withExtension(originalName, extForContentType(stripped.contentType));
+      }
+      // De-dup on the FINAL name, so a HEIC + JPG pair sharing a basename (both now
+      // ".jpg") don't collide into one entry that overwrites the other on extract.
+      const seen = usedNames.get(finalName) ?? 0;
+      usedNames.set(finalName, seen + 1);
+      let name = finalName;
       if (seen > 0) {
         const ext = path.extname(name);
         name = `${name.slice(0, name.length - ext.length)} (${seen})${ext}`;
       }
-      // Photos go into the zip metadata-stripped, same as the single-file routes.
-      // A photo that can't be decoded at all is SKIPPED, not archived as the
-      // original — the same fail-safe as the single-file route (never leak EXIF).
-      // Videos are archived as the original.
-      if (file.kind === "photo") {
-        const stripped = await stripImageMetadata(filePath);
-        if (stripped) {
-          archive.append(stripped.buffer, { name: withExtension(name, extForContentType(stripped.contentType)) });
-        }
-        continue;
+      if (buffer) {
+        archive.append(buffer, { name });
+      } else {
+        archive.file(filePath, { name });
       }
-      archive.file(filePath, { name });
     }
     archive.finalize();
   });
