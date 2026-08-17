@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { db, logActivity } from "../db.js";
 import { ipInAnyCidr, ipNetworkKey, isPrivateIp } from "./cidr.js";
-import { sealSecret, openSecret } from "./mfa.js";
+import { ensureSealed, openSecret } from "./mfa.js";
 
 // Brute-force defense and source-IP access control. Pure data/logic over the
 // login_attempts / blocked_ips / trusted_networks tables; the login route and a
@@ -71,7 +71,20 @@ export function setSecurityPolicy(policy: SecurityPolicy, userId: string | null)
        value = excluded.value,
        updated_by = excluded.updated_by,
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
-  ).run(POLICY_KEY, JSON.stringify({ ...policy, abuseIpdbKey: sealSecret(policy.abuseIpdbKey) }), userId);
+  ).run(POLICY_KEY, JSON.stringify({ ...policy, abuseIpdbKey: ensureSealed(policy.abuseIpdbKey) }), userId);
+}
+
+// The raw (still-sealed) AbuseIPDB key straight from storage, without opening it.
+// The "blank = keep" save path uses this so a transiently unreadable key isn't
+// wiped: it passes the ciphertext back through ensureSealed unchanged.
+export function getStoredAbuseIpdbKeyRaw(): string {
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(POLICY_KEY) as { value: string } | undefined;
+  if (!row) return "";
+  try {
+    return (JSON.parse(row.value) as Partial<SecurityPolicy>).abuseIpdbKey ?? "";
+  } catch {
+    return "";
+  }
 }
 
 // True when the request carries a proxy's forwarding header. Used to warn when

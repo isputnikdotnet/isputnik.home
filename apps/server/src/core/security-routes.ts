@@ -16,6 +16,7 @@ import {
   getTrustProxyHops,
   wasForwardedHeaderSeen,
   seedKnownLoginNetworks,
+  getStoredAbuseIpdbKeyRaw,
   type SecurityPolicy
 } from "./security.js";
 import { getPasswordPolicy, setPasswordPolicy } from "./password-policy.js";
@@ -43,8 +44,10 @@ const policySchema = z.object({
   requireMfaOutside: z.boolean(),
   // Omitted/blank on save = keep the stored key; never echoed back (like the SMTP
   // password). Other policy cards PATCH the whole blob without it, so it must be
-  // optional or a threshold save would wipe the key.
+  // optional or a threshold save would wipe the key. `clearAbuseIpdbKey` is the
+  // explicit "remove it" signal (blank alone means keep, so there was no other way).
   abuseIpdbKey: z.string().trim().max(120).optional(),
+  clearAbuseIpdbKey: z.boolean().optional(),
   reputationAutoEscalate: z.boolean(),
   reputationEscalateThreshold: z.number().int().min(50).max(100),
   trustedDeletesOnly: z.boolean()
@@ -125,11 +128,13 @@ export async function securityRoutes(app: FastifyInstance) {
     const before = getSecurityPolicy();
     const enablingAlert = parsed.data.alertNewIpSignIn && !before.alertNewIpSignIn;
     if (enablingAlert) seedKnownLoginNetworks();
-    // Blank/omitted key = keep what's stored (the client never receives it to
-    // echo back), mirroring the SMTP password save.
+    // Blank/omitted key = keep what's stored — read from the RAW (still-sealed)
+    // column, not the opened value, so a transiently unreadable key isn't wiped by
+    // a routine save. An explicit clearAbuseIpdbKey removes it.
+    const { clearAbuseIpdbKey, abuseIpdbKey: submittedKey, ...restPolicy } = parsed.data;
     const next: SecurityPolicy = {
-      ...parsed.data,
-      abuseIpdbKey: parsed.data.abuseIpdbKey?.length ? parsed.data.abuseIpdbKey : before.abuseIpdbKey
+      ...restPolicy,
+      abuseIpdbKey: clearAbuseIpdbKey ? "" : submittedKey?.length ? submittedKey : getStoredAbuseIpdbKeyRaw()
     };
     setSecurityPolicy(next, request.user!.id);
     // The outside-MFA switch changes who can sign in at all, so its flips are

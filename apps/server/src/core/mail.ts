@@ -48,6 +48,21 @@ export function getMailSettings(): MailSettings {
   }
 }
 
+// The raw (still-sealed) SMTP password straight from storage, without opening it.
+// The "blank = keep" save path uses this so a transiently unreadable key doesn't
+// wipe the stored password by re-sealing openSecret's empty result.
+export function getStoredMailPasswordRaw(): string {
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = ?").get(MAIL_SETTINGS_KEY) as
+    | { value: string }
+    | undefined;
+  if (!row) return "";
+  try {
+    return (JSON.parse(row.value) as Partial<MailSettings>).password ?? "";
+  } catch {
+    return "";
+  }
+}
+
 // Enough to attempt delivery: a host to connect to and a from-address to send as.
 export function isMailConfigured(settings: MailSettings = getMailSettings()): boolean {
   return Boolean(settings.host && settings.port && settings.fromAddress);
