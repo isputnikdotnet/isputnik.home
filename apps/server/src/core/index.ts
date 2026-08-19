@@ -8,6 +8,7 @@ import { sessionsPlugin } from "./sessions.js";
 import { apiTokensPlugin } from "./api-tokens.js";
 import { logsPlugin } from "./logs.js";
 import { statusPlugin } from "./status.js";
+import { dashboardPlugin } from "./dashboard.js";
 import { appConfigPlugin } from "./app-config.js";
 import { mailPlugin } from "./mail-routes.js";
 import { notificationsPlugin } from "./notification-routes.js";
@@ -27,6 +28,7 @@ export async function corePlugin(app: FastifyInstance) {
   await app.register(apiTokensPlugin);
   await app.register(logsPlugin);
   await app.register(statusPlugin);
+  await app.register(dashboardPlugin);
   await app.register(securityRoutes);
   await app.register(securityTxtPlugin);
 }

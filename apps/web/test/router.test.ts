@@ -105,7 +105,7 @@ describe("getReferrer", () => {
 
 describe("href builders", () => {
   it("gives each control section its canonical path", () => {
-    expect(controlHref("status")).toBe(CONTROL_PATHS.status);
+    expect(controlHref("dashboard")).toBe(CONTROL_PATHS.dashboard);
     expect(controlHref("duplicateCleanup")).toBe(CONTROL_PATHS.duplicateCleanup);
   });
 

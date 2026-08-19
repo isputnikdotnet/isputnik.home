@@ -59,8 +59,16 @@ export async function logsPlugin(app: FastifyInstance) {
     const filterParams: Record<string, string> = {};
 
     if (events.length) {
-      const clauses = events.map((category, i) => {
-        filterParams[`ev${i}`] = `${category}.%`;
+      // A bare category (no dot, e.g. "auth" from the Logs page's own facet list)
+      // matches every event under it; a full event name (has a dot, e.g.
+      // "auth.login" from the Dashboard's curated event lists) matches exactly —
+      // otherwise "auth.login" would LIKE-match as a prefix of "auth.login_failed" too.
+      const clauses = events.map((value, i) => {
+        if (value.includes(".")) {
+          filterParams[`ev${i}`] = value;
+          return `activity_logs.event = @ev${i}`;
+        }
+        filterParams[`ev${i}`] = `${value}.%`;
         return `activity_logs.event LIKE @ev${i}`;
       });
       conditions.push(`(${clauses.join(" OR ")})`);

@@ -9,7 +9,7 @@ it points there rather than repeating it.
 
 | Section | Tabs |
 |---|---|
-| **Overview** | System, Statistics, Tasks, Logs |
+| **Overview** | Dashboard, Statistics, Tasks, Logs |
 | **Library** | Libraries, Storage, Categories, Tags |
 | **Members** | Users, Groups, Invite links, Sessions |
 | **Security** | Overview, Policies, Trusted networks, Blocked IPs |
@@ -35,18 +35,27 @@ where a setting lives.
 
 ## Overview
 
-### System
+### Dashboard
 
-What the server is doing right now: how many users, active sessions and invites
-exist, how many log entries have piled up, the database size, and how long the
-server has been running.
+Server health and activity trends in one page, switched with the row of pill-shaped
+tabs under the heading — real tabs, not a dropdown:
 
-The **Database** panel breaks the size down — the file itself, the WAL (SQLite's
-write-ahead log, which grows between checkpoints and is normal), and the total on
-disk.
-
-Go here first when something feels wrong — it answers "is the server actually up,
-and how big is this getting?" before you go looking anywhere else.
+- **System** — how many users, active sessions and invites exist, how many log
+  entries have piled up, the database size, and how long the server has been
+  running. The **Database** panel breaks the size down — the file itself, the WAL
+  (SQLite's write-ahead log, which grows between checkpoints and is normal), and
+  the total on disk. Go here first when something feels wrong — it answers "is the
+  server actually up, and how big is this getting?" before you go looking anywhere
+  else.
+- **Activity** — logins, uploads, downloads and deletes charted over the last 14
+  days, plus storage used.
+- **Logins** — a breakdown by sign-in method (password, passkey, device link) and
+  a recent-logins table with IP addresses.
+- **Content activity** — recent uploads, downloads, deletes, and what's been read,
+  played or viewed.
+- **Reading and playback** — what's currently in progress for every member; a
+  snapshot, not a history, since a book's reading position is overwritten as you
+  go rather than logged session by session.
 
 ### Statistics
 
@@ -62,8 +71,8 @@ progress. When a scan seems stuck, this is the page that says otherwise.
 ### Logs
 
 The activity history: who signed in, what was scanned, what was deleted, what an
-administrator changed. Searchable, and you can clear old records — the System page
-tells you when they've grown large enough to be worth it.
+administrator changed. Searchable, and you can clear old records — the Dashboard's
+System tab tells you when they've grown large enough to be worth it.
 
 This is where you look after a security alert, to see what actually happened.
 
