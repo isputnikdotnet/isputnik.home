@@ -815,14 +815,16 @@ function BookDetailView({
     disabled?: boolean;
     active?: boolean;
     danger?: boolean;
+    /** Gold accent, so the main action still reads as primary in a row of icons. */
+    cta?: boolean;
   };
   // Listen/Read: on mobile these render as icons right after the back button;
   // on desktop they stay as the big primary/secondary buttons under the cover.
   const ctaActions: IconAction[] = isEbook
-    ? [{ key: "cta", icon: BookOpen, label: progressActionLabel, onClick: openPrimaryReader, disabled: !canReadPrimaryDoc }]
+    ? [{ key: "cta", icon: BookOpen, label: progressActionLabel, onClick: openPrimaryReader, disabled: !canReadPrimaryDoc, cta: true }]
     : [
-        { key: "cta", icon: Play, label: progressActionLabel, onClick: openPlayer },
-        ...(canReadPrimaryDoc ? [{ key: "read", icon: BookOpen as LucideIcon, label: "Read", onClick: openPrimaryReader }] : [])
+        { key: "cta", icon: Play, label: progressActionLabel, onClick: openPlayer, cta: true },
+        ...(canReadPrimaryDoc ? [{ key: "read", icon: BookOpen as LucideIcon, label: "Read", onClick: openPrimaryReader, cta: true }] : [])
       ];
   const collectionAction: IconAction = { key: "collection", icon: ListMusic, label: "Add to collection", onClick: () => setAddToCollectionOpen(true) };
   const otherActions: IconAction[] = [
@@ -890,9 +892,9 @@ function BookDetailView({
   ];
   // Favorite + the CTA icon(s) + the overflow trigger (always shown on mobile —
   // progress actions and Add to collection always live there) all take a slot
-  // in the 7-icon row, so whatever's left over shrinks with them.
+  // in the 6-icon row, so whatever's left over shrinks with them.
   const fixedSlots = 1 /* favorite */ + (isMobile ? ctaActions.length + 1 /* trigger */ : 0);
-  const rowCap = isMobile ? Math.max(0, 7 - fixedSlots) : otherActions.length;
+  const rowCap = isMobile ? Math.max(0, 6 - fixedSlots) : otherActions.length;
   const visibleIconActions = isMobile ? otherActions.slice(0, rowCap) : otherActions;
   const overflowIconActions = isMobile ? otherActions.slice(rowCap) : [];
 
@@ -922,7 +924,7 @@ function BookDetailView({
     a.href ? (
       <a
         key={a.key}
-        className={`icon-button${a.active ? " offline-saved" : ""}`}
+        className={`icon-button${a.active ? " offline-saved" : ""}${a.cta ? " accent-gold" : ""}`}
         href={a.href}
         download={a.download}
         aria-label={a.label}
@@ -933,7 +935,7 @@ function BookDetailView({
     ) : (
       <button
         key={a.key}
-        className={`icon-button${a.active ? " offline-saved" : ""}${a.danger ? " danger" : ""}`}
+        className={`icon-button${a.active ? " offline-saved" : ""}${a.danger ? " danger" : ""}${a.cta ? " accent-gold" : ""}`}
         type="button"
         onClick={a.onClick}
         disabled={a.disabled}
